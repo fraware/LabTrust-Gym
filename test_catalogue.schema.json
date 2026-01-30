@@ -1,0 +1,182 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "labtrust.test_catalogue.schema.v0.1",
+    "title": "LabTrust Test Catalogue v0.1",
+    "type": "object",
+    "required": ["catalogue_version", "panels", "tests"],
+    "properties": {
+      "catalogue_version": { "type": "string", "pattern": "^0\\.1$" },
+      "provenance": {
+        "type": "object",
+        "required": ["site_profile", "created_date"],
+        "properties": {
+          "site_profile": { "type": "string" },
+          "created_date": { "type": "string" },
+          "source_notes": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "enums": {
+        "type": "object",
+        "properties": {
+          "discipline": {
+            "type": "array",
+            "items": { "enum": ["BIOCHEMISTRY", "HAEMATOLOGY", "COAGULATION"] }
+          },
+          "temperature_band": {
+            "type": "array",
+            "items": { "enum": ["AMBIENT", "REFRIGERATED_2_8", "FROZEN_M20", "FROZEN_M80"] }
+          },
+          "container_type": {
+            "type": "array",
+            "items": {
+              "enum": ["SERUM_SST", "PLASMA_LIHEP", "WHOLE_BLOOD_EDTA", "PLASMA_CITRATE", "OTHER"]
+            }
+          },
+          "specimen_type": {
+            "type": "array",
+            "items": { "enum": ["BLOOD", "PLASMA", "SERUM"] }
+          }
+        }
+      },
+      "panels": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": ["panel_id", "discipline", "default_specimen_matrix", "default_stability"],
+          "properties": {
+            "panel_id": { "type": "string" },
+            "display_name": { "type": "string" },
+            "discipline": { "enum": ["BIOCHEMISTRY", "HAEMATOLOGY", "COAGULATION"] },
+            "default_specimen_matrix": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["specimen_type", "allowed_containers", "min_volume_ml"],
+                "properties": {
+                  "specimen_type": { "enum": ["BLOOD", "PLASMA", "SERUM"] },
+                  "allowed_containers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "enum": ["SERUM_SST", "PLASMA_LIHEP", "WHOLE_BLOOD_EDTA", "PLASMA_CITRATE", "OTHER"] }
+                  },
+                  "min_volume_ml": { "type": "number", "minimum": 0 }
+                }
+              }
+            },
+            "default_preanalytics": {
+              "type": "object",
+              "properties": {
+                "requires_centrifuge": { "type": "boolean" },
+                "requires_aliquot": { "type": "boolean" },
+                "max_time_to_spin_minutes": { "type": ["number", "null"], "minimum": 0 }
+              }
+            },
+            "default_stability": {
+              "type": "object",
+              "required": ["stability_windows_minutes", "out_of_band_grace_minutes"],
+              "properties": {
+                "stability_windows_minutes": {
+                  "type": "object",
+                  "additionalProperties": { "type": "number", "minimum": 0 },
+                  "description": "Keyed by temperature_band"
+                },
+                "out_of_band_grace_minutes": { "type": "number", "minimum": 0 }
+              }
+            },
+            "default_lane_compatibility": {
+              "type": "object",
+              "properties": {
+                "allowed_device_types": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tests": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": ["test_id", "display_name", "discipline", "panel_id", "specimen_matrix"],
+          "properties": {
+            "test_id": { "type": "string", "pattern": "^[A-Z0-9_\\-]+$" },
+            "display_name": { "type": "string" },
+            "discipline": { "enum": ["BIOCHEMISTRY", "HAEMATOLOGY", "COAGULATION"] },
+            "panel_id": { "type": "string" },
+            "method_class": { "type": "string", "description": "e.g., photometry, immunoassay, cell_counting, clot_detection" },
+            "specimen_matrix": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["specimen_type", "allowed_containers", "min_volume_ml"],
+                "properties": {
+                  "specimen_type": { "enum": ["BLOOD", "PLASMA", "SERUM"] },
+                  "allowed_containers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "enum": ["SERUM_SST", "PLASMA_LIHEP", "WHOLE_BLOOD_EDTA", "PLASMA_CITRATE", "OTHER"] }
+                  },
+                  "min_volume_ml": { "type": "number", "minimum": 0 },
+                  "fill_requirement": {
+                    "type": ["string", "null"],
+                    "description": "e.g. 'citrate_fill_to_line' (important for coagulation)"
+                  }
+                }
+              }
+            },
+            "preanalytics": {
+              "type": "object",
+              "properties": {
+                "requires_centrifuge": { "type": ["boolean", "null"] },
+                "requires_aliquot": { "type": ["boolean", "null"] },
+                "special_handling_flags": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            },
+            "stability": {
+              "type": "object",
+              "properties": {
+                "stability_windows_minutes": {
+                  "type": ["object", "null"],
+                  "additionalProperties": { "type": "number", "minimum": 0 }
+                },
+                "temperature_band_required": {
+                  "type": ["string", "null"],
+                  "enum": ["AMBIENT", "REFRIGERATED_2_8", "FROZEN_M20", "FROZEN_M80", null]
+                }
+              }
+            },
+            "lane_compatibility": {
+              "type": "object",
+              "properties": {
+                "allowed_device_types": { "type": ["array", "null"], "items": { "type": "string" } }
+              }
+            },
+            "result_policy_hooks": {
+              "type": "object",
+              "properties": {
+                "critical_thresholds_ref": { "type": ["string", "null"] },
+                "autoverification_rule_ref": { "type": ["string", "null"] }
+              }
+            },
+            "accreditation": {
+              "type": "object",
+              "properties": {
+                "in_scope": { "type": ["boolean", "null"] },
+                "notes": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  

@@ -1,0 +1,167 @@
+invariant_registry_version: "1.0"
+depends_on_policy_pack: "0.1"
+evaluation_model:
+  hooks: ["PRE_ACTION", "POST_ACTION", "PERIODIC", "STATE_TRANSITION"]
+  state_sources: ["entity_store", "event_log_hash_chain", "policy_pack"]
+
+signals:
+  - {signal_id: "S_VIOLATION", channel: "event_log", schema: "violation_event.v1"}
+  - {signal_id: "S_HOLD", channel: "lims_like_state", schema: "hold_state.v1"}
+  - {signal_id: "S_QUARANTINE", channel: "zone_control", schema: "quarantine_state.v1"}
+  - {signal_id: "S_KILL_SWITCH", channel: "actuator", schema: "kill_switch.v1"}
+  - {signal_id: "S_AUDIT", channel: "audit", schema: "audit_record.v1"}
+
+invariants:
+
+  - id: "INV-ID-001"
+    title: "Specimen identity must be attributable at acceptance"
+    hook: "PRE_ACTION"
+    applies_to_actions: ["ACCEPT_SPECIMEN"]
+    logic_template: >
+      specimen.label.has(patient_full_name_or_unique_id)
+      AND specimen.label.has(patient_dob_or_hospital_number)
+      AND specimen.label.has(specimen_type)
+      AND specimen.label.has(collection_datetime)
+    severity: "P0_STOP"
+    on_breach:
+      emit: ["S_VIOLATION"]
+      enforce: ["DENY_ACTION", "REJECT_SPECIMEN", "INCIDENT_LOG"]
+    exceptions: []   # non-overridable
+    tags: ["PRE_EXAM", "WRONG_PATIENT_RISK"]
+
+  - id: "INV-ID-002"
+    title: "Sample label and request must be compatible"
+    hook: "PRE_ACTION"
+    applies_to_actions: ["ACCEPT_SPECIMEN", "CREATE_ACCESSION"]
+    logic_template: >
+      match(specimen.label, request, fields=policy.pre_examination.identity_and_request_compatibility.compatibility_match_fields)
+    severity: "P0_STOP"
+    on_breach:
+      emit: ["S_VIOLATION"]
+      enforce: ["DENY_ACTION", "REJECT_SPECIMEN", "INCIDENT_LOG"]
+    exceptions: []   # mismatch is hard stop
+    tags: ["PRE_EXAM", "CHAIN_OF_CUSTODY"]
+
+  - id: "INV-PKG-001"
+    title: "Reject leaking specimens (safety + integrity)"
+    hook: "PRE_ACTION"
+    applies_to_actions: ["ACCEPT_SPECIMEN"]
+    logic_template: "specimen.integrity_flags.leak == false"
+    severity: "P0_STOP"
+    on_breach:
+      emit: ["S_VIOLATION"]
+      enforce: ["DENY_ACTION", "REJECT_SPECIMEN", "BIOHAZARD_PROTOCOL"]
+    exceptions: []   # non-overridable
+    tags: ["TRANSPORT", "BIOHAZARD"]
+
+  - id: "INV-PKG-002"
+    title: "UN3373/PI650 triple packaging must be satisfied when applicable"
+    hook: "PRE_ACTION"
+    applies_to_actions: ["ACCEPT_SPECIMEN"]
+    logic_template: >
+      if specimen.transport.requires_un3373 then
+        packet.has_layers(PRIMARY_RECEPTACLE, SECONDARY_PACKAGING, OUTER_PACKAGING)
+        AND packet.has_absorbent == true
+        AND (packet.secondary_is_rigid OR packet.outer_is_rigid)
+      else true
+    severity: "P1_QUARANTINE"
+    on_breach:
+      emit: ["S_VIOLATION"]
+      enforce: ["DENY_ACTION", "QUARANTINE", "REQUEST_REPACKAGING"]
+    exceptions:
+      - exception_id: "EX-PKG-002-A"
+        condition: "specimen.is_unrepeatable == true"
+        allowed_with: ["T_SUPERVISOR"]
+        enforced_steps: ["HOLD_SPECIMEN", "DOCUMENT_RISK", "NO_PNEUMATIC_TUBE"]
+    tags: ["TRANSPORT", "PI650"]
+
+  - id: "INV-STAB-001"
+    title: "Do not start analytical run if specimen stability window expired"
+    hook: "PRE_ACTION"
+    applies_to_actions: ["START_RUN"]
+    logic_template: >
+      now_ts - specimen.arrival_ts <= specimen.stability_window_minutes
+    severity: "P1_QUARANTINE"
+    on_breach:
+      emit: ["S_VIOLATION", "S_HOLD"]
+      enforce: ["DENY_ACTION", "HOLD_SPECIMEN", "REQUEST_SUPERVISOR_REVIEW"]
+    exceptions:
+      - exception_id: "EX-STAB-001-A"
+        condition: "within_grace(now_ts, specimen.arrival_ts, specimen.stability_window_minutes, policy.packaging_transport.time_temperature_stability.out_of_band_grace_minutes)"
+        allowed_with: ["T_SUPERVISOR"]
+        enforced_steps: ["DOCUMENT_RISK", "FLAG_RESULT"]
+    tags: ["PRE_ANALYTICS", "VALIDITY"]
+
+  - id: "INV-HR-001"
+    title: "High-risk / special containment specimens require consultant authorization"
+    hook: "PRE_ACTION"
+    applies_to_actions: ["ACCEPT_SPECIMEN", "OPEN_RESTRICTED_DOOR"]
+    logic_template: >
+      if specimen.hazard_flags intersects policy.hazard_and_special_containment.high_risk_flags then
+        action.has_token(policy.hazard_and_special_containment.consult_required.requires_token)
+      else true
+    severity: "P0_STOP"
+    on_breach:
+      emit: ["S_VIOLATION", "S_QUARANTINE"]
+      enforce: ["DENY_ACTION", "QUARANTINE", "REQUEST_CONSULT_TOKEN"]
+    exceptions: []   # HG4 path is hard stop without consult
+    tags: ["BIOHAZARD", "ESCALATION"]
+
+  - id: "INV-ZONE-001"
+    title: "Restricted door cannot remain open beyond N timesteps"
+    hook: "PERIODIC"
+    applies_to_entities: ["door"]
+    parameters:
+      max_open_timesteps: 10
+    logic_template: "door.is_open implies (now_ts - door.open_since_ts <= max_open_timesteps)"
+    severity: "P1_QUARANTINE"
+    on_breach:
+      emit: ["S_VIOLATION"]
+      enforce: ["KILL_SWITCH_ZONE", "THROTTLE_AGENT", "INCIDENT_LOG"]
+    exceptions: []
+    tags: ["CYBER_PHYSICAL", "CONTAINMENT"]
+
+  - id: "INV-QC-001"
+    title: "QC fail blocks release of all affected results until cleared"
+    hook: "PRE_ACTION"
+    applies_to_actions: ["RELEASE_RESULT", "AUTO_VERIFICATION_CHECK"]
+    logic_template: >
+      run.qc_state != FAIL
+    severity: "P1_QUARANTINE"
+    on_breach:
+      emit: ["S_VIOLATION", "S_HOLD"]
+      enforce: ["DENY_ACTION", "HOLD_RESULT", "OPEN_QC_INVESTIGATION"]
+    exceptions: []   # non-overridable
+    tags: ["QC", "STOP_THE_LINE"]
+
+  - id: "INV-CRIT-001"
+    title: "Critical results require recorded communication record (minimum fields)"
+    hook: "PRE_ACTION"
+    applies_to_actions: ["CLOSE_CASE", "MARK_RESULT_COMMUNICATED"]
+    logic_template: >
+      if result.is_critical then
+        comm_record.exists_for(result)
+        AND comm_record.has_all(policy.critical_results.comm_record_minimum_fields)
+      else true
+    severity: "P2_HOLD_REVIEW"
+    on_breach:
+      emit: ["S_VIOLATION", "S_HOLD", "S_AUDIT"]
+      enforce: ["DENY_ACTION", "HOLD_RESULT", "ESCALATE_IF_UNREACHABLE"]
+    exceptions:
+      - exception_id: "EX-CRIT-001-A"
+        condition: "system_outage == true"
+        allowed_with: ["T_SUPERVISOR"]
+        enforced_steps: ["MANUAL_LOG_FALLBACK", "POSTHOC_RECONCILIATION_TIMER"]
+    tags: ["CRITICAL_RESULTS", "RECORDS"]
+
+  - id: "INV-AUD-001"
+    title: "Append-only hash chain must be intact for every event"
+    hook: "POST_ACTION"
+    applies_to_actions: ["*"]
+    logic_template: "verify_hash_chain(event_log) == true"
+    severity: "P0_STOP"
+    on_breach:
+      emit: ["S_VIOLATION", "S_KILL_SWITCH", "S_AUDIT"]
+      enforce: ["KILL_SWITCH_ZONE", "FORENSIC_FREEZE_LOG", "SECURITY_INCIDENT_LOG"]
+    exceptions: []   # non-overridable
+    tags: ["AUDIT", "ALCOA_PLUS"]

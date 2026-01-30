@@ -1,0 +1,68 @@
+override_matrix_version: "0.1"
+principle:
+  - "Hard stops cannot be bypassed by tokens."
+  - "Overrides require explicit, recorded risk acceptance and are always auditable."
+  - "Overrides are narrow: only specific reason codes are eligible."
+
+non_overridable_hard_stops:
+  - code: "ID_UNATTRIBUTABLE"
+    severity: "P0_STOP"
+    rationale: "Cannot attribute specimen to a patient safely."
+    required_action: ["REJECT_SPECIMEN", "INCIDENT_LOG"]
+  - code: "ID_MISMATCH"
+    severity: "P0_STOP"
+    rationale: "Wrong-patient risk."
+    required_action: ["REJECT_SPECIMEN", "INCIDENT_LOG"]
+  - code: "SPECIMEN_LEAKING"
+    severity: "P0_STOP"
+    rationale: "Safety + integrity breach."
+    required_action: ["REJECT_SPECIMEN", "BIOHAZARD_PROTOCOL"]
+  - code: "HAZARD_GROUP_4_DECLARED_WITHOUT_CONSULT"
+    severity: "P0_STOP"
+    rationale: "Special containment required; do not proceed."
+    required_action: ["QUARANTINE", "REQUEST_CONSULT_TOKEN", "INCIDENT_LOG"]
+  - code: "QC_FAIL_ACTIVE"
+    severity: "P1_QUARANTINE"
+    rationale: "Result validity cannot be assured."
+    required_action: ["HOLD_RESULTS_AFFECTED", "RERUN_OR_REVIEW", "QC_INVESTIGATION_LOG"]
+  - code: "AUDIT_CHAIN_BROKEN"
+    severity: "P0_STOP"
+    rationale: "Traceability/defensibility compromised."
+    required_action: ["KILL_SWITCH_ZONE", "SECURITY_INCIDENT_LOG", "FORENSIC_FREEZE_LOG"]
+
+override_permitted_controlled_exceptions:
+  - code: "BORDERLINE_STABILITY"
+    severity: "P2_HOLD_REVIEW"
+    requires_tokens: ["T_SUPERVISOR"]
+    requires_documentation:
+      - "RISK_ACCEPTANCE_NOTE"
+      - "REASON_CODE"
+      - "TIME_TEMP_EVIDENCE"
+    downstream_flags: ["RESULT_INTERPRET_WITH_CAUTION"]
+  - code: "MINOR_ID_DEFICIENCY_RISK_ASSESS"
+    severity: "P2_HOLD_REVIEW"
+    requires_tokens: ["T_SUPERVISOR"]
+    requires_documentation:
+      - "RISK_ASSESSMENT_FORM"
+      - "CORROBORATING_EVIDENCE"
+    forbidden_if: ["ID_MISMATCH", "ID_UNATTRIBUTABLE"]
+  - code: "PRECIOUS_SPECIMEN_WRONG_CONTAINER"
+    severity: "P2_HOLD_REVIEW"
+    requires_tokens: ["T_SUPERVISOR"]
+    requires_documentation:
+      - "DO_NOT_DISCARD_ESCALATION"
+      - "CONSULT_DECISION"
+    downstream_flags: ["METHOD_LIMITATION"]
+  - code: "STAT_WITH_MISSING_NONCRITICAL_METADATA"
+    severity: "P3_WARN"
+    requires_tokens: []
+    requires_documentation: ["STAT_ESCALATION_EVENT"]
+    remediation: ["COMPLETE_METADATA_POSTHOC_WITHIN_SLA"]
+  - code: "RELEASE_RESULT_OVERRIDE"
+    severity: "P1_QUARANTINE"
+    requires_tokens: ["T_DUAL_APPROVAL_A", "T_DUAL_APPROVAL_B"]
+    requires_documentation:
+      - "OVERRIDE_JUSTIFICATION"
+      - "RISK_ACCEPTANCE_NOTE"
+      - "WHO_APPROVED"
+    forbidden_if: ["QC_FAIL_ACTIVE", "AUDIT_CHAIN_BROKEN"]
