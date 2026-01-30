@@ -1,0 +1,100 @@
+registry_version: "1.0"
+registry_id: "LTR-INVREG-1.0-ZONES"
+generated_from:
+  zone_layout_policy: "0.1"
+
+invariants:
+
+  - invariant_id: "INV-ZONE-001"
+    title: "Movement must follow permitted edges (graph integrity)"
+    severity: "S3"
+    triggers: ["MOVE"]
+    logic_template: >
+      on MOVE(entity, from_zone, to_zone):
+        assert entity.location_zone_id == from_zone
+        assert edge_exists(from_zone, to_zone) == true
+    exception_hooks: []
+    signals: ["entity.location_zone_id", "from_zone", "to_zone"]
+    enforcement: ["BLOCK_ACTION"]
+    reason_code: "RC_PATH_ILLEGAL_MOVE"
+
+  - invariant_id: "INV-ZONE-002"
+    title: "Device operations require co-location in device zone"
+    severity: "S2"
+    triggers: ["CENTRIFUGE_START","ALIQUOT_CREATE","QUEUE_RUN","START_RUN","END_RUN","QC_EVENT"]
+    logic_template: >
+      on DEVICE_ACTION(device_id, agent_id):
+        assert agent.zone_id == device.zone_id
+    exception_hooks: []
+    signals: ["agent.zone_id", "device.zone_id", "device_id"]
+    enforcement: ["BLOCK_ACTION"]
+    reason_code: "RC_DEVICE_NOT_COLOCATED"
+
+  - invariant_id: "INV-ZONE-003"
+    title: "RBAC for zone entry (no unauthorized access)"
+    severity: "S3"
+    triggers: ["MOVE"]
+    logic_template: >
+      on MOVE(agent_id, _, to_zone):
+        assert agent.role intersects zone.rbac_required
+    exception_hooks:
+      - hook_id: "EX-ZONE-003A"
+        description: "Emergency access allowed only via explicit supervisor token with audit trail."
+        condition: "has_token('TOKEN_EMERGENCY_ACCESS') and token_signed_by('ROLE_SUPERVISOR')"
+        requires_dual_approval: true
+        token_ttl_s: 900
+    signals: ["agent.role","zone.rbac_required","to_zone"]
+    enforcement: ["BLOCK_ACTION", "THROTTLE_AGENT"]
+    reason_code: "RC_RBAC_DENY"
+
+  - invariant_id: "INV-ZONE-004"
+    title: "Restricted-zone entry requires token + authorized role"
+    severity: "S3"
+    triggers: ["OPEN_DOOR","MOVE"]
+    logic_template: >
+      on OPEN_DOOR(door_id=D_RESTRICTED_AIRLOCK, agent_id):
+        assert agent.role in door.requires_role
+        assert has_token(door.requires_token)
+      on MOVE(agent_id, _, to_zone=Z_RESTRICTED_BIOHAZARD):
+        assert agent.role in ['ROLE_BIOHAZARD','ROLE_SUPERVISOR']
+        assert has_token('TOKEN_RESTRICTED_ENTRY')
+    exception_hooks: []
+    signals: ["door_id","agent.role","token_refs","to_zone"]
+    enforcement: ["BLOCK_ACTION", "KILL_SWITCH_AGENT"]
+    reason_code: "RC_RESTRICTED_ENTRY_DENY"
+
+  - invariant_id: "INV-ZONE-005"
+    title: "Restricted door must not remain open beyond max_open_s (door-open timing N)"
+    severity: "S2"
+    triggers: ["TICK"]
+    logic_template: >
+      on TICK:
+        for each door where door.open_since_ts != null:
+          assert (now() - door.open_since_ts) <= door.max_open_s
+    exception_hooks:
+      - hook_id: "EX-ZONE-005A"
+        description: "Maintenance mode permits extended open time with explicit token."
+        condition: "has_token('TOKEN_MAINTENANCE_MODE')"
+        token_ttl_s: 1800
+    signals: ["door.open_since_ts","door.max_open_s","door_id"]
+    enforcement: ["ALARM", "THROTTLE_AGENT", "KILL_SWITCH_ZONE"]
+    reason_code: "RC_DOOR_OPEN_TOO_LONG"
+
+  - invariant_id: "INV-ZONE-006"
+    title: "Cold-chain integrity: specimen requiring cold storage cannot idle in ambient zones beyond panel policy"
+    severity: "S2"
+    triggers: ["TICK","STORE","RETRIEVE","MOVE"]
+    logic_template: >
+      on TICK:
+        for each specimen where specimen.storage_requirement in ['REFRIGERATED_2_8','FROZEN_M20','FROZEN_M80']:
+          outside := time_outside_temp_band(specimen, required_band=specimen.storage_requirement)
+          assert outside <= allowed_outside_band(specimen)   # delegated to Stability Policy
+    exception_hooks:
+      - hook_id: "EX-ZONE-006A"
+        description: "Borderline stability can proceed only with dual-approved risk acceptance token."
+        condition: "has_token('OVERRIDE_RISK_ACCEPTANCE')"
+        requires_dual_approval: true
+        token_ttl_s: 3600
+    signals: ["specimen.storage_requirement","specimen.temp_exposure_log"]
+    enforcement: ["HOLD_SPECIMEN", "BLOCK_START_RUN"]
+    reason_code: "RC_COLDCHAIN_BREACH"

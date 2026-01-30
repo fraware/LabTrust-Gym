@@ -1,0 +1,242 @@
+{
+    "schema_version": "test_catalogue.v0.1",
+    "generated_utc": "2026-01-15T00:00:00Z",
+  
+    "shared_vocab": {
+      "disciplines": ["BIOCHEMISTRY", "HAEMATOLOGY", "COAGULATION"],
+      "priority_classes": ["ROUTINE", "URGENT", "STAT"],
+      "temp_bands": ["AMBIENT_15_25C", "CHILLED_2_8C", "FROZEN_LEQ_MINUS20C", "FROZEN_LEQ_MINUS70C"],
+      "container_types": ["SERUM_SST", "PLASMA_LITHIUM_HEPARIN", "WHOLE_BLOOD_EDTA", "PLASMA_SODIUM_CITRATE"],
+      "specimen_types": ["BLOOD"]
+    },
+  
+    "panels": [
+      {
+        "panel_id": "BIOCHEM_PANEL_CORE",
+        "display_name": "Core Biochemistry (U&E/LFT/CRP/Glucose proxy)",
+        "discipline": "BIOCHEMISTRY",
+        "priority_supported": ["ROUTINE", "URGENT", "STAT"],
+  
+        "specimen_requirement": {
+          "specimen_type": "BLOOD",
+          "allowed_containers": ["SERUM_SST", "PLASMA_LITHIUM_HEPARIN"],
+          "min_volume_ml": 1.0,
+          "label_policy": { "min_identifier_fields": 3, "zero_tolerance_mismatch": true },
+          "fill_policy": { "requires_fill_line": false, "min_fill_ratio": 0.0 }
+        },
+  
+        "temp_policy": {
+          "preferred_temp_band": "AMBIENT_15_25C",
+          "forbidden_temp_bands": ["CHILLED_2_8C"]
+        },
+  
+        "stability": [
+          {
+            "phase": "PRE_CENTRIFUGE",
+            "max_age_s": 21600,
+            "allowed_temp_bands": ["AMBIENT_15_25C"],
+            "on_expiry_action": "REQUIRES_OVERRIDE_TOKEN",
+            "reason_code_on_expiry": "RC_STABILITY_EXCEEDED_PRESEP_BIOCHEM"
+          }
+        ],
+  
+        "preanalytics_pipeline": [
+          {
+            "step_id": "BIOCHEM_PRE_1",
+            "action_type": "CENTRIFUGE_START",
+            "required_zone": "CENTRIFUGE_BAY",
+            "required_device_type": "CENTRIFUGE",
+            "max_queue_wait_s": 3600,
+            "params": { "spin_seconds": 600, "g_force": 2000 }
+          },
+          {
+            "step_id": "BIOCHEM_PRE_2",
+            "action_type": "ALIQUOT_CREATE",
+            "required_zone": "ALIQUOT_LABEL_STATION",
+            "required_device_type": "ALIQUOTER",
+            "max_queue_wait_s": 3600,
+            "params": { "num_aliquots": 1 }
+          }
+        ],
+  
+        "device_compatibility": {
+          "analyzer_device_types": ["ANALYZER_BIOCHEM"],
+          "requires_centrifuge": true,
+          "requires_aliquoting": true
+        },
+  
+        "rejection_rules": [
+          { "reason_code": "RC_LABEL_MISMATCH", "severity": "CRITICAL", "non_overridable": true, "hook_action": "AUTO_REJECT" },
+          { "reason_code": "RC_UNLABELLED", "severity": "CRITICAL", "non_overridable": true, "hook_action": "AUTO_REJECT" },
+          { "reason_code": "RC_LEAKING_CONTAINER", "severity": "HIGH", "non_overridable": true, "hook_action": "AUTO_REJECT" },
+          { "reason_code": "RC_INSUFFICIENT_VOLUME", "severity": "MEDIUM", "non_overridable": false, "hook_action": "REQUIRES_OVERRIDE_TOKEN", "override_policy_ref": "OVR_LOW_VOLUME_BIOCHEM" }
+        ],
+  
+        "result_release_policy": {
+          "default_state": "AUTO_VERIFY_PENDING",
+          "auto_verify_allowed": true,
+          "critical_requires_ack": true
+        }
+      },
+  
+      {
+        "panel_id": "HAEM_PANEL_CORE",
+        "display_name": "Core Haematology (FBC proxy)",
+        "discipline": "HAEMATOLOGY",
+        "priority_supported": ["ROUTINE", "URGENT", "STAT"],
+  
+        "specimen_requirement": {
+          "specimen_type": "BLOOD",
+          "allowed_containers": ["WHOLE_BLOOD_EDTA"],
+          "min_volume_ml": 1.5,
+          "label_policy": { "min_identifier_fields": 3, "zero_tolerance_mismatch": true },
+          "fill_policy": { "requires_fill_line": false, "min_fill_ratio": 0.0 }
+        },
+  
+        "temp_policy": {
+          "preferred_temp_band": "CHILLED_2_8C",
+          "forbidden_temp_bands": []
+        },
+  
+        "stability": [
+          {
+            "phase": "PRE_CENTRIFUGE",
+            "max_age_s": 86400,
+            "allowed_temp_bands": ["AMBIENT_15_25C"],
+            "on_expiry_action": "HOLD_SPECIMEN",
+            "reason_code_on_expiry": "RC_STABILITY_EXCEEDED_CBC_AMBIENT"
+          },
+          {
+            "phase": "PRE_CENTRIFUGE",
+            "max_age_s": 172800,
+            "allowed_temp_bands": ["CHILLED_2_8C"],
+            "on_expiry_action": "HOLD_SPECIMEN",
+            "reason_code_on_expiry": "RC_STABILITY_EXCEEDED_CBC_CHILLED"
+          }
+        ],
+  
+        "preanalytics_pipeline": [
+          {
+            "step_id": "HAEM_PRE_1",
+            "action_type": "RACK_BUILD",
+            "required_zone": "SORTING_STAGING",
+            "required_device_type": "NONE",
+            "max_queue_wait_s": 1800,
+            "params": { "destination_device_type": "ANALYZER_HAEM" }
+          }
+        ],
+  
+        "device_compatibility": {
+          "analyzer_device_types": ["ANALYZER_HAEM"],
+          "requires_centrifuge": false,
+          "requires_aliquoting": false
+        },
+  
+        "rejection_rules": [
+          { "reason_code": "RC_LABEL_MISMATCH", "severity": "CRITICAL", "non_overridable": true, "hook_action": "AUTO_REJECT" },
+          { "reason_code": "RC_UNLABELLED", "severity": "CRITICAL", "non_overridable": true, "hook_action": "AUTO_REJECT" },
+          { "reason_code": "RC_CLOTTED_EDTA", "severity": "HIGH", "non_overridable": true, "hook_action": "AUTO_REJECT" }
+        ],
+  
+        "result_release_policy": {
+          "default_state": "AUTO_VERIFY_PENDING",
+          "auto_verify_allowed": true,
+          "critical_requires_ack": true
+        }
+      },
+  
+      {
+        "panel_id": "COAG_PANEL_CORE",
+        "display_name": "Core Coagulation (PT/INR, APTT, Fibrinogen, D-dimer proxy)",
+        "discipline": "COAGULATION",
+        "priority_supported": ["ROUTINE", "URGENT", "STAT"],
+  
+        "specimen_requirement": {
+          "specimen_type": "BLOOD",
+          "allowed_containers": ["PLASMA_SODIUM_CITRATE"],
+          "min_volume_ml": 2.7,
+          "label_policy": { "min_identifier_fields": 3, "zero_tolerance_mismatch": true },
+          "fill_policy": { "requires_fill_line": true, "min_fill_ratio": 0.90 }
+        },
+  
+        "temp_policy": {
+          "preferred_temp_band": "AMBIENT_15_25C",
+          "forbidden_temp_bands": []
+        },
+  
+        "stability": [
+          {
+            "phase": "PRE_CENTRIFUGE",
+            "max_age_s": 14400,
+            "allowed_temp_bands": ["AMBIENT_15_25C"],
+            "on_expiry_action": "REQUIRES_OVERRIDE_TOKEN",
+            "reason_code_on_expiry": "RC_STABILITY_EXCEEDED_COAG_FRESH"
+          },
+          {
+            "phase": "POST_FREEZE",
+            "max_age_s": 2592000,
+            "allowed_temp_bands": ["FROZEN_LEQ_MINUS20C"],
+            "on_expiry_action": "HOLD_SPECIMEN",
+            "reason_code_on_expiry": "RC_STABILITY_EXCEEDED_COAG_FROZEN"
+          }
+        ],
+  
+        "preanalytics_pipeline": [
+          {
+            "step_id": "COAG_PRE_1",
+            "action_type": "CENTRIFUGE_START",
+            "required_zone": "CENTRIFUGE_BAY",
+            "required_device_type": "CENTRIFUGE",
+            "max_queue_wait_s": 1800,
+            "params": { "spin_seconds": 900, "g_force": 2500, "platelet_poor": true }
+          },
+          {
+            "step_id": "COAG_PRE_2",
+            "action_type": "ALIQUOT_CREATE",
+            "required_zone": "ALIQUOT_LABEL_STATION",
+            "required_device_type": "ALIQUOTER",
+            "max_queue_wait_s": 1800,
+            "params": { "num_aliquots": 1, "material": "PLASTIC" }
+          }
+        ],
+  
+        "device_compatibility": {
+          "analyzer_device_types": ["ANALYZER_COAG"],
+          "requires_centrifuge": true,
+          "requires_aliquoting": true
+        },
+  
+        "rejection_rules": [
+          { "reason_code": "RC_LABEL_MISMATCH", "severity": "CRITICAL", "non_overridable": true, "hook_action": "AUTO_REJECT" },
+          { "reason_code": "RC_UNLABELLED", "severity": "CRITICAL", "non_overridable": true, "hook_action": "AUTO_REJECT" },
+          { "reason_code": "RC_CITRATE_UNDERFILL", "severity": "HIGH", "non_overridable": true, "hook_action": "AUTO_REJECT" },
+          { "reason_code": "RC_DELAY_TO_CENTRIFUGE", "severity": "HIGH", "non_overridable": false, "hook_action": "REQUIRES_OVERRIDE_TOKEN", "override_policy_ref": "OVR_BORDERLINE_DELAY_COAG" }
+        ],
+  
+        "result_release_policy": {
+          "default_state": "HELD",
+          "auto_verify_allowed": false,
+          "critical_requires_ack": true
+        }
+      }
+    ],
+  
+    "tests": [
+      { "test_id": "BIOCHEM_NA", "panel_id": "BIOCHEM_PANEL_CORE", "analyte_code": "NA", "display_name": "Sodium", "unit": "mmol/L", "criticality_ref": "CRIT_BIOCHEM_NA" },
+      { "test_id": "BIOCHEM_K", "panel_id": "BIOCHEM_PANEL_CORE", "analyte_code": "K", "display_name": "Potassium", "unit": "mmol/L", "criticality_ref": "CRIT_BIOCHEM_K" },
+      { "test_id": "BIOCHEM_CREAT", "panel_id": "BIOCHEM_PANEL_CORE", "analyte_code": "CREAT", "display_name": "Creatinine", "unit": "umol/L", "criticality_ref": "CRIT_BIOCHEM_CREAT" },
+      { "test_id": "BIOCHEM_ALT", "panel_id": "BIOCHEM_PANEL_CORE", "analyte_code": "ALT", "display_name": "ALT", "unit": "U/L", "criticality_ref": "CRIT_NONE" },
+      { "test_id": "BIOCHEM_CRP", "panel_id": "BIOCHEM_PANEL_CORE", "analyte_code": "CRP", "display_name": "CRP", "unit": "mg/L", "criticality_ref": "CRIT_NONE" },
+      { "test_id": "BIOCHEM_GLU", "panel_id": "BIOCHEM_PANEL_CORE", "analyte_code": "GLU", "display_name": "Glucose", "unit": "mmol/L", "criticality_ref": "CRIT_BIOCHEM_GLU" },
+  
+      { "test_id": "HAEM_HB", "panel_id": "HAEM_PANEL_CORE", "analyte_code": "HB", "display_name": "Haemoglobin", "unit": "g/L", "criticality_ref": "CRIT_HAEM_HB" },
+      { "test_id": "HAEM_WBC", "panel_id": "HAEM_PANEL_CORE", "analyte_code": "WBC", "display_name": "White cell count", "unit": "x10^9/L", "criticality_ref": "CRIT_HAEM_WBC" },
+      { "test_id": "HAEM_PLT", "panel_id": "HAEM_PANEL_CORE", "analyte_code": "PLT", "display_name": "Platelets", "unit": "x10^9/L", "criticality_ref": "CRIT_HAEM_PLT" },
+  
+      { "test_id": "COAG_PTINR", "panel_id": "COAG_PANEL_CORE", "analyte_code": "PTINR", "display_name": "PT/INR", "unit": "ratio", "criticality_ref": "CRIT_COAG_INR" },
+      { "test_id": "COAG_APTT", "panel_id": "COAG_PANEL_CORE", "analyte_code": "APTT", "display_name": "APTT", "unit": "seconds", "criticality_ref": "CRIT_COAG_APTT" },
+      { "test_id": "COAG_FIB", "panel_id": "COAG_PANEL_CORE", "analyte_code": "FIB", "display_name": "Fibrinogen", "unit": "g/L", "criticality_ref": "CRIT_COAG_FIB" },
+      { "test_id": "COAG_DD", "panel_id": "COAG_PANEL_CORE", "analyte_code": "DD", "display_name": "D-dimer", "unit": "ng/mL_FE", "criticality_ref": "CRIT_NONE" }
+    ]
+  }
+  

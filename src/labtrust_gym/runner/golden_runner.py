@@ -1,58 +1,25 @@
+"""
+Golden runner: runs scenario suite against an env adapter and asserts contract.
+
+Implements:
+- LabTrustEnvAdapter interface (see adapter.py).
+- GoldenRunner: scenario execution, oracle assertions, emits vocab enforcement.
+- Output structure matches policy/schemas/runner_output_contract.v0.1.schema.json.
+Unknown emits raise AssertionError (enforced in _run_step via validate_emits).
+"""
+
 from __future__ import annotations
 
 import dataclasses
-import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
-
-# -----------------------------
-# Environment Adapter Interface
-# -----------------------------
-class LabTrustEnvAdapter:
-    """
-    Your simulator should implement this thin interface.
-
-    Key design rule:
-      - The golden runner is the oracle. The engine is a black box that must return enough
-        structured data for the oracle to normalize and assert.
-    """
-
-    def reset(
-        self, initial_state: Dict[str, Any], *, deterministic: bool, rng_seed: int
-    ) -> None:
-        """Reset the simulator to the scenario initial state."""
-        raise NotImplementedError
-
-    def step(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Apply one event.
-
-        Must return a dict containing at minimum:
-          - status: "ACCEPTED" | "BLOCKED"
-          - emits: [str] (optional; empty list if none)
-          - violations: list of {invariant_id, status, reason_code?, message?} (optional)
-          - blocked_reason_code: str|None (required if status == BLOCKED)
-          - token_consumed: [token_id] (optional)
-          - hashchain: {head_hash, length, last_event_hash} (required)
-          - (optional) state_snapshot: any data you want to expose for assertions
-        """
-        raise NotImplementedError
-
-    def query(self, expr: str) -> Any:
-        """
-        Query a computed property for state_assertions in the golden YAML.
-
-        Example expr strings used in scenarios:
-          - "queue_head(DEV_CHEM_A_01)"
-          - "zone_state('Z_RESTRICTED_BIOHAZARD')"
-          - "result_status('RES_QC1')"
-          - "system_state('log_frozen')"
-        """
-        raise NotImplementedError
+from labtrust_gym.runner.adapter import LabTrustEnvAdapter
+from labtrust_gym.runner.emits_validator import load_emits_vocab, validate_emits
 
 
 # -----------------------------
@@ -102,7 +69,6 @@ def _require(d: Dict[str, Any], k: str, event_id: str) -> Any:
 
 
 def _normalize_violation(v: Dict[str, Any]) -> Dict[str, Any]:
-    # Allow engines to return additional fields; runner only normalizes the core.
     return {
         "invariant_id": v.get("invariant_id"),
         "status": v.get("status"),
@@ -112,7 +78,6 @@ def _normalize_violation(v: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _parse_expected_violation_token(s: str) -> Tuple[str, str]:
-    # e.g., "INV-ZONE-002:PASS" or "INV-CRIT-004:VIOLATION"
     if ":" not in s:
         raise ValueError(f"Invalid violation token format: {s}")
     inv, st = s.split(":", 1)
@@ -152,26 +117,9 @@ def _assert_all_contains(container: List[Any], items: List[Any], msg: str) -> No
 # -----------------------------
 # Golden Runner
 # -----------------------------
-def _default_emits_vocab_path() -> str:
-    from pathlib import Path
-    root = Path(__file__).resolve().parent
-    policy_emits = root / "policy" / "emits" / "emits_vocab.v0.1.yaml"
-    if policy_emits.exists():
-        return str(policy_emits)
-    return "emits_vocab.v0.1.yaml"
-
-
-try:
-    from emits_validator import load_emits_vocab, validate_emits
-except ImportError:
-    try:
-        from labtrust_gym.runner.emits_validator import load_emits_vocab, validate_emits
-except ImportError:
-    try:
-        from labtrust_gym.runner.emits_validator import load_emits_vocab, validate_emits
-    except ImportError:
-        load_emits_vocab = None  # type: ignore[misc, assignment]
-        validate_emits = None  # type: ignore[misc, assignment]
+def _strict_reason_codes_from_env() -> bool:
+    """True when LABTRUST_STRICT_REASON_CODES=1."""
+    return os.environ.get("LABTRUST_STRICT_REASON_CODES") == "1"
 
 
 class GoldenRunner:
@@ -179,11 +127,27 @@ class GoldenRunner:
         self,
         env: LabTrustEnvAdapter,
         *,
-        emits_vocab_path: str | None = None,
+        emits_vocab_path: str = "policy/emits/emits_vocab.v0.1.yaml",
+        reason_code_registry_path: Optional[str] = None,
+        strict_reason_codes: Optional[bool] = None,
     ):
         self.env = env
-        path = emits_vocab_path or _default_emits_vocab_path()
-        self.allowed_emits = load_emits_vocab(path) if load_emits_vocab else set()
+        self.allowed_emits = load_emits_vocab(emits_vocab_path)
+        strict = (
+            strict_reason_codes
+            if strict_reason_codes is not None
+            else _strict_reason_codes_from_env()
+        )
+        self._reason_registry: Dict[str, Dict[str, Any]] = {}
+        if strict:
+            from labtrust_gym.policy.reason_codes import load_reason_code_registry
+            path = reason_code_registry_path or "policy/reason_codes/reason_code_registry.v0.1.yaml"
+            p = Path(path)
+            if not p.is_absolute():
+                p = Path.cwd() / p
+            if p.exists():
+                self._reason_registry = load_reason_code_registry(p)
+        self._strict_reason_codes = strict and bool(self._reason_registry)
 
     def run_suite(self, suite_yaml_path: str) -> Dict[str, Any]:
         suite = _load_yaml(Path(suite_yaml_path))
@@ -243,7 +207,6 @@ class GoldenRunner:
                             raw_engine_result={},
                         )
                     )
-                    # For golden runs, fail-fast per scenario
                     break
 
         except AssertionError as e:
@@ -276,28 +239,39 @@ class GoldenRunner:
 
         result = self.env.step(event)
 
-        # Required fields (contract)
         status = _require(result, "status", event["event_id"])
         hashchain = _require(result, "hashchain", event["event_id"])
 
         emits = result.get("emits", [])
-        if validate_emits and self.allowed_emits:
-            validate_emits(emits, self.allowed_emits, event_id=event["event_id"])
+        validate_emits(emits, self.allowed_emits, event_id=event["event_id"])
+
+        if self._strict_reason_codes:
+            from labtrust_gym.policy.reason_codes import validate_reason_code
+            validate_reason_code(
+                result.get("blocked_reason_code"),
+                self._reason_registry,
+                event_id=event["event_id"],
+                context="blocked_reason_code",
+            )
+            validate_reason_code(
+                event.get("reason_code"),
+                self._reason_registry,
+                event_id=event["event_id"],
+                context="reason_code",
+            )
+
         violations = [_normalize_violation(v) for v in result.get("violations", [])]
         blocked_reason_code = result.get("blocked_reason_code")
         token_consumed = result.get("token_consumed", [])
 
-        # Normalize violations index
         v_idx = _violation_index(violations)
 
-        # --------- Oracle assertions ----------
         if "status" in expect:
             _assert_equals(
                 status, expect["status"], f"[{event['event_id']}] status mismatch"
             )
 
         if status == "BLOCKED":
-            # In blocked cases, engine must provide blocked_reason_code (unless runner itself blocked)
             if expect.get("blocked_reason_code"):
                 _assert_equals(
                     blocked_reason_code,
@@ -331,33 +305,42 @@ class GoldenRunner:
                     f"[{event['event_id']}] expected token not consumed",
                 )
 
-        # state_assertions: strings evaluated via env.query(expr)
         checked: List[str] = []
         if "state_assertions" in expect:
             for expr in expect["state_assertions"]:
-                # The YAML may store expressions as already-evaluable string constraints.
-                # Convention: "lhs == 'rhs'" where lhs is env.query(...) expression.
-                # Example: "zone_state('Z_RESTRICTED_BIOHAZARD') == 'frozen'"
-                if "==" not in expr:
+                expr = expr.strip()
+                if " contains " in expr:
+                    lhs, rhs = expr.split(" contains ", 1)
+                    lhs = lhs.strip()
+                    rhs = rhs.strip().strip("'").strip('"')
+                    actual = self.env.query(lhs)
+                    if not isinstance(actual, list):
+                        actual = [actual] if actual is not None else []
+                    _assert_contains(
+                        actual,
+                        rhs,
+                        f"[{event['event_id']}] state_assertion failed: {expr}",
+                    )
+                    checked.append(expr)
+                elif "==" in expr:
+                    lhs, rhs = expr.split("==", 1)
+                    lhs = lhs.strip()
+                    rhs = rhs.strip().strip("'").strip('"')
+                    actual = self.env.query(lhs)
+                    _assert_equals(
+                        str(actual),
+                        rhs,
+                        f"[{event['event_id']}] state_assertion failed: {expr}",
+                    )
+                    checked.append(expr)
+                else:
                     raise AssertionError(
                         f"[{event['event_id']}] invalid state_assertion: {expr}"
                     )
-                lhs, rhs = expr.split("==", 1)
-                lhs = lhs.strip()
-                rhs = rhs.strip().strip("'").strip('"')
-                actual = self.env.query(lhs)
-                _assert_equals(
-                    str(actual),
-                    rhs,
-                    f"[{event['event_id']}] state_assertion failed: {expr}",
-                )
-                checked.append(expr)
 
         if "state" in expect:
-            # Optional structured assertions; leave as pass-through for future extension.
             checked.append("structured_state_assertions_present")
 
-        # Hashchain minimal checks
         _require(hashchain, "head_hash", event["event_id"])
         _require(hashchain, "length", event["event_id"])
         _require(hashchain, "last_event_hash", event["event_id"])

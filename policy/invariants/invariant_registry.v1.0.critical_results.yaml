@@ -1,0 +1,365 @@
+registry:
+  id: "LTR-INVREG-1.0-CRITRESULTS"
+  version: "1.0"
+  scope:
+    programme: "LabTrust-Gym"
+    lane: "BloodSciences_MVP"   # Biochem + Haem + Coag
+    sites:
+      - "HSL-like hub lab (Halo-style automation)"
+      - "Acute/STAT nearer-to-care node (ESL-like)"
+  provenance:
+    sources:
+      - id: "RCPATH-CRIT-2017"
+        note: "RCPath 'Communication of critical and unexpected pathology results' incl. comm categories + suggested action limits."
+      - id: "ISO15189-RECORDS"
+        note: "ISO 15189 record/communication expectations (oral results recorded, traceability)."
+      - id: "UCLH-HELIX-2025"
+        note: "Helix go-live for Blood Sciences at UCLH (biochem/haem/coag...)."
+      - id: "LONDON-PATH-USERGUIDE"
+        note: "London pathology user guidance patterns (identifier discipline, downtime phone reporting)."
+
+severity_scale:
+  S0: "Info / analytics only"
+  S1: "Process nonconformance (audit risk, low immediate patient risk)"
+  S2: "High risk: patient safety / clinical harm plausible unless mitigated rapidly"
+  S3: "Severe: immediate harm plausible (uncommunicated critical value, wrong-patient communication, etc.)"
+
+signals:
+  # Events your simulator must emit / persist for enforcement.
+  events_required:
+    - "GENERATE_RESULT"
+    - "CLASSIFY_RESULT"
+    - "HOLD_RESULT"
+    - "NOTIFY_CRITICAL_RESULT"
+    - "ACK_CRITICAL_RESULT"
+    - "ESCALATE_CRITICAL_RESULT"
+    - "RELEASE_RESULT"
+    - "AMEND_RESULT"
+    - "SYSTEM_DOWNTIME_BEGIN"
+    - "SYSTEM_DOWNTIME_END"
+  entity_fields_required:
+    Result:
+      - result_id
+      - accession_id
+      - specimen_id
+      - patient_identifiers_hash   # do not store raw identifiers in benchmark logs unless you need to
+      - analyte_code               # stable internal code; map later to local LIS codes
+      - value
+      - units
+      - produced_ts
+      - status                     # draft/held/released/amended
+      - qc_state                   # pass/fail/unknown
+      - criticality_class          # NONE/UNEXPECTED/CRIT_A/CRIT_B
+      - critical_policy_id
+    CommunicationRecord:
+      # enforced as mandatory fields for ACK
+      - comm_id
+      - result_id
+      - initiated_ts
+      - communicated_ts
+      - channel                    # phone/bleep/secure_msg/electronic
+      - sender_agent_id
+      - receiver_role
+      - receiver_name_or_id
+      - receiver_location_or_org   # ward/clinic/GP practice
+      - message_payload_hash       # hash of structured payload
+      - read_back_confirmed        # true/false
+      - acknowledgment_ts
+      - outcome                    # reached/not_reached/left_message/escalated
+      - escalation_step_id         # which step in ladder
+      - free_text_note_hash        # optional; keep hashed
+    SystemState:
+      - downtime_active            # true/false
+
+policy_objects:
+  # (A) Action limits table: defaults from RCPath; partner can override locally.
+  critical_threshold_table:
+    id: "POL-CRITTHR-0.1"
+    semantics:
+      criticality_classes:
+        CRIT_A:
+          description: "Immediate/rapid communication required (Type A)."
+          notify_deadline: "PT2H"   # RCPath Type A definition
+        CRIT_B:
+          description: "Urgent communication (Type B)."
+          notify_deadline: "PT24H"  # RCPath Type B definition
+    defaults_rcpath2017:
+      # Biochemistry (Appendix A): action limits are suggested starting points (local modification expected).
+      - analyte_code: "BIOCHEM_SODIUM_NA"
+        units: "mmol/L"
+        low: 120
+        high: 160
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "BIOCHEM_POTASSIUM_K"
+        units: "mmol/L"
+        low: 2.5
+        high: 6.5
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "BIOCHEM_GLUCOSE"
+        units: "mmol/L"
+        low: 2.0
+        high: 25.0
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "BIOCHEM_UREA"
+        units: "mmol/L"
+        low: null
+        high: 30.0
+        class: "CRIT_A"
+        notes: "RCPath notes different cut point for children <16y."
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "BIOCHEM_CREATININE"
+        units: "umol/L"
+        low: null
+        high: 354.0
+        class: "CRIT_A"
+        notes: "RCPath notes dialysis/AKI context; local cut points may apply."
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "BIOCHEM_CALCIUM_ADJ"
+        units: "mmol/L"
+        low: 1.8
+        high: 3.5
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "BIOCHEM_CRP"
+        units: "mg/L"
+        low: null
+        high: 300.0
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      # Haematology (Appendix B): suggested criteria + “known similar result within 7 days” exception logic.
+      - analyte_code: "HAEM_HB"
+        units: "g/L"
+        low: 50.0
+        high: 190.0
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "HAEM_NEUTROPHILS"
+        units: "x10^9/L"
+        low: 0.5
+        high: null
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "HAEM_WCC"
+        units: "x10^9/L"
+        low: null
+        high: 50.0
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      - analyte_code: "HAEM_PLATELETS"
+        units: "x10^9/L"
+        low: 30.0
+        high: 1000.0
+        class: "CRIT_A"
+        source_ref: "RCPATH-CRIT-2017"
+      # Coagulation (Appendix B excerpt): INR escalation depends on anticoag context.
+      - analyte_code: "COAG_INR"
+        units: "ratio"
+        low: null
+        high: 6.5
+        class: "CRIT_A"
+        notes: "RCPath also lists INR >5.0 for patients on warfarin."
+        source_ref: "RCPATH-CRIT-2017"
+    partner_overrides:
+      # Fill from HSL partner tables once obtained (test-by-test).
+      - analyte_code: "BIOCHEM_TROPONIN_I_T"
+        units: "ng/L"
+        low: null
+        high: "TBD_PARTNER_MI_CUTOFF"
+        class: "CRIT_A"
+        notes: "RCPath: troponin cut-off should be derived locally."
+        source_ref: "RCPATH-CRIT-2017"
+
+  # (B) Escalation ladder: role-based and source-dependent.
+  escalation_ladder:
+    id: "POL-ESCALATE-0.1"
+    routes:
+      INPATIENT_CRIT_A:
+        steps:
+          - step_id: "INP-A-1"
+            target_role: "WARD_TEAM_PRIMARY"
+            channel: "phone"
+            max_wait: "PT10M"
+          - step_id: "INP-A-2"
+            target_role: "WARD_NURSE_IN_CHARGE"
+            channel: "phone"
+            max_wait: "PT10M"
+          - step_id: "INP-A-3"
+            target_role: "DUTY_MEDICAL_REGISTRAR"
+            channel: "bleep"
+            max_wait: "PT10M"
+          - step_id: "INP-A-4"
+            target_role: "HOSPITAL_SWITCHBOARD_ONCALL"
+            channel: "phone"
+            max_wait: "PT10M"
+      OUTPATIENT_CRIT_A:
+        steps:
+          - step_id: "OUT-A-1"
+            target_role: "RESPONSIBLE_CLINICIAN"
+            channel: "phone_or_bleep"
+            max_wait: "PT15M"
+          - step_id: "OUT-A-2"
+            target_role: "DUTY_MEDICAL_REGISTRAR"
+            channel: "bleep"
+            max_wait: "PT15M"
+          - step_id: "OUT-A-3"
+            target_role: "HOSPITAL_SWITCHBOARD_ONCALL"
+            channel: "phone"
+            max_wait: "PT15M"
+      GP_CRIT_A:
+        steps:
+          - step_id: "GP-A-1"
+            target_role: "GP_PRACTICE"
+            channel: "phone"
+            max_wait: "PT30M"
+          - step_id: "GP-A-2"
+            target_role: "GP_OUT_OF_HOURS_SERVICE"
+            channel: "phone"
+            max_wait: "PT30M"
+    notes:
+      - "Public-facing HSL RRL results text indicates ward contact / medical registrar / GP telephone patterns (treat as default until partner confirms)."
+      - "During electronic downtime, London practice often phones clinically significant/abnormal results and relies on customer services / pagers out of hours."
+
+  # (C) Mandatory record schema for ACK (audit + ISO15189-style traceability).
+  communication_record_requirements:
+    id: "POL-COMMREC-0.1"
+    required_fields:
+      - result_id
+      - communicated_ts
+      - channel
+      - sender_agent_id
+      - receiver_role
+      - receiver_name_or_id
+      - receiver_location_or_org
+      - read_back_confirmed
+      - acknowledgment_ts
+      - outcome
+    recommended_fields:
+      - escalation_step_id
+      - message_payload_hash
+      - free_text_note_hash
+
+invariants:
+  # 1) Classify results on generation
+  - invariant_id: "INV-CRIT-001"
+    title: "Classify result against action limits"
+    severity: "S2"
+    logic_template:
+      when: { event: "GENERATE_RESULT" }
+      if:
+        all:
+          - "result.qc_state in ['pass','unknown']"
+          - "threshold := lookup(POL-CRITTHR-0.1, result.analyte_code, result.units)"
+          - "threshold != null"
+          - "breach := (threshold.low != null and result.value < threshold.low) or (threshold.high != null and result.value > threshold.high)"
+      then:
+        emit:
+          - event: "CLASSIFY_RESULT"
+            fields:
+              criticality_class: "threshold.class"
+              critical_policy_id: "POL-CRITTHR-0.1"
+        enforce:
+          - set: { "result.criticality_class": "threshold.class" }
+    exception_hooks:
+      - hook_id: "EX-CRIT-001A"
+        description: "If QC failed, classification may still occur but downstream release/communication is constrained."
+        condition: "result.qc_state == 'fail'"
+
+  # 2) Gate release until communication ACK for CRIT_A/CRIT_B
+  - invariant_id: "INV-CRIT-002"
+    title: "Critical results must be held until acknowledged communication record exists"
+    severity: "S3"
+    logic_template:
+      when: { event: "RELEASE_RESULT" }
+      if:
+        all:
+          - "result.criticality_class in ['CRIT_A','CRIT_B']"
+          - "not exists(comm where comm.result_id == result.result_id and comm.acknowledgment_ts != null)"
+      then:
+        block:
+          reason_code: "CRIT_NO_ACK"
+        emit:
+          - event: "HOLD_RESULT"
+            fields: { reason_code: "CRIT_NO_ACK" }
+
+  # 3) Deadline enforcement + escalation
+  - invariant_id: "INV-CRIT-003"
+    title: "Critical communication must occur within class deadline, else escalate"
+    severity: "S3"
+    logic_template:
+      when: { event: "TICK" }   # periodic scheduler tick in simulator
+      if:
+        all:
+          - "open := results where open.criticality_class in ['CRIT_A','CRIT_B'] and open.status == 'held'"
+          - "deadline := open.produced_ts + class_deadline(open.criticality_class)"
+          - "now() > deadline"
+          - "not exists(comm where comm.result_id == open.result_id and comm.communicated_ts != null)"
+      then:
+        emit:
+          - event: "ESCALATE_CRITICAL_RESULT"
+            fields:
+              result_id: "open.result_id"
+              route: "route_for_requester_context(open)"   # INPATIENT/OUTPATIENT/GP
+        enforce:
+          - "advance_escalation_step(open.result_id)"
+
+  # 4) Read-back required for phone/bleep critical comms
+  - invariant_id: "INV-CRIT-004"
+    title: "Read-back confirmation required for oral critical communications"
+    severity: "S2"
+    logic_template:
+      when: { event: "ACK_CRITICAL_RESULT" }
+      if:
+        all:
+          - "comm.channel in ['phone','bleep','phone_or_bleep']"
+          - "comm.read_back_confirmed != true"
+      then:
+        emit:
+          - event: "VIOLATION"
+            fields:
+              code: "CRIT_NO_READBACK"
+              result_id: "comm.result_id"
+
+  # 5) Haematology exception: prior similar result in last 7 days can suppress urgent contact
+  - invariant_id: "INV-CRIT-005"
+    title: "Haematology: suppress urgent repeat notification if similar criticality in previous 7 days"
+    severity: "S1"
+    logic_template:
+      when: { event: "CLASSIFY_RESULT" }
+      if:
+        all:
+          - "result.analyte_code startswith 'HAEM_'"
+          - "exists(prev in results where prev.patient_identifiers_hash == result.patient_identifiers_hash and prev.analyte_code == result.analyte_code and (result.produced_ts - prev.produced_ts) <= P7D and prev.criticality_class == result.criticality_class and exists(comm where comm.result_id == prev.result_id and comm.acknowledgment_ts != null))"
+      then:
+        enforce:
+          - set: { "result.criticality_class": "UNEXPECTED" }   # still reviewable, but not urgent-call gated
+        emit:
+          - event: "VIOLATION"
+            fields:
+              code: "CRIT_REPEAT_SUPPRESSED"
+              result_id: "result.result_id"
+    exception_hooks:
+      - hook_id: "EX-CRIT-005A"
+        description: "If delta-check indicates clinically significant change, do not suppress."
+        condition: "delta_check(result) == 'significant'"
+
+  # 6) Downtime rule: clinically significant/abnormal results must be phoned through when electronic reporting unavailable
+  - invariant_id: "INV-CRIT-006"
+    title: "Downtime: force oral notification path for critical/clinically significant results"
+    severity: "S2"
+    logic_template:
+      when: { event: "GENERATE_RESULT" }
+      if:
+        all:
+          - "system.downtime_active == true"
+          - "result.criticality_class in ['CRIT_A','CRIT_B']"
+      then:
+        enforce:
+          - set: { "result.notification_mode_required": "phone_or_bleep" }
+        emit:
+          - event: "NOTIFY_CRITICAL_RESULT"
+            fields:
+              mode: "phone_or_bleep"
+              reason: "SYSTEM_DOWNTIME"

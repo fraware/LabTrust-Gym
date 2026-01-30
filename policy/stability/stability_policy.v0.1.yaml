@@ -1,0 +1,136 @@
+policy_version: "0.1"
+scope:
+  partner_target: "HSL (London) - Blood Sciences MVP"
+  lanes: ["BIOCHEM_PANEL_CORE", "HAEM_PANEL_CORE", "COAG_PANEL_CORE"]
+  note: >
+    v0.1 uses UK/NHS handbook-derived defaults. Partner-specific stability/temperature tables
+    MUST be substituted once HSL provides local requirements.
+
+clock_semantics:
+  collection_ts: "Specimen collection time (source-of-truth for pre-analytic stability clocks)"
+  arrival_ts: "Time received at Sample Reception (for inside-building SLA accounting)"
+  separated_ts: "Time serum/plasma separated from cells (centrifuge+separate complete)"
+  loaded_ts: "Time specimen/aliquot loaded onto analyzer (analysis-ready event)"
+  analysis_start_ts: "Device run start timestamp (START_RUN event)"
+
+temperature_bands:
+  AMBIENT_20_25:
+    nominal_c: [20, 25]
+    sensor_required: false
+  REFRIGERATED_2_8:
+    nominal_c: [2, 8]
+    sensor_required: false
+  FROZEN_M20:
+    nominal_c: [-25, -15]
+    sensor_required: false
+  FROZEN_M80:
+    nominal_c: [-90, -70]
+    sensor_required: false
+
+defaults:
+  out_of_band_grace_minutes: 15
+  enforcement:
+    # Actions the engine can take immediately on breach
+    hard_stop_actions: ["BLOCK_START_RUN", "HOLD_SPECIMEN", "HOLD_RESULT"]
+    soft_actions: ["FLAG_RISK", "REQUIRE_OVERRIDE_TOKEN", "ESCALATE_TO_SUPERVISOR"]
+  override_policy:
+    requires_reason_code: true
+    requires_dual_approval: true
+    token_type: "OVERRIDE_RISK_ACCEPTANCE"
+    token_ttl_minutes: 60
+
+panel_rules:
+
+  BIOCHEM_PANEL_CORE:
+    intent: "Routine chemistry in serum/plasma with strong pre-analytical sensitivity."
+    specimen_state_requirements:
+      separation_required: true
+
+    pre_separation_constraints:
+      max_time_collection_to_separation_minutes: 120
+      allowed_temp_bands: ["AMBIENT_20_25"]
+      breach_handling:
+        class: "OVERRIDE_PERMITTED"
+        action: ["HOLD_SPECIMEN", "FLAG_RISK", "REQUIRE_OVERRIDE_TOKEN"]
+        reason_code: "RC_STAB_NO_SEPARATION_WITHIN_WINDOW"
+
+    transport_constraints:
+      max_time_collection_to_arrival_minutes: 360
+      allowed_temp_bands: ["AMBIENT_20_25"]
+      breach_handling:
+        class: "OVERRIDE_PERMITTED"
+        action: ["HOLD_SPECIMEN", "FLAG_RISK", "REQUIRE_OVERRIDE_TOKEN"]
+        reason_code: "RC_STAB_CHEM_DELAYED_TO_LAB"
+
+    post_separation_storage_constraints:
+      # v0.1: allow fridge only AFTER separation (local HSL may differ; this is a conservative structure).
+      stability_windows_minutes:
+        AMBIENT_20_25: 360
+        REFRIGERATED_2_8: 1440
+      breach_handling:
+        class: "OVERRIDE_PERMITTED"
+        action: ["HOLD_SPECIMEN", "FLAG_RISK", "REQUIRE_OVERRIDE_TOKEN"]
+        reason_code: "RC_STAB_CHEM_POST_SEP_EXPIRED"
+
+    analysis_gate:
+      # run can start only if specimen is within stability for its current temperature band
+      enforce_at_action: "START_RUN"
+      breach_action: "BLOCK_START_RUN"
+
+  HAEM_PANEL_CORE:
+    intent: "Whole-blood EDTA haematology; generally ambient handling in pre-exam phase."
+    specimen_state_requirements:
+      separation_required: false
+
+    transport_constraints:
+      max_time_collection_to_arrival_minutes: 1440
+      allowed_temp_bands: ["AMBIENT_20_25"]
+      breach_handling:
+        class: "OVERRIDE_PERMITTED"
+        action: ["HOLD_SPECIMEN", "FLAG_RISK", "REQUIRE_OVERRIDE_TOKEN"]
+        reason_code: "RC_STAB_HAEM_TOO_OLD"
+
+    handling_constraints:
+      # v0.1 conservative: do not heat/freeze; refrigeration not modeled unless HSL provides rules
+      prohibited_temp_bands: ["FROZEN_M20", "FROZEN_M80"]
+      breach_handling:
+        class: "HARD_STOP"
+        action: ["HOLD_SPECIMEN"]
+        reason_code: "RC_TEMP_PROHIBITED_HAEM"
+
+    analysis_gate:
+      enforce_at_action: "START_RUN"
+      breach_action: "BLOCK_START_RUN"
+
+  COAG_PANEL_CORE:
+    intent: "Citrate plasma coagulation tests; strict time sensitivity and anticoagulant ratio dependence."
+    specimen_state_requirements:
+      separation_required: true
+
+    container_constraints:
+      fill_requirement: "citrate_fill_to_line"
+      breach_handling:
+        class: "HARD_STOP"
+        action: ["HOLD_SPECIMEN"]
+        reason_code: "RC_COAG_FILL_INVALID"
+
+    transport_constraints:
+      max_time_collection_to_arrival_minutes: 240
+      allowed_temp_bands: ["AMBIENT_20_25"]
+      breach_handling:
+        class: "OVERRIDE_PERMITTED"
+        action: ["HOLD_SPECIMEN", "FLAG_RISK", "REQUIRE_OVERRIDE_TOKEN"]
+        reason_code: "RC_STAB_COAG_DELAYED_TO_LAB"
+
+    post_separation_storage_constraints:
+      stability_windows_minutes:
+        AMBIENT_20_25: 240
+        REFRIGERATED_2_8: 1440
+      breach_handling:
+        class: "OVERRIDE_PERMITTED"
+        action: ["HOLD_SPECIMEN", "FLAG_RISK", "REQUIRE_OVERRIDE_TOKEN"]
+        reason_code: "RC_STAB_COAG_POST_SEP_EXPIRED"
+
+    analysis_gate:
+      enforce_at_action: "START_RUN"
+      breach_action: "BLOCK_START_RUN"
