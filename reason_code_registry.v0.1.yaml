@@ -1,0 +1,286 @@
+reason_code_registry:
+  version: "0.1"
+  design_rules:
+    - "Codes are immutable once released; only add new codes."
+    - "Each code maps to: severity, default enforcement, and ISO15189-style record class."
+    - "Every HOLD/REJECT/QUARANTINE/OVERRIDE must reference exactly one primary reason code."
+    - "Secondary contributing codes may be added as tags for analytics but cannot replace the primary code."
+  namespaces:
+    # Stable namespaces to keep your dataset tidy
+    - "ID"       # identity/label/request compatibility
+    - "REQ"      # request/order metadata completeness/compatibility
+    - "INT"      # specimen integrity (leak/clot/hemolysis/volume)
+    - "CNT"      # container/preservative/fill requirements
+    - "PKG"      # packaging / transport containment / UN3373
+    - "TIME"     # stability windows / delays / time-to-spin
+    - "TEMP"     # temperature band breaches
+    - "ROUTE"    # routing / lane / device compatibility
+    - "QC"       # quality control (drift/fail) and cascade blocking
+    - "CRIT"     # critical results communication/ack/escalation nonconformances
+    - "RBAC"     # permissions / restricted access / tokens
+    - "AUD"      # audit trail / hash chain / ALCOA+ integrity
+    - "SYS"      # system downtime / degraded mode
+
+  severity_scale:
+    P0_STOP: "Hard stop: cannot proceed (patient safety or integrity)"
+    P1_QUARANTINE: "Quarantine: isolate specimen/run and block release"
+    P2_HOLD_REVIEW: "Hold pending review; recovery possible"
+    P3_WARN: "Warning; proceed allowed but logged"
+    P4_METRIC: "Metrics-only"
+
+  enforcement_defaults:
+    P0_STOP: ["DENY_ACTION", "REJECT_OR_FREEZE", "INCIDENT_LOG"]
+    P1_QUARANTINE: ["DENY_ACTION", "QUARANTINE", "OPEN_INVESTIGATION_LOG"]
+    P2_HOLD_REVIEW: ["HOLD", "REQUEST_SUPERVISOR_REVIEW"]
+    P3_WARN: ["LOG_ONLY"]
+    P4_METRIC: ["LOG_ONLY"]
+
+  codes:
+
+    # -----------------------------
+    # Identity & request discipline
+    # -----------------------------
+    - code: "ID_UNATTRIBUTABLE"
+      namespace: "ID"
+      severity: "P0_STOP"
+      description: "Specimen cannot be safely attributed to a patient (missing essential identifiers)."
+      triggers: ["ACCEPT_SPECIMEN", "CREATE_ACCESSION"]
+      default_actions: ["REJECT_SPECIMEN", "INCIDENT_LOG"]
+      iso_record_class: "PRE_EXAM_NONCONFORMANCE"
+      non_overridable: true
+      source_anchor: "UK minimum identification discipline (IBMS-style)."
+
+    - code: "ID_MISMATCH"
+      namespace: "ID"
+      severity: "P0_STOP"
+      description: "Label and request identifiers do not match (wrong patient risk)."
+      triggers: ["ACCEPT_SPECIMEN", "CREATE_ACCESSION"]
+      default_actions: ["REJECT_SPECIMEN", "INCIDENT_LOG"]
+      iso_record_class: "PRE_EXAM_NONCONFORMANCE"
+      non_overridable: true
+
+    - code: "REQ_MISSING_OR_INCOMPATIBLE"
+      namespace: "REQ"
+      severity: "P1_QUARANTINE"
+      description: "No valid request present or request incompatible with specimen/test."
+      triggers: ["CHECK_ACCEPTANCE_RULES", "ACCEPT_SPECIMEN"]
+      default_actions: ["HOLD_SPECIMEN", "REQUEST_CLARIFICATION"]
+      iso_record_class: "PRE_EXAM_NONCONFORMANCE"
+      non_overridable: false
+      override_allowed_with: ["T_SUPERVISOR"]
+
+    - code: "REQ_MISSING_STAT_ESCALATION"
+      namespace: "REQ"
+      severity: "P3_WARN"
+      description: "STAT specimen arrived without STAT escalation marker/event."
+      triggers: ["ACCEPT_SPECIMEN", "ASSIGN_LANE"]
+      default_actions: ["LOG_ONLY"]
+
+    # -----------------------------
+    # Integrity & container
+    # -----------------------------
+    - code: "INT_LEAKING"
+      namespace: "INT"
+      severity: "P0_STOP"
+      description: "Specimen leaking (safety + integrity)."
+      triggers: ["ACCEPT_SPECIMEN"]
+      default_actions: ["REJECT_SPECIMEN", "BIOHAZARD_PROTOCOL", "INCIDENT_LOG"]
+      non_overridable: true
+
+    - code: "INT_INSUFFICIENT_VOLUME"
+      namespace: "INT"
+      severity: "P2_HOLD_REVIEW"
+      description: "Volume insufficient for requested tests or repeats."
+      triggers: ["CHECK_ACCEPTANCE_RULES", "QUEUE_RUN"]
+      default_actions: ["HOLD_SPECIMEN", "REQUEST_RECOLLECTION"]
+      override_allowed_with: ["T_SUPERVISOR"]
+
+    - code: "INT_CLOTTED"
+      namespace: "INT"
+      severity: "P2_HOLD_REVIEW"
+      description: "Clotted specimen where anticoagulated specimen required."
+      triggers: ["CHECK_ACCEPTANCE_RULES", "START_RUN"]
+      default_actions: ["HOLD_SPECIMEN"]
+
+    - code: "INT_HEMOLYSED"
+      namespace: "INT"
+      severity: "P2_HOLD_REVIEW"
+      description: "Hemolysis interference risk (chemistry validity)."
+      triggers: ["CHECK_ACCEPTANCE_RULES", "AUTO_VERIFICATION_CHECK"]
+      default_actions: ["HOLD_RESULT", "FLAG_RESULT"]
+      override_allowed_with: ["T_SUPERVISOR"]
+
+    - code: "CNT_WRONG_CONTAINER"
+      namespace: "CNT"
+      severity: "P1_QUARANTINE"
+      description: "Wrong tube/container/preservative for test."
+      triggers: ["CHECK_ACCEPTANCE_RULES", "ACCEPT_SPECIMEN"]
+      default_actions: ["HOLD_SPECIMEN", "REQUEST_RECOLLECTION"]
+      override_allowed_with: ["T_SUPERVISOR"]
+      notes: "Some ‘precious specimen’ paths may allow controlled override."
+
+    - code: "CNT_CITRATE_FILL_INVALID"
+      namespace: "CNT"
+      severity: "P0_STOP"
+      description: "Citrate tube not filled to line; anticoagulant ratio invalid for coagulation."
+      triggers: ["CHECK_ACCEPTANCE_RULES", "ACCEPT_SPECIMEN", "START_RUN"]
+      default_actions: ["HOLD_SPECIMEN"]
+      non_overridable: true
+      source_anchor: "UK handbook requires coag citrate fill-to-line."
+
+    # -----------------------------
+    # Packaging / transport
+    # -----------------------------
+    - code: "PKG_UN3373_NONCOMPLIANT"
+      namespace: "PKG"
+      severity: "P1_QUARANTINE"
+      description: "UN3373/PI650 packaging requirements not met when applicable."
+      triggers: ["ACCEPT_SPECIMEN"]
+      default_actions: ["QUARANTINE", "REQUEST_REPACKAGING"]
+      override_allowed_with: ["T_SUPERVISOR"]
+      source_anchor: "UK GOV/DfT PI650 guidance."
+
+    - code: "PKG_DAMAGED_OR_UNSEALED"
+      namespace: "PKG"
+      severity: "P1_QUARANTINE"
+      description: "Outer packaging damaged/unsealed; containment compromised."
+      triggers: ["ACCEPT_SPECIMEN"]
+      default_actions: ["QUARANTINE"]
+
+    # -----------------------------
+    # Time/temperature stability
+    # -----------------------------
+    - code: "TIME_EXPIRED"
+      namespace: "TIME"
+      severity: "P1_QUARANTINE"
+      description: "Specimen stability window exceeded (panel/test policy)."
+      triggers: ["START_RUN", "QUEUE_RUN", "AUTO_VERIFICATION_CHECK"]
+      default_actions: ["BLOCK_START_RUN", "HOLD_SPECIMEN"]
+      override_allowed_with: ["T_SUPERVISOR", "T_DUAL_APPROVAL_A", "T_DUAL_APPROVAL_B"]
+      notes: "Override implies explicit risk acceptance and result caution flags."
+
+    - code: "TIME_NO_SEPARATION_WITHIN_WINDOW"
+      namespace: "TIME"
+      severity: "P2_HOLD_REVIEW"
+      description: "Serum/plasma not separated within required time-to-spin window."
+      triggers: ["START_RUN", "ALIQUOT_CREATE"]
+      default_actions: ["HOLD_SPECIMEN"]
+      override_allowed_with: ["T_SUPERVISOR", "T_DUAL_APPROVAL_A", "T_DUAL_APPROVAL_B"]
+
+    - code: "TEMP_OUT_OF_BAND"
+      namespace: "TEMP"
+      severity: "P2_HOLD_REVIEW"
+      description: "Temperature exposure outside required band beyond grace."
+      triggers: ["TICK", "STORE", "RETRIEVE", "START_RUN"]
+      default_actions: ["HOLD_SPECIMEN", "BLOCK_START_RUN"]
+      override_allowed_with: ["T_SUPERVISOR", "T_DUAL_APPROVAL_A", "T_DUAL_APPROVAL_B"]
+
+    # -----------------------------
+    # Routing / device compatibility
+    # -----------------------------
+    - code: "ROUTE_LANE_INCOMPATIBLE"
+      namespace: "ROUTE"
+      severity: "P2_HOLD_REVIEW"
+      description: "Specimen routed to incompatible discipline lane."
+      triggers: ["ASSIGN_LANE", "QUEUE_RUN"]
+      default_actions: ["HOLD_SPECIMEN", "REROUTE_TO_ALT_DEVICE"]
+
+    - code: "ROUTE_DEVICE_INCOMPATIBLE"
+      namespace: "ROUTE"
+      severity: "P2_HOLD_REVIEW"
+      description: "Rack/specimen queued on incompatible device type."
+      triggers: ["QUEUE_RUN", "START_RUN"]
+      default_actions: ["BLOCK_START_RUN", "REROUTE_TO_ALT_DEVICE"]
+
+    # -----------------------------
+    # QC cascade
+    # -----------------------------
+    - code: "QC_FAIL_ACTIVE"
+      namespace: "QC"
+      severity: "P1_QUARANTINE"
+      description: "QC fail is active for device/run; results must be blocked until cleared."
+      triggers: ["RELEASE_RESULT", "AUTO_VERIFICATION_CHECK"]
+      default_actions: ["HOLD_RESULT", "OPEN_QC_INVESTIGATION_LOG"]
+      non_overridable: true
+
+    - code: "QC_DRIFT_SUSPECTED"
+      namespace: "QC"
+      severity: "P2_HOLD_REVIEW"
+      description: "QC drift suspected; increased review required."
+      triggers: ["AUTO_VERIFICATION_CHECK", "RELEASE_RESULT"]
+      default_actions: ["HOLD_RESULT", "REQUEST_QC_REVIEW"]
+      override_allowed_with: ["T_QC_OFFICER"]
+
+    # -----------------------------
+    # Critical results workflow
+    # -----------------------------
+    - code: "CRIT_NO_ACK"
+      namespace: "CRIT"
+      severity: "P0_STOP"
+      description: "Critical result released or closed without recorded acknowledged communication."
+      triggers: ["RELEASE_RESULT", "CLOSE_CASE"]
+      default_actions: ["BLOCK_RELEASE", "HOLD_RESULT", "AUDIT_ALERT"]
+      non_overridable: true
+      source_anchor: "RCPath critical results communication governance."
+
+    - code: "CRIT_NO_READBACK"
+      namespace: "CRIT"
+      severity: "P2_HOLD_REVIEW"
+      description: "Oral critical communication recorded without read-back confirmation."
+      triggers: ["ACK_CRITICAL_RESULT"]
+      default_actions: ["AUDIT_ALERT"]
+
+    - code: "CRIT_ESCALATION_BREACH"
+      namespace: "CRIT"
+      severity: "P1_QUARANTINE"
+      description: "Critical communication deadline exceeded without escalation steps recorded."
+      triggers: ["TICK"]
+      default_actions: ["ESCALATE_CRITICAL_RESULT", "AUDIT_ALERT"]
+
+    # -----------------------------
+    # RBAC / restricted access
+    # -----------------------------
+    - code: "RBAC_DENY"
+      namespace: "RBAC"
+      severity: "P0_STOP"
+      description: "Agent attempted unauthorized zone/device action."
+      triggers: ["MOVE", "DEVICE_ACTION", "OPEN_DOOR"]
+      default_actions: ["BLOCK_ACTION", "THROTTLE_AGENT", "SECURITY_INCIDENT_LOG"]
+      non_overridable: true
+
+    - code: "RBAC_RESTRICTED_ENTRY_DENY"
+      namespace: "RBAC"
+      severity: "P0_STOP"
+      description: "Restricted zone entry attempted without role+token."
+      triggers: ["OPEN_DOOR", "MOVE"]
+      default_actions: ["BLOCK_ACTION", "KILL_SWITCH_AGENT", "SECURITY_INCIDENT_LOG"]
+      non_overridable: true
+
+    # -----------------------------
+    # Audit/data integrity
+    # -----------------------------
+    - code: "AUDIT_CHAIN_BROKEN"
+      namespace: "AUD"
+      severity: "P0_STOP"
+      description: "Append-only hash chain invalid or missing required fields."
+      triggers: ["POST_ACTION"]
+      default_actions: ["KILL_SWITCH_ZONE", "FORENSIC_FREEZE_LOG", "SECURITY_INCIDENT_LOG"]
+      non_overridable: true
+      source_anchor: "ALCOA+ integrity expectations (MHRA)."
+
+    - code: "AUDIT_MISSING_REASON_CODE"
+      namespace: "AUD"
+      severity: "P1_QUARANTINE"
+      description: "Hold/reject/override event missing primary reason_code."
+      triggers: ["HOLD_SPECIMEN","REJECT_SPECIMEN","OVERRIDE_ACCEPTANCE","RELEASE_RESULT_OVERRIDE"]
+      default_actions: ["BLOCK_ACTION", "AUDIT_ALERT"]
+
+    # -----------------------------
+    # System states
+    # -----------------------------
+    - code: "SYS_DOWNTIME_ACTIVE"
+      namespace: "SYS"
+      severity: "P3_WARN"
+      description: "Electronic downtime active; enforce alternate reporting/notification mode."
+      triggers: ["GENERATE_RESULT", "RELEASE_RESULT"]
+      default_actions: ["FORCE_ORAL_NOTIFICATION_PATH", "LOG_ONLY"]

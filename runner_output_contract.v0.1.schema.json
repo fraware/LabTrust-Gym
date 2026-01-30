@@ -1,0 +1,96 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "labtrust.runner_output_contract.v0.1",
+    "title": "LabTrust Golden Runner Output Contract v0.1",
+    "type": "object",
+    "required": ["suite_version", "scenario_reports"],
+    "properties": {
+      "suite_version": { "type": "string" },
+      "scenario_reports": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/scenario_report" }
+      }
+    },
+    "$defs": {
+      "scenario_report": {
+        "type": "object",
+        "required": ["scenario_id", "passed", "step_reports"],
+        "properties": {
+          "scenario_id": { "type": "string" },
+          "title": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "failures": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/failure" }
+          },
+          "step_reports": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/step_report" }
+          }
+        }
+      },
+      "step_report": {
+        "type": "object",
+        "required": ["event_id", "t_s", "agent_id", "action_type", "status", "hashchain"],
+        "properties": {
+          "event_id": { "type": "string" },
+          "t_s": { "type": "integer", "minimum": 0 },
+          "agent_id": { "type": "string" },
+          "action_type": { "type": "string" },
+          "status": { "type": "string", "enum": ["ACCEPTED", "BLOCKED"] },
+          "emits": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          },
+          "violations": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/violation" },
+            "default": []
+          },
+          "blocked_reason_code": { "type": ["string", "null"] },
+          "token_consumed": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          },
+          "state_assertions_checked": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          },
+          "hashchain": { "$ref": "#/$defs/hashchain_record" },
+          "raw_engine_result": { "type": "object" }
+        }
+      },
+      "violation": {
+        "type": "object",
+        "required": ["invariant_id", "status"],
+        "properties": {
+          "invariant_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "VIOLATION"] },
+          "reason_code": { "type": ["string", "null"] },
+          "message": { "type": ["string", "null"] }
+        }
+      },
+      "hashchain_record": {
+        "type": "object",
+        "required": ["head_hash", "length", "last_event_hash"],
+        "properties": {
+          "head_hash": { "type": "string" },
+          "length": { "type": "integer", "minimum": 0 },
+          "last_event_hash": { "type": "string" }
+        }
+      },
+      "failure": {
+        "type": "object",
+        "required": ["event_id", "message"],
+        "properties": {
+          "event_id": { "type": "string" },
+          "message": { "type": "string" },
+          "details": { "type": "object" }
+        }
+      }
+    }
+  }
+  

@@ -1,0 +1,22 @@
+enforcement_api:
+  pre_action_guard:
+    signature: "Decision pre_action_guard(action, state, policy, registry)"
+    returns:
+      - "ALLOW"
+      - "DENY(reason_code, severity)"
+      - "REQUIRE_TOKEN(token_list, reason_code)"
+  post_action_audit:
+    signature: "List[Violation] post_action_audit(event, state, policy, registry)"
+  periodic_monitor:
+    signature: "List[Violation] periodic_monitor(now_ts, state, policy, registry)"
+  remediation_executor:
+    signature: "void remediate(violation, state)"
+    actions_supported:
+      - "HOLD_SPECIMEN"
+      - "HOLD_RESULT"
+      - "QUARANTINE"
+      - "THROTTLE_AGENT"
+      - "KILL_SWITCH_ZONE"
+      - "INCIDENT_LOG"
+      - "QC_INVESTIGATION_LOG"
+      - "SECURITY_INCIDENT_LOG"
