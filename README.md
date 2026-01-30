@@ -27,14 +27,19 @@ pytest -q
 
 ## Layout
 
-- `policy/` — Versioned YAML/JSON: schemas, emits vocab, invariants, tokens, reason codes, zones, catalogue, golden scenarios.
+- `policy/` — Versioned YAML/JSON: schemas, emits vocab, invariants, tokens, reason codes, zones, catalogue, stability, critical, golden scenarios.
 - `src/labtrust_gym/` — Package: `engine/`, `policy/`, `runner/` (golden runner, adapter interface, emits validator), `cli/`.
-- `tests/` — Pytest: golden suite, policy validation, hashchain, tokens, zones, catalogue.
-- `examples/` — Minimal and scripted agents.
+- `tests/` — Pytest: golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, stability, catalogue.
+- `examples/` — Minimal agent; scripted/MARL baselines TBD.
+- `docs/` — Architecture, policy pack, threat model, invariants; **`docs/STATUS.md`** — current state: what’s implemented, what isn’t, what remains.
 
 ## Golden runner
 
-The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/golden/golden_scenarios.v0.1.yaml` against an environment adapter. The adapter must implement `LabTrustEnvAdapter` (reset, step, query). Step results must conform to the runner output contract (status, emits, violations, hashchain, etc.). Unknown emits fail the suite.
+The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/golden/golden_scenarios.v0.1.yaml` against an environment adapter. The adapter must implement `LabTrustEnvAdapter` (reset, step, query). Step results must conform to the runner output contract (status, emits, violations, hashchain, etc.). Unknown emits fail the suite. Run with the real engine: `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py`.
+
+## Current state
+
+See **`docs/STATUS.md`** for a detailed report: what is implemented (policy validation, hashchain, tokens, zones, specimens, QC, critical results, catalogue/stability, co-location, queueing, PettingZoo Parallel wrapper), and what remains.
 
 ## License
 

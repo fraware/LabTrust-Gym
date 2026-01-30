@@ -20,6 +20,7 @@ from labtrust_gym.engine.core_env import CoreEnv
 from labtrust_gym.engine.zones import (
     ZoneState,
     build_adjacency_set,
+    build_device_zone_map,
     build_doors_map,
     load_zone_layout,
 )
@@ -41,6 +42,19 @@ def test_build_adjacency_set() -> None:
     assert ("Z_B", "Z_A") in adj
     assert ("Z_B", "Z_C") in adj
     assert ("Z_SRA_RECEPTION", "Z_RESTRICTED_BIOHAZARD") not in adj
+
+
+def test_build_device_zone_map() -> None:
+    """device_placement list -> device_id -> zone_id."""
+    placement = [
+        {"device_id": "DEV_CHEM_A_01", "zone_id": "Z_ANALYZER_HALL_A"},
+        {"device_id": "DEV_CENTRIFUGE_BANK_01", "zone_id": "Z_CENTRIFUGE_BAY"},
+    ]
+    m = build_device_zone_map(placement)
+    assert m["DEV_CHEM_A_01"] == "Z_ANALYZER_HALL_A"
+    assert m["DEV_CENTRIFUGE_BANK_01"] == "Z_CENTRIFUGE_BAY"
+    assert build_device_zone_map([]) == {}
+    assert build_device_zone_map([{"device_id": "X"}]) == {}
 
 
 def test_build_doors_map() -> None:
@@ -170,6 +184,36 @@ GS009 = {
     ],
 }
 
+GS019 = {
+    "scenario_id": "GS-019",
+    "title": "Device action blocked if agent not co-located in device zone",
+    "initial_state": {
+        "system": {"now_s": 0, "downtime_active": False},
+        "specimens": [{"template_ref": "S_BIOCHEM_OK"}],
+        "tokens": [],
+    },
+    "script": [
+        {
+            "event_id": "e1",
+            "t_s": 5000,
+            "agent_id": "A_RECEPTION",
+            "action_type": "START_RUN",
+            "args": {
+                "device_id": "DEV_CHEM_A_01",
+                "run_id": "R_BADLOC",
+                "specimen_ids": ["S1"],
+            },
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {
+                "status": "BLOCKED",
+                "blocked_reason_code": "RC_DEVICE_NOT_COLOCATED",
+                "violations": ["INV-ZONE-002:VIOLATION"],
+            },
+        }
+    ],
+}
+
 GS020 = {
     "scenario_id": "GS-020",
     "title": "Illegal move not on graph is blocked",
@@ -197,9 +241,11 @@ GS020 = {
 }
 
 
-@pytest.mark.parametrize("scenario", [GS008, GS009, GS020], ids=["GS-008", "GS-009", "GS-020"])
-def test_gs008_gs009_gs020(scenario: dict) -> None:
-    """Run GS-008, GS-009, GS-020 with CoreEnv. Skipped unless LABTRUST_RUN_GOLDEN=1."""
+@pytest.mark.parametrize(
+    "scenario", [GS008, GS009, GS019, GS020], ids=["GS-008", "GS-009", "GS-019", "GS-020"]
+)
+def test_gs008_gs009_gs019_gs020(scenario: dict) -> None:
+    """Run GS-008, GS-009, GS-019 (colocation), GS-020 with CoreEnv. Skipped unless LABTRUST_RUN_GOLDEN=1."""
     if not _should_run_golden():
         pytest.skip("Set LABTRUST_RUN_GOLDEN=1 to run zone scenarios.")
     root = _repo_root()
@@ -212,3 +258,40 @@ def test_gs008_gs009_gs020(scenario: dict) -> None:
     runner = GoldenRunner(env, emits_vocab_path=str(emits_path))
     report = runner._run_scenario(scenario, rng_seed=12345)
     assert report.passed, f"Scenario {scenario['scenario_id']} failed: {report.failures}"
+
+
+def test_colocation_unit_agent_not_in_device_zone() -> None:
+    """Unit test: START_RUN from agent in Z_SRA_RECEPTION for device in Z_ANALYZER_HALL_A is BLOCKED."""
+    if not _should_run_golden():
+        pytest.skip("Set LABTRUST_RUN_GOLDEN=1 to run colocation test.")
+    root = _repo_root()
+    emits_path = root / "policy" / "emits" / "emits_vocab.v0.1.yaml"
+    if not emits_path.exists():
+        emits_path = root / "emits_vocab.v0.1.yaml"
+    env = CoreEnv()
+    env.reset(
+        {"system": {}, "specimens": [{"template_ref": "S_BIOCHEM_OK"}], "tokens": []},
+        deterministic=True,
+        rng_seed=12345,
+    )
+    event = {
+        "event_id": "e1",
+        "t_s": 5000,
+        "agent_id": "A_RECEPTION",
+        "action_type": "START_RUN",
+        "args": {
+            "device_id": "DEV_CHEM_A_01",
+            "run_id": "R_BADLOC",
+            "specimen_ids": ["S1"],
+        },
+        "reason_code": None,
+        "token_refs": [],
+    }
+    out = env.step(event)
+    assert out["status"] == "BLOCKED"
+    assert out.get("blocked_reason_code") == "RC_DEVICE_NOT_COLOCATED"
+    violations = out.get("violations", [])
+    assert any(
+        v.get("invariant_id") == "INV-ZONE-002" and v.get("status") == "VIOLATION"
+        for v in violations
+    )

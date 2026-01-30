@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.zone_layout_policy.v0.1",
+  "title": "Zone layout policy v0.1",
+  "description": "Schema for policy/zones/zone_layout_policy.v0.1.yaml.",
+  "type": "object",
+  "required": ["zone_layout_policy"],
+  "additionalProperties": true,
+  "properties": {
+    "zone_layout_policy": {
+      "type": "object",
+      "required": ["zones", "doors", "graph_edges", "device_placement"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "partner_anchor": { "type": "object" },
+        "timebase": { "type": "object" },
+        "temperature_bands": { "type": "object" },
+        "zones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["zone_id", "name", "kind", "temp_band"],
+            "additionalProperties": true,
+            "properties": {
+              "zone_id": { "type": "string" },
+              "name": { "type": "string" },
+              "kind": { "type": "string" },
+              "temp_band": { "type": "string" },
+              "rbac_required": { "type": "array", "items": { "type": "string" } },
+              "contamination_class": { "type": "string" },
+              "restricted": { "type": "boolean" },
+              "requires_access_token": { "type": "string" },
+              "notes": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "doors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["door_id", "from_zone", "to_zone", "kind"],
+            "additionalProperties": true,
+            "properties": {
+              "door_id": { "type": "string" },
+              "from_zone": { "type": "string" },
+              "to_zone": { "type": "string" },
+              "kind": { "type": "string" },
+              "max_open_s": { "type": "integer" },
+              "alarm_on_breach": { "type": "boolean" },
+              "requires_token": { "type": "string" },
+              "requires_role": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "graph_edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to"],
+            "additionalProperties": true,
+            "properties": {
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "travel_s": { "type": "integer" },
+              "via_door": { "type": "string" }
+            }
+          }
+        },
+        "device_placement": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["device_id", "zone_id"],
+            "additionalProperties": true,
+            "properties": {
+              "device_id": { "type": "string" },
+              "zone_id": { "type": "string" }
+            }
+          }
+        },
+        "entity_movement_rules": { "type": "object" }
+      }
+    }
+  }
+}

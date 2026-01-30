@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.dual_approval_policy.v0.1",
+  "title": "Dual approval policy v0.1",
+  "type": "object",
+  "required": ["dual_approval_policy"],
+  "additionalProperties": true,
+  "properties": {
+    "dual_approval_policy": {
+      "type": "object",
+      "required": ["rules"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "intent": { "type": "string" },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": true,
+            "properties": {
+              "id": { "type": "string" },
+              "applies_to_token_types": { "type": "array", "items": { "type": "string" } },
+              "requirements": { "type": "array", "items": { "type": "string" } },
+              "requirement": { "type": "string" },
+              "description": { "type": "string" },
+              "enforcement": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "risk_record": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "fields_required": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.equipment_registry.v0.1",
+  "title": "Equipment registry v0.1",
+  "type": "object",
+  "required": ["equipment_registry"],
+  "additionalProperties": true,
+  "properties": {
+    "equipment_registry": {
+      "type": "object",
+      "required": ["device_types", "device_instances"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "units": { "type": "object" },
+        "scope": { "type": "object" },
+        "global_scheduling": { "type": "object" },
+        "device_types": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        },
+        "device_instances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["device_id", "device_type"],
+            "additionalProperties": true,
+            "properties": {
+              "device_id": { "type": "string" },
+              "device_type": { "type": "string" },
+              "zone_id": { "type": "string" },
+              "zone": { "type": "string" },
+              "capacity": {},
+              "parallel_units": { "type": "integer" }
+            }
+          }
+        },
+        "panel_workload_map": { "type": "object" },
+        "qc_fail_cascade_semantics": { "type": "object" }
+      }
+    }
+  }
+}

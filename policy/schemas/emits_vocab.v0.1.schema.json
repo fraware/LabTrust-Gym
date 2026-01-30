@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.emits_vocab.v0.1",
+  "title": "Emits vocabulary v0.1",
+  "description": "Schema for policy/emits/emits_vocab.v0.1.yaml (root object after YAML load).",
+  "type": "object",
+  "required": ["emits_vocab"],
+  "additionalProperties": true,
+  "properties": {
+    "emits_vocab": {
+      "type": "object",
+      "required": ["canonical_set"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "policy": { "type": "array", "items": { "type": "string" } },
+        "categories": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+        "canonical_set": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -224,6 +224,48 @@ reason_code_registry:
       default_actions: ["BLOCK_ACTION"]
       non_overridable: true
 
+    - code: "RC_DEVICE_UNKNOWN"
+      namespace: "ROUTE"
+      severity: "P0_STOP"
+      description: "device_id not registered in device placement."
+      triggers: ["QUEUE_RUN", "START_RUN"]
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "RC_DEVICE_BUSY"
+      namespace: "ROUTE"
+      severity: "P0_STOP"
+      description: "Device is RUNNING; START_RUN blocked until run completes (simulated timing_mode)."
+      triggers: ["START_RUN"]
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "RC_QUEUE_BAD_PAYLOAD"
+      namespace: "ROUTE"
+      severity: "P0_STOP"
+      description: "QUEUE_RUN missing required args (device_id or work/accession/specimen ids)."
+      triggers: ["QUEUE_RUN"]
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "RC_QUEUE_DUPLICATE_WORK_ID"
+      namespace: "ROUTE"
+      severity: "P2_HOLD_REVIEW"
+      description: "Same work_id already enqueued on this device."
+      triggers: ["QUEUE_RUN"]
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "RC_QUEUE_EMPTY"
+      namespace: "ROUTE"
+      severity: "P0_STOP"
+      description: "START_RUN with device_id but queue is empty (no work_id to consume)."
+      triggers: ["START_RUN"]
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "RC_QUEUE_HEAD_MISMATCH"
+      namespace: "ROUTE"
+      severity: "P0_STOP"
+      description: "START_RUN work_id does not match queue head (strict FIFO/priority order)."
+      triggers: ["START_RUN"]
+      default_actions: ["BLOCK_ACTION"]
+
     # -----------------------------
     # QC cascade
     # -----------------------------

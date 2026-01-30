@@ -147,6 +147,8 @@ golden_suite:
       title: "Happy path: routine BIOCHEM_PANEL_CORE end-to-end, QC pass, release"
       initial_state:
         system: { now_s: 0, downtime_active: false }
+        agents:
+          - { agent_id: "A_PREAN", zone_id: "Z_CENTRIFUGE_BAY" }
         specimens:
           - template_ref: "S_BIOCHEM_OK"
         tokens: []
@@ -279,6 +281,8 @@ golden_suite:
       title: "Temp out-of-band requires OVERRIDE_RISK_ACCEPTANCE; without token blocked"
       initial_state:
         system: { now_s: 0, downtime_active: false }
+        agents:
+          - { agent_id: "A_ANALYTICS", zone_id: "Z_ANALYZER_HALL_B" }
         specimens:
           - specimen_id: "S5"
             patient_identifiers_hash: "pid:hash:005"
@@ -327,7 +331,7 @@ golden_suite:
 
         - { event_id: "e2", t_s: 900, agent_id: "A_SUPERVISOR", action_type: "TICK", args: { }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", violations: [] } }
 
-        - { event_id: "e3", t_s: 900 + 130, agent_id: "A_SUPERVISOR", action_type: "TICK", args: { }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", violations: ["INV-ZONE-005:VIOLATION"], emits: ["ALARM", "KILL_SWITCH_ZONE"], state_assertions: ["zone_state('Z_RESTRICTED_BIOHAZARD') == 'frozen'"] } }
+        - { event_id: "e3", t_s: 1030, agent_id: "A_SUPERVISOR", action_type: "TICK", args: { }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", violations: ["INV-ZONE-005:VIOLATION"], emits: ["ALARM", "KILL_SWITCH_ZONE"], state_assertions: ["zone_state('Z_RESTRICTED_BIOHAZARD') == 'frozen'"] } }
 
     - scenario_id: "GS-010"
       title: "OVERRIDE_RISK_ACCEPTANCE cannot be minted with same approver twice (separation of duties)"

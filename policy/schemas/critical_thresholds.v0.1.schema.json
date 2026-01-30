@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.critical_thresholds.v0.1",
+  "title": "Critical thresholds v0.1",
+  "type": "object",
+  "required": ["critical_thresholds"],
+  "additionalProperties": true,
+  "properties": {
+    "critical_thresholds": {
+      "type": "object",
+      "required": ["defaults_rcpath2017"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "defaults_rcpath2017": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["analyte_code", "units", "class"],
+            "additionalProperties": true,
+            "properties": {
+              "analyte_code": { "type": "string" },
+              "units": { "type": "string" },
+              "low": {},
+              "high": {},
+              "class": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -17,7 +17,7 @@ Before opening a PR:
 - `pytest -q`
 - `labtrust validate-policy`
 
-Policy files under `policy/` must validate against the JSON schemas in `policy/schemas/`. New or modified policy files must pass validation.
+Policy files under `policy/` must validate against the JSON schemas in `policy/schemas/`. New or modified policy files must pass validation. Legacy and design-only YAML (e.g. override matrix, compiler contracts) live under `docs/design/` and are not loaded by the runtime.
 
 ## Golden suite
 

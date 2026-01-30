@@ -106,7 +106,12 @@ GS001_SCRIPT = [
 GS001 = {
     "scenario_id": "GS-001",
     "title": "Happy path: routine BIOCHEM_PANEL_CORE end-to-end",
-    "initial_state": {"system": {}, "specimens": [{"template_ref": "S_BIOCHEM_OK"}], "tokens": []},
+    "initial_state": {
+        "system": {},
+        "agents": [{"agent_id": "A_PREAN", "zone_id": "Z_CENTRIFUGE_BAY"}],
+        "specimens": [{"template_ref": "S_BIOCHEM_OK"}],
+        "tokens": [],
+    },
     "script": GS001_SCRIPT,
 }
 
@@ -145,6 +150,7 @@ GS007 = {
     "title": "Temp out-of-band requires OVERRIDE_RISK_ACCEPTANCE; without token blocked",
     "initial_state": {
         "system": {},
+        "agents": [{"agent_id": "A_ANALYTICS", "zone_id": "Z_ANALYZER_HALL_B"}],
         "specimens": [
             {
                 "specimen_id": "S5",

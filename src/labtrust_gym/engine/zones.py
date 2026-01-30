@@ -61,6 +61,17 @@ def build_adjacency_set(graph_edges: List[Dict[str, Any]]) -> Set[Tuple[str, str
     return adj
 
 
+def build_device_zone_map(device_placement: List[Dict[str, Any]]) -> Dict[str, str]:
+    """Build device_id -> zone_id from zone_layout_policy device_placement (or equipment registry)."""
+    out: Dict[str, str] = {}
+    for d in device_placement or []:
+        dev_id = d.get("device_id")
+        zone_id = d.get("zone_id")
+        if dev_id and zone_id:
+            out[str(dev_id)] = str(zone_id)
+    return out
+
+
 def build_doors_map(doors: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """Build door_id -> { from_zone, to_zone, max_open_s, restricted, requires_token }."""
     out: Dict[str, Dict[str, Any]] = {}
@@ -180,6 +191,18 @@ class ZoneState:
         """Return 'frozen' or 'normal' for state_assertions."""
         return "frozen" if self._zone_frozen.get(zone_id) else "normal"
 
+    def get_door_state(self, door_id: str) -> Tuple[bool, Optional[int]]:
+        """Return (is_open, open_since_ts). open_since_ts is None when closed."""
+        if door_id not in self._doors:
+            return False, None
+        open_since = self._door_open_since.get(door_id)
+        return (open_since is not None, open_since)
+
+
+def get_default_device_zone_map() -> Dict[str, str]:
+    """Device id -> zone_id when no zone layout policy is loaded (e.g. tests)."""
+    return build_device_zone_map(_default_layout().get("device_placement", []))
+
 
 def _default_layout() -> Dict[str, Any]:
     """Minimal layout when policy file not found: graph_edges and doors for GS-008, GS-009, GS-020."""
@@ -208,5 +231,13 @@ def _default_layout() -> Dict[str, Any]:
                 "alarm_on_breach": True,
                 "requires_token": "TOKEN_RESTRICTED_ENTRY",
             },
+        ],
+        "device_placement": [
+            {"device_id": "DEV_CENTRIFUGE_BANK_01", "zone_id": "Z_CENTRIFUGE_BAY"},
+            {"device_id": "DEV_ALIQUOTER_01", "zone_id": "Z_ALIQUOT_LABEL"},
+            {"device_id": "DEV_CHEM_A_01", "zone_id": "Z_ANALYZER_HALL_A"},
+            {"device_id": "DEV_CHEM_B_01", "zone_id": "Z_ANALYZER_HALL_B"},
+            {"device_id": "DEV_HAEM_01", "zone_id": "Z_ANALYZER_HALL_A"},
+            {"device_id": "DEV_COAG_01", "zone_id": "Z_ANALYZER_HALL_B"},
         ],
     }

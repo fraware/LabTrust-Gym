@@ -1,0 +1,59 @@
+{
+  "task": "TaskA",
+  "num_episodes": 2,
+  "base_seed": 1,
+  "seeds": [
+    1,
+    2
+  ],
+  "config": {
+    "max_steps": 80,
+    "scripted_agents": [
+      "ops_0",
+      "runner_0",
+      "runner_1"
+    ],
+    "reward_config": {
+      "throughput_reward": 1.0
+    }
+  },
+  "policy_versions": {
+    "emits_vocab": "0.1",
+    "catalogue_schema": "unknown"
+  },
+  "git_commit_hash": "2f6c5521764d6337335046237b3b06a9528085d0",
+  "episodes": [
+    {
+      "seed": 1,
+      "metrics": {
+        "throughput": 0,
+        "p50_turnaround_s": null,
+        "p95_turnaround_s": null,
+        "on_time_rate": null,
+        "violations_by_invariant_id": {},
+        "blocked_by_reason_code": {},
+        "critical_communication_compliance_rate": null,
+        "tokens_minted": 0,
+        "tokens_consumed": 0,
+        "holds_count": 0,
+        "steps": 80
+      }
+    },
+    {
+      "seed": 2,
+      "metrics": {
+        "throughput": 0,
+        "p50_turnaround_s": null,
+        "p95_turnaround_s": null,
+        "on_time_rate": null,
+        "violations_by_invariant_id": {},
+        "blocked_by_reason_code": {},
+        "critical_communication_compliance_rate": null,
+        "tokens_minted": 0,
+        "tokens_consumed": 0,
+        "holds_count": 0,
+        "steps": 80
+      }
+    }
+  ]
+}

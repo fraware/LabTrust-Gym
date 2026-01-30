@@ -110,7 +110,7 @@ def test_core_env_reset_step_query() -> None:
     assert out["status"] == "ACCEPTED"
     assert "CREATE_ACCESSION" in out["emits"]
     assert out["hashchain"]["length"] == 1
-    assert env.query("system_state('log_frozen')") is False
+    assert env.query("system_state('log_frozen')") == "false"
 
 
 def test_core_env_forensic_freeze_blocks_further_steps() -> None:
@@ -145,7 +145,7 @@ def test_core_env_forensic_freeze_blocks_further_steps() -> None:
     })
     assert out2["status"] == "ACCEPTED"
     assert "FORENSIC_FREEZE_LOG" in out2["emits"]
-    assert env.query("system_state('log_frozen')") is True
+    assert env.query("system_state('log_frozen')") == "true"
     assert env.query("last_reason_code_system") == "AUDIT_CHAIN_BROKEN"
 
     out3 = env.step({
@@ -199,7 +199,7 @@ GS022_SCENARIO = {
                 "status": "ACCEPTED",
                 "emits": ["FORENSIC_FREEZE_LOG"],
                 "state_assertions": [
-                    "system_state('log_frozen') == 'True'",
+                    "system_state('log_frozen') == 'true'",
                     "last_reason_code_system == 'AUDIT_CHAIN_BROKEN'",
                 ],
             },

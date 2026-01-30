@@ -23,9 +23,18 @@ from labtrust_gym.engine.catalogue_runtime import (
 )
 from labtrust_gym.engine.critical import CriticalStore, load_critical_thresholds
 from labtrust_gym.engine.qc import QCStore
+from labtrust_gym.engine.queueing import QueueStore
 from labtrust_gym.engine.specimens import SpecimenStore
 from labtrust_gym.engine.tokens_runtime import TokenStore
-from labtrust_gym.engine.zones import ZoneState, load_zone_layout
+from labtrust_gym.engine.clock import Clock
+from labtrust_gym.engine.devices import DeviceStore, load_equipment_registry
+from labtrust_gym.engine.rng import RNG
+from labtrust_gym.engine.zones import (
+    ZoneState,
+    build_device_zone_map,
+    get_default_device_zone_map,
+    load_zone_layout,
+)
 from labtrust_gym.policy.tokens import (
     Token,
     load_token_registry,
@@ -43,6 +52,13 @@ QC_FAIL_ACTIVE = "QC_FAIL_ACTIVE"
 CRIT_NO_ACK = "CRIT_NO_ACK"
 TIME_EXPIRED = "TIME_EXPIRED"
 TEMP_OUT_OF_BAND = "TEMP_OUT_OF_BAND"
+RC_DEVICE_NOT_COLOCATED = "RC_DEVICE_NOT_COLOCATED"
+RC_DEVICE_UNKNOWN = "RC_DEVICE_UNKNOWN"
+RC_QUEUE_BAD_PAYLOAD = "RC_QUEUE_BAD_PAYLOAD"
+RC_QUEUE_DUPLICATE_WORK_ID = "RC_QUEUE_DUPLICATE_WORK_ID"
+RC_QUEUE_EMPTY = "RC_QUEUE_EMPTY"
+RC_QUEUE_HEAD_MISMATCH = "RC_QUEUE_HEAD_MISMATCH"
+RC_DEVICE_BUSY = "RC_DEVICE_BUSY"
 
 # Minimal token type config when policy file not found (GS-010 dual approval).
 _DEFAULT_TOKEN_TYPES = {
@@ -63,9 +79,11 @@ class CoreEnv(LabTrustEnvAdapter):
         self._tokens: TokenStore = TokenStore()
         self._token_registry: Dict[str, Any] = {}
         self._zones: ZoneState | None = None
+        self._device_zone: Dict[str, str] = {}
         self._specimens: SpecimenStore | None = None
         self._qc: QCStore | None = None
         self._critical: CriticalStore | None = None
+        self._queues: QueueStore | None = None
         self._now_ts: int = 0
 
     def reset(
@@ -99,10 +117,15 @@ class CoreEnv(LabTrustEnvAdapter):
             try:
                 layout = load_zone_layout(zone_path)
                 self._zones = ZoneState(layout)
+                self._device_zone = build_device_zone_map(
+                    layout.get("device_placement", [])
+                )
             except Exception:
                 self._zones = ZoneState(None)
+                self._device_zone = get_default_device_zone_map()
         else:
             self._zones = ZoneState(None)
+            self._device_zone = get_default_device_zone_map()
         agents = initial_state.get("agents")
         if isinstance(agents, list):
             agent_positions = {}
@@ -126,6 +149,20 @@ class CoreEnv(LabTrustEnvAdapter):
             except Exception:
                 pass
         self._critical.load_thresholds(th)
+        self._queues = QueueStore()
+        self._queues.set_known_devices(list(self._device_zone.keys()))
+        self._timing_mode = str(initial_state.get("timing_mode", "explicit")).strip().lower()
+        if self._timing_mode not in ("explicit", "simulated"):
+            self._timing_mode = "explicit"
+        self._clock = None
+        self._device_store = None
+        self._rng = None
+        if self._timing_mode == "simulated":
+            self._rng = RNG(rng_seed)
+            registry = load_equipment_registry()
+            self._device_store = DeviceStore(registry=registry, rng=self._rng)
+            self._device_store.set_known_devices(list(self._device_zone.keys()))
+            self._clock = Clock()
         self._stability_policy: Dict[str, Any] = {}
         stab_path = Path("policy/stability/stability_policy.v0.1.yaml")
         if stab_path.exists():
@@ -143,6 +180,11 @@ class CoreEnv(LabTrustEnvAdapter):
         assert self._audit is not None, "reset() must be called before step()"
         t_s = int(event.get("t_s", 0))
         self._now_ts = t_s
+        # Simulated timing: set clock to t_s and finish any device runs that completed by t_s
+        if self._timing_mode == "simulated" and self._clock is not None and self._device_store is not None:
+            self._clock.set(t_s)
+            for did, _ in self._device_store.completions(t_s):
+                self._device_store.finish_run(did)
         action_type = event.get("action_type", "")
         args = event.get("args", {})
         token_refs = event.get("token_refs", [])
@@ -433,6 +475,144 @@ class CoreEnv(LabTrustEnvAdapter):
                 "hashchain": hashchain_dict,
             }
 
+        # CENTRIFUGE_START (GS-001): co-location check; emit INV-ZONE-002:PASS when agent in device zone
+        if action_type == "CENTRIFUGE_START":
+            device_id = args.get("device_id")
+            agent_id = str(event.get("agent_id", ""))
+            violations_list: List[Dict[str, Any]] = []
+            if device_id and self._zones is not None:
+                device_zone = self._device_zone.get(str(device_id))
+                agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
+                if device_zone and agent_zone is not None and agent_zone != device_zone:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
+                        "violations": [
+                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"},
+                        ],
+                        "hashchain": hashchain_dict,
+                    }
+                if device_zone and agent_zone == device_zone:
+                    violations_list.append(
+                        {"invariant_id": "INV-ZONE-002", "status": "PASS"},
+                    )
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "violations": violations_list,
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                }
+            return {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["CENTRIFUGE_START"],
+                "violations": violations_list,
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            }
+
+        # QUEUE_RUN (GS-002): per-device queue, STAT/URGENT/ROUTINE ordering
+        if action_type == "QUEUE_RUN":
+            assert self._queues is not None and self._zones is not None
+            device_id = args.get("device_id")
+            work_id = args.get("work_id") or args.get("specimen_id")
+            if not work_id and args.get("accession_ids"):
+                ids = args["accession_ids"]
+                work_id = ids[0] if isinstance(ids, list) and ids else None
+            if not work_id and args.get("aliquot_ids") and self._specimens is not None:
+                resolved = self._specimens.resolve_to_specimen_ids(
+                    None, args.get("aliquot_ids")
+                )
+                work_id = resolved[0] if resolved else None
+            if not work_id and args.get("aliquot_ids"):
+                ids = args["aliquot_ids"]
+                work_id = ids[0] if isinstance(ids, list) and ids else None
+            priority_raw = args.get("priority") or args.get("priority_class") or "ROUTINE"
+            priority_class = (
+                str(priority_raw).upper()
+                if str(priority_raw).upper() in ("STAT", "URGENT", "ROUTINE")
+                else "ROUTINE"
+            )
+            if not device_id or not work_id:
+                hashchain_dict, _ = self._audit.append(event)
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": RC_QUEUE_BAD_PAYLOAD,
+                    "hashchain": hashchain_dict,
+                }
+            if not self._queues.is_known_device(str(device_id)):
+                hashchain_dict, _ = self._audit.append(event)
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": RC_DEVICE_UNKNOWN,
+                    "hashchain": hashchain_dict,
+                }
+            agent_id = str(event.get("agent_id", ""))
+            if device_id and self._device_zone.get(str(device_id)) and agent_id:
+                device_zone = self._device_zone.get(str(device_id))
+                agent_zone = self._zones.get_agent_zone(agent_id)
+                if agent_zone is not None and device_zone != agent_zone:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
+                        "violations": [
+                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"},
+                        ],
+                        "hashchain": hashchain_dict,
+                    }
+            ok = self._queues.enqueue(
+                str(device_id),
+                str(work_id),
+                priority_class,
+                t_s,
+                agent_id,
+                event.get("reason_code") or args.get("reason_code"),
+                allow_duplicate_work_id=True,
+            )
+            if not ok:
+                hashchain_dict, _ = self._audit.append(event)
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": RC_QUEUE_DUPLICATE_WORK_ID,
+                    "hashchain": hashchain_dict,
+                }
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                }
+            return {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["QUEUE_RUN"],
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            }
+
         # Reception: specimens (GS-003, GS-004, GS-005, GS-021)
         assert self._specimens is not None, "specimens not initialized"
         if action_type == "CREATE_ACCESSION":
@@ -618,10 +798,85 @@ class CoreEnv(LabTrustEnvAdapter):
         # QC and results (GS-014, GS-015)
         assert self._qc is not None, "qc not initialized"
         if action_type == "START_RUN":
-            specimen_ids = self._specimens.resolve_to_specimen_ids(
-                args.get("specimen_ids"),
-                args.get("aliquot_ids"),
-            )
+            # Co-location: agent must be in device zone (GS-019)
+            device_id = args.get("device_id")
+            agent_id = str(event.get("agent_id", ""))
+            if device_id and self._zones is not None:
+                device_zone = self._device_zone.get(str(device_id))
+                agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
+                if device_zone and agent_zone is not None and agent_zone != device_zone:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
+                        "violations": [
+                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"},
+                        ],
+                        "hashchain": hashchain_dict,
+                    }
+            # Simulated timing: device must be IDLE to start a run
+            if (
+                self._timing_mode == "simulated"
+                and self._device_store is not None
+                and device_id
+                and not self._device_store.can_start_run(str(device_id))
+            ):
+                hashchain_dict, _ = self._audit.append(event)
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": RC_DEVICE_BUSY,
+                    "violations": [],
+                    "hashchain": hashchain_dict,
+                }
+            # Queue: consume head if no explicit work/specimen/aliquot; else enforce head == work_id
+            specimen_ids: Optional[List[str]] = None
+            if self._queues is not None and device_id:
+                resolved_from_args = self._specimens.resolve_to_specimen_ids(
+                    args.get("specimen_ids"),
+                    args.get("aliquot_ids"),
+                )
+                explicit_work_id = args.get("work_id")
+                if not resolved_from_args and not explicit_work_id:
+                    work_id_from_queue = self._queues.consume_head(str(device_id))
+                    if work_id_from_queue is None:
+                        hashchain_dict, _ = self._audit.append(event)
+                        return {
+                            **base,
+                            "status": "BLOCKED",
+                            "emits": [],
+                            "blocked_reason_code": RC_QUEUE_EMPTY,
+                            "hashchain": hashchain_dict,
+                        }
+                    specimen_ids = [work_id_from_queue]
+                elif resolved_from_args or explicit_work_id:
+                    work_id = explicit_work_id or (
+                        resolved_from_args[0] if resolved_from_args else None
+                    )
+                    if work_id is not None:
+                        head = self._queues.queue_head(str(device_id))
+                        if head is not None and head != str(work_id):
+                            hashchain_dict, _ = self._audit.append(event)
+                            return {
+                                **base,
+                                "status": "BLOCKED",
+                                "emits": [],
+                                "blocked_reason_code": RC_QUEUE_HEAD_MISMATCH,
+                                "hashchain": hashchain_dict,
+                            }
+                        if head == str(work_id):
+                            self._queues.consume_head(str(device_id))
+                    specimen_ids = resolved_from_args or (
+                        [str(explicit_work_id)] if explicit_work_id else []
+                    )
+            if specimen_ids is None:
+                specimen_ids = self._specimens.resolve_to_specimen_ids(
+                    args.get("specimen_ids"),
+                    args.get("aliquot_ids"),
+                )
             violations: List[Dict[str, Any]] = []
             for sid in specimen_ids or []:
                 spec = self._specimens.get(sid)
@@ -672,6 +927,25 @@ class CoreEnv(LabTrustEnvAdapter):
             run_id = args.get("run_id")
             if device_id and run_id:
                 self._qc.register_run(str(run_id), str(device_id))
+            # Simulated timing: schedule run completion (service time from RNG)
+            first_panel_id: Optional[str] = None
+            if specimen_ids and self._specimens:
+                first_spec = self._specimens.get(specimen_ids[0]) if specimen_ids else None
+                first_panel_id = first_spec.get("panel_id") if first_spec else None
+            if (
+                self._timing_mode == "simulated"
+                and self._device_store is not None
+                and device_id
+                and run_id
+            ):
+                self._device_store.start_run(
+                    str(device_id),
+                    str(run_id),
+                    t_s,
+                    work_id=specimen_ids[0] if specimen_ids else None,
+                    specimen_ids=specimen_ids or [],
+                    panel_id=first_panel_id,
+                )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
@@ -693,6 +967,24 @@ class CoreEnv(LabTrustEnvAdapter):
                 "hashchain": hashchain_dict,
             }
         if action_type == "START_RUN_OVERRIDE":
+            # Co-location: agent must be in device zone (GS-019)
+            device_id = args.get("device_id")
+            agent_id = str(event.get("agent_id", ""))
+            if device_id and self._zones is not None:
+                device_zone = self._device_zone.get(str(device_id))
+                agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
+                if device_zone and agent_zone is not None and agent_zone != device_zone:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
+                        "violations": [
+                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"},
+                        ],
+                        "hashchain": hashchain_dict,
+                    }
             specimen_ids = self._specimens.resolve_to_specimen_ids(
                 args.get("specimen_ids"),
                 args.get("aliquot_ids"),
@@ -1052,7 +1344,7 @@ class CoreEnv(LabTrustEnvAdapter):
         if expr == "last_reason_code_system":
             return self._system_state.get("last_reason_code_system")
         if expr.startswith("system_state(") and "log_frozen" in expr:
-            return self._system_state.get("log_frozen", False)
+            return "true" if self._system_state.get("log_frozen", False) else "false"
         if "token_active" in expr or expr == "token_active":
             return self._tokens.list_active_ids()
         zone_state_match = re.match(r"zone_state\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr)
@@ -1092,4 +1384,41 @@ class CoreEnv(LabTrustEnvAdapter):
             return self._critical.notification_mode_required(
                 notif_mode_match.group(1)
             )
+        queue_head_match = re.match(
+            r"queue_head\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
+        )
+        if queue_head_match and self._queues is not None:
+            return self._queues.queue_head(queue_head_match.group(1))
+        queue_length_match = re.match(
+            r"queue_length\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
+        )
+        if queue_length_match and self._queues is not None:
+            return self._queues.queue_length(queue_length_match.group(1))
+        agent_zone_match = re.match(
+            r"agent_zone\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
+        )
+        if agent_zone_match and self._zones is not None:
+            return self._zones.get_agent_zone(agent_zone_match.group(1))
+        door_state_match = re.match(
+            r"door_state\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr
+        )
+        if door_state_match and self._zones is not None:
+            door_id = door_state_match.group(1)
+            is_open, open_since_ts = self._zones.get_door_state(door_id)
+            duration_s = (
+                (self._now_ts - open_since_ts) if (open_since_ts is not None) else 0
+            )
+            return {"open": is_open, "open_since_ts": open_since_ts, "open_duration_s": duration_s}
+        if expr == "specimen_counts" and self._specimens is not None:
+            return self._specimens.get_status_counts()
+        device_qc_match = re.match(
+            r"device_qc_state\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
+        )
+        if device_qc_match and self._qc is not None:
+            return self._qc.device_qc_state(device_qc_match.group(1))
+        device_state_match = re.match(
+            r"device_state\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
+        )
+        if device_state_match and self._device_store is not None:
+            return self._device_store.device_state(device_state_match.group(1))
         raise ValueError(f"Unsupported query: {expr!r}")
