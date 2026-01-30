@@ -35,6 +35,11 @@ dev = [
     "ruff>=0.1",
     "mypy>=1.0",
 ]
+# PettingZoo Parallel API wrapper; install with: pip install -e ".[env]"
+env = [
+    "pettingzoo>=1.24",
+    "gymnasium>=0.29",
+]
 
 [project.scripts]
 labtrust = "labtrust_gym.cli.main:main"

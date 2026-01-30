@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.reason_code_registry.v0.1",
+  "title": "Reason code registry v0.1",
+  "type": "object",
+  "required": ["reason_code_registry"],
+  "additionalProperties": true,
+  "properties": {
+    "reason_code_registry": {
+      "type": "object",
+      "required": ["codes"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "codes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code"],
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

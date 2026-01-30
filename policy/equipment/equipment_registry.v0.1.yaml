@@ -25,17 +25,23 @@ equipment_registry:
 
     CENTRIFUGE_BANK:
       kind: "BATCH_SERVER"
-      batch:
+      capacity: 60
+      batch_model:
+        batch_capacity: 60
         min_batch_size: 1
         max_batch_size: 60
         fill_policy: "WAIT_UP_TO_TMAX_OR_FULL"
         tmax_wait_s: 120
-      timing_model:
+      service_time_model:
         setup_s: { dist: "deterministic", value: 60 }
-        run_s:
-          # canonical centrifugation guidance: ~10 minutes at ~1300–2000 g (swing-bucket).
+        spin_time_s:
+          # canonical centrifugation: ~10 min at ~1300–2000 g (swing-bucket).
           dist: "deterministic"
           value: 600
+        teardown_s: { dist: "deterministic", value: 60 }
+      timing_model:
+        setup_s: { dist: "deterministic", value: 60 }
+        run_s: { dist: "deterministic", value: 600 }
         teardown_s: { dist: "deterministic", value: 60 }
       constraints:
         required_preconditions:
@@ -49,9 +55,13 @@ equipment_registry:
 
     ALIQUOTER:
       kind: "SINGLE_SERVER"
+      capacity: 1
       throughput:
-        # automated aliquoting modules commonly quote hundreds of tubes/hour; set as explicit parameter.
         tubes_per_hour: 500
+        samples_per_min: 8.33   # 500/60; throughput for cycle-time model
+      service_time_model:
+        per_tube_overhead_s: { dist: "deterministic", value: 3 }
+        per_aliquot_s: { dist: "deterministic", value: 2 }
       timing_model:
         per_tube_overhead_s: { dist: "deterministic", value: 3 }
         per_aliquot_s: { dist: "deterministic", value: 2 }
@@ -66,20 +76,24 @@ equipment_registry:
       kind: "WORKLOAD_LIMITED_SERVER"
       workload_unit: "chemistry.test_equivalents"
       capacity:
-        # cobas c 703 and cobas c701/c702 class modules are publicly described at ~2000 tests/hour.
         tests_per_hour: 2000
+      service_time_model:
+        rack_setup_s: { dist: "deterministic", value: 30 }
+        per_sample_load_s: { dist: "deterministic", value: 2 }
+        per_test_s: { dist: "deterministic", value: 1.8 }
+        per_panel_s:
+          BIOCHEM_PANEL_CORE: { dist: "deterministic", value: 30 }
       timing_model:
         rack_setup_s: { dist: "deterministic", value: 30 }
         per_sample_load_s: { dist: "deterministic", value: 2 }
-        per_test_s:
-          dist: "deterministic"
-          value: 1.8   # 3600/2000
+        per_test_s: { dist: "deterministic", value: 1.8 }
       qc_model:
         enabled: true
+        qc_interval_runs: 50
         schedule:
           kind: "INTERVAL_OR_WORKLOAD"
-          interval_s: 28800           # 8 hours (tunable, risk-based)
-          max_patient_tests: 5000     # whichever comes first
+          interval_s: 28800
+          max_patient_tests: 5000
         qc_levels: 2
         westgard_ruleset: "MULTIRULE_DEFAULT"
         outcomes:
@@ -118,20 +132,25 @@ equipment_registry:
       kind: "WORKLOAD_LIMITED_SERVER"
       workload_unit: "coag.test_equivalents"
       capacity:
-        # Sysmex CS-5100 public specs: PT only 400 tests/h; PT/APTT 400 tests/h; broader panels lower.
         panel_capacities_tests_per_hour:
           PT_ONLY: 400
           PT_APTT: 400
           PT_APTT_FBG_AT_DD: 270
+      service_time_model:
+        rack_setup_s: { dist: "deterministic", value: 30 }
+        per_sample_load_s: { dist: "deterministic", value: 2 }
+        per_panel_s:
+          COAG_PANEL_CORE: { dist: "deterministic", value: 45 }
       timing_model:
         rack_setup_s: { dist: "deterministic", value: 30 }
         per_sample_load_s: { dist: "deterministic", value: 2 }
         per_test_s_dynamic:
-          PT_ONLY: 9.0        # 3600/400
-          PT_APTT: 9.0        # vendor states simultaneous; keep same capacity model
-          PT_APTT_FBG_AT_DD: 13.33  # 3600/270
+          PT_ONLY: 9.0
+          PT_APTT: 9.0
+          PT_APTT_FBG_AT_DD: 13.33
       qc_model:
         enabled: true
+        qc_interval_runs: 40
         schedule:
           kind: "INTERVAL_OR_WORKLOAD"
           interval_s: 28800
@@ -145,34 +164,64 @@ equipment_registry:
     # Pre-analytics
     - device_id: "DEV_CENTRIFUGE_BANK_01"
       device_type: "CENTRIFUGE_BANK"
-      parallel_units: 2
+      zone_id: "centrifuge_bay"
       zone: "centrifuge_bay"
+      capacity: 60
+      parallel_units: 2
+      service_time_model: null   # inherit from type
+      batch_model: null
+      failure_model: null
 
     - device_id: "DEV_ALIQUOTER_01"
       device_type: "ALIQUOTER"
-      parallel_units: 1
+      zone_id: "aliquot_label_station"
       zone: "aliquot_label_station"
+      capacity: 1
+      parallel_units: 1
+      service_time_model: null
+      batch_model: null
+      failure_model: null
 
     # Analytics (Hall A / Hall B)
     - device_id: "DEV_CHEM_A_01"
       device_type: "CHEM_ANALYZER"
-      parallel_units: 1
+      zone_id: "analyzer_hall_A"
       zone: "analyzer_hall_A"
+      capacity: 2000
+      parallel_units: 1
+      service_time_model: null
+      batch_model: null
+      failure_model: null
 
     - device_id: "DEV_CHEM_B_01"
       device_type: "CHEM_ANALYZER"
-      parallel_units: 1
+      zone_id: "analyzer_hall_B"
       zone: "analyzer_hall_B"
+      capacity: 2000
+      parallel_units: 1
+      service_time_model: null
+      batch_model: null
+      failure_model: null
 
     - device_id: "DEV_HAEM_01"
       device_type: "HAEM_ANALYZER"
-      parallel_units: 1
+      zone_id: "analyzer_hall_A"
       zone: "analyzer_hall_A"
+      capacity: 100
+      parallel_units: 1
+      service_time_model: null
+      batch_model: null
+      failure_model: null
 
     - device_id: "DEV_COAG_01"
       device_type: "COAG_ANALYZER"
-      parallel_units: 1
+      zone_id: "analyzer_hall_B"
       zone: "analyzer_hall_B"
+      capacity: 270
+      parallel_units: 1
+      service_time_model: null
+      batch_model: null
+      failure_model: null
 
   panel_workload_map:
     # These are *simulation defaults*; your next step (catalogue schema) will tighten this by test-level constraints.

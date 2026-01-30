@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.token_registry.v0.1",
+  "title": "Token registry v0.1",
+  "type": "object",
+  "required": ["token_registry"],
+  "additionalProperties": true,
+  "properties": {
+    "token_registry": {
+      "type": "object",
+      "required": ["token_types"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "crypto": { "type": "object" },
+        "lifecycle": { "type": "object" },
+        "required_fields": { "type": "array", "items": { "type": "string" } },
+        "token_types": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["ttl_s", "approvals_required"],
+            "additionalProperties": true,
+            "properties": {
+              "purpose": { "type": "string" },
+              "subject_type": {},
+              "scope": { "type": "object" },
+              "ttl_s": { "type": "integer" },
+              "approvals_required": { "type": "integer" },
+              "approver_roles": { "type": "array", "items": { "type": "string" } },
+              "separation_of_duties": { "type": "object" },
+              "revocable": { "type": "boolean" },
+              "reason_code_required": { "type": "boolean" },
+              "reason_codes_allowed": { "type": "array", "items": { "type": "string" } },
+              "constraints": { "type": "object" }
+            }
+          }
+        },
+        "approval_schema": { "type": "object" },
+        "signature_bundle_schema": { "type": "object" },
+        "revocation": { "type": "object" }
+      }
+    }
+  }
+}

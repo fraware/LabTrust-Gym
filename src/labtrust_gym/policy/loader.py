@@ -107,17 +107,30 @@ def validate_against_schema(
         raise PolicyLoadError(path or Path("."), f"schema validation failed: {e}") from e
 
 
+# Policy file -> schema file mapping (filename under policy/ -> schema under policy/schemas/)
+POLICY_FILE_SCHEMA_MAP: dict[str, str] = {
+    "test_catalogue.seed.v0.1.json": "test_catalogue.schema.v0.1.json",
+    "emits_vocab.v0.1.yaml": "emits_vocab.v0.1.schema.json",
+    "zone_layout_policy.v0.1.yaml": "zone_layout_policy.v0.1.schema.json",
+    "reason_code_registry.v0.1.yaml": "reason_code_registry.v0.1.schema.json",
+    "token_registry.v0.1.yaml": "token_registry.v0.1.schema.json",
+    "dual_approval_policy.v0.1.yaml": "dual_approval_policy.v0.1.schema.json",
+    "critical_thresholds.v0.1.yaml": "critical_thresholds.v0.1.schema.json",
+    "equipment_registry.v0.1.yaml": "equipment_registry.v0.1.schema.json",
+    "golden_scenarios.v0.1.yaml": "golden_scenarios.v0.1.schema.json",
+}
+
+
 def get_schema_path_for_file(file_path: Path, schemas_dir: Path) -> Path | None:
     """
     Return the schema path for a given policy file if we have a known mapping; else None.
 
-    Known mappings (file under policy/ -> schema under policy/schemas/):
-    - catalogue/test_catalogue.seed.v0.1.json -> test_catalogue.schema.v0.1.json
-    - Any .json in schemas/ is a schema itself (no validation against another schema).
+    Uses POLICY_FILE_SCHEMA_MAP. Any .json in schemas/ is a schema itself (no validation).
     """
     file_path = Path(file_path).resolve()
     schemas_dir = Path(schemas_dir).resolve()
     name = file_path.name
-    if name == "test_catalogue.seed.v0.1.json":
-        return schemas_dir / "test_catalogue.schema.v0.1.json"
+    schema_name = POLICY_FILE_SCHEMA_MAP.get(name)
+    if schema_name:
+        return schemas_dir / schema_name
     return None

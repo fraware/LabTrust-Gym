@@ -141,6 +141,14 @@ class SpecimenStore:
         spec = self._specimens.get(specimen_id)
         return spec.get("status") if spec else None
 
+    def get_status_counts(self) -> Dict[str, int]:
+        """Return counts of specimens per status (for observation)."""
+        counts: Dict[str, int] = {}
+        for spec in self._specimens.values():
+            st = spec.get("status") or "unknown"
+            counts[st] = counts.get(st, 0) + 1
+        return counts
+
     def last_reason_code(self, specimen_id: str) -> Optional[str]:
         spec = self._specimens.get(specimen_id)
         return spec.get("last_reason_code") if spec else None
