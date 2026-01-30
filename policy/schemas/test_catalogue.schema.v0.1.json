@@ -1,0 +1,162 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://labtrust-gym.org/schemas/test_catalogue.schema.v0.1.json",
+    "title": "LabTrust-Gym Test Catalogue Schema v0.1",
+    "type": "object",
+    "required": ["schema_version", "generated_utc", "panels", "tests", "shared_vocab"],
+    "properties": {
+      "schema_version": { "type": "string", "const": "test_catalogue.v0.1" },
+      "generated_utc": { "type": "string", "format": "date-time" },
+
+      "shared_vocab": {
+        "type": "object",
+        "required": ["disciplines", "priority_classes", "temp_bands", "container_types", "specimen_types"],
+        "properties": {
+          "disciplines": { "type": "array", "items": { "type": "string" } },
+          "priority_classes": { "type": "array", "items": { "type": "string", "enum": ["ROUTINE", "URGENT", "STAT"] } },
+          "temp_bands": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["AMBIENT_15_25C", "CHILLED_2_8C", "FROZEN_LEQ_MINUS20C", "FROZEN_LEQ_MINUS70C"] }
+          },
+          "container_types": { "type": "array", "items": { "type": "string" } },
+          "specimen_types": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+
+      "panels": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/panel" }
+      },
+
+      "tests": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/test" }
+      }
+    },
+
+    "$defs": {
+      "stabilityWindow": {
+        "type": "object",
+        "required": ["phase", "max_age_s", "allowed_temp_bands", "on_expiry_action"],
+        "properties": {
+          "phase": { "type": "string", "enum": ["PRE_CENTRIFUGE", "POST_CENTRIFUGE", "POST_SEPARATION", "POST_FREEZE"] },
+          "max_age_s": { "type": "integer", "minimum": 0 },
+          "allowed_temp_bands": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["AMBIENT_15_25C", "CHILLED_2_8C", "FROZEN_LEQ_MINUS20C", "FROZEN_LEQ_MINUS70C"] }
+          },
+          "on_expiry_action": { "type": "string", "enum": ["HOLD_SPECIMEN", "REJECT_SPECIMEN", "REQUIRES_OVERRIDE_TOKEN"] },
+          "reason_code_on_expiry": { "type": "string" }
+        }
+      },
+
+      "specimenRequirement": {
+        "type": "object",
+        "required": ["specimen_type", "allowed_containers", "min_volume_ml", "label_policy", "fill_policy"],
+        "properties": {
+          "specimen_type": { "type": "string" },
+          "allowed_containers": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "min_volume_ml": { "type": "number", "minimum": 0.0 },
+          "label_policy": {
+            "type": "object",
+            "required": ["min_identifier_fields", "zero_tolerance_mismatch"],
+            "properties": {
+              "min_identifier_fields": { "type": "integer", "minimum": 2 },
+              "zero_tolerance_mismatch": { "type": "boolean" }
+            }
+          },
+          "fill_policy": {
+            "type": "object",
+            "required": ["requires_fill_line", "min_fill_ratio"],
+            "properties": {
+              "requires_fill_line": { "type": "boolean" },
+              "min_fill_ratio": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+            }
+          }
+        }
+      },
+
+      "preAnalyticsStep": {
+        "type": "object",
+        "required": ["step_id", "action_type", "required_zone", "required_device_type"],
+        "properties": {
+          "step_id": { "type": "string" },
+          "action_type": { "type": "string" },
+          "required_zone": { "type": "string" },
+          "required_device_type": { "type": "string" },
+          "max_queue_wait_s": { "type": "integer", "minimum": 0 },
+          "params": { "type": "object" }
+        }
+      },
+
+      "rejectionRule": {
+        "type": "object",
+        "required": ["reason_code", "severity", "non_overridable", "hook_action"],
+        "properties": {
+          "reason_code": { "type": "string" },
+          "severity": { "type": "string", "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "non_overridable": { "type": "boolean" },
+          "hook_action": { "type": "string", "enum": ["AUTO_REJECT", "AUTO_HOLD", "REQUIRES_OVERRIDE_TOKEN"] },
+          "override_policy_ref": { "type": "string" }
+        }
+      },
+
+      "panel": {
+        "type": "object",
+        "required": ["panel_id", "discipline", "priority_supported", "specimen_requirement", "stability", "temp_policy", "preanalytics_pipeline", "device_compatibility", "rejection_rules", "result_release_policy"],
+        "properties": {
+          "panel_id": { "type": "string" },
+          "display_name": { "type": "string" },
+          "discipline": { "type": "string" },
+          "priority_supported": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["ROUTINE", "URGENT", "STAT"] }
+          },
+          "specimen_requirement": { "$ref": "#/$defs/specimenRequirement" },
+          "stability": { "type": "array", "items": { "$ref": "#/$defs/stabilityWindow" }, "minItems": 1 },
+          "temp_policy": {
+            "type": "object",
+            "required": ["preferred_temp_band", "forbidden_temp_bands"],
+            "properties": {
+              "preferred_temp_band": { "type": "string" },
+              "forbidden_temp_bands": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "preanalytics_pipeline": { "type": "array", "items": { "$ref": "#/$defs/preAnalyticsStep" } },
+          "device_compatibility": {
+            "type": "object",
+            "required": ["analyzer_device_types", "requires_centrifuge", "requires_aliquoting"],
+            "properties": {
+              "analyzer_device_types": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+              "requires_centrifuge": { "type": "boolean" },
+              "requires_aliquoting": { "type": "boolean" }
+            }
+          },
+          "rejection_rules": { "type": "array", "items": { "$ref": "#/$defs/rejectionRule" } },
+          "result_release_policy": {
+            "type": "object",
+            "required": ["default_state", "auto_verify_allowed", "critical_requires_ack"],
+            "properties": {
+              "default_state": { "type": "string", "enum": ["HELD", "AUTO_VERIFY_PENDING"] },
+              "auto_verify_allowed": { "type": "boolean" },
+              "critical_requires_ack": { "type": "boolean" }
+            }
+          }
+        }
+      },
+
+      "test": {
+        "type": "object",
+        "required": ["test_id", "panel_id", "analyte_code", "unit", "criticality_ref"],
+        "properties": {
+          "test_id": { "type": "string" },
+          "panel_id": { "type": "string" },
+          "analyte_code": { "type": "string" },
+          "display_name": { "type": "string" },
+          "unit": { "type": "string" },
+          "criticality_ref": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }

@@ -1,0 +1,65 @@
+# Placeholder critical thresholds per analyte (RCPath-style).
+# Used by engine/critical.py to classify result_criticality: CRIT_A, CRIT_B, or none.
+critical_thresholds:
+  version: "0.1"
+  defaults_rcpath2017:
+    - analyte_code: "BIOCHEM_SODIUM_NA"
+      units: "mmol/L"
+      low: 120
+      high: 160
+      class: "CRIT_A"
+    - analyte_code: "BIOCHEM_POTASSIUM_K"
+      units: "mmol/L"
+      low: 2.5
+      high: 6.5
+      class: "CRIT_A"
+    - analyte_code: "BIOCHEM_GLUCOSE"
+      units: "mmol/L"
+      low: 2.0
+      high: 25.0
+      class: "CRIT_A"
+    - analyte_code: "BIOCHEM_UREA"
+      units: "mmol/L"
+      low: null
+      high: 30.0
+      class: "CRIT_A"
+    - analyte_code: "BIOCHEM_CREATININE"
+      units: "umol/L"
+      low: null
+      high: 354.0
+      class: "CRIT_A"
+    - analyte_code: "BIOCHEM_CALCIUM_ADJ"
+      units: "mmol/L"
+      low: 1.8
+      high: 3.5
+      class: "CRIT_A"
+    - analyte_code: "BIOCHEM_CRP"
+      units: "mg/L"
+      low: null
+      high: 300.0
+      class: "CRIT_A"
+    - analyte_code: "HAEM_HB"
+      units: "g/L"
+      low: 50.0
+      high: 190.0
+      class: "CRIT_A"
+    - analyte_code: "HAEM_NEUTROPHILS"
+      units: "x10^9/L"
+      low: 0.5
+      high: null
+      class: "CRIT_A"
+    - analyte_code: "HAEM_WCC"
+      units: "x10^9/L"
+      low: null
+      high: 50.0
+      class: "CRIT_A"
+    - analyte_code: "HAEM_PLATELETS"
+      units: "x10^9/L"
+      low: 30.0
+      high: 1000.0
+      class: "CRIT_A"
+    - analyte_code: "COAG_INR"
+      units: "ratio"
+      low: null
+      high: 6.5
+      class: "CRIT_A"

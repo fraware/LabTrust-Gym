@@ -1,0 +1,197 @@
+zone_layout_policy:
+  version: "0.1"
+  partner_anchor:
+    site: "HSL / UCLH blood sciences at 60 Whitfield Street (automation hub)"
+    notes:
+      - "Public sources indicate specimen reception (SRA) at 60 Whitfield Street and a fully automated routine biochemistry laboratory."
+  timebase:
+    dt_s: 10                     # simulator tick (set globally); used to compile door-open N
+    traversal_time_model: "DETERMINISTIC"  # v0.1 deterministic; can add noise later
+    default_edge_travel_s: 20
+
+  temperature_bands:
+    AMBIENT_20_25: { c_min: 20, c_max: 25 }
+    REFRIGERATED_2_8: { c_min: 2, c_max: 8 }
+    FROZEN_M20: { c_min: -25, c_max: -15 }
+    FROZEN_M80: { c_min: -90, c_max: -70 }
+
+  zones:
+    # “Inside building” scope starts at reception. Order/collect/transport are modeled as exogenous arrivals.
+    - zone_id: "Z_INGRESS_DOCK"
+      name: "Ingress / Delivery Dock"
+      kind: "INGRESS"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_RECEPTION", "ROLE_RUNNER"]
+      contamination_class: "UNKNOWN"
+
+    - zone_id: "Z_SRA_RECEPTION"
+      name: "Specimen Reception Area (SRA)"
+      kind: "RECEPTION"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_RECEPTION"]
+      contamination_class: "MIXED"
+      notes:
+        - "Receives batches; scan/label validation; triage to blood sciences lanes."
+
+    - zone_id: "Z_ACCESSIONING"
+      name: "Accessioning / Registration"
+      kind: "ADMIN"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_RECEPTION"]
+      contamination_class: "CLEAN"
+
+    - zone_id: "Z_SORTING_LANES"
+      name: "Sorting / Lane Staging"
+      kind: "STAGING"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_RECEPTION", "ROLE_OPS", "ROLE_RUNNER"]
+      contamination_class: "MIXED"
+
+    - zone_id: "Z_PREANALYTICS"
+      name: "Pre-analytics"
+      kind: "PREANALYTICS"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_RUNNER", "ROLE_PREANALYTICS"]
+      contamination_class: "MIXED"
+
+    - zone_id: "Z_CENTRIFUGE_BAY"
+      name: "Centrifuge Bay"
+      kind: "DEVICE_ZONE"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_PREANALYTICS"]
+      contamination_class: "MIXED"
+
+    - zone_id: "Z_ALIQUOT_LABEL"
+      name: "Aliquot + Label Station"
+      kind: "DEVICE_ZONE"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_PREANALYTICS"]
+      contamination_class: "MIXED"
+
+    - zone_id: "Z_ANALYZER_HALL_A"
+      name: "Analyzer Hall A"
+      kind: "ANALYTICS"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_RUNNER", "ROLE_ANALYTICS"]
+      contamination_class: "CLEAN"
+
+    - zone_id: "Z_ANALYZER_HALL_B"
+      name: "Analyzer Hall B"
+      kind: "ANALYTICS"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_RUNNER", "ROLE_ANALYTICS"]
+      contamination_class: "CLEAN"
+
+    - zone_id: "Z_QC_SUPERVISOR"
+      name: "QC Bench / Supervisor Desk"
+      kind: "QC"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_QC", "ROLE_SUPERVISOR"]
+      contamination_class: "CLEAN"
+
+    - zone_id: "Z_COLD_FRIDGE"
+      name: "Cold Storage - Fridge"
+      kind: "COLD_STORAGE"
+      temp_band: "REFRIGERATED_2_8"
+      rbac_required: ["ROLE_RUNNER", "ROLE_PREANALYTICS", "ROLE_ANALYTICS"]
+      contamination_class: "CLEAN"
+
+    - zone_id: "Z_COLD_FREEZER"
+      name: "Cold Storage - Freezer"
+      kind: "COLD_STORAGE"
+      temp_band: "FROZEN_M20"
+      rbac_required: ["ROLE_RUNNER", "ROLE_PREANALYTICS", "ROLE_ANALYTICS"]
+      contamination_class: "CLEAN"
+
+    - zone_id: "Z_RESTRICTED_BIOHAZARD"
+      name: "Restricted Biohazard / High-Control Area"
+      kind: "RESTRICTED"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_BIOHAZARD", "ROLE_SUPERVISOR"]
+      contamination_class: "DIRTY"
+      restricted: true
+      requires_access_token: "TOKEN_RESTRICTED_ENTRY"
+
+    - zone_id: "Z_WASTE_DISPOSAL"
+      name: "Waste / Disposal"
+      kind: "WASTE"
+      temp_band: "AMBIENT_20_25"
+      rbac_required: ["ROLE_RUNNER", "ROLE_BIOHAZARD"]
+      contamination_class: "DIRTY"
+
+  doors:
+    - door_id: "D_MAIN_INNER"
+      from_zone: "Z_INGRESS_DOCK"
+      to_zone: "Z_SRA_RECEPTION"
+      kind: "STANDARD"
+      max_open_s: 600             # 10 minutes; tune to site
+      alarm_on_breach: true
+
+    - door_id: "D_RESTRICTED_AIRLOCK"
+      from_zone: "Z_SRA_RECEPTION"
+      to_zone: "Z_RESTRICTED_BIOHAZARD"
+      kind: "RESTRICTED_AIRLOCK"
+      max_open_s: 200             # door_open_max_s: breach after 200s (GS-009: breach at t_s=1030, not at 900)
+      alarm_on_breach: true
+      requires_token: "TOKEN_RESTRICTED_ENTRY"
+      requires_role: ["ROLE_BIOHAZARD", "ROLE_SUPERVISOR"]
+
+    - door_id: "D_WASTE"
+      from_zone: "Z_RESTRICTED_BIOHAZARD"
+      to_zone: "Z_WASTE_DISPOSAL"
+      kind: "RESTRICTED"
+      max_open_s: 120
+      alarm_on_breach: true
+      requires_role: ["ROLE_BIOHAZARD"]
+
+  graph_edges:
+    # Each edge is a permitted path. Doors override edge permissions.
+    - { from: "Z_INGRESS_DOCK", to: "Z_SRA_RECEPTION", travel_s: 15, via_door: "D_MAIN_INNER" }
+    - { from: "Z_SRA_RECEPTION", to: "Z_ACCESSIONING", travel_s: 15 }
+    - { from: "Z_ACCESSIONING", to: "Z_SORTING_LANES", travel_s: 15 }
+    - { from: "Z_SORTING_LANES", to: "Z_PREANALYTICS", travel_s: 20 }
+    - { from: "Z_SORTING_LANES", to: "Z_CENTRIFUGE_BAY", travel_s: 20 }
+    - { from: "Z_PREANALYTICS", to: "Z_CENTRIFUGE_BAY", travel_s: 15 }
+    - { from: "Z_CENTRIFUGE_BAY", to: "Z_ALIQUOT_LABEL", travel_s: 15 }
+    - { from: "Z_ALIQUOT_LABEL", to: "Z_ANALYZER_HALL_A", travel_s: 20 }
+    - { from: "Z_ALIQUOT_LABEL", to: "Z_ANALYZER_HALL_B", travel_s: 20 }
+    - { from: "Z_ANALYZER_HALL_A", to: "Z_QC_SUPERVISOR", travel_s: 15 }
+    - { from: "Z_ANALYZER_HALL_B", to: "Z_QC_SUPERVISOR", travel_s: 15 }
+    - { from: "Z_ANALYZER_HALL_A", to: "Z_COLD_FRIDGE", travel_s: 15 }
+    - { from: "Z_ANALYZER_HALL_B", to: "Z_COLD_FRIDGE", travel_s: 15 }
+    - { from: "Z_COLD_FRIDGE", to: "Z_COLD_FREEZER", travel_s: 10 }
+    - { from: "Z_SRA_RECEPTION", to: "Z_RESTRICTED_BIOHAZARD", travel_s: 10, via_door: "D_RESTRICTED_AIRLOCK" }
+    - { from: "Z_RESTRICTED_BIOHAZARD", to: "Z_WASTE_DISPOSAL", travel_s: 10, via_door: "D_WASTE" }
+
+  device_placement:
+    # Must match your Equipment Registry IDs.
+    - { device_id: "DEV_CENTRIFUGE_BANK_01", zone_id: "Z_CENTRIFUGE_BAY" }
+    - { device_id: "DEV_ALIQUOTER_01", zone_id: "Z_ALIQUOT_LABEL" }
+    - { device_id: "DEV_CHEM_A_01", zone_id: "Z_ANALYZER_HALL_A" }
+    - { device_id: "DEV_CHEM_B_01", zone_id: "Z_ANALYZER_HALL_B" }
+    - { device_id: "DEV_HAEM_01", zone_id: "Z_ANALYZER_HALL_A" }
+    - { device_id: "DEV_COAG_01", zone_id: "Z_ANALYZER_HALL_B" }
+
+  entity_movement_rules:
+    # What may move where (hard guards).
+    Specimen:
+      default_allowed_zones:
+        - "Z_SRA_RECEPTION"
+        - "Z_ACCESSIONING"
+        - "Z_SORTING_LANES"
+        - "Z_PREANALYTICS"
+        - "Z_CENTRIFUGE_BAY"
+        - "Z_ALIQUOT_LABEL"
+        - "Z_ANALYZER_HALL_A"
+        - "Z_ANALYZER_HALL_B"
+        - "Z_COLD_FRIDGE"
+        - "Z_COLD_FREEZER"
+      restricted_zone_entry:
+        allowed_if:
+          - "specimen.hazard_flag == true"
+          - "has_token('TOKEN_RESTRICTED_ENTRY')"
+          - "agent.role in ['ROLE_BIOHAZARD','ROLE_SUPERVISOR']"
+    Aliquot:
+      same_as: "Specimen"
+    Waste:
+      allowed_zones: ["Z_RESTRICTED_BIOHAZARD", "Z_WASTE_DISPOSAL"]
