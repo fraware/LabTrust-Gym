@@ -83,6 +83,7 @@ class BenchmarkTask:
     scripted_agents: List[str]
     reward_config: Dict[str, Any]
     sla_turnaround_s: Optional[int] = None  # for on-time rate (accept->release)
+    attack_start_step: Optional[int] = None  # TaskD: first adversarial action step for detection_latency_s
 
     def get_initial_state(self, seed: int) -> Dict[str, Any]:
         """Deterministic initial_state given seed. Override in subclasses."""
@@ -190,6 +191,52 @@ class TaskC_QCFailCascade(BenchmarkTask):
         }
 
 
+def _make_agents_with_adversary(
+    zone_overrides: Optional[Dict[str, str]] = None,
+) -> List[Dict[str, str]]:
+    """Agents for TaskD: ops, runners, qc, supervisor, adversary_0."""
+    base = _make_agents(zone_overrides)
+    base.append({"agent_id": "A_ADVERSARY_0", "zone_id": "Z_SORTING_LANES"})
+    return base
+
+
+class TaskD_AdversarialDisruption(BenchmarkTask):
+    """Adversarial disruption: scripted_ops + scripted_runner + adversary_0.
+    Metrics: time-to-detection, blast radius, attribution (audit has agent_id + action chain).
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            name="TaskD_AdversarialDisruption",
+            max_steps=80,
+            scripted_agents=["ops_0", "runner_0", "runner_1", "adversary_0"],
+            reward_config={
+                "throughput_reward": 0.5,
+                "violation_penalty": 0.2,
+                "blocked_penalty": 0.1,
+            },
+            sla_turnaround_s=3600,
+            attack_start_step=2,
+        )
+
+    def get_initial_state(self, seed: int) -> Dict[str, Any]:
+        rng = random.Random(seed)
+        n = 3 + (seed % 2)
+        specimens = []
+        for i in range(n):
+            specimens.append(
+                _specimen_template(
+                    f"TD_{seed}_{i}", arrival_ts_s=rng.randint(0, 50)
+                )
+            )
+        return {
+            "system": {"now_s": 0, "downtime_active": False},
+            "agents": _make_agents_with_adversary(),
+            "specimens": specimens,
+            "tokens": [],
+        }
+
+
 _TASK_REGISTRY: Dict[str, type] = {
     "TaskA": TaskA_ThroughputSLA,
     "TaskA_ThroughputSLA": TaskA_ThroughputSLA,
@@ -197,6 +244,8 @@ _TASK_REGISTRY: Dict[str, type] = {
     "TaskB_STATInsertionUnderLoad": TaskB_STATInsertionUnderLoad,
     "TaskC": TaskC_QCFailCascade,
     "TaskC_QCFailCascade": TaskC_QCFailCascade,
+    "TaskD": TaskD_AdversarialDisruption,
+    "TaskD_AdversarialDisruption": TaskD_AdversarialDisruption,
 }
 
 

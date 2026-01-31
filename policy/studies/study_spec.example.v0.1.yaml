@@ -1,0 +1,18 @@
+# Example study spec for research-grade ablations.
+# Used by: labtrust run-study --spec policy/studies/study_spec.example.v0.1.yaml --out runs/<name>
+#
+# Cartesian product of ablations is expanded; each condition runs episodes with deterministic seeds.
+# Output: out_dir/manifest.json, conditions.jsonl, results/<condition_id>/results.json, logs/<condition_id>/episodes.jsonl
+
+task: TaskA
+episodes: 4
+seed_base: 42
+timing_mode: explicit
+
+ablations:
+  trust_skeleton: [on, off]
+  rbac: [coarse]
+  dual_approval: [on]
+  log_granularity: [minimal]
+
+agent_config: scripted_runner

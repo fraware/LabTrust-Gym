@@ -31,6 +31,17 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 - **Reward config**: None (reward=0 initially).
 - **SLA**: None.
 
+### TaskD_AdversarialDisruption (TaskD)
+
+- **Goal**: Detection, containment, and attribution under adversarial disruption.
+- **Initial state**: Deterministic from seed; 3–4 specimens.
+- **Episode length**: 80 steps.
+- **Agents**: Scripted ops + scripted runners + **adversary_0** (deterministic adversarial policy).
+- **Adversary behaviors**: Misroute racks (QUEUE_RUN to wrong device), attempt unauthorized restricted door, attempt expired token/replay, leave door open (no TICK mitigation).
+- **Reward config**: throughput_reward 0.5, violation_penalty 0.2, blocked_penalty 0.1.
+- **SLA**: 3600 s.
+- **Metrics**: `detection_latency_s` (first violation ts − attack start), `containment_success` (enforcement before unsafe release), `attribution_confidence_proxy` (audit has agent_id + action chain).
+
 ## Metrics (per episode)
 
 | Metric | Description |
@@ -46,6 +57,9 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 | `tokens_consumed` | Count of token_consumed in step results. |
 | `holds_count` | Count of HOLD_SPECIMEN emits. |
 | `steps` | Number of env steps. |
+| `detection_latency_s` | (TaskD) First violation timestamp − attack start timestamp (s). |
+| `containment_success` | (TaskD) True if enforcement triggered before any release (or no release). |
+| `attribution_confidence_proxy` | (TaskD) 1.0 when violations detected (audit log has agent_id + action chain). |
 
 ## Output (results.json)
 
@@ -62,7 +76,7 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 labtrust run-benchmark --task TaskA --episodes 50 --seed 123 --out results.json
 ```
 
-- `--task`: TaskA, TaskB, TaskC (or full name).
+- `--task`: TaskA, TaskB, TaskC, TaskD (or full name).
 - `--episodes`: Number of episodes (default 10).
 - `--seed`: Base seed (default 123).
 - `--out`: Output JSON path (default results.json).

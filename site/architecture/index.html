@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://fraware.github.io/LabTrust-Gym/architecture/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Architecture - LabTrust-Gym</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Architecture";
+        var mkdocs_page_input_path = "architecture.md";
+        var mkdocs_page_url = "/LabTrust-Gym/architecture/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> LabTrust-Gym
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Overview</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Architecture</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../policy_pack/">Policy pack and schemas</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Invariants and enforcement</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../invariants_registry/">Invariant registry</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../enforcement/">Enforcement</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../pettingzoo_api/">PettingZoo API</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Benchmarks, studies, plots</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Benchmarks</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../studies/">Studies and plots</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../reproducibility/">Reproducibility and seeding</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../contributing/">Contributing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">LabTrust-Gym</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Architecture</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/fraware/LabTrust-Gym/edit/main/docs/architecture.md">Edit on fraware/LabTrust-Gym</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="architecture">Architecture</h1>
+<p>LabTrust-Gym is structured as:</p>
+<ul>
+<li><strong>Core simulator (<code>engine/</code>)</strong> — <code>core_env</code> (reset, step, query), audit log (hash chain, forensic freeze), zones (graph, doors, device placement), specimens (acceptance, hold/reject), QC (result gating), critical (notify/ack), queueing (per-device queues), devices (state machine, service times when <code>timing_mode: simulated</code>), clock, RNG (deterministic). BLOCKED steps do not mutate world state except audit logging; hash chain break triggers forensic freeze.</li>
+<li><strong>Trust skeleton (<code>policy/</code>)</strong> — Versioned YAML/JSON under <code>policy/</code> (emits vocab, zones, reason codes, tokens, invariants, catalogue, stability, equipment, critical, golden scenarios). All policy files are validated against JSON schemas in <code>policy/schemas/</code> via <code>labtrust validate-policy</code>.</li>
+<li><strong>Runner (<code>runner/</code>)</strong> — Golden runner and <code>LabTrustEnvAdapter</code> interface; emits vocabulary enforced (unknown emits fail).</li>
+<li><strong>Envs (<code>envs/</code>)</strong> — PettingZoo Parallel and AEC wrappers over the core engine; observations, actions, rewards, infos (require <code>.[env]</code>).</li>
+<li><strong>Baselines (<code>baselines/</code>)</strong> — Scripted ops and scripted runner agents.</li>
+<li><strong>Benchmarks (<code>benchmarks/</code>)</strong> — Task definitions (TaskA/B/C), metrics, runner; CLI <code>labtrust run-benchmark</code>, <code>labtrust bench-smoke</code>.</li>
+</ul>
+<p>Determinism: single RNG wrapper (<code>rng.py</code>) seeded from scenario; no ambient randomness. Timing: <code>timing_mode: explicit</code> (default, event <code>t_s</code> only) or <code>simulated</code> (device service times from equipment registry).</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href=".." class="btn btn-neutral float-left" title="Overview"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../policy_pack/" class="btn btn-neutral float-right" title="Policy pack and schemas">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/fraware/LabTrust-Gym" class="fa fa-code-fork" style="color: #fcfcfc"> fraware/LabTrust-Gym</a>
+        </span>
+    
+    
+      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../policy_pack/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

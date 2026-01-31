@@ -46,6 +46,7 @@ def validate_runner_output_contract_schema(root: Path) -> list[str]:
 # Policy files to validate against schemas (path relative to root)
 POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
     ("policy/emits/emits_vocab.v0.1.yaml", "emits_vocab.v0.1.schema.json"),
+    ("policy/invariants/invariant_registry.v1.0.yaml", "invariant_registry.v1.0.schema.json"),
     ("policy/zones/zone_layout_policy.v0.1.yaml", "zone_layout_policy.v0.1.schema.json"),
     ("policy/reason_codes/reason_code_registry.v0.1.yaml", "reason_code_registry.v0.1.schema.json"),
     ("policy/tokens/token_registry.v0.1.yaml", "token_registry.v0.1.schema.json"),
@@ -53,6 +54,7 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
     ("policy/critical/critical_thresholds.v0.1.yaml", "critical_thresholds.v0.1.schema.json"),
     ("policy/equipment/equipment_registry.v0.1.yaml", "equipment_registry.v0.1.schema.json"),
     ("policy/golden/golden_scenarios.v0.1.yaml", "golden_scenarios.v0.1.schema.json"),
+    ("policy/enforcement/enforcement_map.v0.1.yaml", "enforcement_map.v0.1.schema.json"),
 ]
 
 

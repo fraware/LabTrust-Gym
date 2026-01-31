@@ -1,0 +1,253 @@
+# Invariant Registry v1.0 — strict, machine-readable.
+# Compiled into runtime checks; violations merged into step output.
+# Signals: PASS/VIOLATION reported in violations[] with invariant_id and status.
+# No new emits vocab entries; invariant outcomes are in the violations list.
+
+registry_version: "1.0"
+registry_id: "LTR-INVREG-1.0"
+
+invariants:
+
+  - invariant_id: "INV-ZONE-001"
+    title: "Movement must follow permitted edges (graph integrity)"
+    description: "MOVE only along graph edges; illegal move blocked."
+    severity: "high"
+    scope: "zone"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "adjacency"
+        from_arg: "from_zone"
+        to_arg: "to_zone"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "RC_ILLEGAL_MOVE"
+
+  - invariant_id: "INV-ZONE-002"
+    title: "Device operations require co-location in device zone"
+    description: "Agent must be in device zone for CENTRIFUGE_START, QUEUE_RUN, START_RUN, etc."
+    severity: "high"
+    scope: "zone"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "colocation"
+        action_types: ["CENTRIFUGE_START", "ALIQUOT_CREATE", "QUEUE_RUN", "START_RUN", "END_RUN", "QC_EVENT"]
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "RC_DEVICE_NOT_COLOCATED"
+
+  - invariant_id: "INV-ZONE-004"
+    title: "Restricted-zone entry requires token + authorized role"
+    description: "OPEN_DOOR to restricted airlock or MOVE to restricted zone requires token."
+    severity: "critical"
+    scope: "zone"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "restricted_door_or_zone"
+        door_id: "D_RESTRICTED_AIRLOCK"
+        zone_id: "Z_RESTRICTED_BIOHAZARD"
+    exception_hooks:
+      override_token_types: ["TOKEN_RESTRICTED_ENTRY"]
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "RBAC_RESTRICTED_ENTRY_DENY"
+
+  - invariant_id: "INV-ZONE-005"
+    title: "Restricted door must not remain open beyond max_open_s"
+    description: "TICK checks door open duration; breach triggers ALARM and zone freeze."
+    severity: "high"
+    scope: "zone"
+    signals: []
+    logic_template:
+      type: "temporal"
+      parameters:
+        check: "door_open_duration"
+        door_id: "D_RESTRICTED_AIRLOCK"
+    exception_hooks:
+      override_token_types: ["TOKEN_MAINTENANCE_MODE"]
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "freeze_zone"
+    reason_code: "RC_DOOR_OPEN_TOO_LONG"
+
+  - invariant_id: "INV-TOK-002"
+    title: "Token must be active at time of use"
+    description: "Token refs must be active (not expired/revoked/consumed)."
+    severity: "critical"
+    scope: "system"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "token_active"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "INV-TOK-002"
+
+  - invariant_id: "INV-CRIT-002"
+    title: "Critical result release requires acknowledgment"
+    description: "RELEASE_RESULT blocked until critical result has been acknowledged."
+    severity: "critical"
+    scope: "result"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "critical_acked"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "CRIT_NO_ACK"
+
+  - invariant_id: "INV-ZONE-006"
+    title: "Cold-chain integrity: specimen temp storage within policy"
+    description: "Specimen requiring cold storage cannot idle in ambient beyond policy; START_RUN blocked with TEMP_OUT_OF_BAND."
+    severity: "high"
+    scope: "zone"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "cold_chain_ok"
+    exception_hooks:
+      override_token_types: ["OVERRIDE_RISK_ACCEPTANCE"]
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "hold"
+    reason_code: "TEMP_OUT_OF_BAND"
+
+  - invariant_id: "INV-STAB-BIOCHEM-001"
+    title: "Stability within pre/post separation windows (pass)"
+    description: "START_RUN allowed when specimen within stability windows; emits PASS when ok."
+    severity: "high"
+    scope: "specimen"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "stability_pass"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "none"
+    reason_code: null
+
+  - invariant_id: "INV-STAB-BIOCHEM-002"
+    title: "Stability breach: pre or post separation time exceeded"
+    description: "START_RUN blocked when collection-to-separation or separation-to-run exceeds panel limits."
+    severity: "high"
+    scope: "specimen"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "stability_breach"
+    exception_hooks:
+      override_token_types: ["OVERRIDE_RISK_ACCEPTANCE"]
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "TIME_EXPIRED"
+
+  - invariant_id: "INV-COAG-FILL-001"
+    title: "Citrate tube fill ratio valid for coagulation"
+    description: "ACCEPT_SPECIMEN: citrate container with invalid fill triggers HOLD_SPECIMEN and INV-COAG-FILL-001 VIOLATION."
+    severity: "high"
+    scope: "specimen"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "coag_fill_valid"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "hold"
+    reason_code: "CNT_CITRATE_FILL_INVALID"
+
+  - invariant_id: "INV-TOK-001"
+    title: "Token minting requires valid signatures and approver roles"
+    description: "MINT_TOKEN blocked when approvals/signatures invalid (e.g. same approver twice for dual approval)."
+    severity: "critical"
+    scope: "system"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "mint_signature_valid"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "INV-TOK-001"
+
+  - invariant_id: "INV-TOK-003"
+    title: "Token scope must authorize the action (least privilege)"
+    description: "Action with token_refs must have token scope covering action/door/zone; OPEN_DOOR restricted without token emits VIOLATION."
+    severity: "critical"
+    scope: "system"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "token_scope_ok"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "RBAC_RESTRICTED_ENTRY_DENY"
+
+  - invariant_id: "INV-TOK-006"
+    title: "Revocation list enforced: revoked token cannot be used"
+    description: "PRE_ACTION_VALIDATE: token_ref in revoked list blocks action with INV-TOK-006."
+    severity: "critical"
+    scope: "system"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "token_not_revoked"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "AUDIT_CHAIN_BROKEN"
+
+  - invariant_id: "INV-CRIT-004"
+    title: "Read-back confirmation required for oral critical communications"
+    description: "ACK_CRITICAL_RESULT with channel phone/bleep requires read_back_confirmed true; else VIOLATION."
+    severity: "high"
+    scope: "result"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "read_back_confirmed"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "none"
+    reason_code: "CRIT_NO_READBACK"

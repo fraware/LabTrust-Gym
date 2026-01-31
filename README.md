@@ -25,13 +25,33 @@ labtrust validate-policy
 pytest -q
 ```
 
+For benchmarks, studies, and plots (PettingZoo + matplotlib):
+
+```bash
+pip install -e ".[dev,env,plots]"
+labtrust run-benchmark --task TaskA --episodes 5 --out results.json
+labtrust reproduce --profile minimal
+```
+
+Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings).
+
+## CLI
+
+- **validate-policy** — Validate all policy YAML/JSON against schemas.
+- **run-benchmark** — Run TaskA, TaskB, TaskC, or TaskD; write results.json (`--task`, `--episodes`, `--out`).
+- **bench-smoke** — 1 episode per task (TaskA, TaskB, TaskC).
+- **run-study** — Run study from spec (`--spec`, `--out`); ablations → conditions → results.
+- **make-plots** — Generate figures and data tables from a study run (`--run`).
+- **reproduce** — Reproduce minimal results + figures: TaskA & TaskC sweep + plots (`--profile minimal | full`, optional `--out`).
+- **train-ppo**, **eval-ppo** — PPO training/eval (requires `.[marl]`).
+
 ## Layout
 
-- `policy/` — Versioned YAML/JSON: `schemas/` (JSON schemas for all policy files), emits vocab, invariants, tokens, reason codes, zones, catalogue, stability, equipment, critical, golden scenarios. All policy files are validated against their schemas by `labtrust validate-policy`.
-- `src/labtrust_gym/` — Package: `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime), `policy/` (loader, validate, emits, tokens, reason_codes), `runner/` (golden runner, adapter, emits validator), `envs/` (PettingZoo Parallel and AEC wrappers), `baselines/` (scripted_ops, scripted_runner), `benchmarks/` (tasks, metrics, runner), `logging/` (episode log), `cli/`.
-- `tests/` — Pytest: golden suite, policy validation (including invalid-policy-fails), hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log.
-- `examples/` — `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py`.
-- `docs/` — Architecture, policy pack, threat model, invariants, benchmarks, CI, PettingZoo API, queue contract; **`docs/STATUS.md`** — current state: what’s implemented and what remains.
+- **policy/** — Versioned YAML/JSON: `schemas/`, `emits/`, `invariants/` (registry v1.0), `tokens/`, `reason_codes/`, `zones/`, `catalogue/`, `stability/`, `equipment/`, `critical/`, `enforcement/`, `studies/`, `llm/`, `golden/`. Validated by `labtrust validate-policy`.
+- **src/labtrust_gym/** — `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement), `policy/` (loader, validate, emits, tokens, reason_codes, invariants_registry), `runner/`, `envs/` (PettingZoo Parallel and AEC), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/`, `studies/` (study_runner, plots, reproduce), `logging/`, `cli/`.
+- **tests/** — Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, queueing, benchmarks, invariant registry, enforcement, study runner, plots, reproduce smoke, adversary, marl smoke, llm agent mock.
+- **examples/** — `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py`, `llm_agent_mock_demo.py`.
+- **docs/** — Architecture, policy pack, invariants & enforcement, benchmarks, studies, reproduce, PettingZoo API, CI, threat model, MARL/LLM baselines; **docs/STATUS.md** — current state. MkDocs site (build with `.[docs]`).
 
 ## Golden runner
 
@@ -39,7 +59,7 @@ The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/gol
 
 ## Current state
 
-See **`docs/STATUS.md`** for a detailed report: what is implemented (policy validation, hashchain, tokens, zones, specimens, QC, critical results, catalogue/stability, co-location, queueing, PettingZoo Parallel wrapper), and what remains.
+See **docs/STATUS.md** for a detailed report: policy validation, hashchain, tokens, zones, specimens, QC, critical results, catalogue/stability, co-location, queueing, invariant registry, enforcement, PettingZoo wrappers, scripted/adversary/LLM/MARL baselines, TaskA–TaskD, studies (run-study, make-plots, reproduce), and docs site (MkDocs + API reference).
 
 ## License
 

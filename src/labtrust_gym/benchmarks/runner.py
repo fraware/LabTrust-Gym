@@ -62,6 +62,7 @@ def run_episode(
     env_factory: Any,
     scripted_agents_map: Optional[Dict[str, Any]] = None,
     log_path: Optional[Path] = None,
+    initial_state_overrides: Optional[Dict[str, Any]] = None,
 ) -> tuple[Dict[str, Any], List[List[Dict[str, Any]]]]:
     """
     Run one episode. Returns (metrics_dict, step_results_per_step).
@@ -69,8 +70,11 @@ def run_episode(
     env_factory: callable(initial_state, reward_config, log_path=?) -> env.
     scripted_agents_map: agent_id -> agent with .act(obs, agent_id) -> (idx, info).
     log_path: optional JSONL path for episode step log (append mode).
+    initial_state_overrides: optional dict merged into initial_state (e.g. timing_mode, ablations).
     """
     initial_state = task.get_initial_state(episode_seed)
+    if initial_state_overrides:
+        initial_state = {**initial_state, **initial_state_overrides}
     env = env_factory(
         initial_state=initial_state,
         reward_config=task.reward_config,
@@ -115,6 +119,7 @@ def run_episode(
         step_results_per_step,
         t_s_per_step=t_s_list,
         sla_turnaround_s=task.sla_turnaround_s,
+        attack_start_step=getattr(task, "attack_start_step", None),
     )
     return metrics, step_results_per_step
 
@@ -128,12 +133,14 @@ def run_benchmark(
     scripted_agents_map: Optional[Dict[str, Any]] = None,
     repo_root: Optional[Path] = None,
     log_path: Optional[Path] = None,
+    initial_state_overrides: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Run N episodes for the task, write results.json.
 
     Returns the full results dict (also written to out_path).
     log_path: optional JSONL path for episode step log (truncated at start).
+    initial_state_overrides: optional dict merged into each episode initial_state (e.g. timing_mode).
     """
     task = get_task(task_name)
     repo_root = repo_root or Path.cwd()
@@ -143,6 +150,8 @@ def run_benchmark(
     if env_factory is None:
         from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
 
+        num_adversaries = 1 if task_name in ("TaskD", "TaskD_AdversarialDisruption") else 0
+
         def _env_factory(
             initial_state: Dict[str, Any],
             reward_config: Dict[str, Any],
@@ -150,6 +159,7 @@ def run_benchmark(
         ) -> Any:
             return LabTrustParallelEnv(
                 num_runners=2,
+                num_adversaries=num_adversaries,
                 dt_s=10,
                 reward_config=reward_config,
                 log_path=log_path,
@@ -175,16 +185,44 @@ def run_benchmark(
                 device_ids=DEFAULT_DEVICE_IDS,
             ),
         }
+        if task_name in ("TaskD", "TaskD_AdversarialDisruption"):
+            from labtrust_gym.baselines.adversary import AdversaryAgent
+            scripted_agents_map["adversary_0"] = AdversaryAgent()
 
     seeds = [base_seed + i for i in range(num_episodes)]
     episodes_metrics: List[Dict[str, Any]] = []
 
+    use_fresh_agents_per_episode = task_name in ("TaskD", "TaskD_AdversarialDisruption")
+
     for ep_seed in seeds:
+        agents_map = scripted_agents_map
+        if use_fresh_agents_per_episode and scripted_agents_map is not None:
+            from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
+            from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
+            from labtrust_gym.baselines.adversary import AdversaryAgent
+            from labtrust_gym.envs.pz_parallel import (
+                DEFAULT_ZONE_IDS,
+                DEFAULT_DEVICE_IDS,
+            )
+            agents_map = {
+                "ops_0": ScriptedOpsAgent(),
+                "runner_0": ScriptedRunnerAgent(
+                    zone_ids=DEFAULT_ZONE_IDS,
+                    device_ids=DEFAULT_DEVICE_IDS,
+                ),
+                "runner_1": ScriptedRunnerAgent(
+                    zone_ids=DEFAULT_ZONE_IDS,
+                    device_ids=DEFAULT_DEVICE_IDS,
+                ),
+                "adversary_0": AdversaryAgent(),
+            }
         metrics, _ = run_episode(
             task,
             ep_seed,
             env_factory,
-            scripted_agents_map,
+            agents_map,
+            log_path=log_path,
+            initial_state_overrides=initial_state_overrides,
         )
         episodes_metrics.append({"seed": ep_seed, "metrics": metrics})
 

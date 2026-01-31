@@ -1,0 +1,25 @@
+compiler_rules:
+  version: "0.1"
+  binding:
+    - invariant_prefix: "INV-ID-*"
+      required_reason_codes: ["ID_UNATTRIBUTABLE","ID_MISMATCH"]
+    - invariant_prefix: "INV-PKG-*"
+      required_reason_codes: ["PKG_UN3373_NONCOMPLIANT","PKG_DAMAGED_OR_UNSEALED","INT_LEAKING"]
+    - invariant_prefix: "INV-STAB-*"
+      required_reason_codes: ["TIME_EXPIRED","TIME_NO_SEPARATION_WITHIN_WINDOW","TEMP_OUT_OF_BAND"]
+    - invariant_prefix: "INV-QC-*"
+      required_reason_codes: ["QC_FAIL_ACTIVE","QC_DRIFT_SUSPECTED"]
+    - invariant_prefix: "INV-CRIT-*"
+      required_reason_codes: ["CRIT_NO_ACK","CRIT_NO_READBACK","CRIT_ESCALATION_BREACH"]
+    - invariant_prefix: "INV-RBAC-*"
+      required_reason_codes: ["RBAC_DENY","RBAC_RESTRICTED_ENTRY_DENY"]
+    - invariant_prefix: "INV-AUD-*"
+      required_reason_codes: ["AUDIT_CHAIN_BROKEN","AUDIT_MISSING_REASON_CODE"]
+
+  constraints:
+    - id: "RC-CON-001"
+      rule: "Every event in {HOLD_*, REJECT_*, OVERRIDE_*, BLOCK_*} must include reason_code in registry"
+    - id: "RC-CON-002"
+      rule: "Non_overridable codes cannot be cleared by any override token"
+    - id: "RC-CON-003"
+      rule: "Override tokens require reason_code in override_allowed_with for that code"

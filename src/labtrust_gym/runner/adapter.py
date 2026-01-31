@@ -31,6 +31,7 @@ class LabTrustEnvAdapter:
           - blocked_reason_code: str|None (required if status == BLOCKED)
           - token_consumed: [token_id] (optional)
           - hashchain: {head_hash, length, last_event_hash} (required)
+          - enforcements: list of {type, target?, duration_s?, reason_code?, rule_id?} (optional)
           - (optional) state_snapshot: any data you want to expose for assertions
         """
         raise NotImplementedError

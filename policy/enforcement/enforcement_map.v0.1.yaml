@@ -1,0 +1,68 @@
+# Enforcement map v0.1 — policy-driven actions on invariant violations.
+# Match violations by invariant_id, severity, or scope; apply throttle | kill_switch | freeze_zone | forensic_freeze.
+# Escalation: first violation -> throttle, repeated -> kill_switch (or freeze_zone).
+
+version: "0.1"
+enforcement_map_id: "LTR-ENF-0.1"
+
+rules:
+  # Zone / door: first violation throttle agent, repeated freeze zone
+  - rule_id: "ENF-ZONE-001"
+    match:
+      invariant_id: "INV-ZONE-005"
+      severity: "high"
+      scope: "zone"
+    action:
+      type: "throttle_agent"
+      duration_s: 60
+    escalation:
+      - violation_count_min: 1
+        action:
+          type: "throttle_agent"
+          duration_s: 60
+      - violation_count_min: 2
+        action:
+          type: "freeze_zone"
+          zone_id: "Z_RESTRICTED_BIOHAZARD"
+
+  # Token / audit: revoke or expired -> throttle; repeated -> kill_switch agent
+  - rule_id: "ENF-TOK-001"
+    match:
+      severity: "critical"
+      scope: "system"
+    action:
+      type: "throttle_agent"
+      duration_s: 120
+    escalation:
+      - violation_count_min: 1
+        action:
+          type: "throttle_agent"
+          duration_s: 120
+      - violation_count_min: 3
+        action:
+          type: "kill_switch"
+          target_type: "agent_id"
+
+  # Critical result: no read-back -> throttle
+  - rule_id: "ENF-CRIT-001"
+    match:
+      invariant_id: "INV-CRIT-004"
+    action:
+      type: "throttle_agent"
+      duration_s: 30
+    escalation:
+      - violation_count_min: 1
+        action:
+          type: "throttle_agent"
+          duration_s: 30
+
+  # Forensic freeze: audit chain broken (handled in core_env; rule for documentation)
+  - rule_id: "ENF-AUDIT-001"
+    match:
+      scope: "system"
+    action:
+      type: "forensic_freeze"
+    escalation:
+      - violation_count_min: 1
+        action:
+          type: "forensic_freeze"

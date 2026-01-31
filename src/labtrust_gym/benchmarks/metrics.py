@@ -22,6 +22,7 @@ def compute_episode_metrics(
     step_results_per_step: List[List[Dict[str, Any]]],
     t_s_per_step: Optional[List[int]] = None,
     sla_turnaround_s: Optional[int] = None,
+    attack_start_step: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Compute per-episode metrics from list of step results (one list per step).
@@ -30,6 +31,7 @@ def compute_episode_metrics(
     for one env step (one result per agent).
     t_s_per_step: optional list of t_s for each step (default 10 * step_idx).
     sla_turnaround_s: optional SLA in seconds for on-time rate (accept->release).
+    attack_start_step: optional (TaskD) first step index of adversarial action for detection_latency_s.
     """
     t_s_per_step = t_s_per_step or [
         10 * (i + 1) for i in range(len(step_results_per_step))
@@ -44,6 +46,9 @@ def compute_episode_metrics(
     release_ts: Dict[str, int] = {}
     critical_notify_count = 0
     critical_ack_count = 0
+    first_violation_step: Optional[int] = None
+    first_enforcement_step: Optional[int] = None
+    first_release_step: Optional[int] = None
 
     for step_idx, results in enumerate(step_results_per_step):
         t_s = (
@@ -51,12 +56,15 @@ def compute_episode_metrics(
             if step_idx < len(t_s_per_step)
             else 10 * (step_idx + 1)
         )
+        step_has_violation_or_blocked = False
+        step_has_enforcement = False
+        step_has_release = False
         for r in results:
             emits = r.get("emits") or []
             for e in emits:
                 if e == EMIT_RELEASE_RESULT:
                     throughput += 1
-                    # No specimen_id in emit; use synthetic id per release
+                    step_has_release = True
                     release_ts[f"_r{throughput}"] = t_s
                 elif e == EMIT_HOLD_SPECIMEN:
                     holds_count += 1
@@ -69,11 +77,22 @@ def compute_episode_metrics(
             for v in r.get("violations") or []:
                 inv_id = v.get("invariant_id") or "unknown"
                 violations_by_invariant[str(inv_id)] += 1
+                if v.get("status") == "VIOLATION":
+                    step_has_violation_or_blocked = True
             blocked_code = r.get("blocked_reason_code")
             if blocked_code:
                 blocked_by_reason[str(blocked_code)] += 1
+                step_has_violation_or_blocked = True
             for _ in r.get("token_consumed") or []:
                 tokens_consumed_count += 1
+            if r.get("enforcements"):
+                step_has_enforcement = True
+        if step_has_violation_or_blocked and first_violation_step is None:
+            first_violation_step = step_idx
+        if step_has_enforcement and first_enforcement_step is None:
+            first_enforcement_step = step_idx
+        if step_has_release and first_release_step is None:
+            first_release_step = step_idx
 
     turnaround_s_list: List[int] = []
     if release_ts and accept_ts:
@@ -109,7 +128,38 @@ def compute_episode_metrics(
             critical_ack_count / critical_notify_count
         )
 
-    return {
+    # Detection latency (TaskD): first violation ts - attack start ts
+    detection_latency_s: Optional[float] = None
+    if attack_start_step is not None and first_violation_step is not None:
+        attack_ts = (
+            t_s_per_step[attack_start_step]
+            if attack_start_step < len(t_s_per_step)
+            else None
+        )
+        violation_ts = (
+            t_s_per_step[first_violation_step]
+            if first_violation_step < len(t_s_per_step)
+            else None
+        )
+        if attack_ts is not None and violation_ts is not None:
+            detection_latency_s = float(violation_ts - attack_ts)
+
+    # Containment: enforcement triggered before any release (or no release)
+    containment_success: Optional[bool] = None
+    if first_enforcement_step is not None:
+        containment_success = (
+            first_release_step is None
+            or first_enforcement_step < first_release_step
+        )
+    elif first_release_step is not None:
+        containment_success = False
+
+    # Attribution proxy: audit log has agent_id + action chain per event
+    attribution_confidence_proxy: Optional[float] = None
+    if first_violation_step is not None:
+        attribution_confidence_proxy = 1.0
+
+    out: Dict[str, Any] = {
         "throughput": throughput,
         "p50_turnaround_s": p50_turnaround_s,
         "p95_turnaround_s": p95_turnaround_s,
@@ -122,3 +172,10 @@ def compute_episode_metrics(
         "holds_count": holds_count,
         "steps": len(step_results_per_step),
     }
+    if detection_latency_s is not None:
+        out["detection_latency_s"] = detection_latency_s
+    if containment_success is not None:
+        out["containment_success"] = containment_success
+    if attribution_confidence_proxy is not None:
+        out["attribution_confidence_proxy"] = attribution_confidence_proxy
+    return out

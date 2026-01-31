@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://fraware.github.io/LabTrust-Gym/ci/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>CI gates and regression - LabTrust-Gym</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "CI gates and regression";
+        var mkdocs_page_input_path = "ci.md";
+        var mkdocs_page_url = "/LabTrust-Gym/ci/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> LabTrust-Gym
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Overview</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../architecture/">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../policy_pack/">Policy pack and schemas</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Invariants and enforcement</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../invariants_registry/">Invariant registry</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../enforcement/">Enforcement</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../pettingzoo_api/">PettingZoo API</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Benchmarks, studies, plots</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Benchmarks</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../studies/">Studies and plots</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../reproducibility/">Reproducibility and seeding</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../contributing/">Contributing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">LabTrust-Gym</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">CI gates and regression</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/fraware/LabTrust-Gym/edit/main/docs/ci.md">Edit on fraware/LabTrust-Gym</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="ci-gates-and-regression">CI gates and regression</h1>
+<p>CI runs on every push/PR to <code>main</code> and keeps the default pipeline <strong>fast</strong>. Optional benchmark smoke runs only on <strong>schedule</strong> (nightly) or when <strong>manually triggered</strong> with "Run benchmark smoke" enabled.</p>
+<h2 id="gates-always-run-on-pushpr">Gates (always run on push/PR)</h2>
+<table>
+<thead>
+<tr>
+<th>Job</th>
+<th>Description</th>
+<th>Command / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>lint-format</strong></td>
+<td>Ruff format + check</td>
+<td><code>ruff format --check .</code></td>
+</tr>
+<tr>
+<td><strong>typecheck</strong></td>
+<td>Mypy on <code>src/</code></td>
+<td><code>mypy src/</code></td>
+</tr>
+<tr>
+<td><strong>test</strong></td>
+<td>Pytest (fast suite)</td>
+<td><code>pytest -q</code></td>
+</tr>
+<tr>
+<td><strong>policy-validate</strong></td>
+<td>Policy YAML/JSON vs schemas</td>
+<td><code>labtrust validate-policy</code></td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>golden suite</strong> is included in the default <code>pytest -q</code> run and must stay green. It validates scenario correctness against the engine contract.</p>
+<h2 id="optional-benchmark-smoke">Optional: benchmark smoke</h2>
+<p>When <strong>LABTRUST_BENCH_SMOKE=1</strong>, an extra job <strong>bench-smoke</strong> runs:</p>
+<ul>
+<li>Installs <code>.[dev,env]</code> (adds PettingZoo/Gymnasium).</li>
+<li>Runs <strong>1 episode per task</strong> (TaskA, TaskB, TaskC) via <code>labtrust bench-smoke --seed 42</code>.</li>
+</ul>
+<p><strong>When it runs:</strong></p>
+<ul>
+<li><strong>Nightly</strong>: scheduled workflow (e.g. 02:00 UTC) sets <code>LABTRUST_BENCH_SMOKE=1</code>.</li>
+<li><strong>Manual</strong>: use "Run workflow" in the Actions tab and check <strong>Run benchmark smoke (1 episode per task)</strong>.</li>
+</ul>
+<p><strong>When it does not run:</strong> Normal push/PR do <strong>not</strong> set <code>LABTRUST_BENCH_SMOKE</code>, so the bench-smoke job is skipped and CI stays fast.</p>
+<h2 id="running-the-same-locally">Running the same locally</h2>
+<ul>
+<li>
+<p><strong>Golden suite only:</strong><br />
+<code>pytest tests/test_golden_suite.py -q</code></p>
+</li>
+<li>
+<p><strong>Benchmark smoke (1 episode per task):</strong><br />
+<code>labtrust bench-smoke --seed 42</code><br />
+  Requires: <code>pip install -e ".[env]"</code></p>
+</li>
+<li>
+<p><strong>Make:</strong>  </p>
+</li>
+<li><code>make golden</code> — golden suite  </li>
+<li><code>make bench-smoke</code> — 1 episode per task (needs <code>.[env]</code>)  </li>
+<li>
+<p><code>make bench-smoke-pytest</code> — pytest benchmark smoke tests (2 episodes TaskA + determinism)</p>
+</li>
+<li>
+<p><strong>Full benchmark smoke tests (pytest):</strong><br />
+<code>pytest tests/test_benchmark_smoke.py -v</code></p>
+</li>
+</ul>
+<h2 id="summary">Summary</h2>
+<ul>
+<li><strong>Default CI:</strong> lint, typecheck, test (includes golden), policy-validate. No benchmark smoke.</li>
+<li><strong>Nightly / manual:</strong> same plus bench-smoke (1 episode per task) when <code>LABTRUST_BENCH_SMOKE=1</code>.</li>
+<li>Golden suite must remain green on every run.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/fraware/LabTrust-Gym" class="fa fa-code-fork" style="color: #fcfcfc"> fraware/LabTrust-Gym</a>
+        </span>
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

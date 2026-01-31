@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://fraware.github.io/LabTrust-Gym/benchmarks/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Benchmarks - LabTrust-Gym</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Benchmarks";
+        var mkdocs_page_input_path = "benchmarks.md";
+        var mkdocs_page_url = "/LabTrust-Gym/benchmarks/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> LabTrust-Gym
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Overview</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../architecture/">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../policy_pack/">Policy pack and schemas</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Invariants and enforcement</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../invariants_registry/">Invariant registry</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../enforcement/">Enforcement</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../pettingzoo_api/">PettingZoo API</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Benchmarks, studies, plots</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Benchmarks</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#tasks">Tasks</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#taska_throughputsla-taska">TaskA_ThroughputSLA (TaskA)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#taskb_statinsertionunderload-taskb">TaskB_STATInsertionUnderLoad (TaskB)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#taskc_qcfailcascade-taskc">TaskC_QCFailCascade (TaskC)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#taskd_adversarialdisruption-taskd">TaskD_AdversarialDisruption (TaskD)</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#metrics-per-episode">Metrics (per episode)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#output-resultsjson">Output (results.json)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#cli">CLI</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#timing-mode">Timing mode</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#determinism">Determinism</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../studies/">Studies and plots</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../reproducibility/">Reproducibility and seeding</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../contributing/">Contributing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">LabTrust-Gym</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Benchmarks, studies, plots</li>
+      <li class="breadcrumb-item active">Benchmarks</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/fraware/LabTrust-Gym/edit/main/docs/benchmarks.md">Edit on fraware/LabTrust-Gym</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="labtrust-gym-benchmarks">LabTrust-Gym Benchmarks</h1>
+<p>Benchmark harness for running multiple episodes with fixed seeds, recording metrics, and outputting JSON.</p>
+<h2 id="tasks">Tasks</h2>
+<h3 id="taska_throughputsla-taska">TaskA_ThroughputSLA (TaskA)</h3>
+<ul>
+<li><strong>Goal</strong>: Throughput under SLA; routine load.</li>
+<li><strong>Initial state</strong>: Deterministic from seed; 3–5 specimens at reception.</li>
+<li><strong>Episode length</strong>: 80 steps.</li>
+<li><strong>Agents</strong>: Scripted ops + scripted runners (ops_0, runner_0, runner_1).</li>
+<li><strong>Reward config</strong>: <code>throughput_reward: 1.0</code>.</li>
+<li><strong>SLA</strong>: 3600 s turnaround (accept→release) for on-time rate.</li>
+</ul>
+<h3 id="taskb_statinsertionunderload-taskb">TaskB_STATInsertionUnderLoad (TaskB)</h3>
+<ul>
+<li><strong>Goal</strong>: STAT specimens inserted under routine load; prioritization.</li>
+<li><strong>Initial state</strong>: Deterministic from seed; 4–5 specimens.</li>
+<li><strong>Episode length</strong>: 120 steps.</li>
+<li><strong>Agents</strong>: Scripted ops + scripted runners.</li>
+<li><strong>Reward config</strong>: <code>throughput_reward: 1.0</code>, <code>violation_penalty: 0.1</code>.</li>
+<li><strong>SLA</strong>: 1800 s for on-time rate.</li>
+</ul>
+<h3 id="taskc_qcfailcascade-taskc">TaskC_QCFailCascade (TaskC)</h3>
+<ul>
+<li><strong>Goal</strong>: QC fail on one device; routing and cascade behavior.</li>
+<li><strong>Initial state</strong>: Deterministic from seed; 2–3 specimens.</li>
+<li><strong>Episode length</strong>: 100 steps.</li>
+<li><strong>Agents</strong>: Scripted ops + scripted runners.</li>
+<li><strong>Reward config</strong>: None (reward=0 initially).</li>
+<li><strong>SLA</strong>: None.</li>
+</ul>
+<h3 id="taskd_adversarialdisruption-taskd">TaskD_AdversarialDisruption (TaskD)</h3>
+<ul>
+<li><strong>Goal</strong>: Detection, containment, and attribution under adversarial disruption.</li>
+<li><strong>Initial state</strong>: Deterministic from seed; 3–4 specimens.</li>
+<li><strong>Episode length</strong>: 80 steps.</li>
+<li><strong>Agents</strong>: Scripted ops + scripted runners + <strong>adversary_0</strong> (deterministic adversarial policy).</li>
+<li><strong>Adversary behaviors</strong>: Misroute racks (QUEUE_RUN to wrong device), attempt unauthorized restricted door, attempt expired token/replay, leave door open (no TICK mitigation).</li>
+<li><strong>Reward config</strong>: throughput_reward 0.5, violation_penalty 0.2, blocked_penalty 0.1.</li>
+<li><strong>SLA</strong>: 3600 s.</li>
+<li><strong>Metrics</strong>: <code>detection_latency_s</code> (first violation ts − attack start), <code>containment_success</code> (enforcement before unsafe release), <code>attribution_confidence_proxy</code> (audit has agent_id + action chain).</li>
+</ul>
+<h2 id="metrics-per-episode">Metrics (per episode)</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>throughput</code></td>
+<td>Number of RELEASE_RESULT emits (released results).</td>
+</tr>
+<tr>
+<td><code>p50_turnaround_s</code></td>
+<td>50th percentile accept→release time (s).</td>
+</tr>
+<tr>
+<td><code>p95_turnaround_s</code></td>
+<td>95th percentile accept→release time (s). Meaningful when <code>timing_mode: simulated</code> (device service times drive completion).</td>
+</tr>
+<tr>
+<td><code>on_time_rate</code></td>
+<td>Fraction of specimens released within SLA (if SLA set).</td>
+</tr>
+<tr>
+<td><code>violations_by_invariant_id</code></td>
+<td>Count per invariant_id.</td>
+</tr>
+<tr>
+<td><code>blocked_by_reason_code</code></td>
+<td>Count per blocked_reason_code.</td>
+</tr>
+<tr>
+<td><code>critical_communication_compliance_rate</code></td>
+<td>ACK / NOTIFY ratio for critical results.</td>
+</tr>
+<tr>
+<td><code>tokens_minted</code></td>
+<td>Count of MINT_TOKEN emits.</td>
+</tr>
+<tr>
+<td><code>tokens_consumed</code></td>
+<td>Count of token_consumed in step results.</td>
+</tr>
+<tr>
+<td><code>holds_count</code></td>
+<td>Count of HOLD_SPECIMEN emits.</td>
+</tr>
+<tr>
+<td><code>steps</code></td>
+<td>Number of env steps.</td>
+</tr>
+<tr>
+<td><code>detection_latency_s</code></td>
+<td>(TaskD) First violation timestamp − attack start timestamp (s).</td>
+</tr>
+<tr>
+<td><code>containment_success</code></td>
+<td>(TaskD) True if enforcement triggered before any release (or no release).</td>
+</tr>
+<tr>
+<td><code>attribution_confidence_proxy</code></td>
+<td>(TaskD) 1.0 when violations detected (audit log has agent_id + action chain).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="output-resultsjson">Output (results.json)</h2>
+<ul>
+<li><code>task</code>: Task name (e.g. TaskA).</li>
+<li><code>num_episodes</code>, <code>base_seed</code>, <code>seeds</code>: Run config.</li>
+<li><code>config</code>: max_steps, scripted_agents, reward_config.</li>
+<li><code>policy_versions</code>: emits_vocab, catalogue_schema versions.</li>
+<li><code>git_commit_hash</code>: Current commit (if available).</li>
+<li><code>episodes</code>: List of <code>{ seed, metrics }</code> per episode.</li>
+</ul>
+<h2 id="cli">CLI</h2>
+<div class="highlight"><pre><span></span><code>labtrust<span class="w"> </span>run-benchmark<span class="w"> </span>--task<span class="w"> </span>TaskA<span class="w"> </span>--episodes<span class="w"> </span><span class="m">50</span><span class="w"> </span>--seed<span class="w"> </span><span class="m">123</span><span class="w"> </span>--out<span class="w"> </span>results.json
+</code></pre></div>
+<ul>
+<li><code>--task</code>: TaskA, TaskB, TaskC, TaskD (or full name).</li>
+<li><code>--episodes</code>: Number of episodes (default 10).</li>
+<li><code>--seed</code>: Base seed (default 123).</li>
+<li><code>--out</code>: Output JSON path (default results.json).</li>
+</ul>
+<h2 id="timing-mode">Timing mode</h2>
+<ul>
+<li><strong>explicit</strong> (default): Event <code>t_s</code> drives time; no simulated device service times. Golden suite and most benchmarks use this. p95 TAT is derived from step timestamps only.</li>
+<li><strong>simulated</strong>: Device capacity and cycle-time models apply; <code>START_RUN</code> schedules completion by service time (from <code>policy/equipment/equipment_registry.v0.1.yaml</code>). Device must be IDLE to start a run (<code>RC_DEVICE_BUSY</code> when RUNNING). p95 TAT becomes meaningful (accept→release includes queuing and device service time).</li>
+</ul>
+<p>Set <code>initial_state.timing_mode: "simulated"</code> in task config to enable simulated timing for benchmarks.</p>
+<h2 id="determinism">Determinism</h2>
+<p>Episodes are deterministic for a given seed: same task and base_seed produce identical episode metrics across runs. The smoke test runs 2 episodes twice with the same seed and asserts identical metrics.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../pettingzoo_api/" class="btn btn-neutral float-left" title="PettingZoo API"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../studies/" class="btn btn-neutral float-right" title="Studies and plots">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/fraware/LabTrust-Gym" class="fa fa-code-fork" style="color: #fcfcfc"> fraware/LabTrust-Gym</a>
+        </span>
+    
+    
+      <span><a href="../pettingzoo_api/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../studies/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

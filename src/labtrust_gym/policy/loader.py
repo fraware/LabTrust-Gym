@@ -111,6 +111,7 @@ def validate_against_schema(
 POLICY_FILE_SCHEMA_MAP: dict[str, str] = {
     "test_catalogue.seed.v0.1.json": "test_catalogue.schema.v0.1.json",
     "emits_vocab.v0.1.yaml": "emits_vocab.v0.1.schema.json",
+    "invariant_registry.v1.0.yaml": "invariant_registry.v1.0.schema.json",
     "zone_layout_policy.v0.1.yaml": "zone_layout_policy.v0.1.schema.json",
     "reason_code_registry.v0.1.yaml": "reason_code_registry.v0.1.schema.json",
     "token_registry.v0.1.yaml": "token_registry.v0.1.schema.json",
@@ -118,6 +119,7 @@ POLICY_FILE_SCHEMA_MAP: dict[str, str] = {
     "critical_thresholds.v0.1.yaml": "critical_thresholds.v0.1.schema.json",
     "equipment_registry.v0.1.yaml": "equipment_registry.v0.1.schema.json",
     "golden_scenarios.v0.1.yaml": "golden_scenarios.v0.1.schema.json",
+    "enforcement_map.v0.1.yaml": "enforcement_map.v0.1.schema.json",
 }
 
 

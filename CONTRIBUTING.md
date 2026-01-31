@@ -31,3 +31,9 @@ The golden scenarios in `policy/golden/golden_scenarios.v0.1.yaml` define correc
 - Tests added or updated
 
 Preferred PR size: under 400 lines where practical.
+
+## Optional smoke tests (env vars)
+
+- **LABTRUST_BENCH_SMOKE=1** — Run benchmark smoke (1 episode per task): `labtrust bench-smoke --seed 42` (requires `.[env]`).
+- **LABTRUST_REPRO_SMOKE=1** — Run reproduce smoke: `labtrust reproduce --profile minimal --out runs/repro_smoke` (requires `.[env,plots]`).
+- **LABTRUST_MARL_SMOKE=1** — Run MARL smoke: `pytest tests/test_marl_smoke.py -v` (requires `.[marl]`).

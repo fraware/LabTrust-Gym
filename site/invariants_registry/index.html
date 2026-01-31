@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://fraware.github.io/LabTrust-Gym/invariants_registry/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Invariant registry - LabTrust-Gym</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Invariant registry";
+        var mkdocs_page_input_path = "invariants_registry.md";
+        var mkdocs_page_url = "/LabTrust-Gym/invariants_registry/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> LabTrust-Gym
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Overview</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../architecture/">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../policy_pack/">Policy pack and schemas</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Invariants and enforcement</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Invariant registry</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#file-and-schema">File and schema</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#entry-fields">Entry fields</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#logic-template-types">Logic template types</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#state">state</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#temporal">temporal</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#transition">transition</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-to-add-invariants">How to add invariants</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#signals-and-emits">Signals and emits</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#integration-with-core_env">Integration with core_env</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../enforcement/">Enforcement</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../pettingzoo_api/">PettingZoo API</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Benchmarks, studies, plots</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Benchmarks</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../studies/">Studies and plots</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../reproducibility/">Reproducibility and seeding</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../contributing/">Contributing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">LabTrust-Gym</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Invariants and enforcement</li>
+      <li class="breadcrumb-item active">Invariant registry</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/fraware/LabTrust-Gym/edit/main/docs/invariants_registry.md">Edit on fraware/LabTrust-Gym</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="invariant-registry-v10">Invariant Registry v1.0</h1>
+<p>The <strong>Invariant Registry</strong> is a strict, machine-readable YAML file that defines invariants compiled into runtime checks. Each entry specifies severity, scope, a logic template (type + parameters), exception hooks, and enforcement hints.</p>
+<h2 id="file-and-schema">File and schema</h2>
+<ul>
+<li><strong>Policy file</strong>: <code>policy/invariants/invariant_registry.v1.0.yaml</code></li>
+<li><strong>JSON Schema</strong>: <code>policy/schemas/invariant_registry.v1.0.schema.json</code></li>
+<li><strong>Validation</strong>: <code>labtrust validate-policy</code> validates the registry against the schema.</li>
+</ul>
+<h2 id="entry-fields">Entry fields</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invariant_id</code></td>
+<td>Yes</td>
+<td>Unique string (e.g. INV-ZONE-001).</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>Yes</td>
+<td>Short title.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>No</td>
+<td>Longer description.</td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td>Yes</td>
+<td><code>info</code> | <code>low</code> | <code>med</code> | <code>high</code> | <code>critical</code>.</td>
+</tr>
+<tr>
+<td><code>scope</code></td>
+<td>Yes</td>
+<td><code>specimen</code> | <code>result</code> | <code>device</code> | <code>zone</code> | <code>agent</code> | <code>system</code>.</td>
+</tr>
+<tr>
+<td><code>signals</code></td>
+<td>No</td>
+<td>List of named signals (PASS/VIOLATION reported in violations list; no new emits vocab required).</td>
+</tr>
+<tr>
+<td><code>logic_template</code></td>
+<td>Yes</td>
+<td><code>type</code>: <code>transition</code> | <code>state</code> | <code>temporal</code>; <code>parameters</code>: template-specific dict.</td>
+</tr>
+<tr>
+<td><code>exception_hooks</code></td>
+<td>No</td>
+<td><code>override_token_types</code>: list; <code>allow_when</code>: expression (optional).</td>
+</tr>
+<tr>
+<td><code>enforcement_hint</code></td>
+<td>No</td>
+<td><code>recommend_action</code>: <code>none</code> | <code>hold</code> | <code>block</code> | <code>throttle</code> | <code>kill_switch</code> | <code>freeze_zone</code> | <code>forensic_freeze</code>.</td>
+</tr>
+<tr>
+<td><code>reason_code</code></td>
+<td>No</td>
+<td>Canonical reason code when violated.</td>
+</tr>
+<tr>
+<td><code>triggers</code></td>
+<td>No</td>
+<td>List of action types that trigger the check.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="logic-template-types">Logic template types</h2>
+<p>Templates are compiled into callable checks in <code>engine/invariants_runtime.py</code>. Supported types and parameters:</p>
+<h3 id="state">state</h3>
+<ul>
+<li><strong>adjacency</strong>: <code>from_zone</code>, <code>to_zone</code> — MOVE must follow graph edges.</li>
+<li><strong>colocation</strong>: <code>action_types</code> — Device actions require agent in device zone.</li>
+<li><strong>restricted_door_or_zone</strong>: <code>door_id</code>, <code>zone_id</code> — OPEN_DOOR/MOVE to restricted requires token.</li>
+<li><strong>token_active</strong>: — Token refs must be active (INV-TOK-002; expired/consumed).</li>
+<li><strong>token_not_revoked</strong>: — Token refs must not be revoked (INV-TOK-006).</li>
+<li><strong>critical_acked</strong>: — RELEASE_RESULT requires ack for critical results.</li>
+<li><strong>stability_pass</strong>: — START_RUN when specimen within stability windows (INV-STAB-BIOCHEM-001:PASS).</li>
+<li><strong>cold_chain_ok</strong>: — START_RUN; VIOLATION when temp out of band (INV-ZONE-006).</li>
+<li><strong>coag_fill_valid</strong>: — ACCEPT_SPECIMEN; citrate + invalid fill =&gt; INV-COAG-FILL-001:VIOLATION.</li>
+<li><strong>token_scope_ok</strong>: — START_RUN_OVERRIDE with valid token_refs =&gt; INV-TOK-003:PASS.</li>
+<li><strong>read_back_confirmed</strong>: — ACK_CRITICAL_RESULT; read_back true =&gt; PASS, false =&gt; VIOLATION (INV-CRIT-004).</li>
+</ul>
+<h3 id="temporal">temporal</h3>
+<ul>
+<li><strong>door_open_duration</strong>: <code>door_id</code> — TICK checks door open duration vs max_open_s.</li>
+</ul>
+<h3 id="transition">transition</h3>
+<p>Reserved for future (e.g. state-transition checks).</p>
+<h2 id="how-to-add-invariants">How to add invariants</h2>
+<ol>
+<li><strong>Add an entry</strong> to <code>policy/invariants/invariant_registry.v1.0.yaml</code>:</li>
+<li>Set <code>invariant_id</code>, <code>title</code>, <code>severity</code>, <code>scope</code>.</li>
+<li>Set <code>logic_template.type</code> to one of <code>state</code>, <code>temporal</code>, <code>transition</code>.</li>
+<li>Set <code>logic_template.parameters</code> to the parameters required by the template (see handlers in <code>invariants_runtime.py</code>).</li>
+<li>
+<p>Optionally set <code>exception_hooks</code>, <code>enforcement_hint</code>, <code>reason_code</code>, <code>triggers</code>.</p>
+</li>
+<li>
+<p><strong>Implement or reuse a handler</strong> in <code>engine/invariants_runtime.py</code>:</p>
+</li>
+<li>If the template type + parameters (e.g. <code>state</code> + <code>check: "my_check"</code>) already exist, no code change.</li>
+<li>
+<p>Otherwise add a function <code>_check_my_check(env, event, params)</code> returning <code>(passed, reason_code, details)</code> or <code>None</code>, and register it in <code>_TEMPLATE_HANDLERS</code>.</p>
+</li>
+<li>
+<p><strong>Run</strong> <code>labtrust validate-policy</code> to ensure the YAML validates against the schema.</p>
+</li>
+<li>
+<p><strong>Tests</strong>: Add or extend tests in <code>tests/test_invariants_runtime.py</code> using a tiny registry fixture if needed.</p>
+</li>
+</ol>
+<h2 id="signals-and-emits">Signals and emits</h2>
+<p>Invariant outcomes are reported in the step <strong>violations</strong> list with <code>invariant_id</code> and <code>status</code> (PASS/VIOLATION). No new emit types are required in the emits vocab for v1.0; optional <code>signals</code> in the registry can document which logical signals the invariant produces.</p>
+<h2 id="integration-with-core_env">Integration with core_env</h2>
+<p>After each step with <code>status == ACCEPTED</code>, the engine calls <code>invariants_runtime.evaluate(env, event, result)</code> and merges returned violations with legacy violations by <code>invariant_id</code> (registry overwrites legacy for the same id). BLOCKED steps do not run registry checks. Gradually migrate: move checks from core_env into registry templates and remove legacy code; until then, both legacy and registry can produce violations for the same invariant (merge keeps registry version).</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../policy_pack/" class="btn btn-neutral float-left" title="Policy pack and schemas"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../enforcement/" class="btn btn-neutral float-right" title="Enforcement">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/fraware/LabTrust-Gym" class="fa fa-code-fork" style="color: #fcfcfc"> fraware/LabTrust-Gym</a>
+        </span>
+    
+    
+      <span><a href="../policy_pack/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../enforcement/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
