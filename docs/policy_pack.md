@@ -2,7 +2,7 @@
 
 Policy is versioned under `policy/`:
 
-- **schemas/**: JSON schemas for runner output contract, test catalogue.
+- **schemas/**: JSON schemas for runner output contract, test catalogue, and all policy YAML/JSON (emits vocab, zones, reason codes, token registry, dual approval, critical thresholds, equipment registry, golden scenarios). Validated by `labtrust validate-policy`.
 - **emits/**: Canonical emit vocabulary; engines must only emit listed types.
 - **invariants/**: Token, zone, and critical-result invariants.
 - **tokens/**: Token registry, dual-approval policy, enforcement map.
