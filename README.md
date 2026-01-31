@@ -27,15 +27,15 @@ pytest -q
 
 ## Layout
 
-- `policy/` — Versioned YAML/JSON: schemas, emits vocab, invariants, tokens, reason codes, zones, catalogue, stability, critical, golden scenarios.
-- `src/labtrust_gym/` — Package: `engine/`, `policy/`, `runner/` (golden runner, adapter interface, emits validator), `cli/`.
-- `tests/` — Pytest: golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, stability, catalogue.
-- `examples/` — Minimal agent; scripted/MARL baselines TBD.
-- `docs/` — Architecture, policy pack, threat model, invariants; **`docs/STATUS.md`** — current state: what’s implemented, what isn’t, what remains.
+- `policy/` — Versioned YAML/JSON: `schemas/` (JSON schemas for all policy files), emits vocab, invariants, tokens, reason codes, zones, catalogue, stability, equipment, critical, golden scenarios. All policy files are validated against their schemas by `labtrust validate-policy`.
+- `src/labtrust_gym/` — Package: `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime), `policy/` (loader, validate, emits, tokens, reason_codes), `runner/` (golden runner, adapter, emits validator), `envs/` (PettingZoo Parallel and AEC wrappers), `baselines/` (scripted_ops, scripted_runner), `benchmarks/` (tasks, metrics, runner), `logging/` (episode log), `cli/`.
+- `tests/` — Pytest: golden suite, policy validation (including invalid-policy-fails), hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log.
+- `examples/` — `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py`.
+- `docs/` — Architecture, policy pack, threat model, invariants, benchmarks, CI, PettingZoo API, queue contract; **`docs/STATUS.md`** — current state: what’s implemented and what remains.
 
 ## Golden runner
 
-The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/golden/golden_scenarios.v0.1.yaml` against an environment adapter. The adapter must implement `LabTrustEnvAdapter` (reset, step, query). Step results must conform to the runner output contract (status, emits, violations, hashchain, etc.). Unknown emits fail the suite. Run with the real engine: `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py`.
+The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/golden/golden_scenarios.v0.1.yaml` against an environment adapter. The adapter must implement `LabTrustEnvAdapter` (reset, step, query). Step results must conform to the runner output contract (status, emits, violations, hashchain, etc.). Unknown emits fail the suite. With the real engine the full golden suite passes: `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py`.
 
 ## Current state
 
