@@ -81,3 +81,15 @@ jobs:
         run: pip install -e ".[dev,env]"
       - name: Benchmark smoke (1 episode per task)
         run: labtrust bench-smoke --seed 42
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with docs extra
+        run: pip install -e ".[docs]"
+      - name: Build MkDocs
+        run: mkdocs build --strict

@@ -89,6 +89,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
     def __init__(
         self,
         num_runners: int = 2,
+        num_adversaries: int = 0,
         dt_s: int = 10,
         reward_config: Optional[Dict[str, Any]] = None,
         policy_dir: Optional[Path] = None,
@@ -101,6 +102,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             )
         super().__init__()
         self._num_runners = max(0, num_runners)
+        self._num_adversaries = max(0, num_adversaries)
         self._dt_s = max(1, dt_s)
         self._reward_config = reward_config or {}
         self._policy_dir = policy_dir or Path("policy")
@@ -110,11 +112,13 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             from labtrust_gym.logging.episode_log import EpisodeLogger
             self._episode_logger = EpisodeLogger(self._log_path)
 
-        # Agent IDs: ops_0, runner_0, runner_1, ..., qc_0, supervisor_0
+        # Agent IDs: ops_0, runner_0, ..., qc_0, supervisor_0, [adversary_0, ...]
         self.possible_agents = ["ops_0"]
         for i in range(self._num_runners):
             self.possible_agents.append(f"runner_{i}")
         self.possible_agents.extend(["qc_0", "supervisor_0"])
+        for i in range(self._num_adversaries):
+            self.possible_agents.append(f"adversary_{i}")
 
         # Map PZ agent -> engine agent_id (for zones and events)
         self._pz_to_engine: Dict[str, str] = {}
@@ -123,6 +127,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             self._pz_to_engine[f"runner_{i}"] = f"A_RUNNER_{i}"
         self._pz_to_engine["qc_0"] = "A_QC_0"
         self._pz_to_engine["supervisor_0"] = "A_SUPERVISOR_0"
+        for i in range(self._num_adversaries):
+            self._pz_to_engine[f"adversary_{i}"] = f"A_ADVERSARY_{i}"
 
         # Default zones for each agent (for initial_state)
         self._default_agent_zones: Dict[str, str] = {
@@ -132,6 +138,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         }
         for i in range(self._num_runners):
             self._default_agent_zones[f"runner_{i}"] = "Z_SORTING_LANES"
+        for i in range(self._num_adversaries):
+            self._default_agent_zones[f"adversary_{i}"] = "Z_SORTING_LANES"
 
         n_z = len(DEFAULT_ZONE_IDS) + 1
         n_d = len(DEFAULT_DEVICE_IDS)
@@ -384,6 +392,9 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         if action == ACTION_OPEN_DOOR:
             info = action_info or {}
             door_id = info.get("door_id", RESTRICTED_DOOR_ID)
+            token_refs = info.get("token_refs")
+            if not isinstance(token_refs, list):
+                token_refs = []
             return {
                 "event_id": event_id,
                 "t_s": t_s,
@@ -391,7 +402,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "action_type": "OPEN_DOOR",
                 "args": {"door_id": door_id},
                 "reason_code": None,
-                "token_refs": [],  # env does not inject token_refs; engine blocks if required
+                "token_refs": token_refs,
             }
         if action == ACTION_START_RUN:
             info = action_info or {}

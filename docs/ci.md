@@ -10,6 +10,7 @@ CI runs on every push/PR to `main` and keeps the default pipeline **fast**. Opti
 | **typecheck**   | Mypy on `src/`                 | `mypy src/`                |
 | **test**        | Pytest (fast suite)            | `pytest -q`                |
 | **policy-validate** | Policy YAML/JSON vs schemas | `labtrust validate-policy` |
+| **docs**        | Build MkDocs site              | `pip install -e ".[docs]"` then `mkdocs build --strict` |
 
 The **golden suite** is included in the default `pytest -q` run and must stay green. It validates scenario correctness against the engine contract.
 
@@ -46,6 +47,6 @@ When **LABTRUST_BENCH_SMOKE=1**, an extra job **bench-smoke** runs:
 
 ## Summary
 
-- **Default CI:** lint, typecheck, test (includes golden), policy-validate. No benchmark smoke.
+- **Default CI:** lint, typecheck, test (includes golden), policy-validate, docs (MkDocs build). No benchmark smoke.
 - **Nightly / manual:** same plus bench-smoke (1 episode per task) when `LABTRUST_BENCH_SMOKE=1`.
-- Golden suite must remain green on every run.
+- Golden suite must remain green on every run. Documentation site is built on every PR; deploy to GitHub Pages via `.github/workflows/docs.yml` on push to `main`.

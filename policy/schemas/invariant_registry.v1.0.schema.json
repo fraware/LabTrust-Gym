@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.invariant_registry.v1.0",
+  "title": "Invariant registry v1.0",
+  "description": "Strict machine-readable invariant registry compiled into runtime checks.",
+  "type": "object",
+  "required": ["registry_version", "invariants"],
+  "additionalProperties": true,
+  "properties": {
+    "registry_version": { "type": "string" },
+    "registry_id": { "type": "string" },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["invariant_id", "title", "severity", "scope", "logic_template"],
+        "additionalProperties": true,
+        "properties": {
+          "invariant_id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["info", "low", "med", "high", "critical"]
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["specimen", "result", "device", "zone", "agent", "system"]
+          },
+          "signals": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "logic_template": {
+            "type": "object",
+            "required": ["type"],
+            "additionalProperties": true,
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["transition", "state", "temporal"]
+              },
+              "parameters": { "type": "object" }
+            }
+          },
+          "exception_hooks": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "override_token_types": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "allow_when": { "type": ["string", "null"] }
+            }
+          },
+          "enforcement_hint": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "recommend_action": {
+                "type": "string",
+                "enum": [
+                  "none", "hold", "block", "throttle",
+                  "kill_switch", "freeze_zone", "forensic_freeze"
+                ]
+              }
+            }
+          },
+          "reason_code": { "type": ["string", "null"] },
+          "triggers": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

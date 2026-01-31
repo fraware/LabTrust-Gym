@@ -40,6 +40,20 @@ env = [
     "pettingzoo>=1.24",
     "gymnasium>=0.29",
 ]
+# Plotting pipeline for study outputs; install with: pip install -e ".[plots]"
+plots = [
+    "matplotlib>=3.7",
+]
+# PPO/MARL baselines; install with: pip install -e ".[marl]"
+marl = [
+    "stable-baselines3>=2.0",
+    "gymnasium>=0.29",
+]
+# Documentation site; install with: pip install -e ".[docs]"
+docs = [
+    "mkdocs>=1.5",
+    "mkdocstrings[python]>=0.24",
+]
 
 [project.scripts]
 labtrust = "labtrust_gym.cli.main:main"

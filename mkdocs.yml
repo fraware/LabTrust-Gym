@@ -1,0 +1,56 @@
+# MkDocs config for LabTrust-Gym documentation site
+site_name: LabTrust-Gym
+site_description: Multi-agent environment for a self-driving hospital lab (PettingZoo/Gym style) with trust skeleton
+site_url: https://fraware.github.io/LabTrust-Gym/
+repo_url: https://github.com/fraware/LabTrust-Gym
+repo_name: fraware/LabTrust-Gym
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+strict: true
+
+theme:
+  name: readthedocs
+  highlightjs: true
+
+nav:
+  - Overview: index.md
+  - Architecture: architecture.md
+  - Policy pack and schemas: policy_pack.md
+  - Frozen contracts: frozen_contracts.md
+  - Invariants and enforcement:
+    - Invariant registry: invariants_registry.md
+    - Enforcement: enforcement.md
+  - PettingZoo API: pettingzoo_api.md
+  - Benchmarks, studies, plots:
+    - Benchmarks: benchmarks.md
+    - Studies and plots: studies.md
+    - Reproduce (minimal results + figures): reproduce.md
+  - Reproducibility and seeding: reproducibility.md
+  - Threat model: threat_model.md
+  - Invariants (overview): invariants.md
+  - Queue contract: queue_contract.v0.1.md
+  - MARL baselines: marl_baselines.md
+  - LLM baselines: llm_baselines.md
+  - Contributing: contributing.md
+  - CI: ci.md
+  - STATUS: STATUS.md
+  - API Reference: api/index.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_symbol_type_heading: true
+            docstring_style: google
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - pymdownx.snippets
+  - pymdownx.superfences

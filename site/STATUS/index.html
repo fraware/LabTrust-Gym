@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://fraware.github.io/LabTrust-Gym/STATUS/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>LabTrust-Gym — Current State of the Repo - LabTrust-Gym</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "LabTrust-Gym \u2014 Current State of the Repo";
+        var mkdocs_page_input_path = "STATUS.md";
+        var mkdocs_page_url = "/LabTrust-Gym/STATUS/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> LabTrust-Gym
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Overview</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../architecture/">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../policy_pack/">Policy pack and schemas</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Invariants and enforcement</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../invariants_registry/">Invariant registry</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../enforcement/">Enforcement</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../pettingzoo_api/">PettingZoo API</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Benchmarks, studies, plots</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Benchmarks</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../studies/">Studies and plots</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../reproducibility/">Reproducibility and seeding</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../contributing/">Contributing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">LabTrust-Gym</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">LabTrust-Gym — Current State of the Repo</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/fraware/LabTrust-Gym/edit/main/docs/STATUS.md">Edit on fraware/LabTrust-Gym</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="labtrust-gym-current-state-of-the-repo">LabTrust-Gym — Current State of the Repo</h1>
+<p>This document reports what is implemented, what is not, and what remains to reach the north star (pip-installable multi-agent lab environment with trust skeleton, benchmarks, and baselines).</p>
+<p><strong>Last updated:</strong> reflects the codebase after policy JSON schemas, equipment timing, PettingZoo wrappers, scripted baselines, benchmark harness, and episode logging.</p>
+<hr />
+<h2 id="1-repo-layout-vs-design">1. Repo layout vs design</h2>
+<h3 id="11-implemented-and-aligned-with-design">1.1 Implemented and aligned with design</h3>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Root metadata</strong></td>
+<td>✅</td>
+<td>README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG, LICENSE (Apache-2.0), .gitignore</td>
+</tr>
+<tr>
+<td><strong>CI</strong></td>
+<td>✅</td>
+<td><code>.github/workflows/ci.yml</code>, <code>release.yml</code>; ruff format/check, mypy, pytest, policy validation; optional bench-smoke (nightly/manual)</td>
+</tr>
+<tr>
+<td><strong>Policy tree</strong></td>
+<td>✅</td>
+<td><code>policy/schemas/</code> (JSON schemas for emits, zones, reason_codes, tokens, dual_approval, critical, equipment, golden, runner contract, test catalogue), <code>policy/emits/</code>, <code>policy/invariants/</code>, <code>policy/tokens/</code>, <code>policy/reason_codes/</code>, <code>policy/zones/</code>, <code>policy/catalogue/</code>, <code>policy/stability/</code>, <code>policy/equipment/</code>, <code>policy/critical/</code>, <code>policy/golden/</code></td>
+</tr>
+<tr>
+<td><strong>Source tree</strong></td>
+<td>✅</td>
+<td><code>src/labtrust_gym/</code> with <code>engine/</code> (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime), <code>policy/</code>, <code>runner/</code>, <code>envs/</code> (PZ Parallel, AEC), <code>baselines/</code> (scripted_ops, scripted_runner), <code>benchmarks/</code> (tasks, metrics, runner), <code>logging/</code> (episode_log), <code>cli/</code>, <code>version.py</code></td>
+</tr>
+<tr>
+<td><strong>Tests</strong></td>
+<td>✅</td>
+<td>Golden suite, policy validation (incl. invalid-policy-fails), hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log</td>
+</tr>
+<tr>
+<td><strong>Examples</strong></td>
+<td>✅</td>
+<td><code>minimal_random_policy_agent.py</code>, <code>scripted_ops_agent.py</code>, <code>scripted_runner_agent.py</code></td>
+</tr>
+<tr>
+<td><strong>Docs</strong></td>
+<td>✅</td>
+<td><code>docs/architecture.md</code>, <code>policy_pack.md</code>, <code>threat_model.md</code>, <code>invariants.md</code>, <code>benchmarks.md</code>, <code>ci.md</code>, <code>pettingzoo_api.md</code>, <code>queue_contract.v0.1.md</code>, <code>STATUS.md</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-not-present-or-partial-from-original-directory-spec">1.2 Not present or partial (from original directory spec)</h3>
+<ul>
+<li><strong>Engine:</strong> <code>state.py</code>, <code>event.py</code>, <code>errors.py</code> — no dedicated modules; state is dict-based in core_env and sub-stores. <code>clock.py</code>, <code>rng.py</code>, <code>devices.py</code>, <code>queueing.py</code> exist.</li>
+<li><strong>Policy schemas:</strong> All policy YAML/JSON listed in <code>POLICY_FILES_WITH_SCHEMAS</code> have JSON schemas under <code>policy/schemas/</code> and are validated by <code>labtrust validate-policy</code>. Invariant registry files are not yet in that list (optional future addition).</li>
+</ul>
+<hr />
+<h2 id="2-what-was-implemented">2. What was implemented</h2>
+<h3 id="21-policy-loading-and-validation">2.1 Policy loading and validation</h3>
+<ul>
+<li><strong><code>src/labtrust_gym/policy/loader.py</code></strong> — Loads YAML/JSON from policy paths; validates against JSON Schema via <code>validate_against_schema</code>; <code>POLICY_FILE_SCHEMA_MAP</code> maps policy filenames to schema filenames.</li>
+<li><strong><code>src/labtrust_gym/policy/validate.py</code></strong> — Used by CLI; validates runner output contract schema file (exists and valid JSON); validates all policy files in <code>POLICY_FILES_WITH_SCHEMAS</code> against their JSON schemas (emits vocab, zones, reason codes, token registry, dual approval, critical thresholds, equipment registry, golden scenarios).</li>
+<li><strong>Policy schemas</strong> — <code>policy/schemas/</code> contains JSON schemas for: emits_vocab.v0.1, zone_layout_policy.v0.1, reason_code_registry.v0.1, token_registry.v0.1, dual_approval_policy.v0.1, critical_thresholds.v0.1, equipment_registry.v0.1, golden_scenarios.v0.1, plus runner_output_contract.v0.1 and test_catalogue.schema.v0.1.</li>
+<li><strong>CLI</strong> — <code>labtrust validate-policy</code> runs full policy validation (all policy files against schemas).</li>
+<li><strong>Tests</strong> — <code>tests/test_policy_validation.py</code> fails if any required file is missing or invalid; includes tests that invalid policy (e.g. missing required keys) fails schema validation.</li>
+</ul>
+<h3 id="22-golden-runner-and-harness">2.2 Golden runner and harness</h3>
+<ul>
+<li><strong><code>src/labtrust_gym/runner/adapter.py</code></strong> — <code>LabTrustEnvAdapter</code> interface (reset, step, query).</li>
+<li><strong><code>src/labtrust_gym/runner/golden_runner.py</code></strong> — Scenario execution, assertions (status, emits, violations, blocked_reason_code, token_consumed, state_assertions, hashchain), output matches runner contract shape.</li>
+<li><strong><code>src/labtrust_gym/runner/emits_validator.py</code></strong> — <code>load_emits_vocab(path)</code>, <code>validate_emits(emits, allowed, event_id)</code>; GoldenRunner enforces emits vocab (unknown emits ⇒ AssertionError).</li>
+<li><strong><code>tests/test_golden_suite.py</code></strong> — Loads runner output contract schema, validates step output via jsonschema; fails if any scenario failed; gated by <code>LABTRUST_RUN_GOLDEN=1</code>; uses placeholder adapter when env var unset (tests skipped).</li>
+</ul>
+<h3 id="23-audit-hashchain-and-forensic-freeze">2.3 Audit hashchain and forensic freeze</h3>
+<ul>
+<li><strong><code>src/labtrust_gym/engine/audit_log.py</code></strong> — Canonical event serialization (deterministic), SHA-256 hash chain, append(event) → head_hash, last_event_hash, length; fault injection <code>break_hash_prev_on_event_id</code>; chain break → forensic freeze.</li>
+<li><strong><code>src/labtrust_gym/engine/core_env.py</code></strong> — Minimal engine: reset(initial_state, deterministic, rng_seed), step(event) returns contract (status, emits, violations, blocked_reason_code, token_consumed, hashchain); once log_frozen, all steps BLOCKED with AUDIT_CHAIN_BROKEN; FORENSIC_FREEZE_LOG emitted at freeze.</li>
+<li><strong>query(expr)</strong> — <code>system_state('log_frozen')</code>, <code>last_reason_code_system</code>.</li>
+<li><strong>Tests</strong> — <code>tests/test_hashchain.py</code> (unit + integration); GS-022 passes when <code>LABTRUST_RUN_GOLDEN=1</code> with real engine.</li>
+</ul>
+<h3 id="24-emits-and-reason-codes-strict-validation">2.4 Emits and reason codes (strict validation)</h3>
+<ul>
+<li><strong><code>policy/emits/emits_vocab.v0.1.yaml</code></strong> — Canonical set of allowed emit types.</li>
+<li><strong><code>src/labtrust_gym/policy/emits.py</code></strong> — Load vocab, validate engine step emits.</li>
+<li><strong><code>policy/reason_codes/reason_code_registry.v0.1.yaml</code></strong> — Starter registry (AUDIT_CHAIN_BROKEN, AUDIT_MISSING_REASON_CODE, RC_DEVICE_NOT_COLOCATED, ID_MISMATCH, CNT_CITRATE_FILL_INVALID, INT_LEAKING, QC_FAIL_ACTIVE, CRIT_NO_ACK, TIME_EXPIRED, TEMP_OUT_OF_BAND, RBAC_RESTRICTED_ENTRY_DENY, etc.).</li>
+<li><strong><code>src/labtrust_gym/policy/reason_codes.py</code></strong> — Load registry, validate code exists, lookup.</li>
+<li><strong>GoldenRunner</strong> — When <code>LABTRUST_STRICT_REASON_CODES=1</code>, blocked_reason_code and action reason_code must be in registry.</li>
+<li><strong>Tests</strong> — <code>tests/test_emits_and_reason_codes.py</code> (strict and non-strict modes).</li>
+</ul>
+<h3 id="25-token-lifecycle-and-dual-approval">2.5 Token lifecycle and dual approval</h3>
+<ul>
+<li><strong><code>src/labtrust_gym/policy/tokens.py</code></strong> — Token dataclass, dual-approval validation (two distinct approvers/keys), lifecycle (ACTIVE → CONSUMED/REVOKED/EXPIRED).</li>
+<li><strong><code>src/labtrust_gym/engine/tokens_runtime.py</code></strong> — Token store: mint_token, consume_token, revoke_token, is_valid(token_id, t_s); replay protection (consumed/expired/revoked invalid).</li>
+<li><strong>Engine</strong> — MINT_TOKEN, REVOKE_TOKEN; any action with token_refs validated; consumed on use.</li>
+<li><strong>Tests</strong> — <code>tests/test_tokens.py</code>; GS-010–GS-013 pass under <code>LABTRUST_RUN_GOLDEN=1</code>.</li>
+</ul>
+<h3 id="26-zone-graph-and-doors">2.6 Zone graph and doors</h3>
+<ul>
+<li><strong><code>policy/zones/zone_layout_policy.v0.1.yaml</code></strong> — Zones, graph_edges, doors (including D_RESTRICTED_AIRLOCK), device_placement (device_id → zone_id).</li>
+<li><strong><code>src/labtrust_gym/engine/zones.py</code></strong> — ZoneState: adjacency, agent positions, door open_since, tick() for door-open-too-long → ALARM, KILL_SWITCH_ZONE, zone frozen; move(), open_door(); build_device_zone_map(device_placement), get_default_device_zone_map().</li>
+<li><strong>Engine</strong> — MOVE (adjacency; restricted zone requires token); OPEN_DOOR (restricted requires TOKEN_RESTRICTED_ENTRY); TICK door breach.</li>
+<li><strong>query(expr)</strong> — <code>zone_state('Z_RESTRICTED_BIOHAZARD')</code> → 'frozen' | 'normal'.</li>
+<li><strong>Tests</strong> — <code>tests/test_zones.py</code>; GS-008, GS-009, GS-020 pass.</li>
+</ul>
+<h3 id="27-reception-specimen-acceptance">2.7 Reception / specimen acceptance</h3>
+<ul>
+<li><strong><code>src/labtrust_gym/engine/specimens.py</code></strong> — SpecimenStore: state machine, templates (S_BIOCHEM_OK, S_COAG_OK); CREATE_ACCESSION, CHECK_ACCEPTANCE_RULES, ACCEPT_SPECIMEN, REJECT_SPECIMEN, HOLD_SPECIMEN; ID mismatch → reject (ID_MISMATCH); leaking → reject (INT_LEAKING); citrate underfill → hold (CNT_CITRATE_FILL_INVALID); HOLD_SPECIMEN without reason_code → BLOCKED AUDIT_MISSING_REASON_CODE.</li>
+<li><strong>Engine</strong> — All acceptance actions wired; BLOCKED does not mutate specimen state.</li>
+<li><strong>Tests</strong> — <code>tests/test_specimens.py</code>; GS-003, GS-004, GS-005, GS-021 pass.</li>
+</ul>
+<h3 id="28-qc-and-result-gating">2.8 QC and result gating</h3>
+<ul>
+<li><strong><code>src/labtrust_gym/engine/qc.py</code></strong> — QCStore: device qc_state, run–device mapping, results (status, flags); QC_EVENT, RERUN_REQUEST, START_RUN, GENERATE_RESULT, RELEASE_RESULT, HOLD_RESULT, RELEASE_RESULT_OVERRIDE (TOKEN_QC_DRIFT_OVERRIDE, QC_DRIFT_DISCLAIMER_REQUIRED).</li>
+<li><strong>Engine</strong> — If device qc_state == fail, RELEASE_RESULT BLOCKED (QC_FAIL_ACTIVE); after QC pass, release allowed; drift override path with token and flag.</li>
+<li><strong>query(expr)</strong> — <code>result_status('...')</code>, <code>result_flags('...')</code>.</li>
+<li><strong>Tests</strong> — <code>tests/test_qc.py</code>; GS-014, GS-015 pass.</li>
+</ul>
+<h3 id="29-critical-results">2.9 Critical results</h3>
+<ul>
+<li><strong><code>policy/critical/critical_thresholds.v0.1.yaml</code></strong> — Placeholder thresholds (K, Na, Hb, INR, etc.).</li>
+<li><strong><code>src/labtrust_gym/engine/critical.py</code></strong> — Classify CRIT_A/CRIT_B/none; CriticalStore: comm records (notify/ack), notification_mode_required; NOTIFY_CRITICAL_RESULT, ACK_CRITICAL_RESULT (read_back_confirmed → INV-CRIT-004 PASS/VIOLATION), ESCALATE_CRITICAL_RESULT.</li>
+<li><strong>Engine</strong> — RELEASE_RESULT blocked until ACK recorded for critical results; downtime_active → auto NOTIFY_CRITICAL_RESULT on generate, phone/bleep path.</li>
+<li><strong>query(expr)</strong> — <code>result_criticality('...')</code>, <code>comm_record_exists(result_id='...')</code>, <code>notification_mode_required('...')</code>.</li>
+<li><strong>Tests</strong> — <code>tests/test_critical.py</code>; GS-016, GS-017, GS-018 pass.</li>
+</ul>
+<h3 id="210-catalogue-and-stability-start_run-gating">2.10 Catalogue and stability (START_RUN gating)</h3>
+<ul>
+<li><strong><code>policy/catalogue/test_catalogue.seed.v0.1.json</code></strong>, <strong><code>policy/schemas/test_catalogue.schema.v0.1.json</code></strong> — Catalogue seed and schema.</li>
+<li><strong><code>policy/stability/stability_policy.v0.1.yaml</code></strong> — Panel-level windows (biochem ambient pre-spin, coag, etc.).</li>
+<li><strong><code>src/labtrust_gym/engine/catalogue_runtime.py</code></strong> — Panel lookup by specimen.panel_id, check_stability(), check_temp_out_of_band(); default_stability_limits.</li>
+<li><strong>Engine</strong> — START_RUN: stability and temp checks; TIME_EXPIRED / TEMP_OUT_OF_BAND BLOCKED unless OVERRIDE_RISK_ACCEPTANCE; START_RUN_OVERRIDE with dual-approval token; CENTRIFUGE_END (separated_ts_s), ALIQUOT_CREATE (aliquot→specimen mapping).</li>
+<li><strong>Tests</strong> — <code>tests/test_stability.py</code>, <code>tests/test_catalogue.py</code>; GS-001, GS-006, GS-007 pass.</li>
+</ul>
+<h3 id="211-co-location-deviceagent-zone">2.11 Co-location (device–agent zone)</h3>
+<ul>
+<li><strong>Device–zone mapping</strong> — From <code>policy/zones/zone_layout_policy.v0.1.yaml</code> <code>device_placement</code> (and default in zones.py).</li>
+<li><strong>Engine</strong> — START_RUN and START_RUN_OVERRIDE: if agent zone ≠ device zone ⇒ BLOCKED RC_DEVICE_NOT_COLOCATED, INV-ZONE-002:VIOLATION.</li>
+<li><strong>Tests</strong> — <code>tests/test_zones.py</code> (build_device_zone_map, GS-019, unit colocation test); GS-019 passes.</li>
+</ul>
+<h3 id="212-queueing-queue_run-queue_head-start_run-consume">2.12 Queueing (QUEUE_RUN, queue_head, START_RUN consume)</h3>
+<ul>
+<li><strong>Contract (frozen):</strong> <strong><code>docs/queue_contract.v0.1.md</code></strong> — Device queue item fields, priority ordering rule (STAT/URGENT/ROUTINE), QUEUE_RUN and START_RUN interaction, meaning of <code>queue_head()</code>. Do not weaken; queue semantics are a core knob for fairness vs. latency vs. safety.</li>
+<li><strong><code>src/labtrust_gym/engine/queueing.py</code></strong> — DeviceQueueItem, DeviceQueue, QueueStore; ordering: priority_rank → enqueued_ts_s → tie_break; enqueue, queue_head(device_id), consume_head(device_id).</li>
+<li><strong>Engine</strong> — QUEUE_RUN: device_id + work_id (or specimen_id/accession_ids/aliquot_ids); co-location; emit QUEUE_RUN. START_RUN: no explicit work ⇒ consume queue head (else RC_QUEUE_EMPTY); explicit work ⇒ strict work_id == queue_head then consume. Reason codes: RC_DEVICE_UNKNOWN, RC_QUEUE_BAD_PAYLOAD, RC_QUEUE_DUPLICATE_WORK_ID, RC_QUEUE_EMPTY, RC_QUEUE_HEAD_MISMATCH.</li>
+<li><strong>query(expr)</strong> — <code>queue_head(DEVICE_ID)</code> → work_id at front or None.</li>
+<li><strong>Tests</strong> — <code>tests/test_queueing.py</code>; GS-002 passes; full golden suite green with <code>LABTRUST_RUN_GOLDEN=1</code>.</li>
+</ul>
+<hr />
+<h2 id="3-golden-scenarios-22-total">3. Golden scenarios (22 total)</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Title / focus</th>
+<th>Passes with engine?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GS-001</td>
+<td>Full pipeline: accession → accept → move → centrifuge → aliquot → queue → start_run → QC → result → release</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-002</td>
+<td>STAT insertion; queue_head(DEV_CHEM_A_01) == 'S2'</td>
+<td>✅ (queue contract v0.1 frozen; see docs/queue_contract.v0.1.md)</td>
+</tr>
+<tr>
+<td>GS-003</td>
+<td>Citrate underfill → HOLD, INV-COAG-FILL-001</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-004</td>
+<td>ID mismatch → REJECT, ID_MISMATCH</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-005</td>
+<td>Leaking → REJECT, INT_LEAKING</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-006</td>
+<td>Stability expired → BLOCKED; dual approval mint → START_RUN_OVERRIDE</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-007</td>
+<td>Temp out-of-band → BLOCKED TEMP_OUT_OF_BAND</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-008</td>
+<td>Restricted door without token → BLOCKED</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-009</td>
+<td>Door open too long → ALARM, zone frozen</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-010</td>
+<td>Dual approval: same approver twice → BLOCKED INV-TOK-001</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-011</td>
+<td>Expired token → BLOCKED</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-012</td>
+<td>Token replay (consumed) → BLOCKED</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-013</td>
+<td>Revoked token → BLOCKED</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-014</td>
+<td>QC fail → RELEASE_RESULT BLOCKED until rerun</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-015</td>
+<td>QC drift override, result_flags contains QC_DRIFT_DISCLAIMER_REQUIRED</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-016</td>
+<td>Critical: no release until NOTIFY+ACK; INV-CRIT-004 PASS</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-017</td>
+<td>ACK without read-back → INV-CRIT-004:VIOLATION, comm_record_exists</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-018</td>
+<td>Downtime → NOTIFY_CRITICAL_RESULT, notification_mode_required</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-019</td>
+<td>Agent not in device zone → BLOCKED RC_DEVICE_NOT_COLOCATED</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-020</td>
+<td>Illegal move (not on graph) → BLOCKED</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-021</td>
+<td>HOLD_SPECIMEN without reason_code → BLOCKED</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>GS-022</td>
+<td>Hash chain break → forensic freeze, then all BLOCKED</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Full golden suite:</strong> With <code>LABTRUST_RUN_GOLDEN=1</code>, the <strong>full suite passes</strong> (all scenarios; one may be skipped if fixtures unavailable). Queue semantics are frozen in <strong>docs/queue_contract.v0.1.md</strong> (v0.1).</p>
+<hr />
+<h2 id="4-what-is-not-implemented-or-partial">4. What is not implemented (or partial)</h2>
+<h3 id="41-queueing-done-contract-frozen">4.1 Queueing (done; contract frozen)</h3>
+<ul>
+<li><strong>QUEUE_RUN</strong> — Implemented; per-device queue, STAT/URGENT/ROUTINE ordering, co-location, work_id from specimen/accession/aliquot.</li>
+<li><strong>query(expr): queue_head(device_id)</strong> — Implemented; returns work_id at front or None.</li>
+<li><strong>START_RUN</strong> — Consumes queue head when no explicit work; strict work_id == queue_head when explicit work.</li>
+<li><strong>Contract:</strong> <strong><code>docs/queue_contract.v0.1.md</code></strong> — Frozen; do not weaken (fairness vs. latency vs. safety knob for later work).</li>
+</ul>
+<h3 id="42-engine-modules-from-spec">4.2 Engine modules (from spec)</h3>
+<ul>
+<li><strong>state.py / event.py</strong> — No dedicated state/event dataclasses; state is dict-based in core_env and sub-stores.</li>
+<li><strong>clock.py</strong> — Implemented; simulation clock with <code>set(t_s)</code> and <code>advance_to(t_s, completion_callback)</code>; used in simulated timing mode.</li>
+<li><strong>rng.py</strong> — Implemented; single RNG wrapper seeded from scenario; used for service-time sampling and determinism.</li>
+<li><strong>devices.py</strong> — Implemented; DeviceStore with IDLE/RUNNING/FAULT/MAINT; per-device active run and service-time sampling from equipment registry; integrates with START_RUN when <code>timing_mode: simulated</code>.</li>
+<li><strong>queueing.py</strong> — Implemented; DeviceQueue, QueueStore, priority ordering.</li>
+<li><strong>errors.py</strong> — Reason codes and BLOCKED responses exist; no dedicated error type module.</li>
+</ul>
+<h3 id="43-policy-schemas">4.3 Policy schemas</h3>
+<ul>
+<li>All policy files listed in <code>POLICY_FILES_WITH_SCHEMAS</code> have JSON schemas under <code>policy/schemas/</code> and are validated by <code>labtrust validate-policy</code>: emits vocab, zones, reason codes, token registry, dual approval, critical thresholds, equipment registry, golden scenarios. Runner output contract and test catalogue schemas also exist.</li>
+</ul>
+<h3 id="44-examples-and-baselines">4.4 Examples and baselines</h3>
+<ul>
+<li><strong>examples/minimal_random_policy_agent.py</strong> — Present (minimal).</li>
+<li><strong>examples/scripted_ops_agent.py</strong>, <strong>examples/scripted_runner_agent.py</strong> — Implemented; use <code>src/labtrust_gym/baselines/scripted_ops.py</code> and <code>scripted_runner.py</code>.</li>
+<li><strong>Benchmark tasks</strong> — TaskA (throughput/SLA), TaskB (STAT insertion under load), TaskC (QC fail cascade) in <code>src/labtrust_gym/benchmarks/tasks.py</code>; metrics and runner in <code>benchmarks/metrics.py</code>, <code>benchmarks/runner.py</code>; CLI <code>labtrust run-benchmark</code>, <code>labtrust bench-smoke</code>.</li>
+<li>No MARL or LLM baselines; no published benchmark results.</li>
+</ul>
+<h3 id="45-api-and-packaging">4.5 API and packaging</h3>
+<ul>
+<li><strong>PettingZoo AEC and parallel API</strong> — Implemented; <code>LabTrustParallelEnv</code> in <code>envs/pz_parallel.py</code>, AEC via <code>labtrust_aec_env</code> in <code>envs/pz_aec.py</code> (parallel_to_aec). Require <code>pip install -e ".[env]"</code>.</li>
+<li><strong>pip-installable</strong> — Yes (<code>pyproject.toml</code>, <code>pip install -e ".[dev]"</code>); not published to PyPI.</li>
+</ul>
+<h3 id="46-documentation">4.6 Documentation</h3>
+<ul>
+<li><strong>API reference (autogenerated from docstrings)</strong> — Not set up (e.g. Sphinx/MkDocs).</li>
+<li><strong>Example notebooks (Jupyter)</strong> — None.</li>
+<li><strong>docs/</strong> — Architecture, policy_pack, threat_model, invariants, benchmarks, ci, pettingzoo_api, queue_contract; this STATUS.</li>
+</ul>
+<hr />
+<h2 id="5-what-remains-prioritized">5. What remains (prioritized)</h2>
+<ol>
+<li>
+<p><strong>Queueing and GS-002</strong> — Done. QUEUE_RUN, queue_head, START_RUN consume; full suite green; contract frozen in docs/queue_contract.v0.1.md.</p>
+</li>
+<li>
+<p><strong>Full golden suite green</strong> — Done. Run with <code>LABTRUST_RUN_GOLDEN=1</code>; keep queue contract v0.1 unchanged.</p>
+</li>
+<li>
+<p><strong>Standard env API</strong> — Done. PettingZoo Parallel and AEC wrappers in <code>envs/pz_parallel.py</code>, <code>envs/pz_aec.py</code>; observations, actions, rewards, infos; require <code>.[env]</code>.</p>
+</li>
+<li>
+<p><strong>Benchmark tasks and scripted baselines</strong> — Done. Three tasks (TaskA, TaskB, TaskC), scripted ops and scripted runner baselines, <code>labtrust run-benchmark</code>, <code>labtrust bench-smoke</code>; metrics (throughput, TAT, violations, etc.). Publish empirical results and add MARL/LLM baselines as needed.</p>
+</li>
+<li>
+<p><strong>Docs and examples</strong> — API reference from docstrings (Sphinx/MkDocs) not set up; Jupyter notebooks none; docs/ expanded (benchmarks, CI, PettingZoo API, queue contract).</p>
+</li>
+<li>
+<p><strong>Optional engine refactor</strong> — state.py, event.py, errors.py still not extracted; clock, rng, devices, queueing exist.</p>
+</li>
+<li>
+<p><strong>Policy schema coverage</strong> — Done. JSON schemas for emits, zones, reason codes, tokens, dual approval, critical, equipment, golden; all wired into <code>validate-policy</code>.</p>
+</li>
+</ol>
+<hr />
+<h2 id="6-how-to-run-and-validate">6. How to run and validate</h2>
+<div class="highlight"><pre><span></span><code><span class="c1"># Install</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+
+<span class="c1"># Policy validation (all policy files against their JSON schemas)</span>
+labtrust<span class="w"> </span>validate-policy
+
+<span class="c1"># Unit and integration tests (includes golden suite when LABTRUST_RUN_GOLDEN=1)</span>
+pytest<span class="w"> </span>-q
+
+<span class="c1"># Golden suite (full suite with real engine)</span>
+<span class="nv">LABTRUST_RUN_GOLDEN</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pytest<span class="w"> </span>tests/test_golden_suite.py<span class="w"> </span>-v
+
+<span class="c1"># PettingZoo + benchmark (optional extra)</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev,env]&quot;</span>
+pytest<span class="w"> </span>tests/test_pz_parallel_smoke.py<span class="w"> </span>tests/test_pz_aec_smoke.py<span class="w"> </span>tests/test_benchmark_smoke.py<span class="w"> </span>-v
+labtrust<span class="w"> </span>bench-smoke<span class="w"> </span>--seed<span class="w"> </span><span class="m">42</span>
+</code></pre></div>
+<hr />
+<h2 id="7-summary-table">7. Summary table</h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Implemented</th>
+<th>Not implemented / partial</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Policy load/validate</td>
+<td>✅ loader, validate, CLI; JSON schemas for all policy files (emits, zones, reason_codes, tokens, dual_approval, critical, equipment, golden, runner contract, catalogue)</td>
+<td>Invariant registry YAML not in schema list (optional)</td>
+</tr>
+<tr>
+<td>Golden runner</td>
+<td>✅ Adapter, runner, emits strict, contract validation</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Audit / hashchain</td>
+<td>✅ Canonical serialization, chain, fault inject, freeze</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Tokens</td>
+<td>✅ Lifecycle, dual approval, replay protection</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Zones / doors</td>
+<td>✅ Graph, doors, device_placement, colocation</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Specimens</td>
+<td>✅ Acceptance, hold/reject, reason codes</td>
+<td>—</td>
+</tr>
+<tr>
+<td>QC</td>
+<td>✅ Device state, result gating, drift override</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Critical</td>
+<td>✅ Classify, notify/ack, downtime path</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Catalogue / stability</td>
+<td>✅ Panel, stability, temp, START_RUN gating</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Co-location</td>
+<td>✅ START_RUN / START_RUN_OVERRIDE device zone check</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Queueing</td>
+<td>✅ queueing.py, QUEUE_RUN, queue_head, START_RUN consume; docs/queue_contract.v0.1.md</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Equipment timing</td>
+<td>✅ devices.py, clock.py, rng.py; timing_mode explicit/simulated; equipment_registry capacity/service_time</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Engine structure</td>
+<td>✅ core_env + domain modules (audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime)</td>
+<td>❌ state.py, event.py, errors.py as separate modules</td>
+</tr>
+<tr>
+<td>Env API</td>
+<td>✅ Adapter (reset, step, query); PettingZoo Parallel and AEC wrappers (envs/)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Baselines / benchmarks</td>
+<td>✅ Scripted ops, scripted runner; TaskA/B/C, metrics, runner; labtrust run-benchmark, bench-smoke; episode logging</td>
+<td>MARL/LLM baselines; published results</td>
+</tr>
+<tr>
+<td>Examples</td>
+<td>✅ minimal_random_policy_agent, scripted_ops_agent, scripted_runner_agent</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Docs</td>
+<td>✅ README, CONTRIBUTING, STATUS, architecture, benchmarks, ci, pettingzoo_api, queue_contract, policy_pack, threat_model, invariants</td>
+<td>API ref (Sphinx/MkDocs), Jupyter notebooks</td>
+</tr>
+</tbody>
+</table>
+<p>This STATUS reports the current state of the repo: what is implemented and what remains.</p>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/fraware/LabTrust-Gym" class="fa fa-code-fork" style="color: #fcfcfc"> fraware/LabTrust-Gym</a>
+        </span>
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

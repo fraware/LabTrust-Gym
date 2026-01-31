@@ -2,7 +2,7 @@
 
 This document reports what is implemented, what is not, and what remains to reach the north star (pip-installable multi-agent lab environment with trust skeleton, benchmarks, and baselines).
 
-**Last updated:** reflects the codebase after policy JSON schemas, equipment timing, PettingZoo wrappers, scripted baselines, benchmark harness, and episode logging.
+**Last updated:** reflects the codebase after invariant registry v1.0, enforcement layer, studies (study_runner, plots, reproduce), baselines (adversary, LLM, MARL/PPO), TaskD, docs site (MkDocs + mkdocstrings), and reproduce CLI.
 
 ---
 
@@ -15,15 +15,25 @@ This document reports what is implemented, what is not, and what remains to reac
 | **Root metadata** | ✅ | README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG, LICENSE (Apache-2.0), .gitignore |
 | **CI** | ✅ | `.github/workflows/ci.yml`, `release.yml`; ruff format/check, mypy, pytest, policy validation; optional bench-smoke (nightly/manual) |
 | **Policy tree** | ✅ | `policy/schemas/` (JSON schemas for emits, zones, reason_codes, tokens, dual_approval, critical, equipment, golden, runner contract, test catalogue), `policy/emits/`, `policy/invariants/`, `policy/tokens/`, `policy/reason_codes/`, `policy/zones/`, `policy/catalogue/`, `policy/stability/`, `policy/equipment/`, `policy/critical/`, `policy/golden/` |
-| **Source tree** | ✅ | `src/labtrust_gym/` with `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime), `policy/`, `runner/`, `envs/` (PZ Parallel, AEC), `baselines/` (scripted_ops, scripted_runner), `benchmarks/` (tasks, metrics, runner), `logging/` (episode_log), `cli/`, `version.py` |
-| **Tests** | ✅ | Golden suite, policy validation (incl. invalid-policy-fails), hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log |
-| **Examples** | ✅ | `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py` |
-| **Docs** | ✅ | `docs/architecture.md`, `policy_pack.md`, `threat_model.md`, `invariants.md`, `benchmarks.md`, `ci.md`, `pettingzoo_api.md`, `queue_contract.v0.1.md`, `STATUS.md` |
+| **Source tree** | ✅ | `src/labtrust_gym/` with `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement), `policy/` (incl. invariants_registry), `runner/`, `envs/` (PZ Parallel, AEC), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/` (tasks, metrics, runner), `studies/` (study_runner, plots, reproduce), `logging/` (episode_log), `cli/`, `version.py` |
+| **Tests** | ✅ | Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log, invariant_registry_validation, invariants_runtime, enforcement, study_runner_smoke, plots_tables_determinism, reproduce_smoke, adversary_task_smoke, marl_smoke, llm_agent_mock |
+| **Examples** | ✅ | `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py`, `llm_agent_mock_demo.py` |
+| **Docs** | ✅ | `docs/architecture.md`, `policy_pack.md`, `threat_model.md`, `invariants.md`, `invariants_registry.md`, `enforcement.md`, `benchmarks.md`, `studies.md`, `reproduce.md`, `ci.md`, `pettingzoo_api.md`, `queue_contract.v0.1.md`, `marl_baselines.md`, `llm_baselines.md`, `STATUS.md`. MkDocs site (mkdocstrings API reference); deploy to GitHub Pages. |
 
 ### 1.2 Not present or partial (from original directory spec)
 
 - **Engine:** `state.py`, `event.py`, `errors.py` — no dedicated modules; state is dict-based in core_env and sub-stores. `clock.py`, `rng.py`, `devices.py`, `queueing.py` exist.
-- **Policy schemas:** All policy YAML/JSON listed in `POLICY_FILES_WITH_SCHEMAS` have JSON schemas under `policy/schemas/` and are validated by `labtrust validate-policy`. Invariant registry files are not yet in that list (optional future addition).
+- **Policy schemas:** All policy YAML/JSON listed in `POLICY_FILES_WITH_SCHEMAS` have JSON schemas under `policy/schemas/` and are validated by `labtrust validate-policy`. Invariant registry (v1.0) and enforcement map (v0.1) are included and validated.
+
+### 1.3 What's frozen (anti-regression backbone)
+
+Contracts and schema versions that define correctness; do not weaken without explicit design change and version bump. See **[Frozen contracts](frozen_contracts.md)** for the canonical list:
+
+- **Runner output contract** — `policy/schemas/runner_output_contract.v0.1.schema.json` (step return shape: status, emits, violations, hashchain, etc.).
+- **Queue contract** — `docs/queue_contract.v0.1.md` (device queue semantics, QUEUE_RUN / START_RUN, queue_head).
+- **Invariant registry schema** — `policy/schemas/invariant_registry.v1.0.schema.json`.
+- **Enforcement map schema** — `policy/schemas/enforcement_map.v0.1.schema.json`.
+- **Study spec schema** — `policy/studies/study_spec.schema.v0.1.json`.
 
 ---
 
@@ -176,9 +186,9 @@ This document reports what is implemented, what is not, and what remains to reac
 ### 4.4 Examples and baselines
 
 - **examples/minimal_random_policy_agent.py** — Present (minimal).
-- **examples/scripted_ops_agent.py**, **examples/scripted_runner_agent.py** — Implemented; use `src/labtrust_gym/baselines/scripted_ops.py` and `scripted_runner.py`.
-- **Benchmark tasks** — TaskA (throughput/SLA), TaskB (STAT insertion under load), TaskC (QC fail cascade) in `src/labtrust_gym/benchmarks/tasks.py`; metrics and runner in `benchmarks/metrics.py`, `benchmarks/runner.py`; CLI `labtrust run-benchmark`, `labtrust bench-smoke`.
-- No MARL or LLM baselines; no published benchmark results.
+- **examples/scripted_ops_agent.py**, **examples/scripted_runner_agent.py**, **examples/llm_agent_mock_demo.py** — Implemented; use `baselines/scripted_ops.py`, `scripted_runner.py`, `baselines/llm/agent.py`.
+- **Benchmark tasks** — TaskA, TaskB, TaskC, TaskD (adversarial disruption) in `benchmarks/tasks.py`; metrics and runner in `benchmarks/`; CLI `labtrust run-benchmark`, `labtrust bench-smoke`.
+- **Baselines** — Scripted ops, scripted runner, adversary (`baselines/adversary.py`), LLM agent with mock/OpenAI stub (`baselines/llm/`), PPO via Stable-Baselines3 (`baselines/marl/`; optional `.[marl]`). Published benchmark results remain optional.
 
 ### 4.5 API and packaging
 
@@ -201,9 +211,9 @@ This document reports what is implemented, what is not, and what remains to reac
 
 3. **Standard env API** — Done. PettingZoo Parallel and AEC wrappers in `envs/pz_parallel.py`, `envs/pz_aec.py`; observations, actions, rewards, infos; require `.[env]`.
 
-4. **Benchmark tasks and scripted baselines** — Done. Three tasks (TaskA, TaskB, TaskC), scripted ops and scripted runner baselines, `labtrust run-benchmark`, `labtrust bench-smoke`; metrics (throughput, TAT, violations, etc.). Publish empirical results and add MARL/LLM baselines as needed.
+4. **Benchmark tasks and baselines** — Done. Four tasks (TaskA, TaskB, TaskC, TaskD), scripted ops/runner, adversary, LLM agent (mock + OpenAI stub), PPO/MARL (optional `.[marl]`); `labtrust run-benchmark`, `labtrust bench-smoke`; metrics (throughput, TAT, violations, detection/containment for TaskD). Publish empirical results as needed.
 
-5. **Docs and examples** — API reference from docstrings (Sphinx/MkDocs) not set up; Jupyter notebooks none; docs/ expanded (benchmarks, CI, PettingZoo API, queue contract).
+5. **Docs and examples** — MkDocs site with mkdocstrings API reference; docs/ expanded (benchmarks, studies, reproduce, enforcement, invariants_registry, marl_baselines, llm_baselines). Jupyter notebooks none.
 
 6. **Optional engine refactor** — state.py, event.py, errors.py still not extracted; clock, rng, devices, queueing exist.
 
@@ -238,7 +248,7 @@ labtrust bench-smoke --seed 42
 
 | Category | Implemented | Not implemented / partial |
 |----------|-------------|----------------------------|
-| Policy load/validate | ✅ loader, validate, CLI; JSON schemas for all policy files (emits, zones, reason_codes, tokens, dual_approval, critical, equipment, golden, runner contract, catalogue) | Invariant registry YAML not in schema list (optional) |
+| Policy load/validate | ✅ loader, validate, CLI; JSON schemas for all policy files (emits, zones, reason_codes, tokens, dual_approval, critical, equipment, golden, invariant_registry v1.0, enforcement_map v0.1, runner contract, catalogue) | — |
 | Golden runner | ✅ Adapter, runner, emits strict, contract validation | — |
 | Audit / hashchain | ✅ Canonical serialization, chain, fault inject, freeze | — |
 | Tokens | ✅ Lifecycle, dual approval, replay protection | — |
@@ -250,10 +260,13 @@ labtrust bench-smoke --seed 42
 | Co-location | ✅ START_RUN / START_RUN_OVERRIDE device zone check | — |
 | Queueing | ✅ queueing.py, QUEUE_RUN, queue_head, START_RUN consume; docs/queue_contract.v0.1.md | — |
 | Equipment timing | ✅ devices.py, clock.py, rng.py; timing_mode explicit/simulated; equipment_registry capacity/service_time | — |
-| Engine structure | ✅ core_env + domain modules (audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime) | ❌ state.py, event.py, errors.py as separate modules |
+| Invariant registry | ✅ policy/invariants/ (registry v1.0), invariants_registry.py, invariants_runtime.py; compiled checks post-step | — |
+| Enforcement | ✅ policy/enforcement/enforcement_map; engine/enforcement.py; throttle/kill_switch/freeze_zone/forensic_freeze; step output enforcements | — |
+| Engine structure | ✅ core_env + domain modules (audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement) | state.py, event.py, errors.py as separate modules (optional) |
 | Env API | ✅ Adapter (reset, step, query); PettingZoo Parallel and AEC wrappers (envs/) | — |
-| Baselines / benchmarks | ✅ Scripted ops, scripted runner; TaskA/B/C, metrics, runner; labtrust run-benchmark, bench-smoke; episode logging | MARL/LLM baselines; published results |
-| Examples | ✅ minimal_random_policy_agent, scripted_ops_agent, scripted_runner_agent | — |
-| Docs | ✅ README, CONTRIBUTING, STATUS, architecture, benchmarks, ci, pettingzoo_api, queue_contract, policy_pack, threat_model, invariants | API ref (Sphinx/MkDocs), Jupyter notebooks |
+| Baselines / benchmarks | ✅ Scripted ops, scripted runner, adversary; TaskA/B/C/D; LLM agent (mock + OpenAI stub); PPO/MARL (optional [marl]); labtrust run-benchmark, bench-smoke, run-study, make-plots, reproduce; episode logging | Published results |
+| Studies | ✅ study_runner, plots, reproduce; labtrust run-study, make-plots, reproduce --profile minimal\|full | — |
+| Examples | ✅ minimal_random_policy_agent, scripted_ops_agent, scripted_runner_agent, llm_agent_mock_demo | — |
+| Docs | ✅ README, CONTRIBUTING, STATUS, architecture, benchmarks, studies, reproduce, invariants_registry, enforcement, marl_baselines, llm_baselines, ci, pettingzoo_api, queue_contract, policy_pack, threat_model; MkDocs site + mkdocstrings API ref; GitHub Pages | Jupyter notebooks |
 
 This STATUS reports the current state of the repo: what is implemented and what remains.

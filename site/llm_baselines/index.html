@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://fraware.github.io/LabTrust-Gym/llm_baselines/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>LLM agent baselines - LabTrust-Gym</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "LLM agent baselines";
+        var mkdocs_page_input_path = "llm_baselines.md";
+        var mkdocs_page_url = "/LabTrust-Gym/llm_baselines/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> LabTrust-Gym
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Overview</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../architecture/">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../policy_pack/">Policy pack and schemas</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Invariants and enforcement</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../invariants_registry/">Invariant registry</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../enforcement/">Enforcement</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../pettingzoo_api/">PettingZoo API</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Benchmarks, studies, plots</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Benchmarks</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../studies/">Studies and plots</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../reproducibility/">Reproducibility and seeding</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../contributing/">Contributing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">LabTrust-Gym</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">LLM agent baselines</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/fraware/LabTrust-Gym/edit/main/docs/llm_baselines.md">Edit on fraware/LabTrust-Gym</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="llm-agent-baselines">LLM agent baselines</h1>
+<p>Offline-safe, deterministic-by-default LLM agent interface for LabTrust-Gym.</p>
+<h2 id="design">Design</h2>
+<ul>
+<li><strong>LLMBackend protocol</strong>: <code>generate(messages) -&gt; text</code>. Backends are pluggable.</li>
+<li><strong>LLMAgent</strong>: Builds a system prompt (allowed actions, constraints), calls the backend, parses output as <strong>strict JSON</strong> (action_type + action_info), and validates against <code>policy/llm/action_schema.v0.1.json</code>. On parse or validation failure, returns NOOP.</li>
+<li><strong>Deterministic by default</strong>: Use <code>MockDeterministicBackend</code> for tests and demos; no API calls. Real providers are optional and never used in default tests.</li>
+</ul>
+<h2 id="action-schema">Action schema</h2>
+<ul>
+<li><strong>policy/llm/action_schema.v0.1.json</strong>: JSON Schema for LLM-proposed actions.</li>
+<li><strong>action_type</strong>: integer 0–5 (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN).</li>
+<li><strong>action_info</strong>: optional object with device_id, work_id, priority, to_zone, door_id, token_refs.</li>
+<li>Proposed action JSON is validated before use; invalid output is rejected (agent falls back to NOOP).</li>
+</ul>
+<h2 id="backends">Backends</h2>
+<h3 id="mockdeterministicbackend">MockDeterministicBackend</h3>
+<ul>
+<li><strong>Offline-safe</strong>: No network; returns canned JSON keyed by hash of the user message (e.g. observation hash).</li>
+<li><strong>Deterministic</strong>: Same message → same response. Use for tests and demos.</li>
+<li>Constructor: <code>MockDeterministicBackend(canned=None, default_action_type=0)</code>. <code>canned</code> is a dict mapping <code>hash(user_content)[:16]</code> → action dict.</li>
+</ul>
+<h3 id="openaibackend-stub">OpenAIBackend (stub)</h3>
+<ul>
+<li>Reads API key from env var <code>OPENAI_API_KEY</code>.</li>
+<li><strong>Stub</strong>: Does not call the API; returns NOOP if no key, else raises NotImplementedError. Not used in tests. Plug a real implementation when needed.</li>
+</ul>
+<h2 id="safe-usage">Safe usage</h2>
+<ol>
+<li><strong>Tests and CI</strong>: Use only <code>MockDeterministicBackend</code>. No API keys; no network.</li>
+<li><strong>Real providers</strong>: Implement <code>LLMBackend</code> (e.g. OpenAI, local model). Keep API keys in env vars; do not commit.</li>
+<li><strong>Strict output</strong>: LLMAgent expects a single JSON object. Wrap model output (e.g. strip markdown, extract JSON) before parse. Invalid JSON or schema failure → NOOP.</li>
+<li><strong>Constraints in prompt</strong>: System prompt describes allowed action_type values and constraints (e.g. no restricted door without token). The environment still enforces; the LLM only proposes.</li>
+</ol>
+<h2 id="example">Example</h2>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>examples/llm_agent_mock_demo.py
+</code></pre></div>
+<p>Runs TaskB with <code>LLMAgent(MockDeterministicBackend())</code> as ops_0 and scripted runners. No API calls.</p>
+<h2 id="tests">Tests</h2>
+<ul>
+<li><strong>tests/test_llm_agent_mock.py</strong>: Mock backend determinism, LLMAgent parse/validate, action schema validation. No real LLM calls; golden suite unchanged.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/fraware/LabTrust-Gym" class="fa fa-code-fork" style="color: #fcfcfc"> fraware/LabTrust-Gym</a>
+        </span>
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://fraware.github.io/LabTrust-Gym/marl_baselines/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>MARL baselines (PPO) - LabTrust-Gym</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "MARL baselines (PPO)";
+        var mkdocs_page_input_path = "marl_baselines.md";
+        var mkdocs_page_url = "/LabTrust-Gym/marl_baselines/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> LabTrust-Gym
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Overview</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../architecture/">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../policy_pack/">Policy pack and schemas</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Invariants and enforcement</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../invariants_registry/">Invariant registry</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../enforcement/">Enforcement</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../pettingzoo_api/">PettingZoo API</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Benchmarks, studies, plots</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Benchmarks</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../studies/">Studies and plots</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../reproducibility/">Reproducibility and seeding</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../contributing/">Contributing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">LabTrust-Gym</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">MARL baselines (PPO)</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/fraware/LabTrust-Gym/edit/main/docs/marl_baselines.md">Edit on fraware/LabTrust-Gym</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="marl-baselines-ppo">MARL baselines (PPO)</h1>
+<p>Minimal PPO baseline using stable-baselines3 on TaskA (or other tasks). Install the optional <code>[marl]</code> extra to use it.</p>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[marl]&quot;</span>
+</code></pre></div>
+<p>This installs <code>stable-baselines3</code> and <code>gymnasium</code>. The PettingZoo env is wrapped to a single-agent Gymnasium env (ops_0 controlled by PPO; runners scripted).</p>
+<h2 id="reproducibility">Reproducibility</h2>
+<ul>
+<li><strong>Seeds</strong>: Training and evaluation use fixed seeds (<code>--seed</code>). Same seed + same code =&gt; same training/eval behavior.</li>
+<li><strong>Determinism</strong>: The underlying env is deterministic when <code>reset(seed=..., options={"initial_state": task.get_initial_state(seed)})</code> is used. PPO may use non-deterministic ops by default; evaluation uses <code>model.predict(obs, deterministic=True)</code>.</li>
+</ul>
+<h2 id="cli">CLI</h2>
+<h3 id="train">Train</h3>
+<div class="highlight"><pre><span></span><code>labtrust<span class="w"> </span>train-ppo<span class="w"> </span>--task<span class="w"> </span>TaskA<span class="w"> </span>--timesteps<span class="w"> </span><span class="m">50000</span><span class="w"> </span>--seed<span class="w"> </span><span class="m">123</span><span class="w"> </span>--out<span class="w"> </span>runs/ppo
+</code></pre></div>
+<ul>
+<li><code>--task</code>: TaskA (default), TaskB, TaskC.</li>
+<li><code>--timesteps</code>: Total training steps (default 50000).</li>
+<li><code>--seed</code>: Random seed (default 123).</li>
+<li><code>--out</code>: Directory for <code>model.zip</code> and <code>eval_metrics.json</code> (default <code>runs/ppo</code>).</li>
+</ul>
+<p>Writes:</p>
+<ul>
+<li><code>out_dir/model.zip</code>: Saved PPO model.</li>
+<li><code>out_dir/eval_metrics.json</code>: Eval over 5 episodes after training (mean_reward, episode_rewards).</li>
+</ul>
+<h3 id="eval">Eval</h3>
+<div class="highlight"><pre><span></span><code>labtrust<span class="w"> </span>eval-ppo<span class="w"> </span>--model<span class="w"> </span>runs/ppo/model.zip<span class="w"> </span>--episodes<span class="w"> </span><span class="m">50</span><span class="w"> </span>--seed<span class="w"> </span><span class="m">123</span><span class="w"> </span>--out<span class="w"> </span>eval.json
+</code></pre></div>
+<ul>
+<li><code>--model</code>: Path to <code>model.zip</code>.</li>
+<li><code>--task</code>: Task name (default TaskA).</li>
+<li><code>--episodes</code>: Number of eval episodes (default 50).</li>
+<li><code>--seed</code>: Base seed for episodes (default 123).</li>
+<li><code>--out</code>: Optional path to write metrics JSON.</li>
+</ul>
+<h2 id="smoke-test-not-in-default-ci">Smoke test (not in default CI)</h2>
+<p>Run MARL smoke only when the env var is set:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">LABTRUST_MARL_SMOKE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>pytest<span class="w"> </span>tests/test_marl_smoke.py<span class="w"> </span>-v
+</code></pre></div>
+<p>This trains PPO for a few hundred steps and runs eval to ensure the pipeline runs end-to-end. Omitted from default CI to avoid dependency and runtime cost.</p>
+<h2 id="caveats">Caveats</h2>
+<ul>
+<li><strong>Single-agent</strong>: Only ops_0 is learned; runners are scripted. Multi-agent PPO would require a different setup (e.g. joint action space or independent learners).</li>
+<li><strong>Observation</strong>: The wrapper flattens the ops_0 observation dict to a Box for SB3. QUEUE_RUN action uses placeholder work_id/device_id; for richer behavior, extend the action space or use heuristics to fill action_info.</li>
+<li><strong>Reward</strong>: Uses the task’s reward_config (e.g. throughput_reward, violation_penalty). Tune for your objective.</li>
+<li><strong>Stability</strong>: Small networks and short runs are for smoke/demo; for serious results, increase timesteps and tune hyperparameters.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/fraware/LabTrust-Gym" class="fa fa-code-fork" style="color: #fcfcfc"> fraware/LabTrust-Gym</a>
+        </span>
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

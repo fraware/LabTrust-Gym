@@ -29,6 +29,14 @@ from labtrust_gym.engine.tokens_runtime import TokenStore
 from labtrust_gym.engine.clock import Clock
 from labtrust_gym.engine.devices import DeviceStore, load_equipment_registry
 from labtrust_gym.engine.rng import RNG
+from labtrust_gym.engine.invariants_runtime import (
+    InvariantsRuntime,
+    merge_violations_by_invariant_id,
+)
+from labtrust_gym.engine.enforcement import (
+    EnforcementEngine,
+    apply_enforcement,
+)
 from labtrust_gym.engine.zones import (
     ZoneState,
     build_device_zone_map,
@@ -85,6 +93,9 @@ class CoreEnv(LabTrustEnvAdapter):
         self._critical: CriticalStore | None = None
         self._queues: QueueStore | None = None
         self._now_ts: int = 0
+        self._invariants_runtime: InvariantsRuntime | None = None
+        self._enforcement_engine: EnforcementEngine | None = None
+        self._enforcement_enabled: bool = False
 
     def reset(
         self,
@@ -170,6 +181,60 @@ class CoreEnv(LabTrustEnvAdapter):
                 self._stability_policy = load_stability_policy(stab_path)
             except Exception:
                 pass
+        inv_path = Path("policy/invariants/invariant_registry.v1.0.yaml")
+        if inv_path.exists():
+            try:
+                self._invariants_runtime = InvariantsRuntime(inv_path)
+            except Exception:
+                self._invariants_runtime = None
+        else:
+            self._invariants_runtime = None
+        self._enforcement_enabled = bool(initial_state.get("enforcement_enabled", False))
+        if self._enforcement_enabled:
+            enf_path = Path("policy/enforcement/enforcement_map.v0.1.yaml")
+            if enf_path.exists():
+                try:
+                    self._enforcement_engine = EnforcementEngine(enf_path)
+                    self._enforcement_engine.reset_counts()
+                except Exception:
+                    self._enforcement_engine = None
+            else:
+                self._enforcement_engine = None
+        else:
+            self._enforcement_engine = None
+
+    def _finalize_step(
+        self, event: Dict[str, Any], result: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Merge registry invariant violations; optionally apply enforcement and record to audit."""
+        if result.get("status") != "ACCEPTED":
+            return result
+        if self._invariants_runtime is not None:
+            legacy = result.get("violations") or []
+            registry = self._invariants_runtime.evaluate(self, event, result)
+            result = {**result, "violations": merge_violations_by_invariant_id(legacy, registry)}
+        enforcements: List[Dict[str, Any]] = result.get("enforcements") or []
+        if self._enforcement_enabled and self._enforcement_engine and self._audit is not None:
+            violations = result.get("violations") or []
+            enforcements = apply_enforcement(
+                event,
+                violations,
+                self._enforcement_engine,
+                audit_callback=None,
+            )
+            for i, enf in enumerate(enforcements):
+                self._audit.append({
+                    "event_id": f"{event.get('event_id', 'step')}_enf_{i}",
+                    "event_type": "ENFORCEMENT",
+                    "rule_id": enf.get("rule_id"),
+                    "action_type": enf.get("type"),
+                    "target": enf.get("target"),
+                    "duration_s": enf.get("duration_s"),
+                    "reason_code": enf.get("reason_code"),
+                    "zone_id": enf.get("zone_id"),
+                })
+        result = {**result, "enforcements": enforcements}
+        return result
 
     def step(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -191,6 +256,7 @@ class CoreEnv(LabTrustEnvAdapter):
         base = {
             "violations": [],
             "token_consumed": [],
+            "enforcements": [],
         }
 
         if self._system_state.get("log_frozen"):
@@ -212,22 +278,22 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
+                return self._finalize_step(event, {
                     **base,
                     "status": "ACCEPTED",
                     "emits": [FORENSIC_FREEZE_LOG],
                     "violations": violations,
                     "blocked_reason_code": None,
                     "hashchain": hashchain_dict,
-                }
-            return {
+                })
+            return self._finalize_step(event, {
                 **base,
                 "status": "ACCEPTED",
                 "emits": emits if emits else [],
                 "violations": violations,
                 "blocked_reason_code": None,
                 "hashchain": hashchain_dict,
-            }
+            })
 
         # MOVE: adjacency check; restricted zone requires token
         if action_type == "MOVE":
@@ -475,7 +541,7 @@ class CoreEnv(LabTrustEnvAdapter):
                 "hashchain": hashchain_dict,
             }
 
-        # CENTRIFUGE_START (GS-001): co-location check; emit INV-ZONE-002:PASS when agent in device zone
+        # CENTRIFUGE_START (GS-001): co-location check; INV-ZONE-002 from invariants_runtime
         if action_type == "CENTRIFUGE_START":
             device_id = args.get("device_id")
             agent_id = str(event.get("agent_id", ""))
@@ -495,30 +561,32 @@ class CoreEnv(LabTrustEnvAdapter):
                         ],
                         "hashchain": hashchain_dict,
                     }
-                if device_zone and agent_zone == device_zone:
-                    violations_list.append(
-                        {"invariant_id": "INV-ZONE-002", "status": "PASS"},
-                    )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
+                return self._finalize_step(
+                    event,
+                    {
+                        **base,
+                        "status": "ACCEPTED",
+                        "emits": [FORENSIC_FREEZE_LOG],
+                        "violations": violations_list,
+                        "blocked_reason_code": None,
+                        "hashchain": hashchain_dict,
+                    },
+                )
+            return self._finalize_step(
+                event,
+                {
                     **base,
                     "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
+                    "emits": ["CENTRIFUGE_START"],
                     "violations": violations_list,
                     "blocked_reason_code": None,
                     "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["CENTRIFUGE_START"],
-                "violations": violations_list,
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                },
+            )
 
         # QUEUE_RUN (GS-002): per-device queue, STAT/URGENT/ROUTINE ordering
         if action_type == "QUEUE_RUN":
@@ -662,27 +730,33 @@ class CoreEnv(LabTrustEnvAdapter):
         if action_type == "ACCEPT_SPECIMEN":
             specimen_id = args.get("specimen_id")
             if specimen_id:
-                outcome, emits, blocked_code, violations = self._specimens.accept_specimen(str(specimen_id))
+                outcome, emits, blocked_code, _ = self._specimens.accept_specimen(str(specimen_id))
                 hashchain_dict, chain_broken = self._audit.append(event)
                 if chain_broken:
                     self._system_state["log_frozen"] = True
                     self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return {
+                    return self._finalize_step(
+                        event,
+                        {
+                            **base,
+                            "status": "ACCEPTED",
+                            "emits": [FORENSIC_FREEZE_LOG],
+                            "blocked_reason_code": None,
+                            "violations": [],
+                            "hashchain": hashchain_dict,
+                        },
+                    )
+                return self._finalize_step(
+                    event,
+                    {
                         **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "blocked_reason_code": None,
-                        "violations": violations,
+                        "status": outcome,
+                        "emits": emits,
+                        "blocked_reason_code": blocked_code,
+                        "violations": [],
                         "hashchain": hashchain_dict,
-                    }
-                return {
-                    **base,
-                    "status": outcome,
-                    "emits": emits,
-                    "blocked_reason_code": blocked_code,
-                    "violations": violations,
-                    "hashchain": hashchain_dict,
-                }
+                    },
+                )
             # no specimen_id: fall through to default
         if action_type == "HOLD_SPECIMEN":
             reason_code = event.get("reason_code") or args.get("reason_code")
@@ -921,8 +995,7 @@ class CoreEnv(LabTrustEnvAdapter):
                         ],
                         "hashchain": hashchain_dict,
                     }
-                if pass_inv and ok:
-                    violations.append({"invariant_id": pass_inv, "status": "PASS"})
+                # INV-STAB-BIOCHEM-001:PASS from invariants_runtime when stability ok
             device_id = args.get("device_id")
             run_id = args.get("run_id")
             if device_id and run_id:
@@ -950,22 +1023,28 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
+                return self._finalize_step(
+                    event,
+                    {
+                        **base,
+                        "status": "ACCEPTED",
+                        "emits": [FORENSIC_FREEZE_LOG],
+                        "violations": violations,
+                        "blocked_reason_code": None,
+                        "hashchain": hashchain_dict,
+                    },
+                )
+            return self._finalize_step(
+                event,
+                {
                     **base,
                     "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
+                    "emits": ["START_RUN"],
                     "violations": violations,
                     "blocked_reason_code": None,
                     "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["START_RUN"],
-                "violations": violations,
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                },
+            )
         if action_type == "START_RUN_OVERRIDE":
             # Co-location: agent must be in device zone (GS-019)
             device_id = args.get("device_id")
@@ -1012,24 +1091,30 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
+                return self._finalize_step(
+                    event,
+                    {
+                        **base,
+                        "status": "ACCEPTED",
+                        "emits": [FORENSIC_FREEZE_LOG],
+                        "blocked_reason_code": None,
+                        "token_consumed": list(token_refs) if specimen_ids and token_refs else [],
+                        "violations": [],
+                        "hashchain": hashchain_dict,
+                    },
+                )
+            return self._finalize_step(
+                event,
+                {
                     **base,
                     "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
+                    "emits": ["START_RUN"],
                     "blocked_reason_code": None,
                     "token_consumed": list(token_refs) if specimen_ids and token_refs else [],
-                    "violations": [{"invariant_id": "INV-TOK-003", "status": "PASS"}],
+                    "violations": [],
                     "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["START_RUN"],
-                "blocked_reason_code": None,
-                "token_consumed": list(token_refs) if specimen_ids and token_refs else [],
-                "violations": [{"invariant_id": "INV-TOK-003", "status": "PASS"}],
-                "hashchain": hashchain_dict,
-            }
+                },
+            )
         if action_type == "QC_EVENT":
             device_id = args.get("device_id")
             qc_outcome = args.get("qc_outcome", "pass")
@@ -1256,45 +1341,36 @@ class CoreEnv(LabTrustEnvAdapter):
         if action_type == "ACK_CRITICAL_RESULT":
             result_id = args.get("result_id")
             agent_id = event.get("agent_id", "")
-            violations_list: List[Dict[str, Any]] = []
             if result_id:
-                read_back_ok, inv = self._critical.record_ack(
+                self._critical.record_ack(
                     str(result_id), args, str(agent_id), t_s
                 )
-                if inv:
-                    violations_list.append({"invariant_id": inv, "status": "VIOLATION"})
-                else:
-                    violations_list.append(
-                        {"invariant_id": "INV-CRIT-004", "status": "PASS"}
-                    )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "violations": violations_list,
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            if violations_list:
-                return {
+                return self._finalize_step(
+                    event,
+                    {
+                        **base,
+                        "status": "ACCEPTED",
+                        "emits": [FORENSIC_FREEZE_LOG],
+                        "violations": [],
+                        "blocked_reason_code": None,
+                        "hashchain": hashchain_dict,
+                    },
+                )
+            return self._finalize_step(
+                event,
+                {
                     **base,
                     "status": "ACCEPTED",
                     "emits": ["ACK_CRITICAL_RESULT"],
-                    "violations": violations_list,
+                    "violations": [],
                     "blocked_reason_code": None,
                     "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["ACK_CRITICAL_RESULT"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                },
+            )
         if action_type == "ESCALATE_CRITICAL_RESULT":
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:

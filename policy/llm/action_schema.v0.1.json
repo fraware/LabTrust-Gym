@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.llm.action_schema.v0.1",
+  "title": "LLM agent action output schema v0.1",
+  "description": "Strict JSON schema for LLM-proposed actions (action_type + action_info).",
+  "type": "object",
+  "required": ["action_type"],
+  "additionalProperties": false,
+  "properties": {
+    "action_type": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5,
+      "description": "0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN"
+    },
+    "action_info": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "device_id": { "type": "string" },
+        "work_id": { "type": "string" },
+        "priority": { "type": "string", "enum": ["ROUTINE", "URGENT", "STAT"] },
+        "to_zone": { "type": "string" },
+        "door_id": { "type": "string" },
+        "token_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
