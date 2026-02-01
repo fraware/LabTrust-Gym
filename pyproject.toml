@@ -12,14 +12,20 @@ requires-python = ">=3.11"
 authors = [
     { name = "LabTrust-Gym contributors" }
 ]
-keywords = ["gym", "multi-agent", "hospital-lab", "trust", "policy", "simulation"]
+maintainers = [
+    { name = "LabTrust-Gym contributors" }
+]
+keywords = ["gym", "multi-agent", "hospital-lab", "trust", "policy", "simulation", "pettingzoo", "gymnasium"]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
     "pyyaml>=6.0",
@@ -27,6 +33,7 @@ dependencies = [
     "jsonschema>=4.0",
     "networkx>=3.0",
     "numpy>=1.24",
+    "cryptography>=41.0",
 ]
 
 [project.optional-dependencies]
@@ -60,6 +67,10 @@ labtrust = "labtrust_gym.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Policy files (emits, schemas, zones, etc.). For release wheels, copy repo policy/ into src/labtrust_gym/policy before building.
+[tool.setuptools.package-data]
+labtrust_gym = ["policy/**"]
 
 [tool.ruff]
 target-version = "py311"

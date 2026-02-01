@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.llm.policy_summary.v0.1",
+  "title": "Policy summary for LLM agent v0.1",
+  "description": "What the agent can see: allowed_actions, zone graph, queue_head, pending_criticals.",
+  "type": "object",
+  "required": ["allowed_actions"],
+  "additionalProperties": true,
+  "properties": {
+    "allowed_actions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Action types the agent is allowed to propose (RBAC-filtered)"
+    },
+    "zone_graph": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "description": "Adjacency: zone_id -> list of reachable zone_ids"
+    },
+    "agent_zone": { "type": ["string", "null"], "description": "Current agent zone_id" },
+    "queue_head": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "device_id -> work_id at head"
+    },
+    "pending_criticals": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Result IDs pending critical notification/ack"
+    },
+    "log_frozen": { "type": "boolean", "default": false },
+    "strict_signatures": { "type": "boolean", "default": false },
+    "key_constraints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Minimal list of key constraints (e.g. no release when log_frozen)"
+    },
+    "critical_ladder_summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Critical result escalation ladder summary (levels, ack required)"
+    },
+    "restricted_zones": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Zone IDs that require token for entry"
+    },
+    "token_requirements": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "description": "Action type -> list of required token types (e.g. OPEN_DOOR -> [RESTRICTED_ENTRY])"
+    }
+  }
+}

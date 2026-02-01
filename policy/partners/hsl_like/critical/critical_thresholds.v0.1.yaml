@@ -1,0 +1,16 @@
+# Partner overlay: override subset of critical thresholds (HSL-like).
+# Merge rule: replace base entries by (analyte_code, units); may add.
+# Base entries not listed here are kept.
+critical_thresholds:
+  version: "0.1"
+  defaults_rcpath2017:
+    - analyte_code: "BIOCHEM_POTASSIUM_K"
+      units: "mmol/L"
+      low: 2.8
+      high: 6.0
+      class: "CRIT_A"
+    - analyte_code: "BIOCHEM_SODIUM_NA"
+      units: "mmol/L"
+      low: 125
+      high: 155
+      class: "CRIT_A"

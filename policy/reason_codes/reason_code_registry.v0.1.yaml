@@ -311,6 +311,37 @@ reason_code_registry:
       triggers: ["TICK"]
       default_actions: ["ESCALATE_CRITICAL_RESULT", "AUDIT_ALERT"]
 
+    - code: "CRIT_ESCALATION_OUT_OF_ORDER"
+      namespace: "CRIT"
+      severity: "P0_STOP"
+      description: "ESCALATE attempted without prior tier attempt or out of tier order."
+      triggers: ["ESCALATE_CRITICAL_RESULT"]
+      default_actions: ["BLOCK_ACTION", "AUDIT_ALERT"]
+      non_overridable: true
+
+    - code: "CRIT_ACK_MISSING_FIELDS"
+      namespace: "CRIT"
+      severity: "P0_STOP"
+      description: "ACK_CRITICAL_RESULT missing required fields (attempt_id, receiver_identity, readback when required)."
+      triggers: ["ACK_CRITICAL_RESULT"]
+      default_actions: ["BLOCK_ACTION", "AUDIT_ALERT"]
+      non_overridable: true
+
+    - code: "CRIT_ACK_TIMEOUT"
+      namespace: "CRIT"
+      severity: "P2_HOLD_REVIEW"
+      description: "No ACK received within max_ack_wait_s for current tier; escalation path allowed."
+      triggers: ["ESCALATE_CRITICAL_RESULT", "TICK"]
+      default_actions: ["ESCALATE_CRITICAL_RESULT", "AUDIT_ALERT"]
+
+    - code: "CRIT_MODE_NOT_ALLOWED"
+      namespace: "CRIT"
+      severity: "P0_STOP"
+      description: "Contact mode not in tier allowed_contact_modes."
+      triggers: ["NOTIFY_CRITICAL_RESULT"]
+      default_actions: ["BLOCK_ACTION", "AUDIT_ALERT"]
+      non_overridable: true
+
     # -----------------------------
     # RBAC / restricted access
     # -----------------------------
@@ -328,6 +359,30 @@ reason_code_registry:
       description: "Restricted zone entry attempted without role+token."
       triggers: ["OPEN_DOOR", "MOVE"]
       default_actions: ["BLOCK_ACTION", "KILL_SWITCH_AGENT", "SECURITY_INCIDENT_LOG"]
+      non_overridable: true
+
+    - code: "RBAC_ACTION_DENY"
+      namespace: "RBAC"
+      severity: "P0_STOP"
+      description: "Agent role does not allow this action type (RBAC policy)."
+      triggers: []
+      default_actions: ["BLOCK_ACTION", "SECURITY_INCIDENT_LOG"]
+      non_overridable: true
+
+    - code: "RBAC_ZONE_DENY"
+      namespace: "RBAC"
+      severity: "P0_STOP"
+      description: "Agent role does not allow action in this zone."
+      triggers: ["MOVE", "OPEN_DOOR"]
+      default_actions: ["BLOCK_ACTION"]
+      non_overridable: true
+
+    - code: "RBAC_DEVICE_DENY"
+      namespace: "RBAC"
+      severity: "P0_STOP"
+      description: "Agent role does not allow action on this device."
+      triggers: ["QUEUE_RUN", "START_RUN", "CENTRIFUGE_START", "QC_EVENT"]
+      default_actions: ["BLOCK_ACTION"]
       non_overridable: true
 
     - code: "RC_ILLEGAL_MOVE"
@@ -357,6 +412,13 @@ reason_code_registry:
       triggers: ["HOLD_SPECIMEN","REJECT_SPECIMEN","OVERRIDE_ACCEPTANCE","RELEASE_RESULT_OVERRIDE"]
       default_actions: ["BLOCK_ACTION", "AUDIT_ALERT"]
 
+    - code: "MISSING_RATIONALE"
+      namespace: "AUD"
+      severity: "P2_HOLD_REVIEW"
+      description: "LLM-proposed action missing required rationale (explainability)."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
     # -----------------------------
     # System states
     # -----------------------------
@@ -367,10 +429,82 @@ reason_code_registry:
       triggers: ["GENERATE_RESULT", "RELEASE_RESULT"]
       default_actions: ["FORCE_ORAL_NOTIFICATION_PATH", "LOG_ONLY"]
 
-    # Runner-injected (when oracle assertion fails)
+    # -----------------------------
+    # Transport (multi-site)
+    # -----------------------------
+    - code: "TRANSPORT_ROUTE_FORBIDDEN"
+      namespace: "ROUTE"
+      severity: "P0_STOP"
+      description: "DISPATCH_TRANSPORT: route from origin to destination not allowed by sites_policy."
+      triggers: ["DISPATCH_TRANSPORT"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    - code: "TRANSPORT_TEMP_EXCURSION"
+      namespace: "TEMP"
+      severity: "P1_QUARANTINE"
+      description: "Transport leg: temperature drifted out of band (bounded model exceeded)."
+      triggers: ["TRANSPORT_TICK", "RECEIVE_TRANSPORT"]
+      default_actions: ["HOLD_SPECIMEN", "INCIDENT_LOG"]
+      override_allowed_with: ["OVERRIDE_RISK_ACCEPTANCE"]
+
+    - code: "TRANSPORT_CHAIN_OF_CUSTODY_BROKEN"
+      namespace: "AUD"
+      severity: "P0_STOP"
+      description: "Handoff anomaly; chain-of-custody sign required (dual-approval token)."
+      triggers: ["RECEIVE_TRANSPORT", "CHAIN_OF_CUSTODY_SIGN"]
+      default_actions: ["BLOCK_ACTION", "INCIDENT_LOG"]
+      non_overridable: false
+      override_allowed_with: ["TOKEN_CHAIN_OF_CUSTODY"]
+
+    # Runner-injected (when oracle assertion failed)
     - code: "RUNNER_ASSERTION_FAILED"
       namespace: "AUD"
       severity: "P0_STOP"
       description: "Golden runner assertion failed (engine output did not match scenario expect)."
       triggers: []
       default_actions: []
+
+    # -----------------------------
+    # Signed actions (Ed25519)
+    # -----------------------------
+    - code: "SIG_MISSING"
+      namespace: "AUD"
+      severity: "P0_STOP"
+      description: "Strict signatures enabled but action has no signature."
+      triggers: ["MOVE", "ACCEPT_SPECIMEN", "MINT_TOKEN", "RELEASE_RESULT"]
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "SIG_INVALID"
+      namespace: "AUD"
+      severity: "P0_STOP"
+      description: "Signature verification failed (payload or key mismatch)."
+      triggers: []
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "SIG_KEY_REVOKED"
+      namespace: "AUD"
+      severity: "P0_STOP"
+      description: "Key used for signature is revoked in key registry."
+      triggers: []
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "SIG_KEY_EXPIRED"
+      namespace: "AUD"
+      severity: "P0_STOP"
+      description: "Key used for signature is outside validity window (not_after exceeded or status EXPIRED)."
+      triggers: []
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "SIG_KEY_NOT_YET_VALID"
+      namespace: "AUD"
+      severity: "P0_STOP"
+      description: "Key used for signature is not yet valid (not_before_ts_s not reached)."
+      triggers: []
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "SIG_ROLE_MISMATCH"
+      namespace: "RBAC"
+      severity: "P0_STOP"
+      description: "Key role does not authorize this action type (INV-SIG-002)."
+      triggers: []
+      default_actions: ["BLOCK_ACTION"]

@@ -41,6 +41,12 @@ Templates are compiled into callable checks in `engine/invariants_runtime.py`. S
 - **coag_fill_valid**: — ACCEPT_SPECIMEN; citrate + invalid fill => INV-COAG-FILL-001:VIOLATION.
 - **token_scope_ok**: — START_RUN_OVERRIDE with valid token_refs => INV-TOK-003:PASS.
 - **read_back_confirmed**: — ACK_CRITICAL_RESULT; read_back true => PASS, false => VIOLATION (INV-CRIT-004).
+- **critical_comm_record_fields** (v0.2): — ACK must reference attempt_id and include minimum_record_fields + tier required_fields; else BLOCKED CRIT_ACK_MISSING_FIELDS (INV-CRIT-005).
+- **critical_escalation_order** (v0.2): — ESCALATE must append attempt at next tier (tier_index current+1); else BLOCKED CRIT_ESCALATION_OUT_OF_ORDER (INV-CRIT-006).
+- **transport_dispatch_receive_or_token**: — DISPATCH_TRANSPORT consignment must have RECEIVE_TRANSPORT at destination or CHAIN_OF_CUSTODY_SIGN (INV-COC-001).
+- **transport_temp_in_band**: — TRANSPORT_TICK / RECEIVE_TRANSPORT temp must stay in band or OVERRIDE_RISK_ACCEPTANCE token (INV-TRANSPORT-001).
+- **signature_required_valid** (INV-SIG-001): — When strict_signatures enabled, mutating actions must have valid Ed25519 signature over canonical payload; else BLOCKED SIG_MISSING/SIG_INVALID.
+- **signature_role_authorized** (INV-SIG-002): — Key role_id must authorize action type (RBAC); else BLOCKED SIG_ROLE_MISMATCH.
 
 ### temporal
 

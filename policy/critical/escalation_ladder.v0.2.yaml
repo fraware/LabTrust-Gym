@@ -1,0 +1,42 @@
+# Escalation ladder v0.2 — critical result notification tiers and audit-grade comm records.
+# NOTIFY creates attempt record; ACK must reference attempt_id and satisfy required_fields + readback when required.
+# ESCALATE appends new attempt at next tier; tier order enforced. max_ack_wait_s triggers escalation path.
+version: "0.2"
+minimum_record_fields:
+  - attempt_id
+  - timestamp
+  - result_id
+  - criticality_class
+  - caller_id
+  - callee_role
+  - mode
+  - message_template_id
+
+tiers:
+  - tier_index: 0
+    role: "primary_contact"
+    allowed_contact_modes: ["phone", "bleep", "electronic"]
+    max_ack_wait_s: 300
+    required_fields: ["receiver_name_or_id", "receiver_location_or_org", "read_back_confirmed", "outcome"]
+    requires_readback: true
+
+  - tier_index: 1
+    role: "secondary"
+    allowed_contact_modes: ["phone", "bleep", "electronic"]
+    max_ack_wait_s: 600
+    required_fields: ["receiver_name_or_id", "receiver_location_or_org", "read_back_confirmed", "outcome"]
+    requires_readback: true
+
+  - tier_index: 2
+    role: "consultant_registrar"
+    allowed_contact_modes: ["phone", "bleep", "electronic"]
+    max_ack_wait_s: 900
+    required_fields: ["receiver_name_or_id", "receiver_location_or_org", "read_back_confirmed", "outcome"]
+    requires_readback: true
+
+  - tier_index: 3
+    role: "duty_manager"
+    allowed_contact_modes: ["phone", "bleep", "electronic"]
+    max_ack_wait_s: 1200
+    required_fields: ["receiver_name_or_id", "receiver_location_or_org", "read_back_confirmed", "outcome"]
+    requires_readback: true

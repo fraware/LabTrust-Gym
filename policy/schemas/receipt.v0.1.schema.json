@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.receipt.v0.1",
+  "title": "LabTrust Receipt v0.1",
+  "description": "Per specimen/result receipt: identifiers, timestamps, decision, reason_codes, tokens, critical comm, invariants, enforcement, hashchain.",
+  "type": "object",
+  "required": ["version", "decision", "hashchain"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "entity_type": { "type": "string", "enum": ["specimen", "result"] },
+    "specimen_id": { "type": ["string", "null"] },
+    "result_id": { "type": ["string", "null"] },
+    "accession_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Accession ID(s) linked to this entity"
+    },
+    "panel_id": { "type": ["string", "null"] },
+    "device_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Device ID(s) involved (e.g. analyzer)"
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": { "type": "integer" },
+      "description": "received, accepted, separated, queued, run_started, result_generated, released (epoch s or sim t_s)"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["RELEASED", "HELD", "REJECTED", "BLOCKED"]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Reason codes encountered (blocked/reject/hold)"
+    },
+    "tokens": {
+      "type": "object",
+      "properties": {
+        "minted": { "type": "array", "items": { "type": "object", "properties": { "token_id": { "type": "string" }, "step_index": { "type": "integer" } } } },
+        "consumed": { "type": "array", "items": { "type": "object", "properties": { "token_id": { "type": "string" }, "step_index": { "type": "integer" } } } },
+        "revoked": { "type": "array", "items": { "type": "object", "properties": { "token_id": { "type": "string" }, "step_index": { "type": "integer" } } } }
+      }
+    },
+    "critical_comm_records": {
+      "type": "object",
+      "properties": {
+        "attempts": { "type": "array", "items": { "type": "object" } },
+        "ack_summary": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "invariant_summary": {
+      "type": "object",
+      "properties": {
+        "violated_ids": { "type": "array", "items": { "type": "string" } },
+        "first_violation_ts": { "type": ["integer", "null"] },
+        "final_status": { "type": "string" }
+      }
+    },
+    "enforcement_summary": {
+      "type": "object",
+      "properties": {
+        "throttle": { "type": "array", "items": { "type": "object" } },
+        "kill_switch": { "type": "array", "items": { "type": "object" } },
+        "freeze_zone": { "type": "array", "items": { "type": "object" } },
+        "forensic_freeze": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "hashchain": {
+      "type": "object",
+      "required": ["head_hash", "last_event_hash", "length"],
+      "properties": {
+        "head_hash": { "type": "string" },
+        "last_event_hash": { "type": "string" },
+        "length": { "type": "integer", "minimum": 0 },
+        "break_status": { "type": "string", "description": "e.g. intact, broken" }
+      }
+    }
+  }
+}

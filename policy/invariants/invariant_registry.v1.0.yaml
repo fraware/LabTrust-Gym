@@ -251,3 +251,105 @@ invariants:
     enforcement_hint:
       recommend_action: "none"
     reason_code: "CRIT_NO_READBACK"
+
+  - invariant_id: "INV-CRIT-005"
+    title: "Critical comm record minimum fields (v0.2)"
+    description: "ACK_CRITICAL_RESULT must include attempt_id and minimum_record_fields (receiver_identity, readback when required); else BLOCKED CRIT_ACK_MISSING_FIELDS."
+    severity: "high"
+    scope: "result"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "critical_comm_record_fields"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "CRIT_ACK_MISSING_FIELDS"
+
+  - invariant_id: "INV-CRIT-006"
+    title: "Critical escalation tier order (v0.2)"
+    description: "ESCALATE_CRITICAL_RESULT must append attempt at next tier (tier_index current+1); else BLOCKED CRIT_ESCALATION_OUT_OF_ORDER."
+    severity: "high"
+    scope: "result"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "critical_escalation_order"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "CRIT_ESCALATION_OUT_OF_ORDER"
+
+  - invariant_id: "INV-COC-001"
+    title: "Chain of custody: every dispatch must have receive or exception with token"
+    description: "DISPATCH_TRANSPORT consignment must eventually RECEIVE_TRANSPORT at destination or have CHAIN_OF_CUSTODY_SIGN (dual-approval token) for handoff anomaly."
+    severity: "high"
+    scope: "system"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "transport_dispatch_receive_or_token"
+    exception_hooks:
+      override_token_types: ["TOKEN_CHAIN_OF_CUSTODY"]
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "TRANSPORT_CHAIN_OF_CUSTODY_BROKEN"
+
+  - invariant_id: "INV-TRANSPORT-001"
+    title: "Transport temp must remain in band or OVERRIDE_RISK_ACCEPTANCE token"
+    description: "TRANSPORT_TICK / RECEIVE_TRANSPORT: temperature must stay within route temp_band; excursion blocks with TRANSPORT_TEMP_EXCURSION unless OVERRIDE_RISK_ACCEPTANCE."
+    severity: "high"
+    scope: "specimen"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "transport_temp_in_band"
+    exception_hooks:
+      override_token_types: ["OVERRIDE_RISK_ACCEPTANCE"]
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "hold"
+    reason_code: "TRANSPORT_TEMP_EXCURSION"
+
+  - invariant_id: "INV-SIG-001"
+    title: "Strict signatures: mutating actions must have valid signature"
+    description: "When strict_signatures enabled, every mutating action must include a valid Ed25519 signature over the canonical payload."
+    severity: "critical"
+    scope: "system"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "signature_required_valid"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "SIG_MISSING"
+
+  - invariant_id: "INV-SIG-002"
+    title: "Key role must authorize action type"
+    description: "Key used for signature must have role_id that authorizes the action_type (RBAC)."
+    severity: "high"
+    scope: "agent"
+    signals: []
+    logic_template:
+      type: "state"
+      parameters:
+        check: "signature_role_authorized"
+    exception_hooks:
+      override_token_types: []
+      allow_when: null
+    enforcement_hint:
+      recommend_action: "block"
+    reason_code: "SIG_ROLE_MISMATCH"

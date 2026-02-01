@@ -36,6 +36,7 @@ Preferred PR size: under 400 lines where practical.
 
 ## Optional smoke tests (env vars)
 
+- **Quick-eval** — `labtrust quick-eval --seed 42` (1 episode TaskA, TaskD, TaskE; requires `.[env,plots]`). CI runs this on every push/PR.
 - **LABTRUST_BENCH_SMOKE=1** — Benchmark smoke: `labtrust bench-smoke --seed 42` (requires `.[env]`).
 - **LABTRUST_REPRO_SMOKE=1** — Reproduce smoke: `labtrust reproduce --profile minimal --out runs/repro_smoke` (requires `.[env,plots]`).
 - **LABTRUST_MARL_SMOKE=1** — MARL smoke: `pytest tests/test_marl_smoke.py -v` (requires `.[marl]`).

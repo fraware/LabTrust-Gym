@@ -4,8 +4,8 @@ A single CLI path reproduces a minimal set of study results and figures: a small
 
 ## Requirements
 
-- `pip install -e ".[env,plots]"` (PettingZoo + matplotlib for study runner and plots)
-- Run from repo root (or a directory that has `policy/` as ancestor)
+- `pip install -e ".[env,plots]"` or `pip install labtrust-gym[env,plots]` (PettingZoo + matplotlib for study runner and plots)
+- Policy path: run from repo root (policy under `policy/`), or from an installed wheel (policy shipped in package), or set `LABTRUST_POLICY_DIR` to the policy directory
 
 ## Commands
 
@@ -84,7 +84,65 @@ runs/repro_minimal_<timestamp>/
     (same structure)
 ```
 
+## Exporting receipts (evidence bundle)
+
+After a minimal (or full) run, you can export **Receipt.v0.1** and **EvidenceBundle.v0.1** from any episode log. Example for minimal profile:
+
+```bash
+# 1) Produce a run
+labtrust reproduce --profile minimal --out runs/my_repro
+
+# 2) Export receipts from one condition's episode log (e.g. first condition, first task)
+labtrust export-receipts --run runs/my_repro/taska/logs/cond_0/episodes.jsonl --out runs/my_repro/taska/cond_0_export
+```
+
+This creates `runs/my_repro/taska/cond_0_export/EvidenceBundle.v0.1/` with receipt JSON files per specimen/result, episode_log_subset.jsonl, invariant_eval_trace.jsonl, enforcement_actions.jsonl, hashchain_proof.json, and manifest.json. Exported receipts validate against `policy/schemas/receipt.v0.1.schema.json`; the manifest validates against `policy/schemas/evidence_bundle_manifest.v0.1.schema.json`.
+
+### Export FHIR R4
+
+From the same evidence bundle you can export a minimal FHIR R4 Bundle (Specimen, Observation, DiagnosticReport):
+
+```bash
+labtrust export-fhir --receipts runs/my_repro/taska/cond_0_export/EvidenceBundle.v0.1 --out runs/my_repro/taska/cond_0_fhir
+```
+
+This writes `runs/my_repro/taska/cond_0_fhir/fhir_bundle.json`. See [FHIR R4 export](fhir_export.md) for mapping rules and limitations.
+
+## Package release (single-command artifact)
+
+To produce an **external-facing release artifact** (results, plots, receipts, FHIR, benchmark card, manifest with hashes) in one step:
+
+```bash
+labtrust package-release --profile minimal --out /tmp/labtrust_release
+```
+
+- Runs **reproduce** (TaskA & TaskC sweep + plots), then **export-receipts** and **export-fhir** per condition, and writes:
+  - `MANIFEST.v0.1.json` — list of files with SHA-256 (deterministic for fixed `--seed-base`)
+  - `BENCHMARK_CARD.md` — scope, invariants, tasks A–E, baselines, limitations (see [Benchmark card](benchmark_card.md))
+  - `metadata.json` — git SHA, partner_id, policy_fingerprint, seed_base, timestamp
+  - `results.json` — study manifests summary
+  - `results/` — results.json per task (v0.2 schema; `agent_baseline_id`, `git_sha`, etc.)
+  - `summary.csv` and `summary.md` — leaderboard table (mean/std by task + baseline + partner_id); see `labtrust summarize-results`
+  - `plots/` — figures (PNG/SVG) per task
+  - `tables/` — CSV data tables per task
+  - `receipts/` — EvidenceBundle.v0.1 per task/condition
+  - `fhir/` — FHIR R4 bundles per task/condition
+
+Use **`--seed-base N`** for deterministic artifacts (same seed ⇒ identical MANIFEST file hashes). Optional **`--keep-repro`** keeps the intermediate `_repro` directory.
+
+## Summarize results (leaderboard table)
+
+To aggregate one or more `results.json` (or directories containing them) into a comparable table:
+
+```bash
+labtrust summarize-results --in results/ your_run.json --out /tmp/summary --basename summary
+```
+
+Writes **summary.csv** and **summary.md** with mean/std for throughput, p50/p95 TAT, on_time_rate, violations, critical_communication_compliance_rate, detection_latency_s, containment_success, grouped by task + agent_baseline_id + partner_id. Compare to the official baseline table in `benchmarks/baselines_official/v0.1/` (see [Benchmark card](benchmark_card.md)).
+
 ## See also
 
 - [Studies and plots](studies.md) for the full study runner and plotting pipeline
 - [Benchmarks](benchmarks.md) for task definitions and metrics
+- [Benchmark card](benchmark_card.md) for results schema v0.2 and official baseline table
+- [Enforcement](enforcement.md) for the evidence bundle section and export-receipts CLI

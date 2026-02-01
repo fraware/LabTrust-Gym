@@ -27,6 +27,27 @@
             "properties": {
               "scenario_id": { "type": "string" },
               "title": { "type": "string" },
+              "post_run_hooks": {
+                "type": "array",
+                "description": "Optional hooks run after script (before post_run): EXPORT_RECEIPTS, VERIFY_BUNDLE, EXPORT_FHIR. Deterministic for fixed seed; use stable temp paths.",
+                "items": { "type": "string", "enum": ["EXPORT_RECEIPTS", "VERIFY_BUNDLE", "EXPORT_FHIR"] }
+              },
+              "post_run": {
+                "type": "array",
+                "description": "Optional post-episode actions (export, assert). Run after script steps succeed.",
+                "items": {
+                  "type": "object",
+                  "required": ["action"],
+                  "additionalProperties": true,
+                  "properties": {
+                    "action": { "type": "string", "enum": ["EXPORT_RECEIPTS", "EXPORT_FHIR", "ASSERT_FILE_EXISTS", "ASSERT_SCHEMA_VALID"] },
+                    "out_dir": { "type": "string" },
+                    "out_filename": { "type": "string" },
+                    "path": { "type": "string" },
+                    "schema": { "type": "string" }
+                  }
+                }
+              },
               "initial_state": {
                 "type": "object",
                 "required": [],

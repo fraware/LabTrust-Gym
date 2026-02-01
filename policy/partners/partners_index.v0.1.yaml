@@ -1,0 +1,7 @@
+# Partner overlay index: list of partner_id and overlay paths.
+# Overlay path is policy/partners/<partner_id>/ (relative to repo root).
+version: "0.1"
+partners:
+  - partner_id: "hsl_like"
+    description: "HSL-like Blood Sciences example overlay (critical, stability, enforcement overrides)."
+    overlay_path: "policy/partners/hsl_like"

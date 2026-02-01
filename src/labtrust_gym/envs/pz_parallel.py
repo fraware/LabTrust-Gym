@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from labtrust_gym.engine.core_env import CoreEnv
+from labtrust_gym.baselines.llm.shield import LLM_ACTION_FILTERED
 
 # Optional: PettingZoo and Gymnasium (install with pip install -e ".[env]")
 try:
@@ -90,6 +91,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         self,
         num_runners: int = 2,
         num_adversaries: int = 0,
+        num_insiders: int = 0,
         dt_s: int = 10,
         reward_config: Optional[Dict[str, Any]] = None,
         policy_dir: Optional[Path] = None,
@@ -103,6 +105,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         super().__init__()
         self._num_runners = max(0, num_runners)
         self._num_adversaries = max(0, num_adversaries)
+        self._num_insiders = max(0, num_insiders)
         self._dt_s = max(1, dt_s)
         self._reward_config = reward_config or {}
         self._policy_dir = policy_dir or Path("policy")
@@ -112,13 +115,15 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             from labtrust_gym.logging.episode_log import EpisodeLogger
             self._episode_logger = EpisodeLogger(self._log_path)
 
-        # Agent IDs: ops_0, runner_0, ..., qc_0, supervisor_0, [adversary_0, ...]
+        # Agent IDs: ops_0, runner_0, ..., qc_0, supervisor_0, [adversary_0, ...], [adversary_insider_0, ...]
         self.possible_agents = ["ops_0"]
         for i in range(self._num_runners):
             self.possible_agents.append(f"runner_{i}")
         self.possible_agents.extend(["qc_0", "supervisor_0"])
         for i in range(self._num_adversaries):
             self.possible_agents.append(f"adversary_{i}")
+        for i in range(self._num_insiders):
+            self.possible_agents.append(f"adversary_insider_{i}")
 
         # Map PZ agent -> engine agent_id (for zones and events)
         self._pz_to_engine: Dict[str, str] = {}
@@ -129,6 +134,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         self._pz_to_engine["supervisor_0"] = "A_SUPERVISOR_0"
         for i in range(self._num_adversaries):
             self._pz_to_engine[f"adversary_{i}"] = f"A_ADVERSARY_{i}"
+        for i in range(self._num_insiders):
+            self._pz_to_engine[f"adversary_insider_{i}"] = f"A_INSIDER_{i}"
 
         # Default zones for each agent (for initial_state)
         self._default_agent_zones: Dict[str, str] = {
@@ -140,6 +147,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             self._default_agent_zones[f"runner_{i}"] = "Z_SORTING_LANES"
         for i in range(self._num_adversaries):
             self._default_agent_zones[f"adversary_{i}"] = "Z_SORTING_LANES"
+        for i in range(self._num_insiders):
+            self._default_agent_zones[f"adversary_insider_{i}"] = "Z_SORTING_LANES"
 
         n_z = len(DEFAULT_ZONE_IDS) + 1
         n_d = len(DEFAULT_DEVICE_IDS)
@@ -220,11 +229,17 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "specimens": [],
                 "tokens": [],
             }
+        self._initial_state = initial_state
         self._engine.reset(
             initial_state,
             deterministic=True,
             rng_seed=rng_seed,
         )
+        if self._episode_logger is not None:
+            self._episode_logger.set_episode_meta(
+                partner_id=initial_state.get("partner_id"),
+                policy_fingerprint=initial_state.get("policy_fingerprint"),
+            )
         self.agents = list(self.possible_agents)
         observations = self._collect_observations()
         infos = {a: {} for a in self.agents}
@@ -301,6 +316,12 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             token_count_override = sum(1 for t in active if "OVERRIDE" in str(t))
             token_count_restricted = sum(1 for t in active if "RESTRICTED" in str(t))
 
+            t_s = self._step_count * self._dt_s
+            transport_required = list(getattr(self, "_initial_state", {}).get("transport_required") or [])
+            try:
+                transport_consignments = self._engine.query("transport_consignments")
+            except ValueError:
+                transport_consignments = []
             obs[agent] = {
                 "my_zone_idx": my_zone_idx,
                 "door_restricted_open": door_open,
@@ -313,6 +334,9 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "log_frozen": log_frozen_int,
                 "token_count_override": np.array([token_count_override], dtype=np.int32),
                 "token_count_restricted": np.array([token_count_restricted], dtype=np.int32),
+                "t_s": t_s,
+                "transport_required": transport_required,
+                "transport_consignments": transport_consignments,
             }
         return obs
 
@@ -326,6 +350,26 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         engine_id = self._pz_to_engine.get(agent, agent)
         t_s = self._step_count * self._dt_s
         event_id = f"pz_{agent}_{self._step_count}"
+
+        # Strip shield meta so it is not sent to the engine (used in step() to augment result)
+        _SHIELD_META_KEYS = ("_shield_filtered", "_shield_reason_code")
+        info = {k: v for k, v in (action_info or {}).items() if k not in _SHIELD_META_KEYS}
+        # Custom event from action_info (e.g. insider adversary, LLM safe: RELEASE_RESULT, MOVE with signature, etc.)
+        if info.get("action_type"):
+            ev: Dict[str, Any] = {
+                "event_id": event_id,
+                "t_s": t_s,
+                "agent_id": engine_id,
+                "action_type": str(info["action_type"]),
+                "args": dict(info.get("args") or {}),
+                "reason_code": info.get("reason_code"),
+                "token_refs": list(info.get("token_refs") or []),
+            }
+            if info.get("key_id") is not None:
+                ev["key_id"] = info["key_id"]
+            if info.get("signature") is not None:
+                ev["signature"] = info["signature"]
+            return ev
 
         if action == ACTION_NOOP:
             return {
@@ -374,7 +418,6 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "token_refs": [],
             }
         if action == ACTION_MOVE:
-            info = action_info or {}
             to_zone = info.get("to_zone", "")
             try:
                 from_zone = self._engine.query(f"agent_zone('{engine_id}')")
@@ -405,7 +448,6 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "token_refs": token_refs,
             }
         if action == ACTION_START_RUN:
-            info = action_info or {}
             device_id = info.get("device_id", "")
             work_id = info.get("work_id", "")
             return {
@@ -456,7 +498,16 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 agent, action, action_info=action_infos.get(agent)
             )
             result = self._engine.step(event)
+            # LLM shield: if this agent's action was filtered, augment result with LLM_ACTION_FILTERED
+            ai = action_infos.get(agent) or {}
+            if ai.get("_shield_filtered") and ai.get("_shield_reason_code"):
+                result = dict(result)
+                result["emits"] = list(result.get("emits", [])) + [LLM_ACTION_FILTERED]
+                result["blocked_reason_code"] = ai.get("_shield_reason_code")
+                result["status"] = "BLOCKED"
             step_results.append(result)
+            if self._episode_logger is not None:
+                self._episode_logger.log_step(event, result)
             if result.get("status") == "BLOCKED":
                 blocked_count += 1
             violation_count += len(result.get("violations", []))
@@ -500,6 +551,17 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         if self._episode_logger is not None:
             self._episode_logger.close()
             self._episode_logger = None
+
+    def get_timing_summary(self) -> Dict[str, Any]:
+        """Return timing_mode, episode_time_s, device_busy_s from engine. For benchmark utilization metrics."""
+        return self._engine.get_timing_summary()
+
+    def get_episode_time_s(self) -> Optional[int]:
+        """Episode duration in seconds: engine clock (simulated) or step_count * dt_s (explicit)."""
+        summary = self._engine.get_timing_summary()
+        if summary.get("episode_time_s") is not None:
+            return summary["episode_time_s"]
+        return (self._step_count * self._dt_s) if self._step_count else None
 
 
 def _hash_obs(obs: Dict[str, Any]) -> str:

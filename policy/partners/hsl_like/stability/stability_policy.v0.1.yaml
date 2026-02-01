@@ -1,0 +1,23 @@
+# Partner overlay: override scope and one panel (HSL-like).
+# Merge rule: overlay replaces top-level keys; panel_rules merged by panel_id (overlay replaces base for same panel_id).
+policy_version: "0.1"
+scope:
+  partner_target: "HSL-like overlay (example)"
+  lanes: ["BIOCHEM_PANEL_CORE", "HAEM_PANEL_CORE", "COAG_PANEL_CORE"]
+  note: "Partner overlay: scope and BIOCHEM pre-separation window only."
+
+panel_rules:
+  BIOCHEM_PANEL_CORE:
+    intent: "Routine chemistry (HSL-like: 90 min collection-to-separation)."
+    specimen_state_requirements:
+      separation_required: true
+    pre_separation_constraints:
+      max_time_collection_to_separation_minutes: 90
+      allowed_temp_bands: ["AMBIENT_20_25"]
+      breach_handling:
+        class: "OVERRIDE_PERMITTED"
+        action: ["HOLD_SPECIMEN", "FLAG_RISK", "REQUIRE_OVERRIDE_TOKEN"]
+        reason_code: "RC_STAB_NO_SEPARATION_WITHIN_WINDOW"
+    analysis_gate:
+      enforce_at_action: "START_RUN"
+      breach_action: "BLOCK_START_RUN"

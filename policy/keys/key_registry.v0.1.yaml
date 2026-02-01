@@ -1,0 +1,35 @@
+# Key registry v0.1: Ed25519 public keys for signed actions.
+# key_id, public_key (base64), agent_id, role_id, status, validity window.
+# Used when strict_signatures enabled; verification results in step output + receipts.
+
+key_registry:
+  version: "0.1"
+  keys:
+    # Test key (RFC 8032 test vector 1) for golden / unit tests.
+    - key_id: "ed25519:key_reception"
+      public_key: "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao="
+      agent_id: "A_RECEPTION"
+      role_id: "ROLE_RECEPTION"
+      status: "ACTIVE"
+      not_before_ts_s: null
+      not_after_ts_s: null
+      rotation_of_key_id: null
+
+    - key_id: "ed25519:key_runner"
+      public_key: "PUAXw+hDiVqStwrHdBt+vJyYLM8uxJaMyNVdEq9GYMw="
+      agent_id: "A_RUNNER"
+      role_id: "ROLE_RUNNER"
+      status: "ACTIVE"
+      not_before_ts_s: null
+      not_after_ts_s: null
+      rotation_of_key_id: null
+
+    # Revoked key for TaskF: insider attack phase (use revoked key -> SIG_KEY_REVOKED)
+    - key_id: "ed25519:key_revoked"
+      public_key: "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao="
+      agent_id: "A_INSIDER_0"
+      role_id: "ROLE_INSIDER"
+      status: "REVOKED"
+      not_before_ts_s: null
+      not_after_ts_s: null
+      rotation_of_key_id: null

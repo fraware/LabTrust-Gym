@@ -50,6 +50,9 @@ dmypy.json
 # Ruff
 .ruff_cache/
 
+# Quick-eval and run outputs
+labtrust_runs/
+
 # OS
 .DS_Store
 Thumbs.db

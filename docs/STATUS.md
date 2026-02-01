@@ -2,7 +2,7 @@
 
 This document reports what is implemented, what is not, and what remains to reach the north star (pip-installable multi-agent lab environment with trust skeleton, benchmarks, and baselines).
 
-**Last updated:** reflects the codebase after invariant registry v1.0, enforcement layer, studies (study_runner, plots, reproduce), baselines (adversary, LLM, MARL/PPO), TaskD, docs site (MkDocs + mkdocstrings), and reproduce CLI.
+**Last updated:** reflects the codebase after **key registry lifecycle** (status ACTIVE/REVOKED/EXPIRED, not_before_ts_s/not_after_ts_s, SIG_KEY_REVOKED/SIG_KEY_EXPIRED/SIG_KEY_NOT_YET_VALID, agent_id binding), **TaskF phase 4** (revoked key → SIG_KEY_REVOKED), **LLM constrained baseline** (policy summary schema + generator, constrained action decoder, rationale required, DeterministicConstrainedBackend), invariant registry v1.0, enforcement layer, studies, baselines (adversary, LLM, MARL/PPO), TaskD, TaskE, TaskF (insider + key misuse, 5 phases), transport, export, critical v0.2, docs site, reproduce, package-release, quick-eval, PyPI packaging, **docs/installation.md**.
 
 ---
 
@@ -14,11 +14,11 @@ This document reports what is implemented, what is not, and what remains to reac
 |------|--------|--------|
 | **Root metadata** | ✅ | README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG, LICENSE (Apache-2.0), .gitignore |
 | **CI** | ✅ | `.github/workflows/ci.yml`, `release.yml`; ruff format/check, mypy, pytest, policy validation; optional bench-smoke (nightly/manual) |
-| **Policy tree** | ✅ | `policy/schemas/` (JSON schemas for emits, zones, reason_codes, tokens, dual_approval, critical, equipment, golden, runner contract, test catalogue), `policy/emits/`, `policy/invariants/`, `policy/tokens/`, `policy/reason_codes/`, `policy/zones/`, `policy/catalogue/`, `policy/stability/`, `policy/equipment/`, `policy/critical/`, `policy/golden/` |
-| **Source tree** | ✅ | `src/labtrust_gym/` with `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement), `policy/` (incl. invariants_registry), `runner/`, `envs/` (PZ Parallel, AEC), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/` (tasks, metrics, runner), `studies/` (study_runner, plots, reproduce), `logging/` (episode_log), `cli/`, `version.py` |
-| **Tests** | ✅ | Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log, invariant_registry_validation, invariants_runtime, enforcement, study_runner_smoke, plots_tables_determinism, reproduce_smoke, adversary_task_smoke, marl_smoke, llm_agent_mock |
+| **Policy tree** | ✅ | `policy/schemas/` (incl. partners_index, **receipt**, **evidence_bundle_manifest**, **fhir_bundle_export**, **sites_policy**, **key_registry**, **rbac_policy**), `policy/emits/`, `policy/invariants/`, `policy/tokens/`, `policy/reason_codes/`, `policy/zones/`, `policy/keys/`, **`policy/rbac/`** (rbac_policy.v0.1), `policy/catalogue/`, `policy/stability/`, `policy/equipment/`, `policy/critical/` (thresholds, **escalation_ladder v0.2**), `policy/golden/`, `policy/partners/`, **`policy/sites/`** (sites_policy.v0.1) |
+| **Source tree** | ✅ | `src/labtrust_gym/` with **`config.py`** (get_repo_root for policy path), `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement, **signatures**, **rbac**, **transport**), `policy/` (incl. invariants_registry), `runner/`, **`export/`** (receipts, fhir_r4), `envs/` (PZ Parallel, AEC), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/` (tasks, metrics, runner), `studies/` (study_runner, plots, reproduce, **package_release**), `logging/` (episode_log), `cli/`, `version.py` |
+| **Tests** | ✅ | Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log, invariant_registry_validation, invariants_runtime, enforcement, study_runner_smoke, plots_tables_determinism, reproduce_smoke, adversary_task_smoke, marl_smoke, llm_agent_mock, **signatures**, **transport**, **rbac**, **export_receipts**, **fhir_export**, **package_release**, **TaskE** smoke |
 | **Examples** | ✅ | `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py`, `llm_agent_mock_demo.py` |
-| **Docs** | ✅ | `docs/architecture.md`, `policy_pack.md`, `threat_model.md`, `invariants.md`, `invariants_registry.md`, `enforcement.md`, `benchmarks.md`, `studies.md`, `reproduce.md`, `ci.md`, `pettingzoo_api.md`, `queue_contract.v0.1.md`, `marl_baselines.md`, `llm_baselines.md`, `STATUS.md`. MkDocs site (mkdocstrings API reference); deploy to GitHub Pages. |
+| **Docs** | ✅ | `docs/architecture.md`, **`installation.md`** (pip, quick-eval), `policy_pack.md`, `threat_model.md`, `invariants.md`, `invariants_registry.md`, `enforcement.md`, `benchmarks.md`, `benchmark_card.md`, `studies.md`, `reproduce.md`, `fhir_export.md`, `frozen_contracts.md`, `ci.md`, `pettingzoo_api.md`, `queue_contract.v0.1.md`, `marl_baselines.md`, `llm_baselines.md`, `STATUS.md`. MkDocs site (mkdocstrings API reference); deploy to GitHub Pages. **CITATION.cff** at repo root. |
 
 ### 1.2 Not present or partial (from original directory spec)
 
@@ -34,6 +34,12 @@ Contracts and schema versions that define correctness; do not weaken without exp
 - **Invariant registry schema** — `policy/schemas/invariant_registry.v1.0.schema.json`.
 - **Enforcement map schema** — `policy/schemas/enforcement_map.v0.1.schema.json`.
 - **Study spec schema** — `policy/studies/study_spec.schema.v0.1.json`.
+- **Receipt schema** — `policy/schemas/receipt.v0.1.schema.json` (per-specimen/result receipt for evidence bundle).
+- **Evidence bundle manifest schema** — `policy/schemas/evidence_bundle_manifest.v0.1.schema.json`.
+- **FHIR bundle export schema** — `policy/schemas/fhir_bundle_export.v0.1.schema.json`.
+- **Sites policy schema** — `policy/schemas/sites_policy.v0.1.schema.json` (multi-site topology, routes, transport_time, temp_drift).
+- **Key registry schema** — `policy/schemas/key_registry.v0.1.schema.json` (Ed25519 keys; optional status ACTIVE/REVOKED/EXPIRED, not_before_ts_s/not_after_ts_s; lifecycle enforced in signature verification).
+- **RBAC policy schema** — `policy/schemas/rbac_policy.v0.1.schema.json` (roles, agents, action_constraints).
 
 ---
 
@@ -44,8 +50,9 @@ Contracts and schema versions that define correctness; do not weaken without exp
 - **`src/labtrust_gym/policy/loader.py`** — Loads YAML/JSON from policy paths; validates against JSON Schema via `validate_against_schema`; `POLICY_FILE_SCHEMA_MAP` maps policy filenames to schema filenames.
 - **`src/labtrust_gym/policy/validate.py`** — Used by CLI; validates runner output contract schema file (exists and valid JSON); validates all policy files in `POLICY_FILES_WITH_SCHEMAS` against their JSON schemas (emits vocab, zones, reason codes, token registry, dual approval, critical thresholds, equipment registry, golden scenarios).
 - **Policy schemas** — `policy/schemas/` contains JSON schemas for: emits_vocab.v0.1, zone_layout_policy.v0.1, reason_code_registry.v0.1, token_registry.v0.1, dual_approval_policy.v0.1, critical_thresholds.v0.1, equipment_registry.v0.1, golden_scenarios.v0.1, plus runner_output_contract.v0.1 and test_catalogue.schema.v0.1.
-- **CLI** — `labtrust validate-policy` runs full policy validation (all policy files against schemas).
-- **Tests** — `tests/test_policy_validation.py` fails if any required file is missing or invalid; includes tests that invalid policy (e.g. missing required keys) fails schema validation.
+- **CLI** — `labtrust validate-policy` runs full policy validation (all policy files against schemas). `labtrust validate-policy --partner <partner_id>` also validates overlay files and merged policy consistency.
+- **Partner overlays** — `policy/partners/partners_index.v0.1.yaml`; per-partner dirs (e.g. `hsl_like/`) with overrides for critical, stability, enforcement, equipment. Loader: `load_effective_policy(root, partner_id)` returns merged policy and `policy_fingerprint`. Merge rules per type in `policy/overlay.py`. Engine uses `initial_state["effective_policy"]` when present.
+- **Tests** — `tests/test_policy_validation.py`, `tests/test_partner_overlay.py` (overlay load/merge determinism, invalid overlay fails schema, benchmark smoke with partner).
 
 ### 2.2 Golden runner and harness
 
@@ -77,6 +84,19 @@ Contracts and schema versions that define correctness; do not weaken without exp
 - **Engine** — MINT_TOKEN, REVOKE_TOKEN; any action with token_refs validated; consumed on use.
 - **Tests** — `tests/test_tokens.py`; GS-010–GS-013 pass under `LABTRUST_RUN_GOLDEN=1`.
 
+### 2.5.5 RBAC policy (action permissions + role bindings)
+- **`policy/rbac/rbac_policy.v0.1.yaml`** — roles (allowed_actions, allowed_zones, allowed_devices), agents (agent_id → role_id), optional action_constraints.
+- **`src/labtrust_gym/engine/rbac.py`** — load_rbac_policy(path), check(agent_id, action_type, context, policy) → (allowed, reason_code, rbac_decision); get_agent_role(agent_id, policy).
+- **Engine** — RBAC gate is the **first** gate in step (before tokens, before domain logic); BLOCKED with RBAC_ACTION_DENY / RBAC_ZONE_DENY / RBAC_DEVICE_DENY; rbac_decision recorded in step output (receipts/forensics). INV-SIG-002: when action is signed, key's role must match RBAC role for agent_id.
+- **Reason codes** — RBAC_ACTION_DENY, RBAC_ZONE_DENY, RBAC_DEVICE_DENY.
+- **Tests** — `tests/test_rbac.py`; GS-RBAC-028 (unauthorized RELEASE_RESULT blocked), GS-RBAC-029 (token cannot bypass RBAC).
+
+### 2.5.6 Signatures and key registry (lifecycle)
+- **`policy/keys/key_registry.v0.1.yaml`** — Ed25519 public keys: key_id, public_key (base64), agent_id, role_id; optional **status** (ACTIVE, REVOKED, EXPIRED; default ACTIVE), **not_before_ts_s** / **not_after_ts_s** (validity window). Schema: `policy/schemas/key_registry.v0.1.schema.json` (all lifecycle fields optional for backward compatibility).
+- **`src/labtrust_gym/engine/signatures.py`** — load_key_registry(path), verify_action_signature(event, prev_hash, partner_id, policy_fingerprint, registry, now_ts). Verification checks: key exists; status ACTIVE (or omitted); now_ts in [not_before_ts_s, not_after_ts_s]; key bound to event agent_id; INV-SIG-002 role match; Ed25519 signature over canonical payload. Reason codes: SIG_MISSING, SIG_INVALID, **SIG_KEY_REVOKED**, **SIG_KEY_EXPIRED**, **SIG_KEY_NOT_YET_VALID**, SIG_ROLE_MISMATCH.
+- **Engine** — When strict_signatures and mutating action: missing/invalid/revoked/expired signature → BLOCKED with above reason codes. TaskF runs with strict_signatures True; insider phase 4 uses revoked key_id → BLOCKED SIG_KEY_REVOKED.
+- **Tests** — `tests/test_signatures_key_lifecycle.py` (valid key passes; revoked/expired/not-yet-valid blocked; missing status defaults ACTIVE).
+
 ### 2.6 Zone graph and doors
 
 - **`policy/zones/zone_layout_policy.v0.1.yaml`** — Zones, graph_edges, doors (including D_RESTRICTED_AIRLOCK), device_placement (device_id → zone_id).
@@ -101,10 +121,11 @@ Contracts and schema versions that define correctness; do not weaken without exp
 ### 2.9 Critical results
 
 - **`policy/critical/critical_thresholds.v0.1.yaml`** — Placeholder thresholds (K, Na, Hb, INR, etc.).
-- **`src/labtrust_gym/engine/critical.py`** — Classify CRIT_A/CRIT_B/none; CriticalStore: comm records (notify/ack), notification_mode_required; NOTIFY_CRITICAL_RESULT, ACK_CRITICAL_RESULT (read_back_confirmed → INV-CRIT-004 PASS/VIOLATION), ESCALATE_CRITICAL_RESULT.
-- **Engine** — RELEASE_RESULT blocked until ACK recorded for critical results; downtime_active → auto NOTIFY_CRITICAL_RESULT on generate, phone/bleep path.
+- **`policy/critical/escalation_ladder.v0.2.yaml`** — Tiers (primary_contact → secondary → consultant_registrar → duty_manager), allowed_contact_modes, max_ack_wait_s, required_fields, requires_readback; minimum_record_fields for comm records.
+- **`src/labtrust_gym/engine/critical.py`** — Classify CRIT_A/CRIT_B/none; CriticalStore (v0.2): attempt records (attempt_id, tier), comm records; NOTIFY_CRITICAL_RESULT (creates attempt, validates mode); ACK_CRITICAL_RESULT (requires attempt_id, required_fields, readback when required); ESCALATE_CRITICAL_RESULT (tier order enforced); can_escalate(result_id, now_s) after max_ack_wait_s; RELEASE_RESULT blocked until compliant ACK.
+- **Engine** — RELEASE_RESULT blocked until ACK recorded for critical results; downtime_active → auto NOTIFY_CRITICAL_RESULT on generate, phone/bleep path. Reason codes: CRIT_ACK_MISSING_FIELDS, CRIT_ESCALATION_OUT_OF_ORDER, CRIT_ACK_TIMEOUT, CRIT_MODE_NOT_ALLOWED.
 - **query(expr)** — `result_criticality('...')`, `comm_record_exists(result_id='...')`, `notification_mode_required('...')`.
-- **Tests** — `tests/test_critical.py`; GS-016, GS-017, GS-018 pass.
+- **Tests** — `tests/test_critical.py`; GS-016, GS-017, GS-018, GS-CRIT-023, GS-CRIT-024, GS-CRIT-025 pass (when LABTRUST_RUN_GOLDEN=1).
 
 ### 2.10 Catalogue and stability (START_RUN gating)
 
@@ -128,9 +149,32 @@ Contracts and schema versions that define correctness; do not weaken without exp
 - **query(expr)** — `queue_head(DEVICE_ID)` → work_id at front or None.
 - **Tests** — `tests/test_queueing.py`; GS-002 passes; full golden suite green with `LABTRUST_RUN_GOLDEN=1`.
 
+### 2.13 Transport (multi-site)
+
+- **`policy/sites/sites_policy.v0.1.yaml`** — Sites (SITE_HUB, SITE_ACUTE), site_graph, routes (transport_time_mean_s, temp_drift_model, temp_drift_max_c).
+- **`src/labtrust_gym/engine/transport.py`** — TransportStore: dispatch(specimen_ids, origin_site, dest_site) → consignment with expected_arrival_ts (deterministic via RNG); tick(now_s) (bounded temp drift); receive(consignment_id); chain_of_custody_sign(consignment_id). Reason codes: TRANSPORT_ROUTE_FORBIDDEN, TRANSPORT_TEMP_EXCURSION, TRANSPORT_CHAIN_OF_CUSTODY_BROKEN. Invariants: INV-COC-001, INV-TRANSPORT-001.
+- **Engine** — DISPATCH_TRANSPORT, TRANSPORT_TICK, RECEIVE_TRANSPORT, CHAIN_OF_CUSTODY_SIGN wired in core_env; BLOCKED on forbidden route or temp excursion.
+- **Tests** — `tests/test_transport.py` (route legality, determinism, chain-of-custody, temp excursion).
+
+### 2.14 Export (receipts, evidence bundle, FHIR R4)
+
+- **`src/labtrust_gym/export/receipts.py`** — load_episode_log, build_receipts_from_log, write_evidence_bundle, export_receipts; Receipt.v0.1 per specimen/result; EvidenceBundle.v0.1 (receipts, episode_log_subset, invariant_eval_trace, enforcement_actions, hashchain_proof, manifest with sha256). CLI: `labtrust export-receipts --run <episode_log.jsonl> --out <dir>`.
+- **`src/labtrust_gym/export/fhir_r4.py`** — load_receipts_from_dir, receipts_to_fhir_bundle (Specimen, Observation, DiagnosticReport), validate_bundle_structure, export_fhir. CLI: `labtrust export-fhir --receipts <dir> --out <dir>`. Partner overlay: partner_id in Bundle.meta.tag, policy_fingerprint in meta.extension.
+- **Schemas** — `policy/schemas/receipt.v0.1.schema.json`, `evidence_bundle_manifest.v0.1.schema.json`, `fhir_bundle_export.v0.1.schema.json`.
+- **Tests** — `tests/test_export_receipts.py`, `tests/test_fhir_export.py` (determinism, schema validation, receipt/FHIR coverage).
+
+### 2.15 Package release (release candidate artifact)
+
+- **`src/labtrust_gym/studies/package_release.py`** — run_package_release(profile, out_dir, seed_base): runs reproduce, then export-receipts and export-fhir per task/condition, copies plots/tables/results, writes MANIFEST.v0.1.json (files + sha256), BENCHMARK_CARD.md, metadata.json (git_sha, partner_id, policy_fingerprint, seed_base, timestamp). Deterministic timestamp when seed_base set.
+- **CLI** — `labtrust package-release --profile minimal|full --out <dir>` (optional `--seed-base`, `--keep-repro`).
+- **Tests** — `tests/test_package_release.py` (determinism: same seed_base ⇒ same non-plot/manifest hashes; expected files present).
+- **CI** — `.github/workflows/package-release-nightly.yml`: scheduled (nightly) and workflow_dispatch; runs package-release --profile minimal; uploads artifact. Not run on normal push/PR.
+
 ---
 
-## 3. Golden scenarios (22 total)
+## 3. Golden scenarios (33 total)
+
+Golden tests cover engine correctness for core lab workflow, critical v0.2 (escalation ladder), **transport**, and **export**. Transport/export are covered by golden scenarios: **GS-TRANSPORT-001** (dispatch → tick → chain-of-custody sign → receive), **GS-TRANSPORT-002** (temp excursion fault injection → BLOCKED with TRANSPORT_TEMP_EXCURSION and INV-TRANSPORT-001), **GS-COC-003** (chain-of-custody broken), **GS-EXPORT-001** (post_run_hooks: EXPORT_RECEIPTS, VERIFY_BUNDLE, EXPORT_FHIR; asserts output files exist and manifest validates).
 
 | Scenario | Title / focus | Passes with engine? |
 |----------|----------------|----------------------|
@@ -156,8 +200,19 @@ Contracts and schema versions that define correctness; do not weaken without exp
 | GS-020 | Illegal move (not on graph) → BLOCKED | ✅ |
 | GS-021 | HOLD_SPECIMEN without reason_code → BLOCKED | ✅ |
 | GS-022 | Hash chain break → forensic freeze, then all BLOCKED | ✅ |
+| GS-CRIT-023 | ACK missing required fields (attempt_id) ⇒ ACK rejected | ✅ |
+| GS-CRIT-024 | ESCALATE out of tier order ⇒ blocked | ✅ |
+| GS-CRIT-025 | Timeout triggers escalation path; release allowed only after compliant ack | ✅ |
+| GS-SIG-026 | Signed actions: mutating action without signature ⇒ BLOCKED SIG_MISSING (strict mode) | ✅ |
+| GS-SIG-027 | Signed actions: invalid signature ⇒ BLOCKED SIG_INVALID (strict mode) | ✅ |
+| GS-RBAC-028 | RBAC: unauthorized RELEASE_RESULT blocked (reception role cannot release) | ✅ |
+| GS-RBAC-029 | RBAC: RELEASE_RESULT_OVERRIDE blocked even with token (token cannot bypass RBAC) | ✅ |
+| GS-TRANSPORT-001 | Transport: dispatch → tick → chain-of-custody sign → receive; no violations, receipt-worthy emits | ✅ |
+| GS-TRANSPORT-002 | Temp excursion fault injection ⇒ BLOCKED TRANSPORT_TEMP_EXCURSION, INV-TRANSPORT-001 | ✅ |
+| GS-COC-003 | Missing/invalid chain-of-custody ⇒ TRANSPORT_CHAIN_OF_CUSTODY_BROKEN, INV-COC-001 | ✅ |
+| GS-EXPORT-001 | Post-run hooks: EXPORT_RECEIPTS, VERIFY_BUNDLE, EXPORT_FHIR; output files exist, manifest validates | ✅ |
 
-**Full golden suite:** With `LABTRUST_RUN_GOLDEN=1`, the **full suite passes** (all scenarios; one may be skipped if fixtures unavailable). Queue semantics are frozen in **docs/queue_contract.v0.1.md** (v0.1).
+**Full golden suite:** With `LABTRUST_RUN_GOLDEN=1`, the **full suite passes** (all scenarios; one may be skipped if fixtures unavailable). Queue semantics are frozen in **docs/queue_contract.v0.1.md** (v0.1). Export directories are created under the scenario work dir (e.g. pytest `tmp_path`); Receipt.v0.1 and EvidenceBundle manifest v0.1 are validated during VERIFY_BUNDLE and optional ASSERT_SCHEMA_VALID.
 
 ---
 
@@ -187,17 +242,17 @@ Contracts and schema versions that define correctness; do not weaken without exp
 
 - **examples/minimal_random_policy_agent.py** — Present (minimal).
 - **examples/scripted_ops_agent.py**, **examples/scripted_runner_agent.py**, **examples/llm_agent_mock_demo.py** — Implemented; use `baselines/scripted_ops.py`, `scripted_runner.py`, `baselines/llm/agent.py`.
-- **Benchmark tasks** — TaskA, TaskB, TaskC, TaskD (adversarial disruption) in `benchmarks/tasks.py`; metrics and runner in `benchmarks/`; CLI `labtrust run-benchmark`, `labtrust bench-smoke`.
-- **Baselines** — Scripted ops, scripted runner, adversary (`baselines/adversary.py`), LLM agent with mock/OpenAI stub (`baselines/llm/`), PPO via Stable-Baselines3 (`baselines/marl/`; optional `.[marl]`). Published benchmark results remain optional.
+- **Benchmark tasks** — TaskA, TaskB, TaskC, TaskD (adversarial disruption), TaskE (multi-site STAT), TaskF (insider + key misuse: 5 phases — forbidden action, forged sig, replay, **revoked key** → SIG_KEY_REVOKED, token misuse) in `benchmarks/tasks.py`; metrics and runner in `benchmarks/`; CLI `labtrust run-benchmark`, `labtrust bench-smoke`, **`labtrust quick-eval`** (TaskA, TaskD, TaskE; 1 episode each; markdown + logs under `labtrust_runs/`).
+- **Baselines** — Scripted ops, scripted runner, adversary (`baselines/adversary.py`), **LLM agent** (constrained decoder, rationale required, **DeterministicConstrainedBackend** as official baseline; mock/OpenAI stub in `baselines/llm/`), PPO via Stable-Baselines3 (`baselines/marl/`; optional `.[marl]`). Published benchmark results remain optional.
 
 ### 4.5 API and packaging
 
 - **PettingZoo AEC and parallel API** — Implemented; `LabTrustParallelEnv` in `envs/pz_parallel.py`, AEC via `labtrust_aec_env` in `envs/pz_aec.py` (parallel_to_aec). Require `pip install -e ".[env]"`.
-- **pip-installable** — Yes (`pyproject.toml`, `pip install -e ".[dev]"`); not published to PyPI.
+- **pip-installable** — Yes (`pyproject.toml`, `pip install labtrust-gym[env,plots]` from PyPI or source). Release workflow (`.github/workflows/release.yml`) builds sdist and wheel on tag `v*`; policy copied into `src/labtrust_gym/policy` before build so wheel ships policy. **labtrust --version** prints version and git SHA. **quick-eval** CLI runs 1 episode each of TaskA, TaskD, TaskE; writes markdown summary and logs under `./labtrust_runs/`. **config.get_repo_root()** resolves policy path (LABTRUST_POLICY_DIR, package data, or repo). MANIFEST.in includes policy for sdist.
 
 ### 4.6 Documentation
 
-- **API reference (autogenerated from docstrings)** — Not set up (e.g. Sphinx/MkDocs).
+- **API reference (autogenerated from docstrings)** — Set up via MkDocs + mkdocstrings; included in docs site and deploy to GitHub Pages.
 - **Example notebooks (Jupyter)** — None.
 - **docs/** — Architecture, policy_pack, threat_model, invariants, benchmarks, ci, pettingzoo_api, queue_contract; this STATUS.
 
@@ -224,8 +279,13 @@ Contracts and schema versions that define correctness; do not weaken without exp
 ## 6. How to run and validate
 
 ```bash
-# Install
-pip install -e ".[dev]"
+# Install (from PyPI or source)
+pip install labtrust-gym[env,plots]
+# or from source: pip install -e ".[dev]"
+labtrust --version
+
+# Quick-eval (1 episode TaskA, TaskD, TaskE; markdown summary + logs under labtrust_runs/)
+labtrust quick-eval --seed 42
 
 # Policy validation (all policy files against their JSON schemas)
 labtrust validate-policy
@@ -237,9 +297,12 @@ pytest -q
 LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -v
 
 # PettingZoo + benchmark (optional extra)
-pip install -e ".[dev,env]"
-pytest tests/test_pz_parallel_smoke.py tests/test_pz_aec_smoke.py tests/test_benchmark_smoke.py -v
+pip install -e ".[dev,env,plots]"
+pytest tests/test_pz_parallel_smoke.py tests/test_pz_aec_smoke.py tests/test_benchmark_smoke.py tests/test_transport.py tests/test_export_receipts.py tests/test_fhir_export.py tests/test_package_release.py -v
 labtrust bench-smoke --seed 42
+
+# Release candidate artifact (reproduce + receipts + FHIR + plots + MANIFEST + BENCHMARK_CARD)
+labtrust package-release --profile minimal --out /tmp/labtrust_release --seed-base 100
 ```
 
 ---
@@ -264,9 +327,11 @@ labtrust bench-smoke --seed 42
 | Enforcement | ✅ policy/enforcement/enforcement_map; engine/enforcement.py; throttle/kill_switch/freeze_zone/forensic_freeze; step output enforcements | — |
 | Engine structure | ✅ core_env + domain modules (audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement) | state.py, event.py, errors.py as separate modules (optional) |
 | Env API | ✅ Adapter (reset, step, query); PettingZoo Parallel and AEC wrappers (envs/) | — |
-| Baselines / benchmarks | ✅ Scripted ops, scripted runner, adversary; TaskA/B/C/D; LLM agent (mock + OpenAI stub); PPO/MARL (optional [marl]); labtrust run-benchmark, bench-smoke, run-study, make-plots, reproduce; episode logging | Published results |
-| Studies | ✅ study_runner, plots, reproduce; labtrust run-study, make-plots, reproduce --profile minimal\|full | — |
+| Baselines / benchmarks | ✅ Scripted ops, scripted runner, adversary; TaskA/B/C/D/**TaskE** (multi-site STAT), **TaskF** (insider + key misuse, 5 phases incl. revoked key → SIG_KEY_REVOKED); LLM agent (constrained decoder, DeterministicConstrainedBackend, rationale required); PPO/MARL (optional [marl]); labtrust run-benchmark, bench-smoke, **quick-eval**, run-study, make-plots, reproduce, **package-release**; episode logging | Published results |
+| Studies | ✅ study_runner, plots, reproduce, **package_release**; labtrust run-study, make-plots, reproduce --profile minimal\|full, **package-release --profile minimal\|full --out \<dir\>** | — |
+| Transport | ✅ engine/transport.py, sites_policy.v0.1, DISPATCH_TRANSPORT, TRANSPORT_TICK, RECEIVE_TRANSPORT, CHAIN_OF_CUSTODY_SIGN; INV-COC-001, INV-TRANSPORT-001 | — |
+| Export | ✅ receipts.py (Receipt.v0.1, EvidenceBundle.v0.1), fhir_r4.py (FHIR R4 Bundle); labtrust export-receipts, export-fhir; schemas receipt, evidence_bundle_manifest, fhir_bundle_export | — |
 | Examples | ✅ minimal_random_policy_agent, scripted_ops_agent, scripted_runner_agent, llm_agent_mock_demo | — |
-| Docs | ✅ README, CONTRIBUTING, STATUS, architecture, benchmarks, studies, reproduce, invariants_registry, enforcement, marl_baselines, llm_baselines, ci, pettingzoo_api, queue_contract, policy_pack, threat_model; MkDocs site + mkdocstrings API ref; GitHub Pages | Jupyter notebooks |
+| Docs | ✅ README, CONTRIBUTING, STATUS, **installation** (pip, quick-eval), architecture, benchmarks, studies, reproduce, invariants_registry, enforcement, marl_baselines, llm_baselines, ci, pettingzoo_api, queue_contract, policy_pack, threat_model; MkDocs site + mkdocstrings API ref; GitHub Pages | Jupyter notebooks |
 
 This STATUS reports the current state of the repo: what is implemented and what remains.

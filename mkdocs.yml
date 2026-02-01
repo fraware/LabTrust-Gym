@@ -15,15 +15,19 @@ theme:
 
 nav:
   - Overview: index.md
+  - Installation: installation.md
   - Architecture: architecture.md
   - Policy pack and schemas: policy_pack.md
   - Frozen contracts: frozen_contracts.md
   - Invariants and enforcement:
     - Invariant registry: invariants_registry.md
     - Enforcement: enforcement.md
+    - FHIR R4 export: fhir_export.md
+    - Evidence bundle verification: evidence_verification.md
   - PettingZoo API: pettingzoo_api.md
   - Benchmarks, studies, plots:
     - Benchmarks: benchmarks.md
+    - Benchmark card: benchmark_card.md
     - Studies and plots: studies.md
     - Reproduce (minimal results + figures): reproduce.md
   - Reproducibility and seeding: reproducibility.md

@@ -1,0 +1,16 @@
+# Partner overlay: add/override enforcement rules (HSL-like).
+# Merge rule: overlay rules replace base by rule_id; may add; core severities must remain covered.
+version: "0.1"
+enforcement_map_id: "LTR-ENF-0.1-hsl_like"
+rules:
+  - rule_id: "ENF-CRIT-001"
+    match:
+      invariant_id: "INV-CRIT-004"
+    action:
+      type: "throttle_agent"
+      duration_s: 45
+    escalation:
+      - violation_count_min: 1
+        action:
+          type: "throttle_agent"
+          duration_s: 45

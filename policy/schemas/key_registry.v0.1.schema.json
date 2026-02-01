@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.key_registry.v0.1",
+  "title": "Key registry v0.1",
+  "description": "Registry of Ed25519 public keys for signed actions: key_id, public_key (base64), agent_id, role_id, status, validity window.",
+  "type": "object",
+  "required": ["key_registry"],
+  "additionalProperties": true,
+  "properties": {
+    "key_registry": {
+      "type": "object",
+      "required": ["version", "keys"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key_id", "public_key", "agent_id", "role_id"],
+            "additionalProperties": true,
+            "properties": {
+              "key_id": { "type": "string" },
+              "public_key": { "type": "string", "description": "Base64-encoded Ed25519 public key" },
+              "agent_id": { "type": "string" },
+              "role_id": { "type": "string" },
+              "status": { "type": "string", "enum": ["ACTIVE", "REVOKED", "EXPIRED"], "description": "Optional; default ACTIVE. REVOKED/EXPIRED keys fail verification." },
+              "not_before_ts_s": { "type": ["integer", "null"], "description": "Optional; key not valid before this t_s (SIG_KEY_NOT_YET_VALID)." },
+              "not_after_ts_s": { "type": ["integer", "null"], "description": "Optional; key not valid after this t_s (SIG_KEY_EXPIRED)." },
+              "rotation_of_key_id": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

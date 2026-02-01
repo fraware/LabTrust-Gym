@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.results.v0.2",
+  "title": "LabTrust Benchmark Results v0.2",
+  "description": "Normative benchmark results: task, seeds, policy_fingerprint, partner_id, git_sha, agent_baseline_id, episodes with metrics.",
+  "type": "object",
+  "required": ["schema_version", "task", "seeds", "episodes", "agent_baseline_id"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.2" },
+    "task": { "type": "string", "description": "Task name (e.g. TaskA, TaskB, TaskC, TaskD, TaskE)" },
+    "seeds": {
+      "type": "array",
+      "items": { "type": "integer" },
+      "description": "Episode seeds (deterministic reproducibility)"
+    },
+    "policy_fingerprint": { "type": ["string", "null"] },
+    "partner_id": { "type": ["string", "null"] },
+    "git_sha": { "type": ["string", "null"], "description": "Git commit hash at run time" },
+    "agent_baseline_id": {
+      "type": "string",
+      "description": "Baseline identifier: scripted_ops_v1, adversary_v1, ppo_v1, llm_safe_v1, etc."
+    },
+    "num_episodes": { "type": "integer" },
+    "base_seed": { "type": "integer" },
+    "config": { "type": "object" },
+    "policy_versions": { "type": "object" },
+    "episodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seed", "metrics"],
+        "properties": {
+          "seed": { "type": "integer" },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "throughput": { "type": "integer" },
+              "p50_turnaround_s": { "type": ["number", "null"] },
+              "p95_turnaround_s": { "type": ["number", "null"] },
+              "on_time_rate": { "type": ["number", "null"] },
+              "violations_by_invariant_id": { "type": "object" },
+              "blocked_by_reason_code": { "type": "object" },
+              "critical_communication_compliance_rate": { "type": ["number", "null"] },
+              "detection_latency_s": { "type": ["number", "null"] },
+              "containment_success": { "type": ["boolean", "null"] },
+              "tokens_minted": { "type": "integer" },
+              "tokens_consumed": { "type": "integer" },
+              "holds_count": { "type": "integer" },
+              "steps": { "type": "integer" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

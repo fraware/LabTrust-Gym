@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.evidence_bundle_manifest.v0.1",
+  "title": "LabTrust Evidence Bundle Manifest v0.1",
+  "description": "Manifest for EvidenceBundle.v0.1: files with sha256, policy_fingerprint, optional signature.",
+  "type": "object",
+  "required": ["version", "files"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string" }
+        }
+      }
+    },
+    "policy_fingerprint": { "type": ["string", "null"] },
+    "partner_id": { "type": ["string", "null"] },
+    "signature": {
+      "type": ["object", "null"],
+      "description": "Optional signature (stub behind feature flag)",
+      "properties": {
+        "algorithm": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}
