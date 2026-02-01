@@ -15,6 +15,7 @@ golden_suite:
     - "invariant_registry.v1.0.critical_results.yaml"
     - "invariant_registry.v1.0.zones.yaml"
     - "invariant_registry.v1.0.tokens.yaml"
+    - "sites_policy.v0.1.yaml"
 
   runner_contract:
     semantics:
@@ -450,7 +451,7 @@ golden_suite:
 
         - { event_id: "e3", t_s: 2020, agent_id: "A_SUPERVISOR", action_type: "NOTIFY_CRITICAL_RESULT", args: { result_id: "RES_CRITK", channel: "phone", receiver_role: "WARD_TEAM_PRIMARY" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
 
-        - { event_id: "e4", t_s: 2030, agent_id: "A_SUPERVISOR", action_type: "ACK_CRITICAL_RESULT", args: { result_id: "RES_CRITK", channel: "phone", receiver_role: "WARD_TEAM_PRIMARY", receiver_name_or_id: "WARD_CLINICIAN_1", receiver_location_or_org: "WARD_X", read_back_confirmed: true, outcome: "reached", acknowledgment_ts_s: 2030 }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", violations: ["INV-CRIT-004:PASS"] } }
+        - { event_id: "e4", t_s: 2030, agent_id: "A_SUPERVISOR", action_type: "ACK_CRITICAL_RESULT", args: { result_id: "RES_CRITK", attempt_id: "RES_CRITK_attempt_0", channel: "phone", receiver_role: "WARD_TEAM_PRIMARY", receiver_name_or_id: "WARD_CLINICIAN_1", receiver_location_or_org: "WARD_X", read_back_confirmed: true, outcome: "reached", acknowledgment_ts_s: 2030 }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", violations: ["INV-CRIT-004:PASS"] } }
 
         - { event_id: "e5", t_s: 2040, agent_id: "A_ANALYTICS", action_type: "RELEASE_RESULT", args: { result_id: "RES_CRITK" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
 
@@ -461,7 +462,8 @@ golden_suite:
         specimens: []
         tokens: []
       script:
-        - { event_id: "e1", t_s: 3000, agent_id: "A_SUPERVISOR", action_type: "ACK_CRITICAL_RESULT", args: { result_id: "RES_X", channel: "phone", receiver_role: "WARD_TEAM_PRIMARY", receiver_name_or_id: "WARD_CLINICIAN_2", receiver_location_or_org: "WARD_Y", read_back_confirmed: false, outcome: "reached", acknowledgment_ts_s: 3000 }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", violations: ["INV-CRIT-004:VIOLATION"], state_assertions: ["comm_record_exists(result_id='RES_X') == true"] } }
+        - { event_id: "e0", t_s: 2990, agent_id: "A_SUPERVISOR", action_type: "NOTIFY_CRITICAL_RESULT", args: { result_id: "RES_X", channel: "phone", receiver_role: "primary_contact" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
+        - { event_id: "e1", t_s: 3000, agent_id: "A_SUPERVISOR", action_type: "ACK_CRITICAL_RESULT", args: { result_id: "RES_X", attempt_id: "RES_X_attempt_0", channel: "phone", receiver_role: "WARD_TEAM_PRIMARY", receiver_name_or_id: "WARD_CLINICIAN_2", receiver_location_or_org: "WARD_Y", read_back_confirmed: false, outcome: "reached", acknowledgment_ts_s: 3000 }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", violations: ["INV-CRIT-004:VIOLATION"], state_assertions: ["comm_record_exists(result_id='RES_X') == true"] } }
 
     - scenario_id: "GS-018"
       title: "Downtime forces oral notification path for critical result"
@@ -514,3 +516,134 @@ golden_suite:
         - { event_id: "e2", t_s: 8010, agent_id: "A_RECEPTION", action_type: "ACCEPT_SPECIMEN", args: { specimen_id: "S1" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["FORENSIC_FREEZE_LOG"], state_assertions: ["system_state('log_frozen') == true", "last_reason_code_system == 'AUDIT_CHAIN_BROKEN'"] } }
 
         - { event_id: "e3", t_s: 8020, agent_id: "A_RECEPTION", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_SRA_RECEPTION", to_zone: "Z_ACCESSIONING" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "AUDIT_CHAIN_BROKEN" } }
+
+    - scenario_id: "GS-CRIT-023"
+      title: "Critical v0.2: ACK missing required fields (attempt_id) => ACK rejected"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
+        tokens: []
+      script:
+        - { event_id: "e1", t_s: 2000, agent_id: "A_ANALYTICS", action_type: "GENERATE_RESULT", args: { result_id: "RES_MISS", analyte_code: "BIOCHEM_POTASSIUM_K", value: 7.0, units: "mmol/L", qc_state: "pass" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
+        - { event_id: "e2", t_s: 2010, agent_id: "A_SUPERVISOR", action_type: "NOTIFY_CRITICAL_RESULT", args: { result_id: "RES_MISS", channel: "phone", receiver_role: "primary_contact" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
+        - { event_id: "e3", t_s: 2020, agent_id: "A_SUPERVISOR", action_type: "ACK_CRITICAL_RESULT", args: { result_id: "RES_MISS", channel: "phone", receiver_role: "primary_contact", receiver_name_or_id: "DR_X", receiver_location_or_org: "WARD_Z", read_back_confirmed: true, outcome: "reached" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "CRIT_ACK_MISSING_FIELDS" } }
+
+    - scenario_id: "GS-CRIT-024"
+      title: "Critical v0.2: ESCALATE out of tier order => blocked"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
+        tokens: []
+      script:
+        - { event_id: "e1", t_s: 2000, agent_id: "A_ANALYTICS", action_type: "GENERATE_RESULT", args: { result_id: "RES_ESC", analyte_code: "BIOCHEM_POTASSIUM_K", value: 7.0, units: "mmol/L", qc_state: "pass" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
+        - { event_id: "e2", t_s: 2010, agent_id: "A_SUPERVISOR", action_type: "NOTIFY_CRITICAL_RESULT", args: { result_id: "RES_ESC", channel: "phone", receiver_role: "primary_contact" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
+        - { event_id: "e3", t_s: 2020, agent_id: "A_SUPERVISOR", action_type: "ESCALATE_CRITICAL_RESULT", args: { result_id: "RES_ESC", next_role: "duty_manager" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "CRIT_ESCALATION_OUT_OF_ORDER" } }
+
+    - scenario_id: "GS-CRIT-025"
+      title: "Critical v0.2: timeout triggers escalation path; release allowed only after compliant ack"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
+        tokens: []
+      script:
+        - { event_id: "e1", t_s: 2000, agent_id: "A_ANALYTICS", action_type: "GENERATE_RESULT", args: { result_id: "RES_TMO", analyte_code: "BIOCHEM_POTASSIUM_K", value: 7.0, units: "mmol/L", qc_state: "pass" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
+        - { event_id: "e2", t_s: 2010, agent_id: "A_SUPERVISOR", action_type: "NOTIFY_CRITICAL_RESULT", args: { result_id: "RES_TMO", channel: "phone", receiver_role: "primary_contact" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
+        - { event_id: "e3", t_s: 2510, agent_id: "A_SUPERVISOR", action_type: "ESCALATE_CRITICAL_RESULT", args: { result_id: "RES_TMO", next_role: "secondary" }, reason_code: "CRIT_ACK_TIMEOUT", token_refs: [], expect: { status: "ACCEPTED", emits: ["ESCALATE_CRITICAL_RESULT"] } }
+        - { event_id: "e4", t_s: 2520, agent_id: "A_SUPERVISOR", action_type: "ACK_CRITICAL_RESULT", args: { result_id: "RES_TMO", attempt_id: "RES_TMO_attempt_1", channel: "phone", receiver_role: "secondary", receiver_name_or_id: "DR_Y", receiver_location_or_org: "WARD_W", read_back_confirmed: true, outcome: "reached", acknowledgment_ts_s: 2520 }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
+        - { event_id: "e5", t_s: 2530, agent_id: "A_ANALYTICS", action_type: "RELEASE_RESULT", args: { result_id: "RES_TMO" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["RELEASE_RESULT"] } }
+
+    - scenario_id: "GS-SIG-026"
+      title: "Signed actions: mutating action without signature => BLOCKED SIG_MISSING (strict mode)"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: []
+        tokens: []
+        strict_signatures: true
+      script:
+        - { event_id: "e1", t_s: 9000, agent_id: "A_RECEPTION", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_SRA_RECEPTION", to_zone: "Z_ACCESSIONING" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "SIG_MISSING" } }
+
+    - scenario_id: "GS-SIG-027"
+      title: "Signed actions: invalid signature => BLOCKED SIG_INVALID (strict mode)"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: []
+        tokens: []
+        strict_signatures: true
+      script:
+        # Invalid signature: 64 bytes (88 chars base64) but wrong bytes => verify fails
+        - { event_id: "e1", t_s: 9010, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception", signature: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_SRA_RECEPTION", to_zone: "Z_ACCESSIONING" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "SIG_INVALID" } }
+
+    - scenario_id: "GS-RBAC-028"
+      title: "RBAC: unauthorized RELEASE_RESULT blocked (reception role cannot release)"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: []
+        tokens: []
+      script:
+        - { event_id: "e1", t_s: 10000, agent_id: "A_RECEPTION", action_type: "RELEASE_RESULT", args: { result_id: "RES_ANY" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "RBAC_ACTION_DENY" } }
+
+    - scenario_id: "GS-RBAC-029"
+      title: "RBAC: unauthorized RELEASE_RESULT_OVERRIDE blocked even with token (token cannot bypass RBAC)"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: []
+        tokens: []
+      script:
+        - { event_id: "e1", t_s: 10010, agent_id: "A_RUNNER", action_type: "RELEASE_RESULT_OVERRIDE", args: { result_id: "RES_ANY", reason_code: "TIME_EXPIRED" }, reason_code: "TIME_EXPIRED", token_refs: ["T_OVR_FAKE"], expect: { status: "BLOCKED", blocked_reason_code: "RBAC_ACTION_DENY" } }
+
+    - scenario_id: "GS-TRANSPORT-001"
+      title: "Transport: dispatch -> tick -> receive with chain-of-custody; no violations, receipt-worthy emits"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: []
+        tokens: []
+      script:
+        - { event_id: "e1", t_s: 610, agent_id: "A_RUNNER", action_type: "DISPATCH_TRANSPORT", args: { specimen_ids: ["S1"], origin_site: "SITE_ACUTE", dest_site: "SITE_HUB" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["DISPATCH_TRANSPORT"], violations: [] } }
+        - { event_id: "e2", t_s: 620, agent_id: "A_RUNNER", action_type: "TRANSPORT_TICK", args: {}, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["TRANSPORT_TICK"], violations: [] } }
+        - { event_id: "e3", t_s: 630, agent_id: "A_RUNNER", action_type: "CHAIN_OF_CUSTODY_SIGN", args: { consignment_id: "CONS_1" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["CHAIN_OF_CUSTODY_SIGN"] } }
+        - { event_id: "e4", t_s: 640, agent_id: "A_RUNNER", action_type: "RECEIVE_TRANSPORT", args: { consignment_id: "CONS_1" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["RECEIVE_TRANSPORT"], violations: [] } }
+
+    - scenario_id: "GS-TRANSPORT-002"
+      title: "Temp excursion triggers BLOCKED with TRANSPORT_TEMP_EXCURSION and violation INV-TRANSPORT-001"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: []
+        tokens: []
+        transport_fault_injection:
+          force_temp_excursion_on_next_receive: true
+      script:
+        - { event_id: "e1", t_s: 710, agent_id: "A_RUNNER", action_type: "DISPATCH_TRANSPORT", args: { specimen_ids: ["S1"], origin_site: "SITE_ACUTE", dest_site: "SITE_HUB" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["DISPATCH_TRANSPORT"] } }
+        - { event_id: "e2", t_s: 720, agent_id: "A_RUNNER", action_type: "TRANSPORT_TICK", args: {}, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["TRANSPORT_TICK"] } }
+        - { event_id: "e3", t_s: 730, agent_id: "A_RUNNER", action_type: "RECEIVE_TRANSPORT", args: { consignment_id: "CONS_1" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "TRANSPORT_TEMP_EXCURSION", violations: ["INV-TRANSPORT-001:VIOLATION"] } }
+
+    - scenario_id: "GS-COC-003"
+      title: "Missing/invalid chain-of-custody triggers TRANSPORT_CHAIN_OF_CUSTODY_BROKEN and INV-COC-001 violation"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens: []
+        tokens: []
+      script:
+        - { event_id: "e1", t_s: 810, agent_id: "A_RUNNER", action_type: "RECEIVE_TRANSPORT", args: { consignment_id: "CONS_999" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "TRANSPORT_CHAIN_OF_CUSTODY_BROKEN", violations: ["INV-COC-001:VIOLATION"] } }
+
+    - scenario_id: "GS-EXPORT-001"
+      title: "After normal episode, export-receipts + verify-bundle + export-fhir; assert output files exist and validate"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens:
+          - template_ref: "S_BIOCHEM_OK"
+        tokens: []
+      script:
+        - { event_id: "e1", t_s: 600, agent_id: "A_RECEPTION", action_type: "CREATE_ACCESSION", args: { specimen_id: "S1" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["CREATE_ACCESSION"] } }
+        - { event_id: "e2", t_s: 610, agent_id: "A_RECEPTION", action_type: "ACCEPT_SPECIMEN", args: { specimen_id: "S1" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["ACCEPT_SPECIMEN"] } }
+      post_run_hooks:
+        - EXPORT_RECEIPTS
+        - VERIFY_BUNDLE
+        - EXPORT_FHIR
+      post_run:
+        - action: ASSERT_FILE_EXISTS
+          path: receipts/EvidenceBundle.v0.1/manifest.json
+        - action: ASSERT_FILE_EXISTS
+          path: fhir/fhir_bundle.json
+        - action: ASSERT_SCHEMA_VALID
+          path: receipts/EvidenceBundle.v0.1/manifest.json
+          schema: evidence_bundle_manifest.v0.1.schema.json

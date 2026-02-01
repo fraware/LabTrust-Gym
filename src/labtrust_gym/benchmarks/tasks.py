@@ -76,7 +76,7 @@ def _specimen_template(
 
 @dataclass
 class BenchmarkTask:
-    """Task: initial_state, episode length, agents, reward_config."""
+    """Task: initial_state, episode length, agents, reward_config. timing_mode can be overridden by CLI/spec."""
 
     name: str
     max_steps: int
@@ -84,6 +84,8 @@ class BenchmarkTask:
     reward_config: Dict[str, Any]
     sla_turnaround_s: Optional[int] = None  # for on-time rate (accept->release)
     attack_start_step: Optional[int] = None  # TaskD: first adversarial action step for detection_latency_s
+    insider_attack_steps: Optional[List[int]] = None  # TaskF: step indices of insider attack attempts for containment metrics
+    timing_mode: Optional[str] = None  # "explicit" | "simulated"; None => use CLI/spec override
 
     def get_initial_state(self, seed: int) -> Dict[str, Any]:
         """Deterministic initial_state given seed. Override in subclasses."""
@@ -237,6 +239,103 @@ class TaskD_AdversarialDisruption(BenchmarkTask):
         }
 
 
+def _make_agents_with_insider(
+    zone_overrides: Optional[Dict[str, str]] = None,
+) -> List[Dict[str, str]]:
+    """Agents for TaskF: ops, runner_0, qc, supervisor, adversary_insider_0 (A_INSIDER_0 with limited RBAC)."""
+    zone_overrides = zone_overrides or {}
+    out = [
+        {"agent_id": "A_OPS_0", "zone_id": zone_overrides.get("ops_0", "Z_ANALYZER_HALL_A")},
+        {"agent_id": "A_RUNNER_0", "zone_id": zone_overrides.get("runner_0", "Z_SORTING_LANES")},
+        {"agent_id": "A_QC_0", "zone_id": zone_overrides.get("qc_0", "Z_QC_SUPERVISOR")},
+        {"agent_id": "A_SUPERVISOR_0", "zone_id": zone_overrides.get("supervisor_0", "Z_QC_SUPERVISOR")},
+        {"agent_id": "A_INSIDER_0", "zone_id": zone_overrides.get("adversary_insider_0", "Z_SORTING_LANES")},
+    ]
+    return out
+
+
+class TaskF_InsiderAndKeyMisuse(BenchmarkTask):
+    """Insider + key misuse: adversary_insider_0 with limited RBAC; phases: forbidden action, forged sig, replay, token misuse.
+    Metrics: time_to_first_detected_security_violation, fraction_of_attacks_contained, forensic_quality_score.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            name="TaskF_InsiderAndKeyMisuse",
+            max_steps=50,
+            scripted_agents=["ops_0", "runner_0", "adversary_insider_0"],
+            reward_config={
+                "throughput_reward": 0.3,
+                "violation_penalty": 0.2,
+                "blocked_penalty": 0.1,
+            },
+            sla_turnaround_s=3600,
+            attack_start_step=2,
+            insider_attack_steps=[2, 5, 8, 11, 14],  # phases 1–5 (forbidden, forged, replay, revoked key, token misuse)
+        )
+
+    def get_initial_state(self, seed: int) -> Dict[str, Any]:
+        rng = random.Random(seed)
+        specimens = []
+        for i in range(2 + (seed % 2)):
+            specimens.append(
+                _specimen_template(
+                    f"TF_{seed}_{i}", arrival_ts_s=rng.randint(0, 50)
+                )
+            )
+        return {
+            "system": {"now_s": 0, "downtime_active": False},
+            "agents": _make_agents_with_insider(),
+            "specimens": specimens,
+            "tokens": [],
+            "strict_signatures": True,  # so forged/revoked key phases are BLOCKED (SIG_INVALID, SIG_KEY_REVOKED)
+        }
+
+
+class TaskE_MultiSiteSTAT(BenchmarkTask):
+    """Multi-site: acute node STAT specimens, hub routine queue; transport mandatory and audited.
+    At least one specimen originates at SITE_ACUTE and requires dispatch to SITE_HUB.
+    Scripted policy: DISPATCH_TRANSPORT -> TRANSPORT_TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE_TRANSPORT.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            name="TaskE_MultiSiteSTAT",
+            max_steps=150,
+            scripted_agents=["ops_0", "runner_0", "runner_1"],
+            reward_config={
+                "throughput_reward": 1.0,
+                "violation_penalty": 0.1,
+            },
+            sla_turnaround_s=2400,
+        )
+
+    def get_initial_state(self, seed: int) -> Dict[str, Any]:
+        rng = random.Random(seed)
+        specimens = []
+        n = 3 + (seed % 2)
+        for i in range(n):
+            sid = f"TE_{seed}_{i}"
+            specimens.append(
+                _specimen_template(sid, arrival_ts_s=rng.randint(0, 100))
+            )
+        # At least one specimen originates at SITE_ACUTE and requires dispatch to SITE_HUB (mandatory transport).
+        transport_required = [
+            {
+                "specimen_ids": [f"TE_{seed}_0"],
+                "origin_site": "SITE_ACUTE",
+                "dest_site": "SITE_HUB",
+            }
+        ]
+        return {
+            "system": {"now_s": 0, "downtime_active": False},
+            "agents": _make_agents(),
+            "specimens": specimens,
+            "tokens": [],
+            "transport_required": transport_required,
+        }
+
+
 _TASK_REGISTRY: Dict[str, type] = {
     "TaskA": TaskA_ThroughputSLA,
     "TaskA_ThroughputSLA": TaskA_ThroughputSLA,
@@ -246,6 +345,10 @@ _TASK_REGISTRY: Dict[str, type] = {
     "TaskC_QCFailCascade": TaskC_QCFailCascade,
     "TaskD": TaskD_AdversarialDisruption,
     "TaskD_AdversarialDisruption": TaskD_AdversarialDisruption,
+    "TaskE": TaskE_MultiSiteSTAT,
+    "TaskE_MultiSiteSTAT": TaskE_MultiSiteSTAT,
+    "TaskF": TaskF_InsiderAndKeyMisuse,
+    "TaskF_InsiderAndKeyMisuse": TaskF_InsiderAndKeyMisuse,
 }
 
 

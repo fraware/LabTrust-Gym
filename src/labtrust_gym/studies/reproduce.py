@@ -51,12 +51,14 @@ def run_reproduce(
     profile: str,
     out_dir: Optional[Path] = None,
     repo_root: Optional[Path] = None,
+    seed_base: Optional[int] = None,
 ) -> Path:
     """
     Run minimal reproduce: TaskA and TaskC study sweep + plots.
 
     profile: "minimal" (few episodes) or "full" (more episodes).
     When LABTRUST_REPRO_SMOKE=1, episodes are set to 1 per condition regardless of profile.
+    seed_base: optional fixed seed for determinism (default 100).
     Writes: out_dir/taskA/, out_dir/taskC/ (each with manifest, results, logs, figures).
     Returns out_dir.
     """
@@ -79,7 +81,7 @@ def run_reproduce(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     tasks: List[str] = ["TaskA", "TaskC"]
-    seed_base = 100
+    seed_base = seed_base if seed_base is not None else 100
 
     for task in tasks:
         spec = _minimal_spec(task=task, episodes=episodes, seed_base=seed_base)
@@ -96,11 +98,12 @@ def main(
     profile: str,
     out_dir: Optional[Path] = None,
     repo_root: Optional[Path] = None,
+    seed_base: Optional[int] = None,
 ) -> int:
     """CLI entry: run reproduce and write runs/<id>/taskA, taskC with figures."""
     try:
         result = run_reproduce(
-            profile=profile, out_dir=out_dir, repo_root=repo_root
+            profile=profile, out_dir=out_dir, repo_root=repo_root, seed_base=seed_base
         )
         print(f"Reproduce written to {result}", file=sys.stderr)
         print(f"  taskA: {result / 'taska'}/figures", file=sys.stderr)

@@ -119,6 +119,7 @@ class DeviceStore:
         self._rng = rng or RNG(0)
         self._devices: Dict[str, DeviceRecord] = {}
         self._type_config: Dict[str, Dict[str, Any]] = {}
+        self._total_busy_s: Dict[str, int] = {}
         self._build()
 
     def _build(self) -> None:
@@ -214,12 +215,15 @@ class DeviceStore:
     def finish_run(self, device_id: str) -> Optional[ActiveRun]:
         """
         Clear the active run on the device and set state to IDLE.
+        Accumulate busy time for utilization metrics.
         Returns the finished run info, or None if no run.
         """
         d = self._devices.get(device_id)
         if not d or not d.active_run:
             return None
         run = d.active_run
+        duration = run.end_ts_s - run.start_ts_s
+        self._total_busy_s[device_id] = self._total_busy_s.get(device_id, 0) + duration
         d.active_run = None
         d.state = "IDLE"
         return run
@@ -250,3 +254,11 @@ class DeviceStore:
         if d:
             d.state = "MAINT"
             d.active_run = None
+
+    def get_total_busy_s(self, device_id: str) -> int:
+        """Total seconds this device was busy (RUNNING) this episode. For utilization = busy_s / episode_time_s."""
+        return self._total_busy_s.get(device_id, 0)
+
+    def get_all_total_busy_s(self) -> Dict[str, int]:
+        """Per-device total busy seconds this episode."""
+        return dict(self._total_busy_s)

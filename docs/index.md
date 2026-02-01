@@ -40,22 +40,29 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 
 | Command | Description |
 |---------|-------------|
+| `--version` / `-V` | Print version and git SHA |
 | `validate-policy` | Validate all policy files against JSON schemas |
-| `run-benchmark` | Run TaskA / TaskB / TaskC / TaskD, write results.json |
+| `quick-eval` | 1 episode each of TaskA, TaskD, TaskE; markdown summary and logs under `./labtrust_runs/` |
+| `run-benchmark` | Run TaskA / TaskB / TaskC / TaskD / TaskE / TaskF, write results.json |
 | `bench-smoke` | 1 episode per task (TaskA, TaskB, TaskC) |
 | `run-study` | Run study from spec (ablations → conditions) |
 | `make-plots` | Generate figures and data tables from a study run |
 | `reproduce --profile minimal \| full` | Reproduce minimal results + figures (TaskA & TaskC sweep + plots) |
+| `export-receipts --run \<log\> --out \<dir\>` | Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log |
+| `verify-bundle --bundle \<dir\>` | Verify EvidenceBundle.v0.1: manifest, schema, hashchain, invariant trace |
+| `export-fhir --receipts \<dir\> --out \<dir\>` | Export FHIR R4 Bundle from receipts directory |
+| `package-release --profile minimal \| full --out \<dir\>` | Release candidate artifact: reproduce + receipts + FHIR + plots + MANIFEST + BENCHMARK_CARD |
+| `summarize-results --in \<paths\> --out \<dir\>` | Aggregate results.json; write summary.csv + summary.md |
 | `train-ppo`, `eval-ppo` | PPO training/eval (requires `.[marl]`) |
 
 ## Layout
 
 | Path | Description |
 |------|-------------|
-| `policy/` | Versioned YAML/JSON: schemas, emits, invariants (registry v1.0), tokens, reason_codes, zones, catalogue, stability, equipment, critical, enforcement, studies, llm, golden. Validated by `labtrust validate-policy`. |
-| `src/labtrust_gym/` | Package: `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, invariants_runtime, enforcement, …), `policy/` (loader, validate, invariants_registry), `runner/`, `envs/` (PettingZoo), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/`, `studies/` (study_runner, plots, reproduce), `logging/`, `cli/`. |
-| `tests/` | Pytest: golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, queueing, benchmarks, invariant registry, enforcement, study runner, plots, reproduce smoke, adversary, marl smoke, llm agent mock. |
-| `docs/` | Architecture, policy pack, invariants & enforcement, benchmarks, studies, reproduce, PettingZoo API, CI, threat model, MARL/LLM baselines, STATUS. MkDocs site (build with `.[docs]`). |
+| `policy/` | Versioned YAML/JSON: schemas (incl. receipt, evidence_bundle_manifest, fhir_bundle_export, sites_policy, key_registry, rbac_policy), emits, invariants (registry v1.0), tokens, reason_codes, zones, **keys** (key_registry), **rbac** (rbac_policy.v0.1), **sites** (sites_policy.v0.1), catalogue, stability, equipment, critical (thresholds, escalation_ladder v0.2), enforcement, studies, llm, golden, partners. Validated by `labtrust validate-policy`. |
+| `src/labtrust_gym/` | Package: `config.py` (get_repo_root), `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, **signatures**, **rbac**, **transport**, invariants_runtime, enforcement), `policy/` (loader, validate, invariants_registry), **`export/`** (receipts, fhir_r4), `runner/`, `envs/` (PettingZoo), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/`, `studies/` (study_runner, plots, reproduce, **package_release**), `logging/`, `cli/`, `version.py`. |
+| `tests/` | Pytest: golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, queueing, benchmarks, invariant registry, enforcement, **test_signatures_key_lifecycle** (key lifecycle), **test_llm_constrained_decoder** (constrained decode, deterministic baseline), signatures, rbac, transport, export_receipts, fhir_export, package_release, study runner, plots, reproduce smoke, adversary, marl smoke, llm agent mock. |
+| `docs/` | Architecture, policy pack, invariants & enforcement, benchmarks, **benchmark_card**, studies, reproduce, **fhir_export**, **frozen_contracts**, PettingZoo API, CI, threat model, MARL/LLM baselines, STATUS. MkDocs site (build with `.[docs]`). **CITATION.cff** at repo root. |
 
 ## What's frozen
 
@@ -63,11 +70,13 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 
 ## See also
 
+- [Installation (pip and quick-eval)](installation.md)
 - [Architecture](architecture.md)
 - [Policy pack and schemas](policy_pack.md)
 - [Frozen contracts](frozen_contracts.md) (canonical list)
 - [Invariants and enforcement](invariants_registry.md) · [Enforcement](enforcement.md)
 - [PettingZoo API](pettingzoo_api.md)
-- [Benchmarks](benchmarks.md) · [Studies and plots](studies.md) · [Reproduce (minimal results + figures)](reproduce.md)
+- [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Studies and plots](studies.md) · [Reproduce (minimal results + figures)](reproduce.md)
+- [FHIR R4 export](fhir_export.md)
 - [MARL baselines](marl_baselines.md) · [LLM baselines](llm_baselines.md)
 - [API Reference](api/index.md) (auto-generated)

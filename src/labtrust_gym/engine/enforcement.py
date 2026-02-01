@@ -110,8 +110,12 @@ class EnforcementEngine:
     (agent_id, rule_id) for escalation. Deterministic; optionally records to audit.
     """
 
-    def __init__(self, map_path: Optional[Path] = None) -> None:
-        self._map = load_enforcement_map(map_path)
+    def __init__(self, map_path: Optional[Path] = None, map_data: Optional[Dict[str, Any]] = None) -> None:
+        if map_data is not None:
+            rules = map_data.get("rules")
+            self._map = {"version": map_data.get("version", "0.1"), "rules": rules if isinstance(rules, list) else []}
+        else:
+            self._map = load_enforcement_map(map_path)
         self._rules: List[Dict[str, Any]] = self._map.get("rules") or []
         # (agent_id, rule_id) -> violation count (for escalation)
         self._violation_counts: Dict[Tuple[str, str], int] = {}

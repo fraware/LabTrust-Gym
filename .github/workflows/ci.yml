@@ -82,6 +82,34 @@ jobs:
       - name: Benchmark smoke (1 episode per task)
         run: labtrust bench-smoke --seed 42
 
+  baseline-regression:
+    runs-on: ubuntu-latest
+    env:
+      LABTRUST_CHECK_BASELINES: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: Baseline regression guard
+        run: pytest tests/test_official_baselines_regression.py -v
+        env:
+          LABTRUST_CHECK_BASELINES: "1"
+
+  quick-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install labtrust-gym[env,plots]
+        run: pip install -e ".[env,plots]"
+      - name: Quick-eval (TaskA, TaskD, TaskE)
+        run: labtrust quick-eval --seed 42 --out-dir ./labtrust_runs
+
   docs:
     runs-on: ubuntu-latest
     steps:

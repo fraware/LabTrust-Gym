@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.rbac_policy.v0.1",
+  "title": "RBAC policy v0.1",
+  "description": "Roles (allowed_actions, allowed_zones, allowed_devices), agents (agent_id -> role_id), optional action_constraints.",
+  "type": "object",
+  "required": ["rbac_policy"],
+  "additionalProperties": true,
+  "properties": {
+    "rbac_policy": {
+      "type": "object",
+      "required": ["version", "roles", "agents"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "roles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["allowed_actions"],
+            "properties": {
+              "allowed_actions": { "type": "array", "items": { "type": "string" } },
+              "allowed_zones": { "type": "array", "items": { "type": "string" } },
+              "allowed_devices": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "agent_id -> role_id"
+        },
+        "action_constraints": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "action_type -> required_role_id (e.g. RELEASE_RESULT -> clinical_authorizer)"
+        }
+      }
+    }
+  }
+}

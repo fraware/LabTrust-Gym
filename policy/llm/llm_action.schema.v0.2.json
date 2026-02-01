@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.llm.llm_action.v0.2",
+  "title": "LLM agent action output schema v0.2",
+  "description": "Structured action candidate from LLM: action_type, args, optional natural language rationale. Used for constrained decoding and safety shield input.",
+  "type": "object",
+  "required": ["action_type"],
+  "additionalProperties": true,
+  "properties": {
+    "action_type": {
+      "type": "string",
+      "description": "Engine action type: NOOP, TICK, MOVE, QUEUE_RUN, START_RUN, OPEN_DOOR, RELEASE_RESULT, RELEASE_RESULT_OVERRIDE, etc."
+    },
+    "args": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Action arguments (device_id, work_id, to_zone, result_id, token_refs, etc.)"
+    },
+    "key_id": { "type": ["string", "null"], "description": "Optional key_id for signed actions" },
+    "signature": { "type": ["string", "null"], "description": "Optional base64 signature" },
+    "token_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional token references"
+    },
+    "reason_code": { "type": ["string", "null"] },
+    "rationale": {
+      "type": ["string", "null"],
+      "description": "Optional natural language rationale (for logging/audit)"
+    }
+  }
+}

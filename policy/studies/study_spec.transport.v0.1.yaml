@@ -1,0 +1,13 @@
+# Transport sweep: TaskE (multi-site STAT) with ablations.
+# Sweep transport_time_mean and temp_drift severity when supported by runner;
+# otherwise fixed TaskE runs for SLA + violations + critical comm metrics.
+task: TaskE
+episodes: 2
+seed_base: 200
+timing_mode: explicit
+
+ablations:
+  trust_skeleton: [on, off]
+  dual_approval: [on]
+
+agent_config: scripted_runner

@@ -11,10 +11,12 @@ Unknown emits raise AssertionError (enforced in _run_step via validate_emits).
 from __future__ import annotations
 
 import dataclasses
+import json
 import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -46,6 +48,7 @@ class StepReport:
     state_assertions_checked: List[str]
     hashchain: Dict[str, Any]
     raw_engine_result: Dict[str, Any]
+    raw_event: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -114,6 +117,57 @@ def _assert_all_contains(container: List[Any], items: List[Any], msg: str) -> No
         _assert_contains(container, it, msg)
 
 
+def _build_episode_log_entries(
+    step_reports: List[StepReport],
+) -> List[Dict[str, Any]]:
+    """Build JSONL-style entries from step reports for export_receipts."""
+    from labtrust_gym.logging.episode_log import build_log_entry
+
+    entries: List[Dict[str, Any]] = []
+    for sr in step_reports:
+        if sr.raw_event is None or not sr.raw_engine_result:
+            continue
+        entry = build_log_entry(
+            sr.raw_event,
+            sr.raw_engine_result,
+        )
+        entries.append(entry)
+    return entries
+
+
+def _write_episode_log(path: Path, entries: List[Dict[str, Any]]) -> None:
+    """Write episode log JSONL (deterministic: sort_keys=True)."""
+    with path.open("w", encoding="utf-8") as f:
+        for entry in entries:
+            f.write(json.dumps(entry, sort_keys=True) + "\n")
+
+
+# -----------------------------
+# Post-run hook helpers (deterministic; use stable paths for golden runs)
+# -----------------------------
+def run_export_receipts(
+    episode_log_path: Path,
+    out_dir: Path,
+    partner_id: Optional[str] = None,
+    policy_fingerprint: Optional[str] = None,
+) -> Path:
+    """Export receipts + evidence bundle from episode log to out_dir. Returns path to EvidenceBundle.v0.1 dir."""
+    from labtrust_gym.export.receipts import export_receipts
+    return export_receipts(episode_log_path, out_dir, policy_fingerprint=policy_fingerprint, partner_id=partner_id)
+
+
+def run_verify_bundle(bundle_dir: Path, policy_root: Optional[Path] = None) -> Tuple[bool, str, List[str]]:
+    """Run verify_bundle on bundle_dir. Returns (passed, report_text, errors)."""
+    from labtrust_gym.export.verify import verify_bundle
+    return verify_bundle(bundle_dir, policy_root=policy_root, allow_extra_files=False)
+
+
+def run_export_fhir(receipts_dir: Path, out_dir: Path, out_filename: str = "fhir_bundle.json") -> Path:
+    """Export FHIR bundle from receipts dir to out_dir. Returns path to output file."""
+    from labtrust_gym.export.fhir_r4 import export_fhir
+    return export_fhir(receipts_dir, out_dir, out_filename=out_filename)
+
+
 # -----------------------------
 # Golden Runner
 # -----------------------------
@@ -130,9 +184,11 @@ class GoldenRunner:
         emits_vocab_path: str = "policy/emits/emits_vocab.v0.1.yaml",
         reason_code_registry_path: Optional[str] = None,
         strict_reason_codes: Optional[bool] = None,
+        policy_root: Optional[Union[str, Path]] = None,
     ):
         self.env = env
         self.allowed_emits = load_emits_vocab(emits_vocab_path)
+        self._policy_root = Path(policy_root) if policy_root else Path.cwd()
         strict = (
             strict_reason_codes
             if strict_reason_codes is not None
@@ -149,16 +205,24 @@ class GoldenRunner:
                 self._reason_registry = load_reason_code_registry(p)
         self._strict_reason_codes = strict and bool(self._reason_registry)
 
-    def run_suite(self, suite_yaml_path: str) -> Dict[str, Any]:
+    def run_suite(
+        self,
+        suite_yaml_path: str,
+        work_dir: Optional[Union[str, Path]] = None,
+    ) -> Dict[str, Any]:
         suite = _load_yaml(Path(suite_yaml_path))
         suite_meta = suite.get("golden_suite", {})
         suite_version = suite_meta.get("version", "unknown")
 
         rng_seed = int(suite_meta.get("deterministic", {}).get("rng_seed", 0))
         scenario_reports: List[ScenarioReport] = []
+        base_work = Path(work_dir) if work_dir else None
 
         for scen in suite_meta.get("scenarios", []):
-            scenario_reports.append(self._run_scenario(scen, rng_seed=rng_seed))
+            scenario_work = (base_work / scen["scenario_id"]) if base_work else None
+            scenario_reports.append(
+                self._run_scenario(scen, rng_seed=rng_seed, work_dir=scenario_work)
+            )
 
         out = {
             "suite_version": suite_version,
@@ -166,14 +230,22 @@ class GoldenRunner:
         }
         return out
 
-    def _run_scenario(self, scen: Dict[str, Any], *, rng_seed: int) -> ScenarioReport:
+    def _run_scenario(
+        self,
+        scen: Dict[str, Any],
+        *,
+        rng_seed: int,
+        work_dir: Optional[Path] = None,
+    ) -> ScenarioReport:
         scenario_id = scen["scenario_id"]
         title = scen.get("title", "")
         failures: List[Failure] = []
         step_reports: List[StepReport] = []
 
         try:
-            initial_state = scen.get("initial_state", {})
+            initial_state = dict(scen.get("initial_state", {}))
+            if "transport_fault_injection" in scen:
+                initial_state["transport_fault_injection"] = scen["transport_fault_injection"]
             self.env.reset(initial_state, deterministic=True, rng_seed=rng_seed)
 
             for step in scen.get("script", []):
@@ -205,6 +277,7 @@ class GoldenRunner:
                                 "last_event_hash": "",
                             },
                             raw_engine_result={},
+                            raw_event=None,
                         )
                     )
                     break
@@ -217,6 +290,19 @@ class GoldenRunner:
             )
 
         passed = len(failures) == 0
+        if passed and (scen.get("post_run_hooks") or scen.get("post_run")):
+            try:
+                self._run_post_run_phase(scen, step_reports, failures, work_dir=work_dir)
+            except AssertionError as e:
+                passed = False
+                failures.append(
+                    Failure(
+                        event_id="__POST_RUN__",
+                        message=str(e),
+                        details={"post_run_hooks": scen.get("post_run_hooks"), "post_run": scen.get("post_run")},
+                    )
+                )
+
         return ScenarioReport(
             scenario_id=scenario_id,
             title=title,
@@ -236,6 +322,10 @@ class GoldenRunner:
             "reason_code": step.get("reason_code"),
             "token_refs": step.get("token_refs", []),
         }
+        if "key_id" in step:
+            event["key_id"] = step["key_id"]
+        if "signature" in step:
+            event["signature"] = step["signature"]
 
         result = self.env.step(event)
 
@@ -358,4 +448,121 @@ class GoldenRunner:
             state_assertions_checked=checked,
             hashchain=dict(hashchain),
             raw_engine_result=result,
+            raw_event=event,
         )
+
+    def _run_post_run_phase(
+        self,
+        scen: Dict[str, Any],
+        step_reports: List[StepReport],
+        failures: List[Failure],
+        work_dir: Optional[Path] = None,
+    ) -> None:
+        """Run post_run_hooks (if any) then post_run (if any). Uses work_dir or a temp dir."""
+        entries = _build_episode_log_entries(step_reports)
+        if work_dir is None:
+            work_dir = Path(tempfile.mkdtemp(prefix="labtrust_golden_"))
+        work = Path(work_dir)
+        work.mkdir(parents=True, exist_ok=True)
+        episode_log_path = work / "episode_log.jsonl"
+        _write_episode_log(episode_log_path, entries)
+
+        receipts_dir: Optional[Path] = None
+
+        hooks = scen.get("post_run_hooks") or []
+        for hook in hooks:
+            if hook == "EXPORT_RECEIPTS":
+                out_sub = work / "receipts"
+                out_sub.mkdir(parents=True, exist_ok=True)
+                receipts_dir = run_export_receipts(episode_log_path, out_sub)
+            elif hook == "VERIFY_BUNDLE":
+                bundle_dir = receipts_dir
+                if bundle_dir is None:
+                    out_sub = work / "receipts"
+                    bundle_dir = out_sub / "EvidenceBundle.v0.1"
+                    if not bundle_dir.exists():
+                        raise AssertionError("VERIFY_BUNDLE requires prior EXPORT_RECEIPTS (no bundle dir found)")
+                passed_verify, report, errors = run_verify_bundle(bundle_dir, policy_root=self._policy_root)
+                if not passed_verify:
+                    raise AssertionError(f"VERIFY_BUNDLE failed: {report}; errors: {errors}")
+            elif hook == "EXPORT_FHIR":
+                if receipts_dir is None:
+                    out_sub = work / "receipts"
+                    bundle_sub = out_sub / "EvidenceBundle.v0.1"
+                    if not bundle_sub.exists():
+                        raise AssertionError("EXPORT_FHIR requires prior EXPORT_RECEIPTS (no bundle dir found)")
+                    receipts_dir = bundle_sub
+                fhir_out = work / "fhir"
+                fhir_out.mkdir(parents=True, exist_ok=True)
+                run_export_fhir(receipts_dir, fhir_out, out_filename="fhir_bundle.json")
+            else:
+                raise AssertionError(f"post_run_hooks unknown hook: {hook}")
+
+        post_run = scen.get("post_run") or []
+        if post_run:
+            self._run_post_run(post_run, step_reports, failures, work_dir=work, receipts_dir=receipts_dir)
+
+    def _run_post_run(
+        self,
+        post_run: List[Dict[str, Any]],
+        step_reports: List[StepReport],
+        failures: List[Failure],
+        work_dir: Path,
+        receipts_dir: Optional[Path] = None,
+    ) -> None:
+        """Execute post_run actions: export receipts/FHIR, assert file exists/schema valid. work_dir already has episode log and possibly receipts from post_run_hooks."""
+        work = Path(work_dir)
+        episode_log_path = work / "episode_log.jsonl"
+
+        for action_spec in post_run:
+            action = action_spec.get("action")
+            if not action:
+                raise AssertionError("post_run action missing 'action' field")
+
+            if action == "EXPORT_RECEIPTS":
+                out_dir = action_spec.get("out_dir")
+                if not out_dir:
+                    raise AssertionError("EXPORT_RECEIPTS requires out_dir")
+                out_path = work / out_dir
+                out_path.mkdir(parents=True, exist_ok=True)
+                receipts_dir = run_export_receipts(episode_log_path, out_path)
+
+            elif action == "EXPORT_FHIR":
+                out_dir = action_spec.get("out_dir")
+                if not out_dir:
+                    raise AssertionError("EXPORT_FHIR requires out_dir")
+                if receipts_dir is None:
+                    raise AssertionError("EXPORT_FHIR requires prior EXPORT_RECEIPTS")
+                out_path = work / out_dir
+                out_path.mkdir(parents=True, exist_ok=True)
+                out_filename = action_spec.get("out_filename", "fhir_bundle.json")
+                run_export_fhir(receipts_dir, out_path, out_filename=out_filename)
+
+            elif action == "ASSERT_FILE_EXISTS":
+                path_val = action_spec.get("path")
+                if not path_val:
+                    raise AssertionError("ASSERT_FILE_EXISTS requires path")
+                p = work / path_val if not Path(path_val).is_absolute() else Path(path_val)
+                if not p.exists():
+                    raise AssertionError(f"ASSERT_FILE_EXISTS: file not found: {p}")
+
+            elif action == "ASSERT_SCHEMA_VALID":
+                path_val = action_spec.get("path")
+                schema_val = action_spec.get("schema")
+                if not path_val or not schema_val:
+                    raise AssertionError("ASSERT_SCHEMA_VALID requires path and schema")
+                p = work / path_val if not Path(path_val).is_absolute() else Path(path_val)
+                if not p.exists():
+                    raise AssertionError(f"ASSERT_SCHEMA_VALID: file not found: {p}")
+                schema_path = self._policy_root / "policy" / "schemas" / schema_val
+                if not schema_path.exists():
+                    schema_path = self._policy_root / schema_val
+                if not schema_path.exists():
+                    raise AssertionError(f"ASSERT_SCHEMA_VALID: schema not found: {schema_path}")
+                from labtrust_gym.policy.loader import load_json, validate_against_schema
+                data = load_json(p)
+                schema = load_json(schema_path)
+                validate_against_schema(data, schema, path=p)
+
+            else:
+                raise AssertionError(f"post_run unknown action: {action}")

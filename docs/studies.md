@@ -8,7 +8,7 @@ A study spec defines:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `task` | Yes | `TaskA`, `TaskB`, `TaskC`, or `TaskD` (or full task name). |
+| `task` | Yes | `TaskA`, `TaskB`, `TaskC`, `TaskD`, `TaskE`, or `TaskF` (or full task name). |
 | `episodes` | Yes | Number of episodes per condition. |
 | `seed_base` | Yes | Base seed; condition seed = `seed_base + condition_index`. |
 | `timing_mode` | No | `explicit` (default) or `simulated`. |

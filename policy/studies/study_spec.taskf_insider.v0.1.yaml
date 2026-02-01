@@ -1,0 +1,12 @@
+# TaskF study: strict_signatures on/off to show effect on containment.
+# labtrust run-study --spec policy/studies/study_spec.taskf_insider.v0.1.yaml --out runs/taskf_strict
+
+task: TaskF
+episodes: 4
+seed_base: 100
+timing_mode: explicit
+
+ablations:
+  strict_signatures: [false, true]
+
+agent_config: scripted_runner

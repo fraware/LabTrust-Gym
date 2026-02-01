@@ -21,7 +21,14 @@ from labtrust_gym.engine.catalogue_runtime import (
     check_temp_out_of_band,
     load_stability_policy,
 )
-from labtrust_gym.engine.critical import CriticalStore, load_critical_thresholds
+from labtrust_gym.engine.critical import (
+    CRIT_ACK_MISSING_FIELDS,
+    CRIT_ESCALATION_OUT_OF_ORDER,
+    CRIT_MODE_NOT_ALLOWED,
+    CriticalStore,
+    load_critical_thresholds,
+    load_escalation_ladder,
+)
 from labtrust_gym.engine.qc import QCStore
 from labtrust_gym.engine.queueing import QueueStore
 from labtrust_gym.engine.specimens import SpecimenStore
@@ -42,6 +49,24 @@ from labtrust_gym.engine.zones import (
     build_device_zone_map,
     get_default_device_zone_map,
     load_zone_layout,
+)
+from labtrust_gym.engine.transport import (
+    TRANSPORT_ROUTE_FORBIDDEN,
+    TRANSPORT_TEMP_EXCURSION,
+    TRANSPORT_CHAIN_OF_CUSTODY_BROKEN,
+    TransportStore,
+    load_sites_policy,
+)
+from labtrust_gym.engine.signatures import (
+    verify_action_signature,
+    is_mutating_action,
+    load_key_registry as load_key_registry_path,
+)
+from labtrust_gym.engine.rbac import (
+    load_rbac_policy as load_rbac_policy_path,
+    check as rbac_check,
+    get_agent_role as rbac_get_agent_role,
+    RBAC_ACTION_DENY,
 )
 from labtrust_gym.policy.tokens import (
     Token,
@@ -96,6 +121,13 @@ class CoreEnv(LabTrustEnvAdapter):
         self._invariants_runtime: InvariantsRuntime | None = None
         self._enforcement_engine: EnforcementEngine | None = None
         self._enforcement_enabled: bool = False
+        self._transport: TransportStore | None = None
+        self._transport_fault_injection: Dict[str, Any] = {}
+        self._key_registry: Dict[str, Any] = {}
+        self._strict_signatures: bool = False
+        self._partner_id: Optional[str] = None
+        self._policy_fingerprint: Optional[str] = None
+        self._rbac_policy: Dict[str, Any] = {}
 
     def reset(
         self,
@@ -151,15 +183,25 @@ class CoreEnv(LabTrustEnvAdapter):
         self._specimens.load_initial(initial_state.get("specimens", []))
         self._qc = QCStore()
         self._critical = CriticalStore()
+        effective_policy = initial_state.get("effective_policy")
         from labtrust_gym.engine.critical import default_thresholds
         th = default_thresholds()
-        crit_path = Path("policy/critical/critical_thresholds.v0.1.yaml")
-        if crit_path.exists():
-            try:
-                th = load_critical_thresholds(crit_path)
-            except Exception:
-                pass
+        if effective_policy and isinstance(effective_policy.get("critical_thresholds"), list):
+            th = effective_policy["critical_thresholds"]
+        else:
+            crit_path = Path("policy/critical/critical_thresholds.v0.1.yaml")
+            if crit_path.exists():
+                try:
+                    th = load_critical_thresholds(crit_path)
+                except Exception:
+                    pass
         self._critical.load_thresholds(th)
+        ladder = None
+        if effective_policy and isinstance(effective_policy.get("escalation_ladder"), dict):
+            ladder = effective_policy["escalation_ladder"]
+        else:
+            ladder = load_escalation_ladder()
+        self._critical.load_ladder(ladder)
         self._queues = QueueStore()
         self._queues.set_known_devices(list(self._device_zone.keys()))
         self._timing_mode = str(initial_state.get("timing_mode", "explicit")).strip().lower()
@@ -170,17 +212,23 @@ class CoreEnv(LabTrustEnvAdapter):
         self._rng = None
         if self._timing_mode == "simulated":
             self._rng = RNG(rng_seed)
-            registry = load_equipment_registry()
+            if effective_policy and isinstance(effective_policy.get("equipment_registry"), dict):
+                registry = effective_policy["equipment_registry"]
+            else:
+                registry = load_equipment_registry()
             self._device_store = DeviceStore(registry=registry, rng=self._rng)
             self._device_store.set_known_devices(list(self._device_zone.keys()))
             self._clock = Clock()
         self._stability_policy: Dict[str, Any] = {}
-        stab_path = Path("policy/stability/stability_policy.v0.1.yaml")
-        if stab_path.exists():
-            try:
-                self._stability_policy = load_stability_policy(stab_path)
-            except Exception:
-                pass
+        if effective_policy and isinstance(effective_policy.get("stability_policy"), dict):
+            self._stability_policy = effective_policy["stability_policy"]
+        else:
+            stab_path = Path("policy/stability/stability_policy.v0.1.yaml")
+            if stab_path.exists():
+                try:
+                    self._stability_policy = load_stability_policy(stab_path)
+                except Exception:
+                    pass
         inv_path = Path("policy/invariants/invariant_registry.v1.0.yaml")
         if inv_path.exists():
             try:
@@ -190,18 +238,67 @@ class CoreEnv(LabTrustEnvAdapter):
         else:
             self._invariants_runtime = None
         self._enforcement_enabled = bool(initial_state.get("enforcement_enabled", False))
+        self._transport = TransportStore()
+        self._transport_fault_injection = initial_state.get("transport_fault_injection") or {}
+        sites_policy = load_sites_policy(Path("policy/sites/sites_policy.v0.1.yaml"))
+        if effective_policy and isinstance(effective_policy.get("sites_policy"), dict):
+            sites_policy = effective_policy["sites_policy"]
+        self._transport.load_policy(sites_policy)
+        if self._rng is not None:
+            self._transport.set_rng(self._rng)
         if self._enforcement_enabled:
-            enf_path = Path("policy/enforcement/enforcement_map.v0.1.yaml")
-            if enf_path.exists():
-                try:
-                    self._enforcement_engine = EnforcementEngine(enf_path)
-                    self._enforcement_engine.reset_counts()
-                except Exception:
-                    self._enforcement_engine = None
+            if effective_policy and isinstance(effective_policy.get("enforcement_map"), dict):
+                self._enforcement_engine = EnforcementEngine(map_data=effective_policy["enforcement_map"])
+                self._enforcement_engine.reset_counts()
             else:
-                self._enforcement_engine = None
+                enf_path = Path("policy/enforcement/enforcement_map.v0.1.yaml")
+                if enf_path.exists():
+                    try:
+                        self._enforcement_engine = EnforcementEngine(enf_path)
+                        self._enforcement_engine.reset_counts()
+                    except Exception:
+                        self._enforcement_engine = None
+                else:
+                    self._enforcement_engine = None
         else:
             self._enforcement_engine = None
+        # Key registry for signed actions
+        if effective_policy and isinstance(effective_policy.get("key_registry"), dict):
+            kr = effective_policy["key_registry"]
+            self._key_registry = {"version": kr.get("version", "0.1"), "keys": list(kr.get("keys") or [])}
+        else:
+            key_path = Path("policy/keys/key_registry.v0.1.yaml")
+            if key_path.exists():
+                try:
+                    self._key_registry = load_key_registry_path(key_path)
+                except Exception:
+                    self._key_registry = {"version": "0.1", "keys": []}
+            else:
+                self._key_registry = {"version": "0.1", "keys": []}
+        import os
+        self._strict_signatures = bool(
+            initial_state.get("strict_signatures")
+            or os.environ.get("LABTRUST_STRICT_SIGNATURES") == "1"
+        )
+        self._partner_id = initial_state.get("partner_id")
+        self._policy_fingerprint = initial_state.get("policy_fingerprint")
+        if effective_policy and isinstance(effective_policy.get("rbac_policy"), dict):
+            rbac = effective_policy["rbac_policy"]
+            self._rbac_policy = {
+                "version": rbac.get("version", "0.1"),
+                "roles": dict(rbac.get("roles") or {}),
+                "agents": dict(rbac.get("agents") or {}),
+                "action_constraints": dict(rbac.get("action_constraints") or {}),
+            }
+        else:
+            rbac_path = Path("policy/rbac/rbac_policy.v0.1.yaml")
+            if rbac_path.exists():
+                try:
+                    self._rbac_policy = load_rbac_policy_path(rbac_path)
+                except Exception:
+                    self._rbac_policy = {}
+            else:
+                self._rbac_policy = {}
 
     def _finalize_step(
         self, event: Dict[str, Any], result: Dict[str, Any]
@@ -234,6 +331,8 @@ class CoreEnv(LabTrustEnvAdapter):
                     "zone_id": enf.get("zone_id"),
                 })
         result = {**result, "enforcements": enforcements}
+        if getattr(self, "_step_signature_verification", None) is not None:
+            result["signature_verification"] = self._step_signature_verification
         return result
 
     def step(self, event: Dict[str, Any]) -> Dict[str, Any]:
@@ -268,6 +367,80 @@ class CoreEnv(LabTrustEnvAdapter):
                 "blocked_reason_code": AUDIT_CHAIN_BROKEN,
                 "hashchain": hashchain,
             }
+
+        # RBAC gate (first gate: before tokens, before domain logic)
+        agent_id = str(event.get("agent_id", ""))
+        rbac_context: Dict[str, Any] = {}
+        if self._zones is not None and agent_id:
+            rbac_context["zone_id"] = self._zones.get_agent_zone(agent_id)
+        rbac_context["device_id"] = args.get("device_id")
+        rbac_allowed, rbac_reason, rbac_decision = rbac_check(
+            agent_id, action_type, rbac_context, self._rbac_policy
+        )
+        base["rbac_decision"] = rbac_decision
+        if not rbac_allowed and rbac_reason:
+            hashchain_snap = self._audit.hashchain_snapshot()
+            return {
+                **base,
+                "status": "BLOCKED",
+                "emits": [],
+                "blocked_reason_code": rbac_reason,
+                "hashchain": hashchain_snap,
+            }
+
+        prev_hash = self._audit.last_event_hash
+        sig_passed: Optional[bool] = None
+        sig_reason: Optional[str] = None
+        sig_info: Optional[Dict[str, Any]] = None
+        if event.get("key_id") or event.get("signature"):
+            passed, reason, info = verify_action_signature(
+                event,
+                prev_hash,
+                self._partner_id,
+                self._policy_fingerprint,
+                self._key_registry,
+                t_s,
+            )
+            sig_passed = passed
+            sig_reason = reason
+            sig_info = info or {}
+        self._step_signature_verification: Optional[Dict[str, Any]] = sig_info
+        if self._strict_signatures and is_mutating_action(action_type):
+            if not event.get("key_id") or not event.get("signature"):
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": "SIG_MISSING",
+                    "hashchain": hashchain_snap,
+                    "signature_verification": {"passed": False, "reason_code": "SIG_MISSING", "key_id": event.get("key_id")},
+                }
+            if sig_passed is False and sig_reason:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": sig_reason,
+                    "hashchain": hashchain_snap,
+                    "signature_verification": sig_info,
+                }
+            # INV-SIG-002: key role must match RBAC role for agent_id
+            if sig_passed is True and sig_info:
+                agent_role = rbac_get_agent_role(agent_id, self._rbac_policy)
+                key_role = sig_info.get("key_role_id")
+                if agent_role is not None and key_role is not None and agent_role != key_role:
+                    hashchain_snap = self._audit.hashchain_snapshot()
+                    from labtrust_gym.engine.signatures import SIG_ROLE_MISMATCH
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": SIG_ROLE_MISMATCH,
+                        "hashchain": hashchain_snap,
+                        "signature_verification": sig_info,
+                    }
 
         assert self._zones is not None, "zones not initialized"
 
@@ -1317,9 +1490,23 @@ class CoreEnv(LabTrustEnvAdapter):
             receiver_role = args.get("receiver_role", "")
             agent_id = event.get("agent_id", "")
             if result_id:
-                self._critical.record_notify(
-                    str(result_id), channel, receiver_role, str(agent_id), t_s
+                attempt_id, block_reason = self._critical.record_notify(
+                    str(result_id),
+                    channel,
+                    receiver_role,
+                    str(agent_id),
+                    t_s,
+                    message_template_id=args.get("message_template_id"),
+                    criticality_class=args.get("criticality_class"),
                 )
+                if block_reason == CRIT_MODE_NOT_ALLOWED:
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": CRIT_MODE_NOT_ALLOWED,
+                        "hashchain": base.get("hashchain", {}),
+                    }
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
@@ -1341,10 +1528,20 @@ class CoreEnv(LabTrustEnvAdapter):
         if action_type == "ACK_CRITICAL_RESULT":
             result_id = args.get("result_id")
             agent_id = event.get("agent_id", "")
+            ack_ok, ack_violation_id, ack_reason_code = True, None, None
             if result_id:
-                self._critical.record_ack(
+                ack_ok, ack_violation_id, ack_reason_code = self._critical.record_ack(
                     str(result_id), args, str(agent_id), t_s
                 )
+                if not ack_ok and ack_reason_code == CRIT_ACK_MISSING_FIELDS:
+                    hashchain_snap = self._audit.hashchain_snapshot()
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": CRIT_ACK_MISSING_FIELDS,
+                        "hashchain": hashchain_snap,
+                    }
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
@@ -1360,18 +1557,54 @@ class CoreEnv(LabTrustEnvAdapter):
                         "hashchain": hashchain_dict,
                     },
                 )
+            violations_list = list(base.get("violations") or [])
+            if not ack_ok and ack_violation_id:
+                violations_list.append({
+                    "invariant_id": ack_violation_id,
+                    "status": "VIOLATION",
+                    "reason_code": ack_reason_code or "CRIT_NO_READBACK",
+                })
             return self._finalize_step(
                 event,
                 {
                     **base,
                     "status": "ACCEPTED",
                     "emits": ["ACK_CRITICAL_RESULT"],
-                    "violations": [],
+                    "violations": violations_list,
                     "blocked_reason_code": None,
                     "hashchain": hashchain_dict,
                 },
             )
         if action_type == "ESCALATE_CRITICAL_RESULT":
+            result_id = args.get("result_id")
+            next_role = args.get("next_role", "")
+            agent_id = event.get("agent_id", "")
+            if result_id and next_role:
+                ok_esc, esc_reason = self._critical.record_escalate(
+                    str(result_id),
+                    next_role,
+                    str(agent_id),
+                    t_s,
+                    message_template_id=args.get("message_template_id"),
+                    criticality_class=args.get("criticality_class"),
+                )
+                if not ok_esc and esc_reason == CRIT_ESCALATION_OUT_OF_ORDER:
+                    hashchain_snap = self._audit.hashchain_snapshot()
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": CRIT_ESCALATION_OUT_OF_ORDER,
+                        "hashchain": hashchain_snap,
+                    }
+                if not ok_esc and esc_reason:
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [],
+                        "blocked_reason_code": esc_reason,
+                        "hashchain": base.get("hashchain", {}),
+                    }
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
@@ -1387,6 +1620,156 @@ class CoreEnv(LabTrustEnvAdapter):
                 **base,
                 "status": "ACCEPTED",
                 "emits": ["ESCALATE_CRITICAL_RESULT"],
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            }
+
+        if action_type == "DISPATCH_TRANSPORT" and self._transport is not None:
+            specimen_ids = args.get("specimen_ids") or []
+            origin_site = args.get("origin_site", "")
+            dest_site = args.get("dest_site", "")
+            agent_id = event.get("agent_id", "")
+            cid, reason = self._transport.dispatch(
+                [str(s) for s in specimen_ids],
+                str(origin_site),
+                str(dest_site),
+                t_s,
+                str(agent_id),
+            )
+            if reason == TRANSPORT_ROUTE_FORBIDDEN:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": TRANSPORT_ROUTE_FORBIDDEN,
+                    "hashchain": hashchain_snap,
+                }
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                }
+            return {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["DISPATCH_TRANSPORT"],
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            }
+
+        if action_type == "TRANSPORT_TICK" and self._transport is not None:
+            excursions = self._transport.tick(t_s)
+            hashchain_dict, chain_broken = self._audit.append(event)
+            violations_list = list(base.get("violations") or [])
+            for cid, rc in excursions:
+                if rc == TRANSPORT_TEMP_EXCURSION:
+                    violations_list.append({"invariant_id": "INV-TRANSPORT-001", "status": "VIOLATION", "reason_code": rc})
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "violations": violations_list,
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                }
+            return {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["TRANSPORT_TICK"],
+                "violations": violations_list,
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            }
+
+        if action_type == "RECEIVE_TRANSPORT" and self._transport is not None:
+            consignment_id = args.get("consignment_id", "")
+            agent_id = event.get("agent_id", "")
+            if self._transport_fault_injection.get("force_temp_excursion_on_next_receive"):
+                self._transport.inject_temp_excursion(str(consignment_id))
+            ok, reason = self._transport.receive(str(consignment_id), t_s, str(agent_id))
+            if not ok and reason == TRANSPORT_TEMP_EXCURSION:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": TRANSPORT_TEMP_EXCURSION,
+                    "violations": [{"invariant_id": "INV-TRANSPORT-001", "status": "VIOLATION", "reason_code": reason}],
+                    "hashchain": hashchain_snap,
+                }
+            if not ok:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                rc = reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN
+                violations_list = list(base.get("violations") or [])
+                if rc == TRANSPORT_CHAIN_OF_CUSTODY_BROKEN:
+                    violations_list.append(
+                        {"invariant_id": "INV-COC-001", "status": "VIOLATION", "reason_code": rc}
+                    )
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": rc,
+                    "violations": violations_list,
+                    "hashchain": hashchain_snap,
+                }
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                }
+            return {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["RECEIVE_TRANSPORT"],
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            }
+
+        if action_type == "CHAIN_OF_CUSTODY_SIGN" and self._transport is not None:
+            consignment_id = args.get("consignment_id", "")
+            agent_id = event.get("agent_id", "")
+            ok, reason = self._transport.chain_of_custody_sign(str(consignment_id), str(agent_id))
+            if not ok:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN,
+                    "hashchain": hashchain_snap,
+                }
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                }
+            return {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["CHAIN_OF_CUSTODY_SIGN"],
                 "blocked_reason_code": None,
                 "hashchain": hashchain_dict,
             }
@@ -1497,4 +1880,23 @@ class CoreEnv(LabTrustEnvAdapter):
         )
         if device_state_match and self._device_store is not None:
             return self._device_store.device_state(device_state_match.group(1))
+        if expr == "transport_consignments" and self._transport is not None:
+            return self._transport.list_consignments_info()
         raise ValueError(f"Unsupported query: {expr!r}")
+
+    def get_timing_summary(self) -> Dict[str, Any]:
+        """
+        Return timing_mode, episode_time_s (simulated clock or None), device_busy_s (per-device busy seconds).
+        Used by benchmark runner for utilization and p95 turnaround labeling.
+        """
+        episode_time_s: Optional[int] = None
+        if self._clock is not None:
+            episode_time_s = self._clock.now_ts
+        device_busy_s: Dict[str, int] = {}
+        if self._device_store is not None:
+            device_busy_s = self._device_store.get_all_total_busy_s()
+        return {
+            "timing_mode": self._timing_mode,
+            "episode_time_s": episode_time_s,
+            "device_busy_s": device_busy_s,
+        }

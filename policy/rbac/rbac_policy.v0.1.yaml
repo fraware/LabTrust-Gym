@@ -1,0 +1,105 @@
+# RBAC policy v0.1: roles (allowed_actions, allowed_zones, allowed_devices), agents (agent_id -> role_id).
+# Gates actions before state mutation; token cannot bypass RBAC.
+
+rbac_policy:
+  version: "0.1"
+  roles:
+    ROLE_RECEPTION:
+      allowed_actions:
+        - TICK
+        - MOVE
+        - CREATE_ACCESSION
+        - CHECK_ACCEPTANCE_RULES
+        - ACCEPT_SPECIMEN
+        - HOLD_SPECIMEN
+        - REJECT_SPECIMEN
+      # RELEASE_RESULT intentionally omitted (GS-RBAC-028)
+
+    ROLE_RUNNER:
+      allowed_actions:
+        - TICK
+        - MOVE
+        - OPEN_DOOR
+        - CENTRIFUGE_START
+        - CENTRIFUGE_END
+        - ALIQUOT_CREATE
+        - DISPATCH_TRANSPORT
+        - TRANSPORT_TICK
+        - RECEIVE_TRANSPORT
+        - CHAIN_OF_CUSTODY_SIGN
+      # RELEASE_RESULT_OVERRIDE intentionally omitted (GS-RBAC-029)
+
+    ROLE_PREANALYTICS:
+      allowed_actions:
+        - TICK
+        - MOVE
+        - CENTRIFUGE_START
+        - CENTRIFUGE_END
+        - ALIQUOT_CREATE
+
+    ROLE_ANALYTICS:
+      allowed_actions:
+        - TICK
+        - MOVE
+        - QUEUE_RUN
+        - START_RUN
+        - START_RUN_OVERRIDE
+        - END_RUN
+        - QC_EVENT
+        - GENERATE_RESULT
+        - RELEASE_RESULT
+        - HOLD_RESULT
+        - RERUN_REQUEST
+        - RELEASE_RESULT_OVERRIDE
+        - DISPATCH_TRANSPORT
+        - TRANSPORT_TICK
+        - RECEIVE_TRANSPORT
+        - CHAIN_OF_CUSTODY_SIGN
+
+    ROLE_QC:
+      allowed_actions:
+        - TICK
+        - MOVE
+        - QC_EVENT
+
+    ROLE_SUPERVISOR:
+      allowed_actions:
+        - TICK
+        - MOVE
+        - MINT_TOKEN
+        - REVOKE_TOKEN
+        - NOTIFY_CRITICAL_RESULT
+        - ACK_CRITICAL_RESULT
+        - ESCALATE_CRITICAL_RESULT
+        - RELEASE_RESULT
+        - RELEASE_RESULT_OVERRIDE
+
+    ROLE_CLINICAL_SCIENTIST:
+      allowed_actions:
+        - TICK
+        - MOVE
+        - MINT_TOKEN
+        - RELEASE_RESULT
+        - RELEASE_RESULT_OVERRIDE
+
+    ROLE_SECURITY_OFFICER:
+      allowed_actions:
+        - TICK
+        - MOVE
+        - OPEN_DOOR
+        - MINT_TOKEN
+        - REVOKE_TOKEN
+
+  agents:
+    A_RECEPTION: ROLE_RECEPTION
+    A_RUNNER: ROLE_RUNNER
+    A_INSIDER_0: ROLE_RUNNER
+    A_PREAN: ROLE_PREANALYTICS
+    A_ANALYTICS: ROLE_ANALYTICS
+    A_QC: ROLE_QC
+    A_SUPERVISOR: ROLE_SUPERVISOR
+    A_CLINSCI: ROLE_CLINICAL_SCIENTIST
+    A_SECURITY: ROLE_SECURITY_OFFICER
+
+  # Optional: action_type -> required_role_id (e.g. RELEASE_RESULT -> ROLE_ANALYTICS)
+  action_constraints: {}

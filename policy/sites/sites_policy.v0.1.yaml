@@ -1,0 +1,27 @@
+# Sites policy v0.1 — multi-site topology, allowed routes, transport time and temp drift.
+# Used by engine/transport.py for DISPATCH_TRANSPORT, TRANSPORT_TICK, RECEIVE_TRANSPORT.
+sites_policy:
+  version: "0.1"
+  sites:
+    - site_id: "SITE_HUB"
+      name: "Hub (routine lab)"
+      zone_ids: ["Z_SRA_RECEPTION", "Z_ACCESSIONING", "Z_SORTING_LANES", "Z_PREANALYTICS", "Z_CENTRIFUGE_BAY", "Z_ALIQUOT_LABEL", "Z_ANALYZER_HALL_A", "Z_ANALYZER_HALL_B", "Z_QC_SUPERVISOR"]
+    - site_id: "SITE_ACUTE"
+      name: "Acute node (STAT)"
+      zone_ids: ["Z_INGRESS_DOCK", "Z_SRA_RECEPTION"]
+  site_graph:
+    - from_site: "SITE_ACUTE"
+      to_site: "SITE_HUB"
+      enabled: true
+    - from_site: "SITE_HUB"
+      to_site: "SITE_ACUTE"
+      enabled: false
+  routes:
+    - route_id: "ACUTE_TO_HUB"
+      from_site: "SITE_ACUTE"
+      to_site: "SITE_HUB"
+      transport_time_mean_s: 600
+      transport_time_std_s: 60
+      temp_drift_model: "bounded"
+      temp_drift_max_c: 2.0
+      temp_band: "AMBIENT_20_25"

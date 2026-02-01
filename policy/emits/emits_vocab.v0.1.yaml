@@ -53,6 +53,12 @@ emits_vocab:
       - "ACK_CRITICAL_RESULT"
       - "ESCALATE_CRITICAL_RESULT"
 
+    transport:
+      - "DISPATCH_TRANSPORT"
+      - "TRANSPORT_TICK"
+      - "RECEIVE_TRANSPORT"
+      - "CHAIN_OF_CUSTODY_SIGN"
+
     trust_skeleton_tokens:
       - "MINT_TOKEN"
       - "CONSUME_TOKEN"
@@ -71,6 +77,7 @@ emits_vocab:
       - "OPEN_INVESTIGATION_LOG"
       - "OPEN_QC_INVESTIGATION_LOG"
       - "SECURITY_INCIDENT_LOG"
+      - "LLM_ACTION_FILTERED"
 
   # Flattened canonical set (for fast validation)
   canonical_set:
@@ -108,6 +115,10 @@ emits_vocab:
     - "NOTIFY_CRITICAL_RESULT"
     - "ACK_CRITICAL_RESULT"
     - "ESCALATE_CRITICAL_RESULT"
+    - "DISPATCH_TRANSPORT"
+    - "TRANSPORT_TICK"
+    - "RECEIVE_TRANSPORT"
+    - "CHAIN_OF_CUSTODY_SIGN"
     - "MINT_TOKEN"
     - "CONSUME_TOKEN"
     - "REVOKE_TOKEN"
@@ -121,3 +132,4 @@ emits_vocab:
     - "OPEN_INVESTIGATION_LOG"
     - "OPEN_QC_INVESTIGATION_LOG"
     - "SECURITY_INCIDENT_LOG"
+    - "LLM_ACTION_FILTERED"

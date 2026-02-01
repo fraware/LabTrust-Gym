@@ -1,0 +1,10 @@
+{
+  "version": "0.1",
+  "description": "Official baseline results (frozen results.json for fixed seed set). Regenerate with labtrust package-release; compare via labtrust summarize-results.",
+  "git_sha": null,
+  "policy_fingerprint": null,
+  "package_release_manifest_hash": null,
+  "seed_set": [42, 43, 44],
+  "tasks": ["TaskA", "TaskC"],
+  "agent_baseline_ids": ["scripted_ops_v1"]
+}

@@ -7,10 +7,11 @@ LabTrust-Gym exposes a **PettingZoo Parallel** environment wrapper so you can us
 The wrapper depends on PettingZoo and Gymnasium. Install the optional extra:
 
 ```bash
-pip install -e ".[env]"
+pip install labtrust-gym[env]
+# or from source: pip install -e ".[env]"
 ```
 
-This adds `pettingzoo>=1.24` and `gymnasium>=0.29`. The rest of the package works without them; only the Parallel env and its tests require `[env]`.
+This adds `pettingzoo>=1.24` and `gymnasium>=0.29`. The rest of the package works without them; only the Parallel env and its tests require `[env]`. When installed from a wheel, policy is bundled; when developing from source, policy is read from the repo `policy/` directory (or set `LABTRUST_POLICY_DIR`).
 
 ## Basic usage
 

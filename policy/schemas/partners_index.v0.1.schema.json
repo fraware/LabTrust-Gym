@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.partners_index.v0.1",
+  "title": "Partners index v0.1",
+  "description": "Index of partner overlay ids and overlay paths.",
+  "type": "object",
+  "required": ["version", "partners"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "partners": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["partner_id", "description"],
+        "additionalProperties": true,
+        "properties": {
+          "partner_id": { "type": "string" },
+          "description": { "type": "string" },
+          "overlay_path": { "type": "string" }
+        }
+      }
+    }
+  }
+}

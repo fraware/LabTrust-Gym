@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: LabTrust-Gym
+message: If you use this software, please cite it using the metadata from this file.
+type: software
+authors:
+  - family-names: "LabTrust-Gym Contributors"
+    name: "LabTrust-Gym Contributors"
+repository-code: "https://github.com/fraware/LabTrust-Gym"
+url: "https://github.com/fraware/LabTrust-Gym"
+license: Apache-2.0
+version: 0.1.0
+date-released: 2025-01-01
+keywords:
+  - multi-agent
+  - hospital lab
+  - PettingZoo
+  - trust skeleton
+  - audit log
+  - invariants

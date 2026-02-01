@@ -1,0 +1,12 @@
+# Include policy files in sdist (for source installs and for copying into package before wheel build)
+recursive-include policy *
+# Standard files
+include README.md
+include LICENSE
+include CHANGELOG.md
+include pyproject.toml
+include CITATION.cff
+# Exclude dev/build artifacts
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .*

@@ -114,6 +114,9 @@ def _initial_state_overrides(
     overrides["timing_mode"] = timing
     for k, v in condition.items():
         overrides[f"ablation_{k}"] = v
+    # Engine keys from condition (e.g. strict_signatures for TaskF)
+    if "strict_signatures" in condition:
+        overrides["strict_signatures"] = condition["strict_signatures"]
     return overrides
 
 
@@ -127,10 +130,14 @@ def run_study(
     spec_path: Path,
     out_dir: Path,
     repo_root: Optional[Path] = None,
+    partner_id: Optional[str] = None,
+    timing_mode: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Load study spec, expand conditions, run benchmark per condition,
     write artifact dir. Returns summary dict with condition_ids and result_hashes.
+    partner_id: optional partner overlay ID; passed to run_benchmark and recorded in manifest.
+    timing_mode: optional CLI override for spec timing_mode ("explicit" | "simulated").
     """
     import yaml
 
@@ -143,6 +150,7 @@ def run_study(
         spec = spec_data["study_spec"]
     else:
         spec = spec_data if isinstance(spec_data, dict) else {}
+    study_partner_id = partner_id or spec.get("partner_id")
 
     task = spec.get("task", "TaskA")
     episodes = int(spec.get("episodes", 2))
@@ -161,7 +169,7 @@ def run_study(
             cid = _condition_id(idx)
             condition_ids.append(cid)
             seed = _condition_seed(seed_base, idx)
-            overrides = _initial_state_overrides(spec, condition)
+            overrides = _initial_state_overrides(spec, condition, timing_override=timing_mode)
             record = {
                 "condition_id": cid,
                 "condition_index": idx,
@@ -188,6 +196,7 @@ def run_study(
                 repo_root=repo_root,
                 log_path=logs_path,
                 initial_state_overrides=overrides,
+                partner_id=study_partner_id,
             )
 
             results = json.loads(results_path.read_text(encoding="utf-8"))
@@ -195,6 +204,17 @@ def run_study(
 
     git_hash = _git_commit_hash(repo_root)
     policy_versions = _policy_versions(repo_root)
+    first_results_path = out_dir / "results" / condition_ids[0] / "results.json" if condition_ids else None
+    manifest_partner_id = study_partner_id
+    manifest_fingerprint = None
+    if first_results_path and first_results_path.exists():
+        try:
+            first_results = json.loads(first_results_path.read_text(encoding="utf-8"))
+            manifest_fingerprint = first_results.get("policy_fingerprint")
+            if manifest_partner_id is None:
+                manifest_partner_id = first_results.get("partner_id")
+        except Exception:
+            pass
     manifest = {
         "study_spec_path": str(spec_path.resolve()),
         "out_dir": str(out_dir.resolve()),
@@ -206,6 +226,8 @@ def run_study(
         "result_hashes": result_hashes,
         "git_commit_hash": git_hash,
         "policy_versions": policy_versions,
+        "partner_id": manifest_partner_id,
+        "policy_fingerprint": manifest_fingerprint,
         "python_version": _python_version(),
         "deps_snapshot": _deps_snapshot(),
     }

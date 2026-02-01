@@ -1,0 +1,18 @@
+# Official baseline registry: task -> baseline_id for generate-official-baselines.
+# Result filenames: <task>_<suffix>.json where suffix = baseline_id with _v1 stripped (e.g. scripted_ops_v1 -> scripted_ops).
+version: "0.1"
+description: "Task -> baseline_id for official baseline runs. Read by labtrust generate-official-baselines."
+
+official_tasks:
+  - task: TaskA
+    baseline_id: scripted_ops_v1
+  - task: TaskB
+    baseline_id: scripted_ops_v1
+  - task: TaskC
+    baseline_id: scripted_ops_v1
+  - task: TaskD
+    baseline_id: adversary_v1
+  - task: TaskE
+    baseline_id: scripted_ops_v1
+  - task: TaskF
+    baseline_id: insider_v1
