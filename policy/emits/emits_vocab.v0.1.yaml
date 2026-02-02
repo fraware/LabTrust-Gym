@@ -79,6 +79,10 @@ emits_vocab:
       - "SECURITY_INCIDENT_LOG"
       - "LLM_ACTION_FILTERED"
 
+    runtime_control:
+      - "UPDATE_ROSTER"
+      - "INJECT_SPECIMEN"
+
   # Flattened canonical set (for fast validation)
   canonical_set:
     - "RECEIVE_BATCH"
@@ -133,3 +137,5 @@ emits_vocab:
     - "OPEN_QC_INVESTIGATION_LOG"
     - "SECURITY_INCIDENT_LOG"
     - "LLM_ACTION_FILTERED"
+    - "UPDATE_ROSTER"
+    - "INJECT_SPECIMEN"

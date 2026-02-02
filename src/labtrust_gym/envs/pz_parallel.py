@@ -113,6 +113,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         self._episode_logger: Optional[Any] = None
         if self._log_path:
             from labtrust_gym.logging.episode_log import EpisodeLogger
+
             self._episode_logger = EpisodeLogger(self._log_path)
 
         # Agent IDs: ops_0, runner_0, ..., qc_0, supervisor_0, [adversary_0, ...], [adversary_insider_0, ...]
@@ -160,11 +161,15 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 {
                     "my_zone_idx": spaces.Discrete(n_z),
                     "door_restricted_open": spaces.Discrete(2),
-                    "door_restricted_duration_s": spaces.Box(0.0, 1e6, (1,), dtype=np.float32),
+                    "door_restricted_duration_s": spaces.Box(
+                        0.0, 1e6, (1,), dtype=np.float32
+                    ),
                     "restricted_zone_frozen": spaces.Discrete(2),
                     "queue_lengths": spaces.Box(0, 100, (n_d,), dtype=np.int32),
                     "queue_has_head": spaces.Box(0, 1, (n_d,), dtype=np.int8),
-                    "specimen_status_counts": spaces.Box(0, 1000, (n_status,), dtype=np.int32),
+                    "specimen_status_counts": spaces.Box(
+                        0, 1000, (n_status,), dtype=np.int32
+                    ),
                     "device_qc_pass": spaces.Box(0, 1, (n_d,), dtype=np.int8),
                     "log_frozen": spaces.Discrete(2),
                     "token_count_override": spaces.Box(0, 100, (1,), dtype=np.int32),
@@ -257,7 +262,9 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             except ValueError:
                 door = {"open": False, "open_duration_s": 0}
             door_open = 1 if door.get("open") else 0
-            door_duration = np.array([float(door.get("open_duration_s", 0))], dtype=np.float32)
+            door_duration = np.array(
+                [float(door.get("open_duration_s", 0))], dtype=np.float32
+            )
 
             try:
                 zstate = self._engine.query(f"zone_state('{RESTRICTED_ZONE_ID}')")
@@ -269,7 +276,9 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             queue_has_head = np.zeros(len(self._device_ids), dtype=np.int8)
             for i, dev in enumerate(self._device_ids):
                 try:
-                    queue_lengths[i] = _safe_int(self._engine.query(f"queue_length('{dev}')"))
+                    queue_lengths[i] = _safe_int(
+                        self._engine.query(f"queue_length('{dev}')")
+                    )
                     head = self._engine.query(f"queue_head('{dev}')")
                     queue_has_head[i] = 1 if head else 0
                 except ValueError:
@@ -317,7 +326,9 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             token_count_restricted = sum(1 for t in active if "RESTRICTED" in str(t))
 
             t_s = self._step_count * self._dt_s
-            transport_required = list(getattr(self, "_initial_state", {}).get("transport_required") or [])
+            transport_required = list(
+                getattr(self, "_initial_state", {}).get("transport_required") or []
+            )
             try:
                 transport_consignments = self._engine.query("transport_consignments")
             except ValueError:
@@ -332,8 +343,12 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "specimen_status_counts": specimen_counts,
                 "device_qc_pass": device_qc_pass,
                 "log_frozen": log_frozen_int,
-                "token_count_override": np.array([token_count_override], dtype=np.int32),
-                "token_count_restricted": np.array([token_count_restricted], dtype=np.int32),
+                "token_count_override": np.array(
+                    [token_count_override], dtype=np.int32
+                ),
+                "token_count_restricted": np.array(
+                    [token_count_restricted], dtype=np.int32
+                ),
                 "t_s": t_s,
                 "transport_required": transport_required,
                 "transport_consignments": transport_consignments,
@@ -351,9 +366,18 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         t_s = self._step_count * self._dt_s
         event_id = f"pz_{agent}_{self._step_count}"
 
-        # Strip shield meta so it is not sent to the engine (used in step() to augment result)
+        # Strip shield and LLM audit meta so not sent to engine (used in step() to augment result)
         _SHIELD_META_KEYS = ("_shield_filtered", "_shield_reason_code")
-        info = {k: v for k, v in (action_info or {}).items() if k not in _SHIELD_META_KEYS}
+        _LLM_AUDIT_KEYS = (
+            "_prompt_hash",
+            "_policy_summary_hash",
+            "_allowed_actions_hash",
+            "_decoder_version",
+        )
+        _META_KEYS_STRIP = _SHIELD_META_KEYS + _LLM_AUDIT_KEYS
+        info = {
+            k: v for k, v in (action_info or {}).items() if k not in _META_KEYS_STRIP
+        }
         # Custom event from action_info (e.g. insider adversary, LLM safe: RELEASE_RESULT, MOVE with signature, etc.)
         if info.get("action_type"):
             ev: Dict[str, Any] = {
@@ -393,9 +417,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             }
         if action == ACTION_QUEUE_RUN_PLACEHOLDER:
             info = action_info or {}
-            device_id = (
-                info.get("device_id")
-                or (self._device_ids[0] if self._device_ids else "")
+            device_id = info.get("device_id") or (
+                self._device_ids[0] if self._device_ids else ""
             )
             work_id = info.get("work_id", "OBS_PLACEHOLDER")
             prio = info.get("priority") or info.get("priority_class") or "ROUTINE"
@@ -505,6 +528,25 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 result["emits"] = list(result.get("emits", [])) + [LLM_ACTION_FILTERED]
                 result["blocked_reason_code"] = ai.get("_shield_reason_code")
                 result["status"] = "BLOCKED"
+            # LLM audit: add prompt_hash, policy_summary_hash, allowed_actions_hash, decoder_version to step output
+            if any(
+                ai.get(k) is not None
+                for k in (
+                    "_prompt_hash",
+                    "_policy_summary_hash",
+                    "_allowed_actions_hash",
+                    "_decoder_version",
+                )
+            ):
+                result = dict(result)
+                if ai.get("_prompt_hash") is not None:
+                    result["prompt_hash"] = ai["_prompt_hash"]
+                if ai.get("_policy_summary_hash") is not None:
+                    result["policy_summary_hash"] = ai["_policy_summary_hash"]
+                if ai.get("_allowed_actions_hash") is not None:
+                    result["allowed_actions_hash"] = ai["_allowed_actions_hash"]
+                if ai.get("_decoder_version") is not None:
+                    result["decoder_version"] = ai["_decoder_version"]
             step_results.append(result)
             if self._episode_logger is not None:
                 self._episode_logger.log_step(event, result)
@@ -566,10 +608,12 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
 
 def _hash_obs(obs: Dict[str, Any]) -> str:
     """Stable hash of observation dict for determinism tests."""
+
     def _enc(o: Any) -> Any:
         if isinstance(o, np.ndarray):
             return o.tolist()
         if isinstance(o, dict):
             return {k: _enc(v) for k, v in sorted(o.items())}
         return o
+
     return hashlib.sha256(json.dumps(_enc(obs), sort_keys=True).encode()).hexdigest()

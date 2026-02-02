@@ -44,6 +44,11 @@
       "type": "string",
       "enum": ["scripted_ops", "scripted_runner", "random", "placeholder"],
       "default": "scripted_runner"
+    },
+    "condition_labels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional human-readable label per condition (same order as Cartesian product of ablations)"
     }
   }
 }

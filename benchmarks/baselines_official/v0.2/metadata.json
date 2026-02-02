@@ -1,0 +1,33 @@
+{
+  "version": "0.2",
+  "description": "Official baseline results (frozen). Regenerate with: labtrust generate-official-baselines --out <dir> --episodes <n> --seed <s>. Use --force to overwrite.",
+  "git_sha": "5a785120c683",
+  "policy_fingerprint": "ad0bb93e29f8e47dd9df0c9c9b166c904b4b7145f64685a93544ce138c941604",
+  "cli_args": {
+    "out": "C:\\Users\\mateo\\OneDrive\\Documents\\Documents Mat\u00e9o\\AFTER STANFORD\\ARIA\\LabTrust-Gym\\LabTrust-Gym\\benchmarks\\baselines_official\\v0.2",
+    "episodes": 3,
+    "seed": 123,
+    "timing": "explicit",
+    "partner": null,
+    "force": true
+  },
+  "tasks": [
+    "TaskA",
+    "TaskB",
+    "TaskC",
+    "TaskD",
+    "TaskE",
+    "TaskF"
+  ],
+  "baseline_ids": [
+    "scripted_ops_v1",
+    "adversary_v1",
+    "insider_v1"
+  ],
+  "agent_baseline_ids": [
+    "scripted_ops_v1",
+    "adversary_v1",
+    "insider_v1"
+  ],
+  "timestamp": "1970-01-01T00:02:03Z"
+}

@@ -18,18 +18,22 @@ nav:
   - Installation: installation.md
   - Architecture: architecture.md
   - Policy pack and schemas: policy_pack.md
-  - Frozen contracts: frozen_contracts.md
   - Invariants and enforcement:
     - Invariant registry: invariants_registry.md
     - Enforcement: enforcement.md
     - FHIR R4 export: fhir_export.md
     - Evidence bundle verification: evidence_verification.md
+  - Contracts and UI:
+    - Frozen contracts: frozen_contracts.md
+    - Public contract freeze (v0.1.0): CONTRACTS.md
+    - UI data contract: ui_data_contract.md
   - PettingZoo API: pettingzoo_api.md
   - Benchmarks, studies, plots:
     - Benchmarks: benchmarks.md
     - Benchmark card: benchmark_card.md
     - Studies and plots: studies.md
     - Reproduce (minimal results + figures): reproduce.md
+    - Paper-ready release: paper_ready.md
   - Reproducibility and seeding: reproducibility.md
   - Threat model: threat_model.md
   - Invariants (overview): invariants.md

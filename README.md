@@ -47,6 +47,8 @@ labtrust reproduce --profile minimal
 
 Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings).
 
+**LLMs:** Benchmarks and tests use **deterministic, offline** LLM backends (no API keys or `.env`). See [docs/installation.md](docs/installation.md#configuration-no-env-file-required) and [docs/llm_baselines.md](docs/llm_baselines.md).
+
 ## Quick eval
 
 After `pip install labtrust-gym[env,plots]`, run a minimal sanity check (1 episode each of TaskA, TaskD, TaskE):
@@ -62,15 +64,19 @@ Output: a markdown summary (throughput, violations, blocked counts) and logs und
 - **validate-policy** — Validate all policy YAML/JSON against schemas.
 - **quick-eval** — 1 episode each of TaskA, TaskD, TaskE; markdown summary and logs under `./labtrust_runs/` (`--seed`, `--out-dir`).
 - **run-benchmark** — Run TaskA, TaskB, TaskC, TaskD, TaskE, or TaskF; write results.json (`--task`, `--episodes`, `--out`).
+- **eval-agent** — Run benchmark with an external agent (module:Class or module:function); write results.json (v0.2). Example: `--agent "examples.external_agent_demo:SafeNoOpAgent"` (`--task`, `--episodes`, `--out`, `--seed`, `--partner`, `--timing`).
 - **bench-smoke** — 1 episode per task (TaskA, TaskB, TaskC).
 - **export-receipts** — Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log (`--run`, `--out`).
-- **verify-bundle** — Verify EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace (`--bundle`, `--allow-extra-files`).
 - **export-fhir** — Export FHIR R4 Bundle from receipts dir (`--receipts`, `--out`).
+- **verify-bundle** — Verify EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace (`--bundle`, `--allow-extra-files`).
+- **ui-export** — Export UI-ready zip (index, events, receipts_index, reason_codes) from a run dir (`--run`, `--out`). UI consumes this as primary input; see [docs/ui_data_contract.md](docs/ui_data_contract.md).
 - **run-study** — Run study from spec (`--spec`, `--out`); ablations → conditions → results.
 - **make-plots** — Generate figures and data tables from a study run (`--run`).
 - **reproduce** — Reproduce minimal results + figures: TaskA & TaskC sweep + plots (`--profile minimal | full`, optional `--out`, `--seed-base`).
-- **package-release** — Release candidate artifact: reproduce + receipts + FHIR + plots + MANIFEST + BENCHMARK_CARD + summary table (`--profile minimal | full`, `--out`, optional `--seed-base`, `--keep-repro`).
-- **summarize-results** — Load results.json from dir(s)/file(s), aggregate by task+baseline+partner_id; write summary.csv + summary.md (`--in`, `--out`, `--basename`). Compare to official baselines via `benchmarks/baselines_official/v0.1/`.
+- **package-release** — Release candidate artifact: reproduce + receipts + FHIR + plots + MANIFEST + BENCHMARK_CARD + summary table (`--profile minimal | full | paper_v0.1`, `--out`, optional `--seed-base`, `--keep-repro`). Use **paper_v0.1** for a benchmark-first, paper-ready artifact (baselines + TaskF study + summarize + receipts + FIGURES/TABLES); see [docs/paper_ready.md](docs/paper_ready.md).
+- **generate-official-baselines** — Run Tasks A–F with official baselines; write results/, summary.csv, summary.md, metadata.json (`--out`, `--episodes`, `--seed`, `--timing`, `--partner`, `--force`). Registry: `benchmarks/baseline_registry.v0.1.yaml`.
+- **summarize-results** — Load results.json from dir(s)/file(s), aggregate by task+baseline+partner_id; write **summary_v0.2.csv** (CI-stable), **summary_v0.3.csv** (paper-grade: quantiles, 95% CI), **summary.csv** (copy of v0.2), and summary.md (`--in`, `--out`, `--basename`). See [docs/metrics_contract.md](docs/metrics_contract.md). Compare to official baselines in `benchmarks/baselines_official/v0.1/` (or regenerate v0.2 with generate-official-baselines).
+- **determinism-report** — Run benchmark twice with identical args in fresh temp dirs; write **determinism_report.md** and **determinism_report.json** (sha256 of episode logs, results.json, receipts bundle root hash); assert v0.2 metrics and episode log hash identical (`--task`, `--episodes`, `--seed`, `--out`, optional `--partner`, `--timing explicit|simulated`). With `--timing simulated`, device service-time sampling is seeded only from `--seed`.
 - **train-ppo**, **eval-ppo** — PPO training/eval (requires `.[marl]`).
 
 ## Layout
@@ -88,13 +94,20 @@ The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/gol
 ## Reproducibility and citation
 
 - **Reproduce**: `labtrust reproduce --profile minimal` (see [docs/reproduce.md](docs/reproduce.md)).
-- **Release artifact**: `labtrust package-release --profile minimal --out /tmp/labtrust_release` produces MANIFEST.v0.1.json (file hashes), BENCHMARK_CARD.md, metadata.json, results (v0.2 schema), summary.csv/summary.md (leaderboard table), plots, receipts, and FHIR bundles. Use `--seed-base N` for deterministic runs.
-- **Official baselines**: Frozen results and summary table live in `benchmarks/baselines_official/v0.1/` (see [Benchmark card](docs/benchmark_card.md)). Compare your run: `labtrust summarize-results --in benchmarks/baselines_official/v0.1/results/ your_results.json --out /tmp/compare`.
+- **Release artifact**: `labtrust package-release --profile minimal --out /tmp/labtrust_release` produces MANIFEST.v0.1.json (file hashes), BENCHMARK_CARD.md, metadata.json, results (v0.2 schema), summary.csv/summary.md (leaderboard table), plots, receipts, and FHIR bundles. Use `--seed-base N` for deterministic runs. For a **paper-ready** artifact (baselines + TaskF study + FIGURES/TABLES + receipts): `labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>` (see [docs/paper_ready.md](docs/paper_ready.md)).
+- **Official baselines**: **v0.2 is canonical.** Frozen results and summary table are in `benchmarks/baselines_official/v0.2/` (see [Benchmark card](docs/benchmark_card.md)). Baseline regression compares against v0.2; v0.1 is legacy. Regenerate with `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` (matches CI). Compare: `labtrust summarize-results --in benchmarks/baselines_official/v0.2/results/ your_results.json --out /tmp/compare`.
 - **How to cite**: This project uses [CITATION.cff](CITATION.cff). You can use [citation-file-format](https://citation-file-format.github.io/) tooling or cite the repository: *LabTrust-Gym: a multi-agent environment for a self-driving hospital lab with a trust skeleton*. https://github.com/fraware/LabTrust-Gym.
 
 ## Current state
 
 See **docs/STATUS.md** for a detailed report: policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2 escalation ladder), catalogue/stability, co-location, queueing, invariant registry, enforcement, **transport** (multi-site), **export** (receipts, FHIR R4), **package-release**, PettingZoo wrappers, scripted/adversary/LLM/MARL baselines, TaskA–TaskF, **quick-eval**, PyPI packaging (`labtrust --version`), studies (run-study, make-plots, reproduce, package-release), and docs site (MkDocs + API reference).
+
+## v0.1.0 release and contract freeze
+
+- **Version:** `labtrust --version` prints v0.1.0 + git SHA. Tag **v0.1.0** from a clean main commit for release.
+- **Contract freeze:** [docs/CONTRACTS.md](docs/CONTRACTS.md) lists frozen schemas (runner output, queue, invariant registry, enforcement, receipt, evidence bundle, FHIR, results v0.2 semantics; v0.3 extensible only).
+- **Quickstart (paper artifact):** `bash scripts/quickstart_paper_v0_1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows): install → validate-policy → quick-eval → package-release paper_v0.1 → verify-bundle.
+- **UI fixtures:** [ui_fixtures/](ui_fixtures/) contains minimal results.v0.2, episode log, evidence bundle, and FHIR bundle for offline UI work. **UI data contract:** [docs/ui_data_contract.md](docs/ui_data_contract.md) specifies ui-export bundle format; the UI depends on `labtrust ui-export` output, not raw internal logs.
 
 ## License
 

@@ -39,11 +39,29 @@ def _repo_root() -> Path:
 
 def test_merge_critical_thresholds_determinism() -> None:
     base = [
-        {"analyte_code": "K", "units": "mmol/L", "low": 2.5, "high": 6.5, "class": "CRIT_A"},
-        {"analyte_code": "Na", "units": "mmol/L", "low": 120, "high": 160, "class": "CRIT_A"},
+        {
+            "analyte_code": "K",
+            "units": "mmol/L",
+            "low": 2.5,
+            "high": 6.5,
+            "class": "CRIT_A",
+        },
+        {
+            "analyte_code": "Na",
+            "units": "mmol/L",
+            "low": 120,
+            "high": 160,
+            "class": "CRIT_A",
+        },
     ]
     overlay = [
-        {"analyte_code": "K", "units": "mmol/L", "low": 2.8, "high": 6.0, "class": "CRIT_A"},
+        {
+            "analyte_code": "K",
+            "units": "mmol/L",
+            "low": 2.8,
+            "high": 6.0,
+            "class": "CRIT_A",
+        },
     ]
     merged = merge_critical_thresholds(base, overlay)
     assert len(merged) == 2
@@ -61,8 +79,25 @@ def test_merge_stability_policy_panel_override() -> None:
 
 
 def test_merge_enforcement_map_rule_override() -> None:
-    base = {"version": "0.1", "rules": [{"rule_id": "R1", "match": {}, "action": {"type": "throttle_agent", "duration_s": 60}}]}
-    overlay = {"rules": [{"rule_id": "R1", "match": {}, "action": {"type": "throttle_agent", "duration_s": 90}}]}
+    base = {
+        "version": "0.1",
+        "rules": [
+            {
+                "rule_id": "R1",
+                "match": {},
+                "action": {"type": "throttle_agent", "duration_s": 60},
+            }
+        ],
+    }
+    overlay = {
+        "rules": [
+            {
+                "rule_id": "R1",
+                "match": {},
+                "action": {"type": "throttle_agent", "duration_s": 90},
+            }
+        ]
+    }
     merged = merge_enforcement_map(base, overlay)
     r1 = next(r for r in merged["rules"] if r.get("rule_id") == "R1")
     assert r1["action"]["duration_s"] == 90
@@ -79,13 +114,17 @@ def test_load_partners_index() -> None:
 
 def test_load_effective_policy_base_only() -> None:
     root = _repo_root()
-    effective, fingerprint, partner_id = load_effective_policy(root, partner_id=None)
+    effective, fingerprint, partner_id, cal_fp = load_effective_policy(
+        root, partner_id=None
+    )
     assert partner_id is None
+    assert cal_fp is None
     assert isinstance(fingerprint, str) and len(fingerprint) == 64
     assert "critical_thresholds" in effective
     assert "stability_policy" in effective
     assert "enforcement_map" in effective
     assert "equipment_registry" in effective
+    assert effective.get("calibration") is None
 
 
 def test_load_effective_policy_with_partner_determinism() -> None:
@@ -93,11 +132,14 @@ def test_load_effective_policy_with_partner_determinism() -> None:
     overlay_dir = get_partner_overlay_dir(root, "hsl_like")
     if not overlay_dir.is_dir():
         pytest.skip("policy/partners/hsl_like not present")
-    effective1, fp1, _ = load_effective_policy(root, partner_id="hsl_like")
-    effective2, fp2, _ = load_effective_policy(root, partner_id="hsl_like")
+    effective1, fp1, _, cal_fp1 = load_effective_policy(root, partner_id="hsl_like")
+    effective2, fp2, _, cal_fp2 = load_effective_policy(root, partner_id="hsl_like")
     assert fp1 == fp2
+    assert cal_fp1 == cal_fp2
     assert compute_policy_fingerprint(effective1) == fp1
-    assert effective1["critical_thresholds"] != [] or "BIOCHEM_POTASSIUM_K" in str(effective1)
+    assert effective1["critical_thresholds"] != [] or "BIOCHEM_POTASSIUM_K" in str(
+        effective1
+    )
 
 
 def test_validate_policy_base_and_partner() -> None:
@@ -111,15 +153,20 @@ def test_validate_policy_base_and_partner() -> None:
 def test_invalid_overlay_fails_schema(tmp_path: Path) -> None:
     """Invalid overlay (missing required keys) should fail schema validation."""
     from labtrust_gym.policy.loader import load_yaml, load_json, validate_against_schema
+
     root = _repo_root()
     bad_overlay = tmp_path / "critical"
     bad_overlay.mkdir()
-    (bad_overlay / "critical_thresholds.v0.1.yaml").write_text("critical_thresholds:\n  version: 0.1\n")
+    (bad_overlay / "critical_thresholds.v0.1.yaml").write_text(
+        "critical_thresholds:\n  version: 0.1\n"
+    )
     schemas_dir = root / "policy" / "schemas"
     schema = load_json(schemas_dir / "critical_thresholds.v0.1.schema.json")
     data = load_yaml(bad_overlay / "critical_thresholds.v0.1.yaml")
     with pytest.raises(PolicyLoadError):
-        validate_against_schema(data, schema, bad_overlay / "critical_thresholds.v0.1.yaml")
+        validate_against_schema(
+            data, schema, bad_overlay / "critical_thresholds.v0.1.yaml"
+        )
 
 
 def test_benchmark_smoke_with_partner() -> None:
@@ -128,6 +175,7 @@ def test_benchmark_smoke_with_partner() -> None:
     if not (root / "policy" / "partners" / "hsl_like").is_dir():
         pytest.skip("policy/partners/hsl_like not present")
     from labtrust_gym.benchmarks.runner import run_benchmark
+
     out_path = root / "bench_smoke_partner_test.json"
     try:
         results = run_benchmark(
@@ -140,7 +188,10 @@ def test_benchmark_smoke_with_partner() -> None:
         )
         assert results.get("partner_id") == "hsl_like"
         assert results.get("policy_fingerprint") is not None
-        assert isinstance(results["policy_fingerprint"], str) and len(results["policy_fingerprint"]) == 64
+        assert (
+            isinstance(results["policy_fingerprint"], str)
+            and len(results["policy_fingerprint"]) == 64
+        )
     finally:
         if out_path.exists():
             out_path.unlink()
@@ -152,6 +203,7 @@ def test_same_seed_same_partner_same_output() -> None:
     if not (root / "policy" / "partners" / "hsl_like").is_dir():
         pytest.skip("policy/partners/hsl_like not present")
     from labtrust_gym.benchmarks.runner import run_benchmark
+
     out1 = root / "bench_det_1.json"
     out2 = root / "bench_det_2.json"
     try:

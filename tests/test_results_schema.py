@@ -15,9 +15,11 @@ import pytest
 from labtrust_gym.benchmarks.summarize import (
     load_results_from_path,
     summarize_results,
+    summarize_results_v03,
     run_summarize,
     rows_to_csv,
     validate_results_v02,
+    validate_results_v03,
     _normalize_to_v02,
 )
 
@@ -33,8 +35,14 @@ def test_results_v02_schema_validates_run_benchmark_output() -> None:
         "task": "TaskA",
         "seeds": [42, 43],
         "episodes": [
-            {"seed": 42, "metrics": {"throughput": 5, "p50_turnaround_s": 100.0, "steps": 100}},
-            {"seed": 43, "metrics": {"throughput": 6, "p50_turnaround_s": 90.0, "steps": 100}},
+            {
+                "seed": 42,
+                "metrics": {"throughput": 5, "p50_turnaround_s": 100.0, "steps": 100},
+            },
+            {
+                "seed": 43,
+                "metrics": {"throughput": 6, "p50_turnaround_s": 90.0, "steps": 100},
+            },
         ],
         "agent_baseline_id": "scripted_ops_v1",
         "policy_fingerprint": None,
@@ -48,6 +56,7 @@ def test_results_v02_schema_validates_run_benchmark_output() -> None:
 def test_run_benchmark_output_validates_v02(tmp_path: Path) -> None:
     """Run benchmark writes results that validate against results.v0.2.schema.json."""
     from labtrust_gym.benchmarks.runner import run_benchmark
+
     repo = Path(__file__).resolve().parent.parent
     if not (repo / "policy").is_dir():
         pytest.skip("repo root not found")
@@ -77,8 +86,14 @@ def test_summarize_determinism(tmp_path: Path) -> None:
         "task": "TaskA",
         "seeds": [42, 43],
         "episodes": [
-            {"seed": 42, "metrics": {"throughput": 5, "p50_turnaround_s": 100.0, "steps": 100}},
-            {"seed": 43, "metrics": {"throughput": 6, "p50_turnaround_s": 90.0, "steps": 100}},
+            {
+                "seed": 42,
+                "metrics": {"throughput": 5, "p50_turnaround_s": 100.0, "steps": 100},
+            },
+            {
+                "seed": 43,
+                "metrics": {"throughput": 6, "p50_turnaround_s": 90.0, "steps": 100},
+            },
         ],
         "agent_baseline_id": "scripted_ops_v1",
         "git_sha": "abc",
@@ -98,15 +113,24 @@ def test_summarize_aggregates_by_task_baseline_partner(tmp_path: Path) -> None:
     results_dir = tmp_path / "results"
     results_dir.mkdir()
     (results_dir / "results.json").write_text(
-        json.dumps({
-            "task": "TaskA",
-            "seeds": [42, 43],
-            "episodes": [
-                {"seed": 42, "metrics": {"throughput": 10, "p50_turnaround_s": 100.0}},
-                {"seed": 43, "metrics": {"throughput": 12, "p50_turnaround_s": 80.0}},
-            ],
-            "agent_baseline_id": "scripted_ops_v1",
-        }, indent=2),
+        json.dumps(
+            {
+                "task": "TaskA",
+                "seeds": [42, 43],
+                "episodes": [
+                    {
+                        "seed": 42,
+                        "metrics": {"throughput": 10, "p50_turnaround_s": 100.0},
+                    },
+                    {
+                        "seed": 43,
+                        "metrics": {"throughput": 12, "p50_turnaround_s": 80.0},
+                    },
+                ],
+                "agent_baseline_id": "scripted_ops_v1",
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
     out = tmp_path / "out"
@@ -135,3 +159,139 @@ def test_normalize_accepts_legacy_git_commit_hash() -> None:
     assert norm is not None
     assert norm.get("git_sha") == "abc123"
     assert norm.get("agent_baseline_id") == "scripted_ops_v1"
+
+
+def test_results_v03_schema_validates() -> None:
+    """A v0.3 document (with optional quantiles/CI) validates against results.v0.3.schema.json."""
+    schema_path = Path("policy/schemas/results.v0.3.schema.json")
+    if not schema_path.exists():
+        pytest.skip("policy/schemas/results.v0.3.schema.json not found")
+    data = {
+        "schema_version": "0.3",
+        "task": "TaskA",
+        "seeds": [42, 43],
+        "episodes": [
+            {
+                "seed": 42,
+                "metrics": {
+                    "throughput": 5,
+                    "p50_turnaround_s": 100.0,
+                    "p95_turnaround_s": 120.0,
+                    "turnaround_quantiles_s": {
+                        "p10": 80,
+                        "p25": 90,
+                        "p50": 100,
+                        "p75": 110,
+                        "p90": 120,
+                    },
+                    "throughput_ci_95": {"lower": 4.0, "upper": 6.0},
+                },
+            },
+            {
+                "seed": 43,
+                "metrics": {
+                    "throughput": 6,
+                    "p50_turnaround_s": 90.0,
+                    "p95_turnaround_s": 115.0,
+                },
+            },
+        ],
+        "agent_baseline_id": "scripted_ops_v1",
+        "policy_fingerprint": None,
+        "partner_id": None,
+        "git_sha": "abc123",
+    }
+    errors = validate_results_v03(data, schema_path=schema_path)
+    assert errors == [], f"Validation errors: {errors}"
+
+
+def test_summarize_v02_output_unchanged_for_fixture(tmp_path: Path) -> None:
+    """For a fixed fixture, summary_v0.2.csv is deterministic and preserves CI-stable semantics."""
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+    fixture = {
+        "schema_version": "0.2",
+        "task": "TaskA",
+        "seeds": [42, 43],
+        "episodes": [
+            {
+                "seed": 42,
+                "metrics": {"throughput": 10, "p50_turnaround_s": 100.0, "steps": 100},
+            },
+            {
+                "seed": 43,
+                "metrics": {"throughput": 12, "p50_turnaround_s": 80.0, "steps": 100},
+            },
+        ],
+        "agent_baseline_id": "scripted_ops_v1",
+        "git_sha": "abc",
+    }
+    (results_dir / "results.json").write_text(
+        json.dumps(fixture, indent=2), encoding="utf-8"
+    )
+    out1 = tmp_path / "out1"
+    out2 = tmp_path / "out2"
+    run_summarize([results_dir], out1, out_basename="summary")
+    run_summarize([results_dir], out2, out_basename="summary")
+    csv_v02_1 = (out1 / "summary_v0.2.csv").read_text(encoding="utf-8")
+    csv_v02_2 = (out2 / "summary_v0.2.csv").read_text(encoding="utf-8")
+    assert (
+        csv_v02_1 == csv_v02_2
+    ), "summary_v0.2.csv must be identical for same inputs (determinism)"
+    assert out1 / "summary_v0.2.csv" in list(out1.iterdir())
+    assert out1 / "summary_v0.3.csv" in list(out1.iterdir())
+    assert (out1 / "summary.csv").read_text(
+        encoding="utf-8"
+    ) == csv_v02_1, "summary.csv must equal summary_v0.2.csv"
+    rows = summarize_results(load_results_from_path(results_dir))
+    assert len(rows) == 1
+    assert rows[0]["task"] == "TaskA"
+    assert rows[0]["n_episodes"] == 2
+    assert rows[0]["throughput_mean"] == 11.0
+    assert rows[0]["throughput_std"] == pytest.approx(
+        2**0.5
+    )  # sample stdev of [10, 12]
+    assert rows[0]["p50_turnaround_s_mean"] == 90.0
+
+
+def test_summarize_v03_has_quantiles_and_ci(tmp_path: Path) -> None:
+    """summary_v0.3.csv contains paper-grade columns: quantiles and 95% CI."""
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+    (results_dir / "results.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "0.2",
+                "task": "TaskA",
+                "seeds": [42, 43],
+                "episodes": [
+                    {
+                        "seed": 42,
+                        "metrics": {"throughput": 10, "p50_turnaround_s": 100.0},
+                    },
+                    {
+                        "seed": 43,
+                        "metrics": {"throughput": 12, "p50_turnaround_s": 80.0},
+                    },
+                ],
+                "agent_baseline_id": "scripted_ops_v1",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    run_summarize([results_dir], tmp_path / "out", out_basename="summary")
+    csv_v03 = (tmp_path / "out" / "summary_v0.3.csv").read_text(encoding="utf-8")
+    assert "throughput_p50" in csv_v03
+    assert "throughput_p90" in csv_v03
+    assert "throughput_mean_ci_lower" in csv_v03
+    assert "throughput_mean_ci_upper" in csv_v03
+    assert "p50_turnaround_s_p50" in csv_v03
+    assert "p50_turnaround_s_mean_ci_lower" in csv_v03
+    rows_v03 = summarize_results_v03(load_results_from_path(results_dir))
+    assert len(rows_v03) == 1
+    assert "throughput_p50" in rows_v03[0]
+    assert rows_v03[0]["throughput_p50"] == 11.0
+    assert rows_v03[0]["throughput_p90"] is not None
+    assert rows_v03[0]["throughput_mean_ci_lower"] is not None
+    assert rows_v03[0]["throughput_mean_ci_upper"] is not None

@@ -21,6 +21,10 @@
     },
     "policy_fingerprint": { "type": ["string", "null"] },
     "partner_id": { "type": ["string", "null"] },
+    "policy_root_hash": {
+      "type": ["string", "null"],
+      "description": "SHA-256 root_hash from policy_pack_manifest.v0.1 (policy provenance)"
+    },
     "signature": {
       "type": ["object", "null"],
       "description": "Optional signature (stub behind feature flag)",

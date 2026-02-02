@@ -53,17 +53,41 @@ def validate_runner_output_contract_schema(root: Path) -> list[str]:
 # Policy files to validate against schemas (path relative to root)
 POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
     ("policy/emits/emits_vocab.v0.1.yaml", "emits_vocab.v0.1.schema.json"),
-    ("policy/invariants/invariant_registry.v1.0.yaml", "invariant_registry.v1.0.schema.json"),
-    ("policy/zones/zone_layout_policy.v0.1.yaml", "zone_layout_policy.v0.1.schema.json"),
-    ("policy/reason_codes/reason_code_registry.v0.1.yaml", "reason_code_registry.v0.1.schema.json"),
+    (
+        "policy/invariants/invariant_registry.v1.0.yaml",
+        "invariant_registry.v1.0.schema.json",
+    ),
+    (
+        "policy/zones/zone_layout_policy.v0.1.yaml",
+        "zone_layout_policy.v0.1.schema.json",
+    ),
+    (
+        "policy/reason_codes/reason_code_registry.v0.1.yaml",
+        "reason_code_registry.v0.1.schema.json",
+    ),
     ("policy/tokens/token_registry.v0.1.yaml", "token_registry.v0.1.schema.json"),
-    ("policy/tokens/dual_approval_policy.v0.1.yaml", "dual_approval_policy.v0.1.schema.json"),
-    ("policy/critical/critical_thresholds.v0.1.yaml", "critical_thresholds.v0.1.schema.json"),
-    ("policy/equipment/equipment_registry.v0.1.yaml", "equipment_registry.v0.1.schema.json"),
+    (
+        "policy/tokens/dual_approval_policy.v0.1.yaml",
+        "dual_approval_policy.v0.1.schema.json",
+    ),
+    (
+        "policy/critical/critical_thresholds.v0.1.yaml",
+        "critical_thresholds.v0.1.schema.json",
+    ),
+    (
+        "policy/equipment/equipment_registry.v0.1.yaml",
+        "equipment_registry.v0.1.schema.json",
+    ),
     ("policy/golden/golden_scenarios.v0.1.yaml", "golden_scenarios.v0.1.schema.json"),
-    ("policy/enforcement/enforcement_map.v0.1.yaml", "enforcement_map.v0.1.schema.json"),
+    (
+        "policy/enforcement/enforcement_map.v0.1.yaml",
+        "enforcement_map.v0.1.schema.json",
+    ),
     ("policy/partners/partners_index.v0.1.yaml", "partners_index.v0.1.schema.json"),
-    ("policy/critical/escalation_ladder.v0.2.yaml", "escalation_ladder.v0.2.schema.json"),
+    (
+        "policy/critical/escalation_ladder.v0.2.yaml",
+        "escalation_ladder.v0.2.schema.json",
+    ),
     ("policy/sites/sites_policy.v0.1.yaml", "sites_policy.v0.1.schema.json"),
     ("policy/keys/key_registry.v0.1.yaml", "key_registry.v0.1.schema.json"),
     ("policy/rbac/rbac_policy.v0.1.yaml", "rbac_policy.v0.1.schema.json"),
@@ -128,7 +152,9 @@ def validate_all_policy_schemas(root: Path) -> list[str]:
     """Validate all policy files that have schemas. Returns list of error messages."""
     errors: list[str] = []
     for policy_rel_path, schema_name in POLICY_FILES_WITH_SCHEMAS:
-        errors.extend(validate_policy_file_against_schema(root, policy_rel_path, schema_name))
+        errors.extend(
+            validate_policy_file_against_schema(root, policy_rel_path, schema_name)
+        )
     return errors
 
 
@@ -138,6 +164,7 @@ PARTNER_OVERLAY_VALIDATION: list[tuple[str, str]] = [
     ("enforcement/enforcement_map.v0.1.yaml", "enforcement_map.v0.1.schema.json"),
     ("equipment/equipment_registry.v0.1.yaml", "equipment_registry.v0.1.schema.json"),
     ("critical/escalation_ladder.v0.2.yaml", "escalation_ladder.v0.2.schema.json"),
+    ("calibration.v0.1.yaml", "calibration.v0.1.schema.json"),
 ]
 
 
@@ -147,7 +174,9 @@ def validate_partner_overlay_files(root: Path, partner_id: str) -> list[str]:
     root = Path(root)
     overlay_dir = get_partner_overlay_dir(root, partner_id)
     if not overlay_dir.is_dir():
-        errors.append(f"{overlay_dir}: partner overlay dir not found for {partner_id!r}")
+        errors.append(
+            f"{overlay_dir}: partner overlay dir not found for {partner_id!r}"
+        )
         return errors
     schemas_dir = root / "policy" / "schemas"
     for rel_file, schema_name in PARTNER_OVERLAY_VALIDATION:
@@ -189,7 +218,9 @@ def _invariant_ids_from_registry(root: Path) -> set[str]:
     return {str(i.get("invariant_id", "")) for i in invs if i.get("invariant_id")}
 
 
-def validate_merged_policy_consistency(root: Path, partner_id: str | None = None) -> list[str]:
+def validate_merged_policy_consistency(
+    root: Path, partner_id: str | None = None
+) -> list[str]:
     """
     Load effective policy (base + overlay if partner_id); check consistency.
     - Enforcement rules: match.invariant_id must be in invariant registry (if set).
@@ -198,7 +229,9 @@ def validate_merged_policy_consistency(root: Path, partner_id: str | None = None
     errors: list[str] = []
     root = Path(root)
     try:
-        effective, fingerprint, _ = load_effective_policy(root, partner_id=partner_id)
+        effective, fingerprint, _, _ = load_effective_policy(
+            root, partner_id=partner_id
+        )
     except PolicyLoadError as e:
         errors.append(str(e))
         return errors

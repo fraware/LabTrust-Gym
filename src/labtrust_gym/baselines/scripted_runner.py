@@ -143,6 +143,9 @@ class ScriptedRunnerAgent:
         self._door_tick_threshold_s = door_tick_threshold_s
         self._tick_interval_steps = max(1, tick_interval_steps)
         self._step_counter = 0
+        # TaskE transport state: DISPATCH -> TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE
+        self._transport_phase: int = 0  # 0=dispatch, 1=tick, 2=sign, 3=receive, 4=done
+        self._transport_consignment_id: Optional[str] = None
 
     def _my_zone(self, obs: Dict[str, Any]) -> Optional[str]:
         """Current zone id from obs (my_zone_idx 1-based into zone_ids)."""
@@ -156,6 +159,67 @@ class ScriptedRunnerAgent:
         out = [b for (a, b) in self._adjacency if a == zone_id]
         return sorted(out)
 
+    def _act_transport(
+        self,
+        observation: Dict[str, Any],
+        agent_id: str,
+    ) -> Optional[Tuple[int, Dict[str, Any]]]:
+        """
+        TaskE: if transport_required and this is runner_0, run DISPATCH -> TICK -> SIGN -> RECEIVE.
+        Returns (action_index, action_info) or None if not doing transport this step.
+        """
+        if agent_id != "runner_0":
+            return None
+        transport_required = observation.get("transport_required") or []
+        transport_consignments = observation.get("transport_consignments") or []
+        if not transport_required:
+            self._transport_phase = 0
+            self._transport_consignment_id = None
+            return None
+        in_transit = [
+            c for c in transport_consignments if c.get("status") == "in_transit"
+        ]
+        arrived = [c for c in transport_consignments if c.get("status") == "arrived"]
+        if not in_transit and not arrived:
+            self._transport_phase = 0
+        if self._transport_phase == 0 and not in_transit and not arrived:
+            first = transport_required[0]
+            self._transport_phase = 1
+            return (
+                0,
+                {
+                    "action_type": "DISPATCH_TRANSPORT",
+                    "args": {
+                        "specimen_ids": first.get("specimen_ids", []),
+                        "origin_site": first.get("origin_site", "SITE_ACUTE"),
+                        "dest_site": first.get("dest_site", "SITE_HUB"),
+                    },
+                },
+            )
+        if self._transport_phase == 1 and in_transit:
+            self._transport_consignment_id = in_transit[0].get("consignment_id")
+            self._transport_phase = 2
+            return (0, {"action_type": "TRANSPORT_TICK", "args": {}})
+        if self._transport_phase == 2 and in_transit and self._transport_consignment_id:
+            self._transport_phase = 3
+            return (
+                0,
+                {
+                    "action_type": "CHAIN_OF_CUSTODY_SIGN",
+                    "args": {"consignment_id": self._transport_consignment_id},
+                },
+            )
+        if self._transport_phase == 3 and in_transit and self._transport_consignment_id:
+            self._transport_phase = 4
+            return (
+                0,
+                {
+                    "action_type": "RECEIVE_TRANSPORT",
+                    "args": {"consignment_id": self._transport_consignment_id},
+                },
+            )
+        return None
+
     def act(
         self,
         observation: Dict[str, Any],
@@ -166,9 +230,14 @@ class ScriptedRunnerAgent:
 
         action_index: 0=NOOP, 1=TICK, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN.
         action_info: to_zone (MOVE), door_id (OPEN_DOOR), device_id/work_id (START_RUN).
+        TaskE: when transport_required, runner_0 emits DISPATCH_TRANSPORT -> TRANSPORT_TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE_TRANSPORT.
         """
         self._step_counter += 1
         action_info: Dict[str, Any] = {}
+
+        transport_out = self._act_transport(observation, agent_id)
+        if transport_out is not None:
+            return transport_out
 
         log_frozen = _scalar(observation.get("log_frozen"), 0)
         if log_frozen:
@@ -184,10 +253,7 @@ class ScriptedRunnerAgent:
         if door_open and door_duration >= self._door_tick_threshold_s:
             return (ACTION_TICK, action_info)
 
-        if (
-            self._step_counter % self._tick_interval_steps == 0
-            and door_open
-        ):
+        if self._step_counter % self._tick_interval_steps == 0 and door_open:
             return (ACTION_TICK, action_info)
 
         my_zone = self._my_zone(observation)
@@ -217,9 +283,7 @@ class ScriptedRunnerAgent:
                 return (ACTION_NOOP, action_info)
             door_from_zone = "Z_SRA_RECEPTION"
             if my_zone != door_from_zone:
-                next_zone = _bfs_one_step(
-                    my_zone, door_from_zone, self._adjacency
-                )
+                next_zone = _bfs_one_step(my_zone, door_from_zone, self._adjacency)
                 if next_zone is not None:
                     return (ACTION_MOVE, {"to_zone": next_zone})
                 return (ACTION_NOOP, action_info)

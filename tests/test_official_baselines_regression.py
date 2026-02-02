@@ -2,11 +2,14 @@
 Baseline regression guard: compare current benchmark run to frozen official baselines.
 
 - Gated by LABTRUST_CHECK_BASELINES=1.
+- Prefers benchmarks/baselines_official/v0.2/ (canonical); skips only if v0.2/results/
+  is missing or has no *.json (v0.1 is legacy and not used for regression).
 - Runs a tiny sweep (episodes=3, seed=123, timing=explicit) for Tasks A–F.
 - Loads official results from benchmarks/baselines_official/v0.2/results/*.json.
 - Compares exact integer/struct metrics only (stable across OS/Python):
   throughput, holds_count, tokens_minted, tokens_consumed, steps,
   blocked_by_reason_code, violations_by_invariant_id.
+  Float metrics (e.g. on_time_rate) are omitted for cross-OS stability.
 """
 
 from __future__ import annotations
@@ -68,20 +71,20 @@ def test_official_baselines_regression(tmp_path: Path) -> None:
     """
     Compare current run (episodes=3, seed=123, timing=explicit) to frozen official v0.2.
 
-    Skips unless LABTRUST_CHECK_BASELINES=1 and benchmarks/baselines_official/v0.2/results/
-    exists with at least one *.json. Compares only exact integer/struct metrics per episode
-    (by seed) for stability across OS/Python.
+    Prefers v0.2 (canonical); skips only if LABTRUST_CHECK_BASELINES=1 is set and
+    benchmarks/baselines_official/v0.2/results/ is missing or has no *.json.
+    Compares only exact integer/struct metrics per episode (by seed) for stability.
     """
     if not _should_run_regression():
-        pytest.skip(
-            "Set LABTRUST_CHECK_BASELINES=1 to run baseline regression guard."
-        )
+        pytest.skip("Set LABTRUST_CHECK_BASELINES=1 to run baseline regression guard.")
 
     repo = _repo_root()
     if not (repo / "policy").is_dir():
         pytest.skip("repo root not found")
 
-    official_results_dir = repo / "benchmarks" / "baselines_official" / "v0.2" / "results"
+    official_results_dir = (
+        repo / "benchmarks" / "baselines_official" / "v0.2" / "results"
+    )
     if not official_results_dir.is_dir():
         pytest.skip(
             "Official baselines not found at "
@@ -123,8 +126,21 @@ def test_official_baselines_regression(tmp_path: Path) -> None:
         current_data = json.loads(current_path.read_text(encoding="utf-8"))
         official_data = json.loads(official_path.read_text(encoding="utf-8"))
 
-        current_episodes = {int(ep["seed"]): ep for ep in (current_data.get("episodes") or [])}
-        official_episodes = {int(ep["seed"]): ep for ep in (official_data.get("episodes") or [])}
+        if official_data.get("schema_version") != "0.2":
+            failures.append(
+                f"{task}: official file has schema_version {official_data.get('schema_version')!r}, expected 0.2"
+            )
+            continue
+        if not isinstance(official_data.get("episodes"), list):
+            failures.append(f"{task}: official file missing or invalid 'episodes' list")
+            continue
+
+        current_episodes = {
+            int(ep["seed"]): ep for ep in (current_data.get("episodes") or [])
+        }
+        official_episodes = {
+            int(ep["seed"]): ep for ep in (official_data.get("episodes") or [])
+        }
 
         for ep_seed in range(seed, seed + episodes):
             if ep_seed not in current_episodes:
@@ -150,6 +166,4 @@ def test_official_baselines_regression(tmp_path: Path) -> None:
                     )
 
     if failures:
-        pytest.fail(
-            "Baseline regression (exact metrics):\n  " + "\n  ".join(failures)
-        )
+        pytest.fail("Baseline regression (exact metrics):\n  " + "\n  ".join(failures))

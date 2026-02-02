@@ -57,6 +57,13 @@ Auto-generated from docstrings (mkdocstrings). Build the docs site with `pip ins
       show_root_heading: true
       members_order: source
 
+## Export
+
+::: labtrust_gym.export.ui_export
+    options:
+      show_root_heading: true
+      members_order: source
+
 ## Envs (PettingZoo wrappers)
 
 ::: labtrust_gym.envs.pz_parallel.LabTrustParallelEnv

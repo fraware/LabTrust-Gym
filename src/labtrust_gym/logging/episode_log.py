@@ -85,6 +85,22 @@ def build_log_entry(
     rbac_decision = result.get("rbac_decision")
     if rbac_decision is not None and isinstance(rbac_decision, dict):
         entry["rbac_decision"] = rbac_decision
+    control_decision = result.get("control_decision")
+    if control_decision is not None and isinstance(control_decision, dict):
+        entry["control_decision"] = control_decision
+    consignment_id = result.get("consignment_id")
+    if consignment_id is not None:
+        entry["consignment_id"] = str(consignment_id)
+    # LLM audit (step output and receipts)
+    for key in (
+        "prompt_hash",
+        "policy_summary_hash",
+        "allowed_actions_hash",
+        "decoder_version",
+    ):
+        val = result.get(key)
+        if val is not None:
+            entry[key] = val
     return entry
 
 

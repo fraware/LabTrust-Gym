@@ -625,6 +625,59 @@ golden_suite:
       script:
         - { event_id: "e1", t_s: 810, agent_id: "A_RUNNER", action_type: "RECEIVE_TRANSPORT", args: { consignment_id: "CONS_999" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "TRANSPORT_CHAIN_OF_CUSTODY_BROKEN", violations: ["INV-COC-001:VIOLATION"] } }
 
+    - scenario_id: "GS-SHIFT-CHANGE-001"
+      title: "Mid-episode shift change: update roster without policy on disk; RBAC reflects new mapping; STAT inject; no RELEASE_RESULT from reception; strict mode (all mutating actions signed)"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens:
+          - template_ref: "S_BIOCHEM_OK"
+        tokens: []
+        strict_signatures: true
+        agents:
+          - agent_id: "A_RECEPTION"
+            zone_id: "Z_SRA_RECEPTION"
+          - agent_id: "A_ANALYTICS"
+            zone_id: "Z_ANALYZER_HALL_A"
+      script:
+        # Reception accepts S1 (signed)
+        - { event_id: "e1", t_s: 600, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception", signature: "GOLDEN_TEST_ACCEPT", action_type: "CREATE_ACCESSION", args: { specimen_id: "S1" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["CREATE_ACCESSION"] } }
+        - { event_id: "e2", t_s: 610, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception", signature: "GOLDEN_TEST_ACCEPT", action_type: "ACCEPT_SPECIMEN", args: { specimen_id: "S1" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["ACCEPT_SPECIMEN"] } }
+        # Mid-episode: shift change (update agent->role; policy on disk unchanged); SYSTEM key required.
+        - { event_id: "e3", t_s: 700, agent_id: "SYSTEM", key_id: "ed25519:key_system_control", signature: "GOLDEN_TEST_ACCEPT", action_type: "UPDATE_ROSTER", args: { roster: { A_RECEPTION: "ROLE_ANALYTICS", A_ANALYTICS: "ROLE_RECEPTION" } }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["UPDATE_ROSTER"] } }
+        # Inject STAT specimen during handover (signed with SYSTEM key).
+        - { event_id: "e4", t_s: 710, agent_id: "SYSTEM", key_id: "ed25519:key_system_control", signature: "GOLDEN_TEST_ACCEPT", action_type: "INJECT_SPECIMEN", args: { specimen_id: "S_STAT", patient_identifiers_hash: "pid:hash:stat", collection_ts_s: 0, arrival_ts_s: 710, panel_id: "BIOCHEM_PANEL_CORE", container_type: "SERUM_SST", specimen_type: "SERUM", integrity_flags: { leak: false, clot: false, hemolysis: false }, priority: "STAT" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["INJECT_SPECIMEN"] } }
+        # New reception (A_ANALYTICS now ROLE_RECEPTION) accessions STAT
+        - { event_id: "e5", t_s: 720, agent_id: "A_ANALYTICS", key_id: "ed25519:key_analytics_reception", signature: "GOLDEN_TEST_ACCEPT", action_type: "CREATE_ACCESSION", args: { specimen_id: "S_STAT", priority: "STAT" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["CREATE_ACCESSION"] } }
+        - { event_id: "e6", t_s: 730, agent_id: "A_ANALYTICS", key_id: "ed25519:key_analytics_reception", signature: "GOLDEN_TEST_ACCEPT", action_type: "ACCEPT_SPECIMEN", args: { specimen_id: "S_STAT" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["ACCEPT_SPECIMEN"] } }
+        # New analytics (A_RECEPTION now ROLE_ANALYTICS) moves along graph to analyzer hall then queues STAT; queue contract: STAT at head
+        - { event_id: "e6b1", t_s: 735, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_SRA_RECEPTION", to_zone: "Z_ACCESSIONING" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["MOVE"] } }
+        - { event_id: "e6b2", t_s: 736, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_ACCESSIONING", to_zone: "Z_SORTING_LANES" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["MOVE"] } }
+        - { event_id: "e6b3", t_s: 737, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_SORTING_LANES", to_zone: "Z_PREANALYTICS" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["MOVE"] } }
+        - { event_id: "e6b4", t_s: 738, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_PREANALYTICS", to_zone: "Z_CENTRIFUGE_BAY" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["MOVE"] } }
+        - { event_id: "e6b5", t_s: 739, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_CENTRIFUGE_BAY", to_zone: "Z_ALIQUOT_LABEL" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["MOVE"] } }
+        - { event_id: "e6b6", t_s: 740, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "MOVE", args: { entity_type: "Agent", entity_id: "A_RECEPTION", from_zone: "Z_ALIQUOT_LABEL", to_zone: "Z_ANALYZER_HALL_A" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["MOVE"] } }
+        - { event_id: "e7", t_s: 741, agent_id: "A_RECEPTION", key_id: "ed25519:key_reception_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "QUEUE_RUN", args: { device_id: "DEV_CHEM_A_01", specimen_id: "S_STAT", priority: "STAT" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED", emits: ["QUEUE_RUN"], state_assertions: ["queue_head(DEV_CHEM_A_01) == 'S_STAT'"] } }
+        # Assert: no RELEASE_RESULT from reception role (A_ANALYTICS is now reception -> BLOCKED)
+        - { event_id: "e8", t_s: 8000, agent_id: "A_ANALYTICS", action_type: "RELEASE_RESULT", args: { result_id: "RES_ANY" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "RBAC_ACTION_DENY" } }
+
+    - scenario_id: "GS-SHIFT-CHANGE-002"
+      title: "Runtime control: wrong key on UPDATE_ROSTER -> BLOCKED (SIG_ROLE_MISMATCH); downstream action still blocked (no privilege escalation)"
+      initial_state:
+        system: { now_s: 0, downtime_active: false }
+        specimens:
+          - template_ref: "S_BIOCHEM_OK"
+        tokens: []
+        agents:
+          - agent_id: "A_RECEPTION"
+            zone_id: "Z_SRA_RECEPTION"
+          - agent_id: "A_ANALYTICS"
+            zone_id: "Z_ANALYZER_HALL_A"
+      script:
+        # Attempt UPDATE_ROSTER with analytics key (role ROLE_ANALYTICS, not R_SYSTEM_CONTROL) -> BLOCKED SIG_ROLE_MISMATCH
+        - { event_id: "e1", t_s: 700, agent_id: "SYSTEM", key_id: "ed25519:key_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "UPDATE_ROSTER", args: { roster: { A_RECEPTION: "ROLE_ANALYTICS", A_ANALYTICS: "ROLE_RECEPTION" } }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "SIG_ROLE_MISMATCH" } }
+        # Downstream: A_ANALYTICS would be ROLE_RECEPTION after roster change; CREATE_ACCESSION would then be allowed. Roster was not updated -> A_ANALYTICS still ROLE_ANALYTICS -> CREATE_ACCESSION denied.
+        - { event_id: "e2", t_s: 720, agent_id: "A_ANALYTICS", key_id: "ed25519:key_analytics", signature: "GOLDEN_TEST_ACCEPT", action_type: "CREATE_ACCESSION", args: { specimen_id: "S_X" }, reason_code: null, token_refs: [], expect: { status: "BLOCKED", blocked_reason_code: "RBAC_ACTION_DENY" } }
+
     - scenario_id: "GS-EXPORT-001"
       title: "After normal episode, export-receipts + verify-bundle + export-fhir; assert output files exist and validate"
       initial_state:

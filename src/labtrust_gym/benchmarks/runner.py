@@ -42,7 +42,9 @@ def _policy_versions(root: Path) -> Dict[str, str]:
             data = emits_path.read_text(encoding="utf-8")
             for line in data.splitlines()[:20]:
                 if "version:" in line:
-                    versions["emits_vocab"] = line.split("version:")[-1].strip().strip('"')
+                    versions["emits_vocab"] = (
+                        line.split("version:")[-1].strip().strip('"')
+                    )
                     break
         except Exception:
             versions["emits_vocab"] = "unknown"
@@ -72,7 +74,10 @@ def run_episode(
     log_path: optional JSONL path for episode step log (append mode).
     initial_state_overrides: optional dict merged into initial_state (e.g. timing_mode, ablations).
     """
-    initial_state = task.get_initial_state(episode_seed)
+    calibration = (
+        initial_state_overrides.get("calibration") if initial_state_overrides else None
+    )
+    initial_state = task.get_initial_state(episode_seed, calibration=calibration)
     if initial_state_overrides:
         initial_state = {**initial_state, **initial_state_overrides}
     env = env_factory(
@@ -85,6 +90,19 @@ def run_episode(
         options={"initial_state": initial_state},
     )
     scripted_agents_map = scripted_agents_map or {}
+    # Optional: external agents (LabTrustAgent protocol) get reset(seed, policy_summary, partner_id, timing_mode)
+    policy_summary = initial_state.get("policy_summary")
+    partner_id = initial_state.get("partner_id")
+    for _aid, agent in scripted_agents_map.items():
+        reset_fn = getattr(agent, "reset", None)
+        if callable(reset_fn):
+            reset_fn(
+                episode_seed,
+                policy_summary,
+                partner_id,
+                str(initial_state.get("timing_mode", "explicit")).strip().lower()
+                or "explicit",
+            )
     step_results_per_step: List[List[Dict[str, Any]]] = []
     t_s_list: List[int] = []
     dt_s = getattr(env, "_dt_s", 10)
@@ -108,18 +126,18 @@ def run_episode(
                     action_infos[agent_id] = {**(a_info or {}), **(meta or {})}
             else:
                 actions[agent_id] = 0
-        obs, rewards, term, trunc, infos = env.step(
-            actions, action_infos=action_infos
-        )
+        obs, rewards, term, trunc, infos = env.step(actions, action_infos=action_infos)
         first_agent = list(env.agents)[0] if env.agents else None
         step_results = []
         if first_agent:
-            step_results = infos.get(first_agent, {}).get(
-                "_benchmark_step_results", []
-            )
+            step_results = infos.get(first_agent, {}).get("_benchmark_step_results", [])
         step_results_per_step.append(step_results)
         t_s_list.append(len(step_results_per_step) * dt_s)
-        if timing_mode == "simulated" and hasattr(env, "_engine") and hasattr(env, "_device_ids"):
+        if (
+            timing_mode == "simulated"
+            and hasattr(env, "_engine")
+            and hasattr(env, "_device_ids")
+        ):
             q_per_dev: Dict[str, int] = {}
             for dev in getattr(env, "_device_ids", []):
                 try:
@@ -145,12 +163,16 @@ def run_episode(
         timing_mode=timing_summary.get("timing_mode", timing_mode),
         episode_time_s=episode_time_s,
         device_busy_s=device_busy_s if device_busy_s else None,
-        queue_lengths_per_step=queue_lengths_per_step if queue_lengths_per_step else None,
+        queue_lengths_per_step=(
+            queue_lengths_per_step if queue_lengths_per_step else None
+        ),
     )
     return metrics, step_results_per_step
 
 
-def _default_pz_to_engine(num_runners: int = 2, num_insiders: int = 0) -> Dict[str, str]:
+def _default_pz_to_engine(
+    num_runners: int = 2, num_insiders: int = 0
+) -> Dict[str, str]:
     """Standard PZ agent -> engine agent_id mapping (matches LabTrustParallelEnv default)."""
     d: Dict[str, str] = {"ops_0": "A_OPS_0"}
     for i in range(num_runners):
@@ -191,26 +213,40 @@ def run_benchmark(
         overrides["timing_mode"] = timing_mode
     elif task.timing_mode is not None:
         overrides["timing_mode"] = task.timing_mode
-    initial_state_overrides = overrides if overrides else None
     if repo_root is None:
         from labtrust_gym.config import get_repo_root
+
         repo_root = get_repo_root()
     repo_root = Path(repo_root)
-    effective_policy = None
-    policy_fingerprint = None
+    effective_policy: Optional[Dict[str, Any]] = None
+    policy_fingerprint: Optional[str] = None
     if partner_id:
         from labtrust_gym.policy.loader import load_effective_policy
+
         try:
-            effective_policy, policy_fingerprint, _ = load_effective_policy(repo_root, partner_id=partner_id)
+            effective_policy, policy_fingerprint, _, _ = load_effective_policy(
+                repo_root, partner_id=partner_id
+            )
         except Exception as e:
-            raise RuntimeError(f"Failed to load partner overlay {partner_id!r}: {e}") from e
+            raise RuntimeError(
+                f"Failed to load partner overlay {partner_id!r}: {e}"
+            ) from e
+    if (
+        partner_id
+        and effective_policy is not None
+        and effective_policy.get("calibration")
+    ):
+        overrides["calibration"] = effective_policy["calibration"]
+    initial_state_overrides = overrides if overrides else None
     if log_path is not None:
         Path(log_path).parent.mkdir(parents=True, exist_ok=True)
         Path(log_path).write_text("", encoding="utf-8")
     if env_factory is None:
         from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
 
-        num_adversaries = 1 if task_name in ("TaskD", "TaskD_AdversarialDisruption") else 0
+        num_adversaries = (
+            1 if task_name in ("TaskD", "TaskD_AdversarialDisruption") else 0
+        )
         num_insiders = 1 if task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse") else 0
         num_runners = 1 if num_insiders else 2
 
@@ -233,11 +269,19 @@ def run_benchmark(
                 log_path=log_path,
             )
 
-        def _make_env(initial_state: Dict[str, Any], reward_config: Dict[str, Any], log_path: Optional[Path] = None) -> Any:
+        def _make_env(
+            initial_state: Dict[str, Any],
+            reward_config: Dict[str, Any],
+            log_path: Optional[Path] = None,
+        ) -> Any:
             return _env_factory(
-                initial_state, reward_config, log_path,
-                policy_fingerprint=policy_fingerprint, partner_id=partner_id,
+                initial_state,
+                reward_config,
+                log_path,
+                policy_fingerprint=policy_fingerprint,
+                partner_id=partner_id,
             )
+
         env_factory = _make_env
 
     if scripted_agents_map is None:
@@ -247,6 +291,7 @@ def run_benchmark(
             DEFAULT_ZONE_IDS,
             DEFAULT_DEVICE_IDS,
         )
+
         num_insiders = 1 if task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse") else 0
         num_runners = 1 if num_insiders else 2
         scripted_agents_map = {
@@ -261,22 +306,34 @@ def run_benchmark(
             ),
         }
         if use_llm_safe_v1_ops:
-            from labtrust_gym.baselines.llm.agent import LLMAgentWithShield, DeterministicConstrainedBackend
+            from labtrust_gym.baselines.llm.agent import (
+                LLMAgentWithShield,
+                DeterministicConstrainedBackend,
+            )
             from labtrust_gym.engine.rbac import load_rbac_policy
-            rbac_path = (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+
+            rbac_path = (
+                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            )
             rbac_policy = load_rbac_policy(rbac_path)
-            pz_to_engine = _default_pz_to_engine(num_runners=num_runners, num_insiders=num_insiders)
+            pz_to_engine = _default_pz_to_engine(
+                num_runners=num_runners, num_insiders=num_insiders
+            )
             scripted_agents_map["ops_0"] = LLMAgentWithShield(
-                backend=DeterministicConstrainedBackend(seed=base_seed, default_action_type="NOOP"),
+                backend=DeterministicConstrainedBackend(
+                    seed=base_seed, default_action_type="NOOP"
+                ),
                 rbac_policy=rbac_policy,
                 pz_to_engine=pz_to_engine,
                 strict_signatures=False,
             )
         if task_name in ("TaskD", "TaskD_AdversarialDisruption"):
             from labtrust_gym.baselines.adversary import AdversaryAgent
+
             scripted_agents_map["adversary_0"] = AdversaryAgent()
         if task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse"):
             from labtrust_gym.baselines.insider_adversary import InsiderAdversaryAgent
+
             scripted_agents_map["adversary_insider_0"] = InsiderAdversaryAgent()
 
     seeds = [base_seed + i for i in range(num_episodes)]
@@ -295,6 +352,7 @@ def run_benchmark(
                 DEFAULT_ZONE_IDS,
                 DEFAULT_DEVICE_IDS,
             )
+
             agents_map = {
                 "ops_0": ScriptedOpsAgent(),
                 "runner_0": ScriptedRunnerAgent(
@@ -315,6 +373,7 @@ def run_benchmark(
                 DEFAULT_ZONE_IDS,
                 DEFAULT_DEVICE_IDS,
             )
+
             agents_map = {
                 "ops_0": ScriptedOpsAgent(),
                 "runner_0": ScriptedRunnerAgent(
@@ -337,7 +396,15 @@ def run_benchmark(
     git_hash = _git_commit_hash(repo_root)
     partner_id_result = partner_id
     policy_fingerprint_result = policy_fingerprint
-    agent_baseline_id = "adversary_v1" if task_name in ("TaskD", "TaskD_AdversarialDisruption") else "insider_v1" if task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse") else "scripted_ops_v1"
+    agent_baseline_id = (
+        "adversary_v1"
+        if task_name in ("TaskD", "TaskD_AdversarialDisruption")
+        else (
+            "insider_v1"
+            if task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse")
+            else "scripted_ops_v1"
+        )
+    )
 
     effective_timing = (initial_state_overrides or {}).get("timing_mode", "explicit")
     results = {
@@ -380,6 +447,7 @@ def main(
     """CLI entry: run benchmark and write results.json."""
     if repo_root is None:
         from labtrust_gym.config import get_repo_root
+
         repo_root = get_repo_root()
     run_benchmark(
         task_name=task,
@@ -391,5 +459,3 @@ def main(
     )
     print(f"Wrote {out}", file=sys.stderr)
     return 0
-
-

@@ -84,7 +84,9 @@ def load_policy_file(path: Path) -> dict[str, Any]:
         return load_json(path)
     if suffix in (".yaml", ".yml"):
         return load_yaml(path)
-    raise PolicyLoadError(path, f"unsupported extension {suffix!r}; use .json, .yaml, or .yml")
+    raise PolicyLoadError(
+        path, f"unsupported extension {suffix!r}; use .json, .yaml, or .yml"
+    )
 
 
 def validate_against_schema(
@@ -113,7 +115,9 @@ def validate_against_schema(
             msg += f" at {e.absolute_path}"
         raise PolicyLoadError(path or Path("."), msg) from e
     except Exception as e:
-        raise PolicyLoadError(path or Path("."), f"schema validation failed: {e}") from e
+        raise PolicyLoadError(
+            path or Path("."), f"schema validation failed: {e}"
+        ) from e
 
 
 # Policy file -> schema file mapping (filename under policy/ -> schema under policy/schemas/)
@@ -161,6 +165,7 @@ PARTNER_OVERLAY_FILES = {
     "equipment_registry": "equipment/equipment_registry.v0.1.yaml",
     "escalation_ladder": "critical/escalation_ladder.v0.2.yaml",
 }
+CALIBRATION_FILENAME = "calibration.v0.1.yaml"
 BASE_POLICY_PATHS = {
     "critical_thresholds": "policy/critical/critical_thresholds.v0.1.yaml",
     "stability_policy": "policy/stability/stability_policy.v0.1.yaml",
@@ -274,10 +279,95 @@ def _load_overlay_escalation_ladder(overlay_dir: Path) -> dict[str, Any] | None:
     return load_yaml(p)
 
 
+def _load_overlay_calibration(overlay_dir: Path) -> dict[str, Any] | None:
+    """Load partner calibration.v0.1.yaml if present. Validates against schema when available."""
+    p = overlay_dir / CALIBRATION_FILENAME
+    if not p.exists():
+        return None
+    data = load_yaml(p)
+    if not isinstance(data, dict):
+        return None
+    schema_path = overlay_dir.parent.parent / "schemas" / "calibration.v0.1.schema.json"
+    if schema_path.exists() and jsonschema is not None:
+        try:
+            schema = load_json(schema_path)
+            validate_against_schema(data, schema, p)
+        except PolicyLoadError:
+            raise
+    return data
+
+
+def compute_calibration_fingerprint(calibration: dict[str, Any]) -> str:
+    """Compute SHA-256 hash of canonical JSON of calibration (deterministic)."""
+    payload = json.dumps(calibration, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    return hashlib.sha256(payload).hexdigest()
+
+
 def compute_policy_fingerprint(effective_policy: dict[str, Any]) -> str:
     """Compute SHA-256 hash of canonical JSON of effective policy (deterministic)."""
-    payload = json.dumps(effective_policy, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    payload = json.dumps(
+        effective_policy, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def get_effective_policy_file_paths(
+    root: Path,
+    partner_id: str | None = None,
+) -> list[tuple[str, Path]]:
+    """
+    Return list of (relative_path, absolute_path) for all policy files that contribute
+    to effective policy (after partner overlay). Paths relative to root. Deterministic order.
+    """
+    root = Path(root)
+    out: list[tuple[str, Path]] = []
+    for key, rel in BASE_POLICY_PATHS.items():
+        p = root / rel
+        if p.exists():
+            out.append((rel, p))
+    if partner_id:
+        overlay_dir = get_partner_overlay_dir(root, partner_id)
+        if overlay_dir.is_dir():
+            for key, rel in PARTNER_OVERLAY_FILES.items():
+                p = overlay_dir / rel
+                if p.exists():
+                    partner_rel = f"policy/partners/{partner_id}/{rel}"
+                    out.append((partner_rel, p))
+            cal_path = overlay_dir / CALIBRATION_FILENAME
+            if cal_path.exists():
+                out.append(
+                    (
+                        f"policy/partners/{partner_id}/{CALIBRATION_FILENAME}",
+                        cal_path,
+                    )
+                )
+    return sorted(out, key=lambda x: x[0])
+
+
+def build_policy_pack_manifest(
+    root: Path,
+    partner_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Build policy_pack_manifest.v0.1: list effective policy files with sha256, plus root_hash.
+    root_hash = sha256(canonical_json({version, files})) excluding root_hash.
+    """
+    root = Path(root)
+    paths = get_effective_policy_file_paths(root, partner_id)
+    files: list[dict[str, Any]] = []
+    for rel, abspath in paths:
+        digest = hashlib.sha256(abspath.read_bytes()).hexdigest()
+        files.append({"path": rel, "sha256": digest})
+    manifest: dict[str, Any] = {
+        "version": "0.1",
+        "partner_id": partner_id,
+        "files": files,
+    }
+    payload = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+    manifest["root_hash"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return manifest
 
 
 def load_effective_policy(
@@ -299,7 +389,9 @@ def load_effective_policy(
     if partner_id:
         overlay_dir = get_partner_overlay_dir(root, partner_id)
         if not overlay_dir.is_dir():
-            raise PolicyLoadError(overlay_dir, f"partner overlay dir not found for {partner_id!r}")
+            raise PolicyLoadError(
+                overlay_dir, f"partner overlay dir not found for {partner_id!r}"
+            )
         overlay_critical = _load_overlay_critical_list(overlay_dir)
         overlay_stability = _load_overlay_stability(overlay_dir)
         overlay_enforcement = _load_overlay_enforcement(overlay_dir)
@@ -334,12 +426,14 @@ def load_effective_policy(
         )
         if escalation_ladder is None:
             escalation_ladder = base_ladder
+        calibration = _load_overlay_calibration(overlay_dir)
     else:
         critical_list = base_critical
         stability_policy = base_stability
         enforcement_map = base_enforcement
         equipment_registry = base_equipment
         escalation_ladder = _load_base_escalation_ladder(root)
+        calibration = None
 
     effective_policy = {
         "critical_thresholds": critical_list,
@@ -347,6 +441,10 @@ def load_effective_policy(
         "enforcement_map": enforcement_map,
         "equipment_registry": equipment_registry,
         "escalation_ladder": escalation_ladder,
+        "calibration": calibration,
     }
     fingerprint = compute_policy_fingerprint(effective_policy)
-    return effective_policy, fingerprint, partner_id
+    calibration_fingerprint = (
+        compute_calibration_fingerprint(calibration) if calibration else None
+    )
+    return effective_policy, fingerprint, partner_id, calibration_fingerprint

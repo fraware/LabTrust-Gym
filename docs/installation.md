@@ -19,6 +19,33 @@ labtrust --version
 
 When installed from a wheel, policy files are bundled in the package. When developing from source, policy is read from the repo `policy/` directory. You can override the policy location with the `LABTRUST_POLICY_DIR` environment variable (path to the policy directory).
 
+## Configuration (no .env file required)
+
+LabTrust-Gym **does not load a `.env` file**. All configuration is via **environment variables** (set in your shell or CI). You do **not** need to create a `.env` file for normal use.
+
+Optional env vars (all have defaults or CLI overrides):
+
+| Variable | Purpose |
+|----------|---------|
+| `LABTRUST_POLICY_DIR` | Path to policy directory (overrides package/repo policy). |
+| `LABTRUST_PARTNER` | Partner overlay ID (e.g. `hsl_like`); same as `--partner` on CLI. |
+| `LABTRUST_STRICT_SIGNATURES` | Set to `1` to enable strict signature verification in the engine. |
+| `LABTRUST_STRICT_REASON_CODES` | Set to `1` so golden runner requires reason codes in registry. |
+| `LABTRUST_REPRO_SMOKE` | Set to `1` / `true` / `yes` for reproduce/study smoke (1 episode per condition). |
+| `LABTRUST_PAPER_SMOKE` | Set to `1` / `true` / `yes` for package-release paper_v0.1 smoke (few episodes). |
+| `LABTRUST_RUN_GOLDEN` | Set to `1` to run full golden suite in tests (e.g. `pytest test_golden_suite.py`). |
+
+If you want to use a `.env` file (e.g. for local overrides), load it yourself before running (e.g. `python-dotenv` in a wrapper script, or `export $(grep -v '^#' .env | xargs)` in bash before `labtrust`).
+
+### LLMs: no API keys required by default
+
+The **LLM baselines** (benchmarks, tests, quick-eval) do **not** call any external API. They use **deterministic, offline backends**:
+
+- **DeterministicConstrainedBackend** — Official LLM baseline: chooses from allowed actions with a **seeded RNG**; no network, no API key.
+- **MockDeterministicBackend** / **MockDeterministicBackendV2** — Canned JSON responses for tests; no API.
+
+So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. The **OpenAIBackend** stub exists only for future use; it reads `OPENAI_API_KEY` from the environment and, in this codebase, never actually calls the API (stub returns NOOP or raises `NotImplementedError`). If you plug in a real LLM provider later, you would set the API key in the environment (or load it from a `.env` yourself). See [LLM baselines](llm_baselines.md).
+
 ## Quick eval
 
 After installing with `[env,plots]`, run a minimal sanity check (1 episode each of TaskA, TaskD, TaskE with scripted baselines):
@@ -71,3 +98,23 @@ pytest -q
 ```
 
 Optional extras: `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings).
+
+**Quickstart (paper artifact):** From repo root, run `bash scripts/quickstart_paper_v0.1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows). Runs: install → validate-policy → quick-eval → package-release paper_v0.1 → verify-bundle. See [CONTRACTS](CONTRACTS.md) and [Paper-ready](paper_ready.md).
+
+**UI export:** To produce a UI-ready zip from a run (quick-eval or package-release output): `labtrust ui-export --run <dir> --out ui_bundle.zip`. The bundle contains normalized `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. See [UI data contract](ui_data_contract.md).
+
+## Troubleshooting
+
+| Failure | Cause | Fix |
+|--------|--------|-----|
+| **ModuleNotFoundError: pettingzoo / gymnasium** | Missing `[env]` extra | `pip install labtrust-gym[env,plots]` or `pip install -e ".[env]"` |
+| **labtrust: command not found** | Package not on PATH or not installed | Use `python -m labtrust_gym.cli.main` or reinstall with `pip install -e .` |
+| **Policy file not found** | Policy path not resolved | Set `LABTRUST_POLICY_DIR` to repo `policy/` when developing; from wheel, policy is bundled. |
+| **Schema validation failed** | Policy YAML/JSON doesn't match schema | Run `labtrust validate-policy`; fix reported files. For partner: `labtrust validate-policy --partner hsl_like`. |
+| **Schema mismatch (results/receipt/UI bundle)** | Results or receipt schema version changed | Use schema version in file (`schema_version` / `ui_bundle_version`); UI and tools should ignore unknown optional fields (extensible-only policy). See [CONTRACTS](CONTRACTS.md) and [UI data contract](ui_data_contract.md). |
+| **quick-eval / run-benchmark fails** | Missing env or plots | Install with `[env,plots]`: `pip install labtrust-gym[env,plots]`. |
+| **MARL / train-ppo fails** | Missing `[marl]` | `pip install -e ".[marl]"` (Stable-Baselines3). |
+| **MkDocs build fails** | Missing `[docs]` | `pip install -e ".[docs]"`. |
+| **Path resolution (Windows)** | Spaces in path | Quote paths: `labtrust quick-eval --out-dir "C:\LabTrust runs"`. |
+| **Set-Location / command "fails" (PowerShell)** | Project path contains **special characters** (e.g. **é** in "Matéo") | PowerShell or the runner may mangle Unicode and `cd` to the project dir can fail. **Fix:** Clone or move the repo to a path **without** accented characters (e.g. `C:\LabTrust-Gym`). Then run commands from that directory. Alternatively run from an existing shell already in the repo: `python -m labtrust_gym.cli.main --version`. |
+| **pytest timeout** | Long test (e.g. `test_package_release_determinism`) runs full package-release | Run with a higher per-test timeout, e.g. `pytest -q --timeout=300`, or exclude long tests: `pytest -q --ignore=tests/test_package_release.py`. |

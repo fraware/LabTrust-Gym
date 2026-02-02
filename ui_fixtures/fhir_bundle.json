@@ -1,0 +1,1 @@
+{"resourceType": "Bundle", "type": "collection", "meta": {"tag": [], "extension": []}, "entry": [{"fullUrl": "urn:uuid:specimen-S1", "resource": {"resourceType": "Specimen", "id": "S1", "identifier": [{"system": "urn:labtrust:specimen", "value": "S1"}]}}]}

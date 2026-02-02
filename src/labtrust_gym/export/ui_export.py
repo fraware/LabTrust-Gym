@@ -1,0 +1,313 @@
+"""
+UI export: normalized UI-ready JSON from a labtrust run (quick-eval or package-release).
+
+Produces a zip bundle containing:
+- index.json (episodes/tasks/baselines, file refs)
+- events.json (normalized gate outcomes from episode logs)
+- receipts_index.json (task -> path, receipt_files)
+- reason_codes.json (registry from policy)
+
+See docs/ui_data_contract.md for contract and schema version handling.
+"""
+
+from __future__ import annotations
+
+import json
+import zipfile
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+UI_BUNDLE_VERSION = "0.1"
+
+# Stable event field names (contract)
+EVENT_FIELDS = (
+    "t_s",
+    "agent_id",
+    "action_type",
+    "status",
+    "blocked_reason_code",
+    "emits",
+    "violations",
+    "token_consumed",
+    "event_id",
+)
+
+
+def _detect_run_type(run_dir: Path) -> str:
+    """Return 'quick_eval' or 'package_release' based on directory layout."""
+    run_dir = run_dir.resolve()
+    if not run_dir.is_dir():
+        raise FileNotFoundError(f"Run directory does not exist: {run_dir}")
+    # package-release: _baselines, _repr, _study, metadata.json, RELEASE_NOTES.md
+    has_release_dirs = (
+        (run_dir / "_baselines").is_dir()
+        or (run_dir / "_repr").is_dir()
+        or (run_dir / "_study").is_dir()
+    )
+    if has_release_dirs:
+        return "package_release"
+    if (run_dir / "metadata.json").exists() or (run_dir / "RELEASE_NOTES.md").exists():
+        return "package_release"
+    # quick-eval: TaskA.json, TaskD.json, TaskE.json and logs/
+    if (run_dir / "TaskA.json").exists() and (run_dir / "logs").is_dir():
+        return "quick_eval"
+    # Fallback: if we have any Task*.json + logs, treat as quick_eval shape
+    task_jsons = list(run_dir.glob("Task*.json"))
+    if task_jsons and (run_dir / "logs").is_dir():
+        return "quick_eval"
+    raise ValueError(
+        f"Unrecognized run layout under {run_dir}. "
+        "Expected labtrust_runs/quick_eval_* (TaskA.json, logs/) or "
+        "package-release (_baselines, _repr, _study, receipts/)."
+    )
+
+
+def _normalize_event(
+    raw: Dict[str, Any], task: str = "", episode_index: int = 0
+) -> Dict[str, Any]:
+    """Normalize one JSONL step line to stable UI event fields."""
+    out: Dict[str, Any] = {}
+    for k in EVENT_FIELDS:
+        if k in raw:
+            out[k] = raw[k]
+        elif k == "emits":
+            out[k] = raw.get("emits") or []
+        elif k == "violations":
+            out[k] = raw.get("violations") or []
+        elif k == "token_consumed":
+            out[k] = raw.get("token_consumed") or []
+        else:
+            out[k] = None
+    out["task"] = task
+    out["episode_index"] = episode_index
+    out["episode_key"] = f"{task}_{episode_index}"
+    return out
+
+
+def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
+    """Load JSONL file; return list of dicts."""
+    lines: List[Dict[str, Any]] = []
+    if not path.is_file():
+        return lines
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                lines.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return lines
+
+
+def _collect_quick_eval(
+    run_dir: Path,
+) -> Tuple[List[str], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Collect tasks, episodes index, and receipt entries for quick-eval layout."""
+    tasks: List[str] = []
+    episodes: List[Dict[str, Any]] = []
+    receipts_index: List[Dict[str, Any]] = []
+    logs_dir = run_dir / "logs"
+    for res_path in sorted(run_dir.glob("Task*.json")):
+        task = res_path.stem
+        tasks.append(task)
+        try:
+            data = json.loads(res_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        eps = data.get("episodes") or []
+        log_path = logs_dir / f"{task}.jsonl"
+        for ep_idx in range(len(eps)):
+            episodes.append(
+                {
+                    "task": task,
+                    "episode_index": ep_idx,
+                    "results_ref": str(res_path.relative_to(run_dir)),
+                    "log_ref": (
+                        str(log_path.relative_to(run_dir))
+                        if log_path.exists()
+                        else None
+                    ),
+                    "receipts_ref": None,
+                }
+            )
+    return tasks, episodes, receipts_index
+
+
+def _collect_package_release(
+    run_dir: Path,
+) -> Tuple[List[str], List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
+    """Collect tasks, episodes, receipts_index, baselines for package-release layout."""
+    tasks: List[str] = []
+    episodes: List[Dict[str, Any]] = []
+    receipts_index: List[Dict[str, Any]] = []
+    baselines: List[str] = []
+
+    # _repr/<task>/: results.json, episodes.jsonl; receipts/<task>/
+    repr_dir = run_dir / "_repr"
+    if repr_dir.is_dir():
+        for task_dir in sorted(repr_dir.iterdir()):
+            if not task_dir.is_dir():
+                continue
+            task = task_dir.name
+            if task not in tasks:
+                tasks.append(task)
+            res_path = task_dir / "results.json"
+            log_path = task_dir / "episodes.jsonl"
+            if res_path.exists():
+                try:
+                    data = json.loads(res_path.read_text(encoding="utf-8"))
+                    eps = data.get("episodes") or []
+                except (json.JSONDecodeError, OSError):
+                    eps = [{}]
+            else:
+                eps = [{}] if log_path.exists() else []
+            for ep_idx in range(len(eps)):
+                episodes.append(
+                    {
+                        "task": task,
+                        "episode_index": ep_idx,
+                        "results_ref": str(res_path.relative_to(run_dir)),
+                        "log_ref": (
+                            str(log_path.relative_to(run_dir))
+                            if log_path.exists()
+                            else None
+                        ),
+                        "receipts_ref": f"receipts/{task}",
+                    }
+                )
+            # Receipts for this task
+            rec_dir = run_dir / "receipts" / task
+            if rec_dir.is_dir():
+                receipt_files: List[str] = []
+                bundle_dir = rec_dir / "EvidenceBundle.v0.1"
+                if bundle_dir.is_dir():
+                    for f in bundle_dir.iterdir():
+                        if f.is_file() and f.suffix == ".json":
+                            receipt_files.append(f.name)
+                for f in rec_dir.iterdir():
+                    if (
+                        f.is_file()
+                        and f.name.startswith("receipt_")
+                        and f.suffix == ".json"
+                    ):
+                        receipt_files.append(f.name)
+                if receipt_files:
+                    receipts_index.append(
+                        {
+                            "task": task,
+                            "path": str(rec_dir.relative_to(run_dir)),
+                            "receipt_files": sorted(receipt_files),
+                        }
+                    )
+
+    # _baselines/results/*.json
+    bl_dir = run_dir / "_baselines"
+    if bl_dir.is_dir():
+        bl_results = bl_dir / "results"
+        if bl_results.is_dir():
+            for res_path in sorted(bl_results.glob("*.json")):
+                task = res_path.stem
+                if task not in tasks:
+                    tasks.append(task)
+                baselines.append(task)
+                episodes.append(
+                    {
+                        "task": task,
+                        "episode_index": 0,
+                        "results_ref": str(res_path.relative_to(run_dir)),
+                        "log_ref": None,
+                        "receipts_ref": None,
+                    }
+                )
+
+    return tasks, episodes, receipts_index, baselines
+
+
+def _build_events(
+    run_dir: Path,
+    run_type: str,
+    tasks: List[str],
+    episodes: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Build normalized events.json from episode logs."""
+    events: List[Dict[str, Any]] = []
+    for ep in episodes:
+        task = ep.get("task", "")
+        ep_idx = ep.get("episode_index", 0)
+        log_ref = ep.get("log_ref")
+        if not log_ref:
+            continue
+        log_path = run_dir / log_ref
+        for raw in _load_jsonl(log_path):
+            events.append(_normalize_event(raw, task=task, episode_index=ep_idx))
+    return events
+
+
+def _load_reason_codes_json(repo_root: Path) -> Dict[str, Any]:
+    """Load reason code registry and return UI shape: { version, codes }."""
+    reg_path = repo_root / "policy" / "reason_codes" / "reason_code_registry.v0.1.yaml"
+    if not reg_path.exists():
+        return {"version": "0.1", "codes": {}}
+    try:
+        from labtrust_gym.policy.reason_codes import load_reason_code_registry
+
+        codes = load_reason_code_registry(reg_path)
+        return {"version": "0.1", "codes": codes}
+    except Exception:
+        return {"version": "0.1", "codes": {}}
+
+
+def export_ui_bundle(
+    run_dir: Path,
+    out_zip_path: Path,
+    repo_root: Optional[Path] = None,
+) -> Path:
+    """
+    Export a UI-ready zip from a labtrust run directory.
+
+    - run_dir: path to labtrust_runs/quick_eval_* or package-release output
+    - out_zip_path: path to output .zip (e.g. ui_bundle.zip)
+    - repo_root: policy root (for reason_codes); default from get_repo_root()
+
+    Writes: index.json, events.json, receipts_index.json, reason_codes.json
+    """
+    if repo_root is None:
+        from labtrust_gym.config import get_repo_root
+
+        repo_root = get_repo_root()
+
+    run_dir = run_dir.resolve()
+    out_zip_path = out_zip_path.resolve()
+    run_type = _detect_run_type(run_dir)
+
+    if run_type == "quick_eval":
+        tasks, episodes, receipts_index = _collect_quick_eval(run_dir)
+        baselines = []
+    else:
+        tasks, episodes, receipts_index, baselines = _collect_package_release(run_dir)
+
+    events = _build_events(run_dir, run_type, tasks, episodes)
+
+    index = {
+        "ui_bundle_version": UI_BUNDLE_VERSION,
+        "run_type": run_type,
+        "tasks": tasks,
+        "episodes": episodes,
+        "baselines": baselines,
+    }
+    reason_codes = _load_reason_codes_json(Path(repo_root))
+
+    out_zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(out_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("index.json", json.dumps(index, indent=2, sort_keys=True))
+        zf.writestr("events.json", json.dumps(events, indent=2, sort_keys=True))
+        zf.writestr(
+            "receipts_index.json", json.dumps(receipts_index, indent=2, sort_keys=True)
+        )
+        zf.writestr(
+            "reason_codes.json", json.dumps(reason_codes, indent=2, sort_keys=True)
+        )
+
+    return out_zip_path

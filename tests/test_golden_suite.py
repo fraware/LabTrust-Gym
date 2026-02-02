@@ -25,6 +25,7 @@ def _get_env_adapter():  # type: () -> LabTrustEnvAdapter
     """Return real engine when LABTRUST_RUN_GOLDEN=1, else placeholder."""
     if os.environ.get("LABTRUST_RUN_GOLDEN") == "1":
         from labtrust_gym.engine.core_env import CoreEnv
+
         return CoreEnv()
     return PlaceholderLabTrustEnv()
 
@@ -35,9 +36,7 @@ class PlaceholderLabTrustEnv(LabTrustEnvAdapter):
     Used when LABTRUST_RUN_GOLDEN is not set so tests are skipped.
     """
 
-    def reset(
-        self, initial_state, *, deterministic: bool, rng_seed: int
-    ) -> None:
+    def reset(self, initial_state, *, deterministic: bool, rng_seed: int) -> None:
         raise NotImplementedError("Engine adapter not implemented.")
 
     def step(self, event):
@@ -80,7 +79,9 @@ def test_golden_suite(suite_path: str, tmp_path: Path) -> None:
     if not suite_file.exists():
         pytest.skip(f"Suite file not found: {suite_file}")
 
-    schema_path = root / "policy" / "schemas" / "runner_output_contract.v0.1.schema.json"
+    schema_path = (
+        root / "policy" / "schemas" / "runner_output_contract.v0.1.schema.json"
+    )
     if not schema_path.exists():
         schema_path = root / "runner_output_contract.v0.1.schema.json"
     if not schema_path.exists():
@@ -109,7 +110,9 @@ def test_golden_suite(suite_path: str, tmp_path: Path) -> None:
             {
                 "scenario_id": r["scenario_id"],
                 "title": r.get("title", ""),
-                "first_failure": r.get("failures", [{}])[0] if r.get("failures") else None,
+                "first_failure": (
+                    r.get("failures", [{}])[0] if r.get("failures") else None
+                ),
             }
             for r in failed
         ]
@@ -210,3 +213,52 @@ def test_post_run_hooks_parsing_and_execution(tmp_path: Path) -> None:
     fhir_data = json.loads(fhir_path.read_text(encoding="utf-8"))
     assert fhir_data.get("resourceType") == "Bundle"
     assert "entry" in fhir_data and isinstance(fhir_data["entry"], list)
+
+
+def test_golden_shift_change_001(tmp_path: Path) -> None:
+    """
+    Run GS-SHIFT-CHANGE-001 only: mid-episode roster update, STAT inject, no RELEASE_RESULT
+    from reception role, strict mode (all mutating actions signed).
+    Skipped unless LABTRUST_RUN_GOLDEN=1.
+    """
+    if not _should_run_golden():
+        pytest.skip(
+            "Set LABTRUST_RUN_GOLDEN=1 to run golden scenario GS-SHIFT-CHANGE-001."
+        )
+
+    root = _repo_root()
+    suite_file = root / "policy" / "golden" / "golden_scenarios.v0.1.yaml"
+    if not suite_file.exists():
+        pytest.skip(f"Suite file not found: {suite_file}")
+
+    import yaml
+
+    suite = yaml.safe_load(suite_file.read_text(encoding="utf-8"))
+    scenarios = suite.get("golden_suite", {}).get("scenarios", [])
+    shift_scen = next(
+        (s for s in scenarios if s.get("scenario_id") == "GS-SHIFT-CHANGE-001"),
+        None,
+    )
+    if shift_scen is None:
+        pytest.skip("GS-SHIFT-CHANGE-001 not found in golden_scenarios.v0.1.yaml")
+
+    env = _get_env_adapter()
+    emits_path = root / "policy" / "emits" / "emits_vocab.v0.1.yaml"
+    if not emits_path.exists():
+        pytest.fail("Emits vocab not found")
+    runner = GoldenRunner(
+        env,
+        emits_vocab_path=str(emits_path),
+        policy_root=root,
+    )
+
+    report = runner._run_scenario(shift_scen, rng_seed=12345, work_dir=tmp_path)
+
+    assert report.passed, f"GS-SHIFT-CHANGE-001 must pass: failures={report.failures!r}"
+    assert report.scenario_id == "GS-SHIFT-CHANGE-001"
+    assert len(report.step_reports) >= 9
+    # Last step: RELEASE_RESULT from A_ANALYTICS (reception role) -> BLOCKED
+    last_sr = report.step_reports[-1]
+    assert last_sr.action_type == "RELEASE_RESULT"
+    assert last_sr.status == "BLOCKED"
+    assert last_sr.blocked_reason_code == "RBAC_ACTION_DENY"

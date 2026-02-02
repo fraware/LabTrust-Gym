@@ -1,10 +1,21 @@
 # Key registry v0.1: Ed25519 public keys for signed actions.
 # key_id, public_key (base64), agent_id, role_id, status, validity window.
 # Used when strict_signatures enabled; verification results in step output + receipts.
+# Runtime control (UPDATE_ROSTER, INJECT_SPECIMEN) always require SYSTEM key; see R_SYSTEM_CONTROL.
 
 key_registry:
   version: "0.1"
   keys:
+    # SYSTEM control key: required for UPDATE_ROSTER, INJECT_SPECIMEN (always signature-verified).
+    - key_id: "ed25519:key_system_control"
+      public_key: "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao="
+      agent_id: "SYSTEM"
+      role_id: "R_SYSTEM_CONTROL"
+      status: "ACTIVE"
+      not_before_ts_s: null
+      not_after_ts_s: null
+      rotation_of_key_id: null
+
     # Test key (RFC 8032 test vector 1) for golden / unit tests.
     - key_id: "ed25519:key_reception"
       public_key: "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao="
@@ -19,6 +30,35 @@ key_registry:
       public_key: "PUAXw+hDiVqStwrHdBt+vJyYLM8uxJaMyNVdEq9GYMw="
       agent_id: "A_RUNNER"
       role_id: "ROLE_RUNNER"
+      status: "ACTIVE"
+      not_before_ts_s: null
+      not_after_ts_s: null
+      rotation_of_key_id: null
+
+    - key_id: "ed25519:key_analytics"
+      public_key: "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao="
+      agent_id: "A_ANALYTICS"
+      role_id: "ROLE_ANALYTICS"
+      status: "ACTIVE"
+      not_before_ts_s: null
+      not_after_ts_s: null
+      rotation_of_key_id: null
+
+    # Post-shift: A_RECEPTION acting as ROLE_ANALYTICS (GS-SHIFT-CHANGE-001)
+    - key_id: "ed25519:key_reception_analytics"
+      public_key: "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao="
+      agent_id: "A_RECEPTION"
+      role_id: "ROLE_ANALYTICS"
+      status: "ACTIVE"
+      not_before_ts_s: null
+      not_after_ts_s: null
+      rotation_of_key_id: null
+
+    # Post-shift: A_ANALYTICS acting as ROLE_RECEPTION (GS-SHIFT-CHANGE-001)
+    - key_id: "ed25519:key_analytics_reception"
+      public_key: "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao="
+      agent_id: "A_ANALYTICS"
+      role_id: "ROLE_RECEPTION"
       status: "ACTIVE"
       not_before_ts_s: null
       not_after_ts_s: null

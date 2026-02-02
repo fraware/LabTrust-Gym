@@ -42,7 +42,10 @@ def apply_shield(
     # Only block on allowed_actions list when agent is in policy (non-empty list)
     allowed_actions = policy_summary.get("allowed_actions")
     noop_base: Dict[str, Any] = {
-        "action_type": "NOOP", "args": {}, "reason_code": None, "token_refs": [],
+        "action_type": "NOOP",
+        "args": {},
+        "reason_code": None,
+        "token_refs": [],
         "rationale": (candidate.get("rationale") or "").strip(),
     }
     if (
@@ -76,6 +79,15 @@ def apply_shield(
     return (safe, False, None)
 
 
+# Stable citation anchor prefixes for policy sections (LLM rationale must cite at least one)
+CITATION_ANCHOR_RBAC_ALLOWED = "POLICY:RBAC:allowed_actions"
+CITATION_ANCHOR_ZONES_RESTRICTED = "POLICY:ZONES:restricted_zones"
+CITATION_ANCHOR_ZONES_AGENT = "POLICY:ZONES:agent_zone"
+CITATION_ANCHOR_TOKENS = "POLICY:TOKENS:token_requirements"
+CITATION_ANCHOR_CONSTRAINTS = "POLICY:CONSTRAINTS:key_constraints"
+CITATION_ANCHOR_CRITICAL = "POLICY:CRITICAL:critical_ladder_summary"
+
+
 def build_policy_summary(
     allowed_actions: Optional[list] = None,
     agent_zone: Optional[str] = None,
@@ -88,8 +100,9 @@ def build_policy_summary(
     critical_ladder_summary: Optional[Dict[str, Any]] = None,
     restricted_zones: Optional[list] = None,
     token_requirements: Optional[Dict[str, list]] = None,
+    role_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Build policy_summary dict for LLM (what the agent can see). Conforms to policy_summary.schema.v0.1."""
+    """Build policy_summary dict for LLM (what the agent can see). Conforms to policy_summary.schema.v0.1. Includes stable citation_anchors for rationale."""
     out: Dict[str, Any] = {
         "allowed_actions": list(allowed_actions) if allowed_actions else [],
         "agent_zone": agent_zone,
@@ -107,6 +120,22 @@ def build_policy_summary(
         out["restricted_zones"] = list(restricted_zones)
     if token_requirements is not None:
         out["token_requirements"] = {k: list(v) for k, v in token_requirements.items()}
+
+    # Stable citation anchors: at least RBAC; add section anchors for present sections
+    citation_anchors: list = [CITATION_ANCHOR_RBAC_ALLOWED]
+    if role_id:
+        citation_anchors.append(f"POLICY:RBAC:roles.{role_id}.allowed_actions")
+    if restricted_zones:
+        citation_anchors.append(CITATION_ANCHOR_ZONES_RESTRICTED)
+    if agent_zone is not None:
+        citation_anchors.append(CITATION_ANCHOR_ZONES_AGENT)
+    if token_requirements:
+        citation_anchors.append(CITATION_ANCHOR_TOKENS)
+    if key_constraints:
+        citation_anchors.append(CITATION_ANCHOR_CONSTRAINTS)
+    if critical_ladder_summary:
+        citation_anchors.append(CITATION_ANCHOR_CRITICAL)
+    out["citation_anchors"] = citation_anchors
     return out
 
 
@@ -119,10 +148,12 @@ def generate_policy_summary_from_policy(
     pending_criticals: Optional[list] = None,
     log_frozen: bool = False,
     strict_signatures: bool = False,
+    role_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Build policy summary with minimal key constraints, critical ladder, restricted zones, token requirements.
     Loads from policy/ when repo_root is provided; otherwise uses stub defaults.
+    Includes stable citation_anchors for rationale.
     """
     from pathlib import Path
 
@@ -138,6 +169,7 @@ def generate_policy_summary_from_policy(
         if zones_path.exists():
             try:
                 from labtrust_gym.policy.loader import load_yaml
+
                 zones_data = load_yaml(zones_path)
                 zones = zones_data.get("zone_layout") or zones_data.get("zones") or {}
                 if isinstance(zones, dict):
@@ -151,8 +183,13 @@ def generate_policy_summary_from_policy(
         if token_map_path.exists():
             try:
                 from labtrust_gym.policy.loader import load_yaml
+
                 token_data = load_yaml(token_map_path)
-                enforcement = token_data.get("token_enforcement_map") or token_data.get("action_tokens") or {}
+                enforcement = (
+                    token_data.get("token_enforcement_map")
+                    or token_data.get("action_tokens")
+                    or {}
+                )
                 if isinstance(enforcement, dict):
                     for action, tokens in enforcement.items():
                         if isinstance(tokens, list):
@@ -181,5 +218,6 @@ def generate_policy_summary_from_policy(
         critical_ladder_summary=critical_ladder_summary or None,
         restricted_zones=restricted_zones or None,
         token_requirements=token_requirements or None,
+        role_id=role_id,
     )
     return summary

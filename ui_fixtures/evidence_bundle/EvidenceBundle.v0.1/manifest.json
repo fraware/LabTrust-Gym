@@ -1,0 +1,14 @@
+{
+  "version": "0.1",
+  "files": [
+    {"path": "enforcement_actions.jsonl", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"path": "episode_log_subset.jsonl", "sha256": "efbb63e9e679d7b61728ff24e7ea6feabd5603bea751e2219363421cb426c0fb"},
+    {"path": "hashchain_proof.json", "sha256": "f4a649c89407809f02463b1575937f18f7a6805652f28d0f358921bf031b3fde"},
+    {"path": "invariant_eval_trace.jsonl", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"path": "receipt_specimen_S1.v0.1.json", "sha256": "843c4fb327415a6e609125bb95273cc9c2929f4c9ef2bac4ea31a5fb312a5491"}
+  ],
+  "policy_fingerprint": null,
+  "partner_id": null,
+  "policy_root_hash": null,
+  "signature": null
+}

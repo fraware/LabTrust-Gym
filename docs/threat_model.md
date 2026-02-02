@@ -6,5 +6,6 @@ LabTrust-Gym is a simulation and benchmark environment. This section outlines th
 - **Token lifecycle**: ACTIVE/EXPIRED/CONSUMED/REVOKED; single-use consumption; dual approval where required.
 - **Reason codes**: Every BLOCKED, HOLD, REJECT must carry a reason code; missing reason code blocks with AUDIT_MISSING_REASON_CODE.
 - **Emits**: Only vocabulary-listed event types may be emitted; unknown emits fail the golden suite.
+- **Runtime control (UPDATE_ROSTER, INJECT_SPECIMEN)**: Always require SYSTEM agent_id, RBAC allowlist (R_SYSTEM_CONTROL), and a valid signature with the SYSTEM control key (ed25519:key_system_control). No bypass for strict_signatures; missing or wrong key → BLOCKED (SIG_MISSING, SIG_INVALID, or SIG_ROLE_MISMATCH). Step output includes control_decision (allowed, reason_code, role_id, signature_passed); logged and exported in evidence bundles.
 
 Deployment, key management, and operational security are the responsibility of integrators.

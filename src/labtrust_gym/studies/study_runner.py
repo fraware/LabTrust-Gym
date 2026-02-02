@@ -88,11 +88,36 @@ def _expand_ablations(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
     if not ablations:
         return [{}]
     keys = sorted(ablations.keys())
-    value_lists = [ablations[k] if isinstance(ablations[k], list) else [ablations[k]] for k in keys]
+    value_lists = [
+        ablations[k] if isinstance(ablations[k], list) else [ablations[k]] for k in keys
+    ]
     conditions = []
     for combo in itertools.product(*value_lists):
         conditions.append(dict(zip(keys, combo)))
     return conditions
+
+
+def _condition_label(condition: Dict[str, Any], index: int) -> str:
+    """Build a stable label from condition dict (e.g. trust_on_rbac_coarse_dual_on)."""
+    parts = []
+    for k in sorted(condition.keys()):
+        v = condition[k]
+        if v is None:
+            parts.append(f"{k}_none")
+        else:
+            parts.append(f"{k}_{v}")
+    return "_".join(parts) if parts else f"cond_{index}"
+
+
+def _condition_labels_for_conditions(
+    conditions: List[Dict[str, Any]],
+    spec_labels: Optional[List[str]] = None,
+) -> List[str]:
+    """Return one label per condition: spec condition_labels if length matches, else derived."""
+    n = len(conditions)
+    if spec_labels is not None and len(spec_labels) == n:
+        return list(spec_labels)
+    return [_condition_label(c, i) for i, c in enumerate(conditions)]
 
 
 def _condition_id(index: int) -> str:
@@ -107,10 +132,15 @@ def _condition_seed(seed_base: int, condition_index: int) -> int:
 def _initial_state_overrides(
     spec: Dict[str, Any],
     condition: Dict[str, Any],
+    timing_override: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build initial_state overrides from spec (timing_mode) and condition."""
     overrides: Dict[str, Any] = {}
-    timing = spec.get("timing_mode", "explicit")
+    timing = (
+        timing_override
+        if timing_override is not None
+        else spec.get("timing_mode", "explicit")
+    )
     overrides["timing_mode"] = timing
     for k, v in condition.items():
         overrides[f"ablation_{k}"] = v
@@ -135,10 +165,14 @@ def run_study(
 ) -> Dict[str, Any]:
     """
     Load study spec, expand conditions, run benchmark per condition,
-    write artifact dir. Returns summary dict with condition_ids and result_hashes.
+    write artifact dir. Returns summary dict with condition_ids, condition_labels, result_hashes.
+    Multi-dimension sweep: Cartesian product of ablations; deterministic seed per condition
+    (seed_base + condition_index). Optional condition_labels in spec (one per condition).
+    When LABTRUST_REPRO_SMOKE=1, episodes are capped to 1 per condition.
     partner_id: optional partner overlay ID; passed to run_benchmark and recorded in manifest.
     timing_mode: optional CLI override for spec timing_mode ("explicit" | "simulated").
     """
+    import os
     import yaml
 
     repo_root = repo_root or Path.cwd()
@@ -155,8 +189,19 @@ def run_study(
     task = spec.get("task", "TaskA")
     episodes = int(spec.get("episodes", 2))
     seed_base = int(spec.get("seed_base", 0))
+    smoke = os.environ.get("LABTRUST_REPRO_SMOKE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    if smoke:
+        episodes = min(episodes, 1)
 
     conditions = _expand_ablations(spec)
+    condition_labels = _condition_labels_for_conditions(
+        conditions,
+        spec.get("condition_labels"),
+    )
     condition_ids: List[str] = []
     result_hashes: List[str] = []
 
@@ -169,9 +214,12 @@ def run_study(
             cid = _condition_id(idx)
             condition_ids.append(cid)
             seed = _condition_seed(seed_base, idx)
-            overrides = _initial_state_overrides(spec, condition, timing_override=timing_mode)
+            overrides = _initial_state_overrides(
+                spec, condition, timing_override=timing_mode
+            )
             record = {
                 "condition_id": cid,
+                "condition_label": condition_labels[idx],
                 "condition_index": idx,
                 "condition": condition,
                 "task": task,
@@ -204,7 +252,11 @@ def run_study(
 
     git_hash = _git_commit_hash(repo_root)
     policy_versions = _policy_versions(repo_root)
-    first_results_path = out_dir / "results" / condition_ids[0] / "results.json" if condition_ids else None
+    first_results_path = (
+        out_dir / "results" / condition_ids[0] / "results.json"
+        if condition_ids
+        else None
+    )
     manifest_partner_id = study_partner_id
     manifest_fingerprint = None
     if first_results_path and first_results_path.exists():
@@ -223,6 +275,7 @@ def run_study(
         "seed_base": seed_base,
         "num_conditions": len(conditions),
         "condition_ids": condition_ids,
+        "condition_labels": condition_labels,
         "result_hashes": result_hashes,
         "git_commit_hash": git_hash,
         "policy_versions": policy_versions,
@@ -240,9 +293,7 @@ def run_study(
     return manifest
 
 
-def main(
-    spec_path: Path, out_dir: Path, repo_root: Optional[Path] = None
-) -> int:
+def main(spec_path: Path, out_dir: Path, repo_root: Optional[Path] = None) -> int:
     """CLI entry: run study and write artifact dir."""
     run_study(spec_path, out_dir, repo_root)
     print(f"Study written to {out_dir}", file=sys.stderr)

@@ -1,16 +1,19 @@
 """
 Summarize benchmark results: load multiple results.json, aggregate by task + baseline + partner_id,
 output wide CSV + markdown table (mean/std for throughput, TAT, on_time_rate, violations, etc.).
+Emits summary_v0.2.csv (CI-stable, same semantics as before) and summary_v0.3.csv (paper-grade: quantiles, CI).
 """
 
 from __future__ import annotations
 
 import json
+import math
 import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 RESULTS_SCHEMA_VERSION = "0.2"
+RESULTS_SCHEMA_VERSION_V03 = "0.3"
 METRIC_KEYS = [
     "throughput",
     "p50_turnaround_s",
@@ -34,7 +37,11 @@ def _normalize_to_v02(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
     seeds = data.get("seeds")
     if not seeds and episodes:
-        seeds = [ep.get("seed") for ep in episodes if isinstance(ep, dict) and ep.get("seed") is not None]
+        seeds = [
+            ep.get("seed")
+            for ep in episodes
+            if isinstance(ep, dict) and ep.get("seed") is not None
+        ]
     agent_baseline_id = data.get("agent_baseline_id") or "scripted_ops_v1"
     git_sha = data.get("git_sha") or data.get("git_commit_hash")
     return {
@@ -72,8 +79,29 @@ def _extract_metric(metrics: Dict[str, Any], key: str) -> Optional[float]:
     return None
 
 
+def _percentile(sorted_vals: List[float], p: float) -> Optional[float]:
+    """Percentile p (0..100) from sorted list. Returns None if empty."""
+    if not sorted_vals:
+        return None
+    k = (len(sorted_vals) - 1) * p / 100.0
+    lo = int(k)
+    hi = min(lo + 1, len(sorted_vals) - 1)
+    return sorted_vals[lo] + (k - lo) * (sorted_vals[hi] - sorted_vals[lo])
+
+
+def _ci_95_mean(vals: List[float]) -> Tuple[Optional[float], Optional[float]]:
+    """95% CI for mean: (lower, upper). Returns (None, None) if len < 2 or empty."""
+    if len(vals) < 2:
+        return (None, None)
+    mean = statistics.mean(vals)
+    std = statistics.stdev(vals)
+    n = len(vals)
+    half = 1.96 * std / math.sqrt(n)
+    return (mean - half, mean + half)
+
+
 def _aggregate_episodes(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Compute mean and std for each metric across episodes. Returns dict with key_mean, key_std."""
+    """Compute mean and std for each metric across episodes. Returns dict with key_mean, key_std (v0.2)."""
     if not episodes:
         return {}
     values_by_key: Dict[str, List[float]] = {k: [] for k in METRIC_KEYS}
@@ -93,6 +121,31 @@ def _aggregate_episodes(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
             out[f"{key}_mean"] = None
             out[f"{key}_std"] = None
     return out
+
+
+def _aggregate_episodes_v03(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Paper-grade: v0.2 aggregates plus quantiles (p50, p90) and 95% CI for key metrics."""
+    base = _aggregate_episodes(episodes)
+    if not episodes:
+        return base
+    values_by_key: Dict[str, List[float]] = {k: [] for k in METRIC_KEYS}
+    for ep in episodes:
+        metrics = ep.get("metrics") or {}
+        for key in METRIC_KEYS:
+            x = _extract_metric(metrics, key)
+            if x is not None:
+                values_by_key[key].append(x)
+    for key in METRIC_KEYS:
+        vals = values_by_key[key]
+        if not vals:
+            continue
+        sorted_vals = sorted(vals)
+        base[f"{key}_p50"] = _percentile(sorted_vals, 50)
+        base[f"{key}_p90"] = _percentile(sorted_vals, 90)
+        lo, hi = _ci_95_mean(vals)
+        base[f"{key}_mean_ci_lower"] = lo
+        base[f"{key}_mean_ci_upper"] = hi
+    return base
 
 
 def load_results_from_path(path: Path) -> List[Dict[str, Any]]:
@@ -136,8 +189,10 @@ def summarize_results(
     """
     Group by (task, agent_baseline_id, partner_id) and aggregate metrics (mean/std).
     Returns list of row dicts for CSV/markdown: task, agent_baseline_id, partner_id, n_episodes, throughput_mean, throughput_std, ...
+    (v0.2: CI-stable; same semantics as before.)
     """
     from collections import defaultdict
+
     groups: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = defaultdict(list)
     for r in results_list:
         task = r.get("task") or "unknown"
@@ -163,6 +218,40 @@ def summarize_results(
     return rows
 
 
+def summarize_results_v03(
+    results_list: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Same grouping as summarize_results; aggregate with quantiles and 95% CI (paper-grade v0.3).
+    Returns list of row dicts with v0.2 columns plus *_p50, *_p90, *_mean_ci_lower, *_mean_ci_upper.
+    """
+    from collections import defaultdict
+
+    groups: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = defaultdict(list)
+    for r in results_list:
+        task = r.get("task") or "unknown"
+        baseline = r.get("agent_baseline_id") or "scripted_ops_v1"
+        partner = r.get("partner_id") or ""
+        key = (task, baseline, partner)
+        groups[key].append(r)
+
+    rows: List[Dict[str, Any]] = []
+    for (task, baseline, partner), group in sorted(groups.items()):
+        all_episodes: List[Dict[str, Any]] = []
+        for g in group:
+            all_episodes.extend(g.get("episodes") or [])
+        agg = _aggregate_episodes_v03(all_episodes)
+        row: Dict[str, Any] = {
+            "task": task,
+            "agent_baseline_id": baseline,
+            "partner_id": partner or None,
+            "n_episodes": len(all_episodes),
+        }
+        row.update(agg)
+        rows.append(row)
+    return rows
+
+
 def rows_to_csv(rows: List[Dict[str, Any]]) -> str:
     """Convert rows to CSV (header + rows). Deterministic column order."""
     if not rows:
@@ -177,7 +266,10 @@ def rows_to_csv(rows: List[Dict[str, Any]]) -> str:
     header = ",".join(_csv_escape(str(k)) for k in all_keys)
     lines = [header]
     for r in rows:
-        cells = [_csv_escape(str(r.get(k, "")) if r.get(k) is not None else "") for k in all_keys]
+        cells = [
+            _csv_escape(str(r.get(k, "")) if r.get(k) is not None else "")
+            for k in all_keys
+        ]
         lines.append(",".join(cells))
     return "\n".join(lines)
 
@@ -216,7 +308,9 @@ def rows_to_markdown_table(rows: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def validate_results_v02(data: Dict[str, Any], schema_path: Optional[Path] = None) -> List[str]:
+def validate_results_v02(
+    data: Dict[str, Any], schema_path: Optional[Path] = None
+) -> List[str]:
     """
     Validate a results dict against results.v0.2.schema.json. Returns list of error messages; empty if valid.
     """
@@ -224,7 +318,13 @@ def validate_results_v02(data: Dict[str, Any], schema_path: Optional[Path] = Non
         import jsonschema
     except ImportError:
         return ["jsonschema required for validation"]
-    path = schema_path or Path(__file__).resolve().parent.parent.parent / "policy" / "schemas" / "results.v0.2.schema.json"
+    path = (
+        schema_path
+        or Path(__file__).resolve().parent.parent.parent
+        / "policy"
+        / "schemas"
+        / "results.v0.2.schema.json"
+    )
     if not path.exists():
         return []
     schema = json.loads(path.read_text(encoding="utf-8"))
@@ -243,23 +343,64 @@ def validate_results_v02(data: Dict[str, Any], schema_path: Optional[Path] = Non
         return [str(e)]
 
 
+def validate_results_v03(
+    data: Dict[str, Any], schema_path: Optional[Path] = None
+) -> List[str]:
+    """
+    Validate a results dict against results.v0.3.schema.json. Document must have schema_version "0.3".
+    Returns list of error messages; empty if valid.
+    """
+    try:
+        import jsonschema
+    except ImportError:
+        return ["jsonschema required for validation"]
+    path = (
+        schema_path
+        or Path(__file__).resolve().parent.parent.parent
+        / "policy"
+        / "schemas"
+        / "results.v0.3.schema.json"
+    )
+    if not path.exists():
+        return []
+    schema = json.loads(path.read_text(encoding="utf-8"))
+    normalized = _normalize_to_v02(data)
+    if not normalized:
+        return ["Invalid results: missing task or episodes"]
+    normalized["schema_version"] = "0.3"
+    normalized["agent_baseline_id"] = data.get("agent_baseline_id", "scripted_ops_v1")
+    try:
+        jsonschema.validate(instance=normalized, schema=schema)
+        return []
+    except jsonschema.ValidationError as e:
+        return [str(e)]
+    except Exception as e:
+        return [str(e)]
+
+
 def run_summarize(
     in_paths: List[Path],
     out_dir: Path,
     out_basename: str = "summary",
 ) -> Tuple[Path, Path]:
     """
-    Load all results from in_paths (files or dirs), aggregate, write summary.csv and summary.md.
-    Returns (path_to_csv, path_to_md).
+    Load all results from in_paths (files or dirs), aggregate, write summary_v0.2.csv,
+    summary_v0.3.csv, summary.csv (copy of v0.2), and summary.md.
+    Returns (path_to_summary_v02_csv, path_to_md). v0.2 CSV is CI-stable; v0.3 CSV is paper-grade.
     """
     out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     all_results: List[Dict[str, Any]] = []
     for p in in_paths:
         all_results.extend(load_results_from_path(Path(p)))
-    rows = summarize_results(all_results)
+    rows_v02 = summarize_results(all_results)
+    rows_v03 = summarize_results_v03(all_results)
+    csv_v02_path = out_dir / f"{out_basename}_v0.2.csv"
+    csv_v03_path = out_dir / f"{out_basename}_v0.3.csv"
     csv_path = out_dir / f"{out_basename}.csv"
     md_path = out_dir / f"{out_basename}.md"
-    csv_path.write_text(rows_to_csv(rows), encoding="utf-8")
-    md_path.write_text(rows_to_markdown_table(rows), encoding="utf-8")
+    csv_v02_path.write_text(rows_to_csv(rows_v02), encoding="utf-8")
+    csv_v03_path.write_text(rows_to_csv(rows_v03), encoding="utf-8")
+    csv_path.write_text(rows_to_csv(rows_v02), encoding="utf-8")
+    md_path.write_text(rows_to_markdown_table(rows_v02), encoding="utf-8")
     return csv_path, md_path

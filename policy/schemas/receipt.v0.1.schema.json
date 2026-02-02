@@ -77,6 +77,20 @@
         "length": { "type": "integer", "minimum": 0 },
         "break_status": { "type": "string", "description": "e.g. intact, broken" }
       }
+    },
+    "policy_root_hash": {
+      "type": ["string", "null"],
+      "description": "SHA-256 root_hash from policy_pack_manifest.v0.1 when bundle includes policy provenance"
+    },
+    "llm_audit": {
+      "type": "object",
+      "description": "LLM baseline auditability: hashes and decoder version from step that touched this entity",
+      "properties": {
+        "prompt_hash": { "type": "string" },
+        "policy_summary_hash": { "type": "string" },
+        "allowed_actions_hash": { "type": "string" },
+        "decoder_version": { "type": "string" }
+      }
     }
   }
 }

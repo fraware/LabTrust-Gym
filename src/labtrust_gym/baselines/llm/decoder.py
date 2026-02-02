@@ -7,8 +7,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-# Reason code for missing rationale (must match policy)
+# Reason codes (must match policy)
 MISSING_RATIONALE = "MISSING_RATIONALE"
+MISSING_CITATION = "MISSING_CITATION"
 
 # NOOP action used when decoder rejects
 NOOP_ACTION: Dict[str, Any] = {
@@ -20,19 +21,31 @@ NOOP_ACTION: Dict[str, Any] = {
 }
 
 
+def _rationale_contains_citation(rationale: str, citation_anchors: List[str]) -> bool:
+    """Return True if rationale contains at least one of the citation anchors (substring match)."""
+    if not rationale or not citation_anchors:
+        return False
+    s = rationale.strip()
+    for anchor in citation_anchors:
+        if anchor and anchor in s:
+            return True
+    return False
+
+
 def decode_constrained(
     raw_candidate: Dict[str, Any],
     policy_summary: Dict[str, Any],
     schema: Dict[str, Any],
     validate_schema_fn: Any,
     require_rationale: bool = True,
+    require_citation: bool = True,
 ) -> Tuple[Dict[str, Any], bool, Optional[str]]:
     """
-    Decode and constrain LLM output: schema validation, rationale, allowed_actions, optional zone/device checks.
+    Decode and constrain LLM output: schema validation, rationale, citation anchor, allowed_actions, optional zone/device checks.
     Returns (action_dict, rejected, reason_code).
     - action_dict: valid action or NOOP when rejected.
     - rejected: True if candidate was rejected at decode time.
-    - reason_code: MISSING_RATIONALE, RBAC_ACTION_DENY, or None.
+    - reason_code: MISSING_RATIONALE, MISSING_CITATION, RBAC_ACTION_DENY, or None.
     - validate_schema_fn: callable(action, schema) -> list of error strings.
     """
     from labtrust_gym.engine.rbac import RBAC_ACTION_DENY
@@ -42,7 +55,11 @@ def decode_constrained(
 
     # 1) Schema validation
     if schema and validate_schema_fn:
-        errs = validate_schema_fn(raw_candidate, schema) if callable(validate_schema_fn) else []
+        errs = (
+            validate_schema_fn(raw_candidate, schema)
+            if callable(validate_schema_fn)
+            else []
+        )
         if errs:
             return (dict(NOOP_ACTION), True, RBAC_ACTION_DENY)
 
@@ -52,12 +69,26 @@ def decode_constrained(
         args = {}
 
     # 2) Require rationale (explainable)
+    rationale = (
+        (raw_candidate.get("rationale") or "").strip()
+        if raw_candidate.get("rationale") is not None
+        else ""
+    )
     if require_rationale:
-        rationale = raw_candidate.get("rationale")
-        if rationale is None or (isinstance(rationale, str) and not rationale.strip()):
+        if not rationale:
             out = dict(NOOP_ACTION)
             out["rationale"] = ""
             return (out, True, MISSING_RATIONALE)
+
+    # 2b) Require at least one policy citation anchor in rationale
+    if require_citation and rationale:
+        citation_anchors = policy_summary.get("citation_anchors") or []
+        if citation_anchors and not _rationale_contains_citation(
+            rationale, citation_anchors
+        ):
+            out = dict(NOOP_ACTION)
+            out["rationale"] = rationale
+            return (out, True, MISSING_CITATION)
 
     # 3) Restrict action_type to allowed_actions (RBAC at decode time)
     allowed_actions = policy_summary.get("allowed_actions")
@@ -72,7 +103,11 @@ def decode_constrained(
     if isinstance(queue_head, dict) and queue_head:
         if action_type in ("QUEUE_RUN", "START_RUN"):
             device_id = args.get("device_id")
-            if device_id is not None and device_id not in queue_head and action_type == "START_RUN":
+            if (
+                device_id is not None
+                and device_id not in queue_head
+                and action_type == "START_RUN"
+            ):
                 # START_RUN typically requires work at head; QUEUE_RUN may add. Only block START_RUN if strict.
                 pass  # Relaxed: engine will block invalid START_RUN
 
@@ -103,12 +138,15 @@ def decode_constrained(
     return (safe, False, None)
 
 
-def validate_schema_returns_errors(action: Dict[str, Any], schema: Dict[str, Any]) -> List[str]:
+def validate_schema_returns_errors(
+    action: Dict[str, Any], schema: Dict[str, Any]
+) -> List[str]:
     """Return list of validation error strings; empty if valid. Use as validate_schema_fn in decode_constrained."""
     if not schema:
         return []
     try:
         import jsonschema
+
         jsonschema.validate(instance=action, schema=schema)
         return []
     except jsonschema.ValidationError as e:

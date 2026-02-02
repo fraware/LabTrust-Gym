@@ -1,0 +1,6 @@
+| condition_id | condition_label | throughput_mean | violations_total | trust_cost_mean | p95_tat_mean |
+|--------------|-----------------|-----------------|------------------|-----------------|--------------|
+| cond_0 | dual_approval_on_trust_skeleton_on | 0.00 | 0 | 0.00 | — |
+| cond_1 | dual_approval_on_trust_skeleton_off | 0.00 | 0 | 0.00 | — |
+| cond_2 | dual_approval_off_trust_skeleton_on | 0.00 | 0 | 0.00 | — |
+| cond_3 | dual_approval_off_trust_skeleton_off | 0.00 | 0 | 0.00 | — |

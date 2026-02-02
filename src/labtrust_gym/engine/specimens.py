@@ -31,8 +31,11 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "container_type": "SERUM_SST",
         "specimen_type": "SERUM",
         "integrity_flags": {
-            "leak": False, "clot": False, "hemolysis": False,
-            "insufficient_volume": False, "label_issue": False,
+            "leak": False,
+            "clot": False,
+            "hemolysis": False,
+            "insufficient_volume": False,
+            "label_issue": False,
         },
         "fill_ratio_ok": None,
         "hazard_flag": False,
@@ -49,8 +52,11 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "container_type": "PLASMA_CITRATE",
         "specimen_type": "PLASMA",
         "integrity_flags": {
-            "leak": False, "clot": False, "hemolysis": False,
-            "insufficient_volume": False, "label_issue": False,
+            "leak": False,
+            "clot": False,
+            "hemolysis": False,
+            "insufficient_volume": False,
+            "label_issue": False,
         },
         "fill_ratio_ok": True,
         "hazard_flag": False,
@@ -87,9 +93,7 @@ class SpecimenStore:
     - last_id_match: specimen_id -> bool | None (from last CHECK_ACCEPTANCE_RULES).
     """
 
-    def __init__(
-        self, templates: Optional[Dict[str, Dict[str, Any]]] = None
-    ) -> None:
+    def __init__(self, templates: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
         self._specimens: Dict[str, Dict[str, Any]] = {}
         self._last_id_match: Dict[str, Optional[bool]] = {}
         self._templates = templates or dict(DEFAULT_TEMPLATES)
@@ -105,6 +109,17 @@ class SpecimenStore:
             sid = spec.get("specimen_id")
             if sid:
                 self._specimens[str(sid)] = spec
+
+    def add_specimen(self, entry: Dict[str, Any]) -> bool:
+        """Add one specimen at runtime (e.g. INJECT_SPECIMEN for golden shift-change). Returns True if added."""
+        spec = _expand_specimen(entry, self._templates)
+        sid = spec.get("specimen_id")
+        if not sid:
+            return False
+        if sid in self._specimens:
+            return False
+        self._specimens[str(sid)] = spec
+        return True
 
     def get(self, specimen_id: str) -> Optional[Dict[str, Any]]:
         return self._specimens.get(specimen_id)
@@ -207,9 +222,14 @@ class SpecimenStore:
         if "CITRATE" in container and fill_ok is False:
             spec["status"] = "held"
             spec["last_reason_code"] = CNT_CITRATE_FILL_INVALID
-            return "ACCEPTED", ["HOLD_SPECIMEN"], None, [
-                {"invariant_id": INV_COAG_FILL_001, "status": "VIOLATION"},
-            ]
+            return (
+                "ACCEPTED",
+                ["HOLD_SPECIMEN"],
+                None,
+                [
+                    {"invariant_id": INV_COAG_FILL_001, "status": "VIOLATION"},
+                ],
+            )
 
         spec["status"] = "accepted"
         spec["last_reason_code"] = None

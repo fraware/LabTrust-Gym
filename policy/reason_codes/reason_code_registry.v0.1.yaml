@@ -419,6 +419,13 @@ reason_code_registry:
       triggers: ["LLM_ACTION_DECODE"]
       default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
 
+    - code: "MISSING_CITATION"
+      namespace: "AUD"
+      severity: "P2_HOLD_REVIEW"
+      description: "LLM rationale must cite at least one policy citation anchor (e.g. POLICY:RBAC:allowed_actions)."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
     # -----------------------------
     # System states
     # -----------------------------

@@ -37,6 +37,7 @@ ACTION_TYPE_TO_INDEX: Dict[str, int] = {
 
 def _obs_hash(obs: Dict[str, Any]) -> str:
     """Stable hash of observation for deterministic mock lookup."""
+
     def _enc(o: Any) -> Any:
         if hasattr(o, "tolist"):
             return o.tolist()
@@ -45,9 +46,8 @@ def _obs_hash(obs: Dict[str, Any]) -> str:
         if isinstance(o, list):
             return [_enc(x) for x in o]
         return o
-    return hashlib.sha256(
-        json.dumps(_enc(obs), sort_keys=True).encode()
-    ).hexdigest()
+
+    return hashlib.sha256(json.dumps(_enc(obs), sort_keys=True).encode()).hexdigest()
 
 
 class LLMBackend(Protocol):
@@ -74,15 +74,20 @@ class MockDeterministicBackend:
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
         """Ignore messages; use last user message or placeholder to derive hash, or default."""
-        user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
+        user = next(
+            (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
+        )
         h = hashlib.sha256(user.encode()).hexdigest()[:16]
         entry = self._canned.get(h)
         if entry is not None:
             return json.dumps(entry, sort_keys=True)
-        return json.dumps({
-            "action_type": self._default,
-            "action_info": {},
-        }, sort_keys=True)
+        return json.dumps(
+            {
+                "action_type": self._default,
+                "action_info": {},
+            },
+            sort_keys=True,
+        )
 
 
 class OpenAIBackend:
@@ -93,12 +98,15 @@ class OpenAIBackend:
 
     def __init__(self, api_key_env: str = "OPENAI_API_KEY") -> None:
         import os
+
         self._api_key = os.environ.get(api_key_env, "")
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
         """Stub: returns NOOP if no key; otherwise would call API."""
         if not self._api_key:
-            return json.dumps({"action_type": ACTION_NOOP, "action_info": {}}, sort_keys=True)
+            return json.dumps(
+                {"action_type": ACTION_NOOP, "action_info": {}}, sort_keys=True
+            )
         raise NotImplementedError("OpenAI API call not implemented in this stub")
 
 
@@ -117,7 +125,9 @@ class MockDeterministicBackendV2:
         self._default = default_action_type
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
-        user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
+        user = next(
+            (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
+        )
         h = hashlib.sha256(user.encode()).hexdigest()[:16]
         entry = self._canned.get(h)
         if entry is not None:
@@ -125,10 +135,33 @@ class MockDeterministicBackendV2:
         return json.dumps({"action_type": self._default, "args": {}}, sort_keys=True)
 
 
+# Decoder version for auditability (step output and receipts)
+DECODER_VERSION = "v0.2"
+
+
+def _prompt_hash(messages: List[Dict[str, str]]) -> str:
+    """Deterministic SHA-256 hash of messages (canonical JSON)."""
+    canonical = json.dumps(messages, sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _policy_summary_hash(policy_summary: Dict[str, Any]) -> str:
+    """Deterministic SHA-256 hash of policy summary (canonical JSON)."""
+    canonical = json.dumps(policy_summary, sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _allowed_actions_hash(allowed_actions: List[str]) -> str:
+    """Deterministic SHA-256 hash of allowed_actions list (canonical JSON)."""
+    canonical = json.dumps(allowed_actions, sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 class DeterministicConstrainedBackend:
     """
     Official deterministic LLM baseline: chooses from allowed_actions using a seeded RNG.
-    User message must be JSON with "allowed_actions" (list of action_type strings); optional "obs_hash".
+    User message must be JSON with "allowed_actions" (list of action_type strings); optional "obs_hash", "citation_anchors".
+    Rationale includes at least one citation anchor for auditability.
     Same seed + same call order => same action sequence (reproducible).
     """
 
@@ -138,28 +171,47 @@ class DeterministicConstrainedBackend:
         self._call_count = 0
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
-        user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
+        user = next(
+            (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
+        )
         allowed_actions: List[str] = []
+        citation_anchors: List[str] = []
         try:
             payload = json.loads(user) if user.strip().startswith("{") else {}
             if isinstance(payload, dict):
                 allowed_actions = payload.get("allowed_actions") or []
                 if not isinstance(allowed_actions, list):
                     allowed_actions = []
+                citation_anchors = payload.get("citation_anchors") or []
+                if not isinstance(citation_anchors, list):
+                    citation_anchors = []
         except (json.JSONDecodeError, TypeError):
             allowed_actions = []
+            citation_anchors = []
+        # Use first anchor for compliant rationale; fallback to POLICY:RBAC:allowed_actions
+        anchor = (
+            citation_anchors[0] if citation_anchors else "POLICY:RBAC:allowed_actions"
+        )
         self._call_count += 1
         import numpy as np
+
         rng = np.random.default_rng(self._seed)
         for _ in range(self._call_count - 1):
             rng.random()
-        idx = int(rng.integers(0, max(1, len(allowed_actions)))) if allowed_actions else 0
-        action_type = allowed_actions[idx] if allowed_actions else self._default_action_type
-        return json.dumps({
-            "action_type": action_type,
-            "args": {},
-            "rationale": "deterministic baseline",
-        }, sort_keys=True)
+        idx = (
+            int(rng.integers(0, max(1, len(allowed_actions)))) if allowed_actions else 0
+        )
+        action_type = (
+            allowed_actions[idx] if allowed_actions else self._default_action_type
+        )
+        return json.dumps(
+            {
+                "action_type": action_type,
+                "args": {},
+                "rationale": f"{anchor} (deterministic baseline)",
+            },
+            sort_keys=True,
+        )
 
 
 def load_llm_action_schema_v02(path: Optional[Path] = None) -> Dict[str, Any]:
@@ -179,6 +231,7 @@ def validate_llm_action_v02(
         return []
     try:
         import jsonschema
+
         jsonschema.validate(instance=action, schema=schema)
         return []
     except Exception as e:
@@ -202,6 +255,7 @@ def validate_action_against_schema(
         return []
     try:
         import jsonschema
+
         jsonschema.validate(instance=action, schema=schema)
         return []
     except jsonschema.ValidationError as e:
@@ -247,7 +301,9 @@ class LLMAgentWithShield:
         self._backend = backend
         self._rbac_policy = rbac_policy
         self._pz_to_engine = dict(pz_to_engine)
-        self._schema = load_llm_action_schema_v02(schema_path or Path("policy/llm/llm_action.schema.v0.2.json"))
+        self._schema = load_llm_action_schema_v02(
+            schema_path or Path("policy/llm/llm_action.schema.v0.2.json")
+        )
         self._strict_signatures = strict_signatures
         self._system_prompt = system_prompt or _default_system_prompt_v2()
 
@@ -260,25 +316,39 @@ class LLMAgentWithShield:
         Return (action_index, action_info, meta). Constrained decode (schema + rationale + RBAC) then shield.
         Meta has _shield_filtered and _shield_reason_code when blocked at decode or shield.
         """
-        from labtrust_gym.baselines.llm.decoder import decode_constrained, validate_schema_returns_errors
+        from labtrust_gym.baselines.llm.decoder import (
+            decode_constrained,
+            validate_schema_returns_errors,
+        )
         from labtrust_gym.baselines.llm.shield import apply_shield, build_policy_summary
-        from labtrust_gym.engine.rbac import get_allowed_actions
+        from labtrust_gym.engine.rbac import get_allowed_actions, get_agent_role
 
         engine_id = self._pz_to_engine.get(agent_id, agent_id)
         allowed_actions = get_allowed_actions(engine_id, self._rbac_policy)
+        role_id = get_agent_role(engine_id, self._rbac_policy)
         policy_summary = build_policy_summary(
             allowed_actions=allowed_actions,
             agent_zone=None,
             strict_signatures=self._strict_signatures,
+            role_id=role_id,
         )
-        user_content = json.dumps({
-            "obs_hash": _obs_hash(observation),
-            "allowed_actions": allowed_actions,
-        }, sort_keys=True)
+        citation_anchors = list(policy_summary.get("citation_anchors") or [])
+        user_content = json.dumps(
+            {
+                "obs_hash": _obs_hash(observation),
+                "allowed_actions": allowed_actions,
+                "citation_anchors": citation_anchors,
+            },
+            sort_keys=True,
+        )
         messages = [
             {"role": "system", "content": self._system_prompt},
             {"role": "user", "content": user_content},
         ]
+        prompt_hash = _prompt_hash(messages)
+        policy_summary_hash = _policy_summary_hash(policy_summary)
+        allowed_actions_hash = _allowed_actions_hash(allowed_actions)
+
         text = self._backend.generate(messages)
         text = text.strip()
         if "```" in text:
@@ -290,17 +360,42 @@ class LLMAgentWithShield:
         try:
             candidate = json.loads(text)
         except json.JSONDecodeError:
-            safe = {"action_type": "NOOP", "args": {}, "reason_code": None, "token_refs": [], "rationale": ""}
-            return (ACTION_NOOP, safe, {"_shield_filtered": False})
+            safe = {
+                "action_type": "NOOP",
+                "args": {},
+                "reason_code": None,
+                "token_refs": [],
+                "rationale": "",
+            }
+            meta = {
+                "_prompt_hash": prompt_hash,
+                "_policy_summary_hash": policy_summary_hash,
+                "_allowed_actions_hash": allowed_actions_hash,
+                "_decoder_version": DECODER_VERSION,
+            }
+            return (ACTION_NOOP, safe, meta)
         if not isinstance(candidate, dict):
-            safe = {"action_type": "NOOP", "args": {}, "reason_code": None, "token_refs": [], "rationale": ""}
-            return (ACTION_NOOP, safe, {"_shield_filtered": False})
+            safe = {
+                "action_type": "NOOP",
+                "args": {},
+                "reason_code": None,
+                "token_refs": [],
+                "rationale": "",
+            }
+            meta = {
+                "_prompt_hash": prompt_hash,
+                "_policy_summary_hash": policy_summary_hash,
+                "_allowed_actions_hash": allowed_actions_hash,
+                "_decoder_version": DECODER_VERSION,
+            }
+            return (ACTION_NOOP, safe, meta)
         decoded, decode_rejected, decode_reason = decode_constrained(
             candidate,
             policy_summary,
             self._schema,
             validate_schema_returns_errors,
             require_rationale=True,
+            require_citation=True,
         )
         if decode_rejected and decode_reason:
             action_info = {
@@ -310,7 +405,15 @@ class LLMAgentWithShield:
                 "token_refs": [],
                 "rationale": decoded.get("rationale", ""),
             }
-            return (ACTION_NOOP, action_info, {"_shield_filtered": True, "_shield_reason_code": decode_reason})
+            meta = {
+                "_shield_filtered": True,
+                "_shield_reason_code": decode_reason,
+                "_prompt_hash": prompt_hash,
+                "_policy_summary_hash": policy_summary_hash,
+                "_allowed_actions_hash": allowed_actions_hash,
+                "_decoder_version": DECODER_VERSION,
+            }
+            return (ACTION_NOOP, action_info, meta)
         safe_action, filtered, reason_code = apply_shield(
             decoded, engine_id, self._rbac_policy, policy_summary
         )
@@ -321,13 +424,20 @@ class LLMAgentWithShield:
             "args": dict(safe_action.get("args") or {}),
             "reason_code": safe_action.get("reason_code"),
             "token_refs": list(safe_action.get("token_refs") or []),
-            "rationale": (decoded.get("rationale") or safe_action.get("rationale") or "").strip(),
+            "rationale": (
+                decoded.get("rationale") or safe_action.get("rationale") or ""
+            ).strip(),
         }
         if safe_action.get("key_id") is not None:
             action_info["key_id"] = safe_action["key_id"]
         if safe_action.get("signature") is not None:
             action_info["signature"] = safe_action["signature"]
-        meta: Dict[str, Any] = {}
+        meta = {
+            "_prompt_hash": prompt_hash,
+            "_policy_summary_hash": policy_summary_hash,
+            "_allowed_actions_hash": allowed_actions_hash,
+            "_decoder_version": DECODER_VERSION,
+        }
         if filtered and reason_code:
             meta["_shield_filtered"] = True
             meta["_shield_reason_code"] = reason_code
