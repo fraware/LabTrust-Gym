@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.calibration.v0.1",
+  "title": "LabTrust Partner Calibration v0.1",
+  "description": "Workload priors for benchmark tasks: arrival patterns, STAT rate. Fitted from aggregate operational data (no PII).",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Optional human-readable description of calibration source"
+    },
+    "workload_priors": {
+      "type": "object",
+      "description": "Priors for workload generation in benchmark tasks",
+      "additionalProperties": true,
+      "properties": {
+        "arrival_mean_s": {
+          "type": "number",
+          "description": "Mean arrival offset (seconds from episode start). Used with arrival_scale_s for sampling."
+        },
+        "arrival_scale_s": {
+          "type": "number",
+          "description": "Scale for arrival offset (e.g. half-width for uniform, or std for normal)."
+        },
+        "arrival_max_s": {
+          "type": ["integer", "null"],
+          "description": "Optional cap for arrival_ts_s (clamp to [0, arrival_max_s])."
+        },
+        "stat_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of specimens that are STAT (0–1)."
+        },
+        "n_specimens_min": { "type": "integer", "minimum": 0 },
+        "n_specimens_max": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

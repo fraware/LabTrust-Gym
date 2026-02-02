@@ -116,9 +116,11 @@ To produce an **external-facing release artifact** (results, plots, receipts, FH
 labtrust package-release --profile minimal --out /tmp/labtrust_release
 ```
 
-- Runs **reproduce** (TaskA & TaskC sweep + plots), then **export-receipts** and **export-fhir** per condition, and writes:
+Profiles: **minimal** | **full** (reproduce TaskA & TaskC sweep + plots) or **paper_v0.1** (benchmark-first: official baselines + TaskF strict_signatures study + summarize + receipts + FIGURES/TABLES). For paper-ready artifact and exact commands, see [Paper-ready release](paper_ready.md).
+
+- **minimal/full** run **reproduce** (TaskA & TaskC sweep + plots), then **export-receipts** and **export-fhir** per condition, and write:
   - `MANIFEST.v0.1.json` — list of files with SHA-256 (deterministic for fixed `--seed-base`)
-  - `BENCHMARK_CARD.md` — scope, invariants, tasks A–E, baselines, limitations (see [Benchmark card](benchmark_card.md))
+  - `BENCHMARK_CARD.md` — scope, invariants, tasks A–F, baselines, limitations (see [Benchmark card](benchmark_card.md))
   - `metadata.json` — git SHA, partner_id, policy_fingerprint, seed_base, timestamp
   - `results.json` — study manifests summary
   - `results/` — results.json per task (v0.2 schema; `agent_baseline_id`, `git_sha`, etc.)
@@ -138,11 +140,12 @@ To aggregate one or more `results.json` (or directories containing them) into a 
 labtrust summarize-results --in results/ your_run.json --out /tmp/summary --basename summary
 ```
 
-Writes **summary.csv** and **summary.md** with mean/std for throughput, p50/p95 TAT, on_time_rate, violations, critical_communication_compliance_rate, detection_latency_s, containment_success, grouped by task + agent_baseline_id + partner_id. Compare to the official baseline table in `benchmarks/baselines_official/v0.1/` (see [Benchmark card](benchmark_card.md)).
+Writes **summary.csv** and **summary.md** with mean/std for throughput, p50/p95 TAT, on_time_rate, violations, critical_communication_compliance_rate, detection_latency_s, containment_success, grouped by task + agent_baseline_id + partner_id. Compare to the official baseline table in `benchmarks/baselines_official/v0.1/` or regenerate v0.2 with `labtrust generate-official-baselines` (see [Benchmark card](benchmark_card.md)).
 
 ## See also
 
 - [Studies and plots](studies.md) for the full study runner and plotting pipeline
 - [Benchmarks](benchmarks.md) for task definitions and metrics
 - [Benchmark card](benchmark_card.md) for results schema v0.2 and official baseline table
+- [Paper-ready release](paper_ready.md) for the **paper_v0.1** profile (baselines + TaskF study + FIGURES/TABLES)
 - [Enforcement](enforcement.md) for the evidence bundle section and export-receipts CLI

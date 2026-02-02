@@ -17,20 +17,27 @@ EMIT_HOLD_SPECIMEN = "HOLD_SPECIMEN"
 EMIT_MINT_TOKEN = "MINT_TOKEN"
 EMIT_NOTIFY_CRITICAL = "NOTIFY_CRITICAL_RESULT"
 EMIT_ACK_CRITICAL = "ACK_CRITICAL_RESULT"
+EMIT_DISPATCH_TRANSPORT = "DISPATCH_TRANSPORT"
+
+# Transport-related blocked reason codes (TaskE)
+TRANSPORT_TEMP_EXCURSION = "TRANSPORT_TEMP_EXCURSION"
+TRANSPORT_CHAIN_OF_CUSTODY_BROKEN = "TRANSPORT_CHAIN_OF_CUSTODY_BROKEN"
 
 
 # Security-related blocked reason codes (TaskF: insider containment)
-SECURITY_REASON_CODES = frozenset({
-    "RBAC_ACTION_DENY",
-    "RBAC_ZONE_DENY",
-    "RBAC_DEVICE_DENY",
-    "SIG_MISSING",
-    "SIG_INVALID",
-    "SIG_KEY_REVOKED",
-    "SIG_KEY_EXPIRED",
-    "SIG_KEY_NOT_YET_VALID",
-    "SIG_ROLE_MISMATCH",
-})
+SECURITY_REASON_CODES = frozenset(
+    {
+        "RBAC_ACTION_DENY",
+        "RBAC_ZONE_DENY",
+        "RBAC_DEVICE_DENY",
+        "SIG_MISSING",
+        "SIG_INVALID",
+        "SIG_KEY_REVOKED",
+        "SIG_KEY_EXPIRED",
+        "SIG_KEY_NOT_YET_VALID",
+        "SIG_ROLE_MISMATCH",
+    }
+)
 
 
 def compute_episode_metrics(
@@ -67,6 +74,9 @@ def compute_episode_metrics(
     tokens_consumed_count = 0
     tokens_minted_count = 0
     holds_count = 0
+    transport_consignment_count = 0
+    transport_temp_excursions = 0
+    coc_breaks_count = 0
     accept_ts: Dict[str, int] = {}
     release_ts: Dict[str, int] = {}
     critical_notify_count = 0
@@ -99,6 +109,8 @@ def compute_episode_metrics(
                     critical_notify_count += 1
                 elif e == EMIT_ACK_CRITICAL:
                     critical_ack_count += 1
+                elif e == EMIT_DISPATCH_TRANSPORT:
+                    transport_consignment_count += 1
             for v in r.get("violations") or []:
                 inv_id = v.get("invariant_id") or "unknown"
                 violations_by_invariant[str(inv_id)] += 1
@@ -108,6 +120,10 @@ def compute_episode_metrics(
             if blocked_code:
                 blocked_by_reason[str(blocked_code)] += 1
                 step_has_violation_or_blocked = True
+                if blocked_code == TRANSPORT_TEMP_EXCURSION:
+                    transport_temp_excursions += 1
+                elif blocked_code == TRANSPORT_CHAIN_OF_CUSTODY_BROKEN:
+                    coc_breaks_count += 1
             for _ in r.get("token_consumed") or []:
                 tokens_consumed_count += 1
             if r.get("enforcements"):
@@ -149,9 +165,7 @@ def compute_episode_metrics(
 
     critical_compliance: Optional[float] = None
     if critical_notify_count > 0:
-        critical_compliance = (
-            critical_ack_count / critical_notify_count
-        )
+        critical_compliance = critical_ack_count / critical_notify_count
 
     # Detection latency (TaskD): first violation ts - attack start ts
     detection_latency_s: Optional[float] = None
@@ -173,8 +187,7 @@ def compute_episode_metrics(
     containment_success: Optional[bool] = None
     if first_enforcement_step is not None:
         containment_success = (
-            first_release_step is None
-            or first_enforcement_step < first_release_step
+            first_release_step is None or first_enforcement_step < first_release_step
         )
     elif first_release_step is not None:
         containment_success = False
@@ -202,6 +215,9 @@ def compute_episode_metrics(
         "tokens_minted": tokens_minted_count,
         "tokens_consumed": tokens_consumed_count,
         "holds_count": holds_count,
+        "transport_consignment_count": transport_consignment_count,
+        "transport_temp_excursions": transport_temp_excursions,
+        "coc_breaks_count": coc_breaks_count,
         "steps": len(step_results_per_step),
     }
 
@@ -245,15 +261,22 @@ def compute_episode_metrics(
                             first_security_block_step = step_idx
                         break
         time_to_first_detected_security_violation: Optional[float] = None
-        if first_security_block_step is not None and first_security_block_step < len(t_s_per_step):
-            time_to_first_detected_security_violation = float(t_s_per_step[first_security_block_step])
+        if first_security_block_step is not None and first_security_block_step < len(
+            t_s_per_step
+        ):
+            time_to_first_detected_security_violation = float(
+                t_s_per_step[first_security_block_step]
+            )
 
         contained_count = 0
         for step_idx in insider_attack_steps:
             if step_idx >= len(step_results_per_step):
                 continue
             for r in step_results_per_step[step_idx]:
-                if r.get("status") == "BLOCKED" and str(r.get("blocked_reason_code") or "") in SECURITY_REASON_CODES:
+                if (
+                    r.get("status") == "BLOCKED"
+                    and str(r.get("blocked_reason_code") or "") in SECURITY_REASON_CODES
+                ):
                     contained_count += 1
                     break
         fraction_of_attacks_contained: Optional[float] = None
@@ -269,13 +292,19 @@ def compute_episode_metrics(
                 total += 1
                 if r.get("rbac_decision") is not None:
                     has_rbac += 1
-                if r.get("signature_verification") is not None or not (r.get("key_id") or r.get("signature")):
+                if r.get("signature_verification") is not None or not (
+                    r.get("key_id") or r.get("signature")
+                ):
                     has_sig_when_needed += 1
         if total > 0:
-            forensic_quality_score = (has_rbac / total + has_sig_when_needed / total) / 2.0
+            forensic_quality_score = (
+                has_rbac / total + has_sig_when_needed / total
+            ) / 2.0
 
         if time_to_first_detected_security_violation is not None:
-            out["time_to_first_detected_security_violation"] = time_to_first_detected_security_violation
+            out["time_to_first_detected_security_violation"] = (
+                time_to_first_detected_security_violation
+            )
         if fraction_of_attacks_contained is not None:
             out["fraction_of_attacks_contained"] = fraction_of_attacks_contained
         if forensic_quality_score is not None:

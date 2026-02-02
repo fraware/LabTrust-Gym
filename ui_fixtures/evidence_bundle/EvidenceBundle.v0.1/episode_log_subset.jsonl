@@ -1,0 +1,1 @@
+{"action_type": "CREATE_ACCESSION", "agent_id": "A_RECEPTION", "args": {"specimen_id": "S1"}, "blocked_reason_code": null, "emits": ["CREATE_ACCESSION"], "event_id": "pz_ops_0_0", "hashchain": {"head_hash": "a1b2c3", "last_event_hash": "a1b2c3", "length": 1}, "hashchain_head": "a1b2c3", "status": "ACCEPTED", "token_consumed": [], "t_s": 10, "violations": []}

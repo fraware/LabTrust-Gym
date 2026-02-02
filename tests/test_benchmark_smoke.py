@@ -63,9 +63,9 @@ def test_benchmark_determinism_same_seed() -> None:
         assert data1["seeds"] == data2["seeds"]
         for i, (ep1, ep2) in enumerate(zip(data1["episodes"], data2["episodes"])):
             assert ep1["seed"] == ep2["seed"], f"episode {i} seed"
-            assert ep1["metrics"] == ep2["metrics"], (
-                f"episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
-            )
+            assert (
+                ep1["metrics"] == ep2["metrics"]
+            ), f"episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
 
 
 def test_task_initial_state_deterministic() -> None:
@@ -102,6 +102,55 @@ def test_task_e_multisite_stat_runs() -> None:
             assert "steps" in ep["metrics"]
 
 
+def test_task_e_emits_dispatch_transport_at_least_once() -> None:
+    """TaskE scripted policy must emit DISPATCH_TRANSPORT at least once per episode."""
+    from labtrust_gym.benchmarks.runner import run_episode
+    from labtrust_gym.benchmarks.tasks import get_task
+    from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
+    from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
+    from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
+    from labtrust_gym.envs.pz_parallel import DEFAULT_ZONE_IDS, DEFAULT_DEVICE_IDS
+
+    task = get_task("TaskE")
+    policy_dir = Path(__file__).resolve().parent.parent / "policy"
+    num_runners = 2
+
+    def _env_factory(initial_state, reward_config, log_path=None):
+        return LabTrustParallelEnv(
+            num_runners=num_runners,
+            num_adversaries=0,
+            num_insiders=0,
+            dt_s=10,
+            reward_config=reward_config,
+            policy_dir=policy_dir,
+            log_path=log_path,
+        )
+
+    agents_map = {
+        "ops_0": ScriptedOpsAgent(),
+        "runner_0": ScriptedRunnerAgent(
+            zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
+        ),
+        "runner_1": ScriptedRunnerAgent(
+            zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
+        ),
+    }
+    metrics, step_results_per_step = run_episode(
+        task, episode_seed=50, env_factory=_env_factory, scripted_agents_map=agents_map
+    )
+    dispatch_count = 0
+    for results in step_results_per_step:
+        for r in results:
+            for e in r.get("emits") or []:
+                if e == "DISPATCH_TRANSPORT":
+                    dispatch_count += 1
+    assert dispatch_count >= 1, (
+        f"TaskE must emit DISPATCH_TRANSPORT at least once; got {dispatch_count}. "
+        "Scripted runner policy: DISPATCH_TRANSPORT -> TRANSPORT_TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE_TRANSPORT."
+    )
+    assert metrics.get("transport_consignment_count", 0) >= 1
+
+
 def test_task_e_determinism() -> None:
     """TaskE: same seed => identical episode metrics (reproducible)."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -114,9 +163,78 @@ def test_task_e_determinism() -> None:
         assert data1["seeds"] == data2["seeds"]
         for i, (ep1, ep2) in enumerate(zip(data1["episodes"], data2["episodes"])):
             assert ep1["seed"] == ep2["seed"], f"episode {i} seed"
-            assert ep1["metrics"] == ep2["metrics"], (
-                f"TaskE episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
-            )
+            assert (
+                ep1["metrics"] == ep2["metrics"]
+            ), f"TaskE episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
+
+
+def test_task_e_deterministic_transport_path() -> None:
+    """TaskE: fixed seed => deterministic transport path (same transport_consignment_count, same order of transport emits)."""
+    from labtrust_gym.benchmarks.runner import run_episode
+    from labtrust_gym.benchmarks.tasks import get_task
+    from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
+    from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
+    from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
+    from labtrust_gym.envs.pz_parallel import DEFAULT_ZONE_IDS, DEFAULT_DEVICE_IDS
+
+    task = get_task("TaskE")
+    policy_dir = Path(__file__).resolve().parent.parent / "policy"
+    num_runners = 2
+    seed = 123
+
+    def _env_factory(initial_state, reward_config, log_path=None):
+        return LabTrustParallelEnv(
+            num_runners=num_runners,
+            num_adversaries=0,
+            num_insiders=0,
+            dt_s=10,
+            reward_config=reward_config,
+            policy_dir=policy_dir,
+            log_path=log_path,
+        )
+
+    def _run():
+        agents_map = {
+            "ops_0": ScriptedOpsAgent(),
+            "runner_0": ScriptedRunnerAgent(
+                zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
+            ),
+            "runner_1": ScriptedRunnerAgent(
+                zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
+            ),
+        }
+        metrics, step_results_per_step = run_episode(
+            task,
+            episode_seed=seed,
+            env_factory=_env_factory,
+            scripted_agents_map=agents_map,
+        )
+        transport_emits_sequence = []
+        for results in step_results_per_step:
+            for r in results:
+                for e in r.get("emits") or []:
+                    if e in (
+                        "DISPATCH_TRANSPORT",
+                        "TRANSPORT_TICK",
+                        "CHAIN_OF_CUSTODY_SIGN",
+                        "RECEIVE_TRANSPORT",
+                    ):
+                        transport_emits_sequence.append(e)
+        return (
+            metrics.get("transport_consignment_count", 0),
+            metrics.get("coc_breaks_count", 0),
+            tuple(transport_emits_sequence),
+        )
+
+    count1, coc1, seq1 = _run()
+    count2, coc2, seq2 = _run()
+    assert (
+        count1 == count2
+    ), f"transport_consignment_count must be deterministic: {count1} vs {count2}"
+    assert coc1 == coc2, f"coc_breaks_count must be deterministic: {coc1} vs {coc2}"
+    assert (
+        seq1 == seq2
+    ), f"Transport emit sequence must be deterministic: {seq1} vs {seq2}"
 
 
 def test_task_f_insider_runs() -> None:
@@ -141,7 +259,10 @@ def test_task_f_insider_runs() -> None:
             assert "throughput" in m
             assert "steps" in m
             assert "fraction_of_attacks_contained" in m
-            assert "time_to_first_detected_security_violation" in m or "fraction_of_attacks_contained" in m
+            assert (
+                "time_to_first_detected_security_violation" in m
+                or "fraction_of_attacks_contained" in m
+            )
             assert "forensic_quality_score" in m
 
 
@@ -157,6 +278,4 @@ def test_task_f_determinism() -> None:
         assert data1["seeds"] == data2["seeds"]
         for i, (ep1, ep2) in enumerate(zip(data1["episodes"], data2["episodes"])):
             assert ep1["seed"] == ep2["seed"], f"episode {i} seed"
-            assert ep1["metrics"] == ep2["metrics"], (
-                f"TaskF episode {i} metrics differ"
-            )
+            assert ep1["metrics"] == ep2["metrics"], f"TaskF episode {i} metrics differ"

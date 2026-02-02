@@ -38,5 +38,6 @@ Preferred PR size: under 400 lines where practical.
 - **Quick-eval** — Run 1 episode each of TaskA, TaskD, TaskE: `labtrust quick-eval --seed 42` (requires `.[env,plots]`). CI runs this on every push/PR.
 - **LABTRUST_BENCH_SMOKE=1** — Run benchmark smoke (1 episode per task): `labtrust bench-smoke --seed 42` (requires `.[env]`).
 - **LABTRUST_REPRO_SMOKE=1** — Run reproduce smoke: `labtrust reproduce --profile minimal --out runs/repro_smoke` (requires `.[env,plots]`).
+- **LABTRUST_PAPER_SMOKE=1** — Run package-release paper profile smoke (1 episode baselines, 2 episodes TaskF study): `labtrust package-release --profile paper_v0.1 --seed-base 100 --out /tmp/paper_smoke` (requires `.[env,plots]`). Determinism: `pytest tests/test_package_release.py -v` (includes paper_v0.1 smoke and CLI test).
 - **LABTRUST_MARL_SMOKE=1** — Run MARL smoke: `pytest tests/test_marl_smoke.py -v` (requires `.[marl]`).
-- **Package-release:** `labtrust package-release --profile minimal --out /tmp/labtrust_release --seed-base 100` (requires `.[env,plots]`). Determinism: `pytest tests/test_package_release.py -v` with `LABTRUST_REPRO_SMOKE=1`.
+- **Package-release:** `labtrust package-release --profile minimal --out /tmp/labtrust_release --seed-base 100` (requires `.[env,plots]`). For paper-ready artifact: `--profile paper_v0.1` (see docs/paper_ready.md). Determinism: `pytest tests/test_package_release.py -v` with `LABTRUST_REPRO_SMOKE=1` for minimal/full; paper_v0.1 tests use `LABTRUST_PAPER_SMOKE=1`.

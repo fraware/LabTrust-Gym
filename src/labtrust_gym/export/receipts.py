@@ -37,7 +37,9 @@ def _canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True)
 
 
-def _entity_ids_from_entries(entries: List[Dict[str, Any]]) -> Tuple[List[str], List[str]]:
+def _entity_ids_from_entries(
+    entries: List[Dict[str, Any]],
+) -> Tuple[List[str], List[str]]:
     """Collect specimen_id and result_id from log entries (args). Deterministic sorted."""
     specimen_ids: set = set()
     result_ids: set = set()
@@ -53,7 +55,13 @@ def _entity_ids_from_entries(entries: List[Dict[str, Any]]) -> Tuple[List[str], 
         action = e.get("action_type", "")
         if action == "CREATE_ACCESSION" and args.get("specimen_id"):
             specimen_ids.add(str(args["specimen_id"]))
-        if action in ("GENERATE_RESULT", "RELEASE_RESULT", "HOLD_RESULT", "NOTIFY_CRITICAL_RESULT", "ACK_CRITICAL_RESULT") and args.get("result_id"):
+        if action in (
+            "GENERATE_RESULT",
+            "RELEASE_RESULT",
+            "HOLD_RESULT",
+            "NOTIFY_CRITICAL_RESULT",
+            "ACK_CRITICAL_RESULT",
+        ) and args.get("result_id"):
             result_ids.add(str(args["result_id"]))
     return sorted(specimen_ids), sorted(result_ids)
 
@@ -76,7 +84,12 @@ def _decision_for_entity(
             continue
         action = e.get("action_type", "")
         if entity_type == "specimen":
-            if action in ("REJECT_SPECIMEN", "ACCEPT_SPECIMEN", "HOLD_SPECIMEN", "CREATE_ACCESSION"):
+            if action in (
+                "REJECT_SPECIMEN",
+                "ACCEPT_SPECIMEN",
+                "HOLD_SPECIMEN",
+                "CREATE_ACCESSION",
+            ):
                 last_action = action
                 last_status = e.get("status")
         else:
@@ -287,9 +300,79 @@ def _hashchain_from_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "head_hash": h.get("head_hash", ""),
                 "last_event_hash": h.get("last_event_hash", ""),
                 "length": int(h.get("length", 0)),
-                "break_status": "broken" if e.get("emits") and ("FORENSIC_FREEZE" in str(e.get("emits")) or "FORENSIC_FREEZE_LOG" in str(e.get("emits"))) else "intact",
+                "break_status": (
+                    "broken"
+                    if e.get("emits")
+                    and (
+                        "FORENSIC_FREEZE" in str(e.get("emits"))
+                        or "FORENSIC_FREEZE_LOG" in str(e.get("emits"))
+                    )
+                    else "intact"
+                ),
             }
-    return {"head_hash": "", "last_event_hash": "", "length": 0, "break_status": "intact"}
+    return {
+        "head_hash": "",
+        "last_event_hash": "",
+        "length": 0,
+        "break_status": "intact",
+    }
+
+
+def _chain_of_custody_for_specimen(
+    entity_id: str,
+    entries: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Chain-of-custody transport events for this specimen (forensic quality). DISPATCH -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE."""
+    consignment_to_specimens: Dict[str, List[str]] = {}
+    for e in entries:
+        if e.get("action_type") != "DISPATCH_TRANSPORT":
+            continue
+        cid = e.get("consignment_id")
+        args = e.get("args") or {}
+        specimen_ids = list(args.get("specimen_ids") or [])
+        if cid and entity_id in specimen_ids:
+            consignment_to_specimens[cid] = specimen_ids
+    if not consignment_to_specimens:
+        return []
+    out: List[Dict[str, Any]] = []
+    for e in entries:
+        action = e.get("action_type", "")
+        t_s = int(e.get("t_s", 0))
+        args = e.get("args") or {}
+        cid = args.get("consignment_id") or e.get("consignment_id")
+        if action == "DISPATCH_TRANSPORT" and cid and cid in consignment_to_specimens:
+            out.append(
+                {
+                    "action_type": "DISPATCH_TRANSPORT",
+                    "t_s": t_s,
+                    "consignment_id": cid,
+                    "status": e.get("status"),
+                }
+            )
+        elif (
+            action == "CHAIN_OF_CUSTODY_SIGN"
+            and cid
+            and cid in consignment_to_specimens
+        ):
+            out.append(
+                {
+                    "action_type": "CHAIN_OF_CUSTODY_SIGN",
+                    "t_s": t_s,
+                    "consignment_id": cid,
+                    "status": e.get("status"),
+                    "agent_id": e.get("agent_id"),
+                }
+            )
+        elif action == "RECEIVE_TRANSPORT" and cid and cid in consignment_to_specimens:
+            out.append(
+                {
+                    "action_type": "RECEIVE_TRANSPORT",
+                    "t_s": t_s,
+                    "consignment_id": cid,
+                    "status": e.get("status"),
+                }
+            )
+    return out
 
 
 def build_receipt(
@@ -304,7 +387,9 @@ def build_receipt(
     reason_codes = _reason_codes_for_entity(entity_type, entity_id, entries)
     tokens = _tokens_for_entity(entity_type, entity_id, entries)
     invariant_summary = _invariant_summary_for_entity(entity_type, entity_id, entries)
-    enforcement_summary = _enforcement_summary_for_entity(entity_type, entity_id, entries)
+    enforcement_summary = _enforcement_summary_for_entity(
+        entity_type, entity_id, entries
+    )
     hc = hashchain_fallback
     for e in reversed(entries):
         args = e.get("args") or {}
@@ -343,6 +428,9 @@ def build_receipt(
     if entity_type == "specimen":
         receipt["specimen_id"] = entity_id
         receipt["result_id"] = None
+        chain_of_custody = _chain_of_custody_for_specimen(entity_id, entries)
+        if chain_of_custody:
+            receipt["chain_of_custody"] = chain_of_custody
     else:
         receipt["specimen_id"] = None
         receipt["result_id"] = entity_id
@@ -360,6 +448,26 @@ def build_receipt(
                 if args.get("device_id"):
                     receipt["device_ids"] = [args["device_id"]]
                 break
+    # LLM audit: from last entry that touches this entity and has audit hashes
+    llm_audit = None
+    for e in reversed(entries):
+        args = e.get("args") or {}
+        if not isinstance(args, dict):
+            continue
+        if entity_type == "specimen" and args.get("specimen_id") != entity_id:
+            continue
+        if entity_type == "result" and args.get("result_id") != entity_id:
+            continue
+        if e.get("prompt_hash") is not None:
+            llm_audit = {
+                "prompt_hash": e.get("prompt_hash"),
+                "policy_summary_hash": e.get("policy_summary_hash"),
+                "allowed_actions_hash": e.get("allowed_actions_hash"),
+                "decoder_version": e.get("decoder_version"),
+            }
+            break
+    if llm_audit:
+        receipt["llm_audit"] = llm_audit
     return receipt
 
 
@@ -384,6 +492,9 @@ def _sha256_string(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
+POLICY_PACK_MANIFEST_FILENAME = "policy_pack_manifest.v0.1.json"
+
+
 def write_evidence_bundle(
     out_dir: Path,
     receipts: List[Dict[str, Any]],
@@ -391,28 +502,52 @@ def write_evidence_bundle(
     policy_fingerprint: Optional[str] = None,
     partner_id: Optional[str] = None,
     sign_bundle: bool = False,
+    policy_root: Optional[Path] = None,
 ) -> Path:
     """
     Write EvidenceBundle.v0.1/ under out_dir.
-    Contents: receipt.json (or receipt_<id>.v0.1.json per entity), episode_log_subset.jsonl,
-    invariant_eval_trace.jsonl, enforcement_actions.jsonl, hashchain_proof.json, manifest.
+    Contents: receipt(s), episode_log_subset.jsonl, invariant_eval_trace.jsonl,
+    enforcement_actions.jsonl, hashchain_proof.json, optional policy_pack_manifest.v0.1.json, manifest.
+    When policy_root and partner_id are set, writes policy_pack_manifest and sets policy_root_hash
+    on manifest and each receipt.
     Returns path to bundle directory.
     """
     bundle_dir = out_dir / EVIDENCE_BUNDLE_DIR
     bundle_dir.mkdir(parents=True, exist_ok=True)
+
+    policy_root_hash: Optional[str] = None
+    if policy_root is not None and partner_id is not None:
+        try:
+            from labtrust_gym.policy.loader import build_policy_pack_manifest
+
+            policy_manifest = build_policy_pack_manifest(
+                Path(policy_root), partner_id=partner_id
+            )
+            policy_root_hash = policy_manifest.get("root_hash")
+            policy_manifest_path = bundle_dir / POLICY_PACK_MANIFEST_FILENAME
+            policy_manifest_path.write_text(
+                _canonical_json(policy_manifest) + "\n", encoding="utf-8"
+            )
+        except Exception:
+            policy_root_hash = None
 
     # Deterministic filenames: receipt_<type>_<id>.v0.1.json; id sanitized for filename
     def _safe_filename(s: str) -> str:
         return "".join(c if c.isalnum() or c in "_-" else "_" for c in s)
 
     written_files: List[str] = []
+    if policy_root_hash is not None:
+        written_files.append(POLICY_PACK_MANIFEST_FILENAME)
     for r in receipts:
-        etype = r.get("entity_type", "entity")
-        eid = r.get("specimen_id") or r.get("result_id")
+        rec = dict(r)
+        if policy_root_hash is not None:
+            rec["policy_root_hash"] = policy_root_hash
+        etype = rec.get("entity_type", "entity")
+        eid = rec.get("specimen_id") or rec.get("result_id")
         eid_str = _safe_filename(str(eid)) if eid is not None else "unknown"
         name = f"receipt_{etype}_{eid_str}.v0.1.json"
         p = bundle_dir / name
-        p.write_text(_canonical_json(r) + "\n", encoding="utf-8")
+        p.write_text(_canonical_json(rec) + "\n", encoding="utf-8")
         written_files.append(name)
 
     # episode_log_subset.jsonl: all entries (subset = full for single-episode log)
@@ -449,12 +584,13 @@ def write_evidence_bundle(
     proof_path.write_text(_canonical_json(hc) + "\n", encoding="utf-8")
     written_files.append("hashchain_proof.json")
 
-    # manifest: files + sha256, policy_fingerprint, partner_id
+    # manifest: files + sha256, policy_fingerprint, partner_id, policy_root_hash
     manifest: Dict[str, Any] = {
         "version": MANIFEST_VERSION,
         "files": [],
         "policy_fingerprint": policy_fingerprint,
         "partner_id": partner_id,
+        "policy_root_hash": policy_root_hash,
     }
     if sign_bundle:
         manifest["signature"] = {"algorithm": "stub", "value": ""}
@@ -477,34 +613,62 @@ def export_receipts(
     out_dir: Path,
     policy_fingerprint: Optional[str] = None,
     partner_id: Optional[str] = None,
+    policy_root: Optional[Path] = None,
 ) -> Path:
     """
     Load episode log from run_path (JSONL), build receipts, write EvidenceBundle.v0.1 to out_dir.
+    When policy_root and partner_id are set, includes policy_pack_manifest.v0.1.json and
+    policy_root_hash on manifest and each receipt.
     Returns path to EvidenceBundle.v0.1 directory.
     """
     entries = load_episode_log(run_path)
     if not entries:
         # No entities => one synthetic receipt for the run (decision BLOCKED, empty)
-        hc = {"head_hash": "", "last_event_hash": "", "length": 0, "break_status": "intact"}
-        receipts = [{
-            "version": RECEIPT_VERSION,
-            "entity_type": "specimen",
-            "specimen_id": None,
-            "result_id": None,
-            "accession_ids": [],
-            "panel_id": None,
-            "device_ids": [],
-            "timestamps": {},
-            "decision": "BLOCKED",
-            "reason_codes": [],
-            "tokens": {"minted": [], "consumed": [], "revoked": []},
-            "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
-            "hashchain": hc,
-        }]
+        hc = {
+            "head_hash": "",
+            "last_event_hash": "",
+            "length": 0,
+            "break_status": "intact",
+        }
+        receipts = [
+            {
+                "version": RECEIPT_VERSION,
+                "entity_type": "specimen",
+                "specimen_id": None,
+                "result_id": None,
+                "accession_ids": [],
+                "panel_id": None,
+                "device_ids": [],
+                "timestamps": {},
+                "decision": "BLOCKED",
+                "reason_codes": [],
+                "tokens": {"minted": [], "consumed": [], "revoked": []},
+                "critical_comm_records": {"attempts": [], "ack_summary": []},
+                "invariant_summary": {
+                    "violated_ids": [],
+                    "first_violation_ts": None,
+                    "final_status": "PASS",
+                },
+                "enforcement_summary": {
+                    "throttle": [],
+                    "kill_switch": [],
+                    "freeze_zone": [],
+                    "forensic_freeze": [],
+                },
+                "hashchain": hc,
+            }
+        ]
     else:
         receipts = build_receipts_from_log(entries)
-    pf = policy_fingerprint or (entries[0].get("policy_fingerprint") if entries else None)
+    pf = policy_fingerprint or (
+        entries[0].get("policy_fingerprint") if entries else None
+    )
     pid = partner_id or (entries[0].get("partner_id") if entries else None)
-    return write_evidence_bundle(out_dir, receipts, entries, policy_fingerprint=pf, partner_id=pid)
+    return write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint=pf,
+        partner_id=pid,
+        policy_root=policy_root,
+    )

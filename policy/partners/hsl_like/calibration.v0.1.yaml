@@ -1,0 +1,12 @@
+# Partner calibration for hsl_like (synthetic/example values; no private data).
+# Fit workload_priors from aggregate operational data; see docs/partner_calibration.md.
+version: "0.1"
+description: "HSL-like example: synthetic arrival and STAT rate for benchmarking."
+
+workload_priors:
+  arrival_mean_s: 50
+  arrival_scale_s: 25
+  arrival_max_s: 120
+  stat_rate: 0.12
+  n_specimens_min: 2
+  n_specimens_max: 6

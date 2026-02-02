@@ -24,6 +24,7 @@ def _git_sha() -> str | None:
     """Return git commit hash or None."""
     try:
         import subprocess
+
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             capture_output=True,
@@ -64,7 +65,9 @@ def main() -> int:
         "run-benchmark",
         help="Run benchmark task and write results.json",
     )
-    p_bench.add_argument("--task", required=True, help="TaskA, TaskB, TaskC, TaskD, TaskE, TaskF")
+    p_bench.add_argument(
+        "--task", required=True, help="TaskA, TaskB, TaskC, TaskD, TaskE, TaskF"
+    )
     p_bench.add_argument("--episodes", type=int, default=10, help="Number of episodes")
     p_bench.add_argument("--seed", type=int, default=123, help="Base seed")
     p_bench.add_argument("--out", default="results.json", help="Output JSON path")
@@ -140,6 +143,11 @@ def main() -> int:
         required=True,
         help="Output directory (EvidenceBundle.v0.1 written under this dir)",
     )
+    p_export_receipts.add_argument(
+        "--partner",
+        default=None,
+        help="Partner overlay ID; when set, include policy_pack_manifest and policy_root_hash",
+    )
     p_export_receipts.set_defaults(func=_run_export_receipts)
     p_export_fhir = sub.add_parser(
         "export-fhir",
@@ -176,6 +184,21 @@ def main() -> int:
         help="Do not fail on files present but not in manifest (e.g. fhir_bundle.json)",
     )
     p_verify_bundle.set_defaults(func=_run_verify_bundle)
+    p_ui_export = sub.add_parser(
+        "ui-export",
+        help="Export UI-ready bundle (index, events, receipts_index, reason_codes) from a run dir",
+    )
+    p_ui_export.add_argument(
+        "--run",
+        required=True,
+        help="Run directory: labtrust_runs/quick_eval_* or package-release output",
+    )
+    p_ui_export.add_argument(
+        "--out",
+        required=True,
+        help="Output path for ui_bundle.zip",
+    )
+    p_ui_export.set_defaults(func=_run_ui_export)
     p_repro = sub.add_parser(
         "reproduce",
         help="Reproduce minimal results and figures (study sweep + plots)",
@@ -205,8 +228,8 @@ def main() -> int:
     p_package_release.add_argument(
         "--profile",
         required=True,
-        choices=["minimal", "full"],
-        help="minimal or full reproduce profile",
+        choices=["minimal", "full", "paper_v0.1"],
+        help="minimal or full reproduce profile; paper_v0.1 = benchmark-first (baselines + TaskF study + summarize + receipts + FIGURES/TABLES)",
     )
     p_package_release.add_argument(
         "--out",
@@ -217,7 +240,7 @@ def main() -> int:
         "--seed-base",
         type=int,
         default=None,
-        help="Fixed seed base for determinism (default 100)",
+        help="Fixed seed base for determinism (default 100). When set, timestamps in metadata are deterministic.",
     )
     p_package_release.add_argument(
         "--keep-repro",
@@ -285,6 +308,47 @@ def main() -> int:
         help="Overwrite existing output directory if it exists",
     )
     p_gen_baselines.set_defaults(func=_run_generate_official_baselines)
+    from labtrust_gym.cli.eval_agent import register_parser as register_eval_agent
+
+    register_eval_agent(sub)
+    p_determinism = sub.add_parser(
+        "determinism-report",
+        help="Run benchmark twice with identical args; produce determinism_report.md and .json; assert v0.2 metrics and episode log hash identical.",
+    )
+    p_determinism.add_argument(
+        "--task",
+        required=True,
+        help="Task name (e.g. TaskA, TaskB, TaskC, TaskD, TaskE, TaskF)",
+    )
+    p_determinism.add_argument(
+        "--episodes",
+        type=int,
+        required=True,
+        help="Number of episodes (e.g. 2 for CI)",
+    )
+    p_determinism.add_argument(
+        "--seed",
+        type=int,
+        required=True,
+        help="Base seed for episodes",
+    )
+    p_determinism.add_argument(
+        "--out",
+        required=True,
+        help="Output directory for determinism_report.md and determinism_report.json",
+    )
+    p_determinism.add_argument(
+        "--partner",
+        default=None,
+        help="Partner overlay ID (e.g. hsl_like); also LABTRUST_PARTNER env",
+    )
+    p_determinism.add_argument(
+        "--timing",
+        choices=["explicit", "simulated"],
+        default="explicit",
+        help="Timing mode: explicit or simulated (default: explicit). Simulated: device service-time sampling seeded only from --seed.",
+    )
+    p_determinism.set_defaults(func=_run_determinism_report)
     p_quick_eval = sub.add_parser(
         "quick-eval",
         help="Run 1 episode each of TaskA, TaskD, TaskE with scripted baselines; write markdown summary and logs under ./labtrust_runs/",
@@ -311,7 +375,9 @@ def main() -> int:
         "train-ppo",
         help="Train PPO on TaskA (or other task); requires [marl] extra",
     )
-    p_train_ppo.add_argument("--task", default="TaskA", help="Task name (default TaskA)")
+    p_train_ppo.add_argument(
+        "--task", default="TaskA", help="Task name (default TaskA)"
+    )
     p_train_ppo.add_argument(
         "--timesteps",
         type=int,
@@ -331,7 +397,9 @@ def main() -> int:
     )
     p_eval_ppo.add_argument("--model", required=True, help="Path to model.zip")
     p_eval_ppo.add_argument("--task", default="TaskA", help="Task name")
-    p_eval_ppo.add_argument("--episodes", type=int, default=50, help="Evaluation episodes")
+    p_eval_ppo.add_argument(
+        "--episodes", type=int, default=50, help="Evaluation episodes"
+    )
     p_eval_ppo.add_argument("--seed", type=int, default=123, help="Random seed")
     p_eval_ppo.add_argument("--out", default=None, help="Output JSON path for metrics")
     p_eval_ppo.set_defaults(func=_run_eval_ppo)
@@ -411,7 +479,16 @@ def _run_export_receipts(args: argparse.Namespace) -> int:
     if not out_dir.is_absolute():
         out_dir = root / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
-    bundle_dir = export_receipts(run_path, out_dir)
+    partner_id = _get_partner_id(args)
+    policy_root = root if getattr(args, "partner", None) is not None else None
+    if policy_root is None and partner_id is not None:
+        policy_root = root
+    bundle_dir = export_receipts(
+        run_path,
+        out_dir,
+        partner_id=partner_id,
+        policy_root=policy_root,
+    )
     print(f"Evidence bundle written to {bundle_dir}", file=sys.stderr)
     return 0
 
@@ -438,6 +515,29 @@ def _run_verify_bundle(args: argparse.Namespace) -> int:
         for e in errors:
             print(e, file=sys.stderr)
     return 0 if passed else 1
+
+
+def _run_ui_export(args: argparse.Namespace) -> int:
+    """Export UI-ready zip (index, events, receipts_index, reason_codes) from run dir."""
+    from labtrust_gym.export.ui_export import export_ui_bundle
+
+    root = get_repo_root()
+    run_path = Path(args.run)
+    if not run_path.is_absolute():
+        run_path = root / run_path
+    if not run_path.is_dir():
+        print(f"Run directory not found: {run_path}", file=sys.stderr)
+        return 1
+    out_path = Path(args.out)
+    if not out_path.is_absolute():
+        out_path = root / out_path
+    try:
+        export_ui_bundle(run_path, out_path, repo_root=root)
+        print(f"UI bundle written to {out_path}", file=sys.stderr)
+        return 0
+    except (ValueError, FileNotFoundError) as e:
+        print(f"ui-export failed: {e}", file=sys.stderr)
+        return 1
 
 
 def _run_export_fhir(args: argparse.Namespace) -> int:
@@ -498,7 +598,9 @@ def _run_package_release(args: argparse.Namespace) -> int:
             include_repro_dir=include_repro,
         )
         print(f"Release artifact written to {result}", file=sys.stderr)
-        print(f"  MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json", file=sys.stderr)
+        print(
+            f"  MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json", file=sys.stderr
+        )
         print(f"  results.json, plots/, tables/, receipts/, fhir/", file=sys.stderr)
         return 0
     except Exception as e:
@@ -534,7 +636,9 @@ def _run_summarize_results(args: argparse.Namespace) -> int:
     from labtrust_gym.benchmarks.summarize import run_summarize
 
     root = get_repo_root()
-    in_paths = [root / p if not Path(p).is_absolute() else Path(p) for p in args.in_paths]
+    in_paths = [
+        root / p if not Path(p).is_absolute() else Path(p) for p in args.in_paths
+    ]
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
         out_dir = root / out_dir
@@ -545,12 +649,43 @@ def _run_summarize_results(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_determinism_report(args: argparse.Namespace) -> int:
+    """Run benchmark twice in fresh temp dirs; write determinism_report.md and .json; exit 1 if non-deterministic."""
+    from labtrust_gym.benchmarks.determinism_report import run_determinism_report
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    partner_id = _get_partner_id(args)
+    timing = getattr(args, "timing", "explicit") or "explicit"
+    passed, report, _ = run_determinism_report(
+        task_name=args.task,
+        num_episodes=args.episodes,
+        base_seed=args.seed,
+        out_dir=out_dir,
+        partner_id=partner_id,
+        timing_mode=timing,
+        repo_root=root,
+    )
+    print(f"Wrote {out_dir / 'determinism_report.json'}", file=sys.stderr)
+    print(f"Wrote {out_dir / 'determinism_report.md'}", file=sys.stderr)
+    if passed:
+        print("Determinism check PASSED.", file=sys.stderr)
+        return 0
+    for e in report.get("errors", []):
+        print(e, file=sys.stderr)
+    return 1
+
+
 def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     """Regenerate official baseline results: run Tasks A–F (from registry), write results/, summary.csv, summary.md, metadata.json."""
     import json
     from datetime import datetime, timezone, timedelta
 
-    from labtrust_gym.benchmarks.baseline_registry import load_official_baseline_registry
+    from labtrust_gym.benchmarks.baseline_registry import (
+        load_official_baseline_registry,
+    )
     from labtrust_gym.benchmarks.runner import run_benchmark
     from labtrust_gym.benchmarks.summarize import run_summarize, validate_results_v02
 
@@ -572,7 +707,9 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     partner_id = _get_partner_id(args)
     git_sha = _git_sha()
 
-    tasks_in_order, task_to_baseline_id, task_to_suffix = load_official_baseline_registry(root)
+    tasks_in_order, task_to_baseline_id, task_to_suffix = (
+        load_official_baseline_registry(root)
+    )
     schema_path = root / "policy" / "schemas" / "results.v0.2.schema.json"
     if not schema_path.exists():
         schema_path = None
@@ -580,7 +717,8 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     policy_fingerprint = None
     try:
         from labtrust_gym.policy.loader import load_effective_policy
-        _, policy_fingerprint, _ = load_effective_policy(root, partner_id=partner_id)
+
+        _, policy_fingerprint, _, _ = load_effective_policy(root, partner_id=partner_id)
     except Exception:
         pass
 
@@ -589,9 +727,14 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     results_dir.mkdir(parents=True, exist_ok=True)
 
     for task in tasks_in_order:
-        suffix = task_to_suffix.get(task, task_to_baseline_id.get(task, "scripted_ops_v1").replace("_v1", ""))
+        suffix = task_to_suffix.get(
+            task, task_to_baseline_id.get(task, "scripted_ops_v1").replace("_v1", "")
+        )
         out_path = results_dir / f"{task}_{suffix}.json"
-        print(f"Running {task} ({episodes} episodes, seed={seed}, timing={timing}) -> {out_path}", file=sys.stderr)
+        print(
+            f"Running {task} ({episodes} episodes, seed={seed}, timing={timing}) -> {out_path}",
+            file=sys.stderr,
+        )
         run_benchmark(
             task_name=task,
             num_episodes=episodes,
@@ -610,7 +753,9 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
                     print(f"Validation error {out_path}: {e}", file=sys.stderr)
                 return 1
 
-    result_paths = [results_dir / f"{task}_{task_to_suffix[task]}.json" for task in tasks_in_order]
+    result_paths = [
+        results_dir / f"{task}_{task_to_suffix[task]}.json" for task in tasks_in_order
+    ]
     csv_path, md_path = run_summarize(
         result_paths,
         out_dir,
@@ -621,11 +766,15 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
 
     # Deterministic timestamp when seed provided (UTC epoch + seed seconds)
     if seed is not None:
-        ts = (datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seed)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = (
+            datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seed)
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
     else:
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    baseline_ids_used = list(dict.fromkeys(task_to_baseline_id[t] for t in tasks_in_order))
+    baseline_ids_used = list(
+        dict.fromkeys(task_to_baseline_id[t] for t in tasks_in_order)
+    )
     metadata = {
         "version": "0.2",
         "description": "Official baseline results (frozen). Regenerate with: labtrust generate-official-baselines --out <dir> --episodes <n> --seed <s>. Use --force to overwrite.",
@@ -705,12 +854,14 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
             data = json.load(f)
         ep = (data.get("episodes") or [{}])[0]
         metrics = ep.get("metrics") or {}
-        rows.append({
-            "task": task,
-            "throughput": metrics.get("throughput", 0),
-            "violation_count": metrics.get("violation_count", 0),
-            "blocked_count": metrics.get("blocked_count", 0),
-        })
+        rows.append(
+            {
+                "task": task,
+                "throughput": metrics.get("throughput", 0),
+                "violation_count": metrics.get("violation_count", 0),
+                "blocked_count": metrics.get("blocked_count", 0),
+            }
+        )
 
     # Markdown summary
     lines = [

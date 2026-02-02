@@ -118,7 +118,11 @@ def test_verify_bundle_fail_tampered_invariant_trace(tmp_path: Path) -> None:
             "step_index": 0,
             "t_s": 100,
             "violations": [
-                {"invariant_id": "FAKE_INV", "status": "VIOLATION", "reason_code": "FAKE"}
+                {
+                    "invariant_id": "FAKE_INV",
+                    "status": "VIOLATION",
+                    "reason_code": "FAKE",
+                }
             ],
         },
         sort_keys=True,
@@ -126,21 +130,24 @@ def test_verify_bundle_fail_tampered_invariant_trace(tmp_path: Path) -> None:
     trace_path.write_text("\n".join(lines + [fake_row]) + "\n", encoding="utf-8")
     # Recompute manifest so trace file hash matches (else we fail on manifest first)
     import hashlib
+
     manifest_path = bundle_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     new_files = []
     for f in manifest["files"]:
         if f["path"] == "invariant_eval_trace.jsonl":
-            new_files.append({
-                "path": f["path"],
-                "sha256": hashlib.sha256(
-                    trace_path.read_bytes()
-                ).hexdigest(),
-            })
+            new_files.append(
+                {
+                    "path": f["path"],
+                    "sha256": hashlib.sha256(trace_path.read_bytes()).hexdigest(),
+                }
+            )
         else:
             new_files.append(f)
     manifest["files"] = new_files
-    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+    )
     passed, report, errors = verify_bundle(
         bundle_dir,
         policy_root=root,
@@ -207,6 +214,108 @@ def test_verify_bundle_allow_extra_files(tmp_path: Path) -> None:
         policy_root=root,
         allow_extra_files=True,
     )
-    assert passed, (
-        f"expected PASS with allow_extra_files: {report}\n{errors}"
+    assert passed, f"expected PASS with allow_extra_files: {report}\n{errors}"
+
+
+def test_verify_bundle_pass_with_policy_provenance(tmp_path: Path) -> None:
+    """Export with policy_root+partner_id -> bundle has policy_pack_manifest and
+    policy_root_hash; verify_bundle with policy_root PASSes.
+    """
+    root = _repo_root()
+    if not (root / "policy" / "partners" / "hsl_like").is_dir():
+        import pytest
+
+        pytest.skip("policy/partners/hsl_like not found")
+    log_path = _tiny_episode_log(tmp_path)
+    entries = load_episode_log(log_path)
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp",
+        partner_id="hsl_like",
+        policy_root=root,
     )
+    assert (bundle_dir / "policy_pack_manifest.v0.1.json").exists()
+    manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest.get("policy_root_hash") is not None
+    receipt_files = list(bundle_dir.glob("receipt_*.v0.1.json"))
+    assert receipt_files
+    one_receipt = json.loads(receipt_files[0].read_text(encoding="utf-8"))
+    assert one_receipt.get("policy_root_hash") == manifest.get("policy_root_hash")
+    passed, report, errors = verify_bundle(
+        bundle_dir,
+        policy_root=root,
+        allow_extra_files=False,
+    )
+    assert passed, f"expected PASS: {report}\n{errors}"
+
+
+def test_verify_bundle_fail_tampered_policy_file(tmp_path: Path) -> None:
+    """Export with policy_root+partner_id (bundle has policy_pack_manifest); tamper one
+    policy file on disk -> verify_bundle with policy_root FAILs (policy hash mismatch).
+    """
+    root = _repo_root()
+    if not (root / "policy" / "partners" / "hsl_like").is_dir():
+        import pytest
+
+        pytest.skip("policy/partners/hsl_like not found")
+    log_path = _tiny_episode_log(tmp_path)
+    entries = load_episode_log(log_path)
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp",
+        partner_id="hsl_like",
+        policy_root=root,
+    )
+    assert (bundle_dir / "policy_pack_manifest.v0.1.json").exists()
+    # Tamper one policy file that is in the manifest
+    policy_file = root / "policy" / "critical" / "critical_thresholds.v0.1.yaml"
+    if not policy_file.exists():
+        import pytest
+
+        pytest.skip("critical_thresholds.v0.1.yaml not found")
+    original = policy_file.read_bytes()
+    try:
+        policy_file.write_bytes(original + b"\n# tampered\n")
+        passed, report, errors = verify_bundle(
+            bundle_dir,
+            policy_root=root,
+            allow_extra_files=False,
+        )
+        assert not passed
+        assert any(
+            "policy_pack_manifest" in e and "hash mismatch" in e for e in errors
+        ) or any("policy file" in e for e in errors)
+    finally:
+        policy_file.write_bytes(original)
+
+
+def test_policy_root_hash_changes_with_partner_overlay() -> None:
+    """Partner overlay changes -> policy pack manifest root_hash changes deterministically."""
+    from labtrust_gym.policy.loader import build_policy_pack_manifest
+
+    root = _repo_root()
+    if not (root / "policy").is_dir():
+        import pytest
+
+        pytest.skip("policy dir not found")
+    no_partner = build_policy_pack_manifest(root, partner_id=None)
+    with_partner = build_policy_pack_manifest(root, partner_id="hsl_like")
+    hash_none = no_partner.get("root_hash")
+    hash_hsl = with_partner.get("root_hash")
+    assert hash_none and hash_hsl
+    # With partner overlay we have extra files -> different root_hash
+    if (root / "policy" / "partners" / "hsl_like").is_dir():
+        assert hash_none != hash_hsl
+    # Deterministic: same inputs -> same root_hash
+    no_partner2 = build_policy_pack_manifest(root, partner_id=None)
+    assert no_partner2.get("root_hash") == hash_none

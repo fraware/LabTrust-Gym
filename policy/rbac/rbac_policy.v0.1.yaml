@@ -1,9 +1,15 @@
 # RBAC policy v0.1: roles (allowed_actions, allowed_zones, allowed_devices), agents (agent_id -> role_id).
 # Gates actions before state mutation; token cannot bypass RBAC.
+# R_SYSTEM_CONTROL: allowlist for runtime control (UPDATE_ROSTER, INJECT_SPECIMEN); agent SYSTEM only.
 
 rbac_policy:
   version: "0.1"
   roles:
+    R_SYSTEM_CONTROL:
+      allowed_actions:
+        - UPDATE_ROSTER
+        - INJECT_SPECIMEN
+
     ROLE_RECEPTION:
       allowed_actions:
         - TICK
@@ -91,6 +97,7 @@ rbac_policy:
         - REVOKE_TOKEN
 
   agents:
+    SYSTEM: R_SYSTEM_CONTROL
     A_RECEPTION: ROLE_RECEPTION
     A_RUNNER: ROLE_RUNNER
     A_INSIDER_0: ROLE_RUNNER

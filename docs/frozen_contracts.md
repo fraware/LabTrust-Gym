@@ -15,7 +15,8 @@ This page is the **canonical list of frozen contracts and schema versions** for 
 | **Sites policy schema** | v0.1 | `policy/schemas/sites_policy.v0.1.schema.json` | Schema for `policy/sites/sites_policy.v0.1.yaml`: sites, site_graph, routes (transport_time, temp_drift). Used by engine/transport. |
 | **Key registry schema** | v0.1 | `policy/schemas/key_registry.v0.1.schema.json` | Schema for `policy/keys/key_registry.v0.1.yaml`: Ed25519 keys (key_id, public_key, agent_id, role_id); optional status (ACTIVE/REVOKED/EXPIRED), not_before_ts_s, not_after_ts_s. Used by engine/signatures; lifecycle enforced in verification. |
 | **RBAC policy schema** | v0.1 | `policy/schemas/rbac_policy.v0.1.schema.json` | Schema for `policy/rbac/rbac_policy.v0.1.yaml`: roles (allowed_actions, allowed_zones, allowed_devices), agents (agent_id → role_id), action_constraints. Used by engine/rbac. |
-| **Benchmark results schema** | v0.2 | `policy/schemas/results.v0.2.schema.json` | Normative benchmark results: task, seeds, policy_fingerprint, partner_id, git_sha, agent_baseline_id, episodes with metrics. Used by run-benchmark output and summarize-results. |
+| **Benchmark results schema** | v0.2 | `policy/schemas/results.v0.2.schema.json` | CI-stable benchmark results: task, seeds, policy_fingerprint, partner_id, git_sha, agent_baseline_id, episodes with metrics (ints/structs). Used by run-benchmark output and summarize-results; summary_v0.2.csv regression is stable across OS/Python. |
+| **Benchmark results schema** | v0.3 | `policy/schemas/results.v0.3.schema.json` | Paper-grade extension of v0.2: optional quantiles, 95% CI, simulated-mode distributions. Same required fields as v0.2; summary_v0.3.csv includes quantiles and CI. See [Metrics contract](metrics_contract.md). |
 
 ## Runner output contract (v0.1)
 

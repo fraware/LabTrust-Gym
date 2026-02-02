@@ -55,6 +55,11 @@
         "items": { "type": "string" }
       },
       "description": "Action type -> list of required token types (e.g. OPEN_DOOR -> [RESTRICTED_ENTRY])"
+    },
+    "citation_anchors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Stable policy citation anchors for rationale (e.g. POLICY:RBAC:roles.reception.allowed_actions). LLM rationale must cite at least one."
     }
   }
 }

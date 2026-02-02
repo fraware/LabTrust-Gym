@@ -21,20 +21,25 @@ except ImportError:
     _HAS_MPL = False
 
 
-def _load_study_results(out_dir: Path) -> Tuple[List[str], List[Dict[str, Any]]]:
-    """Load condition_ids from manifest and results/cond_*/results.json."""
+def _load_study_results(
+    out_dir: Path,
+) -> Tuple[List[str], List[str], List[Dict[str, Any]]]:
+    """Load condition_ids, condition_labels from manifest and results/cond_*/results.json."""
     manifest_path = out_dir / "manifest.json"
     if not manifest_path.exists():
         raise FileNotFoundError(f"manifest.json not found in {out_dir}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     condition_ids = manifest.get("condition_ids") or []
+    condition_labels: List[str] = manifest.get("condition_labels") or []
+    if len(condition_labels) != len(condition_ids):
+        condition_labels = list(condition_ids)
     results_list: List[Dict[str, Any]] = []
     for cid in condition_ids:
         res_path = out_dir / "results" / cid / "results.json"
         if not res_path.exists():
             continue
         results_list.append(json.loads(res_path.read_text(encoding="utf-8")))
-    return condition_ids, results_list
+    return condition_ids, condition_labels, results_list
 
 
 def _aggregate_per_condition(
@@ -191,20 +196,70 @@ def write_data_tables(
     return tables_dir
 
 
+def write_summary_table(
+    out_dir: Path,
+    condition_ids: List[str],
+    condition_labels: List[str],
+    agg_per_cond: Dict[str, Dict[str, Any]],
+) -> Path:
+    """Write summary.csv and paper_table.md for paper-ready tables. Returns TABLES dir."""
+    tables_dir = out_dir / "figures" / "data_tables"
+    tables_dir.mkdir(parents=True, exist_ok=True)
+    labels = condition_labels if len(condition_labels) == len(condition_ids) else condition_ids
+
+    # summary.csv: condition_id, condition_label, throughput_mean, violations_total, trust_cost_mean, p95_tat_mean
+    with (tables_dir / "summary.csv").open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow([
+            "condition_id", "condition_label",
+            "throughput_mean", "violations_total", "trust_cost_mean", "p95_tat_mean",
+        ])
+        for cid, label in zip(condition_ids, labels):
+            row = agg_per_cond.get(cid) or {}
+            p95 = row.get("p95_tat_mean")
+            w.writerow([
+                cid,
+                label,
+                row.get("throughput_mean", 0),
+                row.get("violations_total", 0),
+                row.get("trust_cost_mean", 0),
+                p95 if p95 is not None else "",
+            ])
+
+    # paper_table.md: markdown table used in docs/paper_ready.md
+    md_path = out_dir / "figures" / "data_tables" / "paper_table.md"
+    lines = [
+        "| condition_id | condition_label | throughput_mean | violations_total | trust_cost_mean | p95_tat_mean |",
+        "|--------------|-----------------|-----------------|------------------|-----------------|--------------|",
+    ]
+    for cid, label in zip(condition_ids, labels):
+        row = agg_per_cond.get(cid) or {}
+        p95 = row.get("p95_tat_mean")
+        p95_str = f"{p95:.1f}" if p95 is not None else "—"
+        lines.append(
+            f"| {cid} | {label} | {row.get('throughput_mean', 0):.2f} | "
+            f"{row.get('violations_total', 0)} | {row.get('trust_cost_mean', 0):.2f} | {p95_str} |"
+        )
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return tables_dir
+
+
 def _plot_throughput_vs_violations(
     condition_ids: List[str],
     agg_per_cond: Dict[str, Dict[str, Any]],
     fig_dir: Path,
+    condition_labels: Optional[List[str]] = None,
 ) -> None:
     xs = [agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids]
     ys = [agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids]
+    labels = condition_labels if condition_labels and len(condition_labels) == len(condition_ids) else condition_ids
     plt.figure(figsize=(5, 4))
     plt.scatter(xs, ys)
-    for i, cid in enumerate(condition_ids):
-        plt.annotate(cid, (xs[i], ys[i]), fontsize=8, alpha=0.8)
+    for i, lab in enumerate(labels):
+        plt.annotate(lab, (xs[i], ys[i]), fontsize=8, alpha=0.8)
     plt.xlabel("Violations (total)")
     plt.ylabel("Throughput (mean)")
-    plt.title("Throughput vs violations")
+    plt.title("Pareto: Throughput vs violations")
     plt.tight_layout()
     plt.savefig(fig_dir / "throughput_vs_violations.png", dpi=150)
     plt.savefig(fig_dir / "throughput_vs_violations.svg")
@@ -215,6 +270,7 @@ def _plot_trust_cost_vs_p95_tat(
     condition_ids: List[str],
     agg_per_cond: Dict[str, Dict[str, Any]],
     fig_dir: Path,
+    condition_labels: Optional[List[str]] = None,
 ) -> None:
     xs = []
     ys = []
@@ -227,13 +283,14 @@ def _plot_trust_cost_vs_p95_tat(
         else:
             xs.append(0.0)
             ys.append(row.get("trust_cost_mean", 0))
+    labels = condition_labels if condition_labels and len(condition_labels) == len(condition_ids) else condition_ids
     plt.figure(figsize=(5, 4))
     plt.scatter(xs, ys)
-    for i, cid in enumerate(condition_ids):
-        plt.annotate(cid, (xs[i], ys[i]), fontsize=8, alpha=0.8)
+    for i, lab in enumerate(labels):
+        plt.annotate(lab, (xs[i], ys[i]), fontsize=8, alpha=0.8)
     plt.xlabel("p95 TAT (s)")
     plt.ylabel("Trust cost (tokens consumed + minted, mean)")
-    plt.title("Trust cost vs p95 TAT")
+    plt.title("Pareto: Trust cost vs p95 TAT")
     plt.tight_layout()
     plt.savefig(fig_dir / "trust_cost_vs_p95_tat.png", dpi=150)
     plt.savefig(fig_dir / "trust_cost_vs_p95_tat.svg")
@@ -305,8 +362,9 @@ def _plot_critical_compliance_by_condition(
 
 def make_plots(out_dir: Path) -> Path:
     """
-    Read study out_dir, write data tables (CSV) and figures (PNG + SVG) to
-    out_dir/figures/ and out_dir/figures/data_tables/. Returns figures dir.
+    Read study out_dir, write data tables (CSV), summary table (summary.csv + paper_table.md),
+    and figures (PNG + SVG) to out_dir/figures/ and out_dir/figures/data_tables/.
+    Pareto scatter plots and summary table used in docs/paper_ready.md.
     Same inputs => identical CSV files (determinism).
     """
     if not _HAS_MPL:
@@ -314,19 +372,26 @@ def make_plots(out_dir: Path) -> Path:
             "matplotlib required for make_plots; pip install matplotlib"
         )
     out_dir = Path(out_dir)
-    condition_ids, results_list = _load_study_results(out_dir)
+    condition_ids, condition_labels, results_list = _load_study_results(out_dir)
     if not condition_ids or not results_list:
         raise ValueError(f"No condition results found in {out_dir}")
+    if len(condition_labels) != len(condition_ids):
+        condition_labels = list(condition_ids)
 
     agg_per_cond = _aggregate_per_condition(condition_ids, results_list)
     global_agg = _build_global_aggregates(agg_per_cond)
 
     write_data_tables(out_dir, condition_ids, agg_per_cond, global_agg)
+    write_summary_table(out_dir, condition_ids, condition_labels, agg_per_cond)
     fig_dir = out_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
 
-    _plot_throughput_vs_violations(condition_ids, agg_per_cond, fig_dir)
-    _plot_trust_cost_vs_p95_tat(condition_ids, agg_per_cond, fig_dir)
+    _plot_throughput_vs_violations(
+        condition_ids, agg_per_cond, fig_dir, condition_labels=condition_labels
+    )
+    _plot_trust_cost_vs_p95_tat(
+        condition_ids, agg_per_cond, fig_dir, condition_labels=condition_labels
+    )
     _plot_violations_by_invariant_id(global_agg, fig_dir)
     _plot_blocked_top10(global_agg, fig_dir)
     _plot_critical_compliance_by_condition(condition_ids, agg_per_cond, fig_dir)
@@ -335,9 +400,11 @@ def make_plots(out_dir: Path) -> Path:
 
 
 def get_data_table_paths(out_dir: Path) -> List[Path]:
-    """Return expected CSV paths in figures/data_tables/."""
+    """Return expected CSV and table paths in figures/data_tables/ (paper-ready)."""
     base = out_dir / "figures" / "data_tables"
     return [
+        base / "summary.csv",
+        base / "paper_table.md",
         base / "throughput_vs_violations.csv",
         base / "trust_cost_vs_p95_tat.csv",
         base / "violations_by_invariant_id.csv",

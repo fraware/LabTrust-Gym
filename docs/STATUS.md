@@ -2,7 +2,7 @@
 
 This document reports what is implemented, what is not, and what remains to reach the north star (pip-installable multi-agent lab environment with trust skeleton, benchmarks, and baselines).
 
-**Last updated:** reflects the codebase after **key registry lifecycle** (status ACTIVE/REVOKED/EXPIRED, not_before_ts_s/not_after_ts_s, SIG_KEY_REVOKED/SIG_KEY_EXPIRED/SIG_KEY_NOT_YET_VALID, agent_id binding), **TaskF phase 4** (revoked key → SIG_KEY_REVOKED), **LLM constrained baseline** (policy summary schema + generator, constrained action decoder, rationale required, DeterministicConstrainedBackend), invariant registry v1.0, enforcement layer, studies, baselines (adversary, LLM, MARL/PPO), TaskD, TaskE, TaskF (insider + key misuse, 5 phases), transport, export, critical v0.2, docs site, reproduce, package-release, quick-eval, PyPI packaging, **docs/installation.md**.
+**Last updated:** reflects the codebase after **ui-export** (UI-ready zip: index, events, receipts_index, reason_codes; docs/ui_data_contract.md; ui_fixtures/), **key registry lifecycle** (status ACTIVE/REVOKED/EXPIRED, not_before_ts_s/not_after_ts_s, SIG_KEY_REVOKED/SIG_KEY_EXPIRED/SIG_KEY_NOT_YET_VALID, agent_id binding), **TaskF phase 4** (revoked key → SIG_KEY_REVOKED), **LLM constrained baseline** (policy summary schema + generator, constrained action decoder, rationale required, DeterministicConstrainedBackend), invariant registry v1.0, enforcement layer, studies, baselines (adversary, LLM, MARL/PPO), TaskD, TaskE, TaskF (insider + key misuse, 5 phases), transport, export, critical v0.2, docs site, reproduce, package-release (minimal | full | **paper_v0.1**), **generate-official-baselines** CLI, quick-eval, PyPI packaging, **docs/installation.md**, **docs/paper_ready.md**, **GS-SHIFT-CHANGE-001** (mid-episode shift change: UPDATE_ROSTER, INJECT_SPECIMEN, RBAC post-change, queue contract, no RELEASE_RESULT from reception; strict signatures).
 
 ---
 
@@ -15,10 +15,10 @@ This document reports what is implemented, what is not, and what remains to reac
 | **Root metadata** | ✅ | README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG, LICENSE (Apache-2.0), .gitignore |
 | **CI** | ✅ | `.github/workflows/ci.yml`, `release.yml`; ruff format/check, mypy, pytest, policy validation; optional bench-smoke (nightly/manual) |
 | **Policy tree** | ✅ | `policy/schemas/` (incl. partners_index, **receipt**, **evidence_bundle_manifest**, **fhir_bundle_export**, **sites_policy**, **key_registry**, **rbac_policy**), `policy/emits/`, `policy/invariants/`, `policy/tokens/`, `policy/reason_codes/`, `policy/zones/`, `policy/keys/`, **`policy/rbac/`** (rbac_policy.v0.1), `policy/catalogue/`, `policy/stability/`, `policy/equipment/`, `policy/critical/` (thresholds, **escalation_ladder v0.2**), `policy/golden/`, `policy/partners/`, **`policy/sites/`** (sites_policy.v0.1) |
-| **Source tree** | ✅ | `src/labtrust_gym/` with **`config.py`** (get_repo_root for policy path), `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement, **signatures**, **rbac**, **transport**), `policy/` (incl. invariants_registry), `runner/`, **`export/`** (receipts, fhir_r4), `envs/` (PZ Parallel, AEC), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/` (tasks, metrics, runner), `studies/` (study_runner, plots, reproduce, **package_release**), `logging/` (episode_log), `cli/`, `version.py` |
-| **Tests** | ✅ | Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log, invariant_registry_validation, invariants_runtime, enforcement, study_runner_smoke, plots_tables_determinism, reproduce_smoke, adversary_task_smoke, marl_smoke, llm_agent_mock, **signatures**, **transport**, **rbac**, **export_receipts**, **fhir_export**, **package_release**, **TaskE** smoke |
+| **Source tree** | ✅ | `src/labtrust_gym/` with **`config.py`** (get_repo_root for policy path), `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement, **signatures**, **rbac**, **transport**), `policy/` (incl. invariants_registry), `runner/`, **`export/`** (receipts, fhir_r4, **ui_export**), `envs/` (PZ Parallel, AEC), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/` (tasks, metrics, runner), `studies/` (study_runner, plots, reproduce, **package_release**), `logging/` (episode_log), `cli/`, `version.py` |
+| **Tests** | ✅ | Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, stability, catalogue, queueing, devices_timing, scripted_ops, scripted_runner, PZ parallel/AEC smoke, benchmark smoke, episode log, invariant_registry_validation, invariants_runtime, enforcement, study_runner_smoke, plots_tables_determinism, reproduce_smoke, adversary_task_smoke, marl_smoke, llm_agent_mock, **signatures**, **transport**, **rbac**, **export_receipts**, **fhir_export**, **package_release**, **test_ui_export**, **TaskE** smoke |
 | **Examples** | ✅ | `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py`, `llm_agent_mock_demo.py` |
-| **Docs** | ✅ | `docs/architecture.md`, **`installation.md`** (pip, quick-eval), `policy_pack.md`, `threat_model.md`, `invariants.md`, `invariants_registry.md`, `enforcement.md`, `benchmarks.md`, `benchmark_card.md`, `studies.md`, `reproduce.md`, `fhir_export.md`, `frozen_contracts.md`, `ci.md`, `pettingzoo_api.md`, `queue_contract.v0.1.md`, `marl_baselines.md`, `llm_baselines.md`, `STATUS.md`. MkDocs site (mkdocstrings API reference); deploy to GitHub Pages. **CITATION.cff** at repo root. |
+| **Docs** | ✅ | `docs/architecture.md`, **`installation.md`** (pip, quick-eval, quickstart, troubleshooting), `policy_pack.md`, `threat_model.md`, `invariants.md`, `invariants_registry.md`, `enforcement.md`, `benchmarks.md`, `benchmark_card.md`, `studies.md`, `reproduce.md`, `fhir_export.md`, `frozen_contracts.md`, **`CONTRACTS.md`** (v0.1.0 freeze), **`ui_data_contract.md`** (ui-export bundle format), `ci.md`, `pettingzoo_api.md`, `queue_contract.v0.1.md`, `marl_baselines.md`, `llm_baselines.md`, `STATUS.md`. **ui_fixtures/** for offline UI. MkDocs site (mkdocstrings API reference); deploy to GitHub Pages. **CITATION.cff** at repo root. |
 
 ### 1.2 Not present or partial (from original directory spec)
 
@@ -165,16 +165,32 @@ Contracts and schema versions that define correctness; do not weaken without exp
 
 ### 2.15 Package release (release candidate artifact)
 
-- **`src/labtrust_gym/studies/package_release.py`** — run_package_release(profile, out_dir, seed_base): runs reproduce, then export-receipts and export-fhir per task/condition, copies plots/tables/results, writes MANIFEST.v0.1.json (files + sha256), BENCHMARK_CARD.md, metadata.json (git_sha, partner_id, policy_fingerprint, seed_base, timestamp). Deterministic timestamp when seed_base set.
-- **CLI** — `labtrust package-release --profile minimal|full --out <dir>` (optional `--seed-base`, `--keep-repro`).
-- **Tests** — `tests/test_package_release.py` (determinism: same seed_base ⇒ same non-plot/manifest hashes; expected files present).
+- **`src/labtrust_gym/studies/package_release.py`** — run_package_release(profile, out_dir, seed_base): for **minimal**|**full**, runs reproduce then export-receipts and export-fhir per task/condition, copies plots/tables/results, writes MANIFEST.v0.1.json (files + sha256), BENCHMARK_CARD.md, metadata.json (git_sha, partner_id, policy_fingerprint, seed_base, timestamp). For **paper_v0.1**, runs generate-official-baselines into _baselines/, TaskF strict_signatures study into _study/, summarize across both, representative run per task with receipts + verify, FIGURES/, TABLES/ (summary.csv, paper_table.md), RELEASE_NOTES.md; deterministic timestamp when seed_base set.
+- **CLI** — `labtrust package-release --profile minimal|full|paper_v0.1 --out <dir>` (optional `--seed-base`, `--keep-repro`). Paper profile: see docs/paper_ready.md.
+- **Tests** — `tests/test_package_release.py` (determinism: same seed_base ⇒ same non-plot/manifest hashes; expected files; paper_v0.1 smoke with LABTRUST_PAPER_SMOKE=1; CLI integration for paper_v0.1).
 - **CI** — `.github/workflows/package-release-nightly.yml`: scheduled (nightly) and workflow_dispatch; runs package-release --profile minimal; uploads artifact. Not run on normal push/PR.
+
+### 2.17 UI export (UI-ready bundle)
+
+- **`src/labtrust_gym/export/ui_export.py`** — `export_ui_bundle(run_dir, out_zip_path, repo_root)`: detects run type (quick_eval vs package_release), collects tasks/episodes from results and logs, normalizes episode log lines into stable event fields, loads reason code registry from policy; writes a zip with `index.json`, `events.json`, `receipts_index.json`, `reason_codes.json`. UI bundle version **0.1**.
+- **CLI** — `labtrust ui-export --run <dir> --out <ui_bundle.zip>`. Accepts labtrust_runs/quick_eval_* or package-release output. See [UI data contract](ui_data_contract.md).
+- **Tests** — `tests/test_ui_export.py` (detect run type, normalize event, export from quick_eval fixture, CLI integration, unknown layout raises).
+- **UI fixtures** — `ui_fixtures/` contains minimal results.v0.2, episode log, evidence bundle, FHIR bundle for offline UI work. UI depends on ui-export output as primary input, not raw internal logs.
+
+### 2.18 Runtime control (shift-change)
+
+- **Engine** — Control actions (processed before RBAC/signature gates, agent_id `SYSTEM`): **UPDATE_ROSTER** merges `args["roster"]` (agent_id → role_id) into in-memory RBAC; **INJECT_SPECIMEN** adds a specimen at runtime via `SpecimenStore.add_specimen(entry)`. Policy on disk is unchanged; RBAC decisions reflect the updated agent→role mapping after UPDATE_ROSTER.
+- **`src/labtrust_gym/engine/specimens.py`** — `add_specimen(entry)` adds one specimen at runtime (e.g. for INJECT_SPECIMEN); returns True if added, False if duplicate specimen_id.
+- **Emits vocab** — `policy/emits/emits_vocab.v0.1.yaml` includes category **runtime_control** with `UPDATE_ROSTER`, `INJECT_SPECIMEN` in the canonical allowed set.
+- **Key registry** — Post-shift keys (e.g. `ed25519:key_reception_analytics`, `ed25519:key_analytics_reception`) in `policy/keys/key_registry.v0.1.yaml` for agent→role mappings after shift change (GS-SHIFT-CHANGE-001).
+- **Golden scenario** — **GS-SHIFT-CHANGE-001**: mid-episode UPDATE_ROSTER (swap A_RECEPTION↔A_ANALYTICS roles), INJECT_SPECIMEN (STAT specimen S_STAT), post-shift reception/analytics actions with correct keys, queue_head(DEV_CHEM_A_01)==S_STAT, RELEASE_RESULT by (post-shift) reception → BLOCKED RBAC_ACTION_DENY; strict_signatures: all mutating actions signed.
+- **Tests** — `tests/test_golden_suite.py::test_golden_shift_change_001` (runs GS-SHIFT-CHANGE-001 when `LABTRUST_RUN_GOLDEN=1`).
 
 ---
 
-## 3. Golden scenarios (33 total)
+## 3. Golden scenarios (34 total)
 
-Golden tests cover engine correctness for core lab workflow, critical v0.2 (escalation ladder), **transport**, and **export**. Transport/export are covered by golden scenarios: **GS-TRANSPORT-001** (dispatch → tick → chain-of-custody sign → receive), **GS-TRANSPORT-002** (temp excursion fault injection → BLOCKED with TRANSPORT_TEMP_EXCURSION and INV-TRANSPORT-001), **GS-COC-003** (chain-of-custody broken), **GS-EXPORT-001** (post_run_hooks: EXPORT_RECEIPTS, VERIFY_BUNDLE, EXPORT_FHIR; asserts output files exist and manifest validates).
+Golden tests cover engine correctness for core lab workflow, critical v0.2 (escalation ladder), **transport**, **export**, and **runtime control (shift-change)**. Transport/export: **GS-TRANSPORT-001** (dispatch → tick → chain-of-custody sign → receive), **GS-TRANSPORT-002** (temp excursion fault injection → BLOCKED with TRANSPORT_TEMP_EXCURSION and INV-TRANSPORT-001), **GS-COC-003** (chain-of-custody broken), **GS-EXPORT-001** (post_run_hooks: EXPORT_RECEIPTS, VERIFY_BUNDLE, EXPORT_FHIR; asserts output files exist and manifest validates). Shift-change: **GS-SHIFT-CHANGE-001** (mid-episode UPDATE_ROSTER without changing policy on disk; RBAC reflects new agent→role mapping; INJECT_SPECIMEN STAT specimen; queue contract holds; no RELEASE_RESULT from reception role; strict mode — all mutating actions signed).
 
 | Scenario | Title / focus | Passes with engine? |
 |----------|----------------|----------------------|
@@ -210,6 +226,7 @@ Golden tests cover engine correctness for core lab workflow, critical v0.2 (esca
 | GS-TRANSPORT-001 | Transport: dispatch → tick → chain-of-custody sign → receive; no violations, receipt-worthy emits | ✅ |
 | GS-TRANSPORT-002 | Temp excursion fault injection ⇒ BLOCKED TRANSPORT_TEMP_EXCURSION, INV-TRANSPORT-001 | ✅ |
 | GS-COC-003 | Missing/invalid chain-of-custody ⇒ TRANSPORT_CHAIN_OF_CUSTODY_BROKEN, INV-COC-001 | ✅ |
+| GS-SHIFT-CHANGE-001 | Mid-episode shift change: UPDATE_ROSTER (RBAC in-memory), INJECT_SPECIMEN (STAT); queue contract; no RELEASE_RESULT from reception; strict signatures | ✅ |
 | GS-EXPORT-001 | Post-run hooks: EXPORT_RECEIPTS, VERIFY_BUNDLE, EXPORT_FHIR; output files exist, manifest validates | ✅ |
 
 **Full golden suite:** With `LABTRUST_RUN_GOLDEN=1`, the **full suite passes** (all scenarios; one may be skipped if fixtures unavailable). Queue semantics are frozen in **docs/queue_contract.v0.1.md** (v0.1). Export directories are created under the scenario work dir (e.g. pytest `tmp_path`); Receipt.v0.1 and EvidenceBundle manifest v0.1 are validated during VERIFY_BUNDLE and optional ASSERT_SCHEMA_VALID.
@@ -242,7 +259,7 @@ Golden tests cover engine correctness for core lab workflow, critical v0.2 (esca
 
 - **examples/minimal_random_policy_agent.py** — Present (minimal).
 - **examples/scripted_ops_agent.py**, **examples/scripted_runner_agent.py**, **examples/llm_agent_mock_demo.py** — Implemented; use `baselines/scripted_ops.py`, `scripted_runner.py`, `baselines/llm/agent.py`.
-- **Benchmark tasks** — TaskA, TaskB, TaskC, TaskD (adversarial disruption), TaskE (multi-site STAT), TaskF (insider + key misuse: 5 phases — forbidden action, forged sig, replay, **revoked key** → SIG_KEY_REVOKED, token misuse) in `benchmarks/tasks.py`; metrics and runner in `benchmarks/`; CLI `labtrust run-benchmark`, `labtrust bench-smoke`, **`labtrust quick-eval`** (TaskA, TaskD, TaskE; 1 episode each; markdown + logs under `labtrust_runs/`).
+- **Benchmark tasks** — TaskA, TaskB, TaskC, TaskD (adversarial disruption), TaskE (multi-site STAT), TaskF (insider + key misuse: 5 phases — forbidden action, forged sig, replay, **revoked key** → SIG_KEY_REVOKED, token misuse) in `benchmarks/tasks.py`; metrics and runner in `benchmarks/`; CLI `labtrust run-benchmark`, `labtrust bench-smoke`, **`labtrust quick-eval`** (TaskA, TaskD, TaskE; 1 episode each; markdown + logs under `labtrust_runs/`). **Results schema split**: v0.2 CI-stable (`results.v0.2.schema.json`, `summary_v0.2.csv`); v0.3 paper-grade (`results.v0.3.schema.json`, quantiles/95% CI, `summary_v0.3.csv`). See [metrics_contract.md](metrics_contract.md).
 - **Baselines** — Scripted ops, scripted runner, adversary (`baselines/adversary.py`), **LLM agent** (constrained decoder, rationale required, **DeterministicConstrainedBackend** as official baseline; mock/OpenAI stub in `baselines/llm/`), PPO via Stable-Baselines3 (`baselines/marl/`; optional `.[marl]`). Published benchmark results remain optional.
 
 ### 4.5 API and packaging
@@ -266,7 +283,7 @@ Golden tests cover engine correctness for core lab workflow, critical v0.2 (esca
 
 3. **Standard env API** — Done. PettingZoo Parallel and AEC wrappers in `envs/pz_parallel.py`, `envs/pz_aec.py`; observations, actions, rewards, infos; require `.[env]`.
 
-4. **Benchmark tasks and baselines** — Done. Four tasks (TaskA, TaskB, TaskC, TaskD), scripted ops/runner, adversary, LLM agent (mock + OpenAI stub), PPO/MARL (optional `.[marl]`); `labtrust run-benchmark`, `labtrust bench-smoke`; metrics (throughput, TAT, violations, detection/containment for TaskD). Publish empirical results as needed.
+4. **Benchmark tasks and baselines** — Done. Six tasks (TaskA, TaskB, TaskC, TaskD, TaskE, TaskF), scripted ops/runner, adversary, insider adversary (TaskF), LLM agent (mock + OpenAI stub), PPO/MARL (optional `.[marl]`); `labtrust run-benchmark`, `labtrust bench-smoke`, `labtrust generate-official-baselines`; metrics (throughput, TAT, violations, detection/containment for TaskD, containment/forensic for TaskF). Publish empirical results as needed.
 
 5. **Docs and examples** — MkDocs site with mkdocstrings API reference; docs/ expanded (benchmarks, studies, reproduce, enforcement, invariants_registry, marl_baselines, llm_baselines). Jupyter notebooks none.
 
@@ -303,6 +320,12 @@ labtrust bench-smoke --seed 42
 
 # Release candidate artifact (reproduce + receipts + FHIR + plots + MANIFEST + BENCHMARK_CARD)
 labtrust package-release --profile minimal --out /tmp/labtrust_release --seed-base 100
+
+# Paper-ready artifact (baselines + TaskF study + FIGURES/TABLES + receipts; see docs/paper_ready.md)
+labtrust package-release --profile paper_v0.1 --seed-base 100 --out /tmp/labtrust_paper
+
+# UI-ready zip from a run (quick-eval or package-release output; see docs/ui_data_contract.md)
+labtrust ui-export --run ./labtrust_runs/quick_eval_20250115_120000 --out ui_bundle.zip
 ```
 
 ---
@@ -328,10 +351,10 @@ labtrust package-release --profile minimal --out /tmp/labtrust_release --seed-ba
 | Engine structure | ✅ core_env + domain modules (audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement) | state.py, event.py, errors.py as separate modules (optional) |
 | Env API | ✅ Adapter (reset, step, query); PettingZoo Parallel and AEC wrappers (envs/) | — |
 | Baselines / benchmarks | ✅ Scripted ops, scripted runner, adversary; TaskA/B/C/D/**TaskE** (multi-site STAT), **TaskF** (insider + key misuse, 5 phases incl. revoked key → SIG_KEY_REVOKED); LLM agent (constrained decoder, DeterministicConstrainedBackend, rationale required); PPO/MARL (optional [marl]); labtrust run-benchmark, bench-smoke, **quick-eval**, run-study, make-plots, reproduce, **package-release**; episode logging | Published results |
-| Studies | ✅ study_runner, plots, reproduce, **package_release**; labtrust run-study, make-plots, reproduce --profile minimal\|full, **package-release --profile minimal\|full --out \<dir\>** | — |
+| Studies | ✅ study_runner, plots, reproduce, **package_release**; labtrust run-study, make-plots, reproduce --profile minimal\|full, **package-release --profile minimal\|full\|paper_v0.1 --out \<dir\>** (paper_v0.1: baselines + TaskF study + FIGURES/TABLES + receipts; see docs/paper_ready.md) | — |
 | Transport | ✅ engine/transport.py, sites_policy.v0.1, DISPATCH_TRANSPORT, TRANSPORT_TICK, RECEIVE_TRANSPORT, CHAIN_OF_CUSTODY_SIGN; INV-COC-001, INV-TRANSPORT-001 | — |
-| Export | ✅ receipts.py (Receipt.v0.1, EvidenceBundle.v0.1), fhir_r4.py (FHIR R4 Bundle); labtrust export-receipts, export-fhir; schemas receipt, evidence_bundle_manifest, fhir_bundle_export | — |
+| Export | ✅ receipts.py (Receipt.v0.1, EvidenceBundle.v0.1), fhir_r4.py (FHIR R4 Bundle), **ui_export.py** (UI-ready zip: index, events, receipts_index, reason_codes); labtrust export-receipts, export-fhir, **ui-export**; schemas receipt, evidence_bundle_manifest, fhir_bundle_export; docs/ui_data_contract.md | — |
 | Examples | ✅ minimal_random_policy_agent, scripted_ops_agent, scripted_runner_agent, llm_agent_mock_demo | — |
-| Docs | ✅ README, CONTRIBUTING, STATUS, **installation** (pip, quick-eval), architecture, benchmarks, studies, reproduce, invariants_registry, enforcement, marl_baselines, llm_baselines, ci, pettingzoo_api, queue_contract, policy_pack, threat_model; MkDocs site + mkdocstrings API ref; GitHub Pages | Jupyter notebooks |
+| Docs | ✅ README, CONTRIBUTING, STATUS, **installation** (pip, quick-eval, quickstart, troubleshooting), architecture, benchmarks, studies, reproduce, invariants_registry, enforcement, **CONTRACTS** (v0.1.0 freeze), **ui_data_contract** (ui-export), marl_baselines, llm_baselines, ci, pettingzoo_api, queue_contract, policy_pack, threat_model, **metrics_contract**; ui_fixtures/ for UI; MkDocs site + mkdocstrings API ref; GitHub Pages | Jupyter notebooks |
 
 This STATUS reports the current state of the repo: what is implemented and what remains.

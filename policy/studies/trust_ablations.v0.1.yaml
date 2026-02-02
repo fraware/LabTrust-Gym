@@ -1,0 +1,27 @@
+# Standard trust ablation study for paper-ready plots.
+# labtrust run-study --spec policy/studies/trust_ablations.v0.1.yaml --out runs/trust_ablations
+# Then: labtrust make-plots <out_dir> (or run make_plots from studies.plots).
+#
+# Cartesian product of ablations; each condition gets deterministic seed (seed_base + condition_index).
+# Optional condition_labels: one per condition (product order) for figures and summary table.
+
+task: TaskA
+episodes: 4
+seed_base: 100
+timing_mode: explicit
+
+ablations:
+  trust_skeleton: [on, off]
+  rbac: [coarse]
+  dual_approval: [on, off]
+  log_granularity: [minimal]
+
+# Optional: human-readable labels for each condition (same order as Cartesian product).
+# If omitted, runner derives labels from condition dict (e.g. trust_on_dual_on).
+condition_labels:
+  - "dual_on_trust_on"
+  - "dual_on_trust_off"
+  - "dual_off_trust_on"
+  - "dual_off_trust_off"
+
+agent_config: scripted_runner

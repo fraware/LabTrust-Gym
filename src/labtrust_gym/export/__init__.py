@@ -1,4 +1,4 @@
-"""Export: receipts, evidence bundles, FHIR R4, and bundle verification."""
+"""Export: receipts, evidence bundles, FHIR R4, bundle verification, UI export."""
 
 from labtrust_gym.export.receipts import (
     export_receipts,
@@ -13,6 +13,7 @@ from labtrust_gym.export.fhir_r4 import (
     export_fhir,
 )
 from labtrust_gym.export.verify import verify_bundle
+from labtrust_gym.export.ui_export import export_ui_bundle
 
 __all__ = [
     "export_receipts",
@@ -24,4 +25,5 @@ __all__ = [
     "validate_bundle_structure",
     "export_fhir",
     "verify_bundle",
+    "export_ui_bundle",
 ]

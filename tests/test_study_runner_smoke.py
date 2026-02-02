@@ -58,6 +58,9 @@ def test_study_runner_smoke_deterministic_hashes() -> None:
             assert manifest2["num_conditions"] == 2
             assert manifest1["condition_ids"] == ["cond_0", "cond_1"]
             assert manifest2["condition_ids"] == ["cond_0", "cond_1"]
+            assert "condition_labels" in manifest1
+            assert len(manifest1["condition_labels"]) == 2
+            assert len(manifest2["condition_labels"]) == 2
 
             assert manifest1["result_hashes"] == manifest2["result_hashes"], (
                 "Same spec + same code + same seeds => identical per-condition result hashes"
@@ -100,6 +103,7 @@ def test_study_runner_output_structure() -> None:
         for line in lines:
             rec = json.loads(line)
             assert "condition_id" in rec
+            assert "condition_label" in rec
             assert "condition" in rec
             assert "condition_seed" in rec
 

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.policy_pack_manifest.v0.1",
+  "title": "LabTrust Policy Pack Manifest v0.1",
+  "description": "List of effective policy files (after partner overlay) with sha256 per file and canonical root_hash (sha256 of canonical JSON of {version, files}).",
+  "type": "object",
+  "required": ["version", "files", "root_hash"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "partner_id": { "type": ["string", "null"] },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string", "description": "Path relative to repo root" },
+          "sha256": { "type": "string", "description": "SHA-256 hex of file content" }
+        }
+      }
+    },
+    "root_hash": {
+      "type": "string",
+      "description": "SHA-256 hex of canonical JSON of {version, files} (excluding root_hash)"
+    }
+  }
+}
