@@ -47,6 +47,38 @@ def test_build_log_entry_deterministic() -> None:
     assert entry["hashchain_head"] == "abc"
 
 
+def test_build_log_entry_includes_llm_decision() -> None:
+    """When result has llm_decision, build_log_entry includes it in the entry."""
+    event = {
+        "t_s": 20,
+        "agent_id": "ops_0",
+        "action_type": "NOOP",
+    }
+    result = {
+        "status": "ACCEPTED",
+        "emits": ["LLM_DECISION"],
+        "violations": [],
+        "blocked_reason_code": None,
+        "token_consumed": [],
+        "hashchain": {"head_hash": "h1", "length": 1, "last_event_hash": "e1"},
+        "llm_decision": {
+            "event_id": "pz_ops_0_1",
+            "backend_id": "deterministic_constrained",
+            "model_id": "n/a",
+            "prompt_sha256": "a" * 64,
+            "response_sha256": "b" * 64,
+            "latency_ms": None,
+            "action_proposal": {"action_type": "NOOP", "args": {}},
+            "error_code": None,
+        },
+    }
+    entry = build_log_entry(event, result)
+    assert "llm_decision" in entry
+    assert entry["llm_decision"]["backend_id"] == "deterministic_constrained"
+    assert entry["llm_decision"]["prompt_sha256"] == "a" * 64
+    assert entry["llm_decision"]["action_proposal"]["action_type"] == "NOOP"
+
+
 def test_episode_log_jsonl_determinism() -> None:
     """Same episode (seed + task) run twice => identical JSONL files."""
     task = get_task("TaskA")

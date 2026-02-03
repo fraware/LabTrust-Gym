@@ -199,6 +199,43 @@ def test_deterministic_constrained_backend_fixed_seed_reproducible() -> None:
     assert actions1 == actions2
 
 
+def test_deterministic_backend_stable_llm_decision_hashes() -> None:
+    """DeterministicConstrainedBackend: same seed + same observation => stable prompt_sha256 and response_sha256."""
+    from labtrust_gym.baselines.llm.shield import build_policy_summary
+
+    rbac = {
+        "roles": [
+            {"role_id": "reception", "allowed_actions": ["NOOP", "TICK", "QUEUE_RUN"]}
+        ]
+    }
+    obs = {"t_s": 0, "allowed_actions": ["NOOP", "TICK", "QUEUE_RUN"]}
+    backend1 = DeterministicConstrainedBackend(seed=777, default_action_type="NOOP")
+    agent1 = LLMAgentWithShield(
+        backend=backend1,
+        rbac_policy=rbac,
+        pz_to_engine={"ops_0": "ops_0"},
+        use_action_proposal_schema=True,
+    )
+    backend2 = DeterministicConstrainedBackend(seed=777, default_action_type="NOOP")
+    agent2 = LLMAgentWithShield(
+        backend=backend2,
+        rbac_policy=rbac,
+        pz_to_engine={"ops_0": "ops_0"},
+        use_action_proposal_schema=True,
+    )
+    _, _, meta1 = agent1.act(obs, agent_id="ops_0")
+    _, _, meta2 = agent2.act(obs, agent_id="ops_0")
+    llm1 = meta1.get("_llm_decision")
+    llm2 = meta2.get("_llm_decision")
+    assert llm1 is not None and llm2 is not None
+    assert llm1["prompt_sha256"] == llm2["prompt_sha256"]
+    assert llm1["response_sha256"] == llm2["response_sha256"]
+    assert llm1["backend_id"] == "deterministic_constrained"
+    assert llm1["model_id"] == "n/a"
+    assert "action_proposal" in llm1 and isinstance(llm1["action_proposal"], dict)
+    assert llm1.get("error_code") is None
+
+
 def test_deterministic_hashes() -> None:
     """prompt_hash, policy_summary_hash, allowed_actions_hash are deterministic for same input."""
     from labtrust_gym.baselines.llm.agent import (

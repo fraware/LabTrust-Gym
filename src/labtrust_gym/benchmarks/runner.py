@@ -196,6 +196,8 @@ def run_benchmark(
     initial_state_overrides: Optional[Dict[str, Any]] = None,
     partner_id: Optional[str] = None,
     use_llm_safe_v1_ops: bool = False,
+    use_llm_live_openai: bool = False,
+    llm_backend: Optional[str] = None,
     timing_mode: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -205,8 +207,14 @@ def run_benchmark(
     log_path: optional JSONL path for episode step log (truncated at start).
     initial_state_overrides: optional dict merged into each episode initial_state (e.g. timing_mode).
     partner_id: optional partner overlay ID; effective_policy and policy_fingerprint injected into initial_state.
+    llm_backend: optional "deterministic" | "openai_live" to use LLM agent for ops_0; None = scripted. Overrides use_llm_*.
     timing_mode: optional "explicit" | "simulated"; overrides task default and initial_state_overrides.
     """
+    if llm_backend is None and use_llm_live_openai:
+        llm_backend = "openai_live"
+    if llm_backend is None and use_llm_safe_v1_ops:
+        llm_backend = "deterministic"
+    llm_backend_ref: Optional[Any] = None
     task = get_task(task_name)
     overrides = dict(initial_state_overrides or {})
     if timing_mode is not None:
@@ -305,7 +313,7 @@ def run_benchmark(
                 device_ids=DEFAULT_DEVICE_IDS,
             ),
         }
-        if use_llm_safe_v1_ops:
+        if llm_backend == "deterministic":
             from labtrust_gym.baselines.llm.agent import (
                 LLMAgentWithShield,
                 DeterministicConstrainedBackend,
@@ -323,6 +331,28 @@ def run_benchmark(
                 backend=DeterministicConstrainedBackend(
                     seed=base_seed, default_action_type="NOOP"
                 ),
+                rbac_policy=rbac_policy,
+                pz_to_engine=pz_to_engine,
+                strict_signatures=False,
+            )
+        elif llm_backend == "openai_live":
+            from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
+            from labtrust_gym.baselines.llm.backends.openai_live import (
+                OpenAILiveBackend,
+            )
+            from labtrust_gym.engine.rbac import load_rbac_policy
+
+            rbac_path = (
+                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            )
+            rbac_policy = load_rbac_policy(rbac_path)
+            pz_to_engine = _default_pz_to_engine(
+                num_runners=num_runners, num_insiders=num_insiders
+            )
+            backend = OpenAILiveBackend()
+            llm_backend_ref = backend
+            scripted_agents_map["ops_0"] = LLMAgentWithShield(
+                backend=backend,
                 rbac_policy=rbac_policy,
                 pz_to_engine=pz_to_engine,
                 strict_signatures=False,
@@ -396,15 +426,20 @@ def run_benchmark(
     git_hash = _git_commit_hash(repo_root)
     partner_id_result = partner_id
     policy_fingerprint_result = policy_fingerprint
-    agent_baseline_id = (
-        "adversary_v1"
-        if task_name in ("TaskD", "TaskD_AdversarialDisruption")
-        else (
-            "insider_v1"
-            if task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse")
-            else "scripted_ops_v1"
+    if llm_backend == "deterministic":
+        agent_baseline_id = "llm_safe_v1"
+    elif llm_backend == "openai_live":
+        agent_baseline_id = "llm_live_openai_v1"
+    else:
+        agent_baseline_id = (
+            "adversary_v1"
+            if task_name in ("TaskD", "TaskD_AdversarialDisruption")
+            else (
+                "insider_v1"
+                if task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse")
+                else "scripted_ops_v1"
+            )
         )
-    )
 
     effective_timing = (initial_state_overrides or {}).get("timing_mode", "explicit")
     results = {
@@ -427,6 +462,30 @@ def run_benchmark(
         "agent_baseline_id": agent_baseline_id,
         "episodes": episodes_metrics,
     }
+
+    if llm_backend is not None:
+        if llm_backend == "deterministic":
+            results["metadata"] = {
+                "llm_backend_id": "deterministic_constrained",
+                "llm_model_id": "n/a",
+                "llm_error_rate": 0.0,
+                "mean_llm_latency_ms": None,
+            }
+        elif llm_backend == "openai_live" and llm_backend_ref is not None:
+            agg = llm_backend_ref.get_aggregate_metrics()
+            results["metadata"] = {
+                "llm_backend_id": agg.get("backend_id"),
+                "llm_model_id": agg.get("model_id"),
+                "llm_error_rate": agg.get("error_rate"),
+                "mean_llm_latency_ms": agg.get("mean_latency_ms"),
+            }
+        else:
+            results["metadata"] = {
+                "llm_backend_id": llm_backend,
+                "llm_model_id": None,
+                "llm_error_rate": None,
+                "mean_llm_latency_ms": None,
+            }
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)

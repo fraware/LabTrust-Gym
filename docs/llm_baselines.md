@@ -20,6 +20,13 @@ Offline-safe, **constrained and reproducible by default** LLM agent interface fo
 - **policy/llm/policy_summary.schema.v0.1.json**: What the agent can see (allowed_actions, zone_graph, queue_head, pending_criticals, key_constraints, critical_ladder_summary, restricted_zones, token_requirements, log_frozen, strict_signatures). Use **generate_policy_summary_from_policy(repo_root, ...)** to build from policy files.
 - Proposed action JSON is validated (schema + rationale + allowed_actions) at **decode time**; invalid or RBAC-inconsistent output is rejected (NOOP with reason_code) before env step.
 
+## Provider-neutral live interface
+
+- **ProviderBackend** (protocol in `baselines.llm.provider`): live backends return **ActionProposal** dicts via `propose_action(context)`. No optional deps; engine logic depends only on this interface.
+- **Capability flags**: `supports_structured_outputs` (bool), `supports_tool_calls` (bool). Backends set them; best quality when structured outputs are supported (e.g. OpenAI with `response_format`).
+- **Per-provider code** is behind optional extras: **llm_openai** (OpenAILiveBackend), **llm_anthropic** (later). Add new providers without touching engine logic.
+- **Fallback path**: If a provider does not support strict JSON schema, the agent still runs: it calls `generate(messages) -> str`, then **parse + validate + NOOP on failure**. Audit field **used_structured_outputs** in LLM_DECISION records whether the backend natively returned schema-conforming output (preferred) or fallback was used.
+
 ## Backends
 
 ### MockDeterministicBackend

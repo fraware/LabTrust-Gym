@@ -223,6 +223,7 @@ def test_llm_shield_safety_forbidden_action() -> None:
         pz_to_engine=pz_to_engine,
         schema_path=_repo_root() / "policy/llm/llm_action.schema.v0.2.json",
         strict_signatures=False,
+        use_action_proposal_schema=False,
     )
     ret = agent.act(obs, "ops_0")
     assert len(ret) == 3

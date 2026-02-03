@@ -53,6 +53,31 @@ def test_results_v02_schema_validates_run_benchmark_output() -> None:
     assert errors == [], f"Validation errors: {errors}"
 
 
+def test_results_v02_schema_validates_with_metadata_llm() -> None:
+    """Results with optional metadata (llm_backend_id, etc.) still validate against results.v0.2."""
+    schema_path = Path("policy/schemas/results.v0.2.schema.json")
+    if not schema_path.exists():
+        pytest.skip("policy/schemas/results.v0.2.schema.json not found")
+    data = {
+        "schema_version": "0.2",
+        "task": "TaskA",
+        "seeds": [42],
+        "episodes": [{"seed": 42, "metrics": {"throughput": 0, "steps": 10}}],
+        "agent_baseline_id": "llm_safe_v1",
+        "policy_fingerprint": None,
+        "partner_id": None,
+        "git_sha": None,
+        "metadata": {
+            "llm_backend_id": "deterministic_constrained",
+            "llm_model_id": "n/a",
+            "llm_error_rate": 0.0,
+            "mean_llm_latency_ms": None,
+        },
+    }
+    errors = validate_results_v02(data, schema_path=schema_path)
+    assert errors == [], f"Validation errors: {errors}"
+
+
 def test_run_benchmark_output_validates_v02(tmp_path: Path) -> None:
     """Run benchmark writes results that validate against results.v0.2.schema.json."""
     from labtrust_gym.benchmarks.runner import run_benchmark

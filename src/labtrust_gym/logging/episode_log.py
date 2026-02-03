@@ -101,6 +101,9 @@ def build_log_entry(
         val = result.get(key)
         if val is not None:
             entry[key] = val
+    llm_decision = result.get("llm_decision")
+    if llm_decision is not None and isinstance(llm_decision, dict):
+        entry["llm_decision"] = llm_decision
     return entry
 
 

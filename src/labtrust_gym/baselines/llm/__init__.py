@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from labtrust_gym.baselines.llm.action_proposal import (
+    load_action_proposal_schema,
+    validate_action_proposal_dict,
+)
 from labtrust_gym.baselines.llm.agent import (
     LLMAgent,
     LLMAgentWithShield,
@@ -21,5 +25,10 @@ __all__ = [
     "MockDeterministicBackend",
     "MockDeterministicBackendV2",
     "OpenAIBackend",
+    "ProviderBackend",
     "decode_constrained",
+    "load_action_proposal_schema",
+    "supports_structured_outputs",
+    "supports_tool_calls",
+    "validate_action_proposal_dict",
 ]

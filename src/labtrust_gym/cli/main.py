@@ -81,6 +81,17 @@ def main() -> int:
         default=None,
         help="Episode step log path (JSONL); deterministic given seed+actions",
     )
+    p_bench.add_argument(
+        "--llm-backend",
+        choices=["deterministic", "openai_live"],
+        default=None,
+        help="LLM agent backend: deterministic (seeded, no API) or openai_live (requires OPENAI_API_KEY). Default: no LLM (scripted ops).",
+    )
+    p_bench.add_argument(
+        "--use-llm-live-openai",
+        action="store_true",
+        help="Use live OpenAI backend (same as --llm-backend openai_live; deprecated in favor of --llm-backend)",
+    )
     p_bench.set_defaults(func=_run_benchmark)
     p_bench_smoke = sub.add_parser(
         "bench-smoke",
@@ -433,6 +444,9 @@ def _run_benchmark(args: argparse.Namespace) -> int:
 
     root = get_repo_root()
     partner_id = _get_partner_id(args)
+    llm_backend = getattr(args, "llm_backend", None)
+    if getattr(args, "use_llm_live_openai", False):
+        llm_backend = "openai_live"
     _run(
         task_name=args.task,
         num_episodes=args.episodes,
@@ -441,6 +455,7 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         repo_root=root,
         log_path=Path(args.log) if getattr(args, "log", None) else None,
         partner_id=partner_id,
+        llm_backend=llm_backend,
         timing_mode=getattr(args, "timing", None),
     )
     print(f"Wrote {args.out}", file=sys.stderr)

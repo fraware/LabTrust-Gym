@@ -373,6 +373,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             "_policy_summary_hash",
             "_allowed_actions_hash",
             "_decoder_version",
+            "_llm_decision",
         )
         _META_KEYS_STRIP = _SHIELD_META_KEYS + _LLM_AUDIT_KEYS
         info = {
@@ -547,6 +548,13 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                     result["allowed_actions_hash"] = ai["_allowed_actions_hash"]
                 if ai.get("_decoder_version") is not None:
                     result["decoder_version"] = ai["_decoder_version"]
+            # LLM_DECISION audit event: include in result and emits for episode log / evidence bundle
+            if ai.get("_llm_decision") is not None:
+                result = dict(result)
+                llm_decision = dict(ai["_llm_decision"])
+                llm_decision["event_id"] = event.get("event_id", "")
+                result["llm_decision"] = llm_decision
+                result["emits"] = list(result.get("emits", [])) + ["LLM_DECISION"]
             step_results.append(result)
             if self._episode_logger is not None:
                 self._episode_logger.log_step(event, result)

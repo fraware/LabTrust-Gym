@@ -9,13 +9,18 @@ description = "Multi-agent environment for a self-driving hospital lab (PettingZ
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
-authors = [
-    { name = "LabTrust-Gym contributors" }
+authors = [{ name = "LabTrust-Gym contributors" }]
+maintainers = [{ name = "LabTrust-Gym contributors" }]
+keywords = [
+    "gym",
+    "multi-agent",
+    "hospital-lab",
+    "trust",
+    "policy",
+    "simulation",
+    "pettingzoo",
+    "gymnasium",
 ]
-maintainers = [
-    { name = "LabTrust-Gym contributors" }
-]
-keywords = ["gym", "multi-agent", "hospital-lab", "trust", "policy", "simulation", "pettingzoo", "gymnasium"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -37,30 +42,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-    "ruff>=0.1",
-    "mypy>=1.0",
-]
+dev = ["pytest>=7.0", "ruff>=0.1", "mypy>=1.0"]
 # PettingZoo Parallel API wrapper; install with: pip install -e ".[env]"
-env = [
-    "pettingzoo>=1.24",
-    "gymnasium>=0.29",
-]
+env = ["pettingzoo>=1.24", "gymnasium>=0.29"]
 # Plotting pipeline for study outputs; install with: pip install -e ".[plots]"
-plots = [
-    "matplotlib>=3.7",
-]
+plots = ["matplotlib>=3.7"]
 # PPO/MARL baselines; install with: pip install -e ".[marl]"
-marl = [
-    "stable-baselines3>=2.0",
-    "gymnasium>=0.29",
-]
+marl = ["stable-baselines3>=2.0", "gymnasium>=0.29"]
 # Documentation site; install with: pip install -e ".[docs]"
-docs = [
-    "mkdocs>=1.5",
-    "mkdocstrings[python]>=0.24",
-]
+docs = ["mkdocs>=1.5", "mkdocstrings[python]>=0.24"]
+# Live OpenAI backend (Structured Outputs); install with: pip install -e ".[llm_openai]"
+# Base install remains unchanged; no network calls without this extra.
+llm_openai = ["openai>=1.40"]
+# Live Anthropic backend (future); install with: pip install -e ".[llm_anthropic]"
+llm_anthropic = []
 
 [project.scripts]
 labtrust = "labtrust_gym.cli.main:main"

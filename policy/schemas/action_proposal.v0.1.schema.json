@@ -1,0 +1,72 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://labtrust-gym/schemas/action_proposal.v0.1.schema.json",
+    "title": "LabTrust ActionProposal v0.1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "action_type",
+      "args",
+      "reason_code",
+      "token_refs",
+      "rationale",
+      "confidence",
+      "safety_notes"
+    ],
+    "properties": {
+      "action_type": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Must exactly match one of the allowed action types for this step, or NOOP."
+      },
+      "args": {
+        "type": "object",
+        "description": "Action arguments. Must satisfy the action's expected argument schema (validated separately by the constrained decoder).",
+        "additionalProperties": true
+      },
+      "reason_code": {
+        "description": "If the action is expected to be BLOCKED or is a safety override path, include an appropriate reason code; otherwise null.",
+        "anyOf": [
+          { "type": "string", "minLength": 1 },
+          { "type": "null" }
+        ]
+      },
+      "token_refs": {
+        "type": "array",
+        "description": "Token IDs required by this action (if any). Empty array if none.",
+        "items": { "type": "string", "minLength": 1 },
+        "uniqueItems": true
+      },
+      "rationale": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Short justification tied to policy, invariants, and immediate goals. No chain-of-thought; keep it brief and operational."
+      },
+      "confidence": {
+        "type": "number",
+        "minimum": 0.0,
+        "maximum": 1.0,
+        "description": "0..1 confidence in the action being legal and beneficial."
+      },
+      "safety_notes": {
+        "type": "string",
+        "description": "Optional safety remarks (may be empty)."
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": { "action_type": { "const": "NOOP" } },
+          "required": [ "action_type" ]
+        },
+        "then": {
+          "properties": {
+            "args": { "maxProperties": 0 },
+            "reason_code": { "type": "null" },
+            "token_refs": { "maxItems": 0 }
+          }
+        }
+      }
+    ]
+  }
+  
