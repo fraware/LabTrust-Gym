@@ -18,7 +18,17 @@ Offline-safe, **constrained and reproducible by default** LLM agent interface fo
   - **action_type**: string (NOOP, TICK, MOVE, QUEUE_RUN, START_RUN, RELEASE_RESULT, etc.).
   - **args**, **key_id**, **signature**, **token_refs**, **reason_code**, **rationale** (required for constrained baseline: explainable).
 - **policy/llm/policy_summary.schema.v0.1.json**: What the agent can see (allowed_actions, zone_graph, queue_head, pending_criticals, key_constraints, critical_ladder_summary, restricted_zones, token_requirements, log_frozen, strict_signatures). Use **generate_policy_summary_from_policy(repo_root, ...)** to build from policy files.
+- **Canonical allowed-actions payload**: `src/labtrust_gym/baselines/llm/allowed_actions_payload.py` defines **ACTION_SPEC_REGISTRY** and **build_allowed_actions_payload()**. The payload includes per-action `action_type`, `args_examples`, `required_tokens`, and `description`, and is capped in size. Both **DeterministicConstrainedBackend** and **OpenAILiveBackend** inject this payload into the user prompt so the LLM sees a single, consistent action spec.
 - Proposed action JSON is validated (schema + rationale + allowed_actions) at **decode time**; invalid or RBAC-inconsistent output is rejected (NOOP with reason_code) before env step.
+
+## LLM audit events
+
+When the LLM agent proposes an action, the engine records an audit event:
+
+- **Emit type**: **LLM_DECISION** (in `policy/emits/emits_vocab.v0.1.yaml`).
+- **Audit payload** (`_llm_decision`): Written to the episode log and to evidence bundles. Fields: `backend_id`, `model_id`, `prompt_sha256`, `response_sha256`, `latency_ms`, `action_proposal` (the proposed action dict or null on error), `error_code` (e.g. parse/shield reason or `n/a`), `used_structured_outputs` (bool; true when the backend returned schema-conforming output, false when fallback parse was used).
+
+This supports forensics and reproducibility checks (e.g. hashing prompt/response, latency, and whether structured outputs were used).
 
 ## Provider-neutral live interface
 
@@ -52,6 +62,12 @@ Offline-safe, **constrained and reproducible by default** LLM agent interface fo
 
 - Reads API key from env var `OPENAI_API_KEY`.
 - **Stub**: Does not call the API; returns NOOP if no key, else raises NotImplementedError. Not used in tests. Plug a real implementation when needed.
+
+### OpenAILiveBackend (live provider)
+
+- **ProviderBackend** implementation: calls OpenAI Chat Completions with Structured Outputs (optional; falls back to parse if unsupported). Requires `OPENAI_API_KEY` and optional `.[llm_openai]` extra.
+- Uses the **canonical allowed-actions payload** from `allowed_actions_payload.py` in the user prompt. Exposes **get_aggregate_metrics()** (total calls, error count, sum latency ms) for results metadata.
+- Enable via CLI: `labtrust run-benchmark --llm-backend openai_live`. Non-deterministic; incurs API cost. See [Live LLM benchmark mode](llm_live.md).
 
 ## Constrained decoder + safety shield (v1)
 

@@ -92,6 +92,7 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 - `policy_versions`: emits_vocab, catalogue_schema versions.
 - `git_commit_hash`: Current commit (if available).
 - `episodes`: List of `{ seed, metrics }` per episode.
+- **metadata** (optional, when `--llm-backend` is set): `llm_backend_id`, `llm_model_id`, `llm_error_rate`, `mean_llm_latency_ms`. See [Live LLM benchmark mode](llm_live.md).
 
 ## CLI
 
@@ -109,6 +110,7 @@ labtrust run-benchmark --task TaskA --episodes 50 --seed 123 --out results.json
 - `--seed`: Base seed (default 123).
 - `--out`: Output JSON path (default results.json).
 - `--log`: Optional JSONL path for episode step log.
+- `--llm-backend`: Optional `deterministic` or `openai_live` to run with LLM agent (default: scripted agents). See [Live LLM benchmark mode](llm_live.md).
 
 ## Timing mode
 

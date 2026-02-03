@@ -47,7 +47,7 @@ labtrust reproduce --profile minimal
 
 Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings).
 
-**LLMs:** Benchmarks and tests use **deterministic, offline** LLM backends (no API keys or `.env`). See [docs/installation.md](docs/installation.md#configuration-no-env-file-required) and [docs/llm_baselines.md](docs/llm_baselines.md).
+**LLMs:** Benchmarks and tests use **deterministic, offline** LLM backends by default (no API keys or `.env`). Optional **live LLM** mode: `--llm-backend openai_live` (requires `OPENAI_API_KEY`; non-deterministic, incurs cost). See [docs/installation.md](docs/installation.md#configuration-no-env-file-required), [docs/llm_baselines.md](docs/llm_baselines.md), and [docs/llm_live.md](docs/llm_live.md).
 
 ## Quick eval
 
@@ -63,7 +63,7 @@ Output: a markdown summary (throughput, violations, blocked counts) and logs und
 
 - **validate-policy** — Validate all policy YAML/JSON against schemas.
 - **quick-eval** — 1 episode each of TaskA, TaskD, TaskE; markdown summary and logs under `./labtrust_runs/` (`--seed`, `--out-dir`).
-- **run-benchmark** — Run TaskA, TaskB, TaskC, TaskD, TaskE, or TaskF; write results.json (`--task`, `--episodes`, `--out`).
+- **run-benchmark** — Run TaskA, TaskB, TaskC, TaskD, TaskE, or TaskF; write results.json (`--task`, `--episodes`, `--out`). Optional `--llm-backend {deterministic,openai_live}` to use LLM agent (default: scripted agents); see [docs/llm_live.md](docs/llm_live.md).
 - **eval-agent** — Run benchmark with an external agent (module:Class or module:function); write results.json (v0.2). Example: `--agent "examples.external_agent_demo:SafeNoOpAgent"` (`--task`, `--episodes`, `--out`, `--seed`, `--partner`, `--timing`).
 - **bench-smoke** — 1 episode per task (TaskA, TaskB, TaskC).
 - **export-receipts** — Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log (`--run`, `--out`).
@@ -82,10 +82,10 @@ Output: a markdown summary (throughput, violations, blocked counts) and logs und
 ## Layout
 
 - **policy/** — Versioned YAML/JSON: `schemas/`, `emits/`, `invariants/` (registry v1.0), `tokens/`, `reason_codes/`, `zones/`, `sites/` (sites_policy), `catalogue/`, `stability/`, `equipment/`, `critical/` (thresholds, escalation_ladder v0.2), `enforcement/`, `studies/`, `llm/`, `golden/`, `partners/`. Validated by `labtrust validate-policy`.
-- **src/labtrust_gym/** — `config.py` (get_repo_root for policy path), `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, transport, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement), `policy/` (loader, validate, invariants_registry), `export/` (receipts, fhir_r4), `runner/`, `envs/` (PettingZoo Parallel and AEC), `baselines/` (scripted_ops, scripted_runner, adversary, llm, marl), `benchmarks/`, `studies/` (study_runner, plots, reproduce, package_release), `logging/`, `cli/`, `version.py`.
-- **tests/** — Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, queueing, benchmarks, invariant registry, enforcement, **test_signatures_key_lifecycle** (key lifecycle: valid/revoked/expired/not-yet-valid), **test_llm_constrained_decoder** (LLM constrained decode, rationale, deterministic baseline), transport, export_receipts, fhir_export, package_release, study runner, plots, reproduce smoke, adversary, marl smoke, llm agent mock.
+- **src/labtrust_gym/** — `config.py` (get_repo_root for policy path), `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, transport, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement), `policy/` (loader, validate, invariants_registry), `export/` (receipts, fhir_r4), `runner/`, `envs/` (PettingZoo Parallel and AEC), `baselines/` (scripted_ops, scripted_runner, adversary, **llm** (allowed_actions_payload, ProviderBackend, LLM_DECISION audit), marl), `benchmarks/`, `studies/` (study_runner, plots, reproduce, package_release), `logging/`, `cli/`, `version.py`.
+- **tests/** — Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, queueing, benchmarks, invariant registry, enforcement, **test_signatures_key_lifecycle** (key lifecycle: valid/revoked/expired/not-yet-valid), **test_llm_constrained_decoder** (LLM constrained decode, rationale, deterministic baseline, LLM_DECISION audit), **test_openai_live** (live backend, LLM_DECISION shape), transport, export_receipts, fhir_export, package_release, study runner, plots, reproduce smoke, adversary, marl smoke, llm agent mock.
 - **examples/** — `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py`, `llm_agent_mock_demo.py`.
-- **docs/** — Architecture, policy pack, invariants & enforcement, benchmarks, studies, reproduce, PettingZoo API, CI, threat model, MARL/LLM baselines; **docs/STATUS.md** — current state. MkDocs site (build with `.[docs]`).
+- **docs/** — Architecture, policy pack, invariants & enforcement, benchmarks, studies, reproduce, PettingZoo API, CI, threat model, MARL/LLM baselines, **llm_live** (live LLM benchmark mode); **docs/STATUS.md** — current state. MkDocs site (build with `.[docs]`).
 
 ## Golden runner
 

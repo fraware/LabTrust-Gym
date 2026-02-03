@@ -39,12 +39,12 @@ If you want to use a `.env` file (e.g. for local overrides), load it yourself be
 
 ### LLMs: no API keys required by default
 
-The **LLM baselines** (benchmarks, tests, quick-eval) do **not** call any external API. They use **deterministic, offline backends**:
+The **LLM baselines** (benchmarks, tests, quick-eval) do **not** call any external API by default. They use **deterministic, offline backends**:
 
 - **DeterministicConstrainedBackend** — Official LLM baseline: chooses from allowed actions with a **seeded RNG**; no network, no API key.
 - **MockDeterministicBackend** / **MockDeterministicBackendV2** — Canned JSON responses for tests; no API.
 
-So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. The **OpenAIBackend** stub exists only for future use; it reads `OPENAI_API_KEY` from the environment and, in this codebase, never actually calls the API (stub returns NOOP or raises `NotImplementedError`). If you plug in a real LLM provider later, you would set the API key in the environment (or load it from a `.env` yourself). See [LLM baselines](llm_baselines.md).
+So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. To run benchmarks with a **live** LLM (e.g. OpenAI), use `labtrust run-benchmark --llm-backend openai_live`; then `OPENAI_API_KEY` is required. Those runs are non-deterministic and incur API cost. See [LLM baselines](llm_baselines.md) and [Live LLM benchmark mode](llm_live.md).
 
 ## Quick eval
 
