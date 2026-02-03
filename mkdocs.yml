@@ -40,7 +40,9 @@ nav:
   - Queue contract: queue_contract.v0.1.md
   - MARL baselines: marl_baselines.md
   - LLM baselines: llm_baselines.md
+  - Live LLM benchmark mode: llm_live.md
   - Contributing: contributing.md
+  - Improvements before online: IMPROVEMENTS_BEFORE_ONLINE.md
   - CI: ci.md
   - STATUS: STATUS.md
   - API Reference: api/index.md

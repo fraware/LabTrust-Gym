@@ -19,6 +19,7 @@ reason_code_registry:
     - "CRIT"     # critical results communication/ack/escalation nonconformances
     - "RBAC"     # permissions / restricted access / tokens
     - "AUD"      # audit trail / hash chain / ALCOA+ integrity
+    - "LLM"      # LLM baseline: schema, decode, provider, timeout
     - "SYS"      # system downtime / degraded mode
 
   severity_scale:
@@ -515,3 +516,41 @@ reason_code_registry:
       description: "Key role does not authorize this action type (INV-SIG-002)."
       triggers: []
       default_actions: ["BLOCK_ACTION"]
+
+    # -----------------------------
+    # LLM baseline (live / structured output)
+    # -----------------------------
+    - code: "LLM_INVALID_SCHEMA"
+      namespace: "LLM"
+      severity: "P0_STOP"
+      description: "LLM output did not validate against ActionProposal schema (envelope)."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    - code: "LLM_REFUSED"
+      namespace: "LLM"
+      severity: "P3_WARN"
+      description: "LLM refused or declined to propose an action (content policy)."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "LLM_TIMEOUT"
+      namespace: "LLM"
+      severity: "P3_WARN"
+      description: "LLM provider did not respond within timeout."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "LLM_PROVIDER_ERROR"
+      namespace: "LLM"
+      severity: "P0_STOP"
+      description: "LLM provider returned an error (rate limit, service unavailable)."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    - code: "LLM_DECODE_MISMATCH"
+      namespace: "LLM"
+      severity: "P2_HOLD_REVIEW"
+      description: "Decoded action did not match allowed_actions or argument constraints."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]

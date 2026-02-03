@@ -71,6 +71,49 @@ def test_verify_bundle_pass_untouched(tmp_path: Path) -> None:
     assert len(errors) == 0
 
 
+def test_verify_bundle_pass_with_llm_decision_entries(tmp_path: Path) -> None:
+    """Bundle with episode log entries containing llm_decision still verifies; hashes are stable."""
+    root = _repo_root()
+    entries = [
+        {
+            "t_s": 100,
+            "agent_id": "A",
+            "action_type": "NOOP",
+            "args": {},
+            "status": "ACCEPTED",
+            "emits": ["LLM_DECISION"],
+            "hashchain": {"head_hash": "h0", "length": 1, "last_event_hash": "e0"},
+            "llm_decision": {
+                "event_id": "pz_ops_0_1",
+                "backend_id": "deterministic_constrained",
+                "model_id": "n/a",
+                "prompt_sha256": "a" * 64,
+                "response_sha256": "b" * 64,
+                "latency_ms": None,
+                "action_proposal": {"action_type": "NOOP", "args": {}},
+                "error_code": None,
+            },
+        },
+    ]
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp_test",
+        partner_id=None,
+    )
+    passed, report, errors = verify_bundle(
+        bundle_dir,
+        policy_root=root,
+        allow_extra_files=False,
+    )
+    assert passed, f"expected PASS: {report}\n{errors}"
+    assert len(errors) == 0
+
+
 def test_verify_bundle_fail_tampered_file(tmp_path: Path) -> None:
     """Tamper with one file (change receipt content) -> verify FAIL (hash mismatch)."""
     root = _repo_root()

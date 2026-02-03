@@ -53,6 +53,11 @@
           }
         }
       }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional run metadata (e.g. llm_backend_id, llm_model_id, llm_error_rate, mean_llm_latency_ms when using LLM).",
+      "additionalProperties": true
     }
   }
 }

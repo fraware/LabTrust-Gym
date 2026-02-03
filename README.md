@@ -98,6 +98,10 @@ The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/gol
 - **Official baselines**: **v0.2 is canonical.** Frozen results and summary table are in `benchmarks/baselines_official/v0.2/` (see [Benchmark card](docs/benchmark_card.md)). Baseline regression compares against v0.2; v0.1 is legacy. Regenerate with `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` (matches CI). Compare: `labtrust summarize-results --in benchmarks/baselines_official/v0.2/results/ your_results.json --out /tmp/compare`.
 - **How to cite**: This project uses [CITATION.cff](CITATION.cff). You can use [citation-file-format](https://citation-file-format.github.io/) tooling or cite the repository: *LabTrust-Gym: a multi-agent environment for a self-driving hospital lab with a trust skeleton*. https://github.com/fraware/LabTrust-Gym.
 
+## Improvements before going online
+
+Before adding online APIs and non-deterministic runs, see **[docs/IMPROVEMENTS_BEFORE_ONLINE.md](docs/IMPROVEMENTS_BEFORE_ONLINE.md)** for a checklist: stability (ui_fixtures, long tests), **code optimization** (policy loading in hot path, large JSONL, summarize/export), testing (pytest timeout, coverage, CI), documentation, and pre-online readiness.
+
 ## Current state
 
 See **docs/STATUS.md** for a detailed report: policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2 escalation ladder), catalogue/stability, co-location, queueing, invariant registry, enforcement, **transport** (multi-site), **export** (receipts, FHIR R4), **package-release**, PettingZoo wrappers, scripted/adversary/LLM/MARL baselines, TaskA–TaskF, **quick-eval**, PyPI packaging (`labtrust --version`), studies (run-study, make-plots, reproduce, package-release), and docs site (MkDocs + API reference).

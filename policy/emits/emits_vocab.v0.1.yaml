@@ -78,6 +78,7 @@ emits_vocab:
       - "OPEN_QC_INVESTIGATION_LOG"
       - "SECURITY_INCIDENT_LOG"
       - "LLM_ACTION_FILTERED"
+      - "LLM_DECISION"
 
     runtime_control:
       - "UPDATE_ROSTER"
@@ -137,5 +138,6 @@ emits_vocab:
     - "OPEN_QC_INVESTIGATION_LOG"
     - "SECURITY_INCIDENT_LOG"
     - "LLM_ACTION_FILTERED"
+    - "LLM_DECISION"
     - "UPDATE_ROSTER"
     - "INJECT_SPECIMEN"
