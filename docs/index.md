@@ -45,7 +45,7 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `--version` / `-V` | Print version and git SHA |
 | `validate-policy` | Validate all policy files against JSON schemas |
 | `quick-eval` | 1 episode each of TaskA, TaskD, TaskE; markdown summary and logs under `./labtrust_runs/` |
-| `run-benchmark` | Run TaskA / TaskB / TaskC / TaskD / TaskE / TaskF, write results.json |
+| `run-benchmark` | Run TaskA / TaskB / TaskC / TaskD / TaskE / TaskF, write results.json; optional `--llm-backend deterministic \| openai_live` (see [Live LLM](llm_live.md)) |
 | `eval-agent` | Run benchmark with external agent (module:Class or module:function); write results.json (v0.2) |
 | `bench-smoke` | 1 episode per task (TaskA, TaskB, TaskC) |
 | `run-study` | Run study from spec (ablations → conditions) |
@@ -85,7 +85,7 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 - [PettingZoo API](pettingzoo_api.md)
 - [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md)
 - [FHIR R4 export](fhir_export.md) · [Evidence verification](evidence_verification.md)
-- [MARL baselines](marl_baselines.md) · [LLM baselines](llm_baselines.md)
+- [MARL baselines](marl_baselines.md) · [LLM baselines](llm_baselines.md) · [Live LLM benchmark mode](llm_live.md)
 - [CI](ci.md) · [STATUS](STATUS.md)
 - [Improvements before online / non-deterministic](IMPROVEMENTS_BEFORE_ONLINE.md) — checklist (stability, code optimization, testing, docs, pre-online readiness)
 - [API Reference](api/index.md) (auto-generated)

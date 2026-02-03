@@ -13,7 +13,7 @@ This document is the **canonical list of frozen contracts and schema versions** 
 | **Receipt schema** | v0.1 | `policy/schemas/receipt.v0.1.schema.json` | Per-specimen/result receipt. |
 | **Evidence bundle manifest schema** | v0.1 | `policy/schemas/evidence_bundle_manifest.v0.1.schema.json` | Manifest for EvidenceBundle.v0.1: files (path, sha256), policy_fingerprint, partner_id. |
 | **FHIR bundle export schema** | v0.1 | `policy/schemas/fhir_bundle_export.v0.1.schema.json` | Minimal structural contract for FHIR R4 Bundle export. |
-| **Results semantics** | v0.2 | `policy/schemas/results.v0.2.schema.json` | **Semantics frozen.** CI-stable benchmark results: task, seeds, episodes with metrics. Summary_v0.2.csv regression stable. |
+| **Results semantics** | v0.2 | `policy/schemas/results.v0.2.schema.json` | **Semantics frozen.** CI-stable benchmark results: task, seeds, episodes with metrics. Summary_v0.2.csv regression stable. Optional **metadata** (e.g. llm_backend_id, llm_model_id, llm_error_rate, mean_llm_latency_ms) when run with `--llm-backend`; schema allows it via additionalProperties. |
 | **Results extension** | v0.3 | `policy/schemas/results.v0.3.schema.json` | **Extensible only.** Same required fields as v0.2; adds optional quantiles, 95% CI, simulated-mode fields. Do not remove or change v0.2 fields. |
 
 ## Acceptance (v0.1.0 release)
