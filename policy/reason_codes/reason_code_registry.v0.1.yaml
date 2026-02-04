@@ -20,7 +20,12 @@ reason_code_registry:
     - "RBAC"     # permissions / restricted access / tokens
     - "AUD"      # audit trail / hash chain / ALCOA+ integrity
     - "LLM"      # LLM baseline: schema, decode, provider, timeout
+    - "ADV"      # adversarial input detection (prompt injection, jailbreak, exfil)
+    - "ONLINE"   # online endpoint abuse (rate limit, auth failure, body size, concurrency)
+    - "AGENT"    # agent capability scope (rate limit, override budget, capability deny)
     - "SYS"      # system downtime / degraded mode
+    - "SEC_INJ"  # security risk injection (TaskH): applied, detected, contained
+    - "COORD"    # coordination timing and view consistency (TaskG/TaskH)
 
   severity_scale:
     P0_STOP: "Hard stop: cannot proceed (patient safety or integrity)"
@@ -554,3 +559,138 @@ reason_code_registry:
       description: "Decoded action did not match allowed_actions or argument constraints."
       triggers: ["LLM_ACTION_DECODE"]
       default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    # -----------------------------
+    # Adversarial input detection (defensive monitoring)
+    # -----------------------------
+    - code: "ADV_INJECTION_DETECTED"
+      namespace: "ADV"
+      severity: "P2_HOLD_REVIEW"
+      description: "Adversarial or prompt-injection pattern detected in observation/LLM input."
+      triggers: ["SECURITY_ALERT"]
+      default_actions: ["LOG_ONLY", "REQUIRE_HUMAN_REVIEW"]
+
+    - code: "ADV_JAILBREAK_PATTERN"
+      namespace: "ADV"
+      severity: "P1_QUARANTINE"
+      description: "Jailbreak-style pattern detected (ignore instructions, etc.)."
+      triggers: ["SECURITY_ALERT"]
+      default_actions: ["THROTTLE_AGENT", "LOG_ONLY"]
+
+    - code: "ADV_SUSPECTED_EXFIL"
+      namespace: "ADV"
+      severity: "P1_QUARANTINE"
+      description: "Suspected data exfiltration pattern in input."
+      triggers: ["SECURITY_ALERT"]
+      default_actions: ["THROTTLE_AGENT", "LOG_ONLY"]
+
+    # -----------------------------
+    # Online endpoint abuse (labtrust serve / API scraping prevention)
+    # -----------------------------
+    - code: "ONLINE_AUTH_FAILURE"
+      namespace: "ONLINE"
+      severity: "P0_STOP"
+      description: "API key required but missing or invalid (online endpoint)."
+      triggers: ["SECURITY_ALERT"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "ONLINE_RATE_LIMIT"
+      namespace: "ONLINE"
+      severity: "P3_WARN"
+      description: "Request rate limit exceeded (per-key or per-IP token bucket)."
+      triggers: ["SECURITY_ALERT"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "ONLINE_BODY_TOO_LARGE"
+      namespace: "ONLINE"
+      severity: "P3_WARN"
+      description: "Request body exceeds LABTRUST_MAX_BODY_BYTES."
+      triggers: ["SECURITY_ALERT"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "ONLINE_TOO_MANY_INFLIGHT"
+      namespace: "ONLINE"
+      severity: "P3_WARN"
+      description: "Concurrency limit exceeded (LABTRUST_MAX_INFLIGHT)."
+      triggers: ["SECURITY_ALERT"]
+      default_actions: ["LOG_ONLY"]
+
+    # -----------------------------
+    # Agent capability scope (B006: defense-in-depth beyond RBAC)
+    # -----------------------------
+    - code: "AGENT_CAPABILITY_DENY"
+      namespace: "AGENT"
+      severity: "P0_STOP"
+      description: "Action outside agent capability profile (allowed_actions/tooling or high-risk check failed)."
+      triggers: ["AGENT_SCOPE_VIOLATION"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    - code: "AGENT_RATE_LIMIT"
+      namespace: "AGENT"
+      severity: "P3_WARN"
+      description: "Agent exceeded max_action_rate for the episode (capability profile)."
+      triggers: ["AGENT_SCOPE_VIOLATION"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "AGENT_OVERRIDE_BUDGET_EXCEEDED"
+      namespace: "AGENT"
+      severity: "P0_STOP"
+      description: "Agent exceeded max_override_tokens for the episode (e.g. RELEASE_RESULT_OVERRIDE)."
+      triggers: ["AGENT_SCOPE_VIOLATION"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    # -----------------------------
+    # Security risk injection (TaskH harness)
+    # -----------------------------
+    - code: "SEC_INJ_SPOOF_BLOCKED"
+      namespace: "SEC_INJ"
+      severity: "P0_STOP"
+      description: "Identity spoofing injection blocked (signature/RBAC verification)."
+      triggers: ["SECURITY_INJECTION_DETECTED"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    - code: "SEC_INJ_SCHEMA_REJECTED"
+      namespace: "SEC_INJ"
+      severity: "P0_STOP"
+      description: "Malformed or misparameterized action rejected by schema validation."
+      triggers: ["SECURITY_INJECTION_DETECTED"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    - code: "SEC_INJ_CONTAINMENT_TRIGGERED"
+      namespace: "SEC_INJ"
+      severity: "P2_HOLD_REVIEW"
+      description: "Security injection contained (block or throttle applied)."
+      triggers: ["SECURITY_INJECTION_CONTAINED"]
+      default_actions: ["LOG_ONLY"]
+
+    # -----------------------------
+    # Coordination timing (TaskG/TaskH)
+    # -----------------------------
+    - code: "COORD_STALE_VIEW"
+      namespace: "COORD"
+      severity: "P3_WARN"
+      description: "Agent acted on a view older than max_staleness_ms for a critical action (START_RUN, OPEN_DOOR restricted)."
+      triggers: ["COORD_STALE_DECISION"]
+      default_actions: ["LOG_ONLY"]
+
+    # -----------------------------
+    # Coordination shield (Simplex assurance)
+    # -----------------------------
+    - code: "COORD_SHIELD_REJECT_COLLISION"
+      namespace: "COORD"
+      severity: "P0_STOP"
+      description: "Shield rejected plan: two agents would occupy same zone at same time (INV-ROUTE-001)."
+      triggers: ["COORD_SHIELD_DECISION"]
+      default_actions: ["LOG_ONLY"]
+    - code: "COORD_SHIELD_REJECT_RESTRICTED"
+      namespace: "COORD"
+      severity: "P0_STOP"
+      description: "Shield rejected plan: restricted edge used without token (INV-ROUTE-002)."
+      triggers: ["COORD_SHIELD_DECISION"]
+      default_actions: ["LOG_ONLY"]
+    - code: "COORD_SHIELD_REJECT_RBAC"
+      namespace: "COORD"
+      severity: "P0_STOP"
+      description: "Shield rejected plan: agent action forbidden by RBAC or restricted zone without token."
+      triggers: ["COORD_SHIELD_DECISION"]
+      default_actions: ["LOG_ONLY"]

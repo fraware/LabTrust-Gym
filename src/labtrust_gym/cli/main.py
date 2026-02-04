@@ -66,7 +66,9 @@ def main() -> int:
         help="Run benchmark task and write results.json",
     )
     p_bench.add_argument(
-        "--task", required=True, help="TaskA, TaskB, TaskC, TaskD, TaskE, TaskF"
+        "--task",
+        required=True,
+        help="TaskA, TaskB, TaskC, TaskD, TaskE, TaskF, TaskG_COORD_SCALE, TaskH_COORD_RISK",
     )
     p_bench.add_argument("--episodes", type=int, default=10, help="Number of episodes")
     p_bench.add_argument("--seed", type=int, default=123, help="Base seed")
@@ -83,9 +85,24 @@ def main() -> int:
     )
     p_bench.add_argument(
         "--llm-backend",
-        choices=["deterministic", "openai_live"],
+        choices=["deterministic", "openai_live", "ollama_live"],
         default=None,
-        help="LLM agent backend: deterministic (seeded, no API) or openai_live (requires OPENAI_API_KEY). Default: no LLM (scripted ops).",
+        help="LLM agent backend: deterministic (seeded, no API), openai_live (OPENAI_API_KEY), or ollama_live (LABTRUST_LOCAL_LLM_*). Default: no LLM (scripted ops).",
+    )
+    p_bench.add_argument(
+        "--llm-agents",
+        default="ops_0",
+        help="Comma-separated agent IDs that use LLM (e.g. ops_0 or ops_0,runner_0). Default: ops_0.",
+    )
+    p_bench.add_argument(
+        "--coord-method",
+        default=None,
+        help="Coordination method for TaskG_COORD_SCALE / TaskH_COORD_RISK (e.g. centralized_planner, swarm_reactive).",
+    )
+    p_bench.add_argument(
+        "--injection",
+        default=None,
+        help="Risk injection id for TaskH_COORD_RISK (e.g. INJ-ID-SPOOF-001, INJ-COMMS-POISON-001).",
     )
     p_bench.add_argument(
         "--use-llm-live-openai",
@@ -130,6 +147,21 @@ def main() -> int:
         help="Override spec timing_mode: explicit or simulated (default: use spec)",
     )
     p_study.set_defaults(func=_run_study)
+    p_coord_study = sub.add_parser(
+        "run-coordination-study",
+        help="Run coordination study from spec: (scale x method x injection) matrix, write cells and summary",
+    )
+    p_coord_study.add_argument(
+        "--spec",
+        required=True,
+        help="Coordination study spec YAML (e.g. policy/coordination/coordination_study_spec.v0.1.yaml)",
+    )
+    p_coord_study.add_argument(
+        "--out",
+        required=True,
+        help="Output directory (e.g. runs/coord_20250101)",
+    )
+    p_coord_study.set_defaults(func=_run_coordination_study)
     p_plots = sub.add_parser(
         "make-plots",
         help="Generate figures and data tables from a study run (out_dir/figures/)",
@@ -359,6 +391,11 @@ def main() -> int:
         default="explicit",
         help="Timing mode: explicit or simulated (default: explicit). Simulated: device service-time sampling seeded only from --seed.",
     )
+    p_determinism.add_argument(
+        "--coord-method",
+        default=None,
+        help="Coordination method for TaskG_COORD_SCALE / TaskH_COORD_RISK (e.g. kernel_centralized_edf). Defaults to kernel_centralized_edf when task is TaskG or TaskH.",
+    )
     p_determinism.set_defaults(func=_run_determinism_report)
     p_quick_eval = sub.add_parser(
         "quick-eval",
@@ -382,6 +419,22 @@ def main() -> int:
         help="Output directory for run (default: labtrust_runs)",
     )
     p_quick_eval.set_defaults(func=_run_quick_eval)
+    p_serve = sub.add_parser(
+        "serve",
+        help="Start online HTTP API (local-only by default; rate limits and optional API key).",
+    )
+    p_serve.add_argument(
+        "--host",
+        default=None,
+        help="Bind address (default: 127.0.0.1; use LABTRUST_SERVE_HOST for env override)",
+    )
+    p_serve.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Port (default: 8765; use LABTRUST_SERVE_PORT for env override)",
+    )
+    p_serve.set_defaults(func=_run_serve)
     p_train_ppo = sub.add_parser(
         "train-ppo",
         help="Train PPO on TaskA (or other task); requires [marl] extra",
@@ -447,6 +500,8 @@ def _run_benchmark(args: argparse.Namespace) -> int:
     llm_backend = getattr(args, "llm_backend", None)
     if getattr(args, "use_llm_live_openai", False):
         llm_backend = "openai_live"
+    llm_agents_str = getattr(args, "llm_agents", "ops_0") or "ops_0"
+    llm_agents = [a.strip() for a in llm_agents_str.split(",") if a.strip()]
     _run(
         task_name=args.task,
         num_episodes=args.episodes,
@@ -456,7 +511,10 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         log_path=Path(args.log) if getattr(args, "log", None) else None,
         partner_id=partner_id,
         llm_backend=llm_backend,
+        llm_agents=llm_agents,
         timing_mode=getattr(args, "timing", None),
+        coord_method=getattr(args, "coord_method", None),
+        injection_id=getattr(args, "injection", None),
     )
     print(f"Wrote {args.out}", file=sys.stderr)
     if getattr(args, "log", None):
@@ -646,6 +704,22 @@ def _run_study(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_coordination_study(args: argparse.Namespace) -> int:
+    """Run coordination study from spec; write cells/, summary/summary_coord.csv, summary/pareto.md."""
+    from labtrust_gym.studies.coordination_study_runner import run_coordination_study
+
+    root = get_repo_root()
+    spec_path = Path(args.spec)
+    if not spec_path.is_absolute():
+        spec_path = root / spec_path
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    run_coordination_study(spec_path, out_dir, repo_root=root)
+    print(f"Coordination study written to {out_dir}", file=sys.stderr)
+    return 0
+
+
 def _run_summarize_results(args: argparse.Namespace) -> int:
     """Load results.json from --in paths, aggregate, write summary.csv + summary.md to --out."""
     from labtrust_gym.benchmarks.summarize import run_summarize
@@ -682,6 +756,7 @@ def _run_determinism_report(args: argparse.Namespace) -> int:
         partner_id=partner_id,
         timing_mode=timing,
         repo_root=root,
+        coord_method=getattr(args, "coord_method", None),
     )
     print(f"Wrote {out_dir / 'determinism_report.json'}", file=sys.stderr)
     print(f"Wrote {out_dir / 'determinism_report.md'}", file=sys.stderr)
@@ -831,6 +906,36 @@ def _run_bench_smoke(args: argparse.Namespace) -> int:
         )
         print(f"bench-smoke {task} OK (1 episode, seed={seed})", file=sys.stderr)
     print("bench-smoke all tasks OK.", file=sys.stderr)
+    return 0
+
+
+def _run_serve(args: argparse.Namespace) -> int:
+    """Start online HTTP server with abuse controls (B004)."""
+    from labtrust_gym.online.config import load_online_config
+    from labtrust_gym.online.server import run_server
+
+    config = load_online_config()
+    host = getattr(args, "host", None) or config.host
+    port = getattr(args, "port", None)
+    if port is not None:
+        port = port % 65536
+    else:
+        port = config.port
+    if host != config.host or port != config.port:
+        config = type(config)(
+            api_key=config.api_key,
+            rate_limit_rps_per_key=config.rate_limit_rps_per_key,
+            rate_limit_rps_per_ip=config.rate_limit_rps_per_ip,
+            max_body_bytes=config.max_body_bytes,
+            max_inflight=config.max_inflight,
+            host=host,
+            port=port,
+        )
+    print(
+        f"Serving at http://{config.host}:{config.port} (auth_required={config.auth_required})",
+        file=sys.stderr,
+    )
+    run_server(config)
     return 0
 
 

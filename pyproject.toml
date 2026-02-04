@@ -56,6 +56,8 @@ docs = ["mkdocs>=1.5", "mkdocstrings[python]>=0.24"]
 llm_openai = ["openai>=1.40"]
 # Live Anthropic backend (future); install with: pip install -e ".[llm_anthropic]"
 llm_anthropic = []
+# Online serve mode (rate limiting, auth, etc.); stdlib-only by default; add deps here if needed
+online = []
 
 [project.scripts]
 labtrust = "labtrust_gym.cli.main:main"

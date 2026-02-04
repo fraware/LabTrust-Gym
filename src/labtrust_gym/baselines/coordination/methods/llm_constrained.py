@@ -1,0 +1,63 @@
+"""
+LLM constrained coordination: reuses existing baselines/llm/agent (LLMAgentWithShield)
+as a CoordinationMethod. Logs LLM_DECISION via meta passed into action_infos.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+from labtrust_gym.baselines.coordination.interface import CoordinationMethod
+
+
+class LLMConstrained(CoordinationMethod):
+    """
+    Wraps LLMAgentWithShield to implement CoordinationMethod.
+    One LLM agent instance; propose_actions calls act(obs[agent_id], agent_id) per agent.
+    """
+
+    def __init__(
+        self,
+        llm_agent: Any,
+        pz_to_engine: Optional[Dict[str, str]] = None,
+    ) -> None:
+        self._llm_agent = llm_agent
+        self._pz_to_engine = pz_to_engine or {}
+
+    @property
+    def method_id(self) -> str:
+        return "llm_constrained"
+
+    def reset(
+        self, seed: int, policy: Dict[str, Any], scale_config: Dict[str, Any]
+    ) -> None:
+        policy_summary = (policy or {}).get("policy_summary") or policy
+        partner_id = (scale_config or {}).get("partner_id") or (policy or {}).get(
+            "partner_id"
+        )
+        timing_mode = (scale_config or {}).get("timing_mode") or "explicit"
+        reset_fn = getattr(self._llm_agent, "reset", None)
+        if callable(reset_fn):
+            reset_fn(seed, policy_summary, partner_id, timing_mode)
+
+    def propose_actions(
+        self,
+        obs: Dict[str, Any],
+        infos: Dict[str, Dict[str, Any]],
+        t: int,
+    ) -> Dict[str, Dict[str, Any]]:
+        out: Dict[str, Dict[str, Any]] = {}
+        for agent_id in sorted(obs.keys()):
+            o = obs.get(agent_id) or {}
+            ret = self._llm_agent.act(o, agent_id)
+            action_index = int(ret[0])
+            action_info = ret[1] if len(ret) > 1 else {}
+            meta = ret[2] if len(ret) > 2 else {}
+            action_dict: Dict[str, Any] = {
+                "action_index": action_index,
+                **(action_info or {}),
+            }
+            if meta and meta.get("_llm_decision") is not None:
+                action_dict["_llm_decision"] = meta["_llm_decision"]
+            out[agent_id] = action_dict
+        return out

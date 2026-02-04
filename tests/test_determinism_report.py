@@ -75,7 +75,8 @@ def test_determinism_report_cli(tmp_path: Path) -> None:
         text=True,
         timeout=120,
     )
-    assert proc.returncode == 0, f"stderr: {proc.stderr}\nstdout: {proc.stdout}"
+    err = f"stderr: {proc.stderr}\nstdout: {proc.stdout}"
+    assert proc.returncode == 0, err
     assert (out_dir / "determinism_report.json").exists()
     assert (out_dir / "determinism_report.md").exists()
     data = json.loads((out_dir / "determinism_report.json").read_text(encoding="utf-8"))
@@ -96,5 +97,29 @@ def test_determinism_report_simulated_timing_passes(tmp_path: Path) -> None:
         timing_mode="simulated",
         repo_root=repo,
     )
-    assert passed, f"Determinism (simulated) failed: {report.get('errors', [])}"
+    errs = report.get("errors", [])
+    assert passed, f"Determinism (simulated) failed: {errs}"
     assert report.get("timing_mode") == "simulated"
+
+
+def test_determinism_report_taskg_kernel_passes(tmp_path: Path) -> None:
+    """Determinism report for TaskG_COORD_SCALE with composed method kernel_centralized_edf passes."""
+    repo = Path(__file__).resolve().parent.parent
+    if not (repo / "policy").is_dir():
+        pytest.skip("repo root not found")
+    passed, report, _ = run_determinism_report(
+        task_name="TaskG_COORD_SCALE",
+        num_episodes=2,
+        base_seed=42,
+        out_dir=tmp_path,
+        partner_id=None,
+        timing_mode="explicit",
+        repo_root=repo,
+        coord_method="kernel_centralized_edf",
+    )
+    errs = report.get("errors", [])
+    assert passed, f"TaskG determinism failed: {errs}"
+    assert report.get("coord_method") == "kernel_centralized_edf"
+    assert report.get("episode_log_identical") is True
+    assert report.get("results_identical") is True
+    assert report.get("v02_metrics_identical") is True

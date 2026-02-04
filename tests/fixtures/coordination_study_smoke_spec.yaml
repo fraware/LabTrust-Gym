@@ -1,0 +1,29 @@
+# Minimal coordination study spec for smoke test: 2 methods, 1 scale, 1 injection, 1 episode.
+study_id: "coordination_smoke"
+version: "0.1"
+seed_base: 12345
+episodes_per_cell: 1
+
+scales:
+  - name: num_agents
+    values: [2]
+  - name: num_sites
+    values: [1]
+  - name: num_devices
+    values: [2]
+  - name: arrival_rate
+    values: [1.0]
+  - name: horizon_steps
+    values: [50]
+
+methods:
+  - centralized_planner
+  - swarm_reactive
+
+risks:
+  - R-SMOKE-001
+
+injections:
+  - injection_id: INJ-COMMS-POISON-001
+    intensity: 0.1
+    seed_offset: 0

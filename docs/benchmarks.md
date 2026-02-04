@@ -62,6 +62,25 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 - **Metrics**: `time_to_first_detected_security_violation`, `fraction_of_attacks_contained`, `forensic_quality_score` (receipts include signature + RBAC + token evidence).
 - **Study sweep**: `policy/studies/study_spec.taskf_insider.v0.1.yaml` sweeps **strict_signatures** [false, true] to show effect on containment.
 
+### TaskG_COORD_SCALE (TaskG)
+
+- **Goal**: Coordination at scale under nominal conditions; compare coordination methods (centralized, hierarchical, market, gossip, swarm, optional LLM).
+- **Initial state**: Generated deterministically by scale config (num_agents, num_devices, num_sites, specimens_per_min, horizon_steps); see [Coordination scale](coordination_scale.md).
+- **Episode length**: From scale config `horizon_steps` (default 200).
+- **Agents**: Scale-defined workers (A_WORKER_0001, …); coordination method proposes actions for all agents.
+- **Reward config**: `throughput_reward`, `violation_penalty`.
+- **CLI**: `labtrust run-benchmark --task TaskG_COORD_SCALE --coord-method <method_id> --episodes 1 --seed 42 --out results.json`.
+
+### TaskH_COORD_RISK (TaskH)
+
+- **Goal**: Coordination under injected risks; measure security and robustness (attack_success_rate, detection_latency, containment_time, resilience_score).
+- **Initial state**: Same as TaskG (scale config).
+- **Episode length**: Same as TaskG.
+- **Agents**: Same as TaskG; risk injector can mutate obs, messages, or actions (deterministic, auditable).
+- **Injections**: Configured in `policy/coordination/coordination_study_spec.v0.1.yaml` (e.g. INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-COLLUSION-001). INJ-ID-SPOOF-001 must be blocked when strict signatures are enabled.
+- **CLI**: `labtrust run-benchmark --task TaskH_COORD_RISK --coord-method <method_id> --injection <injection_id> --episodes 1 --seed 42 --out results.json`.
+- **Study**: `labtrust run-coordination-study --spec policy/coordination/coordination_study_spec.v0.1.yaml --out <dir>` produces per-cell results, summary_coord.csv, and pareto.md. See [Coordination studies](coordination_studies.md).
+
 ## Metrics (per episode)
 
 | Metric | Description |
@@ -83,6 +102,11 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 | `time_to_first_detected_security_violation` | (TaskF) First step (t_s) where BLOCKED with security reason (RBAC_ACTION_DENY, SIG_INVALID, SIG_KEY_REVOKED, SIG_KEY_EXPIRED, SIG_KEY_NOT_YET_VALID, etc.). |
 | `fraction_of_attacks_contained` | (TaskF) Fraction of insider attack steps that resulted in BLOCKED with security reason. |
 | `forensic_quality_score` | (TaskF) Proxy from step results: rbac_decision + signature_verification when applicable (0–1). |
+| `sec.attack_success_rate` | (TaskH) Fraction of episodes where the injection succeeded (e.g. spoof accepted, or measurable harm). |
+| `sec.detection_latency_steps` | (TaskH) Steps until first detection of injection (when applicable). |
+| `sec.containment_time_steps` | (TaskH) Steps until containment (when applicable). |
+| `robustness.regret_vs_nominal` | (TaskH) p95 TAT delta vs nominal (no injection). |
+| `robustness.resilience_score` | (TaskH) Composite: 1 − normalized(Δp95) − α·violations_rate − β·blocks_rate (higher is better). |
 
 ## Output (results.json)
 
@@ -93,6 +117,7 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 - `git_commit_hash`: Current commit (if available).
 - `episodes`: List of `{ seed, metrics }` per episode.
 - **metadata** (optional, when `--llm-backend` is set): `llm_backend_id`, `llm_model_id`, `llm_error_rate`, `mean_llm_latency_ms`. See [Live LLM benchmark mode](llm_live.md).
+- **coordination** (optional, TaskG/TaskH): `comm.msg_count`, `comm.p95_latency_ms`, `comm.drop_rate`; `coordination.timing` (stale_action_rate, mean_view_age_ms, p95_view_age_ms); `coordination.route` (replan_rate, mean_plan_time_ms, deadlock_avoids); `coordination.alloc` (gini_work_distribution, mean_bid, rebid_rate). Summary CSV and Pareto report include **resilience.component_perf**, **resilience.component_safety**, **resilience.component_security**, **resilience.component_coordination** when resilience scoring policy is used.
 
 ## CLI
 
@@ -105,7 +130,7 @@ labtrust run-benchmark --task TaskA --episodes 50 --seed 123 --out results.json
 ```
 
 - **quick-eval**: 1 episode each of TaskA, TaskD, TaskE; writes summary.md and logs under `./labtrust_runs/quick_eval_<timestamp>/` (`--seed`, `--out-dir`).
-- **run-benchmark** — `--task`: TaskA, TaskB, TaskC, TaskD, TaskE, TaskF (or full name).
+- **run-benchmark** — `--task`: TaskA, TaskB, TaskC, TaskD, TaskE, TaskF, TaskG_COORD_SCALE, TaskH_COORD_RISK (or short names). For TaskG/TaskH use `--coord-method <method_id>`; for TaskH add `--injection <injection_id>`.
 - `--episodes`: Number of episodes (default 10).
 - `--seed`: Base seed (default 123).
 - `--out`: Output JSON path (default results.json).

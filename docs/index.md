@@ -2,7 +2,7 @@
 
 A multi-agent environment (PettingZoo/Gym style) for a self-driving hospital lab, with a reference **trust skeleton**: RBAC, signed actions, append-only audit log, invariants, and anomaly throttles.
 
-This documentation reflects the **current state of the repo**: v0.1.0 contract freeze, ui-export (UI-ready bundle), quickstart scripts, paper-ready release profile, and all CLI commands. Use the nav (left) or [Installation](installation.md) to get started; [CONTRACTS](CONTRACTS.md) and [UI data contract](ui_data_contract.md) for stable interfaces.
+This documentation reflects the **current state of the repo**: contract freeze, coordination suite (TaskG/TaskH, methods, risk injections, study runner), ui-export, paper-ready release, and all CLI commands. Use the nav (left) or [Installation](installation.md) to get started. See [Repository structure](repository_structure.md) for directory layout and [CONTRACTS](CONTRACTS.md) and [UI data contract](ui_data_contract.md) for stable interfaces.
 
 ## North star
 
@@ -45,11 +45,12 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `--version` / `-V` | Print version and git SHA |
 | `validate-policy` | Validate all policy files against JSON schemas |
 | `quick-eval` | 1 episode each of TaskA, TaskD, TaskE; markdown summary and logs under `./labtrust_runs/` |
-| `run-benchmark` | Run TaskA / TaskB / TaskC / TaskD / TaskE / TaskF, write results.json; optional `--llm-backend deterministic \| openai_live` (see [Live LLM](llm_live.md)) |
+| `run-benchmark` | Run TaskA–TaskF or TaskG_COORD_SCALE / TaskH_COORD_RISK; write results.json. For TaskG/TaskH use `--coord-method`, for TaskH add `--injection`. Optional `--llm-backend` and `--llm-agents` (see [Live LLM](llm_live.md)) |
 | `eval-agent` | Run benchmark with external agent (module:Class or module:function); write results.json (v0.2) |
 | `bench-smoke` | 1 episode per task (TaskA, TaskB, TaskC) |
 | `run-study` | Run study from spec (ablations → conditions) |
-| `make-plots` | Generate figures and data tables from a study run |
+| `run-coordination-study` | Run coordination study (scale × method × injection); cells, summary_coord.csv, pareto.md ([Coordination studies](coordination_studies.md)) |
+| `make-plots` | Generate figures and data tables from a study run; for coordination runs adds resilience vs p95_tat and attack_success_rate bar |
 | `reproduce --profile minimal \| full` | Reproduce minimal results + figures (TaskA & TaskC sweep + plots) |
 | `export-receipts --run \<log\> --out \<dir\>` | Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log |
 | `export-fhir --receipts \<dir\> --out \<dir\>` | Export FHIR R4 Bundle from receipts directory |
@@ -63,12 +64,14 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 
 ## Layout
 
+See [Repository structure](repository_structure.md) for the full directory layout and where to put CLI outputs.
+
 | Path | Description |
 |------|-------------|
-| `policy/` | Versioned YAML/JSON: schemas (incl. receipt, evidence_bundle_manifest, fhir_bundle_export, sites_policy, key_registry, rbac_policy), emits, invariants (registry v1.0), tokens, reason_codes, zones, **keys** (key_registry), **rbac** (rbac_policy.v0.1), **sites** (sites_policy.v0.1), catalogue, stability, equipment, critical (thresholds, escalation_ladder v0.2), enforcement, studies, llm, golden, partners. Validated by `labtrust validate-policy`. |
-| `src/labtrust_gym/` | Package: `config.py` (get_repo_root), `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, signatures, rbac, transport, invariants_runtime, enforcement), `policy/` (loader, validate, invariants_registry), **`export/`** (receipts, fhir_r4, **ui_export**), `runner/`, `envs/` (PettingZoo), `baselines/`, `benchmarks/`, `studies/` (study_runner, plots, reproduce, package_release), `logging/`, `cli/`, `version.py`. |
-| `tests/` | Pytest: golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, queueing, benchmarks, invariant registry, enforcement, **test_signatures_key_lifecycle** (key lifecycle), **test_llm_constrained_decoder** (constrained decode, deterministic baseline), signatures, rbac, transport, export_receipts, fhir_export, package_release, study runner, plots, reproduce smoke, adversary, marl smoke, llm agent mock. |
-| `docs/` | Architecture, policy pack, invariants & enforcement, benchmarks, benchmark_card, studies, reproduce, fhir_export, frozen_contracts, **ui_data_contract**, **CONTRACTS** (release freeze), PettingZoo API, CI, threat model, MARL/LLM baselines, STATUS. MkDocs site (build with `.[docs]`). CITATION.cff at repo root. |
+| `policy/` | Versioned YAML/JSON: schemas, emits, invariants (v1.0), tokens, reason_codes, zones, sites, catalogue, stability, equipment, critical, enforcement, studies, **risks** (risk_registry), **coordination** (methods, method_risk_matrix, coordination_study_spec), llm, golden, partners. Validated by `labtrust validate-policy`. |
+| `src/labtrust_gym/` | Package: config, engine/, envs/ (PettingZoo), baselines/ (scripted, adversary, llm, **coordination** interface and methods, marl), benchmarks/ (tasks TaskA–TaskH, runner, coordination_scale, metrics, summarize), policy/ (loader, validate, risks, coordination), security/ (risk_injections, secret_scrubber, fs_safety, output_shaping, adversarial_detection), studies/ (study_runner, **coordination_study_runner**, plots, reproduce, package_release), export/, online/, runner/, logging/, cli/. |
+| `tests/` | Pytest: golden suite, policy validation, benchmarks, **coordination** (scale, methods, study, policy), **risk_injections**, studies, export, online, etc. |
+| `docs/` | MkDocs source: architecture, benchmarks, coordination (methods, scale, studies, policy, checklist), contracts, installation, repository_structure, STATUS. |
 
 ## What's frozen
 
@@ -83,9 +86,10 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 - [UI data contract](ui_data_contract.md) — ui-export bundle format; UI consumes ui-export output, not raw logs
 - [Invariants and enforcement](invariants_registry.md) · [Enforcement](enforcement.md)
 - [PettingZoo API](pettingzoo_api.md)
-- [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md)
+- [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Coordination benchmark card](coordination_benchmark_card.md) (TaskG/TaskH; scenario generation, metrics, determinism, limitations) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md)
 - [FHIR R4 export](fhir_export.md) · [Evidence verification](evidence_verification.md)
 - [MARL baselines](marl_baselines.md) · [LLM baselines](llm_baselines.md) · [Live LLM benchmark mode](llm_live.md)
+- [Security controls for online mode](security_online.md) · [Deployment hardening](deployment_hardening.md) (B008) · [Output controls](output_controls.md) (B009)
 - [CI](ci.md) · [STATUS](STATUS.md)
 - [Improvements before online / non-deterministic](IMPROVEMENTS_BEFORE_ONLINE.md) — checklist (stability, code optimization, testing, docs, pre-online readiness)
 - [API Reference](api/index.md) (auto-generated)

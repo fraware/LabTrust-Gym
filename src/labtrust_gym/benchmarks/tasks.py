@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from labtrust_gym.benchmarks.coordination_scale import (
+    CoordinationScaleConfig,
+    generate_scaled_initial_state,
+)
 
 # Default agent list for PZ env (ops_0, runner_0, runner_1, qc_0, supervisor_0)
 DEFAULT_AGENTS_PZ = [
@@ -115,6 +121,26 @@ def _stat_rate_from_calibration(calibration: Optional[Dict[str, Any]]) -> float:
     return max(0.0, min(1.0, float(rate)))
 
 
+def _default_scale_config() -> CoordinationScaleConfig:
+    """Small default scale for TaskG smoke (10 agents, 2 CHEM, 1 site)."""
+    return CoordinationScaleConfig(
+        num_agents_total=10,
+        role_mix={
+            "ROLE_RUNNER": 0.4,
+            "ROLE_ANALYTICS": 0.3,
+            "ROLE_RECEPTION": 0.2,
+            "ROLE_QC": 0.05,
+            "ROLE_SUPERVISOR": 0.05,
+        },
+        num_devices_per_type={"CHEM_ANALYZER": 2, "CENTRIFUGE_BANK": 1},
+        num_sites=1,
+        specimens_per_min=2.0,
+        horizon_steps=200,
+        timing_mode="explicit",
+        partner_id=None,
+    )
+
+
 @dataclass
 class BenchmarkTask:
     """Task: initial_state, episode length, agents, reward_config. timing_mode can be overridden by CLI/spec."""
@@ -133,6 +159,7 @@ class BenchmarkTask:
     timing_mode: Optional[str] = (
         None  # "explicit" | "simulated"; None => use CLI/spec override
     )
+    scale_config: Optional[CoordinationScaleConfig] = None  # TaskG/TaskH
 
     def get_initial_state(
         self,
@@ -140,6 +167,15 @@ class BenchmarkTask:
         calibration: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Deterministic initial_state given seed. calibration optional (workload priors)."""
+        scale = self.scale_config
+        if scale is not None:
+            try:
+                from labtrust_gym.config import get_repo_root
+
+                root = Path(get_repo_root())
+            except Exception:
+                root = Path.cwd()
+            return generate_scaled_initial_state(scale, root, seed)
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=2, default_n_max=5, default_arrival_max=100
@@ -440,6 +476,42 @@ class TaskF_InsiderAndKeyMisuse(BenchmarkTask):
         }
 
 
+class TaskG_COORD_SCALE(BenchmarkTask):
+    """Coordination at scale under nominal conditions. Uses scale_config for agents/devices/sites."""
+
+    def __init__(self) -> None:
+        scale = _default_scale_config()
+        super().__init__(
+            name="TaskG_COORD_SCALE",
+            max_steps=scale.horizon_steps,
+            scripted_agents=[],  # Filled from scale agents (worker_0, worker_1, ...)
+            reward_config={"throughput_reward": 1.0, "violation_penalty": 0.1},
+            sla_turnaround_s=3600,
+            timing_mode=scale.timing_mode,
+            scale_config=scale,
+        )
+
+
+class TaskH_COORD_RISK(BenchmarkTask):
+    """Coordination under injected risks. Uses scale_config; risk injection via study spec."""
+
+    def __init__(self) -> None:
+        scale = _default_scale_config()
+        super().__init__(
+            name="TaskH_COORD_RISK",
+            max_steps=scale.horizon_steps,
+            scripted_agents=[],
+            reward_config={
+                "throughput_reward": 0.5,
+                "violation_penalty": 0.2,
+                "blocked_penalty": 0.1,
+            },
+            sla_turnaround_s=3600,
+            timing_mode=scale.timing_mode,
+            scale_config=scale,
+        )
+
+
 class TaskE_MultiSiteSTAT(BenchmarkTask):
     """Multi-site: acute node STAT specimens, hub routine queue; transport mandatory and audited.
     At least one specimen originates at SITE_ACUTE and requires dispatch to SITE_HUB.
@@ -509,6 +581,10 @@ _TASK_REGISTRY: Dict[str, type] = {
     "TaskE_MultiSiteSTAT": TaskE_MultiSiteSTAT,
     "TaskF": TaskF_InsiderAndKeyMisuse,
     "TaskF_InsiderAndKeyMisuse": TaskF_InsiderAndKeyMisuse,
+    "TaskG": TaskG_COORD_SCALE,
+    "TaskG_COORD_SCALE": TaskG_COORD_SCALE,
+    "TaskH": TaskH_COORD_RISK,
+    "TaskH_COORD_RISK": TaskH_COORD_RISK,
 }
 
 

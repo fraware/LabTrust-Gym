@@ -14,8 +14,10 @@ from typing import Any, Dict, List, Optional, Tuple
 # Matplotlib optional; use Agg for non-interactive
 try:
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
     _HAS_MPL = True
 except ImportError:
     _HAS_MPL = False
@@ -78,9 +80,7 @@ def _aggregate_per_condition(
             for k, v in vbi.items():
                 viol_by_inv[k] += v
             p95_list.append(m.get("p95_turnaround_s"))
-            tc = (m.get("tokens_consumed") or 0) + (
-                m.get("tokens_minted") or 0
-            )
+            tc = (m.get("tokens_consumed") or 0) + (m.get("tokens_minted") or 0)
             trust_costs.append(tc)
             critical_rates.append(m.get("critical_communication_compliance_rate"))
             for k, v in (m.get("blocked_by_reason_code") or {}).items():
@@ -92,9 +92,7 @@ def _aggregate_per_condition(
         agg[cid] = {
             "throughput_mean": sum(throughputs) / n if n else 0.0,
             "violations_total": sum(violations_totals),
-            "violations_mean_per_episode": (
-                sum(violations_totals) / n if n else 0.0
-            ),
+            "violations_mean_per_episode": (sum(violations_totals) / n if n else 0.0),
             "p95_tat_mean": sum(p95_vals) / len(p95_vals) if p95_vals else None,
             "trust_cost_mean": sum(trust_costs) / n if n else 0.0,
             "critical_compliance_mean": (
@@ -143,11 +141,13 @@ def write_data_tables(
         w.writerow(["condition_id", "throughput_mean", "violations_total"])
         for cid in condition_ids:
             row = agg_per_cond.get(cid) or {}
-            w.writerow([
-                cid,
-                row.get("throughput_mean", 0),
-                row.get("violations_total", 0),
-            ])
+            w.writerow(
+                [
+                    cid,
+                    row.get("throughput_mean", 0),
+                    row.get("violations_total", 0),
+                ]
+            )
 
     # trust_cost_vs_p95_tat.csv: condition_id, trust_cost_mean, p95_tat_mean
     with (tables_dir / "trust_cost_vs_p95_tat.csv").open(
@@ -158,11 +158,13 @@ def write_data_tables(
         for cid in condition_ids:
             row = agg_per_cond.get(cid) or {}
             p95 = row.get("p95_tat_mean")
-            w.writerow([
-                cid,
-                row.get("trust_cost_mean", 0),
-                p95 if p95 is not None else "",
-            ])
+            w.writerow(
+                [
+                    cid,
+                    row.get("trust_cost_mean", 0),
+                    p95 if p95 is not None else "",
+                ]
+            )
 
     # violations_by_invariant_id.csv: invariant_id, count
     with (tables_dir / "violations_by_invariant_id.csv").open(
@@ -205,26 +207,38 @@ def write_summary_table(
     """Write summary.csv and paper_table.md for paper-ready tables. Returns TABLES dir."""
     tables_dir = out_dir / "figures" / "data_tables"
     tables_dir.mkdir(parents=True, exist_ok=True)
-    labels = condition_labels if len(condition_labels) == len(condition_ids) else condition_ids
+    labels = (
+        condition_labels
+        if len(condition_labels) == len(condition_ids)
+        else condition_ids
+    )
 
     # summary.csv: condition_id, condition_label, throughput_mean, violations_total, trust_cost_mean, p95_tat_mean
     with (tables_dir / "summary.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow([
-            "condition_id", "condition_label",
-            "throughput_mean", "violations_total", "trust_cost_mean", "p95_tat_mean",
-        ])
+        w.writerow(
+            [
+                "condition_id",
+                "condition_label",
+                "throughput_mean",
+                "violations_total",
+                "trust_cost_mean",
+                "p95_tat_mean",
+            ]
+        )
         for cid, label in zip(condition_ids, labels):
             row = agg_per_cond.get(cid) or {}
             p95 = row.get("p95_tat_mean")
-            w.writerow([
-                cid,
-                label,
-                row.get("throughput_mean", 0),
-                row.get("violations_total", 0),
-                row.get("trust_cost_mean", 0),
-                p95 if p95 is not None else "",
-            ])
+            w.writerow(
+                [
+                    cid,
+                    label,
+                    row.get("throughput_mean", 0),
+                    row.get("violations_total", 0),
+                    row.get("trust_cost_mean", 0),
+                    p95 if p95 is not None else "",
+                ]
+            )
 
     # paper_table.md: markdown table used in docs/paper_ready.md
     md_path = out_dir / "figures" / "data_tables" / "paper_table.md"
@@ -252,7 +266,11 @@ def _plot_throughput_vs_violations(
 ) -> None:
     xs = [agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids]
     ys = [agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids]
-    labels = condition_labels if condition_labels and len(condition_labels) == len(condition_ids) else condition_ids
+    labels = (
+        condition_labels
+        if condition_labels and len(condition_labels) == len(condition_ids)
+        else condition_ids
+    )
     plt.figure(figsize=(5, 4))
     plt.scatter(xs, ys)
     for i, lab in enumerate(labels):
@@ -283,7 +301,11 @@ def _plot_trust_cost_vs_p95_tat(
         else:
             xs.append(0.0)
             ys.append(row.get("trust_cost_mean", 0))
-    labels = condition_labels if condition_labels and len(condition_labels) == len(condition_ids) else condition_ids
+    labels = (
+        condition_labels
+        if condition_labels and len(condition_labels) == len(condition_ids)
+        else condition_ids
+    )
     plt.figure(figsize=(5, 4))
     plt.scatter(xs, ys)
     for i, lab in enumerate(labels):
@@ -360,21 +382,133 @@ def _plot_critical_compliance_by_condition(
     plt.close()
 
 
+def _load_coordination_summary(out_dir: Path) -> Optional[List[Dict[str, Any]]]:
+    """Load summary_coord.csv if present (coordination study). Returns list of row dicts or None."""
+    csv_path = out_dir / "summary" / "summary_coord.csv"
+    if not csv_path.exists():
+        return None
+    rows: List[Dict[str, Any]] = []
+    with csv_path.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            for k in list(r.keys()):
+                v = r[k]
+                if v == "" and k in (
+                    "perf.p95_tat",
+                    "sec.attack_success_rate",
+                    "sec.detection_latency_steps",
+                    "sec.containment_time_steps",
+                    "robustness.resilience_score",
+                ):
+                    r[k] = None
+                elif k in ("perf.throughput", "safety.violations_total"):
+                    try:
+                        r[k] = float(v) if "." in str(v) else int(v)
+                    except (ValueError, TypeError):
+                        pass
+                elif k in (
+                    "perf.p95_tat",
+                    "sec.attack_success_rate",
+                    "sec.detection_latency_steps",
+                    "sec.containment_time_steps",
+                    "robustness.resilience_score",
+                ):
+                    try:
+                        r[k] = float(v) if v else None
+                    except (ValueError, TypeError):
+                        r[k] = None
+            rows.append(r)
+    return rows if rows else None
+
+
+def _plot_resilience_vs_p95_tat(rows: List[Dict[str, Any]], fig_dir: Path) -> None:
+    """Scatter: resilience_score vs p95_tat (matplotlib default colors)."""
+    xs: List[float] = []
+    ys: List[float] = []
+    labels: List[str] = []
+    for r in rows:
+        p95 = r.get("perf.p95_tat")
+        res = r.get("robustness.resilience_score")
+        if p95 is not None and res is not None:
+            xs.append(float(p95))
+            ys.append(float(res))
+            labels.append(f"{r.get('method_id', '')}/{r.get('injection_id', '')}")
+    if not xs:
+        return
+    plt.figure(figsize=(6, 4))
+    plt.scatter(xs, ys)
+    for i, lab in enumerate(labels):
+        plt.annotate(lab, (xs[i], ys[i]), fontsize=7, alpha=0.8)
+    plt.xlabel("p95 TAT (s)")
+    plt.ylabel("Resilience score")
+    plt.title("Resilience score vs p95 turnaround time")
+    plt.tight_layout()
+    plt.savefig(fig_dir / "resilience_vs_p95_tat.png", dpi=150)
+    plt.savefig(fig_dir / "resilience_vs_p95_tat.svg")
+    plt.close()
+
+
+def _plot_attack_success_rate_bar(rows: List[Dict[str, Any]], fig_dir: Path) -> None:
+    """Bar: attack_success_rate by method and injection (matplotlib default colors)."""
+    # Build (method_id, injection_id) -> rate
+    keys: List[Tuple[str, str]] = []
+    rates: List[float] = []
+    seen = set()
+    for r in rows:
+        mid = r.get("method_id", "")
+        iid = r.get("injection_id", "")
+        key = (mid, iid)
+        if key in seen:
+            continue
+        seen.add(key)
+        rate = r.get("sec.attack_success_rate")
+        if rate is not None:
+            keys.append(key)
+            rates.append(float(rate))
+        else:
+            keys.append(key)
+            rates.append(0.0)
+    if not keys:
+        return
+    x_labels = [f"{m}\n{i}" for m, i in keys]
+    plt.figure(figsize=(max(8, len(keys) * 0.5), 4))
+    plt.bar(range(len(rates)), rates, tick_label=x_labels)
+    plt.xticks(rotation=45, ha="right")
+    plt.ylabel("Attack success rate")
+    plt.title("Attack success rate by method and injection")
+    plt.tight_layout()
+    plt.savefig(fig_dir / "attack_success_rate_by_method_injection.png", dpi=150)
+    plt.savefig(fig_dir / "attack_success_rate_by_method_injection.svg")
+    plt.close()
+
+
 def make_plots(out_dir: Path) -> Path:
     """
     Read study out_dir, write data tables (CSV), summary table (summary.csv + paper_table.md),
     and figures (PNG + SVG) to out_dir/figures/ and out_dir/figures/data_tables/.
     Pareto scatter plots and summary table used in docs/paper_ready.md.
-    Same inputs => identical CSV files (determinism).
+    If summary/summary_coord.csv exists (coordination study), also produce
+    resilience vs p95_tat and attack_success_rate bar. Same inputs => identical
+    CSV files (determinism).
     """
     if not _HAS_MPL:
-        raise ImportError(
-            "matplotlib required for make_plots; pip install matplotlib"
-        )
+        raise ImportError("matplotlib required for make_plots; pip install matplotlib")
     out_dir = Path(out_dir)
+    fig_dir = out_dir / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+
+    coord_rows = _load_coordination_summary(out_dir)
+    if coord_rows is not None:
+        _plot_resilience_vs_p95_tat(coord_rows, fig_dir)
+        _plot_attack_success_rate_bar(coord_rows, fig_dir)
+        if not (out_dir / "manifest.json").exists():
+            return fig_dir
+
     condition_ids, condition_labels, results_list = _load_study_results(out_dir)
     if not condition_ids or not results_list:
-        raise ValueError(f"No condition results found in {out_dir}")
+        if coord_rows is None:
+            raise ValueError(f"No condition results found in {out_dir}")
+        return fig_dir
     if len(condition_labels) != len(condition_ids):
         condition_labels = list(condition_ids)
 
@@ -383,8 +517,6 @@ def make_plots(out_dir: Path) -> Path:
 
     write_data_tables(out_dir, condition_ids, agg_per_cond, global_agg)
     write_summary_table(out_dir, condition_ids, condition_labels, agg_per_cond)
-    fig_dir = out_dir / "figures"
-    fig_dir.mkdir(parents=True, exist_ok=True)
 
     _plot_throughput_vs_violations(
         condition_ids, agg_per_cond, fig_dir, condition_labels=condition_labels
@@ -395,6 +527,10 @@ def make_plots(out_dir: Path) -> Path:
     _plot_violations_by_invariant_id(global_agg, fig_dir)
     _plot_blocked_top10(global_agg, fig_dir)
     _plot_critical_compliance_by_condition(condition_ids, agg_per_cond, fig_dir)
+
+    if coord_rows is not None:
+        _plot_resilience_vs_p95_tat(coord_rows, fig_dir)
+        _plot_attack_success_rate_bar(coord_rows, fig_dir)
 
     return fig_dir
 

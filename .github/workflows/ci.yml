@@ -14,9 +14,15 @@ on:
         required: false
         default: false
         type: boolean
+      run_coordination_smoke:
+        description: "Run coordination smoke (validate-policy, coordination tests, TaskG/TaskH)"
+        required: false
+        default: false
+        type: boolean
 
 env:
   LABTRUST_BENCH_SMOKE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_bench_smoke == 'true')) && '1' || '0' }}
+  LABTRUST_COORDINATION_SMOKE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_coordination_smoke == 'true')) && '1' || '0' }}
 
 jobs:
   lint-format:
@@ -97,6 +103,29 @@ jobs:
         run: pytest tests/test_official_baselines_regression.py -v
         env:
           LABTRUST_CHECK_BASELINES: "1"
+
+  coordination-smoke:
+    runs-on: ubuntu-latest
+    if: env.LABTRUST_COORDINATION_SMOKE == '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: Validate policy
+        run: labtrust validate-policy
+      - name: Coordination tests
+        run: pytest -q tests/test_coordination_*
+      - name: TaskG_COORD_SCALE (centralized_planner, 1 episode)
+        run: |
+          labtrust run-benchmark --task TaskG_COORD_SCALE --episodes 1 --seed 42 \
+            --coord-method centralized_planner --out ./taskg_smoke.json
+      - name: TaskH_COORD_RISK (market_auction, INJ-COLLUSION-001, 1 episode)
+        run: |
+          labtrust run-benchmark --task TaskH_COORD_RISK --episodes 1 --seed 42 \
+            --coord-method market_auction --injection INJ-COLLUSION-001 --out ./taskh_smoke.json
 
   quick-eval:
     runs-on: ubuntu-latest

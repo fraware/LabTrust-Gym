@@ -34,6 +34,9 @@ Optional env vars (all have defaults or CLI overrides):
 | `LABTRUST_REPRO_SMOKE` | Set to `1` / `true` / `yes` for reproduce/study smoke (1 episode per condition). |
 | `LABTRUST_PAPER_SMOKE` | Set to `1` / `true` / `yes` for package-release paper_v0.1 smoke (few episodes). |
 | `LABTRUST_RUN_GOLDEN` | Set to `1` to run full golden suite in tests (e.g. `pytest test_golden_suite.py`). |
+| `LABTRUST_LOCAL_LLM_URL` | Base URL for local LLM (e.g. Ollama). Used when `--llm-backend ollama_live`. Default: `http://localhost:11434`. |
+| `LABTRUST_LOCAL_LLM_MODEL` | Model name for local LLM (e.g. `llama3.2`). Used when `--llm-backend ollama_live`. |
+| `LABTRUST_LOCAL_LLM_TIMEOUT` | Request timeout in seconds for local LLM. Default: 60. |
 
 If you want to use a `.env` file (e.g. for local overrides), load it yourself before running (e.g. `python-dotenv` in a wrapper script, or `export $(grep -v '^#' .env | xargs)` in bash before `labtrust`).
 
@@ -44,7 +47,7 @@ The **LLM baselines** (benchmarks, tests, quick-eval) do **not** call any extern
 - **DeterministicConstrainedBackend** — Official LLM baseline: chooses from allowed actions with a **seeded RNG**; no network, no API key.
 - **MockDeterministicBackend** / **MockDeterministicBackendV2** — Canned JSON responses for tests; no API.
 
-So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. To run benchmarks with a **live** LLM (e.g. OpenAI), use `labtrust run-benchmark --llm-backend openai_live`; then `OPENAI_API_KEY` is required. Those runs are non-deterministic and incur API cost. See [LLM baselines](llm_baselines.md) and [Live LLM benchmark mode](llm_live.md).
+So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. To run benchmarks with a **live** LLM: use `labtrust run-benchmark --llm-backend openai_live` (requires `OPENAI_API_KEY`; incurs API cost) or `--llm-backend ollama_live` (local Ollama; set `LABTRUST_LOCAL_LLM_URL`, `LABTRUST_LOCAL_LLM_MODEL`, optionally `LABTRUST_LOCAL_LLM_TIMEOUT`). Live runs are non-deterministic. See [LLM baselines](llm_baselines.md) and [Live LLM benchmark mode](llm_live.md).
 
 ## Quick eval
 

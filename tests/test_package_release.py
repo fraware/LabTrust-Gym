@@ -128,6 +128,9 @@ def test_package_release_paper_v01_smoke() -> None:
         assert (out / "_study").is_dir()
         assert (out / "receipts").is_dir()
         assert (out / "_repr").is_dir()
+        assert (out / "COORDINATION_CARD.md").exists()
+        assert (out / "_coordination_policy").is_dir()
+        assert (out / "_coordination_policy" / "manifest.json").exists()
 
         meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
         assert meta["profile"] == "paper_v0.1"
@@ -176,6 +179,8 @@ def test_package_release_paper_v01_cli() -> None:
 
         assert (out / "RELEASE_NOTES.md").exists()
         assert (out / "metadata.json").exists()
+        assert (out / "COORDINATION_CARD.md").exists()
+        assert (out / "_coordination_policy" / "manifest.json").exists()
         assert (out / "TABLES" / "summary.csv").exists()
         assert (out / "TABLES" / "paper_table.md").exists()
         meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))

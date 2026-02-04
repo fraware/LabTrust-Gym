@@ -14,12 +14,27 @@ from labtrust_gym.policy.validate import (
     validate_policy,
     validate_runner_output_contract_schema,
 )
-from labtrust_gym.policy.emits import load_emits_vocab, validate_emits, validate_engine_step_emits
+from labtrust_gym.policy.emits import (
+    load_emits_vocab,
+    validate_emits,
+    validate_engine_step_emits,
+)
 from labtrust_gym.policy.reason_codes import (
     allowed_codes,
     get_code,
     load_reason_code_registry,
     validate_reason_code,
+)
+from labtrust_gym.policy.risks import (
+    RiskRegistry,
+    get_risk,
+    load_risk_registry,
+)
+from labtrust_gym.policy.coordination import (
+    load_coordination_methods,
+    load_method_risk_matrix,
+    load_coordination_study_spec,
+    get_required_bench_cells,
 )
 
 __all__ = [
@@ -40,4 +55,11 @@ __all__ = [
     "get_code",
     "allowed_codes",
     "validate_reason_code",
+    "RiskRegistry",
+    "load_risk_registry",
+    "get_risk",
+    "load_coordination_methods",
+    "load_method_risk_matrix",
+    "load_coordination_study_spec",
+    "get_required_bench_cells",
 ]

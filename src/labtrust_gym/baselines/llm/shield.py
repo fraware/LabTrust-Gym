@@ -9,6 +9,10 @@ from typing import Any, Dict, Optional, Tuple
 
 from labtrust_gym.engine.rbac import check as rbac_check, RBAC_ACTION_DENY
 from labtrust_gym.engine.signatures import is_mutating_action
+from labtrust_gym.security.agent_capabilities import (
+    AGENT_CAPABILITY_DENY,
+    get_allowed_tooling,
+)
 
 # Emit when shield blocks (recorded in step output)
 LLM_ACTION_FILTERED = "LLM_ACTION_FILTERED"
@@ -23,13 +27,14 @@ def apply_shield(
     agent_id: str,
     rbac_policy: Dict[str, Any],
     policy_summary: Dict[str, Any],
+    capability_profile: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Any], bool, Optional[str]]:
     """
-    Filter candidate action through RBAC and signature-required checks.
+    Filter candidate action through RBAC, capability profile, and signature-required checks.
     Returns (safe_action_dict, filtered, reason_code).
     - safe_action_dict: either candidate (if pass) or {"action_type": "NOOP", "args": {}}.
     - filtered: True if shield blocked.
-    - reason_code: RBAC_ACTION_DENY, SIG_MISSING, or None.
+    - reason_code: RBAC_ACTION_DENY, AGENT_CAPABILITY_DENY, SIG_MISSING, or None.
     Token validity is left to the engine (shield does not have token store).
     """
     action_type = (candidate.get("action_type") or "NOOP").strip()
@@ -54,6 +59,15 @@ def apply_shield(
         and action_type not in allowed_actions
     ):
         return (noop_base, True, RBAC_ACTION_DENY)
+    # Capability profile (B006): defense-in-depth; refuse action outside profile or signing_proxy if disabled
+    if capability_profile is not None:
+        profile_allowed = capability_profile.get("allowed_actions")
+        if isinstance(profile_allowed, list) and len(profile_allowed) > 0:
+            if action_type not in profile_allowed:
+                return (noop_base, True, AGENT_CAPABILITY_DENY)
+        tooling = get_allowed_tooling(capability_profile)
+        if not tooling.get("signing_proxy", True) and (key_id or signature):
+            return (noop_base, True, AGENT_CAPABILITY_DENY)
     # RBAC check (action_type + context)
     context: Dict[str, Any] = {}
     if args:

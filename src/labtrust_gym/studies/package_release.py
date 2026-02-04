@@ -319,6 +319,8 @@ def run_package_release_paper(
 - `TABLES/`: summary.csv, summary.md, paper_table.md.
 - `receipts/<task>/`: EvidenceBundle.v0.1 and verify_report.txt per task.
 - `_repr/`: one representative run per task (episodes.jsonl, results.json).
+- `COORDINATION_CARD.md`: coordination benchmark card (TaskG/TaskH; scenario generation, scale configs, methods, injections, metrics, determinism, limitations, policy fingerprint).
+- `_coordination_policy/`: frozen copy of policy/coordination/ files used for the card; manifest.json contains coordination_policy_fingerprint and per-file sha256.
 """
     (out_dir / "RELEASE_NOTES.md").write_text(release_notes, encoding="utf-8")
 
@@ -336,9 +338,18 @@ def run_package_release_paper(
         encoding="utf-8",
     )
 
-    # 8) BENCHMARK_CARD and MANIFEST (optional; keep artifact self-contained)
+    # 8) BENCHMARK_CARD, COORDINATION_CARD, frozen coordination policy, MANIFEST
     card_content = _render_benchmark_card_template(repo_root, metadata)
     (out_dir / "BENCHMARK_CARD.md").write_text(card_content, encoding="utf-8")
+    from labtrust_gym.studies.coordination_card import (
+        copy_frozen_coordination_policy,
+        write_coordination_card,
+    )
+
+    write_coordination_card(out_dir / "COORDINATION_CARD.md", Path(repo_root))
+    coord_policy_dir = out_dir / "_coordination_policy"
+    copy_frozen_coordination_policy(Path(repo_root), coord_policy_dir)
+
     files_with_hashes = _collect_files_with_hashes(out_dir, exclude_dirs=[])
     manifest = {"version": MANIFEST_VERSION, "files": files_with_hashes}
     (out_dir / "MANIFEST.v0.1.json").write_text(

@@ -46,6 +46,9 @@ labtrust package-release --profile paper_v0.1 --seed-base 100 --out release_pape
 7. **metadata.json**, **BENCHMARK_CARD.md**, **MANIFEST.v0.1.json**  
    - For artifact integrity and citation.
 
+8. **COORDINATION_CARD.md** and **_coordination_policy/**  
+   - Coordination benchmark card (policy fingerprint, scenario generation, methods, injections, metrics, determinism, limitations); frozen copy of coordination policy files with `manifest.json` for auditable reproduction. See [Coordination benchmark card](coordination_benchmark_card.md).
+
 ## Artifact layout (after run)
 
 ```
@@ -54,6 +57,9 @@ labtrust package-release --profile paper_v0.1 --seed-base 100 --out release_pape
   metadata.json
   BENCHMARK_CARD.md
   MANIFEST.v0.1.json
+  COORDINATION_CARD.md
+  _coordination_policy/
+    (frozen policy YAMLs + manifest.json)
   _baselines/
     results/
       TaskA_scripted_ops.json

@@ -104,6 +104,12 @@ def build_log_entry(
     llm_decision = result.get("llm_decision")
     if llm_decision is not None and isinstance(llm_decision, dict):
         entry["llm_decision"] = llm_decision
+    security_event = result.get("security_event")
+    if security_event is not None and isinstance(security_event, dict):
+        entry["security_event"] = security_event
+    capability_decision = result.get("capability_decision")
+    if capability_decision is not None and isinstance(capability_decision, dict):
+        entry["capability_decision"] = capability_decision
     return entry
 
 

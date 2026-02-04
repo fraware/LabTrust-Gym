@@ -1,0 +1,14 @@
+# Role-to-prompt mapping for LLM router (dynamic per act(); supports shift-change).
+# role_id -> prompt_id. Unmapped roles fall back to default (ops_v2).
+version: "0.1"
+default_prompt_id: "ops_v2"
+mapping:
+  ROLE_RECEPTION: "ops_reception_v2"
+  ROLE_ANALYTICS: "ops_analytics_v2"
+  ROLE_RUNNER: "ops_transport_v2"
+  ROLE_PREANALYTICS: "ops_transport_v2"
+  ROLE_QC: "ops_analytics_v2"
+  ROLE_SUPERVISOR: "ops_v2"
+  ROLE_CLINICAL_SCIENTIST: "ops_v2"
+  ROLE_SECURITY_OFFICER: "ops_v2"
+  R_SYSTEM_CONTROL: "ops_v2"

@@ -1,0 +1,17 @@
+# Per-1M token pricing (USD) for cost estimation.
+# Used when LLM backends report token usage; estimated_cost_usd is optional in metadata.
+version: "0.1"
+# model_id (as in LABTRUST_OPENAI_MODEL) -> input_price_per_1m, output_price_per_1m
+models:
+  gpt-4o-mini:
+    input_price_per_1m: 0.15
+    output_price_per_1m: 0.60
+  gpt-4o:
+    input_price_per_1m: 2.50
+    output_price_per_1m: 10.00
+  gpt-4-turbo:
+    input_price_per_1m: 10.00
+    output_price_per_1m: 30.00
+  gpt-3.5-turbo:
+    input_price_per_1m: 0.50
+    output_price_per_1m: 1.50

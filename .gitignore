@@ -53,6 +53,17 @@ dmypy.json
 # Quick-eval and run outputs
 labtrust_runs/
 
+# CLI and build artifacts (keep repo root clean; use labtrust_runs/ or --out for outputs)
+/results*.json
+/out.json
+/bench_smoke_*.json
+/ep.jsonl
+/quick_eval_*/
+/ui_bundle.zip
+
+# MkDocs build output
+site/
+
 # OS
 .DS_Store
 Thumbs.db
