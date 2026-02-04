@@ -67,10 +67,20 @@ from labtrust_gym.engine.signatures import (
     R_SYSTEM_CONTROL_ROLE,
 )
 from labtrust_gym.engine.rbac import (
+    get_allowed_actions as rbac_get_allowed_actions,
     load_rbac_policy as load_rbac_policy_path,
     check as rbac_check,
     get_agent_role as rbac_get_agent_role,
     RBAC_ACTION_DENY,
+)
+from labtrust_gym.security.agent_capabilities import (
+    load_agent_capabilities,
+    get_profile_for_agent,
+    check_capability,
+    is_override_action,
+    AGENT_CAPABILITY_DENY,
+    AGENT_RATE_LIMIT,
+    AGENT_OVERRIDE_BUDGET_EXCEEDED,
 )
 from labtrust_gym.policy.tokens import (
     Token,
@@ -132,6 +142,9 @@ class CoreEnv(LabTrustEnvAdapter):
         self._partner_id: Optional[str] = None
         self._policy_fingerprint: Optional[str] = None
         self._rbac_policy: Dict[str, Any] = {}
+        self._capability_policy: Dict[str, Any] = {}
+        self._episode_agent_action_count: Dict[str, int] = {}
+        self._episode_agent_override_count: Dict[str, int] = {}
 
     def reset(
         self,
@@ -159,20 +172,34 @@ class CoreEnv(LabTrustEnvAdapter):
                 self._token_registry = {"token_types": _DEFAULT_TOKEN_TYPES}
         else:
             self._token_registry = {"token_types": _DEFAULT_TOKEN_TYPES}
-        zone_path = Path("policy/zones/zone_layout_policy.v0.1.yaml")
-        if zone_path.exists():
-            try:
-                layout = load_zone_layout(zone_path)
-                self._zones = ZoneState(layout)
-                self._device_zone = build_device_zone_map(
-                    layout.get("device_placement", [])
-                )
-            except Exception:
+        effective_policy_early = initial_state.get("effective_policy")
+        zone_layout_inline = (effective_policy_early or {}).get(
+            "zone_layout"
+        ) or initial_state.get("zone_layout")
+        if zone_layout_inline and isinstance(zone_layout_inline, dict):
+            layout = zone_layout_inline
+            self._zones = ZoneState(layout)
+            self._device_zone = build_device_zone_map(
+                layout.get("device_placement", [])
+            )
+        else:
+            zone_path = Path("policy/zones/zone_layout_policy.v0.1.yaml")
+            if zone_path.exists():
+                try:
+                    layout = load_zone_layout(zone_path)
+                    self._zones = ZoneState(layout)
+                    self._device_zone = build_device_zone_map(
+                        layout.get("device_placement", [])
+                    )
+                except Exception:
+                    self._zones = ZoneState(None)
+                    self._device_zone = get_default_device_zone_map()
+            else:
                 self._zones = ZoneState(None)
                 self._device_zone = get_default_device_zone_map()
-        else:
-            self._zones = ZoneState(None)
-            self._device_zone = get_default_device_zone_map()
+        self._emit_scale_config_at_step = bool(
+            initial_state.get("_scale_config_sanitized") is not None
+        )
         agents = initial_state.get("agents")
         if isinstance(agents, list):
             agent_positions = {}
@@ -326,13 +353,43 @@ class CoreEnv(LabTrustEnvAdapter):
                     self._rbac_policy = {}
             else:
                 self._rbac_policy = {}
+        if effective_policy and isinstance(
+            effective_policy.get("agent_capabilities"), dict
+        ):
+            self._capability_policy = dict(effective_policy["agent_capabilities"])
+        else:
+            self._capability_policy = load_agent_capabilities(Path("."))
+        self._episode_agent_action_count = {}
+        self._episode_agent_override_count = {}
+
+    def _increment_capability_counts(self, agent_id: str, action_type: str) -> None:
+        """Increment per-episode action and override counts (after ACCEPTED)."""
+        if not agent_id:
+            return
+        self._episode_agent_action_count[agent_id] = (
+            self._episode_agent_action_count.get(agent_id, 0) + 1
+        )
+        if self._capability_policy and is_override_action(
+            action_type, self._capability_policy
+        ):
+            self._episode_agent_override_count[agent_id] = (
+                self._episode_agent_override_count.get(agent_id, 0) + 1
+            )
 
     def _finalize_step(
         self, event: Dict[str, Any], result: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Merge registry invariant violations; optionally apply enforcement and record to audit."""
+        if getattr(self, "_emit_scale_config_at_step", False):
+            result = dict(result)
+            result["emits"] = list(result.get("emits", [])) + ["COORD_SCALE_CONFIG"]
+            self._emit_scale_config_at_step = False
         if result.get("status") != "ACCEPTED":
             return result
+        self._increment_capability_counts(
+            str(event.get("agent_id", "")),
+            str(event.get("action_type", "")),
+        )
         if self._invariants_runtime is not None:
             legacy = result.get("violations") or []
             registry = self._invariants_runtime.evaluate(self, event, result)
@@ -558,6 +615,43 @@ class CoreEnv(LabTrustEnvAdapter):
                 "blocked_reason_code": rbac_reason,
                 "hashchain": hashchain_snap,
             }
+
+        # Capability gate (B006): after RBAC, before domain mutation
+        if self._capability_policy and self._capability_policy.get("profiles"):
+            role_id = rbac_decision.get("role_id")
+            profile = get_profile_for_agent(
+                agent_id,
+                role_id,
+                self._capability_policy,
+                self._rbac_policy.get("agents") if self._rbac_policy else None,
+            )
+            rbac_allowed_actions = rbac_get_allowed_actions(agent_id, self._rbac_policy)
+            action_count = self._episode_agent_action_count.get(agent_id, 0)
+            override_count = self._episode_agent_override_count.get(agent_id, 0)
+            cap_allowed, cap_reason = check_capability(
+                action_type,
+                event,
+                profile,
+                self._capability_policy,
+                rbac_allowed_actions,
+                action_count,
+                override_count,
+            )
+            if not cap_allowed and cap_reason:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": ["AGENT_SCOPE_VIOLATION"],
+                    "blocked_reason_code": cap_reason,
+                    "hashchain": hashchain_snap,
+                    "capability_decision": {
+                        "allowed": False,
+                        "reason_code": cap_reason,
+                        "action_count": action_count,
+                        "override_count": override_count,
+                    },
+                }
 
         prev_hash = self._audit.last_event_hash
         sig_passed: Optional[bool] = None
@@ -2140,7 +2234,19 @@ class CoreEnv(LabTrustEnvAdapter):
             return self._device_store.device_state(device_state_match.group(1))
         if expr == "transport_consignments" and self._transport is not None:
             return self._transport.list_consignments_info()
+        if expr == "last_event_hash" and self._audit is not None:
+            return self._audit.last_event_hash
         raise ValueError(f"Unsupported query: {expr!r}")
+
+    def get_agent_role(self, agent_id: str) -> Optional[str]:
+        """
+        Return current role_id for agent_id from RBAC policy (updated by UPDATE_ROSTER).
+        Used for role-aware prompt routing and shift-change.
+        """
+        agents = self._rbac_policy.get("agents") if self._rbac_policy else None
+        if not isinstance(agents, dict):
+            return None
+        return agents.get(agent_id)
 
     def get_timing_summary(self) -> Dict[str, Any]:
         """

@@ -30,6 +30,18 @@ When **LABTRUST_BENCH_SMOKE=1**, an extra job **bench-smoke** runs:
 
 **When it does not run:** Normal push/PR do **not** set `LABTRUST_BENCH_SMOKE`, so the bench-smoke job is skipped and CI stays fast.
 
+## Optional: coordination smoke
+
+When **LABTRUST_COORDINATION_SMOKE=1**, an extra job **coordination-smoke** runs:
+
+- Installs `.[dev,env]`.
+- Runs `labtrust validate-policy`.
+- Runs `pytest -q tests/test_coordination_*` (all coordination-related tests).
+- Runs `labtrust run-benchmark --task TaskG_COORD_SCALE --episodes 1 --seed 42 --coord-method centralized_planner --out ./taskg_smoke.json`.
+- Runs `labtrust run-benchmark --task TaskH_COORD_RISK --episodes 1 --seed 42 --coord-method market_auction --injection INJ-COLLUSION-001 --out ./taskh_smoke.json`.
+
+**When it runs:** Nightly schedule or manual "Run workflow" with **Run coordination smoke** enabled. No secrets required. Normal push/PR do not set `LABTRUST_COORDINATION_SMOKE`, so the job is skipped.
+
 ## Baseline regression guard
 
 When **LABTRUST_CHECK_BASELINES=1**, the **baseline-regression** job runs (and is included in CI):
@@ -95,5 +107,5 @@ A separate workflow **`.github/workflows/package-release-nightly.yml`** runs **p
 
 - **Default CI:** lint, typecheck, test (includes golden), policy-validate, **baseline-regression** (compares against canonical v0.2; non-skipping when v0.2 exists), **quick-eval** (TaskA, TaskD, TaskE), docs (MkDocs build). No benchmark smoke, no package-release.
 - **Baseline regression:** Job runs `pytest tests/test_official_baselines_regression.py` with `LABTRUST_CHECK_BASELINES=1`. Test uses **benchmarks/baselines_official/v0.2/** only; runs (does not skip) when v0.2/results/*.json exist. To update baselines, run `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` (matches regression params) and commit the results.
-- **Nightly / manual:** same plus bench-smoke (1 episode per task) when `LABTRUST_BENCH_SMOKE=1`; **package-release** artifact when workflow `package-release-nightly` runs.
+- **Nightly / manual:** same plus bench-smoke (1 episode per task) when `LABTRUST_BENCH_SMOKE=1`; **coordination-smoke** (validate-policy, coordination tests, TaskG + TaskH one episode) when `LABTRUST_COORDINATION_SMOKE=1`; **package-release** artifact when workflow `package-release-nightly` runs.
 - Golden suite must remain green on every run. Documentation site is built on every PR; deploy to GitHub Pages via `.github/workflows/docs.yml` on push to `main`.

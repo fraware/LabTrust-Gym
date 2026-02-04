@@ -24,6 +24,11 @@ TRANSPORT_TEMP_EXCURSION = "TRANSPORT_TEMP_EXCURSION"
 TRANSPORT_CHAIN_OF_CUSTODY_BROKEN = "TRANSPORT_CHAIN_OF_CUSTODY_BROKEN"
 
 
+# TaskH risk injection: resilience_score = 1 - norm_delta_p95 - ALPHA*violations_rate - BETA*blocks_rate
+RESILIENCE_ALPHA = 0.3
+RESILIENCE_BETA = 0.2
+NOMINAL_P95_TAT_DEFAULT_S = 300
+
 # Security-related blocked reason codes (TaskF: insider containment)
 SECURITY_REASON_CODES = frozenset(
     {
@@ -50,6 +55,8 @@ def compute_episode_metrics(
     episode_time_s: Optional[int] = None,
     device_busy_s: Optional[Dict[str, int]] = None,
     queue_lengths_per_step: Optional[List[Dict[str, int]]] = None,
+    injection_metrics: Optional[Dict[str, Any]] = None,
+    injection_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Compute per-episode metrics from list of step results (one list per step).
@@ -309,4 +316,37 @@ def compute_episode_metrics(
             out["fraction_of_attacks_contained"] = fraction_of_attacks_contained
         if forensic_quality_score is not None:
             out["forensic_quality_score"] = forensic_quality_score
+
+    # TaskH: sec.* and robustness.* from risk injection harness
+    if injection_metrics is not None or injection_id is not None:
+        inj = injection_metrics or {}
+        out["sec"] = {
+            "attack_success_rate": 1.0 if inj.get("attack_success") else 0.0,
+            "detection_latency_steps": inj.get("first_detection_step"),
+            "containment_time_steps": inj.get("first_containment_step"),
+        }
+        if injection_id is not None:
+            out["sec"]["injection_id"] = injection_id
+        steps_n = len(step_results_per_step)
+        total_violations = sum(out.get("violations_by_invariant_id", {}).values())
+        total_blocks = sum(out.get("blocked_by_reason_code", {}).values())
+        violations_rate = total_violations / steps_n if steps_n else 0.0
+        blocks_rate = total_blocks / steps_n if steps_n else 0.0
+        p95 = out.get("p95_turnaround_s")
+        norm_delta_p95 = 0.0
+        if p95 is not None and NOMINAL_P95_TAT_DEFAULT_S > 0:
+            delta = (p95 - NOMINAL_P95_TAT_DEFAULT_S) / NOMINAL_P95_TAT_DEFAULT_S
+            norm_delta_p95 = max(0.0, min(1.0, delta))
+        resilience_score = (
+            1.0
+            - norm_delta_p95
+            - RESILIENCE_ALPHA * violations_rate
+            - RESILIENCE_BETA * blocks_rate
+        )
+        out["robustness"] = {
+            "regret_vs_nominal": (
+                (p95 - NOMINAL_P95_TAT_DEFAULT_S) if p95 is not None else None
+            ),
+            "resilience_score": max(0.0, min(1.0, resilience_score)),
+        }
     return out

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.adversarial_detection.v0.1",
+  "title": "Adversarial detection policy v0.1",
+  "description": "Policy for adversarial input detector: patterns, severity threshold, suggested actions.",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "severity_threshold": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "max_text_length": { "type": "integer", "minimum": 100, "maximum": 100000 },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "pattern", "severity", "reason_code"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "pattern": { "type": "string" },
+          "severity": { "type": "integer", "minimum": 0, "maximum": 3 },
+          "reason_code": { "type": "string" }
+        }
+      }
+    },
+    "suggested_actions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "properties": {
+        "0": { "type": "string" },
+        "1": { "type": "string" },
+        "2": { "type": "string" },
+        "3": { "type": "string" }
+      }
+    }
+  }
+}

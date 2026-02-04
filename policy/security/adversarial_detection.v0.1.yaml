@@ -1,0 +1,47 @@
+# Adversarial input detection policy v0.1.
+# Defensive monitoring: keyword/pattern-based, deterministic, no external calls.
+# Used by security.adversarial_detection to produce detection flags, severity, suggested_action.
+#
+version: "0.1"
+severity_threshold: 1  # Emit SECURITY_ALERT when severity >= this (0-3).
+max_text_length: 2000  # Truncate inputs to avoid abuse; chars.
+
+# Patterns: list of { id, pattern, severity, reason_code }.
+# pattern: substring (case-insensitive) or regex (prefix with "re:").
+# severity: 0=info, 1=low, 2=medium, 3=high.
+patterns:
+  - id: "injection_override_policy"
+    pattern: "ignore allowed_actions"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "injection_override_policy_alt"
+    pattern: "override policy"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "injection_force_action"
+    pattern: "you must issue"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "injection_ignore_rbac"
+    pattern: "ignore RBAC"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "injection_release_result"
+    pattern: "RELEASE_RESULT"
+    severity: 1
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "jailbreak_style"
+    pattern: "re:jailbreak|ignore (all )?instructions"
+    severity: 3
+    reason_code: "ADV_JAILBREAK_PATTERN"
+  - id: "exfil_style"
+    pattern: "re:exfil|dump (all )?data|output (all )?contents"
+    severity: 3
+    reason_code: "ADV_SUSPECTED_EXFIL"
+
+# Severity -> suggested response action (for enforcement integration).
+suggested_actions:
+  0: "NOOP"
+  1: "NOOP"
+  2: "REQUIRE_HUMAN_REVIEW"
+  3: "THROTTLE_AGENT"

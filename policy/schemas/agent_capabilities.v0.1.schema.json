@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.agent_capabilities.v0.1",
+  "title": "Agent capabilities policy v0.1",
+  "description": "YAML root with agent_capabilities: per-role/agent profiles (allowed_tooling, max_action_rate, max_override_tokens, high_risk_actions).",
+  "type": "object",
+  "required": ["agent_capabilities"],
+  "additionalProperties": true,
+  "properties": {
+    "agent_capabilities": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "profiles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "allowed_actions": { "type": "array", "items": { "type": "string" } },
+              "allowed_tooling": {
+                "type": "object",
+                "properties": {
+                  "llm": { "type": "boolean" },
+                  "signing_proxy": { "type": "boolean" }
+                },
+                "additionalProperties": true
+              },
+              "max_action_rate": { "type": "integer", "minimum": 1 },
+              "max_override_tokens": { "type": "integer", "minimum": 0 },
+              "high_risk_actions": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "override_action_types": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

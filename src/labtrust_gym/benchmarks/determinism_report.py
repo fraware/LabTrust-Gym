@@ -62,6 +62,7 @@ def _run_and_hash(
     repo_root: Path,
     partner_id: Optional[str] = None,
     timing_mode: Optional[str] = None,
+    coord_method: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], str, str, Optional[str]]:
     """
     Run benchmark once in run_dir; return (results, episode_log_sha256, results_sha256, receipts_bundle_root_hash).
@@ -79,6 +80,7 @@ def _run_and_hash(
         log_path=log_path,
         partner_id=partner_id,
         timing_mode=timing_mode,
+        coord_method=coord_method,
     )
     results = json.loads(results_path.read_text(encoding="utf-8"))
     episode_log_sha256 = _sha256_file(log_path)
@@ -112,6 +114,7 @@ def run_determinism_report(
     partner_id: Optional[str] = None,
     timing_mode: Optional[str] = None,
     repo_root: Optional[Path] = None,
+    coord_method: Optional[str] = None,
 ) -> Tuple[bool, Dict[str, Any], str]:
     """
     Run benchmark twice in fresh temp dirs with identical args; compare hashes and v0.2 metrics.
@@ -119,6 +122,7 @@ def run_determinism_report(
     Returns (passed, report_dict, markdown_text).
     Asserts: episode log sha256 identical; results canonical sha256 identical;
     v0.2 metrics canonical identical; receipts bundle root hash identical (when export succeeds).
+    For TaskG_COORD_SCALE / TaskH_COORD_RISK, coord_method is required (or defaulted to kernel_centralized_edf).
     """
     if repo_root is None:
         from labtrust_gym.config import get_repo_root
@@ -127,6 +131,9 @@ def run_determinism_report(
     repo_root = Path(repo_root)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if task_name in ("TaskG_COORD_SCALE", "TaskH_COORD_RISK") and coord_method is None:
+        coord_method = "kernel_centralized_edf"
 
     errors: List[str] = []
 
@@ -139,6 +146,7 @@ def run_determinism_report(
             repo_root,
             partner_id=partner_id,
             timing_mode=timing_mode,
+            coord_method=coord_method,
         )
     with tempfile.TemporaryDirectory(prefix="labtrust_det_run2_") as td2:
         results2, log_sha2, res_sha2, bundle_hash2 = _run_and_hash(
@@ -149,6 +157,7 @@ def run_determinism_report(
             repo_root,
             partner_id=partner_id,
             timing_mode=timing_mode,
+            coord_method=coord_method,
         )
 
     if log_sha1 != log_sha2:
@@ -189,6 +198,7 @@ def run_determinism_report(
         "base_seed": base_seed,
         "partner_id": partner_id,
         "timing_mode": timing_mode or "explicit",
+        "coord_method": coord_method,
         "run1": run1_payload,
         "run2": run2_payload,
         "passed": passed,
@@ -209,12 +219,18 @@ def run_determinism_report(
         f"- **Seed**: {base_seed}",
         f"- **Partner**: {partner_id or '(none)'}",
         f"- **Timing**: {report['timing_mode']}",
-        "",
-        "## Result",
-        "",
-        f"**{'PASSED' if passed else 'FAILED'}**",
-        "",
     ]
+    if coord_method:
+        md_lines.append(f"- **Coord method**: {coord_method}")
+    md_lines.extend(
+        [
+            "",
+            "## Result",
+            "",
+            f"**{'PASSED' if passed else 'FAILED'}**",
+            "",
+        ]
+    )
     if errors:
         md_lines.append("### Errors")
         md_lines.append("")

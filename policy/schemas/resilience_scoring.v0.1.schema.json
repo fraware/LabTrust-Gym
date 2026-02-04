@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.resilience_scoring.v0.1",
+  "title": "Resilience scoring policy v0.1",
+  "description": "Schema for policy/coordination/resilience_scoring.v0.1.yaml: weights, normalization ranges, missing-metric behavior.",
+  "type": "object",
+  "required": ["version", "weights", "missing_metric_behavior", "components"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "policy_id": { "type": "string" },
+    "weights": {
+      "type": "object",
+      "required": ["perf", "safety", "security", "coordination"],
+      "additionalProperties": { "type": "number" },
+      "properties": {
+        "perf": { "type": "number", "minimum": 0, "maximum": 1 },
+        "safety": { "type": "number", "minimum": 0, "maximum": 1 },
+        "security": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coordination": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "missing_metric_behavior": {
+      "type": "string",
+      "enum": ["zero", "one", "omit"]
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["sub_metrics"],
+        "properties": {
+          "description": { "type": "string" },
+          "sub_metrics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["cell_key", "direction", "range"],
+              "properties": {
+                "cell_key": { "type": "string" },
+                "direction": { "type": "string", "enum": ["higher_better", "lower_better"] },
+                "range": {
+                  "type": "array",
+                  "items": { "type": "number" },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "saturation": {
+                  "type": "array",
+                  "items": { "type": "number" },
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

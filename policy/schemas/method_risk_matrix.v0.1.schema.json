@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.method_risk_matrix.v0.1",
+  "title": "Method-risk coverage matrix v0.1",
+  "description": "Schema for policy/coordination/method_risk_matrix.v0.1.yaml: method_id x risk_id coverage and required_bench.",
+  "type": "object",
+  "required": ["method_risk_matrix"],
+  "additionalProperties": true,
+  "properties": {
+    "method_risk_matrix": {
+      "type": "object",
+      "required": ["matrix_id", "version", "cells"],
+      "additionalProperties": true,
+      "properties": {
+        "matrix_id": { "type": "string" },
+        "version": { "type": "string" },
+        "cells": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": ["method_id", "risk_id", "coverage"],
+            "additionalProperties": true,
+            "properties": {
+              "method_id": { "type": "string" },
+              "risk_id": { "type": "string" },
+              "coverage": {
+                "type": "string",
+                "enum": ["not_applicable", "covered", "partially_covered", "uncovered"]
+              },
+              "rationale": { "type": "string" },
+              "required_bench": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

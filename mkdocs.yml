@@ -16,8 +16,12 @@ theme:
 nav:
   - Overview: index.md
   - Installation: installation.md
+  - Repository structure: repository_structure.md
   - Architecture: architecture.md
   - Policy pack and schemas: policy_pack.md
+  - Coordination policy (risk and method registry): coordination_policy.md
+  - Coordination methods (baselines at scale): coordination_methods.md
+  - Coordination scale generator: coordination_scale.md
   - Invariants and enforcement:
     - Invariant registry: invariants_registry.md
     - Enforcement: enforcement.md
@@ -32,10 +36,17 @@ nav:
     - Benchmarks: benchmarks.md
     - Benchmark card: benchmark_card.md
     - Studies and plots: studies.md
+    - Coordination studies (run and Pareto): coordination_studies.md
+    - Coordination benchmark card (TaskG/TaskH): coordination_benchmark_card.md
+    - Coordination done checklist: coordination_done_checklist.md
     - Reproduce (minimal results + figures): reproduce.md
     - Paper-ready release: paper_ready.md
   - Reproducibility and seeding: reproducibility.md
   - Threat model: threat_model.md
+  - Security monitoring (adversarial detection): security_monitoring.md
+  - Online mode: online_mode.md
+  - Security controls (online): security_online.md
+  - Output controls (B009): output_controls.md
   - Invariants (overview): invariants.md
   - Queue contract: queue_contract.v0.1.md
   - MARL baselines: marl_baselines.md

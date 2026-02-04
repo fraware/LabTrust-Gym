@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.llm.policy_summary.v0.2",
+  "title": "State summary for LLM agent v0.2 (bounded, injection-hardened)",
+  "description": "Decision-relevant state only: location, queue, work, tokens, invariants; untrusted_notes for free text.",
+  "type": "object",
+  "required": ["schema_version", "location", "queue", "work", "tokens", "invariants", "untrusted_notes"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.2" },
+    "partner_id": { "type": "string" },
+    "policy_fingerprint": { "type": "string" },
+    "agent_id": { "type": "string" },
+    "role_id": { "type": "string" },
+    "now_ts_s": { "type": "integer" },
+    "timing_mode": { "type": "string" },
+    "strict_signatures": { "type": "boolean" },
+    "log_frozen": { "type": "boolean" },
+    "location": {
+      "type": "object",
+      "required": ["site_id", "zone_id"],
+      "properties": {
+        "site_id": { "type": "string" },
+        "zone_id": { "type": "string" }
+      }
+    },
+    "queue": {
+      "type": "object",
+      "required": ["by_device", "cap_k"],
+      "properties": {
+        "by_device": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["device_id", "queue_head", "queue_len"],
+            "properties": {
+              "device_id": { "type": "string" },
+              "queue_head": { "type": "string" },
+              "queue_len": { "type": "integer" }
+            }
+          }
+        },
+        "cap_k": { "type": "integer" }
+      }
+    },
+    "work": {
+      "type": "object",
+      "required": ["active_runs", "pending_results", "pending_criticals", "cap_k"],
+      "properties": {
+        "active_runs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "device_id": { "type": "string" },
+              "work_id": { "type": "string" },
+              "status": { "type": "string" }
+            }
+          }
+        },
+        "pending_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "result_id": { "type": "string" },
+              "status": { "type": "string" },
+              "criticality": { "type": "string" }
+            }
+          }
+        },
+        "pending_criticals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "result_id": { "type": "string" },
+              "tier": { "type": "integer" },
+              "ack_due_in_s": { "type": "integer" }
+            }
+          }
+        },
+        "cap_k": { "type": "integer" }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "required": ["active", "cap_k"],
+      "properties": {
+        "active": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "token_id": { "type": "string" },
+              "token_type": { "type": "string" },
+              "expires_in_s": { "type": "integer" }
+            }
+          }
+        },
+        "cap_k": { "type": "integer" }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "required": ["recent_violations", "enforcement_state"],
+      "properties": {
+        "recent_violations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "invariant_id": { "type": "string" },
+              "severity": { "type": "string" },
+              "at_ts_s": { "type": "integer" }
+            }
+          }
+        },
+        "enforcement_state": {
+          "type": "object",
+          "properties": {
+            "throttles": { "type": "array" },
+            "frozen_zones": { "type": "array" }
+          }
+        }
+      }
+    },
+    "untrusted_notes": {
+      "type": "object",
+      "required": ["present", "samples"],
+      "properties": {
+        "present": { "type": "boolean" },
+        "samples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source", "text"],
+            "properties": {
+              "source": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.coordination_study_spec.v0.1",
+  "title": "Coordination study spec v0.1",
+  "description": "Schema for policy/coordination/coordination_study_spec.v0.1.yaml: deterministic experiment matrix (scales, methods, risks, injections).",
+  "type": "object",
+  "required": ["study_id", "seed_base", "episodes_per_cell"],
+  "additionalProperties": true,
+  "properties": {
+    "study_id": { "type": "string" },
+    "version": { "type": "string" },
+    "scales": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["num_agents", "num_sites", "num_devices", "arrival_rate", "horizon_steps"]
+          },
+          "values": {
+            "type": "array",
+            "items": {}
+          }
+        }
+      }
+    },
+    "methods": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "injections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["injection_id"],
+        "additionalProperties": true,
+        "properties": {
+          "injection_id": { "type": "string" },
+          "intensity": {},
+          "seed_offset": { "type": "integer" }
+        }
+      }
+    },
+    "episodes_per_cell": { "type": "integer", "minimum": 1 },
+    "seed_base": { "type": "integer" }
+  }
+}

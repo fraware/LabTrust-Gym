@@ -9,7 +9,7 @@ Blood Sciences lane: specimen reception, accessioning, pre-analytics, routine an
 - **Invariant registry** (v1.0): zone movement (INV-ZONE-001), co-location (INV-ZONE-002), restricted door (INV-ZONE-004, INV-ZONE-005), critical ack (INV-CRIT-002, INV-CRIT-004–006), stability (INV-STAB-BIOCHEM-*), transport (INV-COC-001, INV-TRANSPORT-001), tokens (INV-TOK-*), etc.
 - **Enforcement**: optional throttle, kill_switch, freeze_zone, forensic_freeze via `policy/enforcement/enforcement_map.v0.1.yaml`.
 
-## Tasks (A–F)
+## Tasks (A–F and coordination G–H)
 
 | Task | Description | SLA |
 |------|-------------|-----|
@@ -19,6 +19,10 @@ Blood Sciences lane: specimen reception, accessioning, pre-analytics, routine an
 | TaskD | Adversarial disruption | 3600 s |
 | TaskE | Multi-site STAT (transport latency) | 2400 s |
 | TaskF | Insider + key misuse (RBAC, forged sig, replay, token misuse) | 3600 s |
+| TaskG_COORD_SCALE | Coordination at scale under nominal conditions (scale config, many agents/devices/sites) | 3600 s |
+| TaskH_COORD_RISK | Coordination under injected risks (risk injection harness; sec/robustness metrics) | 3600 s |
+
+TaskG and TaskH use a deterministic scale generator (`CoordinationScaleConfig`) and coordination methods (e.g. `centralized_planner`, `market_auction`, `swarm_reactive`). TaskH runs with a chosen injection (e.g. INJ-COLLUSION-001, INJ-ID-SPOOF-001); results include optional `sec.*` and `robustness.*` metrics. See [Coordination studies](coordination_studies.md) and [Coordination methods](coordination_methods.md).
 
 ## Baselines
 
@@ -26,6 +30,7 @@ Blood Sciences lane: specimen reception, accessioning, pre-analytics, routine an
 - **adversary_v1** (TaskD): scripted adversary agent.
 - **insider_v1** (TaskF): deterministic insider adversary (phases 1–5: forbidden action, forged sig, replay, **revoked key** → SIG_KEY_REVOKED, token misuse); TaskF runs with **strict_signatures: True**; study sweep **strict_signatures** on/off shows effect on containment.
 - **ppo_v1**, **llm_safe_v1**: optional; see MARL/LLM baselines.
+- **Coordination suite (TaskG/TaskH)**: `coord_<method_id>` e.g. `coord_centralized_planner`, `coord_market_auction`, `coord_swarm_reactive`; methods defined in `policy/coordination/coordination_methods.v0.1.yaml`. Risk injections (e.g. INJ-COLLUSION-001, INJ-ID-SPOOF-001) are configured in the coordination study spec; INJ-ID-SPOOF-001 must be blocked when strict signatures are enabled.
 
 ## Timing mode (first-class dimension)
 
@@ -66,6 +71,15 @@ labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ -
 - **Legacy (v0.1)**: `benchmarks/baselines_official/v0.1/` is legacy; not used for the regression guard.
 - **Regeneration**: From repo root, run `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` to refresh the CI baseline (episodes=3 matches the regression test), or `--episodes 200 --seed 123` for a fuller set. Timestamp in metadata is deterministic when `--seed` is set. Optional: `--timing simulated`, `--partner hsl_like`.
 - **Compare**: `labtrust summarize-results --in benchmarks/baselines_official/v0.2/results/ your_results.json --out <out_dir>`.
+
+## Coordination suite (TaskG, TaskH)
+
+Coordination tasks and metrics are documented in [Coordination studies](coordination_studies.md) and [Coordination methods](coordination_methods.md). Summary:
+
+- **TaskG_COORD_SCALE**: Run with `--coord-method <method_id>`. Scale is defined by the task’s `scale_config` (or overridden by the coordination study runner). Metrics: throughput, p95 TAT, violations, blocked (same as core tasks); optional COORD_SCALE_CONFIG emit at episode start.
+- **TaskH_COORD_RISK**: Same as TaskG plus `--injection <injection_id>`. Results include optional **sec.*** (attack_success_rate, detection_latency_steps, containment_time_steps) and **robustness.*** (regret_vs_nominal, resilience_score). The coordination study runner produces `summary_coord.csv` and `pareto.md` (per-scale Pareto front and robust winner).
+- **CI**: The `coordination-smoke` job runs on schedule or via workflow_dispatch (no secrets): `labtrust validate-policy`, `pytest tests/test_coordination_*`, and one-episode TaskG/TaskH runs. See [Coordination done checklist](coordination_done_checklist.md).
+- **Coordination benchmark card**: A benchmark-grade coordination card (scenario generation, scale configs, methods, injections, metrics, determinism, limitations, policy fingerprint) is defined in [Coordination benchmark card](coordination_benchmark_card.md). It is auto-generated as **COORDINATION_CARD.md** (with stable policy fingerprint and optional frozen `_coordination_policy/` copy) when running `labtrust package-release --profile paper_v0.1`.
 
 ## Known limitations and non-goals
 

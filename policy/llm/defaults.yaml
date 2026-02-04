@@ -1,0 +1,4 @@
+# Default prompt selection for LLM agents (used when prompt_id/version not overridden).
+# Code fallback if missing: prompt_id "ops_v2", version "2.0.0".
+prompt_id: "ops_v2"
+version: "2.0.0"

@@ -1,0 +1,57 @@
+# Agent Capability Profiles v0.1 (B006)
+# Defense-in-depth: scope and rate limits per agent/role beyond RBAC.
+# Enforced after RBAC, before domain mutation; LLM shield also checks capability profile.
+
+agent_capabilities:
+  version: "0.1"
+  # Profiles keyed by role_id (or agent_id for override). Agent_id takes precedence if present.
+  profiles:
+    ROLE_ANALYTICS:
+      # allowed_actions: omit to use RBAC role allowed_actions; or list to restrict further
+      allowed_tooling:
+        llm: true
+        signing_proxy: true
+      max_action_rate: 500
+      max_override_tokens: 10
+      high_risk_actions:
+        - RELEASE_RESULT_OVERRIDE
+        - START_RUN_OVERRIDE
+
+    ROLE_SUPERVISOR:
+      allowed_tooling:
+        llm: false
+        signing_proxy: true
+      max_action_rate: 200
+      max_override_tokens: 20
+      high_risk_actions:
+        - RELEASE_RESULT_OVERRIDE
+
+    ROLE_CLINICAL_SCIENTIST:
+      allowed_tooling:
+        llm: false
+        signing_proxy: true
+      max_action_rate: 100
+      max_override_tokens: 15
+      high_risk_actions:
+        - RELEASE_RESULT_OVERRIDE
+
+    ROLE_RECEPTION:
+      allowed_tooling:
+        llm: true
+        signing_proxy: false
+      max_action_rate: 300
+      max_override_tokens: 0
+      high_risk_actions: []
+
+    ROLE_RUNNER:
+      allowed_tooling:
+        llm: false
+        signing_proxy: false
+      max_action_rate: 400
+      max_override_tokens: 0
+      high_risk_actions: []
+
+  # Action types that consume override budget (per episode)
+  override_action_types:
+    - RELEASE_RESULT_OVERRIDE
+    - START_RUN_OVERRIDE

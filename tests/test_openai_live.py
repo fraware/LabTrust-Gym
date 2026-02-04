@@ -161,6 +161,13 @@ def test_llm_decision_event_shape_live_backend_no_network() -> None:
     assert llm.get("error_code") is None or isinstance(llm["error_code"], str)
     # used_structured_outputs: OpenAILiveBackend uses strict schema (best quality)
     assert llm.get("used_structured_outputs") is True
+    # prompt registry fingerprinting
+    assert "prompt_id" in llm and isinstance(llm["prompt_id"], str)
+    assert "prompt_version" in llm and isinstance(llm["prompt_version"], str)
+    assert "prompt_fingerprint" in llm and len(llm.get("prompt_fingerprint", "")) == 64
+    # one-shot repair audit
+    assert "repair_attempted" in llm and isinstance(llm["repair_attempted"], bool)
+    assert "repair_succeeded" in llm and isinstance(llm["repair_succeeded"], bool)
 
 
 @pytest.mark.skipif(

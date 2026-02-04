@@ -47,7 +47,7 @@ labtrust reproduce --profile minimal
 
 Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings).
 
-**LLMs:** Benchmarks and tests use **deterministic, offline** LLM backends by default (no API keys or `.env`). Optional **live LLM** mode: `--llm-backend openai_live` (requires `OPENAI_API_KEY`; non-deterministic, incurs cost). See [docs/installation.md](docs/installation.md#configuration-no-env-file-required), [docs/llm_baselines.md](docs/llm_baselines.md), and [docs/llm_live.md](docs/llm_live.md).
+**LLMs:** Benchmarks and tests use **deterministic, offline** LLM backends by default (no API keys or `.env`). Optional **live LLM** mode: `--llm-backend openai_live` (requires `OPENAI_API_KEY`) or `--llm-backend ollama_live` (local Ollama; `LABTRUST_LOCAL_LLM_*` env vars). Live backends are non-deterministic and may incur cost. See [docs/installation.md](docs/installation.md#configuration-no-env-file-required), [docs/llm_baselines.md](docs/llm_baselines.md), and [docs/llm_live.md](docs/llm_live.md).
 
 ## Quick eval
 
@@ -63,7 +63,7 @@ Output: a markdown summary (throughput, violations, blocked counts) and logs und
 
 - **validate-policy** — Validate all policy YAML/JSON against schemas.
 - **quick-eval** — 1 episode each of TaskA, TaskD, TaskE; markdown summary and logs under `./labtrust_runs/` (`--seed`, `--out-dir`).
-- **run-benchmark** — Run TaskA, TaskB, TaskC, TaskD, TaskE, or TaskF; write results.json (`--task`, `--episodes`, `--out`). Optional `--llm-backend {deterministic,openai_live}` to use LLM agent (default: scripted agents); see [docs/llm_live.md](docs/llm_live.md).
+- **run-benchmark** — Run TaskA, TaskB, TaskC, TaskD, TaskE, or TaskF; write results.json (`--task`, `--episodes`, `--out`). Optional `--llm-backend {deterministic,openai_live,ollama_live}` to use LLM agent; optional `--llm-agents` to restrict which agents use the LLM (default: scripted agents). See [docs/llm_live.md](docs/llm_live.md).
 - **eval-agent** — Run benchmark with an external agent (module:Class or module:function); write results.json (v0.2). Example: `--agent "examples.external_agent_demo:SafeNoOpAgent"` (`--task`, `--episodes`, `--out`, `--seed`, `--partner`, `--timing`).
 - **bench-smoke** — 1 episode per task (TaskA, TaskB, TaskC).
 - **export-receipts** — Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log (`--run`, `--out`).
@@ -71,21 +71,30 @@ Output: a markdown summary (throughput, violations, blocked counts) and logs und
 - **verify-bundle** — Verify EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace (`--bundle`, `--allow-extra-files`).
 - **ui-export** — Export UI-ready zip (index, events, receipts_index, reason_codes) from a run dir (`--run`, `--out`). UI consumes this as primary input; see [docs/ui_data_contract.md](docs/ui_data_contract.md).
 - **run-study** — Run study from spec (`--spec`, `--out`); ablations → conditions → results.
-- **make-plots** — Generate figures and data tables from a study run (`--run`).
+- **run-coordination-study** — Run coordination study (scale × method × injection); writes cells, summary_coord.csv, pareto.md (`--spec`, `--out`). See [Coordination studies](docs/coordination_studies.md).
+- **make-plots** — Generate figures and data tables from a study run (`--run`); for coordination runs adds resilience vs p95_tat and attack_success_rate bar.
 - **reproduce** — Reproduce minimal results + figures: TaskA & TaskC sweep + plots (`--profile minimal | full`, optional `--out`, `--seed-base`).
 - **package-release** — Release candidate artifact: reproduce + receipts + FHIR + plots + MANIFEST + BENCHMARK_CARD + summary table (`--profile minimal | full | paper_v0.1`, `--out`, optional `--seed-base`, `--keep-repro`). Use **paper_v0.1** for a benchmark-first, paper-ready artifact (baselines + TaskF study + summarize + receipts + FIGURES/TABLES); see [docs/paper_ready.md](docs/paper_ready.md).
 - **generate-official-baselines** — Run Tasks A–F with official baselines; write results/, summary.csv, summary.md, metadata.json (`--out`, `--episodes`, `--seed`, `--timing`, `--partner`, `--force`). Registry: `benchmarks/baseline_registry.v0.1.yaml`.
 - **summarize-results** — Load results.json from dir(s)/file(s), aggregate by task+baseline+partner_id; write **summary_v0.2.csv** (CI-stable), **summary_v0.3.csv** (paper-grade: quantiles, 95% CI), **summary.csv** (copy of v0.2), and summary.md (`--in`, `--out`, `--basename`). See [docs/metrics_contract.md](docs/metrics_contract.md). Compare to official baselines in `benchmarks/baselines_official/v0.1/` (or regenerate v0.2 with generate-official-baselines).
 - **determinism-report** — Run benchmark twice with identical args in fresh temp dirs; write **determinism_report.md** and **determinism_report.json** (sha256 of episode logs, results.json, receipts bundle root hash); assert v0.2 metrics and episode log hash identical (`--task`, `--episodes`, `--seed`, `--out`, optional `--partner`, `--timing explicit|simulated`). With `--timing simulated`, device service-time sampling is seeded only from `--seed`.
 - **train-ppo**, **eval-ppo** — PPO training/eval (requires `.[marl]`).
+- **serve** — Start online HTTP server (optional auth, rate limits, B007 roles; GET /v0/summary returns summary view, GET /v0/episode-log admin-only). See [docs/security_online.md](docs/security_online.md), [docs/output_controls.md](docs/output_controls.md), [docs/deployment_hardening.md](docs/deployment_hardening.md).
 
-## Layout
+## Repository structure
 
-- **policy/** — Versioned YAML/JSON: `schemas/`, `emits/`, `invariants/` (registry v1.0), `tokens/`, `reason_codes/`, `zones/`, `sites/` (sites_policy), `catalogue/`, `stability/`, `equipment/`, `critical/` (thresholds, escalation_ladder v0.2), `enforcement/`, `studies/`, `llm/`, `golden/`, `partners/`. Validated by `labtrust validate-policy`.
-- **src/labtrust_gym/** — `config.py` (get_repo_root for policy path), `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, clock, rng, transport, catalogue_runtime, tokens_runtime, invariants_runtime, enforcement), `policy/` (loader, validate, invariants_registry), `export/` (receipts, fhir_r4), `runner/`, `envs/` (PettingZoo Parallel and AEC), `baselines/` (scripted_ops, scripted_runner, adversary, **llm** (allowed_actions_payload, ProviderBackend, LLM_DECISION audit), marl), `benchmarks/`, `studies/` (study_runner, plots, reproduce, package_release), `logging/`, `cli/`, `version.py`.
-- **tests/** — Golden suite, policy validation, hashchain, tokens, zones, specimens, qc, critical, queueing, benchmarks, invariant registry, enforcement, **test_signatures_key_lifecycle** (key lifecycle: valid/revoked/expired/not-yet-valid), **test_llm_constrained_decoder** (LLM constrained decode, rationale, deterministic baseline, LLM_DECISION audit), **test_openai_live** (live backend, LLM_DECISION shape), transport, export_receipts, fhir_export, package_release, study runner, plots, reproduce smoke, adversary, marl smoke, llm agent mock.
-- **examples/** — `minimal_random_policy_agent.py`, `scripted_ops_agent.py`, `scripted_runner_agent.py`, `llm_agent_mock_demo.py`.
-- **docs/** — Architecture, policy pack, invariants & enforcement, benchmarks, studies, reproduce, PettingZoo API, CI, threat model, MARL/LLM baselines, **llm_live** (live LLM benchmark mode); **docs/STATUS.md** — current state. MkDocs site (build with `.[docs]`).
+Keep the repo root minimal. Put CLI outputs in `labtrust_runs/` or a path given by `--out`; do not commit `results.json`, `out.json`, or other artifacts at root (see [Repository structure](docs/repository_structure.md)).
+
+| Path | Description |
+|------|-------------|
+| **policy/** | Versioned YAML/JSON: `schemas/`, `emits/`, `invariants/` (registry v1.0), `tokens/`, `reason_codes/`, `zones/`, `sites/`, `catalogue/`, `stability/`, `equipment/`, `critical/`, `enforcement/`, `studies/`, `risks/` (risk_registry), `coordination/` (methods, method_risk_matrix, coordination_study_spec), `llm/`, `golden/`, `partners/`. Validated by `labtrust validate-policy`. |
+| **src/labtrust_gym/** | Package: `config`, `engine/` (core_env, audit_log, zones, specimens, qc, critical, queueing, devices, signatures, rbac, transport, invariants, enforcement), `envs/` (PettingZoo), `baselines/` (scripted, adversary, llm, **coordination** (interface, methods, registry), marl), `benchmarks/` (tasks TaskA–TaskH, runner, metrics, coordination_scale, summarize), `policy/` (loader, validate, risks, coordination, prompt_registry), `security/` (risk_injections, secret_scrubber, fs_safety, output_shaping, adversarial_detection), `studies/` (study_runner, **coordination_study_runner**, plots, reproduce, package_release), `export/`, `online/`, `runner/`, `logging/`, `cli/`. |
+| **tests/** | Pytest: golden suite, policy validation, benchmarks, **coordination** (scale, methods, study, policy), **risk_injections**, studies, export, online, etc. |
+| **benchmarks/** | Baseline registry, official baselines (v0.1, v0.2). |
+| **examples/** | Example agents (external_agent_demo, scripted_ops_agent, llm_agent_mock_demo, etc.). |
+| **docs/** | MkDocs source: architecture, benchmarks, coordination (methods, scale, studies, policy, checklist), contracts, installation, STATUS, security, LLM, MARL. |
+| **scripts/** | Quickstart and paper-release scripts. |
+| **ui_fixtures/** | Minimal results, episode log, evidence bundle for offline UI work. |
 
 ## Golden runner
 
@@ -94,7 +103,7 @@ The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/gol
 ## Reproducibility and citation
 
 - **Reproduce**: `labtrust reproduce --profile minimal` (see [docs/reproduce.md](docs/reproduce.md)).
-- **Release artifact**: `labtrust package-release --profile minimal --out /tmp/labtrust_release` produces MANIFEST.v0.1.json (file hashes), BENCHMARK_CARD.md, metadata.json, results (v0.2 schema), summary.csv/summary.md (leaderboard table), plots, receipts, and FHIR bundles. Use `--seed-base N` for deterministic runs. For a **paper-ready** artifact (baselines + TaskF study + FIGURES/TABLES + receipts): `labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>` (see [docs/paper_ready.md](docs/paper_ready.md)).
+- **Release artifact**: `labtrust package-release --profile minimal --out /tmp/labtrust_release` produces MANIFEST.v0.1.json (file hashes), BENCHMARK_CARD.md, metadata.json, results (v0.2 schema), summary.csv/summary.md (leaderboard table), plots, receipts, and FHIR bundles. Use `--seed-base N` for deterministic runs. For a **paper-ready** artifact (baselines + TaskF study + FIGURES/TABLES + receipts + **COORDINATION_CARD.md** and frozen **\_coordination_policy/**): `labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>` (see [docs/paper_ready.md](docs/paper_ready.md), [docs/coordination_benchmark_card.md](docs/coordination_benchmark_card.md)).
 - **Official baselines**: **v0.2 is canonical.** Frozen results and summary table are in `benchmarks/baselines_official/v0.2/` (see [Benchmark card](docs/benchmark_card.md)). Baseline regression compares against v0.2; v0.1 is legacy. Regenerate with `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` (matches CI). Compare: `labtrust summarize-results --in benchmarks/baselines_official/v0.2/results/ your_results.json --out /tmp/compare`.
 - **How to cite**: This project uses [CITATION.cff](CITATION.cff). You can use [citation-file-format](https://citation-file-format.github.io/) tooling or cite the repository: *LabTrust-Gym: a multi-agent environment for a self-driving hospital lab with a trust skeleton*. https://github.com/fraware/LabTrust-Gym.
 
@@ -104,7 +113,7 @@ Before adding online APIs and non-deterministic runs, see **[docs/IMPROVEMENTS_B
 
 ## Current state
 
-See **docs/STATUS.md** for a detailed report: policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2 escalation ladder), catalogue/stability, co-location, queueing, invariant registry, enforcement, **transport** (multi-site), **export** (receipts, FHIR R4), **package-release**, PettingZoo wrappers, scripted/adversary/LLM/MARL baselines, TaskA–TaskF, **quick-eval**, PyPI packaging (`labtrust --version`), studies (run-study, make-plots, reproduce, package-release), and docs site (MkDocs + API reference).
+See **docs/STATUS.md** for a detailed report: policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2 escalation ladder), catalogue/stability, co-location, queueing, invariant registry, enforcement, **transport** (multi-site), **export** (receipts, FHIR R4), **package-release**, **security** (B008 deployment hardening, B009 output controls), **online serve** (auth, rate limits, summary/episode-log endpoints), PettingZoo wrappers, scripted/adversary/LLM/MARL baselines, TaskA–TaskF, **quick-eval**, PyPI packaging (`labtrust --version`), studies (run-study, make-plots, reproduce, package-release), and docs site (MkDocs + API reference).
 
 ## v0.1.0 release and contract freeze
 

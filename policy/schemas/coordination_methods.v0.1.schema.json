@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.coordination_methods.v0.1",
+  "title": "Coordination method registry v0.1",
+  "description": "Schema for policy/coordination/coordination_methods.v0.1.yaml: methods to compare in coordination benchmarks.",
+  "type": "object",
+  "required": ["coordination_methods"],
+  "additionalProperties": true,
+  "properties": {
+    "coordination_methods": {
+      "type": "object",
+      "required": ["version", "methods"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "methods": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": ["method_id", "name", "coordination_class"],
+            "additionalProperties": true,
+            "properties": {
+              "method_id": { "type": "string" },
+              "name": { "type": "string" },
+              "coordination_class": {
+                "type": "string",
+                "enum": ["centralized", "hierarchical", "market", "decentralized", "swarm", "learning", "llm"]
+              },
+              "scaling_knobs": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "known_weaknesses": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "required_controls": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "compatible_injections": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "default_params": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

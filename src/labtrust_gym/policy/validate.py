@@ -91,6 +91,28 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
     ("policy/sites/sites_policy.v0.1.yaml", "sites_policy.v0.1.schema.json"),
     ("policy/keys/key_registry.v0.1.yaml", "key_registry.v0.1.schema.json"),
     ("policy/rbac/rbac_policy.v0.1.yaml", "rbac_policy.v0.1.schema.json"),
+    ("policy/llm/prompt_registry.v0.1.yaml", "prompt_registry.v0.1.schema.json"),
+    (
+        "policy/security/adversarial_detection.v0.1.yaml",
+        "adversarial_detection.v0.1.schema.json",
+    ),
+    (
+        "policy/security/agent_capabilities.v0.1.yaml",
+        "agent_capabilities.v0.1.schema.json",
+    ),
+    ("policy/risks/risk_registry.v0.1.yaml", "risk_registry.v0.1.schema.json"),
+    (
+        "policy/coordination/coordination_methods.v0.1.yaml",
+        "coordination_methods.v0.1.schema.json",
+    ),
+    (
+        "policy/coordination/method_risk_matrix.v0.1.yaml",
+        "method_risk_matrix.v0.1.schema.json",
+    ),
+    (
+        "policy/coordination/coordination_study_spec.v0.1.yaml",
+        "coordination_study_spec.v0.1.schema.json",
+    ),
 ]
 
 
@@ -253,6 +275,7 @@ def validate_merged_policy_consistency(
 LLM_SCHEMA_FILES: list[str] = [
     "policy/llm/llm_action.schema.v0.2.json",
     "policy/llm/policy_summary.schema.v0.1.json",
+    "policy/llm/policy_summary.schema.v0.2.json",
 ]
 
 

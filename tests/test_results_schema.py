@@ -21,6 +21,8 @@ from labtrust_gym.benchmarks.summarize import (
     validate_results_v02,
     validate_results_v03,
     _normalize_to_v02,
+    _build_llm_economics_rows,
+    _load_raw_results_with_metadata,
 )
 
 
@@ -171,6 +173,47 @@ def test_summarize_aggregates_by_task_baseline_partner(tmp_path: Path) -> None:
     assert rows[0]["task"] == "TaskA"
     assert rows[0]["throughput_mean"] == 11.0
     assert rows[0]["n_episodes"] == 2
+
+
+def test_summarize_writes_llm_economics_when_metadata_has_llm_backend(
+    tmp_path: Path,
+) -> None:
+    """When any result has metadata.llm_backend_id, run_summarize writes llm_economics.csv and .md."""
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+    (results_dir / "results.json").write_text(
+        json.dumps(
+            {
+                "task": "TaskA",
+                "seeds": [42],
+                "episodes": [{"seed": 42, "metrics": {"throughput": 5}}],
+                "agent_baseline_id": "llm_live_openai_v1",
+                "metadata": {
+                    "llm_backend_id": "openai_live",
+                    "llm_model_id": "gpt-4o-mini",
+                    "total_tokens": 1000,
+                    "tokens_per_step": 50.0,
+                    "estimated_cost_usd": 0.001,
+                    "mean_llm_latency_ms": 200.0,
+                    "p50_llm_latency_ms": 180.0,
+                    "p95_llm_latency_ms": 400.0,
+                    "llm_error_rate": 0.0,
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+    run_summarize([results_dir], out, out_basename="summary")
+    assert (out / "llm_economics.csv").exists()
+    assert (out / "llm_economics.md").exists()
+    raw = _load_raw_results_with_metadata([results_dir])
+    rows = _build_llm_economics_rows(raw)
+    assert len(rows) == 1
+    assert rows[0]["llm_backend_id"] == "openai_live"
+    assert rows[0]["total_tokens"] == 1000
+    assert rows[0]["estimated_cost_usd"] == 0.001
 
 
 def test_normalize_accepts_legacy_git_commit_hash() -> None:

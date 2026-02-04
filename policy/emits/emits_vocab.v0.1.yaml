@@ -84,6 +84,19 @@ emits_vocab:
       - "UPDATE_ROSTER"
       - "INJECT_SPECIMEN"
 
+    security_monitoring:
+      - "SECURITY_ALERT"
+      - "SECURITY_EVENT"
+      - "SECURITY_INJECTION_APPLIED"
+      - "SECURITY_INJECTION_DETECTED"
+      - "SECURITY_INJECTION_CONTAINED"
+
+    coordination_scale:
+      - "COORD_SCALE_CONFIG"
+      - "COORD_DECISION"
+      - "COORD_STALE_DECISION"
+      - "COORD_SHIELD_DECISION"
+
   # Flattened canonical set (for fast validation)
   canonical_set:
     - "RECEIVE_BATCH"
@@ -141,3 +154,13 @@ emits_vocab:
     - "LLM_DECISION"
     - "UPDATE_ROSTER"
     - "INJECT_SPECIMEN"
+    - "SECURITY_ALERT"
+    - "SECURITY_EVENT"
+    - "SECURITY_INJECTION_APPLIED"
+    - "SECURITY_INJECTION_DETECTED"
+    - "SECURITY_INJECTION_CONTAINED"
+    - "AGENT_SCOPE_VIOLATION"
+    - "COORD_SCALE_CONFIG"
+    - "COORD_DECISION"
+    - "COORD_STALE_DECISION"
+    - "COORD_SHIELD_DECISION"

@@ -120,6 +120,20 @@ def _aggregate_episodes(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
         else:
             out[f"{key}_mean"] = None
             out[f"{key}_std"] = None
+    comm_keys = ["msg_count", "p95_latency_ms", "drop_rate"]
+    for ck in comm_keys:
+        vals = []
+        for ep in episodes:
+            comm = (ep.get("metrics") or {}).get("coordination") or {}
+            v = (comm.get("comm") or {}).get(ck)
+            if v is not None:
+                vals.append(float(v))
+        if vals:
+            out[f"comm_{ck}_mean"] = statistics.mean(vals)
+            out[f"comm_{ck}_std"] = statistics.stdev(vals) if len(vals) > 1 else 0.0
+        else:
+            out[f"comm_{ck}_mean"] = None
+            out[f"comm_{ck}_std"] = None
     return out
 
 
@@ -378,6 +392,57 @@ def validate_results_v03(
         return [str(e)]
 
 
+def _load_raw_results_with_metadata(in_paths: List[Path]) -> List[Dict[str, Any]]:
+    """Load raw results dicts (with metadata) from paths. One dict per results file."""
+    raw_list: List[Dict[str, Any]] = []
+    for path_in in in_paths:
+        p = Path(path_in).resolve()
+        if p.is_file() and p.suffix.lower() == ".json":
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("episodes") is not None:
+                    raw_list.append(data)
+            except Exception:
+                pass
+        elif p.is_dir():
+            for f in sorted(p.rglob("results*.json")):
+                if f.is_file():
+                    try:
+                        data = json.loads(f.read_text(encoding="utf-8"))
+                        if isinstance(data, dict) and data.get("episodes") is not None:
+                            raw_list.append(data)
+                    except Exception:
+                        pass
+    return raw_list
+
+
+def _build_llm_economics_rows(
+    raw_results: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Build one row per result that has metadata.llm_backend_id (for llm_economics table)."""
+    rows: List[Dict[str, Any]] = []
+    for data in raw_results:
+        meta = data.get("metadata") or {}
+        if not meta.get("llm_backend_id"):
+            continue
+        rows.append(
+            {
+                "task": data.get("task", ""),
+                "agent_baseline_id": data.get("agent_baseline_id", ""),
+                "llm_backend_id": meta.get("llm_backend_id"),
+                "llm_model_id": meta.get("llm_model_id"),
+                "total_tokens": meta.get("total_tokens"),
+                "tokens_per_step": meta.get("tokens_per_step"),
+                "estimated_cost_usd": meta.get("estimated_cost_usd"),
+                "mean_llm_latency_ms": meta.get("mean_llm_latency_ms"),
+                "p50_llm_latency_ms": meta.get("p50_llm_latency_ms"),
+                "p95_llm_latency_ms": meta.get("p95_llm_latency_ms"),
+                "llm_error_rate": meta.get("llm_error_rate"),
+            }
+        )
+    return rows
+
+
 def run_summarize(
     in_paths: List[Path],
     out_dir: Path,
@@ -386,6 +451,7 @@ def run_summarize(
     """
     Load all results from in_paths (files or dirs), aggregate, write summary_v0.2.csv,
     summary_v0.3.csv, summary.csv (copy of v0.2), and summary.md.
+    When any result has metadata.llm_backend_id, also write llm_economics.csv and llm_economics.md.
     Returns (path_to_summary_v02_csv, path_to_md). v0.2 CSV is CI-stable; v0.3 CSV is paper-grade.
     """
     out_dir = Path(out_dir).resolve()
@@ -403,4 +469,11 @@ def run_summarize(
     csv_v03_path.write_text(rows_to_csv(rows_v03), encoding="utf-8")
     csv_path.write_text(rows_to_csv(rows_v02), encoding="utf-8")
     md_path.write_text(rows_to_markdown_table(rows_v02), encoding="utf-8")
+    raw_list = _load_raw_results_with_metadata(in_paths)
+    llm_rows = _build_llm_economics_rows(raw_list)
+    if llm_rows:
+        llm_csv = out_dir / "llm_economics.csv"
+        llm_md = out_dir / "llm_economics.md"
+        llm_csv.write_text(rows_to_csv(llm_rows), encoding="utf-8")
+        llm_md.write_text(rows_to_markdown_table(llm_rows), encoding="utf-8")
     return csv_path, md_path

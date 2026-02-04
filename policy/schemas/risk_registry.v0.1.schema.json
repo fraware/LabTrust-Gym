@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.risk_registry.v0.1",
+  "title": "Risk registry v0.1",
+  "description": "Schema for policy/risks/risk_registry.v0.1.yaml: declarative risk catalog for benchmarks and method-risk coverage.",
+  "type": "object",
+  "required": ["risk_registry"],
+  "additionalProperties": true,
+  "properties": {
+    "risk_registry": {
+      "type": "object",
+      "required": ["version", "risks"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "risks": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": ["risk_id", "name", "category", "description"],
+            "additionalProperties": true,
+            "properties": {
+              "risk_id": { "type": "string" },
+              "name": { "type": "string" },
+              "category": {
+                "type": "string",
+                "enum": ["tool", "capability", "flow", "system", "data", "comms"]
+              },
+              "description": { "type": "string" },
+              "typical_failure_mode": { "type": "string" },
+              "mitigation_options": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "suggested_injections": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "primary_metrics": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "severity_hint": {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              "complexity_hint": {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

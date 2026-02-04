@@ -137,6 +137,13 @@ POLICY_FILE_SCHEMA_MAP: dict[str, str] = {
     "sites_policy.v0.1.yaml": "sites_policy.v0.1.schema.json",
     "key_registry.v0.1.yaml": "key_registry.v0.1.schema.json",
     "rbac_policy.v0.1.yaml": "rbac_policy.v0.1.schema.json",
+    "prompt_registry.v0.1.yaml": "prompt_registry.v0.1.schema.json",
+    "adversarial_detection.v0.1.yaml": "adversarial_detection.v0.1.schema.json",
+    "agent_capabilities.v0.1.yaml": "agent_capabilities.v0.1.schema.json",
+    "risk_registry.v0.1.yaml": "risk_registry.v0.1.schema.json",
+    "coordination_methods.v0.1.yaml": "coordination_methods.v0.1.schema.json",
+    "method_risk_matrix.v0.1.yaml": "method_risk_matrix.v0.1.schema.json",
+    "coordination_study_spec.v0.1.yaml": "coordination_study_spec.v0.1.schema.json",
 }
 
 

@@ -1,0 +1,99 @@
+# Coordination method registry v0.1: methods to compare in coordination benchmarks.
+# method_id is referenced by method_risk_matrix and coordination_study_spec.
+# known_weaknesses and compatible_injections reference risk_id and injection_id from risk registry.
+
+coordination_methods:
+  version: "0.1"
+  methods:
+    - method_id: "kernel_centralized_edf"
+      name: "Kernel composed (centralized alloc + EDF sched + trivial router)"
+      coordination_class: centralized
+      scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
+      default_params: {}
+
+    - method_id: "kernel_whca"
+      name: "Kernel composed (centralized alloc + EDF sched + WHCA* reservation router)"
+      coordination_class: centralized
+      scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
+      default_params:
+        whca_horizon: 15
+
+    - method_id: "centralized_planner"
+      name: "Centralized planner"
+      coordination_class: centralized
+      scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
+      default_params: {}
+
+    - method_id: "hierarchical_hub_rr"
+      name: "Hierarchical hub with rapid response"
+      coordination_class: hierarchical
+      scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-SYS-002", "R-COMMS-002", "R-FLOW-002"]
+      required_controls: ["signed_actions", "RBAC", "message_auth"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_msg_poison", "inj_collusion_handoff"]
+      default_params: {}
+
+    - method_id: "hierarchical_hub_local"
+      name: "Hierarchical hub with local controllers (EDF + route per region)"
+      coordination_class: hierarchical
+      scaling_knobs: ["num_agents", "num_sites", "num_regions", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-SYS-002", "R-COMMS-002", "R-FLOW-002"]
+      required_controls: ["signed_actions", "RBAC", "message_auth", "handoff_ack_deadline"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_msg_poison", "inj_collusion_handoff"]
+      default_params:
+        ack_deadline_steps: 10
+        sla_horizon: 20
+
+    - method_id: "market_auction"
+      name: "Market / contract net (auction)"
+      coordination_class: market
+      scaling_knobs: ["num_agents", "num_devices", "arrival_rate"]
+      known_weaknesses: ["R-DATA-001", "R-COMMS-002", "R-TOOL-006"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit", "message_auth"]
+      compatible_injections: ["inj_untrusted_payload", "inj_msg_poison"]
+      default_params: {}
+
+    - method_id: "gossip_consensus"
+      name: "Gossip consensus"
+      coordination_class: decentralized
+      scaling_knobs: ["num_agents", "num_sites", "horizon_steps"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-003", "R-FLOW-002"]
+      required_controls: ["message_auth", "rate_limit"]
+      compatible_injections: ["inj_msg_poison", "inj_memory_tamper"]
+      default_params: {}
+
+    - method_id: "swarm_reactive"
+      name: "Swarm reactive"
+      coordination_class: swarm
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-FLOW-001", "R-SYS-001"]
+      required_controls: ["RBAC", "rate_limit"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_dos_flood"]
+      default_params: {}
+
+    - method_id: "marl_ppo"
+      name: "MARL PPO (optional stub)"
+      coordination_class: learning
+      scaling_knobs: ["num_agents", "num_devices", "horizon_steps"]
+      known_weaknesses: ["R-DATA-002", "R-FLOW-002", "R-TOOL-004"]
+      required_controls: ["RBAC", "rate_limit"]
+      compatible_injections: ["inj_poison_obs", "inj_stuck_state"]
+      default_params: {}
+
+    - method_id: "llm_constrained"
+      name: "LLM constrained (existing baseline)"
+      coordination_class: llm
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_prompt_injection", "inj_jailbreak", "inj_misparam_device"]
+      default_params: {}

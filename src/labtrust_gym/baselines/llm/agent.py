@@ -14,16 +14,44 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
 
 from labtrust_gym.baselines.llm.allowed_actions_payload import (
     build_allowed_actions_payload,
 )
+from labtrust_gym.baselines.llm.context_builder import build_state_summary_v0_2
+from labtrust_gym.baselines.llm.parse_utils import extract_first_json_object
 from labtrust_gym.baselines.llm.provider import supports_structured_outputs
 from labtrust_gym.baselines.llm.prompts import (
     SYSTEM_PROMPT_ACTION_PROPOSAL,
     build_user_payload_from_context,
 )
+from labtrust_gym.policy.prompt_registry import (
+    compute_prompt_fingerprint,
+    get_prompt_id_for_role,
+    load_defaults,
+    load_prompt,
+)
+from labtrust_gym.security.agent_capabilities import get_profile_for_agent
+
+# Cache for role-aware prompt templates (prompt_id -> templates dict)
+_prompt_templates_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def _get_prompt_templates_cached(prompt_id: str) -> Dict[str, Any]:
+    """Load prompt templates by prompt_id; cache per prompt_id for dynamic routing."""
+    if prompt_id in _prompt_templates_cache:
+        return _prompt_templates_cache[prompt_id]
+    try:
+        templates = load_prompt(prompt_id=prompt_id)
+        _prompt_templates_cache[prompt_id] = templates
+        return templates
+    except Exception:
+        default_id, default_ver = load_defaults()
+        templates = load_prompt(prompt_id=default_id, version=default_ver)
+        _prompt_templates_cache[prompt_id] = templates
+        return templates
+
 
 # Action indices aligned with pz_parallel
 ACTION_NOOP = 0
@@ -72,6 +100,35 @@ def _observation_to_state_summary(obs: Dict[str, Any]) -> Dict[str, Any]:
         return o
 
     return {k: _enc(v) for k, v in sorted(obs.items())}
+
+
+def _observation_to_engine_state(obs: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Build engine_state dict for build_state_summary_v0_2 from observation.
+    Uses zone_id, site_id, queue_by_device, log_frozen; optional active_runs,
+    pending_results, pending_criticals, active_tokens, recent_violations,
+    enforcement_state; optional specimen_notes etc. for untrusted_notes.
+    """
+    out: Dict[str, Any] = {
+        "zone_id": obs.get("zone_id") or obs.get("agent_zone") or "",
+        "site_id": obs.get("site_id") or "SITE_HUB",
+        "queue_by_device": obs.get("queue_by_device") or [],
+        "log_frozen": bool(obs.get("log_frozen", 0)),
+    }
+    for key in (
+        "active_runs",
+        "pending_results",
+        "pending_criticals",
+        "active_tokens",
+        "recent_violations",
+        "enforcement_state",
+    ):
+        if key in obs and obs[key] is not None:
+            out[key] = obs[key]
+    for key in ("specimen_notes", "scenario_notes", "notes", "metadata_notes"):
+        if key in obs and obs[key] is not None:
+            out[key] = obs[key]
+    return out
 
 
 def _allowed_actions_from_user_message(user_content: str) -> List[str]:
@@ -201,6 +258,68 @@ class MockDeterministicBackendV2:
 # Decoder version for auditability (step output and receipts)
 DECODER_VERSION = "v0.2"
 
+# One-shot repair: system + user template when ActionProposal invalid or decode rejected
+REPAIR_SYSTEM_PROMPT = (
+    "Return only ActionProposal JSON. No markdown, no commentary. "
+    "Fix the proposal so it conforms to the schema and allowed_actions."
+)
+
+
+def _build_repair_user_content(
+    allowed_actions_json: str,
+    invalid_action_proposal: str,
+    validation_error: str,
+) -> str:
+    """Build user message for repair request: allowed_actions + invalid proposal + error."""
+    return (
+        f"ALLOWED_ACTIONS_JSON:\n{allowed_actions_json}\n\n"
+        f"INVALID_ACTION_PROPOSAL:\n{invalid_action_proposal}\n\n"
+        f"VALIDATION_ERROR:\n{validation_error}\n\n"
+        "Return a single valid ActionProposal JSON."
+    )
+
+
+def _try_repair(
+    backend: Any,
+    allowed_actions_json: str,
+    invalid_proposal_dict: Dict[str, Any],
+    validation_error: str,
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """
+    One-shot repair: call backend once with repair prompt.
+    Returns (repaired_text, repair_prompt_sha256, repair_response_sha256) or
+    (None, None, None) on parse failure or non-dict.
+    """
+    user_content = _build_repair_user_content(
+        allowed_actions_json,
+        json.dumps(invalid_proposal_dict, sort_keys=True),
+        validation_error,
+    )
+    repair_messages = [
+        {"role": "system", "content": REPAIR_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+    repair_prompt_sha256 = _prompt_hash(repair_messages)
+    repaired_text = backend.generate(repair_messages)
+    repaired_text = (repaired_text or "").strip()
+    if "```" in repaired_text:
+        for part in repaired_text.split("```"):
+            part = part.strip()
+            if part.startswith("json") or part.startswith("{"):
+                repaired_text = part.replace("json", "", 1).strip()
+                break
+    try:
+        parsed = json.loads(repaired_text)
+    except json.JSONDecodeError:
+        return (None, repair_prompt_sha256, _response_hash(repaired_text))
+    if not isinstance(parsed, dict):
+        return (None, repair_prompt_sha256, _response_hash(repaired_text))
+    return (
+        repaired_text,
+        repair_prompt_sha256,
+        _response_hash(repaired_text),
+    )
+
 
 def _prompt_hash(messages: List[Dict[str, str]]) -> str:
     """Deterministic SHA-256 hash of messages (canonical JSON)."""
@@ -219,10 +338,25 @@ def _build_llm_decision(
     response_sha256: str,
     action_proposal: Dict[str, Any],
     error_code: Optional[str] = None,
+    prompt_id: Optional[str] = None,
+    prompt_version: Optional[str] = None,
+    prompt_fingerprint: Optional[str] = None,
+    repair_attempted: bool = False,
+    repair_succeeded: bool = False,
+    repair_prompt_sha256: Optional[str] = None,
+    repair_response_sha256: Optional[str] = None,
+    signed_by_proxy: bool = False,
+    key_id_used: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    role_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Build LLM_DECISION audit event payload (non-domain).
     backend_id, model_id, latency_ms from backend.last_metrics if present.
+    prompt_id, prompt_version, prompt_fingerprint from registry/fingerprinting when set.
+    repair_*: one-shot repair audit (attempted, succeeded, prompt/response shas).
+    signed_by_proxy, key_id_used: signing proxy audit when strict_signatures and mutating.
+    agent_id, role_id: per-agent and role for routing and shift-change audit.
     """
     metrics = getattr(backend, "last_metrics", None) or {}
     backend_id = str(
@@ -234,7 +368,7 @@ def _build_llm_decision(
         latency_ms = None
     err = error_code or metrics.get("error_code")
     used_structured = supports_structured_outputs(backend)
-    return {
+    out: Dict[str, Any] = {
         "backend_id": backend_id,
         "model_id": model_id,
         "prompt_sha256": prompt_sha256,
@@ -244,6 +378,32 @@ def _build_llm_decision(
         "error_code": err,
         "used_structured_outputs": used_structured,
     }
+    if metrics.get("prompt_tokens") is not None:
+        out["prompt_tokens"] = metrics["prompt_tokens"]
+    if metrics.get("completion_tokens") is not None:
+        out["completion_tokens"] = metrics["completion_tokens"]
+    if metrics.get("total_tokens") is not None:
+        out["total_tokens"] = metrics["total_tokens"]
+    if prompt_id is not None:
+        out["prompt_id"] = prompt_id
+    if prompt_version is not None:
+        out["prompt_version"] = prompt_version
+    if prompt_fingerprint is not None:
+        out["prompt_fingerprint"] = prompt_fingerprint
+    out["repair_attempted"] = repair_attempted
+    out["repair_succeeded"] = repair_succeeded
+    if repair_prompt_sha256 is not None:
+        out["repair_prompt_sha256"] = repair_prompt_sha256
+    if repair_response_sha256 is not None:
+        out["repair_response_sha256"] = repair_response_sha256
+    out["signed_by_proxy"] = signed_by_proxy
+    if key_id_used is not None:
+        out["key_id_used"] = key_id_used
+    if agent_id is not None:
+        out["agent_id"] = agent_id
+    if role_id is not None:
+        out["role_id"] = role_id
+    return out
 
 
 def _policy_summary_hash(policy_summary: Dict[str, Any]) -> str:
@@ -256,6 +416,56 @@ def _allowed_actions_hash(allowed_actions: List[str]) -> str:
     """Deterministic SHA-256 hash of allowed_actions list (canonical JSON)."""
     canonical = json.dumps(allowed_actions, sort_keys=True)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _attach_proxy_signature(
+    decoded: Dict[str, Any],
+    observation: Dict[str, Any],
+    engine_id: str,
+    role_id: str,
+    now_ts_s: int,
+    key_registry: Dict[str, Any],
+    get_private_key: Callable[[str], Optional[bytes]],
+    partner_id: str,
+    policy_fingerprint: Optional[str],
+) -> Tuple[Optional[str], bool]:
+    """
+    If strict_signatures and mutating, attach key_id and signature via signing proxy.
+    Mutates decoded in place. Returns (key_id_used, signed_by_proxy).
+    """
+    from labtrust_gym.baselines.llm.signing_proxy import (
+        select_key,
+        sign_event_payload,
+    )
+    from labtrust_gym.engine.signatures import is_mutating_action
+
+    action_type = (decoded.get("action_type") or "NOOP").strip()
+    if not is_mutating_action(action_type):
+        return None, False
+    key_id = select_key(engine_id, role_id, now_ts_s, key_registry)
+    if not key_id:
+        return None, False
+    priv = get_private_key(key_id)
+    if not priv or len(priv) != 32:
+        return None, False
+    prev_hash = (observation.get("prev_hash") or "").strip()
+    next_event_id = (observation.get("next_event_id") or "").strip()
+    next_t_s = int(observation.get("next_t_s", 0))
+    sig = sign_event_payload(
+        decoded,
+        next_event_id,
+        next_t_s,
+        engine_id,
+        prev_hash,
+        partner_id or None,
+        policy_fingerprint,
+        priv,
+    )
+    if not sig:
+        return None, False
+    decoded["key_id"] = key_id
+    decoded["signature"] = sig
+    return key_id, True
 
 
 class DeterministicConstrainedBackend:
@@ -404,11 +614,17 @@ class LLMAgentWithShield:
         system_prompt: Optional[str] = None,
         use_action_proposal_schema: bool = True,
         action_proposal_schema_path: Optional[Path] = None,
+        key_registry: Optional[Dict[str, Any]] = None,
+        get_private_key: Optional[Callable[[str], Optional[bytes]]] = None,
+        capability_policy: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._backend = backend
         self._rbac_policy = rbac_policy
+        self._capability_policy = capability_policy or {}
         self._pz_to_engine = dict(pz_to_engine)
         self._strict_signatures = strict_signatures
+        self._key_registry = key_registry
+        self._get_private_key = get_private_key
         self._use_action_proposal_schema = use_action_proposal_schema
         self._schema_path = schema_path or Path(
             "policy/llm/llm_action.schema.v0.2.json"
@@ -427,10 +643,22 @@ class LLMAgentWithShield:
             )
             if self._action_proposal_schema:
                 self._schema = self._action_proposal_schema
-            self._system_prompt = system_prompt or SYSTEM_PROMPT_ACTION_PROPOSAL
+            if system_prompt is not None:
+                self._system_prompt = system_prompt
+                self._prompt_id, self._prompt_version = load_defaults()
+            else:
+                try:
+                    templates = load_prompt()
+                    self._system_prompt = templates["system_template"]
+                    self._prompt_id = templates["prompt_id"]
+                    self._prompt_version = templates["prompt_version"]
+                except Exception:
+                    self._system_prompt = SYSTEM_PROMPT_ACTION_PROPOSAL
+                    self._prompt_id, self._prompt_version = load_defaults()
         else:
             self._action_proposal_schema = {}
             self._system_prompt = system_prompt or _default_system_prompt_v2()
+            self._prompt_id, self._prompt_version = load_defaults()
         self._partner_id: str = ""
         self._timing_mode: str = "explicit"
         self._policy_fingerprint: Optional[str] = None
@@ -469,17 +697,48 @@ class LLMAgentWithShield:
 
         engine_id = self._pz_to_engine.get(agent_id, agent_id)
         allowed_actions = get_allowed_actions(engine_id, self._rbac_policy)
-        role_id = get_agent_role(engine_id, self._rbac_policy)
+        role_id = (observation.get("role_id") or "").strip() or (
+            get_agent_role(engine_id, self._rbac_policy) or ""
+        )
+        prompt_id_this_act = get_prompt_id_for_role(role_id)
+        templates_this_act = _get_prompt_templates_cached(prompt_id_this_act)
+        system_prompt_this_act = templates_this_act.get("system_template") or (
+            getattr(self, "_system_prompt", None) or ""
+        )
+        prompt_version_this_act = templates_this_act.get("prompt_version") or "2.0.0"
+        prompt_fp = compute_prompt_fingerprint(
+            prompt_id_this_act,
+            prompt_version_this_act,
+            self._partner_id,
+            self._policy_fingerprint,
+            agent_id,
+            role_id,
+            self._timing_mode,
+        )
         policy_summary = build_policy_summary(
             allowed_actions=allowed_actions,
-            agent_zone=None,
+            agent_zone=observation.get("zone_id"),
             strict_signatures=self._strict_signatures,
             role_id=role_id,
         )
         citation_anchors = list(policy_summary.get("citation_anchors") or [])
         if self._use_action_proposal_schema:
             now_ts_s = int(observation.get("t_s", 0))
-            state_summary = _observation_to_state_summary(observation)
+            engine_state = _observation_to_engine_state(observation)
+            policy_for_context = {
+                "partner_id": self._partner_id,
+                "policy_fingerprint": self._policy_fingerprint,
+                "strict_signatures": self._strict_signatures,
+                "log_frozen": bool(observation.get("log_frozen", 0)),
+            }
+            state_summary = build_state_summary_v0_2(
+                engine_state,
+                policy_for_context,
+                agent_id,
+                role_id,
+                now_ts_s,
+                self._timing_mode,
+            )
             allowed_actions_payload = build_allowed_actions_payload(
                 state=state_summary,
                 allowed_actions=allowed_actions,
@@ -492,9 +751,13 @@ class LLMAgentWithShield:
                 state_summary=state_summary,
                 allowed_actions=allowed_actions,
                 allowed_actions_payload=allowed_actions_payload,
-                active_tokens=[],
-                recent_violations=[],
-                enforcement_state={},
+                active_tokens=state_summary.get("tokens", {}).get("active", []),
+                recent_violations=state_summary.get("invariants", {}).get(
+                    "recent_violations", []
+                ),
+                enforcement_state=state_summary.get("invariants", {}).get(
+                    "enforcement_state", {}
+                ),
             )
         else:
             user_content = json.dumps(
@@ -506,7 +769,7 @@ class LLMAgentWithShield:
                 sort_keys=True,
             )
         messages = [
-            {"role": "system", "content": self._system_prompt},
+            {"role": "system", "content": system_prompt_this_act},
             {"role": "user", "content": user_content},
         ]
         prompt_hash = _prompt_hash(messages)
@@ -515,6 +778,10 @@ class LLMAgentWithShield:
 
         text = self._backend.generate(messages)
         text = text.strip()
+        if not supports_structured_outputs(self._backend):
+            extracted = extract_first_json_object(text)
+            if extracted is not None:
+                text = extracted
         if "```" in text:
             for part in text.split("```"):
                 part = part.strip()
@@ -547,6 +814,11 @@ class LLMAgentWithShield:
                     response_sha256,
                     dict(noop_fallback),
                     None,
+                    prompt_id=prompt_id_this_act,
+                    prompt_version=prompt_version_this_act,
+                    prompt_fingerprint=prompt_fp,
+                    agent_id=agent_id,
+                    role_id=role_id,
                 ),
             }
             return (ACTION_NOOP, dict(noop_fallback), meta)
@@ -562,10 +834,16 @@ class LLMAgentWithShield:
                     response_sha256,
                     dict(noop_fallback),
                     None,
+                    prompt_id=prompt_id_this_act,
+                    prompt_version=prompt_version_this_act,
+                    prompt_fingerprint=prompt_fp,
+                    agent_id=agent_id,
+                    role_id=role_id,
                 ),
             }
             return (ACTION_NOOP, dict(noop_fallback), meta)
-        # ActionProposal envelope validation: on failure return NOOP and record LLM_INVALID_SCHEMA
+        # ActionProposal envelope validation: on failure try one-shot repair
+        allowed_actions_json = json.dumps(allowed_actions, sort_keys=True)
         if self._use_action_proposal_schema and self._action_proposal_schema:
             from labtrust_gym.baselines.llm.action_proposal import (
                 validate_action_proposal_dict,
@@ -575,6 +853,126 @@ class LLMAgentWithShield:
                 candidate, schema=self._schema
             )
             if not ok:
+                repair_text, repair_prompt_sha, repair_resp_sha = _try_repair(
+                    self._backend,
+                    allowed_actions_json,
+                    candidate,
+                    _err or "LLM_INVALID_SCHEMA",
+                )
+                if repair_text is not None:
+                    try:
+                        candidate_repair = json.loads(repair_text)
+                    except json.JSONDecodeError:
+                        candidate_repair = None
+                    if isinstance(candidate_repair, dict):
+                        ok2, normalized2, _ = validate_action_proposal_dict(
+                            candidate_repair, schema=self._schema
+                        )
+                        if ok2 and normalized2 is not None:
+                            decoded_repair, rej2, reason2 = decode_constrained(
+                                normalized2,
+                                policy_summary,
+                                self._schema,
+                                validate_schema_returns_errors,
+                                require_rationale=True,
+                                require_citation=True,
+                                noop_action=NOOP_ACTION_V01,
+                            )
+                            if not rej2 and reason2 is None:
+                                key_id_repair: Optional[str] = None
+                                signed_repair = False
+                                if (
+                                    self._strict_signatures
+                                    and self._key_registry
+                                    and self._get_private_key
+                                ):
+                                    key_id_repair, signed_repair = (
+                                        _attach_proxy_signature(
+                                            decoded_repair,
+                                            observation,
+                                            engine_id,
+                                            role_id,
+                                            now_ts_s,
+                                            self._key_registry,
+                                            self._get_private_key,
+                                            self._partner_id,
+                                            self._policy_fingerprint,
+                                        )
+                                    )
+                                cap_profile_repair = get_profile_for_agent(
+                                    engine_id,
+                                    role_id,
+                                    self._capability_policy,
+                                    self._rbac_policy.get("agents"),
+                                )
+                                safe_repair, filt_repair, rc_repair = apply_shield(
+                                    decoded_repair,
+                                    engine_id,
+                                    self._rbac_policy,
+                                    policy_summary,
+                                    capability_profile=cap_profile_repair,
+                                )
+                                action_type_repair = (
+                                    safe_repair.get("action_type") or "NOOP"
+                                ).strip()
+                                action_index_repair = ACTION_TYPE_TO_INDEX.get(
+                                    action_type_repair, ACTION_NOOP
+                                )
+                                action_info_repair = {
+                                    "action_type": action_type_repair,
+                                    "args": dict(safe_repair.get("args") or {}),
+                                    "reason_code": safe_repair.get("reason_code"),
+                                    "token_refs": list(
+                                        safe_repair.get("token_refs") or []
+                                    ),
+                                    "rationale": (
+                                        decoded_repair.get("rationale") or ""
+                                    ).strip(),
+                                }
+                                if safe_repair.get("key_id") is not None:
+                                    action_info_repair["key_id"] = safe_repair["key_id"]
+                                if safe_repair.get("signature") is not None:
+                                    action_info_repair["signature"] = safe_repair[
+                                        "signature"
+                                    ]
+                                action_info_repair["confidence"] = decoded_repair.get(
+                                    "confidence", 0.0
+                                )
+                                action_info_repair["safety_notes"] = (
+                                    decoded_repair.get("safety_notes") or ""
+                                ).strip()
+                                meta_repair = {
+                                    "_prompt_hash": prompt_hash,
+                                    "_policy_summary_hash": policy_summary_hash,
+                                    "_allowed_actions_hash": allowed_actions_hash,
+                                    "_decoder_version": DECODER_VERSION,
+                                    "_llm_decision": _build_llm_decision(
+                                        self._backend,
+                                        prompt_hash,
+                                        response_sha256,
+                                        action_info_repair,
+                                        rc_repair if filt_repair else None,
+                                        prompt_id=prompt_id_this_act,
+                                        prompt_version=prompt_version_this_act,
+                                        prompt_fingerprint=prompt_fp,
+                                        repair_attempted=True,
+                                        repair_succeeded=True,
+                                        repair_prompt_sha256=repair_prompt_sha,
+                                        repair_response_sha256=repair_resp_sha,
+                                        signed_by_proxy=signed_repair,
+                                        key_id_used=key_id_repair,
+                                        agent_id=agent_id,
+                                        role_id=role_id,
+                                    ),
+                                }
+                                if filt_repair and rc_repair:
+                                    meta_repair["_shield_filtered"] = True
+                                    meta_repair["_shield_reason_code"] = rc_repair
+                                return (
+                                    action_index_repair,
+                                    action_info_repair,
+                                    meta_repair,
+                                )
                 meta = {
                     "_shield_filtered": True,
                     "_shield_reason_code": "LLM_INVALID_SCHEMA",
@@ -588,6 +986,15 @@ class LLMAgentWithShield:
                         response_sha256,
                         dict(noop_fallback),
                         "LLM_INVALID_SCHEMA",
+                        prompt_id=prompt_id_this_act,
+                        prompt_version=prompt_version_this_act,
+                        prompt_fingerprint=prompt_fp,
+                        repair_attempted=True,
+                        repair_succeeded=False,
+                        repair_prompt_sha256=repair_prompt_sha,
+                        repair_response_sha256=repair_resp_sha,
+                        agent_id=agent_id,
+                        role_id=role_id,
                     ),
                 }
                 return (ACTION_NOOP, dict(noop_fallback), meta)
@@ -603,6 +1010,105 @@ class LLMAgentWithShield:
             noop_action=NOOP_ACTION_V01 if self._use_action_proposal_schema else None,
         )
         if decode_rejected and decode_reason:
+            from labtrust_gym.baselines.llm.action_proposal import (
+                validate_action_proposal_dict as validate_action_proposal_dict_repair,
+            )
+
+            repair_text_d, repair_prompt_sha_d, repair_resp_sha_d = _try_repair(
+                self._backend,
+                allowed_actions_json,
+                candidate,
+                decode_reason,
+            )
+            if repair_text_d is not None:
+                try:
+                    candidate_repair_d = json.loads(repair_text_d)
+                except json.JSONDecodeError:
+                    candidate_repair_d = None
+                if isinstance(candidate_repair_d, dict):
+                    ok_d, normalized_d, _ = validate_action_proposal_dict_repair(
+                        candidate_repair_d,
+                        schema=self._schema,
+                    )
+                    if ok_d and normalized_d is not None:
+                        decoded_d, rej_d, reason_d = decode_constrained(
+                            normalized_d,
+                            policy_summary,
+                            self._schema,
+                            validate_schema_returns_errors,
+                            require_rationale=True,
+                            require_citation=True,
+                            noop_action=NOOP_ACTION_V01,
+                        )
+                        if not rej_d and reason_d is None:
+                            cap_profile = get_profile_for_agent(
+                                engine_id,
+                                role_id,
+                                self._capability_policy,
+                                self._rbac_policy.get("agents"),
+                            )
+                            safe_d, filt_d, rc_d = apply_shield(
+                                decoded_d,
+                                engine_id,
+                                self._rbac_policy,
+                                policy_summary,
+                                capability_profile=cap_profile,
+                            )
+                            action_type_d = (
+                                safe_d.get("action_type") or "NOOP"
+                            ).strip()
+                            action_index_d = ACTION_TYPE_TO_INDEX.get(
+                                action_type_d, ACTION_NOOP
+                            )
+                            action_info_d = {
+                                "action_type": action_type_d,
+                                "args": dict(safe_d.get("args") or {}),
+                                "reason_code": safe_d.get("reason_code"),
+                                "token_refs": list(safe_d.get("token_refs") or []),
+                                "rationale": (decoded_d.get("rationale") or "").strip(),
+                            }
+                            if safe_d.get("key_id") is not None:
+                                action_info_d["key_id"] = safe_d["key_id"]
+                            if safe_d.get("signature") is not None:
+                                action_info_d["signature"] = safe_d["signature"]
+                            action_info_d["confidence"] = decoded_d.get(
+                                "confidence", 0.0
+                            )
+                            action_info_d["safety_notes"] = (
+                                decoded_d.get("safety_notes") or ""
+                            ).strip()
+                            meta_d = {
+                                "_prompt_hash": prompt_hash,
+                                "_policy_summary_hash": policy_summary_hash,
+                                "_allowed_actions_hash": allowed_actions_hash,
+                                "_decoder_version": DECODER_VERSION,
+                                "_llm_decision": _build_llm_decision(
+                                    self._backend,
+                                    prompt_hash,
+                                    response_sha256,
+                                    action_info_d,
+                                    rc_d if filt_d else None,
+                                    prompt_id=prompt_id_this_act,
+                                    prompt_version=prompt_version_this_act,
+                                    prompt_fingerprint=prompt_fp,
+                                    repair_attempted=True,
+                                    repair_succeeded=True,
+                                    repair_prompt_sha256=repair_prompt_sha_d,
+                                    repair_response_sha256=repair_resp_sha_d,
+                                    signed_by_proxy=signed_d,
+                                    key_id_used=key_id_d,
+                                    agent_id=agent_id,
+                                    role_id=role_id,
+                                ),
+                            }
+                            if filt_d and rc_d:
+                                meta_d["_shield_filtered"] = True
+                                meta_d["_shield_reason_code"] = rc_d
+                            return (
+                                action_index_d,
+                                action_info_d,
+                                meta_d,
+                            )
             action_info = {
                 "action_type": "NOOP",
                 "args": {},
@@ -628,11 +1134,44 @@ class LLMAgentWithShield:
                     response_sha256,
                     action_info,
                     decode_reason,
+                    prompt_id=prompt_id_this_act,
+                    prompt_version=prompt_version_this_act,
+                    prompt_fingerprint=prompt_fp,
+                    repair_attempted=True,
+                    repair_succeeded=False,
+                    repair_prompt_sha256=repair_prompt_sha_d,
+                    repair_response_sha256=repair_resp_sha_d,
+                    agent_id=agent_id,
+                    role_id=role_id,
                 ),
             }
             return (ACTION_NOOP, action_info, meta)
+        key_id_used: Optional[str] = None
+        signed_by_proxy = False
+        if self._strict_signatures and self._key_registry and self._get_private_key:
+            key_id_used, signed_by_proxy = _attach_proxy_signature(
+                decoded,
+                observation,
+                engine_id,
+                role_id,
+                now_ts_s,
+                self._key_registry,
+                self._get_private_key,
+                self._partner_id,
+                self._policy_fingerprint,
+            )
+        cap_profile = get_profile_for_agent(
+            engine_id,
+            role_id,
+            self._capability_policy,
+            self._rbac_policy.get("agents"),
+        )
         safe_action, filtered, reason_code = apply_shield(
-            decoded, engine_id, self._rbac_policy, policy_summary
+            decoded,
+            engine_id,
+            self._rbac_policy,
+            policy_summary,
+            capability_profile=cap_profile,
         )
         action_type_str = (safe_action.get("action_type") or "NOOP").strip()
         action_index = ACTION_TYPE_TO_INDEX.get(action_type_str, ACTION_NOOP)
@@ -663,6 +1202,13 @@ class LLMAgentWithShield:
                 response_sha256,
                 action_info,
                 reason_code if filtered else None,
+                prompt_id=prompt_id_this_act,
+                prompt_version=prompt_version_this_act,
+                prompt_fingerprint=prompt_fp,
+                signed_by_proxy=signed_by_proxy,
+                key_id_used=key_id_used,
+                agent_id=agent_id,
+                role_id=role_id,
             ),
         }
         if filtered and reason_code:
@@ -703,6 +1249,10 @@ class LLMAgent:
         ]
         text = self._backend.generate(messages)
         text = text.strip()
+        if not supports_structured_outputs(self._backend):
+            extracted = extract_first_json_object(text)
+            if extracted is not None:
+                text = extracted
         if "```" in text:
             for part in text.split("```"):
                 part = part.strip()

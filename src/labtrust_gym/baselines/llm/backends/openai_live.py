@@ -16,6 +16,9 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+# Usage dict: prompt_tokens, completion_tokens, total_tokens (from API)
+UsageDict = Dict[str, int]
+
 # NOOP shape for error fallback (ActionProposal v0.1)
 NOOP_ACTION_V01: Dict[str, Any] = {
     "action_type": "NOOP",
@@ -93,6 +96,64 @@ def _sha256(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def _percentile(sorted_vals: List[float], p: float) -> Optional[float]:
+    """Percentile p (0..100). Returns None if empty."""
+    if not sorted_vals:
+        return None
+    k = (len(sorted_vals) - 1) * p / 100.0
+    lo = int(k)
+    hi = min(lo + 1, len(sorted_vals) - 1)
+    return sorted_vals[lo] + (k - lo) * (sorted_vals[hi] - sorted_vals[lo])
+
+
+def _load_model_pricing(repo_root: Optional[Any] = None) -> Dict[str, Any]:
+    """Load policy/llm/model_pricing.v0.1.yaml. Returns {} if missing."""
+    try:
+        from pathlib import Path
+
+        if repo_root is not None:
+            root = Path(repo_root)
+        else:
+            try:
+                from labtrust_gym.config import get_repo_root
+
+                root = get_repo_root()
+            except Exception:
+                root = Path(__file__).resolve().parent.parent.parent.parent.parent
+        path = root / "policy" / "llm" / "model_pricing.v0.1.yaml"
+        if not path.exists():
+            return {}
+        import yaml
+
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        return data.get("models") or {}
+    except Exception:
+        return {}
+
+
+def _estimated_cost_usd(
+    model_id: str,
+    total_prompt_tokens: int,
+    total_completion_tokens: int,
+    repo_root: Optional[Any] = None,
+) -> Optional[float]:
+    """Compute estimated cost in USD from model_pricing.v0.1.yaml. Returns None if no pricing."""
+    models = _load_model_pricing(repo_root)
+    prices = models.get(model_id) if model_id else None
+    if not prices or not isinstance(prices, dict):
+        return None
+    inp = prices.get("input_price_per_1m")
+    out = prices.get("output_price_per_1m")
+    if inp is None or out is None:
+        return None
+    try:
+        return (total_prompt_tokens / 1_000_000.0) * float(inp) + (
+            total_completion_tokens / 1_000_000.0
+        ) * float(out)
+    except (TypeError, ValueError):
+        return None
+
+
 def _build_system_plus_developer() -> str:
     """Prompt Pack v1: system + developer combined."""
     from labtrust_gym.baselines.llm.prompts import (
@@ -139,6 +200,10 @@ class OpenAILiveBackend:
         self._total_calls: int = 0
         self._error_count: int = 0
         self._sum_latency_ms: float = 0.0
+        self._total_tokens: int = 0
+        self._total_prompt_tokens: int = 0
+        self._total_completion_tokens: int = 0
+        self._latency_ms_list: List[float] = []
 
     @property
     def is_available(self) -> bool:
@@ -158,13 +223,23 @@ class OpenAILiveBackend:
     def get_aggregate_metrics(self) -> Dict[str, Any]:
         """
         Aggregate stats over all generate/propose_action calls since init or last reset.
-        Returns: backend_id, model_id, total_calls, error_count, error_rate, sum_latency_ms, mean_latency_ms.
+        Returns: backend_id, model_id, total_calls, error_count, error_rate, sum_latency_ms,
+        mean_latency_ms, p50_latency_ms, p95_latency_ms, total_tokens, tokens_per_step,
+        estimated_cost_usd (when model_pricing available).
         """
         rate = self._error_count / self._total_calls if self._total_calls > 0 else 0.0
         mean_ms = (
             self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
         )
-        return {
+        sorted_lat = sorted(self._latency_ms_list) if self._latency_ms_list else []
+        p50_ms = _percentile(sorted_lat, 50)
+        p95_ms = _percentile(sorted_lat, 95)
+        tokens_per_step = (
+            round(self._total_tokens / self._total_calls, 2)
+            if self._total_calls > 0 and self._total_tokens is not None
+            else None
+        )
+        out: Dict[str, Any] = {
             "backend_id": BACKEND_ID,
             "model_id": self._model,
             "total_calls": self._total_calls,
@@ -172,7 +247,19 @@ class OpenAILiveBackend:
             "error_rate": round(rate, 4),
             "sum_latency_ms": round(self._sum_latency_ms, 2),
             "mean_latency_ms": round(mean_ms, 2) if mean_ms is not None else None,
+            "p50_latency_ms": round(p50_ms, 2) if p50_ms is not None else None,
+            "p95_latency_ms": round(p95_ms, 2) if p95_ms is not None else None,
+            "total_tokens": self._total_tokens,
+            "tokens_per_step": tokens_per_step,
         }
+        cost = _estimated_cost_usd(
+            self._model,
+            self._total_prompt_tokens,
+            self._total_completion_tokens,
+        )
+        if cost is not None:
+            out["estimated_cost_usd"] = round(cost, 6)
+        return out
 
     def propose_action(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -228,7 +315,7 @@ class OpenAILiveBackend:
         prompt_sha256 = _sha256(json.dumps(messages, sort_keys=True))
         start = time.perf_counter()
         try:
-            raw = self._call_api(messages)
+            raw, usage = self._call_api(messages)
         except Exception as e:
             latency_ms = (time.perf_counter() - start) * 1000
             self._last_error_code = LLM_PROVIDER_ERROR
@@ -246,6 +333,10 @@ class OpenAILiveBackend:
             return dict(NOOP_ACTION_V01)
         latency_ms = (time.perf_counter() - start) * 1000
         self._sum_latency_ms += latency_ms
+        self._latency_ms_list.append(latency_ms)
+        self._total_tokens += usage.get("total_tokens", 0)
+        self._total_prompt_tokens += usage.get("prompt_tokens", 0)
+        self._total_completion_tokens += usage.get("completion_tokens", 0)
         response_sha256 = _sha256(raw)
         try:
             out = json.loads(raw)
@@ -258,6 +349,9 @@ class OpenAILiveBackend:
                 "latency_ms": round(latency_ms, 2),
                 "prompt_sha256": prompt_sha256,
                 "response_sha256": response_sha256,
+                "prompt_tokens": usage.get("prompt_tokens"),
+                "completion_tokens": usage.get("completion_tokens"),
+                "total_tokens": usage.get("total_tokens"),
                 "error_code": LLM_PROVIDER_ERROR,
             }
             return dict(NOOP_ACTION_V01)
@@ -270,6 +364,9 @@ class OpenAILiveBackend:
                 "latency_ms": round(latency_ms, 2),
                 "prompt_sha256": prompt_sha256,
                 "response_sha256": response_sha256,
+                "prompt_tokens": usage.get("prompt_tokens"),
+                "completion_tokens": usage.get("completion_tokens"),
+                "total_tokens": usage.get("total_tokens"),
                 "error_code": LLM_PROVIDER_ERROR,
             }
             return dict(NOOP_ACTION_V01)
@@ -279,12 +376,15 @@ class OpenAILiveBackend:
             "latency_ms": round(latency_ms, 2),
             "prompt_sha256": prompt_sha256,
             "response_sha256": response_sha256,
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "total_tokens": usage.get("total_tokens"),
             "action_proposal": out,
         }
         return out
 
-    def _call_api(self, messages: List[Dict[str, str]]) -> str:
-        """Call OpenAI Chat Completions with Structured Outputs. Raises on error/refusal."""
+    def _call_api(self, messages: List[Dict[str, str]]) -> Tuple[str, UsageDict]:
+        """Call OpenAI Chat Completions with Structured Outputs. Returns (content, usage)."""
         try:
             from openai import OpenAI
         except ImportError as e:
@@ -338,8 +438,21 @@ class OpenAILiveBackend:
                 if attempt > self._retries:
                     raise last_exc
                 continue
-            return content.strip()
+            usage = _usage_from_response(resp)
+            return (content.strip(), usage)
         raise last_exc or RuntimeError("No response")
+
+
+def _usage_from_response(resp: Any) -> UsageDict:
+    """Extract prompt_tokens, completion_tokens, total_tokens from OpenAI response."""
+    u = getattr(resp, "usage", None)
+    if u is None:
+        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    return {
+        "prompt_tokens": int(getattr(u, "prompt_tokens", 0) or 0),
+        "completion_tokens": int(getattr(u, "completion_tokens", 0) or 0),
+        "total_tokens": int(getattr(u, "total_tokens", 0) or 0),
+    }
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
         """LLMBackend protocol: return raw JSON string. Uses messages as-is for API."""
@@ -359,7 +472,7 @@ class OpenAILiveBackend:
         prompt_sha256 = _sha256(json.dumps(messages, sort_keys=True))
         start = time.perf_counter()
         try:
-            raw = self._call_api(messages)
+            raw, usage = self._call_api(messages)
         except Exception as e:
             latency_ms = (time.perf_counter() - start) * 1000
             self._last_error_code = (
@@ -379,6 +492,10 @@ class OpenAILiveBackend:
             return json.dumps(NOOP_ACTION_V01, sort_keys=True)
         latency_ms = (time.perf_counter() - start) * 1000
         self._sum_latency_ms += latency_ms
+        self._latency_ms_list.append(latency_ms)
+        self._total_tokens += usage.get("total_tokens", 0)
+        self._total_prompt_tokens += usage.get("prompt_tokens", 0)
+        self._total_completion_tokens += usage.get("completion_tokens", 0)
         response_sha256 = _sha256(raw)
         self._last_metrics = {
             "model_id": self._model,
@@ -386,5 +503,8 @@ class OpenAILiveBackend:
             "latency_ms": round(latency_ms, 2),
             "prompt_sha256": prompt_sha256,
             "response_sha256": response_sha256,
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "total_tokens": usage.get("total_tokens"),
         }
         return raw

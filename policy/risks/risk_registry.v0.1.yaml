@@ -1,0 +1,186 @@
+# Risk registry v0.1: declarative risk catalog for benchmarks and method-risk coverage.
+# Benchmarks declare risks from policy; coordination methods map to risk coverage via method_risk_matrix.
+# Metric keys: perf.throughput, perf.mean_tat, perf.p95_tat, perf.makespan; comm.msg_count, comm.p95_latency_ms, comm.drop_rate;
+# safety.violations_total, safety.blocks_total, safety.override_count; sec.attack_success_rate, sec.detection_latency_steps, sec.containment_time_steps;
+# cost.total_tokens, cost.estimated_cost_usd; robustness.regret_vs_nominal, robustness.resilience_score.
+
+risk_registry:
+  version: "0.1"
+  risks:
+    # --- Tool and action risks (from tables) ---
+    - risk_id: "R-TOOL-001"
+      name: "Tool Selection Errors"
+      category: tool
+      description: "Agent selects wrong tool or action type for the current state; leads to wasted steps or incorrect workflow."
+      typical_failure_mode: "Wrong action_type chosen; e.g. QUEUE_RUN instead of START_RUN, or wrong device_id."
+      mitigation_options: ["Structured output schema", "Few-shot examples", "State summarization"]
+      suggested_injections: ["inj_tool_selection_noise"]
+      primary_metrics: ["perf.throughput", "safety.violations_total"]
+      severity_hint: medium
+      complexity_hint: low
+
+    - risk_id: "R-TOOL-002"
+      name: "Tool Execution Failure"
+      category: tool
+      description: "Tool or device action fails at execution (e.g. device busy, queue empty, hardware error)."
+      typical_failure_mode: "START_RUN on empty queue; device not colocated; transient failure."
+      mitigation_options: ["Retry with backoff", "Fallback actions", "Queue head validation"]
+      suggested_injections: ["inj_device_fail", "inj_queue_empty"]
+      primary_metrics: ["perf.throughput", "safety.blocks_total", "robustness.resilience_score"]
+      severity_hint: medium
+      complexity_hint: low
+
+    - risk_id: "R-TOOL-003"
+      name: "Unverified Tool Risk"
+      category: tool
+      description: "Tool or action executed without verification that preconditions or policy constraints hold."
+      typical_failure_mode: "Action accepted despite invariant violation; missing RBAC or zone check."
+      mitigation_options: ["Pre-action validation", "Signed actions", "Shield layer"]
+      suggested_injections: ["inj_skip_verification"]
+      primary_metrics: ["safety.violations_total", "safety.blocks_total"]
+      severity_hint: high
+      complexity_hint: medium
+
+    - risk_id: "R-TOOL-004"
+      name: "Tool Misuse Risk"
+      category: tool
+      description: "Tool used in correct type but wrong context (wrong specimen, wrong device, wrong order)."
+      typical_failure_mode: "Correct action_type with wrong args; cross-specimen mix-up; order violation."
+      mitigation_options: ["Strict schema validation", "Citation to policy", "Dual approval for high-risk"]
+      suggested_injections: ["inj_args_swap", "inj_specimen_swap"]
+      primary_metrics: ["safety.violations_total", "perf.mean_tat"]
+      severity_hint: high
+      complexity_hint: medium
+
+    - risk_id: "R-TOOL-005"
+      name: "Function Call Misparameterization"
+      category: tool
+      description: "Structured call has wrong or out-of-range parameters (e.g. wrong device_id, invalid zone)."
+      typical_failure_mode: "LLM or planner outputs valid schema but invalid refs; typo in id."
+      mitigation_options: ["Entity resolution", "Allowlist validation", "Structured output + validation"]
+      suggested_injections: ["inj_misparam_device", "inj_misparam_zone"]
+      primary_metrics: ["safety.blocks_total", "perf.throughput"]
+      severity_hint: medium
+      complexity_hint: low
+
+    - risk_id: "R-FLOW-001"
+      name: "Action Inefficiency Risk"
+      category: flow
+      description: "Agent achieves goal but with unnecessary steps, delays, or resource use."
+      typical_failure_mode: "Excessive moves; redundant checks; suboptimal batching."
+      mitigation_options: ["Reward shaping", "Makespan objectives", "Operator guidance"]
+      suggested_injections: ["inj_delayed_observation"]
+      primary_metrics: ["perf.makespan", "perf.mean_tat", "cost.total_tokens"]
+      severity_hint: low
+      complexity_hint: medium
+
+    - risk_id: "R-FLOW-002"
+      name: "Action Progress Risk"
+      category: flow
+      description: "Agent fails to make progress toward goal (deadlock, livelock, or repeated failures)."
+      typical_failure_mode: "No forward progress; same action retried; wrong branch chosen."
+      mitigation_options: ["Progress metrics", "Timeouts", "Fallback policies"]
+      suggested_injections: ["inj_stuck_state"]
+      primary_metrics: ["perf.throughput", "perf.makespan", "robustness.regret_vs_nominal"]
+      severity_hint: high
+      complexity_hint: high
+
+    - risk_id: "R-TOOL-006"
+      name: "Tool Vulnerability Exploitation Risk"
+      category: tool
+      description: "Adversary exploits tool or API contract (injection, overflow, privilege escalation)."
+      typical_failure_mode: "Malicious input to tool; abuse of optional parameters; bypass of checks."
+      mitigation_options: ["Input sanitization", "Rate limits", "Least privilege"]
+      suggested_injections: ["inj_tool_injection", "inj_privilege_probe"]
+      primary_metrics: ["sec.attack_success_rate", "sec.detection_latency_steps", "sec.containment_time_steps"]
+      severity_hint: high
+      complexity_hint: high
+
+    - risk_id: "R-DATA-001"
+      name: "Untrusted Data Exchange Risk"
+      category: data
+      description: "Data from untrusted source (external API, other agent) used without validation."
+      typical_failure_mode: "Poisoned observation; spoofed message; cross-agent data tampering."
+      mitigation_options: ["Message auth", "Schema validation", "Integrity checks"]
+      suggested_injections: ["inj_untrusted_payload"]
+      primary_metrics: ["sec.attack_success_rate", "safety.violations_total"]
+      severity_hint: high
+      complexity_hint: medium
+
+    # --- Coordination / multi-agent and adversarial hazards ---
+    - risk_id: "R-SYS-001"
+      name: "Agent denial of service"
+      category: system
+      description: "Agent or adversary causes service degradation or unavailability (resource exhaustion, spam)."
+      typical_failure_mode: "Flood of actions; excessive API calls; queue flooding."
+      mitigation_options: ["Rate limit", "Quotas", "Kill switch", "Backpressure"]
+      suggested_injections: ["inj_dos_flood", "inj_rate_spike", "INJ-DOS-PLANNER-001"]
+      primary_metrics: ["perf.throughput", "comm.drop_rate", "sec.containment_time_steps"]
+      severity_hint: high
+      complexity_hint: medium
+
+    - risk_id: "R-SYS-002"
+      name: "Agent collusion (multi-agent)"
+      category: system
+      description: "Multiple agents coordinate to circumvent policy or achieve unauthorized outcomes."
+      typical_failure_mode: "Agents share tokens or bypass dual-approval; coordinated spoofing."
+      mitigation_options: ["Independent verification", "Non-collusion assumptions", "Audit correlation"]
+      suggested_injections: ["inj_collusion_handoff", "INJ-COLLUSION-001"]
+      primary_metrics: ["sec.attack_success_rate", "safety.violations_total"]
+      severity_hint: high
+      complexity_hint: high
+
+    - risk_id: "R-COMMS-001"
+      name: "Identity spoofing (agent impersonation)"
+      category: comms
+      description: "Agent or channel pretends to be another agent or role to gain privileges."
+      typical_failure_mode: "Forged agent_id; key misuse; replay of another agent's actions."
+      mitigation_options: ["Signed actions", "Key binding to agent_id", "Replay protection"]
+      suggested_injections: ["inj_impersonation", "inj_replay", "INJ-ID-SPOOF-001"]
+      primary_metrics: ["sec.attack_success_rate", "sec.detection_latency_steps"]
+      severity_hint: high
+      complexity_hint: medium
+
+    - risk_id: "R-COMMS-002"
+      name: "Agent communication poisoning"
+      category: comms
+      description: "Messages between agents or from environment are altered to mislead or trigger failures."
+      typical_failure_mode: "Man-in-the-middle; observation tampering; malicious broadcast."
+      mitigation_options: ["Message authentication", "Integrity hashes", "Secure channels"]
+      suggested_injections: ["inj_msg_poison", "inj_obs_tamper", "INJ-COMMS-POISON-001"]
+      primary_metrics: ["sec.attack_success_rate", "comm.drop_rate", "safety.violations_total"]
+      severity_hint: high
+      complexity_hint: high
+
+    - risk_id: "R-CAP-001"
+      name: "Jailbreak attacks"
+      category: capability
+      description: "Adversarial prompts or inputs cause LLM or policy to bypass safety constraints."
+      typical_failure_mode: "Ignore instructions; role-play override; prompt injection to skip checks."
+      mitigation_options: ["Adversarial detection", "Constrained decoding", "Human-in-the-loop"]
+      suggested_injections: ["inj_jailbreak", "inj_prompt_injection"]
+      primary_metrics: ["sec.attack_success_rate", "sec.detection_latency_steps", "safety.override_count"]
+      severity_hint: high
+      complexity_hint: high
+
+    - risk_id: "R-DATA-002"
+      name: "Data poisoning (train/run-time)"
+      category: data
+      description: "Training or runtime data is corrupted to degrade model or decision quality."
+      typical_failure_mode: "Poisoned examples; corrupted observations; biased feedback."
+      mitigation_options: ["Data validation", "Outlier detection", "Diverse data sources"]
+      suggested_injections: ["inj_poison_obs", "inj_poison_reward"]
+      primary_metrics: ["robustness.regret_vs_nominal", "safety.violations_total"]
+      severity_hint: high
+      complexity_hint: high
+
+    - risk_id: "R-DATA-003"
+      name: "Memory poisoning (long-horizon state)"
+      category: data
+      description: "Long-horizon or episodic state is corrupted to cause downstream wrong decisions."
+      typical_failure_mode: "Stale or forged state; history tampering; wrong specimen state."
+      mitigation_options: ["State integrity checks", "Hash chain", "Periodic reconciliation"]
+      suggested_injections: ["inj_memory_tamper", "INJ-MEMORY-POISON-001"]
+      primary_metrics: ["safety.violations_total", "robustness.resilience_score", "sec.detection_latency_steps"]
+      severity_hint: high
+      complexity_hint: high
