@@ -443,6 +443,101 @@ class CommsReorderInjector(RiskInjector):
 
 
 # ---------------------------------------------------------------------------
+# INJ-NET-PARTITION-001: Network partition (policy-driven; NetworkModel)
+# ---------------------------------------------------------------------------
+class NetPartitionInjector(RiskInjector):
+    """
+    Configure CommsModel with network_policy partition schedule; no obs/action mutation.
+    Exposes get_comms_config(). Partition interval and affected_agent_fraction from intensity.
+    """
+
+    def get_comms_config(self) -> Any:
+        from labtrust_gym.coordination.comms_model import CommsConfig
+
+        # Mid-episode partition window (steps). Typical horizon ~200; partition 10–25% of steps.
+        width = max(5, int(30 * self._config.intensity))
+        start_t = 25
+        end_t = start_t + width
+        fraction = 0.25 + 0.5 * self._config.intensity  # 0.25–0.75
+        return CommsConfig(
+            perfect=False,
+            network_policy={
+                "version": "0.1",
+                "perfect": False,
+                "delay": {"p50_ms": 10, "p95_ms": 50},
+                "drop_rate": 0.0,
+                "reorder_window": 0,
+                "partition_schedule": [
+                    {
+                        "start_t": start_t,
+                        "end_t": end_t,
+                        "affected_agent_fraction": min(1.0, fraction),
+                    }
+                ],
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
+# INJ-NET-REORDER-001: Network reorder (policy-driven; NetworkModel)
+# ---------------------------------------------------------------------------
+class NetReorderInjector(RiskInjector):
+    """
+    Configure CommsModel with network_policy reorder; no obs/action mutation.
+    Exposes get_comms_config().
+    """
+
+    def get_comms_config(self) -> Any:
+        from labtrust_gym.coordination.comms_model import CommsConfig
+
+        window = max(1, int(5 * self._config.intensity))
+        return CommsConfig(
+            perfect=False,
+            network_policy={
+                "version": "0.1",
+                "perfect": False,
+                "delay": {"p50_ms": 15, "p95_ms": 60},
+                "drop_rate": 0.0,
+                "reorder_window": window,
+                "partition_schedule": [],
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
+# INJ-NET-DROP-SPIKE-001: Network drop spike (policy-driven; NetworkModel)
+# ---------------------------------------------------------------------------
+class NetDropSpikeInjector(RiskInjector):
+    """
+    Configure CommsModel with network_policy drop_spike; no obs/action mutation.
+    Exposes get_comms_config().
+    """
+
+    def get_comms_config(self) -> Any:
+        from labtrust_gym.coordination.comms_model import CommsConfig
+
+        start_t = 20
+        end_t = 20 + max(5, int(40 * self._config.intensity))
+        spike_rate = 0.2 + 0.6 * self._config.intensity
+        return CommsConfig(
+            perfect=False,
+            network_policy={
+                "version": "0.1",
+                "perfect": False,
+                "delay": {"p50_ms": 10, "p95_ms": 50},
+                "drop_rate": 0.0,
+                "reorder_window": 0,
+                "partition_schedule": [],
+                "drop_spike": {
+                    "start_t": start_t,
+                    "end_t": end_t,
+                    "drop_rate": min(1.0, spike_rate),
+                },
+            },
+        )
+
+
+# ---------------------------------------------------------------------------
 # INJ-CLOCK-SKEW-001: Per-agent clock skew (skew_ppm + offset_ms, seeded)
 # ---------------------------------------------------------------------------
 class ClockSkewInjector(RiskInjector):
@@ -524,6 +619,123 @@ class MemoryPoisonInjector(RiskInjector):
         return obs, audit
 
 
+# ---------------------------------------------------------------------------
+# INJ-SLOW-POISON-001: Delayed-trigger / slow-roll poisoning
+# ---------------------------------------------------------------------------
+class SlowRollPoisonInjector(RiskInjector):
+    """
+    Apply poisoning only after delay_steps (delayed-trigger). Deterministic: delay from seed.
+    Same semantics as CommsPoisonInjector but first application happens at step >= delay.
+    """
+
+    def __init__(self, config: InjectionConfig, delay_steps: int = 20) -> None:
+        super().__init__(config)
+        self._delay_steps = delay_steps
+        self._effective_step: Optional[int] = None
+
+    def reset(
+        self, seed: int, injection_config: Optional[InjectionConfig] = None
+    ) -> None:
+        super().reset(seed, injection_config)
+        self._effective_step = None
+        if self._rng:
+            self._delay_steps = max(5, int(10 + self._rng.random() * 30))
+
+    def mutate_obs(
+        self, obs: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+        if self._step < self._delay_steps or not self._rng or self._rng.random() > self._config.intensity:
+            return obs, None
+        obs = copy.deepcopy(obs)
+        agents = sorted(obs.keys())
+        if not agents:
+            return obs, None
+        victim = self._rng.choice(agents)
+        o = obs[victim]
+        if isinstance(o, dict) and "queue_has_head" in o:
+            qhd = o["queue_has_head"]
+            if hasattr(qhd, "__len__") and len(qhd) > 0:
+                try:
+                    import numpy as np
+                    arr = np.array(qhd, copy=True)
+                    idx = min(1, arr.size - 1)
+                    arr.flat[idx] = 1 if (arr.flat[idx] == 0) else 0
+                    obs[victim] = dict(o)
+                    obs[victim]["queue_has_head"] = arr
+                except Exception:
+                    pass
+        self._applied_this_step = True
+        self._effective_step = self._step
+        if self._first_application_step is None:
+            self._first_application_step = self._step
+        audit = _audit_entry(
+            EMIT_INJECTION_APPLIED,
+            self.injection_id,
+            self._step,
+            {"target": victim, "type": "slow_roll_poison", "delay_steps": self._delay_steps},
+        )
+        return obs, audit
+
+
+# ---------------------------------------------------------------------------
+# INJ-REPLAY-001: Replay previous action/message (must be blocked by bus replay protection)
+# ---------------------------------------------------------------------------
+class ReplayInjector(RiskInjector):
+    """
+    Replay a previous agent action (same action_index/args, spoofed as fresh).
+    Strict signatures + bus replay protection should block (nonce/sequence).
+    """
+
+    def __init__(self, config: InjectionConfig) -> None:
+        super().__init__(config)
+        self._last_action: Optional[Dict[str, Any]] = None
+        self._last_agent: Optional[str] = None
+
+    def mutate_actions(
+        self, action_dict: Dict[str, Dict[str, Any]]
+    ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+        if not self._rng or self._config.intensity <= 0:
+            return action_dict, []
+        agents = sorted(action_dict.keys())
+        if len(agents) < 2:
+            return action_dict, []
+        # Store current action for next step replay
+        victim = self._rng.choice(agents)
+        current = action_dict.get(victim)
+        if current and current.get("action_index", 0) not in (0, 1):
+            self._last_action = copy.deepcopy(current)
+            self._last_agent = victim
+        # Replay: if we have a stored action, inject it from another agent (replay attempt)
+        if self._last_action is not None and self._last_agent is not None and self._rng.random() <= self._config.intensity:
+            replayer = self._rng.choice([a for a in agents if a != self._last_agent])
+            out = copy.deepcopy(action_dict)
+            replayed = copy.deepcopy(self._last_action)
+            replayed["_replay_of_agent"] = self._last_agent
+            replayed["_replay_step"] = self._step
+            out[replayer] = replayed
+            self._applied_this_step = True
+            if self._first_application_step is None:
+                self._first_application_step = self._step
+            audit = _audit_entry(
+                EMIT_INJECTION_APPLIED,
+                self.injection_id,
+                self._step,
+                {"replayer": replayer, "replayed_agent": self._last_agent},
+            )
+            return out, [audit]
+        return action_dict, []
+
+    def observe_step(self, step_outputs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        extra = super().observe_step(step_outputs)
+        if self._applied_this_step:
+            for r in step_outputs:
+                if r.get("status") != "BLOCKED" and (r.get("emits") or r.get("action_type")):
+                    if "RELEASE_RESULT" in (r.get("emits") or []) or r.get("action_type") == "START_RUN":
+                        self._attack_success = True
+                        break
+        return extra
+
+
 class NoOpInjector(RiskInjector):
     """
     Passthrough injector for legacy or placeholder injection IDs in study specs.
@@ -570,12 +782,17 @@ INJECTION_REGISTRY: Dict[str, type] = {
     "INJ-COMMS-DELAY-001": CommsDelayInjector,
     "INJ-COMMS-DROP-001": CommsDropInjector,
     "INJ-COMMS-REORDER-001": CommsReorderInjector,
+    "INJ-NET-PARTITION-001": NetPartitionInjector,
+    "INJ-NET-REORDER-001": NetReorderInjector,
+    "INJ-NET-DROP-SPIKE-001": NetDropSpikeInjector,
     "INJ-CLOCK-SKEW-001": ClockSkewInjector,
     "INJ-ID-SPOOF-001": IdSpoofInjector,
     "INJ-DOS-PLANNER-001": DosPlannerInjector,
     "INJ-COLLUSION-001": CollusionInjector,
     "INJ-TOOL-MISPARAM-001": ToolMisparamInjector,
     "INJ-MEMORY-POISON-001": MemoryPoisonInjector,
+    "INJ-SLOW-POISON-001": SlowRollPoisonInjector,
+    "INJ-REPLAY-001": ReplayInjector,
 }
 for _lid in LEGACY_INJECTION_IDS:
     INJECTION_REGISTRY.setdefault(_lid, NoOpInjector)

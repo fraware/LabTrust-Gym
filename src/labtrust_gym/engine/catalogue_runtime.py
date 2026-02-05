@@ -4,7 +4,9 @@ Catalogue and stability policy for START_RUN gating.
 - Panel lookup by panel_id (from catalogue or stability policy).
 - Stability limits: pre_separation max (collection to separation), post_separation max
   (separation to run) per panel and temp band.
-- Used by core_env START_RUN to gate on TIME_EXPIRED and TEMP_OUT_OF_BAND.
+- Reagent policy: per-panel reagent requirements; stockout gates START_RUN with
+  RC_REAGENT_STOCKOUT and hold/reroute per policy.
+- Used by core_env START_RUN to gate on TIME_EXPIRED, TEMP_OUT_OF_BAND, reagent.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
 TIME_EXPIRED = "TIME_EXPIRED"
 TEMP_OUT_OF_BAND = "TEMP_OUT_OF_BAND"
+RC_REAGENT_STOCKOUT = "RC_REAGENT_STOCKOUT"
 INV_STAB_BIOCHEM_001 = "INV-STAB-BIOCHEM-001"
 INV_STAB_BIOCHEM_002 = "INV-STAB-BIOCHEM-002"
 INV_ZONE_006 = "INV-ZONE-006"
@@ -145,3 +148,44 @@ def default_stability_limits() -> Dict[str, Any]:
         "post_separation_refrigerated_max_s": 86400,
         "allowed_temp_bands_pre": ["AMBIENT_20_25"],
     }
+
+
+def load_reagent_policy(path: Optional[Path] = None) -> Dict[str, Any]:
+    """Load reagent_policy YAML; return reagent_policy dict or empty."""
+    path = path or Path("policy/reagents/reagent_policy.v0.1.yaml")
+    if not path.exists():
+        return {}
+    try:
+        data = load_yaml(path)
+    except PolicyLoadError:
+        return {}
+    return data.get("reagent_policy", data) if isinstance(data, dict) else {}
+
+
+def get_panel_reagent_requirement(
+    reagent_policy: Dict[str, Any],
+    panel_id: str,
+) -> Optional[Tuple[str, float, str]]:
+    """
+    Return (reagent_id, quantity_per_run, stockout_action) for panel_id, or None.
+    stockout_action is HOLD or REROUTE per policy.
+    """
+    reqs = reagent_policy.get("panel_requirements") or {}
+    panel_req = reqs.get(panel_id) if isinstance(reqs, dict) else None
+    if not isinstance(panel_req, dict):
+        return None
+    rid = panel_req.get("reagent_id")
+    qty = panel_req.get("quantity_per_run")
+    action = panel_req.get("stockout_action") or "HOLD"
+    if rid is not None and qty is not None:
+        return (str(rid), float(qty), str(action))
+    return None
+
+
+def build_initial_reagent_stock(reagent_policy: Dict[str, Any]) -> Dict[str, float]:
+    """Build initial stock dict from reagent_policy.reagents (reagent_id -> initial_stock)."""
+    stock: Dict[str, float] = {}
+    for r in reagent_policy.get("reagents") or []:
+        if isinstance(r, dict) and r.get("reagent_id") is not None:
+            stock[str(r["reagent_id"])] = float(r.get("initial_stock", 0))
+    return stock

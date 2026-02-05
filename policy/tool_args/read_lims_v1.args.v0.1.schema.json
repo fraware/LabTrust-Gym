@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.read_lims_v1.args.v0.1",
+  "title": "read_lims_v1 arguments",
+  "description": "Argument schema for read_lims_v1: typed and range-checked.",
+  "type": "object",
+  "required": ["accession_id"],
+  "additionalProperties": false,
+  "properties": {
+    "accession_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Accession identifier to read from LIMS."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "description": "Maximum number of records to return (optional)."
+    }
+  }
+}

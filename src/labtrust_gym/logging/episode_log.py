@@ -17,6 +17,8 @@ def build_log_entry(
     result: Dict[str, Any],
     partner_id: Optional[str] = None,
     policy_fingerprint: Optional[str] = None,
+    tool_registry_fingerprint: Optional[str] = None,
+    rbac_policy_fingerprint: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Build one JSONL log entry from event and engine step result.
@@ -79,6 +81,10 @@ def build_log_entry(
         entry["partner_id"] = partner_id
     if policy_fingerprint is not None:
         entry["policy_fingerprint"] = policy_fingerprint
+    if tool_registry_fingerprint is not None:
+        entry["tool_registry_fingerprint"] = tool_registry_fingerprint
+    if rbac_policy_fingerprint is not None:
+        entry["rbac_policy_fingerprint"] = rbac_policy_fingerprint
     signature_verification = result.get("signature_verification")
     if signature_verification is not None and isinstance(signature_verification, dict):
         entry["signature_verification"] = signature_verification
@@ -138,22 +144,31 @@ class EpisodeLogger:
         path: Optional[Path] = None,
         partner_id: Optional[str] = None,
         policy_fingerprint: Optional[str] = None,
+        tool_registry_fingerprint: Optional[str] = None,
     ) -> None:
         self._path = Path(path) if path else None
         self._stream: Optional[TextIO] = None
         self._partner_id = partner_id
         self._policy_fingerprint = policy_fingerprint
+        self._tool_registry_fingerprint = tool_registry_fingerprint
+        self._rbac_policy_fingerprint: Optional[str] = None
 
     def set_episode_meta(
         self,
         partner_id: Optional[str] = None,
         policy_fingerprint: Optional[str] = None,
+        tool_registry_fingerprint: Optional[str] = None,
+        rbac_policy_fingerprint: Optional[str] = None,
     ) -> None:
-        """Set partner_id and policy_fingerprint for this episode (e.g. at reset)."""
+        """Set partner_id, policy_fingerprint, tool_registry_fingerprint for this episode (e.g. at reset)."""
         if partner_id is not None:
             self._partner_id = partner_id
         if policy_fingerprint is not None:
             self._policy_fingerprint = policy_fingerprint
+        if tool_registry_fingerprint is not None:
+            self._tool_registry_fingerprint = tool_registry_fingerprint
+        if rbac_policy_fingerprint is not None:
+            self._rbac_policy_fingerprint = rbac_policy_fingerprint
 
     def log_step(
         self,
@@ -170,6 +185,8 @@ class EpisodeLogger:
             result,
             partner_id=self._partner_id,
             policy_fingerprint=self._policy_fingerprint,
+            tool_registry_fingerprint=self._tool_registry_fingerprint,
+            rbac_policy_fingerprint=getattr(self, "_rbac_policy_fingerprint", None),
         )
         write_log_line(self._stream, entry)
 

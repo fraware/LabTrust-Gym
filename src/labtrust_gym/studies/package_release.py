@@ -280,6 +280,47 @@ def run_package_release_paper(
             except Exception:
                 pass
 
+    # 4b) Security attack suite + securitization packet (SECURITY/)
+    security_dir = out_dir / "SECURITY"
+    security_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
+        from labtrust_gym.benchmarks.securitization import (
+            emit_securitization_packet,
+        )
+
+        run_suite_and_emit(
+            policy_root=repo_root,
+            out_dir=out_dir,
+            repo_root=repo_root,
+            smoke_only=True,
+            seed=seed_base,
+            metadata={
+                "seed_base": seed_base,
+                "smoke_only": True,
+                "git_sha": _git_commit_hash(repo_root),
+            },
+        )
+        emit_securitization_packet(repo_root, out_dir)
+    except Exception:
+        pass
+
+    # 4c) Global transparency log (TRANSPARENCY_LOG/) over all exported episodes
+    try:
+        from labtrust_gym.security.transparency import write_transparency_log
+
+        write_transparency_log(out_dir, out_dir)
+    except Exception:
+        pass
+
+    # 4d) Safety case (SAFETY_CASE/safety_case.json, safety_case.md)
+    try:
+        from labtrust_gym.security.safety_case import emit_safety_case
+
+        emit_safety_case(policy_root=repo_root, out_dir=out_dir)
+    except Exception:
+        pass
+
     # 5) FIGURES: 2–3 canonical plots from TaskF study
     figures_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -319,8 +360,25 @@ def run_package_release_paper(
 - `TABLES/`: summary.csv, summary.md, paper_table.md.
 - `receipts/<task>/`: EvidenceBundle.v0.1 and verify_report.txt per task.
 - `_repr/`: one representative run per task (episodes.jsonl, results.json).
+- `SECURITY/`: attack_results.json (security attack suite), coverage.md, coverage.json, reason_codes.md, deps_inventory.json, deps_inventory_runtime.json (securitization packet).
+- `TRANSPARENCY_LOG/`: log.json (append-only episode digests), root.txt (Merkle root), proofs/<episode_id>.json (inclusion proofs).
+- `SAFETY_CASE/`: safety_case.json, safety_case.md (claim -> control -> test -> artifact -> command).
 - `COORDINATION_CARD.md`: coordination benchmark card (TaskG/TaskH; scenario generation, scale configs, methods, injections, metrics, determinism, limitations, policy fingerprint).
 - `_coordination_policy/`: frozen copy of policy/coordination/ files used for the card; manifest.json contains coordination_policy_fingerprint and per-file sha256.
+
+## Official Benchmark Pack (v0.1)
+
+The **Official Benchmark Pack** is defined in `policy/official/benchmark_pack.v0.1.yaml`. Community replication: `labtrust run-official-pack --out <dir> --seed-base N`. See [Official Benchmark Pack](docs/official_benchmark_pack.md).
+
+| Item | Value |
+|------|-------|
+| Pack policy | policy/official/benchmark_pack.v0.1.yaml |
+| Tasks | TaskA–TaskF (core), TaskG–TaskH (coordination) |
+| Scale configs | S (small), M (medium), L (large) |
+| Baselines | scripted_ops_v1, adversary_v1, insider_v1, kernel_scheduler_or_v0 |
+| Coordination methods | centralized_planner, hierarchical_hub_rr, llm_constrained |
+| Required reports | security, safety_case, transparency_log |
+| Results semantics | v0.2 |
 """
     (out_dir / "RELEASE_NOTES.md").write_text(release_notes, encoding="utf-8")
 

@@ -38,6 +38,24 @@ from labtrust_gym.baselines.coordination.allocation.auction import (
     AuctionAllocator,
 )
 from labtrust_gym.baselines.coordination.hierarchical import HierarchicalHubLocal
+from labtrust_gym.baselines.coordination.kernels.scheduler_or import ORScheduler
+
+
+def _load_scheduler_or_policy(repo_root: Optional[Path]) -> Dict[str, Any]:
+    """Load scheduler_or_policy.v0.1.yaml from repo; return dict or empty."""
+    if repo_root is None:
+        return {}
+    path = repo_root / "policy" / "coordination" / "scheduler_or_policy.v0.1.yaml"
+    if not path.exists():
+        return {}
+    try:
+        import yaml
+
+        with path.open("r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+
 
 _METHOD_CLASSES: Dict[str, type] = {
     "centralized_planner": CentralizedPlanner,
@@ -132,6 +150,8 @@ def make_coordination_method(
     if cls is None and method_id not in (
         "kernel_centralized_edf",
         "kernel_whca",
+        "kernel_scheduler_or",
+        "kernel_scheduler_or_whca",
         "kernel_auction_edf",
         "kernel_auction_whca",
         "kernel_auction_whca_shielded",
@@ -139,7 +159,8 @@ def make_coordination_method(
         raise ValueError(
             f"Unknown coordination method_id: {method_id}. "
             f"Known: {list(_METHOD_CLASSES.keys())}, kernel_centralized_edf, "
-            f"kernel_whca, kernel_auction_edf, kernel_auction_whca, "
+            f"kernel_whca, kernel_scheduler_or, kernel_scheduler_or_whca, "
+            f"kernel_auction_edf, kernel_auction_whca, "
             f"kernel_auction_whca_shielded, marl_ppo"
         )
     if method_id == "kernel_centralized_edf":
@@ -158,6 +179,24 @@ def make_coordination_method(
             horizon=params.get("whca_horizon", 15),
         )
         return compose_kernel(alloc, sched, router, "kernel_whca")
+    if method_id == "kernel_scheduler_or":
+        scheduler_policy = _load_scheduler_or_policy(repo_root)
+        alloc = CentralizedAllocator(
+            compute_budget=params.get("compute_budget"),
+        )
+        sched = ORScheduler(policy=scheduler_policy)
+        router = TrivialRouter()
+        return compose_kernel(alloc, sched, router, "kernel_scheduler_or")
+    if method_id == "kernel_scheduler_or_whca":
+        scheduler_policy = _load_scheduler_or_policy(repo_root)
+        alloc = CentralizedAllocator(
+            compute_budget=params.get("compute_budget"),
+        )
+        sched = ORScheduler(policy=scheduler_policy)
+        router = WHCARouter(
+            horizon=params.get("whca_horizon", 15),
+        )
+        return compose_kernel(alloc, sched, router, "kernel_scheduler_or_whca")
     if method_id == "kernel_auction_edf":
         alloc = AuctionAllocator(
             max_bids=params.get("compute_budget") or params.get("max_bids"),

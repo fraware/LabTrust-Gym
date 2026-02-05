@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.transparency_log.v0.1",
+  "title": "LabTrust Transparency Log v0.1",
+  "description": "Append-only log over episode digests (EpisodeDigest.v0.1) with Merkle root; used for CT-style verification that published results were not swapped.",
+  "type": "object",
+  "required": ["version", "digest_version", "root", "entries"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "digest_version": { "type": "string", "const": "0.1" },
+    "root": { "type": "string", "description": "Merkle root (SHA256 hex) of all episode digests" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["episode_id", "digest", "version"],
+        "additionalProperties": true,
+        "properties": {
+          "episode_id": { "type": "string" },
+          "digest": { "type": "string", "description": "SHA256 hex (EpisodeDigest.v0.1)" },
+          "version": { "type": "string" },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "results_episode_sha256": { "type": "string" },
+              "episodes_jsonl_sha256": { "type": "string" },
+              "evidence_bundle_manifest_sha256": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

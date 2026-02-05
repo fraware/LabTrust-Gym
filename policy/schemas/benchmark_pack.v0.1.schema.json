@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.benchmark_pack.v0.1",
+  "title": "Official Benchmark Pack v0.1",
+  "type": "object",
+  "required": ["version", "tasks", "required_reports"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "description": { "type": "string" },
+    "tasks": {
+      "type": "object",
+      "required": ["core", "coordination", "experimental"],
+      "additionalProperties": true,
+      "properties": {
+        "core": { "type": "array", "items": { "type": "string" } },
+        "coordination": { "type": "array", "items": { "type": "string" } },
+        "experimental": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "scale_configs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "num_agents_total": { "type": "integer" },
+          "num_devices": { "type": "integer" },
+          "num_sites": { "type": "integer" },
+          "arrival_rate": { "type": "number" },
+          "horizon_steps": { "type": "integer" }
+        }
+      }
+    },
+    "baselines": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "coordination_methods": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "security_suite": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "required_reports": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    }
+  }
+}

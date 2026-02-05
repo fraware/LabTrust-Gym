@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.reagent_policy.v0.1",
+  "title": "Reagent policy v0.1",
+  "type": "object",
+  "required": ["reagent_policy"],
+  "additionalProperties": true,
+  "properties": {
+    "reagent_policy": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "reagents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["reagent_id", "initial_stock"],
+            "properties": {
+              "reagent_id": { "type": "string" },
+              "initial_stock": { "type": "number", "minimum": 0 },
+              "unit": { "type": "string" }
+            }
+          }
+        },
+        "panel_requirements": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["reagent_id", "quantity_per_run"],
+            "properties": {
+              "reagent_id": { "type": "string" },
+              "quantity_per_run": { "type": "number", "minimum": 0 },
+              "stockout_action": { "type": "string", "enum": ["HOLD", "REROUTE"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

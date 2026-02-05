@@ -4,12 +4,20 @@ Coordination method interface for PettingZoo Parallel env.
 Each method produces per-agent actions compatible with the existing env API:
 action_index (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN)
 and optional action_info (action_type, args, reason_code, token_refs) for engine events.
+
+Contract v0.1: the runner builds a CoordDecision (contract record) per step from
+method_id, t_step, actions, view_age_ms, and optional plan_time_ms, invariants_considered,
+safety_shield_applied; see policy/schemas/coord_method_output_contract.v0.1.schema.json
+and baselines/coordination/telemetry.py.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
+
+# CoordDecision: one timestep record per coord_method_output_contract.v0.1 (built in runner)
+CoordDecision = Dict[str, Any]
 
 # Action indices aligned with pz_parallel
 ACTION_NOOP = 0

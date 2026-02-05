@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.network_policy.v0.1",
+  "title": "Network policy v0.1",
+  "description": "Policy for coordination network simulator: delay, drop, partition schedule, reorder. Deterministic when used with a seeded RNG.",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "perfect": {
+      "type": "boolean",
+      "default": true,
+      "description": "If true, no delay/drop/partition/reorder (nominal baseline)."
+    },
+    "delay": {
+      "type": "object",
+      "description": "Delay distribution (ms). Used to sample per-message latency.",
+      "properties": {
+        "p50_ms": { "type": "number", "minimum": 0 },
+        "p95_ms": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "drop_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Probability each message is dropped (per agent)."
+    },
+    "reorder_window": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Max steps messages can be reordered (0 = no reorder)."
+    },
+    "partition_schedule": {
+      "type": "array",
+      "description": "Time intervals during which a subset of agents is partitioned (no delivery to them).",
+      "items": {
+        "type": "object",
+        "required": ["start_t", "end_t"],
+        "properties": {
+          "start_t": { "type": "integer", "minimum": 0 },
+          "end_t": { "type": "integer", "minimum": 0 },
+          "affected_agents": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Agent IDs that do not receive messages during [start_t, end_t]. If omitted, empty or null, no partition (interval ignored)."
+          },
+          "affected_agent_fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Alternative to affected_agents: fraction of agents to partition (resolved at reset from RNG)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "drop_spike": {
+      "type": "object",
+      "description": "Optional time-windowed drop spike (e.g. INJ-NET-DROP-SPIKE-001).",
+      "properties": {
+        "start_t": { "type": "integer", "minimum": 0 },
+        "end_t": { "type": "integer", "minimum": 0 },
+        "drop_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

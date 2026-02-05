@@ -1,0 +1,20 @@
+# Coordination identity policy v0.1: signed agent identity and replay-safe messages.
+# Used by SignedMessageBus for verify-on-receive, nonce tracking, epoch binding.
+# High-impact message types require a countersign (e.g. release overrides, kill switch reset).
+
+coordination_identity_policy:
+  version: "0.1"
+  allowed_message_types:
+    - "BID"
+    - "ALLOC_REQUEST"
+    - "ROUTE_DECISION"
+    - "HANDOFF_ACK"
+    - "OVERRIDE_REQUEST"
+    - "RELEASE_OVERRIDE"
+    - "KILL_SWITCH_RESET"
+    - "COORD_DECISION"
+  high_impact_require_countersign:
+    - "RELEASE_OVERRIDE"
+    - "KILL_SWITCH_RESET"
+  # allowed_senders: null means any agent in key_store may send; set to list to restrict.
+  allowed_senders: null

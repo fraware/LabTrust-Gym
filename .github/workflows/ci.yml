@@ -62,6 +62,8 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Pytest
         run: pytest -q
+      - name: Metamorphic properties (smoke)
+        run: pytest tests/test_metamorphic_properties.py -q
 
   policy-validate:
     runs-on: ubuntu-latest
@@ -138,6 +140,25 @@ jobs:
         run: pip install -e ".[env,plots]"
       - name: Quick-eval (TaskA, TaskD, TaskE)
         run: labtrust quick-eval --seed 42 --out-dir ./labtrust_runs
+
+  transparency-log:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Create minimal artifact and run transparency-log
+        run: |
+          mkdir -p artifact/_repr/TaskA
+          echo '{"schema_version":"0.2","task":"TaskA","seeds":[42],"episodes":[{"seed":42,"metrics":{"throughput":5,"steps":100}}],"agent_baseline_id":"scripted_ops_v1"}' > artifact/_repr/TaskA/results.json
+          echo '{"action_type":"CREATE_ACCESSION","t_s":10}' > artifact/_repr/TaskA/episodes.jsonl
+          labtrust transparency-log --in artifact --out out
+          test -f out/TRANSPARENCY_LOG/root.txt
+          test -f out/TRANSPARENCY_LOG/log.json
+          test -d out/TRANSPARENCY_LOG/proofs
 
   docs:
     runs-on: ubuntu-latest

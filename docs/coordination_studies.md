@@ -44,7 +44,7 @@ The spec YAML must include:
 
 ```
 <out>/
-  manifest_coordination.json   # study_id, seed_base, cell_ids, etc.
+  manifest_coordination.json   # study_id, seed_base, cell_ids, pareto_dir, etc.
   cells/
     <scale_id>_<method_id>_<injection_id>/
       results.json              # v0.2 + optional coordination / security
@@ -52,6 +52,10 @@ The spec YAML must include:
   summary/
     summary_coord.csv            # one row per cell
     pareto.md                   # Pareto front and robust winner
+  PARETO/                        # multi-objective evaluation (v0.1)
+    pareto.json                  # nondominated fronts, per-method CIs (v0.3 extension)
+    pareto.md                    # interpretation + fronts + CIs
+    frontier.svg                 # canonical plot: throughput vs p95 TAT, front highlighted
 ```
 
 ## Summary CSV columns
@@ -87,6 +91,24 @@ The spec YAML must include:
 
 2. **Robust winner under risk suite**  
    The method with the **highest mean resilience score** across all cells (all scales and injections) is reported. This highlights which coordination method tends to remain most resilient across the injected risk suite.
+
+## PARETO/ folder (multi-objective evaluation v0.1)
+
+When the study run writes the PARETO directory, it contains paper-grade outputs that do not change results.v0.2 semantics (v0.3 extension for extra stats only).
+
+**Objectives**  
+Stable Pareto front over four objectives: **throughput** (maximize), **p95 TAT** (minimize), **violations** (minimize), **security success rate** (maximize; derived as 1 - attack_success_rate). A cell is *nondominated* if no other cell is strictly better on all four (with at least one strictly better).
+
+**Per-method confidence intervals**  
+For each method, 95% bootstrap confidence intervals are computed for mean throughput, p95 TAT, violations, and resilience score. Resampling is **deterministic** (seeded from the study `seed_base`), so the same study run yields identical CIs. Use CIs to compare methods: non-overlapping intervals suggest a significant difference; overlapping intervals do not imply no difference.
+
+**Artifacts**  
+- **pareto.json**: Machine-readable fronts per scale (`fronts_per_scale`), per-method CIs (`per_method_ci`), and objective list. Version field `pareto_version: "0.1"` and `version: "0.3"` for the extension.
+- **pareto.md**: Human-readable summary of nondominated front per scale and per-method CI table.
+- **frontier.svg**: Canonical 2D plot of throughput vs p95 TAT; Pareto-front points are highlighted so you can see the trade-off and robustness under injected risks.
+
+**Determinism**  
+Same `seed_base` and same summary rows (same cell results) produce identical PARETO content. Use a fixed `seed_base` in the spec for reproducible figures and tables.
 
 ## Generating figures
 

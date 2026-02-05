@@ -61,6 +61,18 @@ Kernel-composed method: CentralizedAllocator + EDFScheduler + **WHCARouter**. Us
 
 ---
 
+### 0b2. kernel_scheduler_or / kernel_scheduler_or_whca (OR scheduling kernel)
+
+Operations-research-grade baseline: **CentralizedAllocator** + **ORScheduler** (rolling-horizon) + **TrivialRouter** or **WHCARouter**. Policy: `policy/coordination/scheduler_or_policy.v0.1.yaml` (weights, horizon_steps, replan_cadence_steps, fairness_regularizer). Objective: weighted tardiness + throughput + violation penalties + coordination overhead. Priorities STAT/URGENT/ROUTINE, device capacity and colocation, zone and transport constraints; safety shields (RBAC/tokens) are enforced so the scheduler never proposes illegal START_RUN (no START_RUN for agents whose role disallows it or in restricted zone without token).
+
+**Metrics**: `coordination.sched` (mean_plan_time_ms, replan_rate, deadlock_avoids), `coordination.alloc` (gini_work_distribution), `coordination.route` (when WHCA: replan_rate, deadlock_avoids). Deterministic and fast at scale.
+
+**Complexity**: O(agents × work items) per step for allocation and schedule filtering; planning time reported in sched.mean_plan_time_ms.
+
+**Failure modes**: Same as centralized (R-SYS-001 single point of failure, R-COMMS-001, R-FLOW-002); scheduler output always passes coordination contract (no illegal actions under strict RBAC/token mode). Official non-LLM coordination baseline for TaskG_COORD_SCALE and TaskH_COORD_RISK (`benchmarks/baseline_registry.v0.1.yaml`: kernel_scheduler_or_v0).
+
+---
+
 ### 0c. kernel_auction_edf / kernel_auction_whca (market-based allocator)
 
 Kernel-composed methods: **AuctionAllocator** (sealed-bid auction) + EDFScheduler + TrivialRouter or WHCARouter. Allocation is no longer heuristic-only: each agent bids based on distance-to-work (routing graph), queue load, role constraints, and congestion-aware price signals (zone congestion, device queue price). Auction runs with a strict bid budget (`max_bids` per step); deterministic stable ordering and seeded tie-breaks. RBAC and token constraints are respected (allocator cannot assign forbidden actions). Metrics: `coordination.alloc` with **gini_work_distribution**, **mean_bid**, **rebid_rate**, and optional **alloc_emits** (e.g. BID_ANOMALY_DETECTED).

@@ -1,0 +1,16 @@
+# Network policy v0.1: coordination message channel (delay, drop, partition, reorder).
+# Used by NetworkModel for deterministic simulation. All randomness is seeded via --seed.
+# Perfect: no network effects (nominal baseline). Overlays can be applied by risk injections
+# (e.g. INJ-NET-PARTITION-001, INJ-NET-REORDER-001, INJ-NET-DROP-SPIKE-001).
+
+version: "0.1"
+perfect: true
+
+# When perfect is false, the following apply (defaults shown).
+delay:
+  p50_ms: 10
+  p95_ms: 50
+drop_rate: 0.0
+reorder_window: 0
+partition_schedule: []
+# drop_spike: optional; when set by injection, elevates drop_rate in [start_t, end_t].

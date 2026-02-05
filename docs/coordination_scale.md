@@ -59,6 +59,10 @@ Run:
 labtrust run-benchmark --task TaskG_COORD_SCALE --episodes 1 --seed 42 --out results.json
 ```
 
+## Network policy and determinism
+
+Coordination message delivery can use a **network policy** (`policy/coordination/network_policy.v0.1.yaml`, schema `policy/schemas/network_policy.v0.1.schema.json`) to simulate delay (p50/p95 ms), drop rate, partition schedule, and bounded reorder. When a risk injection supplies `CommsConfig.network_policy`, **CommsModel** routes all delivery through **NetworkModel** (`src/labtrust_gym/coordination/network.py`). Network randomness is **seeded solely from the episode seed** (`--seed`): same seed and same policy yield identical delivery and metrics. Telemetry includes `comm.p95_latency_ms`, `comm.drop_rate`, `comm.partition_events`, and `coordination.stale_action_rate` in coordination study summaries (`summary_coord.csv`). TaskH network injections: **INJ-NET-PARTITION-001**, **INJ-NET-REORDER-001**, **INJ-NET-DROP-SPIKE-001**.
+
 ## Determinism guarantees
 
 - Same **seed** and same **CoordinationScaleConfig** (and same **partner_id**) produce identical:
@@ -68,6 +72,7 @@ labtrust run-benchmark --task TaskG_COORD_SCALE --episodes 1 --seed 42 --out res
   - Initial specimen list (IDs and length)
   - Zone layout `device_placement` and effective_policy overlays
 - Specimen counts and arrival schedule are derived from the same RNG state; different seeds yield different specimens but deterministic per seed.
+- **Network model**: when `network_policy` is set, all delay/drop/partition/reorder are driven by the same episode RNG; no ambient randomness.
 
 ## Constraints
 

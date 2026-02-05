@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from labtrust_gym.tools.registry import combined_policy_fingerprint
+
 RECEIPT_VERSION = "0.1"
 MANIFEST_VERSION = "0.1"
 EVIDENCE_BUNDLE_DIR = "EvidenceBundle.v0.1"
@@ -503,6 +505,8 @@ def write_evidence_bundle(
     partner_id: Optional[str] = None,
     sign_bundle: bool = False,
     policy_root: Optional[Path] = None,
+    tool_registry_fingerprint: Optional[str] = None,
+    rbac_policy_fingerprint: Optional[str] = None,
 ) -> Path:
     """
     Write EvidenceBundle.v0.1/ under out_dir.
@@ -584,14 +588,23 @@ def write_evidence_bundle(
     proof_path.write_text(_canonical_json(hc) + "\n", encoding="utf-8")
     written_files.append("hashchain_proof.json")
 
-    # manifest: files + sha256, policy_fingerprint, partner_id, policy_root_hash
+    # manifest: policy_fingerprint (combined with tool_registry + rbac when present), optional fingerprints
+    effective_policy_fp = combined_policy_fingerprint(
+        policy_fingerprint or "",
+        tool_registry_fingerprint,
+        rbac_policy_fingerprint,
+    )
     manifest: Dict[str, Any] = {
         "version": MANIFEST_VERSION,
         "files": [],
-        "policy_fingerprint": policy_fingerprint,
+        "policy_fingerprint": effective_policy_fp,
         "partner_id": partner_id,
         "policy_root_hash": policy_root_hash,
     }
+    if tool_registry_fingerprint is not None:
+        manifest["tool_registry_fingerprint"] = tool_registry_fingerprint
+    if rbac_policy_fingerprint is not None:
+        manifest["rbac_policy_fingerprint"] = rbac_policy_fingerprint
     if sign_bundle:
         manifest["signature"] = {"algorithm": "stub", "value": ""}
     else:
@@ -614,6 +627,8 @@ def export_receipts(
     policy_fingerprint: Optional[str] = None,
     partner_id: Optional[str] = None,
     policy_root: Optional[Path] = None,
+    tool_registry_fingerprint: Optional[str] = None,
+    rbac_policy_fingerprint: Optional[str] = None,
 ) -> Path:
     """
     Load episode log from run_path (JSONL), build receipts, write EvidenceBundle.v0.1 to out_dir.
@@ -664,6 +679,12 @@ def export_receipts(
         entries[0].get("policy_fingerprint") if entries else None
     )
     pid = partner_id or (entries[0].get("partner_id") if entries else None)
+    tr_fp = tool_registry_fingerprint or (
+        entries[0].get("tool_registry_fingerprint") if entries else None
+    )
+    rbac_fp = rbac_policy_fingerprint or (
+        entries[0].get("rbac_policy_fingerprint") if entries else None
+    )
     return write_evidence_bundle(
         out_dir,
         receipts,
@@ -671,4 +692,6 @@ def export_receipts(
         policy_fingerprint=pf,
         partner_id=pid,
         policy_root=policy_root,
+        tool_registry_fingerprint=tr_fp,
+        rbac_policy_fingerprint=rbac_fp,
     )

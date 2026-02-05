@@ -25,6 +25,13 @@ from labtrust_gym.baselines.coordination.obs_utils import (
 )
 from labtrust_gym.engine.zones import build_adjacency_set
 
+try:
+    from labtrust_gym.baselines.coordination.allocation.auction import (
+        gini_coefficient,
+    )
+except ImportError:
+    gini_coefficient = None
+
 
 def _bfs_next_zone(
     start: str,
@@ -53,6 +60,16 @@ class CentralizedAllocator:
 
     def __init__(self, compute_budget: Optional[int] = None) -> None:
         self._compute_budget = compute_budget
+        self._last_assignments: List[Tuple[str, str, str, int]] = []
+
+    def get_alloc_metrics(self) -> Optional[Dict[str, Any]]:
+        """Alloc metrics: gini_work_distribution from last allocation."""
+        if not self._last_assignments or gini_coefficient is None:
+            return None
+        work_per_agent: Dict[str, int] = {}
+        for agent_id, _work_id, _device_id, _prio in self._last_assignments:
+            work_per_agent[agent_id] = work_per_agent.get(agent_id, 0) + 1
+        return {"gini_work_distribution": round(gini_coefficient(work_per_agent), 4)}
 
     def allocate(self, context: KernelContext) -> AllocationDecision:
         agents = context.agent_ids
@@ -110,6 +127,7 @@ class CentralizedAllocator:
                 assignments.append((agent_id, work_id, device_id, prio))
                 break
 
+        self._last_assignments = list(assignments)
         explain = f"n={len(assignments)}"
         return AllocationDecision(assignments=tuple(assignments), explain=explain)
 

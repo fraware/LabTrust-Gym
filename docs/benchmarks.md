@@ -77,9 +77,30 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 - **Initial state**: Same as TaskG (scale config).
 - **Episode length**: Same as TaskG.
 - **Agents**: Same as TaskG; risk injector can mutate obs, messages, or actions (deterministic, auditable).
-- **Injections**: Configured in `policy/coordination/coordination_study_spec.v0.1.yaml` (e.g. INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-COLLUSION-001). INJ-ID-SPOOF-001 must be blocked when strict signatures are enabled.
+- **Injections**: Red-team injection sets are defined in `policy/coordination/injections.v0.2.yaml` (success_definition, detection_definition, containment_definition per set). Study spec references them via `policy/coordination/coordination_study_spec.v0.1.yaml` (e.g. INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-COLLUSION-001). INJ-ID-SPOOF-001 must be blocked when strict signatures are enabled.
+- **Red-team metrics** (TaskH): In addition to `sec.attack_success_rate`, `sec.detection_latency_steps`, `sec.containment_time_steps`, the coordination study reports **sec.stealth_success_rate** (attacks that succeeded without detection), **sec.time_to_attribution_steps** (steps until attacker attribution), **sec.blast_radius_proxy** (scope of impact). See [Security attack suite](security_attack_suite.md) for red-team definitions.
 - **CLI**: `labtrust run-benchmark --task TaskH_COORD_RISK --coord-method <method_id> --injection <injection_id> --episodes 1 --seed 42 --out results.json`.
 - **Study**: `labtrust run-coordination-study --spec policy/coordination/coordination_study_spec.v0.1.yaml --out <dir>` produces per-cell results, summary_coord.csv, and pareto.md. See [Coordination studies](coordination_studies.md).
+
+### TaskI_DeviceOutageSurge (TaskI) — experimental
+
+- **Goal**: Surge workload plus one analyzer in maintenance; measure p95 TAT impact and RC_DEVICE_MAINT blocks.
+- **Initial state**: Deterministic from seed; 8–12 specimens; `timing_mode: simulated`, `policy_root` set so `failure_models.v0.1` and equipment load. Maintenance windows (e.g. DEV_CHEM_A_01 100–400 s) block START_RUN with RC_DEVICE_MAINT.
+- **Episode length**: 200 steps.
+- **Agents**: Scripted ops + scripted runners.
+- **Reward config**: throughput_reward 1.0, violation_penalty 0.1.
+- **SLA**: 3600 s.
+- **Metrics**: p95_turnaround_s, blocked_by_reason_code (RC_DEVICE_MAINT).
+
+### TaskJ_ReagentStockout (TaskJ) — experimental
+
+- **Goal**: Forced reagent shortage; low initial stock triggers RC_REAGENT_STOCKOUT, hold or reroute per reagent_policy; measure delays and violations.
+- **Initial state**: Deterministic from seed; 5–8 specimens; `policy_root` set; `reagent_initial_stock`: R_CHEM_CORE capped so stockout occurs after a few runs.
+- **Episode length**: 150 steps.
+- **Agents**: Scripted ops + scripted runners.
+- **Reward config**: throughput_reward 0.8, violation_penalty 0.15.
+- **SLA**: 3600 s.
+- **Metrics**: blocked_by_reason_code (RC_REAGENT_STOCKOUT), throughput, p95_turnaround_s.
 
 ## Metrics (per episode)
 
@@ -105,6 +126,9 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 | `sec.attack_success_rate` | (TaskH) Fraction of episodes where the injection succeeded (e.g. spoof accepted, or measurable harm). |
 | `sec.detection_latency_steps` | (TaskH) Steps until first detection of injection (when applicable). |
 | `sec.containment_time_steps` | (TaskH) Steps until containment (when applicable). |
+| `sec.stealth_success_rate` | (TaskH) Fraction of episodes where the attack succeeded without detection (red-team metric). |
+| `sec.time_to_attribution_steps` | (TaskH) Steps until attacker attribution (red-team metric). |
+| `sec.blast_radius_proxy` | (TaskH) Proxy for scope of impact (red-team metric). |
 | `robustness.regret_vs_nominal` | (TaskH) p95 TAT delta vs nominal (no injection). |
 | `robustness.resilience_score` | (TaskH) Composite: 1 − normalized(Δp95) − α·violations_rate − β·blocks_rate (higher is better). |
 
@@ -169,3 +193,16 @@ The golden suite (`policy/golden/golden_scenarios.v0.1.yaml`) includes scenarios
 - **GS-EXPORT-001**: After a normal episode, runs post-run hooks: `EXPORT_RECEIPTS`, `VERIFY_BUNDLE`, `EXPORT_FHIR`, then asserts output files exist and manifest validates against `evidence_bundle_manifest.v0.1.schema.json`. Export outputs are deterministic for a fixed seed; Receipt.v0.1 and EvidenceBundle manifest v0.1 are validated during the golden run.
 
 Run the golden suite with `LABTRUST_RUN_GOLDEN=1` (see [CI](ci.md)).
+
+## Security attack suite
+
+A separate **security attack suite** provides a coverage harness for risks (jailbreaks/prompt injection, tool vulnerability, identity spoofing/replay, memory poisoning, observability). It is defined in `policy/golden/security_attack_suite.v0.1.yaml` and executed by `src/labtrust_gym/benchmarks/security_runner.py`. Each attack maps to a risk_id, control_id, and either a prompt-injection scenario (`scenario_ref`) or a pytest module (`test_ref`); expected outcome is **blocked** or **detected**. The suite is deterministic (fixed seed) and CI-runnable in smoke mode (only attacks with `smoke: true`).
+
+- **CLI**: `labtrust run-security-suite --out <dir> [--seed 42] [--full]` writes `SECURITY/attack_results.json` and the full securitization packet (coverage.json, coverage.md, reason_codes.md, deps_inventory.json) under `<dir>/SECURITY/`.
+- **Package-release**: The paper_v0.1 profile runs the security suite (smoke-only) and emits the SECURITY/ folder automatically.
+
+See [Security attack suite and securitization packet](security_attack_suite.md) for artifact layout, coverage mapping, and verification (policy fingerprints).
+
+## Official benchmark pack
+
+A single-command benchmark pack for external researchers is available: **Official Benchmark Pack v0.1**. It runs a fixed set of tasks (A–H), scales, baselines, coordination methods, and the security suite; outputs baselines, SECURITY/, SAFETY_CASE/, and transparency log under one directory. See [Official benchmark pack](official_benchmark_pack.md) for policy (`policy/official/benchmark_pack.v0.1.yaml`), CLI (`labtrust run-official-pack --out <dir> --seed-base N`), and expected output tree.

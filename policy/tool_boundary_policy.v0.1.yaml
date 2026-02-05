@@ -1,0 +1,53 @@
+# Tool boundary policy v0.1: deny-by-default data egress, byte/record caps, data classification.
+# Tools must respect external boundary: no implicit network/file; explicit allowlists; caps; classification.
+
+tool_boundary_policy:
+  version: "0.1"
+  # Default limits when tool_id not in tools (deny-by-default: tight defaults).
+  default:
+    max_bytes_out: 4096
+    max_records_out: 100
+    allowed_egress_endpoints: ["internal"]
+    output_classification:
+      allowed_classes: ["Operational"]
+  # Per-tool overrides (optional).
+  tools:
+    - tool_id: "read_lims_v1"
+      max_bytes_out: 8192
+      max_records_out: 200
+      allowed_egress_endpoints: ["internal"]
+      output_classification:
+        allowed_classes: ["Operational", "PHI"]
+    - tool_id: "write_lims_v1"
+      max_bytes_out: 2048
+      max_records_out: 10
+      allowed_egress_endpoints: ["internal"]
+      output_classification:
+        allowed_classes: ["Operational"]
+    - tool_id: "query_queue_v1"
+      max_bytes_out: 4096
+      max_records_out: 50
+      allowed_egress_endpoints: ["internal"]
+      output_classification:
+        allowed_classes: ["Operational"]
+  # Field path -> data class for classification (dot notation; applied to output keys/values).
+  classification_rules:
+    - path: "patient_id"
+      class: "PHI"
+    - path: "accession_id"
+      class: "Operational"
+    - path: "specimen_id"
+      class: "Operational"
+    - path: "result_value"
+      class: "Operational"
+    - path: "*.patient_name"
+      class: "PHI"
+    - path: "*.dob"
+      class: "PII"
+    - path: "*.ip_address"
+      class: "IP"
+  # Keys in tool output that indicate egress destination (value must be in allowed_egress_endpoints).
+  egress_indicator_keys:
+    - "egress_to"
+    - "forward_to"
+    - "destination"

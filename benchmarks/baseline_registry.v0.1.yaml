@@ -16,3 +16,7 @@ official_tasks:
     baseline_id: scripted_ops_v1
   - task: TaskF
     baseline_id: insider_v1
+  - task: TaskG_COORD_SCALE
+    baseline_id: kernel_scheduler_or_v0
+  - task: TaskH_COORD_RISK
+    baseline_id: kernel_scheduler_or_v0

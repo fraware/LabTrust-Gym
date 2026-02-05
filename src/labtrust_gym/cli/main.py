@@ -291,6 +291,69 @@ def main() -> int:
         help="Keep _repro intermediate directory in output",
     )
     p_package_release.set_defaults(func=_run_package_release)
+    p_security_suite = sub.add_parser(
+        "run-security-suite",
+        help="Run security attack suite (smoke or full) and emit SECURITY/attack_results.json + securitization packet",
+    )
+    p_security_suite.add_argument(
+        "--out",
+        required=True,
+        help="Output directory; SECURITY/ will be created under it",
+    )
+    p_security_suite.add_argument(
+        "--smoke",
+        action="store_true",
+        default=True,
+        help="Run only smoke attacks (default True)",
+    )
+    p_security_suite.add_argument(
+        "--full",
+        action="store_true",
+        help="Run all attacks (overrides --smoke)",
+    )
+    p_security_suite.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Seed for deterministic runs (default 42)",
+    )
+    p_security_suite.set_defaults(func=_run_security_suite)
+    p_safety_case = sub.add_parser(
+        "safety-case",
+        help="Generate safety case (claim→control→test→artifact→command) to SAFETY_CASE/safety_case.json and .md",
+    )
+    p_safety_case.add_argument(
+        "--out",
+        required=True,
+        help="Output directory; SAFETY_CASE/ will be created under it",
+    )
+    p_safety_case.set_defaults(func=_run_safety_case)
+    p_deps_inventory = sub.add_parser(
+        "deps-inventory",
+        help="Write runtime dependency inventory (SBOM-lite) to <out>/SECURITY/deps_inventory_runtime.json",
+    )
+    p_deps_inventory.add_argument(
+        "--out",
+        required=True,
+        help="Output directory; SECURITY/deps_inventory_runtime.json will be created under it",
+    )
+    p_deps_inventory.set_defaults(func=_run_deps_inventory)
+    p_transparency_log = sub.add_parser(
+        "transparency-log",
+        help="Build global transparency log (TRANSPARENCY_LOG/) over episode digests with Merkle proofs.",
+    )
+    p_transparency_log.add_argument(
+        "--in",
+        dest="in_dir",
+        required=True,
+        help="Input artifact directory (must contain _repr/<task>/ and receipts/<task>/EvidenceBundle.v0.1)",
+    )
+    p_transparency_log.add_argument(
+        "--out",
+        required=True,
+        help="Output directory; TRANSPARENCY_LOG/ will be created under it",
+    )
+    p_transparency_log.set_defaults(func=_run_transparency_log)
     p_summarize = sub.add_parser(
         "summarize-results",
         help="Load results.json from dir(s)/file(s), aggregate by task+baseline+partner_id, write summary CSV + markdown",
@@ -351,6 +414,38 @@ def main() -> int:
         help="Overwrite existing output directory if it exists",
     )
     p_gen_baselines.set_defaults(func=_run_generate_official_baselines)
+    p_official_pack = sub.add_parser(
+        "run-official-pack",
+        help="Run official benchmark pack (baselines, SECURITY, SAFETY_CASE, TRANSPARENCY_LOG); single folder ready to upload.",
+    )
+    p_official_pack.add_argument(
+        "--out",
+        required=True,
+        help="Output directory (official pack result folder)",
+    )
+    p_official_pack.add_argument(
+        "--seed-base",
+        type=int,
+        default=100,
+        help="Base seed for deterministic runs (default 100)",
+    )
+    p_official_pack.add_argument(
+        "--smoke",
+        action="store_true",
+        default=None,
+        help="Use smoke settings (fewer episodes, security smoke-only); default when LABTRUST_OFFICIAL_PACK_SMOKE=1",
+    )
+    p_official_pack.add_argument(
+        "--no-smoke",
+        action="store_true",
+        help="Disable smoke; run full pack",
+    )
+    p_official_pack.add_argument(
+        "--full",
+        action="store_true",
+        help="Run full security suite (default: smoke-only)",
+    )
+    p_official_pack.set_defaults(func=_run_official_pack)
     from labtrust_gym.cli.eval_agent import register_parser as register_eval_agent
 
     register_eval_agent(sub)
@@ -681,6 +776,96 @@ def _run_package_release(args: argparse.Namespace) -> int:
         return 1
 
 
+def _run_security_suite(args: argparse.Namespace) -> int:
+    """Run security attack suite and emit SECURITY/attack_results.json + packet."""
+    from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
+    from labtrust_gym.benchmarks.securitization import emit_securitization_packet
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    smoke_only = not getattr(args, "full", False)
+    seed = getattr(args, "seed", 42)
+    try:
+        results = run_suite_and_emit(
+            policy_root=root,
+            out_dir=out_dir,
+            repo_root=root,
+            smoke_only=smoke_only,
+            seed=seed,
+            metadata={
+                "seed": seed,
+                "smoke_only": smoke_only,
+                "git_sha": _git_sha(),
+            },
+        )
+        emit_securitization_packet(root, out_dir)
+        passed = sum(1 for r in results if r.get("passed"))
+        print(
+            f"Security suite: {passed}/{len(results)} passed",
+            file=sys.stderr,
+        )
+        print(f"SECURITY/ written to {out_dir / 'SECURITY'}", file=sys.stderr)
+        return 0 if passed == len(results) else 1
+    except Exception as e:
+        print(f"run-security-suite failed: {e}", file=sys.stderr)
+        return 1
+
+
+def _run_safety_case(args: argparse.Namespace) -> int:
+    """Generate safety case to SAFETY_CASE/safety_case.json and safety_case.md."""
+    from labtrust_gym.security.safety_case import emit_safety_case
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        emit_safety_case(policy_root=root, out_dir=out_dir)
+        safety_dir = out_dir / "SAFETY_CASE"
+        print(f"SAFETY_CASE/ written to {safety_dir}", file=sys.stderr)
+        return 0
+    except Exception as e:
+        print(f"safety-case failed: {e}", file=sys.stderr)
+        return 1
+
+
+def _run_deps_inventory(args: argparse.Namespace) -> int:
+    """Write runtime dependency inventory to <out>/SECURITY/deps_inventory_runtime.json."""
+    from labtrust_gym.security.deps_inventory import write_deps_inventory_runtime
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = write_deps_inventory_runtime(out_dir, repo_root=root)
+    print(f"Wrote {out_path}", file=sys.stderr)
+    return 0
+
+
+def _run_transparency_log(args: argparse.Namespace) -> int:
+    """Build TRANSPARENCY_LOG/ from artifact dir (--in) into --out."""
+    from labtrust_gym.security.transparency import write_transparency_log
+
+    root = get_repo_root()
+    in_dir = Path(getattr(args, "in_dir", ""))
+    if not in_dir.is_absolute():
+        in_dir = root / in_dir
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    if not in_dir.is_dir():
+        print(f"Input directory not found: {in_dir}", file=sys.stderr)
+        return 1
+    out_dir.mkdir(parents=True, exist_ok=True)
+    log_dir = write_transparency_log(in_dir, out_dir)
+    print(f"Wrote {log_dir} (log.json, root.txt, proofs/)", file=sys.stderr)
+    return 0
+
+
 def _run_study(args: argparse.Namespace) -> int:
     """Run study from spec; write manifest, conditions.jsonl, results/, logs/."""
     from labtrust_gym.studies.study_runner import run_study
@@ -887,6 +1072,42 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     print(f"Wrote {metadata_path}", file=sys.stderr)
     return 0
+
+
+def _run_official_pack(args: argparse.Namespace) -> int:
+    """Run official benchmark pack: baselines, SECURITY, SAFETY_CASE, TRANSPARENCY_LOG."""
+    from labtrust_gym.benchmarks.official_pack import run_official_pack
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    seed_base = getattr(args, "seed_base", 100)
+    full_security = getattr(args, "full", False)
+    smoke = False
+    if getattr(args, "no_smoke", False):
+        smoke = False
+    elif getattr(args, "smoke", None) is True:
+        smoke = True
+    else:
+        smoke = os.environ.get("LABTRUST_OFFICIAL_PACK_SMOKE", "").strip() in (
+            "1",
+            "true",
+            "yes",
+        ) or os.environ.get("LABTRUST_PAPER_SMOKE", "").strip() in ("1", "true", "yes")
+    try:
+        result = run_official_pack(
+            out_dir=out_dir,
+            repo_root=root,
+            seed_base=seed_base,
+            smoke=smoke,
+            full_security=full_security,
+        )
+        print(f"Official pack written to {result}", file=sys.stderr)
+        return 0
+    except Exception as e:
+        print(f"run-official-pack failed: {e}", file=sys.stderr)
+        return 1
 
 
 def _run_bench_smoke(args: argparse.Namespace) -> int:

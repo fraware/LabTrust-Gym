@@ -54,9 +54,12 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `reproduce --profile minimal \| full` | Reproduce minimal results + figures (TaskA & TaskC sweep + plots) |
 | `export-receipts --run \<log\> --out \<dir\>` | Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log |
 | `export-fhir --receipts \<dir\> --out \<dir\>` | Export FHIR R4 Bundle from receipts directory |
-| `verify-bundle --bundle \<dir\>` | Verify EvidenceBundle.v0.1: manifest, schema, hashchain, invariant trace |
+| `verify-bundle --bundle \<dir\>` | Verify EvidenceBundle.v0.1: manifest, schema, hashchain, invariant trace; optional policy fingerprints (tool, rbac, coordination, memory) |
+| `run-security-suite --out \<dir\>` | Run security attack suite; emit SECURITY/attack_results.json and securitization packet ([Security attack suite](security_attack_suite.md)) |
+| `safety-case --out \<dir\>` | Generate safety case (claim to control, test, artifact, command) to SAFETY_CASE/safety_case.json and .md ([Implementation verification](implementation_verification.md)) |
+| `run-official-pack --out \<dir\> [--seed-base N]` | Run Official Benchmark Pack v0.1; single output dir with baselines, SECURITY/, SAFETY_CASE/, transparency log ([Official benchmark pack](official_benchmark_pack.md)) |
 | `ui-export --run \<dir\> --out \<zip\>` | Export UI-ready zip (index, events, receipts_index, reason_codes) from run dir; see [UI data contract](ui_data_contract.md) |
-| `package-release --profile minimal \| full \| paper_v0.1 --out \<dir\>` | Release candidate: minimal/full = reproduce + receipts + FHIR + plots; paper_v0.1 = baselines + TaskF study + FIGURES/TABLES + receipts ([paper_ready](paper_ready.md)) |
+| `package-release --profile minimal \| full \| paper_v0.1 --out \<dir\>` | Release candidate: minimal/full = reproduce + receipts + FHIR + plots; paper_v0.1 = baselines + TaskF study + FIGURES/TABLES + receipts + SECURITY/ ([paper_ready](paper_ready.md)) |
 | `generate-official-baselines --out \<dir\>` | Run Tasks A–F with official baselines; write results/, summary, metadata (--episodes, --seed, --force) |
 | `summarize-results --in \<paths\> --out \<dir\>` | Aggregate results.json; write summary_v0.2.csv (CI-stable), summary_v0.3.csv (paper-grade), summary.csv + summary.md |
 | `determinism-report` | Run benchmark twice; produce determinism_report.md/.json; assert v0.2 metrics and log hash identical |
@@ -68,8 +71,8 @@ See [Repository structure](repository_structure.md) for the full directory layou
 
 | Path | Description |
 |------|-------------|
-| `policy/` | Versioned YAML/JSON: schemas, emits, invariants (v1.0), tokens, reason_codes, zones, sites, catalogue, stability, equipment, critical, enforcement, studies, **risks** (risk_registry), **coordination** (methods, method_risk_matrix, coordination_study_spec), llm, golden, partners. Validated by `labtrust validate-policy`. |
-| `src/labtrust_gym/` | Package: config, engine/, envs/ (PettingZoo), baselines/ (scripted, adversary, llm, **coordination** interface and methods, marl), benchmarks/ (tasks TaskA–TaskH, runner, coordination_scale, metrics, summarize), policy/ (loader, validate, risks, coordination), security/ (risk_injections, secret_scrubber, fs_safety, output_shaping, adversarial_detection), studies/ (study_runner, **coordination_study_runner**, plots, reproduce, package_release), export/, online/, runner/, logging/, cli/. |
+| `policy/` | Versioned YAML/JSON: schemas, emits, invariants (v1.0), tokens, reason_codes, zones, sites, catalogue, stability, equipment, critical, enforcement, studies, **risks** (risk_registry), **coordination** (methods, method_risk_matrix, coordination_study_spec, injections.v0.2), **safety_case** (claims.v0.1), **official** (benchmark_pack.v0.1), llm, golden, partners. Validated by `labtrust validate-policy`. |
+| `src/labtrust_gym/` | Package: config, engine/, coordination/ (identity, bus), memory/ (validators, store), tools/ (registry, sandbox), envs/ (PettingZoo), baselines/ (scripted, adversary, llm, coordination, adversary_coord, marl), benchmarks/ (tasks TaskA–TaskH, runner, coordination_scale, metrics, summarize, security_runner, securitization, official_pack), policy/, security/ (safety_case, risk_injections, …), studies/ (study_runner, coordination_study_runner, plots, reproduce, package_release), export/, online/, runner/, logging/, cli/. |
 | `tests/` | Pytest: golden suite, policy validation, benchmarks, **coordination** (scale, methods, study, policy), **risk_injections**, studies, export, online, etc. |
 | `docs/` | MkDocs source: architecture, benchmarks, coordination (methods, scale, studies, policy, checklist), contracts, installation, repository_structure, STATUS. |
 
@@ -86,8 +89,8 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 - [UI data contract](ui_data_contract.md) — ui-export bundle format; UI consumes ui-export output, not raw logs
 - [Invariants and enforcement](invariants_registry.md) · [Enforcement](enforcement.md)
 - [PettingZoo API](pettingzoo_api.md)
-- [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Coordination benchmark card](coordination_benchmark_card.md) (TaskG/TaskH; scenario generation, metrics, determinism, limitations) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md)
-- [FHIR R4 export](fhir_export.md) · [Evidence verification](evidence_verification.md)
+- [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Coordination benchmark card](coordination_benchmark_card.md) (TaskG/TaskH; scenario generation, metrics, determinism, limitations) · [Official benchmark pack](official_benchmark_pack.md) (v0.1) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md)
+- [FHIR R4 export](fhir_export.md) · [Evidence verification](evidence_verification.md) · [Security attack suite and securitization packet](security_attack_suite.md) · [Implementation verification](implementation_verification.md) (safety case, controls, artifacts)
 - [MARL baselines](marl_baselines.md) · [LLM baselines](llm_baselines.md) · [Live LLM benchmark mode](llm_live.md)
 - [Security controls for online mode](security_online.md) · [Deployment hardening](deployment_hardening.md) (B008) · [Output controls](output_controls.md) (B009)
 - [CI](ci.md) · [STATUS](STATUS.md)

@@ -1,0 +1,30 @@
+# Tool registry v0.1: signed registry of allowed tools.
+# Agent may only call tools that exist here with pinned versions and declared capabilities.
+# Covers: Unverified Tool Risk, Tool Vulnerability Exploitation Risk, Unauthorized use (scoped capability gating).
+
+tool_registry:
+  version: "0.1"
+  tools:
+    - tool_id: "read_lims_v1"
+      publisher: "labtrust"
+      version: "0.1.0"
+      capabilities: ["lims.read"]
+      risk_class: "low"
+      arg_schema_ref: "tool_args/read_lims_v1.args.v0.1.schema.json"
+      signing_key_id: null
+
+    - tool_id: "write_lims_v1"
+      publisher: "labtrust"
+      version: "0.1.0"
+      capabilities: ["lims.write"]
+      risk_class: "med"
+      arg_schema_ref: "tool_args/write_lims_v1.args.v0.1.schema.json"
+      signing_key_id: null
+
+    - tool_id: "query_queue_v1"
+      publisher: "labtrust"
+      version: "0.1.0"
+      capabilities: ["queue.read"]
+      risk_class: "low"
+      arg_schema_ref: "tool_args/query_queue_v1.args.v0.1.schema.json"
+      signing_key_id: null

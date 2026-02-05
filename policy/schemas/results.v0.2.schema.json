@@ -48,7 +48,9 @@
               "tokens_minted": { "type": "integer" },
               "tokens_consumed": { "type": "integer" },
               "holds_count": { "type": "integer" },
-              "steps": { "type": "integer" }
+              "steps": { "type": "integer" },
+              "tool_selection_errors_count": { "type": "integer" },
+              "tool_selection_errors_rate": { "type": ["number", "null"] }
             }
           }
         }

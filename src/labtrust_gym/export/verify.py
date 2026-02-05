@@ -306,6 +306,147 @@ def _check_policy_manifest_and_root_hash(
     return errors
 
 
+def _check_tool_registry_fingerprint(
+    manifest: Dict[str, Any],
+    policy_root: Path,
+) -> List[str]:
+    """
+    When manifest has tool_registry_fingerprint: load tool registry from policy_root,
+    recompute digest, and verify it matches. Returns list of errors.
+    """
+    errors: List[str] = []
+    expected = manifest.get("tool_registry_fingerprint")
+    if not expected or not isinstance(expected, str):
+        return errors
+    try:
+        from labtrust_gym.tools.registry import (
+            load_tool_registry,
+            tool_registry_fingerprint,
+        )
+
+        registry = load_tool_registry(policy_root)
+        if not registry:
+            errors.append(
+                "manifest: tool_registry_fingerprint present but policy tool_registry.v0.1.yaml not found or empty"
+            )
+            return errors
+        actual = tool_registry_fingerprint(registry)
+        if actual != expected:
+            errors.append(
+                f"manifest: tool_registry_fingerprint mismatch: "
+                f"expected {expected[:16]}..., recomputed {actual[:16]}..."
+            )
+    except Exception as e:
+        errors.append(f"tool_registry_fingerprint check: {e}")
+    return errors
+
+
+def _check_rbac_policy_fingerprint(
+    manifest: Dict[str, Any],
+    policy_root: Path,
+) -> List[str]:
+    """
+    When manifest has rbac_policy_fingerprint: load RBAC policy from policy_root,
+    recompute digest, and verify it matches. Returns list of errors.
+    """
+    errors: List[str] = []
+    expected = manifest.get("rbac_policy_fingerprint")
+    if not expected or not isinstance(expected, str):
+        return errors
+    try:
+        from labtrust_gym.auth.authorize import rbac_policy_fingerprint
+        from labtrust_gym.engine.rbac import load_rbac_policy
+
+        rbac_path = policy_root / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+        rbac_policy = load_rbac_policy(rbac_path)
+        if not rbac_policy or not rbac_policy.get("roles"):
+            errors.append(
+                "manifest: rbac_policy_fingerprint present but policy "
+                "rbac/rbac_policy.v0.1.yaml not found or empty"
+            )
+            return errors
+        actual = rbac_policy_fingerprint(rbac_policy)
+        if actual != expected:
+            errors.append(
+                f"manifest: rbac_policy_fingerprint mismatch: "
+                f"expected {expected[:16]}..., recomputed {actual[:16]}..."
+            )
+    except Exception as e:
+        errors.append(f"rbac_policy_fingerprint check: {e}")
+    return errors
+
+
+def _policy_yaml_fingerprint(path: Path) -> str:
+    """Compute SHA-256 of canonical JSON of loaded YAML for reproducibility."""
+    from labtrust_gym.policy.loader import load_yaml
+
+    data = load_yaml(path)
+    payload = json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _check_coordination_policy_fingerprint(
+    manifest: Dict[str, Any],
+    policy_root: Path,
+) -> List[str]:
+    """
+    When manifest has coordination_policy_fingerprint: load
+    policy/coordination_identity_policy.v0.1.yaml, recompute digest, verify.
+    """
+    errors: List[str] = []
+    expected = manifest.get("coordination_policy_fingerprint")
+    if not expected or not isinstance(expected, str):
+        return errors
+    path = policy_root / "policy" / "coordination_identity_policy.v0.1.yaml"
+    if not path.exists():
+        errors.append(
+            "manifest: coordination_policy_fingerprint present but "
+            "policy/coordination_identity_policy.v0.1.yaml not found"
+        )
+        return errors
+    try:
+        actual = _policy_yaml_fingerprint(path)
+        if actual != expected:
+            errors.append(
+                f"manifest: coordination_policy_fingerprint mismatch: "
+                f"expected {expected[:16]}..., recomputed {actual[:16]}..."
+            )
+    except Exception as e:
+        errors.append(f"coordination_policy_fingerprint check: {e}")
+    return errors
+
+
+def _check_memory_policy_fingerprint(
+    manifest: Dict[str, Any],
+    policy_root: Path,
+) -> List[str]:
+    """
+    When manifest has memory_policy_fingerprint: load policy/memory_policy.v0.1.yaml,
+    recompute digest, verify.
+    """
+    errors: List[str] = []
+    expected = manifest.get("memory_policy_fingerprint")
+    if not expected or not isinstance(expected, str):
+        return errors
+    path = policy_root / "policy" / "memory_policy.v0.1.yaml"
+    if not path.exists():
+        errors.append(
+            "manifest: memory_policy_fingerprint present but "
+            "policy/memory_policy.v0.1.yaml not found"
+        )
+        return errors
+    try:
+        actual = _policy_yaml_fingerprint(path)
+        if actual != expected:
+            errors.append(
+                f"manifest: memory_policy_fingerprint mismatch: "
+                f"expected {expected[:16]}..., recomputed {actual[:16]}..."
+            )
+    except Exception as e:
+        errors.append(f"memory_policy_fingerprint check: {e}")
+    return errors
+
+
 def _check_invariant_trace(bundle_dir: Path) -> List[str]:
     """Re-run invariant consistency: violations in episode_log_subset must be superset of invariant_eval_trace."""
     errors: List[str] = []
@@ -390,6 +531,10 @@ def verify_bundle(
     errors.extend(
         _check_policy_manifest_and_root_hash(bundle_dir, manifest, policy_root)
     )
+    errors.extend(_check_tool_registry_fingerprint(manifest, policy_root))
+    errors.extend(_check_rbac_policy_fingerprint(manifest, policy_root))
+    errors.extend(_check_coordination_policy_fingerprint(manifest, policy_root))
+    errors.extend(_check_memory_policy_fingerprint(manifest, policy_root))
 
     passed = len(errors) == 0
     count_manifest = len(manifest.get("files", []))

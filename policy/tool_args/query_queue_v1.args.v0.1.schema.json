@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.query_queue_v1.args.v0.1",
+  "title": "query_queue_v1 arguments",
+  "description": "Argument schema for query_queue_v1: typed and range-checked.",
+  "type": "object",
+  "required": ["device_id"],
+  "additionalProperties": false,
+  "properties": {
+    "device_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Device identifier whose queue to query."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500,
+      "description": "Maximum number of queue items to return (optional)."
+    }
+  }
+}

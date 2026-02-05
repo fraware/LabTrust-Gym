@@ -1,0 +1,13 @@
+# Scheduler OR policy v0.1: rolling-horizon scheduler weights and cadence.
+# Used by kernel_scheduler_or for deterministic, operations-research-grade baseline.
+
+version: "0.1"
+horizon_steps: 15
+replan_cadence_steps: 1
+
+weights:
+  tardiness: 1.0
+  throughput: 0.5
+  violation_penalty: 2.0
+  coordination_overhead: 0.1
+fairness_regularizer: 0.2

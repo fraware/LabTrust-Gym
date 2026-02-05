@@ -26,6 +26,8 @@ reason_code_registry:
     - "SYS"      # system downtime / degraded mode
     - "SEC_INJ"  # security risk injection (TaskH): applied, detected, contained
     - "COORD"    # coordination timing and view consistency (TaskG/TaskH)
+    - "TOOL"     # tool registry: unverified tool, unauthorized use (B010)
+    - "MEM"      # memory hardening: authenticated writes, poison filtering, safe retrieval
 
   severity_scale:
     P0_STOP: "Hard stop: cannot proceed (patient safety or integrity)"
@@ -243,6 +245,27 @@ reason_code_registry:
       description: "Device is RUNNING; START_RUN blocked until run completes (simulated timing_mode)."
       triggers: ["START_RUN"]
       default_actions: ["BLOCK_ACTION"]
+
+    - code: "RC_DEVICE_MAINT"
+      namespace: "ROUTE"
+      severity: "P0_STOP"
+      description: "Device in maintenance window; START_RUN blocked until window ends."
+      triggers: ["START_RUN"]
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "RC_DEVICE_FAULT"
+      namespace: "ROUTE"
+      severity: "P0_STOP"
+      description: "Device in FAULT state; START_RUN blocked until reset/recovery."
+      triggers: ["START_RUN"]
+      default_actions: ["BLOCK_ACTION"]
+
+    - code: "RC_REAGENT_STOCKOUT"
+      namespace: "ROUTE"
+      severity: "P1_QUARANTINE"
+      description: "Insufficient reagent for panel; START_RUN blocked or reroute required per reagent_policy."
+      triggers: ["START_RUN"]
+      default_actions: ["BLOCK_ACTION", "HOLD_OR_REROUTE"]
 
     - code: "RC_QUEUE_BAD_PAYLOAD"
       namespace: "ROUTE"
@@ -693,4 +716,153 @@ reason_code_registry:
       severity: "P0_STOP"
       description: "Shield rejected plan: agent action forbidden by RBAC or restricted zone without token."
       triggers: ["COORD_SHIELD_DECISION"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "COORD_SIGNATURE_INVALID"
+      namespace: "COORD"
+      severity: "P0_STOP"
+      description: "Coordination message signature verification failed (forged or tampered)."
+      triggers: ["COORD_MESSAGE_RECEIVE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "COORD_REPLAY_DETECTED"
+      namespace: "COORD"
+      severity: "P0_STOP"
+      description: "Coordination message nonce already seen; replay rejected."
+      triggers: ["COORD_MESSAGE_RECEIVE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "COORD_SENDER_NOT_AUTHORIZED"
+      namespace: "COORD"
+      severity: "P0_STOP"
+      description: "Coordination message sender not authorized for this message type or epoch."
+      triggers: ["COORD_MESSAGE_RECEIVE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    # -----------------------------
+    # Tool registry (B010: provably constrained tool usage)
+    # -----------------------------
+    - code: "TOOL_NOT_IN_REGISTRY"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool call references a tool_id not in the signed Tool Registry (pinned versions, capabilities)."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_NOT_ALLOWED_FOR_ROLE"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool is in registry but not allowed for this agent/role by scenario policy."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_ARG_SCHEMA_FAIL"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool call arguments failed structural validation (missing required, wrong type)."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_ARG_RANGE_FAIL"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool call arguments failed range/semantic validation (min/max, length)."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_EXEC_EXCEPTION"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool execution raised an exception (non-fatal; converted to BLOCKED)."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_TIMEOUT"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool execution exceeded timeout (simulated or real)."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_OUTPUT_MALFORMED"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool returned output that failed schema or structural validation."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_SELECTION_ERROR"
+      namespace: "TOOL"
+      severity: "P4_METRIC"
+      description: "Tool call allowed by registry and RBAC but inapplicable for current state (e.g. write_lims at read-only phase). Recorded as metric; step not blocked (soft fail)."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["LOG_ONLY"]
+      non_overridable: false
+
+    - code: "TOOL_EGRESS_DENIED"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool output attempted egress to non-allowlisted endpoint (deny-by-default boundary)."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_EGRESS_LIMIT_EXCEEDED"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool output exceeded max bytes or max records limit (boundary policy)."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "TOOL_DATA_CLASS_VIOLATION"
+      namespace: "TOOL"
+      severity: "P0_STOP"
+      description: "Tool output contained PII/PHI/IP or restricted data class not allowed for this egress."
+      triggers: ["INVOKE_TOOL", "TOOL_CALL"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    # -----------------------------
+    # Memory hardening (authenticated writes, poison filtering)
+    # -----------------------------
+    - code: "MEM_WRITE_UNAUTHENTICATED"
+      namespace: "MEM"
+      severity: "P0_STOP"
+      description: "Memory write rejected: missing or invalid writer signature (authenticated writes required)."
+      triggers: ["MEM_PUT", "MEM_WRITE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "MEM_WRITE_SCHEMA_FAIL"
+      namespace: "MEM"
+      severity: "P0_STOP"
+      description: "Memory entry failed schema or policy (allowed fields, max length, forbidden patterns)."
+      triggers: ["MEM_PUT", "MEM_WRITE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "MEM_POISON_DETECTED"
+      namespace: "MEM"
+      severity: "P0_STOP"
+      description: "Poison or instruction-override pattern detected in memory content; write rejected or entry filtered."
+      triggers: ["MEM_PUT", "MEM_GET"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+      non_overridable: true
+
+    - code: "MEM_RETRIEVAL_FILTERED"
+      namespace: "MEM"
+      severity: "P3_WARN"
+      description: "Retrieval returned fewer results due to poison/instruction filtering (safe retrieval rails)."
+      triggers: ["MEM_GET"]
       default_actions: ["LOG_ONLY"]

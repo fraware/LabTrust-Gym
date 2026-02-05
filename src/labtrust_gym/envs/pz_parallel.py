@@ -265,6 +265,10 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             self._episode_logger.set_episode_meta(
                 partner_id=initial_state.get("partner_id"),
                 policy_fingerprint=initial_state.get("policy_fingerprint"),
+                tool_registry_fingerprint=initial_state.get(
+                    "tool_registry_fingerprint"
+                ),
+                rbac_policy_fingerprint=initial_state.get("rbac_policy_fingerprint"),
             )
         self.agents = list(self.possible_agents)
         observations = self._collect_observations()

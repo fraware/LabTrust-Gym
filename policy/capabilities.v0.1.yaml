@@ -1,0 +1,15 @@
+# Capabilities vocabulary v0.1: controlled vocabulary for tool registry capabilities.
+# Tool registry capabilities must be a subset of this list. Used for tool-selection
+# error detection (state -> allowed_capabilities map) and risk coverage (R-TOOL-001).
+
+capabilities:
+  version: "0.1"
+  capability_ids:
+    - lims.read
+    - lims.write
+    - queue.read
+    - queue.write
+    - device.actuate
+    - device.calibrate
+    - device.stop
+    - net.egress
