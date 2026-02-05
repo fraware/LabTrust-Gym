@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.failure_models.v0.1",
+  "title": "Failure models v0.1",
+  "type": "object",
+  "required": ["failure_models"],
+  "additionalProperties": true,
+  "properties": {
+    "failure_models": {
+      "type": "object",
+      "required": ["version"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "device_failures": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "mtbf_hours": { "type": "number", "minimum": 0 },
+              "mttr_s": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "maintenance_schedule": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["device_id", "start_ts_s", "end_ts_s"],
+            "properties": {
+              "device_id": { "type": "string" },
+              "start_ts_s": { "type": "integer", "minimum": 0 },
+              "end_ts_s": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

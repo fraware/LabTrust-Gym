@@ -78,6 +78,22 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
         "policy/equipment/equipment_registry.v0.1.yaml",
         "equipment_registry.v0.1.schema.json",
     ),
+    (
+        "policy/equipment/failure_models.v0.1.yaml",
+        "failure_models.v0.1.schema.json",
+    ),
+    (
+        "policy/reagents/reagent_policy.v0.1.yaml",
+        "reagent_policy.v0.1.schema.json",
+    ),
+    (
+        "policy/safety_case/claims.v0.1.yaml",
+        "claims.v0.1.schema.json",
+    ),
+    (
+        "policy/official/benchmark_pack.v0.1.yaml",
+        "benchmark_pack.v0.1.schema.json",
+    ),
     ("policy/golden/golden_scenarios.v0.1.yaml", "golden_scenarios.v0.1.schema.json"),
     (
         "policy/enforcement/enforcement_map.v0.1.yaml",
@@ -112,6 +128,12 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
     (
         "policy/coordination/coordination_study_spec.v0.1.yaml",
         "coordination_study_spec.v0.1.schema.json",
+    ),
+    ("policy/tool_registry.v0.1.yaml", "tool_registry.v0.1.schema.json"),
+    ("policy/capabilities.v0.1.yaml", "capabilities.v0.1.schema.json"),
+    (
+        "policy/state_tool_capability_map.v0.1.yaml",
+        "state_tool_capability_map.v0.1.schema.json",
     ),
 ]
 
@@ -301,6 +323,34 @@ def validate_llm_schema_files(root: Path) -> list[str]:
     return errors
 
 
+def validate_tool_registry_capabilities_subset(root: Path) -> list[str]:
+    """
+    Validate that every capability in tool_registry is in the capabilities vocabulary.
+    Returns list of error messages; empty if valid or files missing.
+    """
+    errors: list[str] = []
+    cap_path = root / "policy" / "capabilities.v0.1.yaml"
+    reg_path = root / "policy" / "tool_registry.v0.1.yaml"
+    if not cap_path.exists() or not reg_path.exists():
+        return errors
+    try:
+        from labtrust_gym.tools.capabilities import (
+            load_capabilities_vocab,
+            validate_capabilities,
+        )
+        from labtrust_gym.tools.registry import load_tool_registry
+    except ImportError:
+        return errors
+    cap_vocab = load_capabilities_vocab(root)
+    registry = load_tool_registry(root)
+    if not registry or not cap_vocab:
+        return errors
+    subset_errors = validate_capabilities(registry, cap_vocab)
+    for msg in subset_errors:
+        errors.append(f"{reg_path}: {msg}")
+    return errors
+
+
 def validate_policy(root: Path, partner_id: str | None = None) -> list[str]:
     """
     Run all policy validations. Returns list of error messages (with file paths);
@@ -310,6 +360,7 @@ def validate_policy(root: Path, partner_id: str | None = None) -> list[str]:
     errors.extend(validate_runner_output_contract_schema(root))
     errors.extend(validate_all_policy_schemas(root))
     errors.extend(validate_llm_schema_files(root))
+    errors.extend(validate_tool_registry_capabilities_subset(root))
     if partner_id:
         errors.extend(validate_partner_overlay_files(root, partner_id))
         errors.extend(validate_merged_policy_consistency(root, partner_id))

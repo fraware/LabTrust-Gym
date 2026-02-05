@@ -1,0 +1,35 @@
+# Memory policy v0.1: authenticated writes, schema-limited content, TTL/decay, poison filtering.
+# Memory is an attack surface: signed writes, safe retrieval rails.
+
+memory_policy:
+  version: "0.1"
+  require_authenticated_writes: true
+  allowed_fields:
+    - "content"
+    - "summary"
+    - "role"
+    - "timestamp"
+    - "tags"
+    - "source"
+  max_content_length: 4096
+  max_summary_length: 256
+  ttl_bounds:
+    min_ttl_s: 0
+    max_ttl_s: 86400
+  default_ttl_s: 3600
+  forbidden_patterns:
+    - pattern: "ignore\\s+.*(instructions?|prompts?)"
+      flags: "i"
+    - pattern: "you are now|act as|pretend to be|roleplay as"
+      flags: "i"
+    - pattern: "system:.*(override|ignore|bypass)"
+      flags: "i"
+    - pattern: "\\<\|(im_start|im_end|system)\\>"
+      flags: "i"
+  instruction_override_patterns:
+    - pattern: "disregard (the )?(above|previous|initial) (instructions?|prompt)"
+      flags: "i"
+    - pattern: "new (instructions?|task):"
+      flags: "i"
+    - pattern: "from now on (you will|always)"
+      flags: "i"

@@ -2,7 +2,7 @@
 
 Auto-generated from docstrings (mkdocstrings). Build the docs site with `pip install -e ".[docs]"` and `mkdocs build --strict`.
 
-- **Engine, policy, benchmarks, studies**: Core env, loader/validate, runner/tasks, study_runner, **coordination_scale**, **coordination_study_runner**, reproduce.
+- **Engine, policy, benchmarks, studies**: Core env, loader/validate, runner/tasks, study_runner, **coordination_scale**, **coordination_study_runner**, **security_runner**, **securitization**, **official_pack**, reproduce. Safety case generation: `labtrust_gym.security.safety_case` (emit_safety_case).
 - **LLM baselines**: `labtrust_gym.baselines.llm` (agent, backends deterministic/openai_live/ollama_live, signing proxy, parse utilities); see [LLM baselines](../llm_baselines.md) and [Live LLM](../llm_live.md).
 - **Coordination**: Scale generation and study runner; methods and kernel live under `labtrust_gym.baselines.coordination`; see [Coordination methods](../coordination_methods.md) and [Coordination studies](../coordination_studies.md).
 

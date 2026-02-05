@@ -21,12 +21,14 @@ nav:
   - Policy pack and schemas: policy_pack.md
   - Coordination policy (risk and method registry): coordination_policy.md
   - Coordination methods (baselines at scale): coordination_methods.md
+  - Coordination method contract (v0.1): coordination_method_contract.md
   - Coordination scale generator: coordination_scale.md
   - Invariants and enforcement:
     - Invariant registry: invariants_registry.md
     - Enforcement: enforcement.md
     - FHIR R4 export: fhir_export.md
     - Evidence bundle verification: evidence_verification.md
+    - Security attack suite and securitization packet: security_attack_suite.md
   - Contracts and UI:
     - Frozen contracts: frozen_contracts.md
     - Public contract freeze (v0.1.0): CONTRACTS.md
@@ -39,9 +41,12 @@ nav:
     - Coordination studies (run and Pareto): coordination_studies.md
     - Coordination benchmark card (TaskG/TaskH): coordination_benchmark_card.md
     - Coordination done checklist: coordination_done_checklist.md
+    - Official benchmark pack (v0.1): official_benchmark_pack.md
     - Reproduce (minimal results + figures): reproduce.md
     - Paper-ready release: paper_ready.md
+  - Implementation verification (safety case, controls): implementation_verification.md
   - Reproducibility and seeding: reproducibility.md
+  - Reproducible builds (SLSA-ish): reproducible_builds.md
   - Threat model: threat_model.md
   - Security monitoring (adversarial detection): security_monitoring.md
   - Online mode: online_mode.md
@@ -53,6 +58,7 @@ nav:
   - LLM baselines: llm_baselines.md
   - Live LLM benchmark mode: llm_live.md
   - Contributing: contributing.md
+  - Testing strategy (fuzz and metamorphic): testing_strategy.md
   - Improvements before online: IMPROVEMENTS_BEFORE_ONLINE.md
   - CI: ci.md
   - STATUS: STATUS.md

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.claims.v0.1",
+  "title": "Safety case claims v0.1",
+  "type": "object",
+  "required": ["safety_case_claims"],
+  "additionalProperties": true,
+  "properties": {
+    "safety_case_claims": {
+      "type": "object",
+      "required": ["version", "claims"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["claim_id", "statement"],
+            "additionalProperties": true,
+            "properties": {
+              "claim_id": { "type": "string" },
+              "statement": { "type": "string" },
+              "controls": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "tests": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "artifacts": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "commands": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

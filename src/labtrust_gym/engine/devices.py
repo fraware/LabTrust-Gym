@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import yaml
 
@@ -104,6 +104,16 @@ def load_equipment_registry(path: Optional[Path] = None) -> Dict[str, Any]:
     return data.get("equipment_registry", data) if isinstance(data, dict) else {}
 
 
+def load_failure_models(path: Optional[Path] = None) -> Dict[str, Any]:
+    """Load failure_models YAML; return failure_models dict or empty."""
+    path = path or Path("policy/equipment/failure_models.v0.1.yaml")
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return data.get("failure_models", data) if isinstance(data, dict) else {}
+
+
 class DeviceStore:
     """
     Device state store: IDLE/RUNNING/FAULT/MAINT, active runs, completion times.
@@ -114,13 +124,17 @@ class DeviceStore:
         self,
         registry: Optional[Dict[str, Any]] = None,
         rng: Optional[RNG] = None,
+        failure_models: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._registry = registry or load_equipment_registry()
         self._rng = rng or RNG(0)
+        self._failure_models = failure_models or {}
         self._devices: Dict[str, DeviceRecord] = {}
         self._type_config: Dict[str, Dict[str, Any]] = {}
         self._total_busy_s: Dict[str, int] = {}
+        self._maintenance_windows: List[Tuple[str, int, int]] = []
         self._build()
+        self._build_maintenance_windows()
 
     def _build(self) -> None:
         types = self._registry.get("device_types") or {}
@@ -142,6 +156,50 @@ class DeviceStore:
                     active_run=None,
                     type_config=self._type_config.get(dtype, {}),
                 )
+
+    def _build_maintenance_windows(self) -> None:
+        """Populate _maintenance_windows from failure_models.maintenance_schedule."""
+        schedule = self._failure_models.get("maintenance_schedule") or []
+        for entry in schedule:
+            if isinstance(entry, dict):
+                did = entry.get("device_id")
+                start = entry.get("start_ts_s")
+                end = entry.get("end_ts_s")
+                if did is not None and start is not None and end is not None:
+                    self._maintenance_windows.append((str(did), int(start), int(end)))
+
+    def apply_maintenance(self, now_ts_s: int) -> None:
+        """
+        Apply maintenance windows at now_ts_s: set MAINT when in window (and IDLE),
+        clear to IDLE when outside all windows. Deterministic; call from core_env step.
+        """
+        for did, d in self._devices.items():
+            if d.state == "RUNNING":
+                continue
+            in_window = any(
+                dev_id == did and start_s <= now_ts_s < end_s
+                for dev_id, start_s, end_s in self._maintenance_windows
+            )
+            if in_window:
+                d.state = "MAINT"
+                d.active_run = None
+            else:
+                d.state = "IDLE"
+
+    def device_block_reason(self, device_id: str) -> Optional[str]:
+        """
+        Reason START_RUN is blocked: MAINT, FAULT, or RUNNING. None if IDLE (can start).
+        """
+        d = self._devices.get(device_id)
+        if not d:
+            return None
+        if d.state == "MAINT":
+            return "MAINT"
+        if d.state == "FAULT":
+            return "FAULT"
+        if d.state == "RUNNING":
+            return "RUNNING"
+        return None
 
     def set_known_devices(self, device_ids: List[str]) -> None:
         """Ensure these devices exist; create minimal records if missing."""
@@ -214,7 +272,7 @@ class DeviceStore:
 
     def finish_run(self, device_id: str) -> Optional[ActiveRun]:
         """
-        Clear the active run on the device and set state to IDLE.
+        Clear the active run on the device and set state to IDLE (or MAINT if in window).
         Accumulate busy time for utilization metrics.
         Returns the finished run info, or None if no run.
         """

@@ -1,0 +1,71 @@
+# Official Benchmark Pack v0.1: minimal, stable pack for external researchers.
+# Fixed tasks (A–H), scales (S/M/L), baselines, coordination methods, security suite definitions.
+# Results semantics v0.2 remains canonical. CLI: labtrust run-official-pack --out <dir> --seed-base N.
+
+version: "0.1"
+description: "Official benchmark pack: tasks, scales, baselines, coordination methods, security suite (smoke/full), required reports."
+
+tasks:
+  core:
+    - TaskA
+    - TaskB
+    - TaskC
+    - TaskD
+    - TaskE
+    - TaskF
+  coordination:
+    - TaskG
+    - TaskH
+  experimental:
+    []  # Optional TaskI, TaskJ when defined; leave empty for v0.1
+
+scale_configs:
+  S:
+    name: "Small"
+    num_agents_total: 4
+    num_devices: 2
+    num_sites: 1
+    arrival_rate: 1.0
+    horizon_steps: 100
+  M:
+    name: "Medium"
+    num_agents_total: 8
+    num_devices: 4
+    num_sites: 1
+    arrival_rate: 2.0
+    horizon_steps: 200
+  L:
+    name: "Large"
+    num_agents_total: 16
+    num_devices: 8
+    num_sites: 2
+    arrival_rate: 3.0
+    horizon_steps: 300
+
+baselines:
+  TaskA: scripted_ops_v1
+  TaskB: scripted_ops_v1
+  TaskC: scripted_ops_v1
+  TaskD: adversary_v1
+  TaskE: scripted_ops_v1
+  TaskF: insider_v1
+  TaskG: kernel_scheduler_or_v0
+  TaskH: kernel_scheduler_or_v0
+
+coordination_methods:
+  - centralized_planner
+  - hierarchical_hub_rr
+  - llm_constrained
+
+security_suite:
+  smoke:
+    enabled: true
+    description: "Smoke: attacks with smoke true; CI and pack default."
+  full:
+    enabled: false
+    description: "Full: all attacks; use --full when running pack."
+
+required_reports:
+  - security
+  - safety_case
+  - transparency_log

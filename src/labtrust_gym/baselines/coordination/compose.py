@@ -105,6 +105,9 @@ def compose_kernel(
             reset_fn = getattr(self._router, "reset", None)
             if callable(reset_fn):
                 reset_fn(seed)
+            sched_reset = getattr(self._scheduler, "reset", None)
+            if callable(sched_reset):
+                sched_reset(seed)
 
         def step(
             self,
@@ -155,6 +158,11 @@ def compose_kernel(
         def get_alloc_metrics(self) -> Optional[Dict[str, Any]]:
             """Allocator metrics if available (e.g. AuctionAllocator: gini, mean_bid, rebid_rate)."""
             fn = getattr(self._allocator, "get_alloc_metrics", None)
+            return fn() if callable(fn) else None
+
+        def get_schedule_metrics(self) -> Optional[Dict[str, Any]]:
+            """Schedule metrics if available (e.g. ORScheduler: mean_plan_time_ms, replan_rate)."""
+            fn = getattr(self._scheduler, "get_schedule_metrics", None)
             return fn() if callable(fn) else None
 
         def propose_actions(

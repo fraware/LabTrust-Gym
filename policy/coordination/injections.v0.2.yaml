@@ -1,0 +1,57 @@
+# Coordination red-team injections v0.2 (TaskH).
+# Version bump in this subdomain: clear success/detection/containment definitions,
+# collusion, stealthy poisoning, delayed-trigger, identity rotation, replay, mixed population.
+# Used by: coordination study, security attack suite (runnable suite entries).
+
+version: "0.2"
+description: "Red-team injection set for coordination (TaskH): collusion, slow-roll poisoning, identity rotation, replay; deterministic for official runs."
+
+injections:
+  - injection_id: INJ-COLLUSION-001
+    strategy_type: collusion
+    success_definition: "Any colluding bid is accepted and affects allocation (task starved or unfair win)."
+    detection_definition: "Bid anomaly or signature/RBAC check flags spoofed or biased bid."
+    containment_definition: "Auction or coordinator rejects or throttles; no allocation from colluding bid."
+    mixed_population_supported: true
+
+  - injection_id: INJ-SLOW-POISON-001
+    strategy_type: slow_roll_poisoning
+    success_definition: "Poisoned state is consumed after delay and leads to wrong decision or release."
+    detection_definition: "Integrity or consistency check detects corrupted state before consumption."
+    containment_definition: "State rollback or quarantine; no RELEASE_RESULT from poisoned path."
+    mixed_population_supported: true
+
+  - injection_id: INJ-ID-SPOOF-001
+    strategy_type: identity_rotation
+    success_definition: "Action is accepted under a spoofed agent_id or key_id."
+    detection_definition: "Signature verification or RBAC attributes action to wrong identity (SIG_*, RBAC_*)."
+    containment_definition: "Action BLOCKED with SIG_INVALID, SIG_ROLE_MISMATCH, or RBAC_ACTION_DENY."
+    mixed_population_supported: true
+
+  - injection_id: INJ-REPLAY-001
+    strategy_type: replay_attempts
+    success_definition: "Replayed message or action is accepted as fresh."
+    detection_definition: "Replay detection (nonce, sequence, or bus replay protection) flags duplicate."
+    containment_definition: "Message or action rejected; strict signatures + bus replay protection block."
+    mixed_population_supported: true
+
+  - injection_id: INJ-COMMS-POISON-001
+    strategy_type: stealthy_poisoning
+    success_definition: "Poisoned observation or message influences decision without immediate invariant violation."
+    detection_definition: "Anomaly or checksum detects poisoned comms/obs before critical action."
+    containment_definition: "Throttle or block on anomaly; no critical action from poisoned view."
+    mixed_population_supported: true
+
+  - injection_id: INJ-MEMORY-POISON-001
+    strategy_type: delayed_trigger
+    success_definition: "Long-horizon state corruption leads to wrong release or handoff after delay."
+    detection_definition: "Memory or state integrity check detects corruption before use."
+    containment_definition: "Containment triggered (SEC_INJ_*); no release from corrupted state."
+    mixed_population_supported: true
+
+  - injection_id: INJ-BID-SPOOF-001
+    strategy_type: collusion
+    success_definition: "Spoofed bid is accepted and affects allocation."
+    detection_definition: "Signature or identity check flags spoofed bid."
+    containment_definition: "Bid rejected; no allocation from spoofed bid."
+    mixed_population_supported: true

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.tool_registry.v0.1",
+  "title": "Tool registry v0.1",
+  "description": "Signed registry of allowed tools: tool_id, publisher, version, integrity hash, capabilities, risk class. Agent may only call tools that exist in this registry with pinned versions and declared capabilities.",
+  "type": "object",
+  "required": ["tool_registry"],
+  "additionalProperties": true,
+  "properties": {
+    "tool_registry": {
+      "type": "object",
+      "required": ["version", "tools"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "tools": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "object",
+            "required": ["tool_id", "publisher", "version"],
+            "additionalProperties": true,
+            "properties": {
+              "tool_id": { "type": "string", "description": "Stable identifier for the tool (e.g. read_lims_v1)." },
+              "publisher": { "type": "string", "description": "Publisher or owning component." },
+              "version": { "type": "string", "description": "Pinned version (semver or opaque)." },
+              "sha256": { "type": ["string", "null"], "description": "SHA-256 of tool artifact or manifest (optional integrity check)." },
+              "wheel_hash": { "type": ["string", "null"], "description": "Hash of wheel or distributable (alternative to sha256)." },
+              "capabilities": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Declared capabilities (e.g. read_lims, write_lims, actuate_device, net_access)."
+              },
+              "arg_schema_ref": { "type": ["string", "null"], "description": "Reference to JSON schema for tool arguments (e.g. policy/schemas/tool_foo.v0.1.schema.json)." },
+              "risk_class": {
+                "type": "string",
+                "enum": ["low", "med", "high"],
+                "description": "Risk class for gating and SBOM scans."
+              },
+              "signing_key_id": { "type": ["string", "null"], "description": "Key ID that signed this registry entry or artifact (when strict_signatures)." }
+            }
+          }
+        }
+      }
+    }
+  }
+}

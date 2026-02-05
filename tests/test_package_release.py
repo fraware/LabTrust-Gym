@@ -131,6 +131,12 @@ def test_package_release_paper_v01_smoke() -> None:
         assert (out / "COORDINATION_CARD.md").exists()
         assert (out / "_coordination_policy").is_dir()
         assert (out / "_coordination_policy" / "manifest.json").exists()
+        assert (out / "SECURITY" / "deps_inventory_runtime.json").exists()
+        assert (out / "TRANSPARENCY_LOG" / "log.json").exists()
+        assert (out / "TRANSPARENCY_LOG" / "root.txt").exists()
+        assert (out / "TRANSPARENCY_LOG" / "proofs").is_dir()
+        assert (out / "SAFETY_CASE" / "safety_case.json").exists()
+        assert (out / "SAFETY_CASE" / "safety_case.md").exists()
 
         meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
         assert meta["profile"] == "paper_v0.1"

@@ -21,7 +21,22 @@
             "properties": {
               "allowed_actions": { "type": "array", "items": { "type": "string" } },
               "allowed_zones": { "type": "array", "items": { "type": "string" } },
-              "allowed_devices": { "type": "array", "items": { "type": "string" } }
+              "allowed_devices": { "type": "array", "items": { "type": "string" } },
+              "allowed_tool_ids": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Tool IDs from tool registry this role may invoke (audited authZ)."
+              },
+              "allowed_capabilities": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Capability IDs from capabilities vocabulary; tool's capabilities must intersect (alternative to allowed_tool_ids)."
+              },
+              "resource_scopes": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Optional device sets / specimen fields scope (e.g. allowed_device_ids, allowed_specimen_fields)."
+              }
             }
           }
         },

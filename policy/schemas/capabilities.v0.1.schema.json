@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.capabilities.v0.1",
+  "title": "Capabilities vocabulary v0.1",
+  "description": "Controlled vocabulary for tool registry capabilities. Tool registry capabilities must be a subset of capability_ids.",
+  "type": "object",
+  "required": ["capabilities"],
+  "additionalProperties": true,
+  "properties": {
+    "capabilities": {
+      "type": "object",
+      "required": ["version", "capability_ids"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "capability_ids": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

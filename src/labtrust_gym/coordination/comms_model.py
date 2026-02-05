@@ -12,17 +12,20 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from labtrust_gym.coordination.blackboard import BlackboardEvent
+from labtrust_gym.coordination.network import NetworkModel
 
 
 @dataclass
 class CommsConfig:
     """
     Configuration for CommsModel. All params used for deterministic behavior when seeded.
-    perfect: if True, no delay/drop/reorder/duplicate.
-    delay_ms_mean, delay_ms_max: delay distribution (uniform [0, delay_ms_max] or mean-based).
+    perfect: if True, no delay/drop/reorder/duplicate (unless network_policy overrides).
+    delay_ms_mean, delay_ms_max: delay distribution when network_policy is not set.
     drop_rate: probability each event is dropped (per agent) in (0, 1).
     reorder_window: max steps events can be reordered (0 = no reorder).
     duplicate_rate: probability an event is delivered twice (0, 1).
+    network_policy: optional dict (network_policy.v0.1); when set, delivery routes through
+        NetworkModel and delay/drop/reorder are taken from policy (deterministic, seeded).
     """
 
     perfect: bool = True
@@ -31,6 +34,7 @@ class CommsConfig:
     drop_rate: float = 0.0
     reorder_window: int = 0
     duplicate_rate: float = 0.0
+    network_policy: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -58,6 +62,7 @@ class CommsModel:
         "_msg_count",
         "_delivered_latencies_ms",
         "_dropped_count",
+        "_network_model",
     )
 
     def __init__(
@@ -75,10 +80,22 @@ class CommsModel:
         self._msg_count = 0
         self._delivered_latencies_ms: List[float] = []
         self._dropped_count = 0
+        np = getattr(self._config, "network_policy", None)
+        self._network_model: Optional[NetworkModel] = (
+            NetworkModel(
+                agent_ids=self._agent_ids,
+                policy=np,
+                rng=self._rng,
+            )
+            if np
+            else None
+        )
 
     def reset(self, seed: int) -> None:
         """Reset state and RNG for new episode."""
         self._rng = random.Random(seed)
+        if self._network_model is not None:
+            self._network_model.reset(self._rng)
         for aid in self._agent_ids:
             self._pending_by_agent[aid] = []
         self._msg_count = 0
@@ -93,9 +110,13 @@ class CommsModel:
         """
         Process new log events and current step; return deliveries per agent:
         { agent_id: [events to apply this step] }.
-        With perfect=True, all events are delivered immediately to all agents.
+        When network_policy is set, routes through NetworkModel (delay/drop/partition/reorder).
+        With perfect=True and no network_policy, all events are delivered immediately.
         Otherwise: delay, drop, reorder, duplicate are applied (seeded).
         """
+        if self._network_model is not None:
+            return self._network_model.apply(log_events, now_t)
+
         deliveries: Dict[str, List[BlackboardEvent]] = {
             aid: [] for aid in self._agent_ids
         }
@@ -168,7 +189,9 @@ class CommsModel:
         return out
 
     def get_metrics(self) -> Dict[str, Any]:
-        """Return comm metrics for results: msg_count, p95_latency_ms, drop_rate."""
+        """Return comm metrics for results: msg_count, p95_latency_ms, drop_rate, partition_events (if network)."""
+        if self._network_model is not None:
+            return self._network_model.get_metrics()
         n = len(self._delivered_latencies_ms)
         if n == 0:
             p95_ms = 0.0

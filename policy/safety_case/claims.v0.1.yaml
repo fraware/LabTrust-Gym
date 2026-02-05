@@ -1,0 +1,94 @@
+# Safety case claims v0.1: claim -> control -> test(s) -> artifact(s) -> verification command.
+# Machine-generated safety case maps each claim to evidence; fully auto-generated, no handwavy docs.
+# Used by: labtrust safety-case --out <dir>; paper_v0.1 artifact includes SAFETY_CASE/.
+
+safety_case_claims:
+  version: "0.1"
+  claims:
+    - claim_id: "SC-CONTRACT-001"
+      statement: "Step output satisfies runner output contract (status, emits, violations, hashchain)."
+      controls:
+        - "Runner output schema enforcement"
+        - "Golden runner validates contract"
+      tests:
+        - "tests.test_golden_suite"
+        - "tests.test_metamorphic_properties"
+      artifacts:
+        - "policy/schemas/runner_output_contract.v0.1.schema.json"
+        - "SAFETY_CASE/safety_case.json"
+      commands:
+        - "pytest tests/test_golden_suite.py -q"
+        - "pytest tests/test_metamorphic_properties.py -q"
+
+    - claim_id: "SC-DETERMINISM-001"
+      statement: "Same seed yields identical step outcomes (determinism)."
+      controls:
+        - "Single RNG wrapper seeded per episode"
+        - "No ambient randomness in step"
+      tests:
+        - "tests.test_metamorphic_properties"
+        - "tests.test_failure_models_deterministic"
+      artifacts:
+        - "_repr/"
+        - "SAFETY_CASE/safety_case.md"
+      commands:
+        - "pytest tests/test_metamorphic_properties.py -q"
+        - "pytest tests/test_failure_models_deterministic.py -q"
+
+    - claim_id: "SC-SECURITY-001"
+      statement: "Security attack suite scenarios are blocked or detected as expected."
+      controls:
+        - "CTRL-LLM-SHIELD"
+        - "CTRL-RBAC"
+        - "CTRL-TOOL-SANDBOX"
+        - "CTRL-COORD-IDENTITY"
+      tests:
+        - "tests.test_security_attack_suite"
+        - "tests.test_securitization"
+      artifacts:
+        - "SECURITY/attack_results.json"
+        - "SECURITY/coverage.json"
+        - "SECURITY/coverage.md"
+      commands:
+        - "labtrust run-security-suite --out <dir> --smoke --seed 42"
+        - "pytest tests/test_security_attack_suite.py tests/test_securitization.py -q"
+
+    - claim_id: "SC-POLICY-001"
+      statement: "All policy files validate against their JSON schemas."
+      controls:
+        - "validate-policy before release"
+      tests:
+        - "tests.test_policy_validation"
+      artifacts:
+        - "policy/schemas/"
+      commands:
+        - "labtrust validate-policy"
+
+    - claim_id: "SC-FAILURE-PHYSICS-001"
+      statement: "Maintenance windows block START_RUN with RC_DEVICE_MAINT; reagent stockout blocks with RC_REAGENT_STOCKOUT."
+      controls:
+        - "failure_models.v0.1 maintenance_schedule"
+        - "reagent_policy.v0.1 panel_requirements"
+      tests:
+        - "tests.test_failure_models_deterministic"
+      artifacts:
+        - "policy/equipment/failure_models.v0.1.yaml"
+        - "policy/reagents/reagent_policy.v0.1.yaml"
+      commands:
+        - "pytest tests/test_failure_models_deterministic.py -q"
+
+    - claim_id: "SC-PAPER-ARTIFACT-001"
+      statement: "Paper v0.1 artifact is self-contained and includes SECURITY, receipts, TABLES, FIGURES, SAFETY_CASE."
+      controls:
+        - "package-release paper_v0.1 pipeline"
+      tests:
+        - "tests.test_package_release"
+      artifacts:
+        - "SECURITY/"
+        - "receipts/"
+        - "TABLES/"
+        - "FIGURES/"
+        - "SAFETY_CASE/"
+        - "RELEASE_NOTES.md"
+      commands:
+        - "labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>"

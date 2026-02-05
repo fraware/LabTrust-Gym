@@ -137,10 +137,14 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
             "sec.attack_success_rate": None,
             "sec.detection_latency_steps": None,
             "sec.containment_time_steps": None,
+            "sec.stealth_success_rate": None,
+            "sec.time_to_attribution_steps": None,
+            "sec.blast_radius_proxy": None,
             "robustness.resilience_score": None,
             "comm.msg_count": None,
             "comm.p95_latency_ms": None,
             "comm.drop_rate": None,
+            "comm.partition_events": None,
             "coordination.stale_action_rate": None,
             "coordination.deadlock_avoids": None,
         }
@@ -153,10 +157,14 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
     attack_success_sum = 0.0
     detection_steps: List[Optional[int]] = []
     containment_steps: List[Optional[int]] = []
+    stealth_success_sum = 0.0
+    time_to_attribution_list: List[Optional[int]] = []
+    blast_radius_list: List[Optional[float]] = []
     resilience_list: List[Optional[float]] = []
     msg_counts: List[float] = []
     p95_latency_ms_list: List[Optional[float]] = []
     drop_rates: List[Optional[float]] = []
+    partition_events_list: List[Optional[int]] = []
     stale_rates: List[Optional[float]] = []
     deadlock_avoids_list: List[Optional[float]] = []
 
@@ -172,6 +180,9 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
         attack_success_sum += 1.0 if sec.get("attack_success_rate") else 0.0
         detection_steps.append(sec.get("detection_latency_steps"))
         containment_steps.append(sec.get("containment_time_steps"))
+        stealth_success_sum += 1.0 if sec.get("stealth_success_rate") else 0.0
+        time_to_attribution_list.append(sec.get("time_to_attribution_steps"))
+        blast_radius_list.append(sec.get("blast_radius_proxy"))
         rob = m.get("robustness") or {}
         resilience_list.append(rob.get("resilience_score"))
         coord = m.get("coordination") or {}
@@ -179,6 +190,7 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
         msg_counts.append(comm.get("msg_count", 0))
         p95_latency_ms_list.append(comm.get("p95_latency_ms"))
         drop_rates.append(comm.get("drop_rate"))
+        partition_events_list.append(comm.get("partition_events"))
         timing = coord.get("timing") or {}
         stale_rates.append(timing.get("stale_action_rate"))
         route = coord.get("route") or {}
@@ -187,9 +199,12 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
     p95_vals = [x for x in p95_list if x is not None]
     det_vals = [x for x in detection_steps if x is not None]
     cont_vals = [x for x in containment_steps if x is not None]
+    attr_vals = [x for x in time_to_attribution_list if x is not None]
+    blast_vals = [x for x in blast_radius_list if x is not None]
     res_vals = [x for x in resilience_list if x is not None]
     drop_vals = [x for x in drop_rates if x is not None]
     p95_lat_vals = [x for x in p95_latency_ms_list if x is not None]
+    partition_vals = [x for x in partition_events_list if x is not None]
     stale_vals = [x for x in stale_rates if x is not None]
     deadlock_vals = [x for x in deadlock_avoids_list if x is not None]
 
@@ -205,6 +220,13 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
         "sec.containment_time_steps": (
             sum(cont_vals) / len(cont_vals) if cont_vals else None
         ),
+        "sec.stealth_success_rate": stealth_success_sum / n if n else None,
+        "sec.time_to_attribution_steps": (
+            sum(attr_vals) / len(attr_vals) if attr_vals else None
+        ),
+        "sec.blast_radius_proxy": (
+            sum(blast_vals) / len(blast_vals) if blast_vals else None
+        ),
         "robustness.resilience_score": (
             sum(res_vals) / len(res_vals) if res_vals else None
         ),
@@ -213,6 +235,9 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
             sum(p95_lat_vals) / len(p95_lat_vals) if p95_lat_vals else None
         ),
         "comm.drop_rate": sum(drop_vals) / len(drop_vals) if drop_vals else None,
+        "comm.partition_events": (
+            sum(partition_vals) if partition_vals else None
+        ),
         "coordination.stale_action_rate": (
             sum(stale_vals) / len(stale_vals) if stale_vals else None
         ),
@@ -283,6 +308,9 @@ def _write_summary_csv(out_path: Path, rows: List[Dict[str, Any]]) -> None:
         "sec.attack_success_rate",
         "sec.detection_latency_steps",
         "sec.containment_time_steps",
+        "sec.stealth_success_rate",
+        "sec.time_to_attribution_steps",
+        "sec.blast_radius_proxy",
         "robustness.resilience_score",
         "resilience.component_perf",
         "resilience.component_safety",
@@ -291,12 +319,16 @@ def _write_summary_csv(out_path: Path, rows: List[Dict[str, Any]]) -> None:
         "comm.msg_count",
         "comm.p95_latency_ms",
         "comm.drop_rate",
+        "comm.partition_events",
     ]
     optional_empty = [
         "perf.p95_tat",
         "sec.attack_success_rate",
         "sec.detection_latency_steps",
         "sec.containment_time_steps",
+        "sec.stealth_success_rate",
+        "sec.time_to_attribution_steps",
+        "sec.blast_radius_proxy",
         "robustness.resilience_score",
         "resilience.component_perf",
         "resilience.component_safety",
@@ -305,6 +337,7 @@ def _write_summary_csv(out_path: Path, rows: List[Dict[str, Any]]) -> None:
         "comm.msg_count",
         "comm.p95_latency_ms",
         "comm.drop_rate",
+        "comm.partition_events",
     ]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as f:
@@ -597,6 +630,19 @@ def run_coordination_study(
     _write_summary_csv(summary_dir / "summary_coord.csv", summary_rows)
     _write_pareto_md(summary_dir / "pareto.md", summary_rows, spec)
 
+    pareto_dir = out_dir / "PARETO"
+    try:
+        from labtrust_gym.benchmarks.pareto import write_pareto_artifacts
+
+        write_pareto_artifacts(
+            pareto_dir,
+            summary_rows,
+            seed_base,
+            spec=spec,
+        )
+    except Exception:
+        pass
+
     manifest = {
         "study_id": study_id,
         "spec_path": str(spec_path.resolve()),
@@ -606,6 +652,8 @@ def run_coordination_study(
         "num_cells": len(cell_ids),
         "cell_ids": cell_ids,
     }
+    if pareto_dir.exists():
+        manifest["pareto_dir"] = str(pareto_dir.resolve())
     manifest_path = out_dir / "manifest_coordination.json"
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"

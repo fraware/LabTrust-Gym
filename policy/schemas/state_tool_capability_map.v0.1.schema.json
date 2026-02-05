@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.state_tool_capability_map.v0.1",
+  "title": "State-tool capability map v0.1",
+  "description": "Maps env state labels / phases to allowed capabilities for tool-selection error detection.",
+  "type": "object",
+  "required": ["state_tool_capability_map"],
+  "additionalProperties": true,
+  "properties": {
+    "state_tool_capability_map": {
+      "type": "object",
+      "required": ["version", "state_labels"],
+      "additionalProperties": true,
+      "properties": {
+        "version": { "type": "string" },
+        "state_labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["allowed_capabilities"],
+            "properties": {
+              "allowed_capabilities": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

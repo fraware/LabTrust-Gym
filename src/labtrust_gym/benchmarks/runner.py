@@ -2,11 +2,13 @@
 Benchmark runner: run N episodes for a task, record metrics, output JSON.
 
 Writes results.json with metadata: git commit, policy versions, seeds, config.
+When coordination is used, writes coord_decisions.jsonl (contract v0.1) per episode.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -123,6 +125,10 @@ def run_episode(
     step_results_per_step: List[List[Dict[str, Any]]] = []
     t_s_list: List[int] = []
     dt_s = getattr(env, "_dt_s", 10)
+    coord_decisions_path: Optional[Path] = None
+    if coord_method is not None and log_path is not None:
+        coord_decisions_path = log_path.parent / "coord_decisions.jsonl"
+        coord_decisions_path.write_text("", encoding="utf-8")
     timing_mode = str(initial_state.get("timing_mode", "explicit")).strip().lower()
     if timing_mode not in ("explicit", "simulated"):
         timing_mode = "explicit"
@@ -159,6 +165,7 @@ def run_episode(
         dt_ms = float(getattr(env, "_dt_s", 10)) * 1000.0
 
     for step_t in range(task.max_steps):
+        view_ages_ms_step = []
         obs_for_step = obs
         audit_obs: Optional[Dict[str, Any]] = None
         if risk_injector is not None:
@@ -274,6 +281,42 @@ def run_episode(
                     "coord_stale_payload": payload,
                 }
             )
+        if coord_method is not None and coord_decisions_path is not None:
+            from labtrust_gym.baselines.coordination.telemetry import (
+                build_contract_record,
+                serialize_contract_record,
+                validate_contract_record,
+            )
+            view_age_ms = max(view_ages_ms_step) if view_ages_ms_step else None
+            view_age_ms_per_agent = None
+            if stale_emit_payloads_this_step:
+                view_age_ms_per_agent = {
+                    p["agent_id"]: p["view_age_ms"]
+                    for p in stale_emit_payloads_this_step
+                    if "agent_id" in p and "view_age_ms" in p
+                }
+            shield_emits = getattr(coord_method, "last_shield_emits", None) or []
+            contract_record = build_contract_record(
+                method_id=coord_method.method_id,
+                t_step=step_t,
+                actions_dict=actions_dict,
+                view_age_ms=view_age_ms,
+                view_age_ms_per_agent=view_age_ms_per_agent,
+                plan_time_ms=None,
+                invariants_considered=[],
+                safety_shield_applied=bool(shield_emits),
+                safety_shield_details=(
+                    {"count": len(shield_emits)} if shield_emits else None
+                ),
+            )
+            if os.environ.get("LABTRUST_STRICT_COORD_CONTRACT") == "1":
+                errs = validate_contract_record(contract_record)
+                if errs:
+                    raise ValueError(
+                        f"Coord contract validation failed at step {step_t}: {errs}"
+                    )
+            with coord_decisions_path.open("a", encoding="utf-8") as f:
+                f.write(serialize_contract_record(contract_record))
         step_results_per_step.append(step_results)
         if coord_method is not None and hasattr(coord_method, "on_step_result"):
             coord_method.on_step_result(step_results)
@@ -341,6 +384,11 @@ def run_episode(
         alloc_metrics = getattr(coord_method, "get_alloc_metrics", lambda: None)()
         if alloc_metrics is not None:
             metrics.setdefault("coordination", {})["alloc"] = alloc_metrics
+        sched_metrics = getattr(
+            coord_method, "get_schedule_metrics", lambda: None
+        )()
+        if sched_metrics is not None:
+            metrics.setdefault("coordination", {})["sched"] = sched_metrics
         hierarchy_metrics = getattr(
             coord_method, "get_hierarchy_metrics", lambda: None
         )()
@@ -439,6 +487,43 @@ def run_benchmark(
         task.get_initial_state(0).get("strict_signatures")
         or (overrides or {}).get("strict_signatures")
     )
+    # Inject tool registry so engine can gate tool_id calls (B010).
+    try:
+        from labtrust_gym.tools.registry import (
+            load_tool_registry,
+            tool_registry_fingerprint as tool_reg_fp,
+        )
+
+        tool_reg = load_tool_registry(repo_root)
+        if tool_reg:
+            overrides = overrides or {}
+            overrides["tool_registry"] = tool_reg
+            overrides["tool_registry_fingerprint"] = tool_reg_fp(tool_reg)
+            overrides["policy_root"] = repo_root
+            try:
+                from labtrust_gym.tools.capabilities import (
+                    load_state_tool_capability_map,
+                )
+
+                state_map = load_state_tool_capability_map(repo_root)
+                if state_map:
+                    overrides["state_tool_capability_map"] = state_map
+            except Exception:
+                pass
+            try:
+                from labtrust_gym.engine.rbac import load_rbac_policy
+                from labtrust_gym.auth.authorize import rbac_policy_fingerprint
+
+                rbac_path = repo_root / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+                rbac_policy = load_rbac_policy(rbac_path)
+                if rbac_policy and rbac_policy.get("roles"):
+                    overrides["rbac_policy_fingerprint"] = rbac_policy_fingerprint(
+                        rbac_policy
+                    )
+            except Exception:
+                pass
+    except Exception:
+        pass
     key_registry_merged: Optional[Dict[str, Any]] = None
     get_private_key_fn: Optional[Any] = None
     if llm_backend and use_strict_signatures:
@@ -894,6 +979,9 @@ def run_benchmark(
         "agent_baseline_id": agent_baseline_id,
         "episodes": episodes_metrics,
     }
+    tool_reg_fp = (initial_state_overrides or {}).get("tool_registry_fingerprint")
+    if tool_reg_fp is not None:
+        results["tool_registry_fingerprint"] = tool_reg_fp
 
     if llm_backend is not None:
         if llm_backend == "deterministic":

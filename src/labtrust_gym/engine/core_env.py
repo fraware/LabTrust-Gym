@@ -17,9 +17,13 @@ from typing import Any, Dict, List, Optional
 
 from labtrust_gym.engine.audit_log import AuditLog
 from labtrust_gym.engine.catalogue_runtime import (
+    build_initial_reagent_stock,
     check_stability,
     check_temp_out_of_band,
+    get_panel_reagent_requirement,
+    load_reagent_policy,
     load_stability_policy,
+    RC_REAGENT_STOCKOUT,
 )
 from labtrust_gym.engine.critical import (
     CRIT_ACK_MISSING_FIELDS,
@@ -34,16 +38,17 @@ from labtrust_gym.engine.queueing import QueueStore
 from labtrust_gym.engine.specimens import SpecimenStore
 from labtrust_gym.engine.tokens_runtime import TokenStore
 from labtrust_gym.engine.clock import Clock
-from labtrust_gym.engine.devices import DeviceStore, load_equipment_registry
+from labtrust_gym.engine.devices import (
+    DeviceStore,
+    load_equipment_registry,
+    load_failure_models,
+)
 from labtrust_gym.engine.rng import RNG
 from labtrust_gym.engine.invariants_runtime import (
     InvariantsRuntime,
     merge_violations_by_invariant_id,
 )
-from labtrust_gym.engine.enforcement import (
-    EnforcementEngine,
-    apply_enforcement,
-)
+from labtrust_gym.engine.enforcement import EnforcementEngine
 from labtrust_gym.engine.zones import (
     ZoneState,
     build_device_zone_map,
@@ -82,6 +87,32 @@ from labtrust_gym.security.agent_capabilities import (
     AGENT_RATE_LIMIT,
     AGENT_OVERRIDE_BUDGET_EXCEEDED,
 )
+from labtrust_gym.tools.registry import (
+    check_tool_allowed,
+    TOOL_NOT_IN_REGISTRY,
+    TOOL_NOT_ALLOWED_FOR_ROLE,
+)
+from labtrust_gym.auth.authorize import is_tool_allowed as authz_is_tool_allowed
+from labtrust_gym.tools.arg_validation import (
+    validate_tool_args,
+    TOOL_ARG_SCHEMA_FAIL,
+    TOOL_ARG_RANGE_FAIL,
+)
+from labtrust_gym.tools.execution import (
+    execute_tool_safely,
+    TOOL_EXEC_EXCEPTION,
+    TOOL_TIMEOUT,
+    TOOL_OUTPUT_MALFORMED,
+)
+from labtrust_gym.tools.capabilities import (
+    get_allowed_capabilities_for_state,
+    load_state_tool_capability_map,
+)
+from labtrust_gym.tools.sandbox import (
+    load_tool_boundary_policy,
+    ToolSandbox,
+)
+from labtrust_gym.baselines.llm.tool_proxy import get_tool_capabilities
 from labtrust_gym.policy.tokens import (
     Token,
     load_token_registry,
@@ -91,6 +122,7 @@ from labtrust_gym.runner.adapter import LabTrustEnvAdapter
 
 
 AUDIT_CHAIN_BROKEN = "AUDIT_CHAIN_BROKEN"
+TOOL_SELECTION_ERROR = "TOOL_SELECTION_ERROR"
 FORENSIC_FREEZE_LOG = "FORENSIC_FREEZE_LOG"
 RBAC_RESTRICTED_ENTRY_DENY = "RBAC_RESTRICTED_ENTRY_DENY"
 Z_RESTRICTED_BIOHAZARD = "Z_RESTRICTED_BIOHAZARD"
@@ -106,6 +138,8 @@ RC_QUEUE_DUPLICATE_WORK_ID = "RC_QUEUE_DUPLICATE_WORK_ID"
 RC_QUEUE_EMPTY = "RC_QUEUE_EMPTY"
 RC_QUEUE_HEAD_MISMATCH = "RC_QUEUE_HEAD_MISMATCH"
 RC_DEVICE_BUSY = "RC_DEVICE_BUSY"
+RC_DEVICE_MAINT = "RC_DEVICE_MAINT"
+RC_DEVICE_FAULT = "RC_DEVICE_FAULT"
 
 # Minimal token type config when policy file not found (GS-010 dual approval).
 _DEFAULT_TOKEN_TYPES = {
@@ -256,7 +290,15 @@ class CoreEnv(LabTrustEnvAdapter):
                 registry = effective_policy["equipment_registry"]
             else:
                 registry = load_equipment_registry()
-            self._device_store = DeviceStore(registry=registry, rng=self._rng)
+            failure_models = None
+            policy_root_for_fm = initial_state.get("policy_root")
+            root_path = Path(policy_root_for_fm) if policy_root_for_fm else Path(".")
+            fm_path = root_path / "policy" / "equipment" / "failure_models.v0.1.yaml"
+            if fm_path.exists():
+                failure_models = load_failure_models(fm_path)
+            self._device_store = DeviceStore(
+                registry=registry, rng=self._rng, failure_models=failure_models
+            )
             self._device_store.set_known_devices(list(self._device_zone.keys()))
             self._clock = Clock()
         self._stability_policy: Dict[str, Any] = {}
@@ -279,6 +321,19 @@ class CoreEnv(LabTrustEnvAdapter):
                 self._invariants_runtime = None
         else:
             self._invariants_runtime = None
+        self._reagent_policy = {}
+        self._reagent_stock = {}
+        _root = initial_state.get("policy_root")
+        _rp_root = Path(_root) if _root else Path(".")
+        rp_path = _rp_root / "policy" / "reagents" / "reagent_policy.v0.1.yaml"
+        if rp_path.exists():
+            self._reagent_policy = load_reagent_policy(rp_path)
+            self._reagent_stock = build_initial_reagent_stock(self._reagent_policy)
+        override = initial_state.get("reagent_initial_stock")
+        if isinstance(override, dict):
+            for k, v in override.items():
+                if isinstance(v, (int, float)):
+                    self._reagent_stock[str(k)] = float(v)
         self._enforcement_enabled = bool(
             initial_state.get("enforcement_enabled", False)
         )
@@ -361,6 +416,29 @@ class CoreEnv(LabTrustEnvAdapter):
             self._capability_policy = load_agent_capabilities(Path("."))
         self._episode_agent_action_count = {}
         self._episode_agent_override_count = {}
+        self._tool_registry: Dict[str, Any] = dict(
+            initial_state.get("tool_registry") or {}
+        )
+        self._allowed_tools: Optional[List[str]] = initial_state.get("allowed_tools")
+        _policy_root = initial_state.get("policy_root")
+        self._policy_root: Optional[Path] = (
+            Path(_policy_root) if _policy_root is not None else None
+        )
+        self._tool_adapter: Optional[Any] = initial_state.get("tool_adapter")
+        self._tool_timeout_s: Optional[float] = initial_state.get("tool_timeout_s")
+        self._state_label: Optional[str] = initial_state.get("state_label")
+        state_map = initial_state.get("state_tool_capability_map")
+        if state_map is not None and isinstance(state_map, dict):
+            self._state_tool_capability_map = dict(state_map)
+        elif self._policy_root is not None:
+            self._state_tool_capability_map = load_state_tool_capability_map(
+                self._policy_root
+            )
+        else:
+            self._state_tool_capability_map = {}
+        self._tool_boundary_policy: Dict[str, Any] = {}
+        if self._policy_root is not None and self._tool_registry:
+            self._tool_boundary_policy = load_tool_boundary_policy(self._policy_root)
 
     def _increment_capability_counts(self, agent_id: str, action_type: str) -> None:
         """Increment per-episode action and override counts (after ACCEPTED)."""
@@ -404,7 +482,9 @@ class CoreEnv(LabTrustEnvAdapter):
             and self._audit is not None
         ):
             violations = result.get("violations") or []
-            enforcements = apply_enforcement(
+            from labtrust_gym.control_plane import apply_enforcement_post_step
+
+            enforcements = apply_enforcement_post_step(
                 event,
                 violations,
                 self._enforcement_engine,
@@ -446,6 +526,7 @@ class CoreEnv(LabTrustEnvAdapter):
             self._clock.set(t_s)
             for did, _ in self._device_store.completions(t_s):
                 self._device_store.finish_run(did)
+            self._device_store.apply_maintenance(t_s)
         action_type = event.get("action_type", "")
         args = event.get("args", {})
         token_refs = event.get("token_refs", [])
@@ -465,6 +546,117 @@ class CoreEnv(LabTrustEnvAdapter):
                 "hashchain": hashchain,
             }
 
+        # Tool registry gate (B010): any event with tool_id must reference a registered, allowed tool.
+        # When allowed_tools is set (e.g. tests), use allowlist; else use RBAC policy (audited authZ).
+        tool_id = event.get("tool_id")
+        if tool_id is not None and str(tool_id).strip():
+            agent_id_tool = str(event.get("agent_id", ""))
+            role_id_tool = (
+                rbac_get_agent_role(agent_id_tool, self._rbac_policy)
+                if agent_id_tool
+                else None
+            )
+            if self._allowed_tools is not None:
+                allowed, tool_reason = check_tool_allowed(
+                    str(tool_id).strip(),
+                    self._tool_registry,
+                    agent_id=agent_id_tool,
+                    role_id=role_id_tool,
+                    allowed_tools=self._allowed_tools,
+                )
+            else:
+                allowed, tool_reason = authz_is_tool_allowed(
+                    role_id_tool,
+                    str(tool_id).strip(),
+                    self._tool_registry,
+                    self._rbac_policy,
+                    {},
+                )
+            if not allowed and tool_reason:
+                hashchain_tool = self._audit.hashchain_snapshot()
+                return {
+                    **base,
+                    "status": "BLOCKED",
+                    "emits": [],
+                    "blocked_reason_code": tool_reason,
+                    "hashchain": hashchain_tool,
+                }
+            base["tool_call"] = True
+            # Tool selection error (soft fail): allowed by registry & RBAC but inapplicable for current state.
+            state_allowed = get_allowed_capabilities_for_state(
+                getattr(self, "_state_label", None),
+                getattr(self, "_state_tool_capability_map", {}),
+            )
+            if state_allowed is not None:
+                tool_caps = get_tool_capabilities(
+                    self._tool_registry, str(tool_id).strip()
+                )
+                allowed_set = set(state_allowed)
+                if tool_caps and any(c not in allowed_set for c in tool_caps):
+                    base["tool_selection_error"] = True
+                    base.setdefault("violations", []).append(
+                        {
+                            "invariant_id": "TOOL_SELECTION_ERROR",
+                            "status": "VIOLATION",
+                            "reason_code": TOOL_SELECTION_ERROR,
+                            "message": "Tool allowed by registry and RBAC but inapplicable for current state.",
+                        }
+                    )
+                    base["emits"] = list(base.get("emits", [])) + [TOOL_SELECTION_ERROR]
+            # Tool arg validation: typed and range-checked (after allowlist).
+            if allowed:
+                args_for_tool = args if isinstance(args, dict) else {}
+                ok, arg_reason, _details = validate_tool_args(
+                    str(tool_id).strip(),
+                    args_for_tool,
+                    self._tool_registry,
+                    self._policy_root,
+                )
+                if not ok and arg_reason in (TOOL_ARG_SCHEMA_FAIL, TOOL_ARG_RANGE_FAIL):
+                    hashchain_arg = self._audit.hashchain_snapshot()
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": list(base.get("emits", [])),
+                        "blocked_reason_code": arg_reason,
+                        "hashchain": hashchain_arg,
+                    }
+                # Tool execution safety wrapper: run adapter, timeout, output validation, sandbox boundary.
+                sandbox_ctx: Dict[str, Any] = {}
+                if getattr(self, "_tool_boundary_policy", None):
+                    sandbox_ctx["sandbox"] = ToolSandbox(
+                        policy_root=self._policy_root,
+                        tool_id=str(tool_id).strip(),
+                        role_id=role_id_tool or "",
+                        boundary_policy=self._tool_boundary_policy,
+                    )
+                exec_ok, _tool_result, tool_error = execute_tool_safely(
+                    str(tool_id).strip(),
+                    args_for_tool,
+                    adapter=getattr(self, "_tool_adapter", None),
+                    registry=self._tool_registry,
+                    policy_root=self._policy_root,
+                    timeout_s=getattr(self, "_tool_timeout_s", None),
+                    sandbox_ctx=sandbox_ctx,
+                )
+                if not exec_ok and tool_error is not None:
+                    reason_code = tool_error.get("reason_code") or TOOL_EXEC_EXCEPTION
+                    msg = tool_error.get("message") or "Tool execution failed"
+                    hashchain_exec = self._audit.hashchain_snapshot()
+                    violation = {
+                        "invariant_id": "TOOL_EXEC_SAFETY",
+                        "status": "VIOLATION",
+                        "reason_code": reason_code,
+                        "message": msg,
+                    }
+                    return {
+                        **base,
+                        "status": "BLOCKED",
+                        "emits": [reason_code],
+                        "violations": [violation],
+                        "blocked_reason_code": reason_code,
+                        "hashchain": hashchain_exec,
+                    }
         # Runtime control: UPDATE_ROSTER, INJECT_SPECIMEN — always require SYSTEM + signature (trust skeleton).
         if action_type in RUNTIME_CONTROL_ACTION_TYPES:
             agent_id_here = str(event.get("agent_id", ""))
@@ -1366,19 +1558,27 @@ class CoreEnv(LabTrustEnvAdapter):
                         ],
                         "hashchain": hashchain_dict,
                     }
-            # Simulated timing: device must be IDLE to start a run
+            # Simulated timing: device must be IDLE to start a run (MAINT/FAULT/RUNNING)
             if (
                 self._timing_mode == "simulated"
                 and self._device_store is not None
                 and device_id
                 and not self._device_store.can_start_run(str(device_id))
             ):
+                block_reason = self._device_store.device_block_reason(str(device_id))
+                reason_code = (
+                    RC_DEVICE_MAINT
+                    if block_reason == "MAINT"
+                    else RC_DEVICE_FAULT
+                    if block_reason == "FAULT"
+                    else RC_DEVICE_BUSY
+                )
                 hashchain_dict, _ = self._audit.append(event)
                 return {
                     **base,
                     "status": "BLOCKED",
                     "emits": [],
-                    "blocked_reason_code": RC_DEVICE_BUSY,
+                    "blocked_reason_code": reason_code,
                     "violations": [],
                     "hashchain": hashchain_dict,
                 }
@@ -1477,17 +1677,43 @@ class CoreEnv(LabTrustEnvAdapter):
                         "hashchain": hashchain_dict,
                     }
                 # INV-STAB-BIOCHEM-001:PASS from invariants_runtime when stability ok
-            device_id = args.get("device_id")
-            run_id = args.get("run_id")
-            if device_id and run_id:
-                self._qc.register_run(str(run_id), str(device_id))
-            # Simulated timing: schedule run completion (service time from RNG)
             first_panel_id: Optional[str] = None
             if specimen_ids and self._specimens:
                 first_spec = (
                     self._specimens.get(specimen_ids[0]) if specimen_ids else None
                 )
                 first_panel_id = first_spec.get("panel_id") if first_spec else None
+            if self._reagent_policy and first_panel_id:
+                req = get_panel_reagent_requirement(
+                    self._reagent_policy, first_panel_id
+                )
+                if req is not None:
+                    reagent_id, qty, _ = req
+                    current = self._reagent_stock.get(reagent_id, 0.0)
+                    if current < qty:
+                        hashchain_dict, _ = self._audit.append(event)
+                        return {
+                            **base,
+                            "status": "BLOCKED",
+                            "emits": [],
+                            "blocked_reason_code": RC_REAGENT_STOCKOUT,
+                            "violations": [],
+                            "hashchain": hashchain_dict,
+                        }
+            device_id = args.get("device_id")
+            run_id = args.get("run_id")
+            if device_id and run_id:
+                self._qc.register_run(str(run_id), str(device_id))
+            if self._reagent_policy and first_panel_id:
+                req = get_panel_reagent_requirement(
+                    self._reagent_policy, first_panel_id
+                )
+                if req is not None:
+                    reagent_id, qty, _ = req
+                    self._reagent_stock[reagent_id] = (
+                        self._reagent_stock.get(reagent_id, 0.0) - qty
+                    )
+            # Simulated timing: schedule run completion (service time from RNG)
             if (
                 self._timing_mode == "simulated"
                 and self._device_store is not None
@@ -2130,10 +2356,13 @@ class CoreEnv(LabTrustEnvAdapter):
                 "blocked_reason_code": None,
                 "hashchain": hashchain_dict,
             }
+        default_emits = list(base.get("emits", []))
+        if action_type:
+            default_emits.append(action_type)
         return {
             **base,
             "status": "ACCEPTED",
-            "emits": [action_type] if action_type else [],
+            "emits": default_emits,
             "blocked_reason_code": None,
             "hashchain": hashchain_dict,
         }

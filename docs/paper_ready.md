@@ -37,6 +37,15 @@ labtrust package-release --profile paper_v0.1 --seed-base 100 --out release_pape
    - One episode per task (A–F) with episode log; export receipts; verify bundle.  
    - Receipts and verification reports under `<dir>/receipts/<task>/`.
 
+4b. **Security attack suite and securitization packet**  
+   - Run security suite (smoke-only, seed = seed-base); write `<dir>/SECURITY/attack_results.json`.  
+   - Emit securitization packet: `SECURITY/coverage.json`, `coverage.md`, `reason_codes.md`, `deps_inventory.json`.  
+   - See [Security attack suite](security_attack_suite.md).
+
+4c. **Safety case**  
+   - Emit safety case from `policy/safety_case/claims.v0.1.yaml`: `<dir>/SAFETY_CASE/safety_case.json`, `<dir>/SAFETY_CASE/safety_case.md` (claim to control, test, artifact, verification command).  
+   - See [Implementation verification](implementation_verification.md).
+
 5. **FIGURES/**  
    - 2–3 canonical plots from the TaskF study (e.g. throughput vs violations, trust cost vs p95 TAT).
 
@@ -59,6 +68,9 @@ labtrust package-release --profile paper_v0.1 --seed-base 100 --out release_pape
   MANIFEST.v0.1.json
   COORDINATION_CARD.md
   _coordination_policy/
+  SAFETY_CASE/
+    safety_case.json
+    safety_case.md
     (frozen policy YAMLs + manifest.json)
   _baselines/
     results/
@@ -91,6 +103,12 @@ labtrust package-release --profile paper_v0.1 --seed-base 100 --out release_pape
       verify_report.txt
     TaskB/
     ...
+  SECURITY/
+    attack_results.json
+    coverage.json
+    coverage.md
+    reason_codes.md
+    deps_inventory.json
   _repr/
     TaskA/
       episodes.jsonl

@@ -245,6 +245,35 @@ def _build_events(
     return events
 
 
+# Stable key for coordination telemetry in UI bundle (contract v0.1)
+COORD_TELEMETRY_KEY = "coord_telemetry"
+
+
+def _collect_coord_telemetry(
+    run_dir: Path,
+    episodes: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    For each episode with a log_ref, if coord_decisions.jsonl exists in the same
+    directory, add an entry { episode_key, coord_decisions_ref } and return list.
+    """
+    refs: List[Dict[str, Any]] = []
+    for ep in episodes:
+        log_ref = ep.get("log_ref")
+        if not log_ref:
+            continue
+        log_path = run_dir / log_ref
+        coord_path = log_path.parent / "coord_decisions.jsonl"
+        if not coord_path.is_file():
+            continue
+        episode_key = ep.get("episode_key") or f"{ep.get('task', '')}_{ep.get('episode_index', 0)}"
+        refs.append({
+            "episode_key": episode_key,
+            "coord_decisions_ref": f"{COORD_TELEMETRY_KEY}/{episode_key}.jsonl",
+        })
+    return refs
+
+
 def _load_reason_codes_json(repo_root: Path) -> Dict[str, Any]:
     """Load reason code registry and return UI shape: { version, codes }."""
     reg_path = repo_root / "policy" / "reason_codes" / "reason_code_registry.v0.1.yaml"
@@ -289,6 +318,7 @@ def export_ui_bundle(
         tasks, episodes, receipts_index, baselines = _collect_package_release(run_dir)
 
     events = _build_events(run_dir, run_type, tasks, episodes)
+    coord_telemetry_refs = _collect_coord_telemetry(run_dir, episodes)
 
     index = {
         "ui_bundle_version": UI_BUNDLE_VERSION,
@@ -297,6 +327,8 @@ def export_ui_bundle(
         "episodes": episodes,
         "baselines": baselines,
     }
+    if coord_telemetry_refs:
+        index[COORD_TELEMETRY_KEY] = coord_telemetry_refs
     reason_codes = _load_reason_codes_json(Path(repo_root))
 
     out_zip_path.parent.mkdir(parents=True, exist_ok=True)
@@ -309,5 +341,22 @@ def export_ui_bundle(
         zf.writestr(
             "reason_codes.json", json.dumps(reason_codes, indent=2, sort_keys=True)
         )
+        for ref in coord_telemetry_refs:
+            episode_key = ref.get("episode_key", "")
+            coord_ref = ref.get("coord_decisions_ref", "")
+            if not episode_key or not coord_ref:
+                continue
+            ep = next(
+                (
+                    e
+                    for e in episodes
+                    if (e.get("episode_key") or f"{e.get('task', '')}_{e.get('episode_index', 0)}") == episode_key
+                ),
+                None,
+            )
+            if ep and ep.get("log_ref"):
+                coord_path = run_dir / Path(ep["log_ref"]).parent / "coord_decisions.jsonl"
+                if coord_path.is_file():
+                    zf.writestr(coord_ref, coord_path.read_text(encoding="utf-8"))
 
     return out_zip_path

@@ -568,6 +568,119 @@ class TaskE_MultiSiteSTAT(BenchmarkTask):
         }
 
 
+class TaskI_DeviceOutageSurge(BenchmarkTask):
+    """
+    Surge workload + one analyzer outage (maintenance window).
+    failure_models.v0.1 defines maintenance; timing_mode simulated.
+    Measures p95 TAT impact and RC_DEVICE_MAINT blocks.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            name="TaskI_DeviceOutageSurge",
+            max_steps=200,
+            scripted_agents=["ops_0", "runner_0", "runner_1"],
+            reward_config={
+                "throughput_reward": 1.0,
+                "violation_penalty": 0.1,
+            },
+            sla_turnaround_s=3600,
+            timing_mode="simulated",
+        )
+
+    def get_initial_state(
+        self,
+        seed: int,
+        calibration: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        rng = random.Random(seed)
+        try:
+            from labtrust_gym.config import get_repo_root
+            root = Path(get_repo_root())
+        except Exception:
+            root = Path(".")
+        n, arrivals = _sample_arrival_and_n_from_calibration(
+            rng, calibration, default_n_min=8, default_n_max=12, default_arrival_max=200
+        )
+        stat_rate = _stat_rate_from_calibration(calibration)
+        specimens = []
+        for i in range(n):
+            prio = "STAT" if rng.random() < stat_rate else "ROUTINE"
+            specimens.append(
+                _specimen_template(
+                    f"TI_{seed}_{i}",
+                    arrival_ts_s=(
+                        arrivals[i] if i < len(arrivals) else rng.randint(0, 150)
+                    ),
+                    priority_class=prio,
+                )
+            )
+        return {
+            "system": {"now_s": 0, "downtime_active": False},
+            "agents": _make_agents(),
+            "specimens": specimens,
+            "tokens": [],
+            "timing_mode": "simulated",
+            "policy_root": str(root),
+        }
+
+
+class TaskJ_ReagentStockout(BenchmarkTask):
+    """
+    Forced reagent shortage: low initial stock causes RC_REAGENT_STOCKOUT,
+    hold or reroute per reagent_policy; measures delays and violations.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            name="TaskJ_ReagentStockout",
+            max_steps=150,
+            scripted_agents=["ops_0", "runner_0", "runner_1"],
+            reward_config={
+                "throughput_reward": 0.8,
+                "violation_penalty": 0.15,
+            },
+            sla_turnaround_s=3600,
+            timing_mode="explicit",
+        )
+
+    def get_initial_state(
+        self,
+        seed: int,
+        calibration: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        rng = random.Random(seed)
+        try:
+            from labtrust_gym.config import get_repo_root
+            root = Path(get_repo_root())
+        except Exception:
+            root = Path(".")
+        n, arrivals = _sample_arrival_and_n_from_calibration(
+            rng, calibration, default_n_min=5, default_n_max=8, default_arrival_max=80
+        )
+        stat_rate = _stat_rate_from_calibration(calibration)
+        specimens = []
+        for i in range(n):
+            prio = "STAT" if rng.random() < stat_rate else "ROUTINE"
+            specimens.append(
+                _specimen_template(
+                    f"TJ_{seed}_{i}",
+                    arrival_ts_s=(
+                        arrivals[i] if i < len(arrivals) else rng.randint(0, 60)
+                    ),
+                    priority_class=prio,
+                )
+            )
+        return {
+            "system": {"now_s": 0, "downtime_active": False},
+            "agents": _make_agents(),
+            "specimens": specimens,
+            "tokens": [],
+            "policy_root": str(root),
+            "reagent_initial_stock": {"R_CHEM_CORE": 20},
+        }
+
+
 _TASK_REGISTRY: Dict[str, type] = {
     "TaskA": TaskA_ThroughputSLA,
     "TaskA_ThroughputSLA": TaskA_ThroughputSLA,
@@ -585,6 +698,10 @@ _TASK_REGISTRY: Dict[str, type] = {
     "TaskG_COORD_SCALE": TaskG_COORD_SCALE,
     "TaskH": TaskH_COORD_RISK,
     "TaskH_COORD_RISK": TaskH_COORD_RISK,
+    "TaskI": TaskI_DeviceOutageSurge,
+    "TaskI_DeviceOutageSurge": TaskI_DeviceOutageSurge,
+    "TaskJ": TaskJ_ReagentStockout,
+    "TaskJ_ReagentStockout": TaskJ_ReagentStockout,
 }
 
 

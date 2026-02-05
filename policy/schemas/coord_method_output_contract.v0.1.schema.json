@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.coord_method_output_contract.v0.1",
+  "title": "Coordination Method Output Contract v0.1",
+  "description": "One timestep output from any coordination method (centralized, hierarchical, market, gossip, swarm, LLM, MARL). Enables comparable telemetry and strict interface for method plug-ins.",
+  "type": "object",
+  "required": ["method_id", "t_step", "actions"],
+  "additionalProperties": true,
+  "properties": {
+    "method_id": {
+      "type": "string",
+      "description": "Registry method identifier (e.g. centralized_planner, market_auction, llm_constrained)"
+    },
+    "t_step": {
+      "type": "integer",
+      "description": "Simulation step index (0-based)"
+    },
+    "actions": {
+      "type": "array",
+      "description": "Per-agent actions; each item has agent_id and action payload",
+      "items": {
+        "type": "object",
+        "required": ["agent_id"],
+        "additionalProperties": true,
+        "properties": {
+          "agent_id": { "type": "string" },
+          "action_index": { "type": "integer" },
+          "action_type": { "type": "string" },
+          "args": { "type": "object" }
+        }
+      }
+    },
+    "view_age_ms": {
+      "type": "number",
+      "description": "Max or mean view age in ms (staleness) for this step"
+    },
+    "view_age_ms_per_agent": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "Per-agent view age in ms (staleness)"
+    },
+    "plan_time_ms": {
+      "type": ["number", "null"],
+      "description": "Planning or decision time in ms if measured"
+    },
+    "invariants_considered": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Invariant IDs considered in this step (e.g. INV-COC-001)"
+    },
+    "safety_shield_applied": {
+      "type": "boolean",
+      "description": "Whether a safety shield (e.g. simplex) overrode or corrected actions"
+    },
+    "safety_shield_details": {
+      "type": ["object", "null"],
+      "description": "Optional details: overrides count, reason codes, etc."
+    }
+  }
+}

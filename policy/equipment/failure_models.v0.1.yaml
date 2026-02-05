@@ -1,0 +1,29 @@
+# Failure models v0.1: per-device MTBF-like parameters and maintenance schedule.
+# Policy-driven and deterministic (seeded). Engine uses this to set device state
+# MAINT during windows and optionally FAULT from sampled MTBF.
+
+failure_models:
+  version: "0.1"
+  # Per-device failure params (optional; overrides type-level failure_model when set).
+  device_failures:
+    DEV_CHEM_A_01:
+      enabled: true
+      mtbf_hours: 72.0
+      mttr_s: 900
+    DEV_CHEM_B_01:
+      enabled: true
+      mtbf_hours: 96.0
+      mttr_s: 1200
+    DEV_HAEM_01:
+      enabled: true
+      mtbf_hours: 48.0
+      mttr_s: 600
+  # Maintenance windows: device_id, start_ts_s, end_ts_s (absolute episode time).
+  # When now_s is in [start_ts_s, end_ts_s), device state is MAINT and START_RUN blocked with RC_DEVICE_MAINT.
+  maintenance_schedule:
+    - device_id: "DEV_CHEM_A_01"
+      start_ts_s: 100
+      end_ts_s: 400
+    - device_id: "DEV_HAEM_01"
+      start_ts_s: 200
+      end_ts_s: 500

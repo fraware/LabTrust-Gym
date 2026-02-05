@@ -1,0 +1,15 @@
+# State -> allowed capabilities map v0.1: defines which capabilities are applicable per env phase.
+# Used to detect "tool selection error": tool allowed by registry & RBAC but inapplicable for current state
+# (e.g. calling write_lims at accessioning when only read is allowed).
+
+state_tool_capability_map:
+  version: "0.1"
+  state_labels:
+    accessioning:
+      allowed_capabilities: [lims.read, queue.read]
+    pre_analytics:
+      allowed_capabilities: [lims.read, lims.write, queue.read, queue.write, device.actuate]
+    release_gate:
+      allowed_capabilities: [lims.read, lims.write, queue.read]
+    default:
+      allowed_capabilities: [lims.read, lims.write, queue.read, queue.write, device.actuate, device.calibrate, device.stop]

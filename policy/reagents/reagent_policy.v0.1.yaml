@@ -1,0 +1,31 @@
+# Reagent policy v0.1: stock levels and panel requirements.
+# Engine gates START_RUN by reagent availability when policy present; stockout
+# triggers RC_REAGENT_STOCKOUT and hold or reroute per stockout_action.
+
+reagent_policy:
+  version: "0.1"
+  # Initial stock per reagent (unit: tests or aliquots as per unit field).
+  reagents:
+    - reagent_id: "R_CHEM_CORE"
+      initial_stock: 1000
+      unit: "tests"
+    - reagent_id: "R_HAEM_CORE"
+      initial_stock: 500
+      unit: "samples"
+    - reagent_id: "R_COAG_CORE"
+      initial_stock: 400
+      unit: "tests"
+  # Per-panel consumption and stockout behavior.
+  panel_requirements:
+    BIOCHEM_PANEL_CORE:
+      reagent_id: "R_CHEM_CORE"
+      quantity_per_run: 14
+      stockout_action: "HOLD"
+    HAEM_PANEL_CORE:
+      reagent_id: "R_HAEM_CORE"
+      quantity_per_run: 1
+      stockout_action: "HOLD"
+    COAG_PANEL_CORE:
+      reagent_id: "R_COAG_CORE"
+      quantity_per_run: 5
+      stockout_action: "REROUTE"

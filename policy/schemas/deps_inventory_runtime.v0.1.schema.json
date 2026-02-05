@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.deps_inventory_runtime.v0.1",
+  "title": "LabTrust Runtime Dependency Inventory v0.1",
+  "description": "SBOM-lite: installed packages (name, version), Python version, platform, pyproject.toml hash. No secrets, no absolute paths.",
+  "type": "object",
+  "required": ["version", "python_version", "platform", "packages"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "python_version": { "type": "string", "description": "Python major.minor.micro" },
+    "platform": { "type": "string", "description": "sys.platform (e.g. win32, linux, darwin)" },
+    "pyproject_toml_sha256": { "type": ["string", "null"], "description": "SHA256 hex of pyproject.toml if available" },
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "version"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "description": "Normalized package name (lowercase, no underscore)" },
+          "version": { "type": "string", "description": "Package version" }
+        }
+      }
+    }
+  }
+}

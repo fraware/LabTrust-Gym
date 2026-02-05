@@ -61,6 +61,10 @@ rbac_policy:
         - TRANSPORT_TICK
         - RECEIVE_TRANSPORT
         - CHAIN_OF_CUSTODY_SIGN
+      allowed_tool_ids:
+        - read_lims_v1
+        - write_lims_v1
+        - query_queue_v1
 
     ROLE_QC:
       allowed_actions:
