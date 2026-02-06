@@ -9,13 +9,12 @@ Same (seed, scale_config, partner_id) yields identical output.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from labtrust_gym.policy.loader import load_effective_policy, load_yaml
 from labtrust_gym.engine.zones import load_zone_layout as _load_zone_layout_file
-
+from labtrust_gym.policy.loader import load_effective_policy, load_yaml
 
 # Default role IDs used when role_mix is applied (must exist in base RBAC).
 DEFAULT_SCALE_ROLES = [
@@ -37,7 +36,7 @@ DEFAULT_SCALE_ZONES = [
 ]
 
 # Device type prefix -> zone for deterministic placement.
-DEVICE_TYPE_ZONE: Dict[str, str] = {
+DEVICE_TYPE_ZONE: dict[str, str] = {
     "CENTRIFUGE": "Z_CENTRIFUGE_BAY",
     "ALIQUOTER": "Z_ALIQUOT_LABEL",
     "CHEM": "Z_ANALYZER_HALL_A",
@@ -51,13 +50,13 @@ class CoordinationScaleConfig:
     """Scale configuration for coordination benchmarks. Deterministic given seed."""
 
     num_agents_total: int
-    role_mix: Dict[str, float]  # role_id -> fraction, must sum to 1.0
-    num_devices_per_type: Dict[str, int]  # device_type -> count
+    role_mix: dict[str, float]  # role_id -> fraction, must sum to 1.0
+    num_devices_per_type: dict[str, int]  # device_type -> count
     num_sites: int
     specimens_per_min: float
     horizon_steps: int
     timing_mode: str = "explicit"  # "explicit" | "simulated"
-    partner_id: Optional[str] = None
+    partner_id: str | None = None
 
     def __post_init__(self) -> None:
         total = sum(self.role_mix.values())
@@ -70,7 +69,7 @@ def _specimen_template(
     arrival_ts_s: int = 0,
     priority_class: str = "ROUTINE",
     panel_id: str = "BIOCHEM_PANEL_CORE",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "specimen_id": specimen_id,
         "patient_identifiers_hash": f"pid:hash:{specimen_id}",
@@ -98,9 +97,9 @@ def _specimen_template(
 def _generate_agents(
     rng: random.Random,
     num_agents: int,
-    role_mix: Dict[str, float],
-    zone_ids: List[str],
-) -> tuple[List[Dict[str, str]], Dict[str, str]]:
+    role_mix: dict[str, float],
+    zone_ids: list[str],
+) -> tuple[list[dict[str, str]], dict[str, str]]:
     """Return (agents list, agent_id -> role_id). Deterministic given rng."""
     roles_ordered = list(role_mix.keys())
     cumul = 0.0
@@ -108,8 +107,8 @@ def _generate_agents(
     for r in roles_ordered:
         cumul += role_mix[r]
         thresholds.append((cumul, r))
-    agents_list: List[Dict[str, str]] = []
-    agent_to_role: Dict[str, str] = {}
+    agents_list: list[dict[str, str]] = []
+    agent_to_role: dict[str, str] = {}
     for i in range(num_agents):
         agent_id = f"A_WORKER_{i + 1:04d}"
         u = rng.random()
@@ -125,11 +124,11 @@ def _generate_agents(
 
 
 def _generate_device_placement(
-    num_devices_per_type: Dict[str, int],
-) -> tuple[List[Dict[str, Any]], List[str]]:
+    num_devices_per_type: dict[str, int],
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Deterministic device_id list and device_placement (order stable)."""
-    placement: List[Dict[str, Any]] = []
-    device_ids: List[str] = []
+    placement: list[dict[str, Any]] = []
+    device_ids: list[str] = []
     for device_type, count in sorted(num_devices_per_type.items()):
         prefix = device_type.split("_")[0] if "_" in device_type else device_type
         base_zone = DEVICE_TYPE_ZONE.get(prefix, "Z_ANALYZER_HALL_A")
@@ -146,7 +145,7 @@ def _generate_device_placement(
     return placement, device_ids
 
 
-def _generate_sites(num_sites: int) -> Dict[str, Any]:
+def _generate_sites(num_sites: int) -> dict[str, Any]:
     """Deterministic sites_policy for num_sites (SITE_001, ...)."""
     sites = []
     for i in range(num_sites):
@@ -199,22 +198,20 @@ def _generate_specimens_and_arrival(
     specimens_per_min: float,
     horizon_steps: int,
     dt_s: int = 10,
-) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Initial backlog + arrival schedule. Deterministic given rng."""
     total_time_s = horizon_steps * dt_s
     # Expected number of arrivals over horizon
     n_expected = max(0, int(specimens_per_min * (total_time_s / 60.0)))
     n_backlog = rng.randint(max(0, n_expected // 4), max(1, n_expected))
     n_arrivals = max(0, n_expected - n_backlog)
-    specimens: List[Dict[str, Any]] = []
+    specimens: list[dict[str, Any]] = []
     for i in range(n_backlog):
         sid = f"S_COORD_{seed}_{i}"
         arrival_ts_s = rng.randint(0, min(100, total_time_s))
         prio = "STAT" if rng.random() < 0.1 else "ROUTINE"
-        specimens.append(
-            _specimen_template(sid, arrival_ts_s=arrival_ts_s, priority_class=prio)
-        )
-    arrival_schedule: List[Dict[str, Any]] = []
+        specimens.append(_specimen_template(sid, arrival_ts_s=arrival_ts_s, priority_class=prio))
+    arrival_schedule: list[dict[str, Any]] = []
     for i in range(n_arrivals):
         t_s = rng.randint(0, total_time_s)
         sid = f"S_COORD_{seed}_{n_backlog + i}"
@@ -231,8 +228,8 @@ def _generate_specimens_and_arrival(
 
 def _build_zone_layout_with_placement(
     base_policy_root: Path,
-    device_placement: List[Dict[str, str]],
-) -> Dict[str, Any]:
+    device_placement: list[dict[str, str]],
+) -> dict[str, Any]:
     """Load base zone layout and override device_placement; or minimal layout."""
     zone_path = base_policy_root / "policy" / "zones" / "zone_layout_policy.v0.1.yaml"
     if zone_path.exists():
@@ -244,10 +241,7 @@ def _build_zone_layout_with_placement(
         except Exception:
             pass
     # Minimal layout: zones only, no doors; graph_edges minimal
-    zones = [
-        {"zone_id": z, "name": z, "kind": "STAGING", "temp_band": "AMBIENT_20_25"}
-        for z in DEFAULT_SCALE_ZONES
-    ]
+    zones = [{"zone_id": z, "name": z, "kind": "STAGING", "temp_band": "AMBIENT_20_25"} for z in DEFAULT_SCALE_ZONES]
     edges = []
     for i in range(len(DEFAULT_SCALE_ZONES) - 1):
         edges.append(
@@ -268,14 +262,12 @@ def _build_zone_layout_with_placement(
 
 def _build_equipment_registry(
     base_policy_root: Path,
-    num_devices_per_type: Dict[str, int],
-    device_placement: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    num_devices_per_type: dict[str, int],
+    device_placement: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Merge base device_types with generated device_instances."""
-    equip_path = (
-        base_policy_root / "policy" / "equipment" / "equipment_registry.v0.1.yaml"
-    )
-    device_types: Dict[str, Any] = {}
+    equip_path = base_policy_root / "policy" / "equipment" / "equipment_registry.v0.1.yaml"
+    device_types: dict[str, Any] = {}
     if equip_path.exists():
         try:
             data = load_yaml(equip_path)
@@ -305,7 +297,7 @@ def _build_equipment_registry(
     }
 
 
-def _sanitize_scale_config(scale: CoordinationScaleConfig) -> Dict[str, Any]:
+def _sanitize_scale_config(scale: CoordinationScaleConfig) -> dict[str, Any]:
     """Return a JSON-serializable, sanitized copy for emit/log (no Path, stable)."""
     return {
         "num_agents_total": scale.num_agents_total,
@@ -323,7 +315,7 @@ def generate_scaled_initial_state(
     scale: CoordinationScaleConfig,
     base_policy_root: Path,
     seed: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate deterministic initial_state for coordination-at-scale benchmarks.
 
@@ -371,30 +363,22 @@ def generate_scaled_initial_state(
     )
 
     # Effective policy: load base (or partner) and overlay scale-generated bits
-    effective_policy: Dict[str, Any] = {}
+    effective_policy: dict[str, Any] = {}
     if scale.partner_id:
         try:
-            effective_policy, _, _, _ = load_effective_policy(
-                base_policy_root, partner_id=scale.partner_id
-            )
+            effective_policy, _, _, _ = load_effective_policy(base_policy_root, partner_id=scale.partner_id)
         except Exception:
             effective_policy = {}
     if not effective_policy:
-        crit_path = (
-            base_policy_root / "policy" / "critical" / "critical_thresholds.v0.1.yaml"
-        )
+        crit_path = base_policy_root / "policy" / "critical" / "critical_thresholds.v0.1.yaml"
         if crit_path.exists():
             try:
                 from labtrust_gym.engine.critical import load_critical_thresholds
 
-                effective_policy["critical_thresholds"] = load_critical_thresholds(
-                    crit_path
-                )
+                effective_policy["critical_thresholds"] = load_critical_thresholds(crit_path)
             except Exception:
                 pass
-        enf_path = (
-            base_policy_root / "policy" / "enforcement" / "enforcement_map.v0.1.yaml"
-        )
+        enf_path = base_policy_root / "policy" / "enforcement" / "enforcement_map.v0.1.yaml"
         if enf_path.exists():
             try:
                 data = load_yaml(enf_path)
@@ -436,7 +420,7 @@ def generate_scaled_initial_state(
     effective_policy["equipment_registry"] = equipment_registry
     effective_policy["sites_policy"] = sites_policy
 
-    initial_state: Dict[str, Any] = {
+    initial_state: dict[str, Any] = {
         "system": {"now_s": 0, "downtime_active": False},
         "agents": agents_list,
         "specimens": specimens,

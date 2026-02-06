@@ -12,8 +12,9 @@ Signing proxy for LLM agents: key selection and event payload signing.
 from __future__ import annotations
 
 import base64
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.engine.signatures import (
     build_signing_payload,
@@ -21,7 +22,7 @@ from labtrust_gym.engine.signatures import (
 )
 
 
-def _key_valid_at(key: Dict[str, Any], now_ts: int) -> Tuple[bool, Optional[str]]:
+def _key_valid_at(key: dict[str, Any], now_ts: int) -> tuple[bool, str | None]:
     """Return (True, None) if key is valid at now_ts; else (False, reason_code)."""
     status = (key.get("status") or "ACTIVE").strip().upper()
     if status == "REVOKED":
@@ -41,8 +42,8 @@ def select_key(
     agent_id: str,
     role_id: str,
     now_ts_s: int,
-    key_registry: Dict[str, Any],
-) -> Optional[str]:
+    key_registry: dict[str, Any],
+) -> str | None:
     """
     Select first ACTIVE key in registry bound to agent_id and role_id, valid at now_ts_s.
 
@@ -66,15 +67,15 @@ def select_key(
 
 
 def sign_event_payload(
-    action: Dict[str, Any],
+    action: dict[str, Any],
     event_id: str,
     t_s: int,
     agent_id: str,
     prev_hash: str,
-    partner_id: Optional[str],
-    policy_fingerprint: Optional[str],
+    partner_id: str | None,
+    policy_fingerprint: str | None,
     private_key: bytes,
-) -> Optional[str]:
+) -> str | None:
     """
     Build canonical signing payload from action and sign with Ed25519 private key.
 
@@ -111,7 +112,7 @@ def sign_event_payload(
     return base64.b64encode(sig_raw).decode("ascii")
 
 
-def load_private_key_from_fixture(path: Path) -> Optional[bytes]:
+def load_private_key_from_fixture(path: Path) -> bytes | None:
     """
     Load 32-byte Ed25519 private key from fixture file (base64 or raw).
 
@@ -131,7 +132,7 @@ def load_private_key_from_fixture(path: Path) -> Optional[bytes]:
     return key_bytes
 
 
-def generate_ephemeral_keypair() -> Tuple[bytes, str]:
+def generate_ephemeral_keypair() -> tuple[bytes, str]:
     """
     Generate a new Ed25519 keypair for run-local signing.
 
@@ -151,9 +152,9 @@ def ensure_run_ephemeral_key(
     run_dir: Path,
     agent_id: str,
     role_id: str,
-    key_registry_base: Dict[str, Any],
+    key_registry_base: dict[str, Any],
     key_id_prefix: str = "ed25519:run_",
-) -> Tuple[Dict[str, Any], Callable[[str], Optional[bytes]]]:
+) -> tuple[dict[str, Any], Callable[[str], bytes | None]]:
     """
     Ensure an ephemeral key exists for this run; write overlay to run_dir and merge with base.
 
@@ -166,12 +167,12 @@ def ensure_run_ephemeral_key(
     if private_path.exists() and overlay_path.exists():
         try:
             priv_b64 = private_path.read_text(encoding="utf-8").strip()
-            priv = base64.b64decode(priv_b64, validate=True)
-            if len(priv) != 32:
-                priv = None
+            priv_decoded: bytes | None = base64.b64decode(priv_b64, validate=True)
+            if priv_decoded is None or len(priv_decoded) != 32:
+                priv_decoded = None
         except Exception:
-            priv = None
-        if priv is not None:
+            priv_decoded = None
+        if priv_decoded is not None:
             from labtrust_gym.policy.loader import load_yaml
 
             overlay = load_yaml(overlay_path)
@@ -182,17 +183,15 @@ def ensure_run_ephemeral_key(
                 "keys": keys,
             }
 
-            def get_private_key(kid: str) -> Optional[bytes]:
+            def _get_private_key_cached(kid: str) -> bytes | None:
                 if kid == key_id:
-                    return priv
+                    return priv_decoded
                 return None
 
-            return merged, get_private_key
+            return merged, _get_private_key_cached
     priv_bytes, pub_b64 = generate_ephemeral_keypair()
     run_dir.mkdir(parents=True, exist_ok=True)
-    private_path.write_text(
-        base64.b64encode(priv_bytes).decode("ascii"), encoding="utf-8"
-    )
+    private_path.write_text(base64.b64encode(priv_bytes).decode("ascii"), encoding="utf-8")
     entry = {
         "key_id": key_id,
         "public_key": pub_b64,
@@ -212,9 +211,7 @@ def ensure_run_ephemeral_key(
     try:
         import yaml
 
-        overlay_path.write_text(
-            yaml.dump(overlay, default_flow_style=False), encoding="utf-8"
-        )
+        overlay_path.write_text(yaml.dump(overlay, default_flow_style=False), encoding="utf-8")
     except Exception:
         overlay_path.write_text(
             f'key_registry:\n  version: "0.1"\n  keys:\n  - key_id: "{key_id}"\n'
@@ -228,7 +225,7 @@ def ensure_run_ephemeral_key(
         "keys": keys_base + [entry],
     }
 
-    def get_private_key(kid: str) -> Optional[bytes]:
+    def get_private_key(kid: str) -> bytes | None:
         if kid == key_id:
             return priv_bytes
         return None

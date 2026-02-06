@@ -14,18 +14,17 @@ import json
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from labtrust_gym.studies.reproduce import run_reproduce
-
 
 MANIFEST_VERSION = "0.1"
 REPRO_DIR_NAME = "_repro"
 
 
-def _git_commit_hash(cwd: Optional[Path] = None) -> Optional[str]:
+def _git_commit_hash(cwd: Path | None = None) -> str | None:
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -46,11 +45,11 @@ def _sha256_file(path: Path) -> str:
 
 
 def _collect_files_with_hashes(
-    root: Path, exclude_dirs: Optional[List[str]] = None
-) -> List[Dict[str, str]]:
+    root: Path, exclude_dirs: list[str] | None = None
+) -> list[dict[str, str]]:
     """Walk root, return list of {path: relpath, sha256: hex} sorted by path. Skip exclude_dirs."""
     exclude = set(exclude_dirs or [])
-    out: List[Dict[str, str]] = []
+    out: list[dict[str, str]] = []
     root = root.resolve()
     for f in sorted(root.rglob("*")):
         if not f.is_file():
@@ -72,7 +71,7 @@ def _collect_files_with_hashes(
 
 def _render_benchmark_card_template(
     repo_root: Path,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
 ) -> str:
     """Render BENCHMARK_CARD.md from template (docs/benchmark_card.md) and metadata."""
     template_path = repo_root / "docs" / "benchmark_card.md"
@@ -133,16 +132,18 @@ OFFICIAL_TASKS = ["TaskA", "TaskB", "TaskC", "TaskD", "TaskE", "TaskF"]
 
 def _deterministic_timestamp(seed_base: int) -> str:
     """Deterministic UTC timestamp when seed_base is provided (epoch + seed_base seconds)."""
-    return (
-        datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seed_base)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed_base)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
 
 def run_package_release_paper(
     out_dir: Path,
     repo_root: Path,
     seed_base: int,
-    fixed_timestamp: Optional[str] = None,
+    fixed_timestamp: str | None = None,
+    pipeline_mode: str = "deterministic",
+    allow_network: bool = False,
 ) -> Path:
     """
     Paper-ready release profile: generate-official-baselines, TaskF strict_signatures study,
@@ -221,7 +222,7 @@ def run_package_release_paper(
     from labtrust_gym.benchmarks.summarize import run_summarize
 
     baseline_results = baselines_dir / "results"
-    in_paths: List[Path] = []
+    in_paths: list[Path] = []
     if baseline_results.exists():
         in_paths.extend(baseline_results.glob("*.json"))
     study_results = study_dir / "results"
@@ -265,6 +266,8 @@ def run_package_release_paper(
             out_path=task_repr / "results.json",
             repo_root=repo_root,
             log_path=log_path,
+            pipeline_mode=pipeline_mode,
+            allow_network=allow_network,
         )
         rec_task = receipts_dir / task
         rec_task.mkdir(parents=True, exist_ok=True)
@@ -284,10 +287,10 @@ def run_package_release_paper(
     security_dir = out_dir / "SECURITY"
     security_dir.mkdir(parents=True, exist_ok=True)
     try:
-        from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
         from labtrust_gym.benchmarks.securitization import (
             emit_securitization_packet,
         )
+        from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
 
         run_suite_and_emit(
             policy_root=repo_root,
@@ -348,7 +351,7 @@ def run_package_release_paper(
 
 ## Versions and seeds
 
-- Git SHA: {git_sha or 'unknown'}
+- Git SHA: {git_sha or "unknown"}
 - Seed base: {seed_base}
 - Timestamp (deterministic when seed-base set): {ts}
 
@@ -390,6 +393,10 @@ The **Official Benchmark Pack** is defined in `policy/official/benchmark_pack.v0
         "git_sha": git_sha,
         "episodes_baselines": episodes_baselines,
         "episodes_study_taskf": episodes_study,
+        "pipeline_mode": pipeline_mode,
+        "llm_backend_id": "none",
+        "llm_model_id": None,
+        "allow_network": allow_network,
     }
     (out_dir / "metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True),
@@ -421,10 +428,12 @@ The **Official Benchmark Pack** is defined in `policy/official/benchmark_pack.v0
 def run_package_release(
     profile: str,
     out_dir: Path,
-    repo_root: Optional[Path] = None,
-    seed_base: Optional[int] = None,
+    repo_root: Path | None = None,
+    seed_base: int | None = None,
     include_repro_dir: bool = False,
-    fixed_timestamp: Optional[str] = None,
+    fixed_timestamp: str | None = None,
+    pipeline_mode: str = "deterministic",
+    allow_network: bool = False,
 ) -> Path:
     """
     Run reproduce, export receipts and FHIR, copy plots/tables, write MANIFEST, BENCHMARK_CARD, metadata.
@@ -442,6 +451,8 @@ def run_package_release(
             repo_root=Path(repo_root),
             seed_base=seed_base,
             fixed_timestamp=fixed_timestamp,
+            pipeline_mode=pipeline_mode,
+            allow_network=allow_network,
         )
 
     repro_dir = out_dir / REPRO_DIR_NAME
@@ -453,8 +464,8 @@ def run_package_release(
         seed_base=seed_base,
     )
 
-    from labtrust_gym.export.receipts import export_receipts
     from labtrust_gym.export.fhir_r4 import export_fhir
+    from labtrust_gym.export.receipts import export_receipts
 
     receipts_out = out_dir / "receipts"
     fhir_out = out_dir / "fhir"
@@ -467,16 +478,16 @@ def run_package_release(
     tables_out.mkdir(parents=True, exist_ok=True)
     results_out.mkdir(parents=True, exist_ok=True)
 
-    all_manifests: List[Dict[str, Any]] = []
-    partner_id: Optional[str] = None
-    policy_fingerprint: Optional[str] = None
+    all_manifests: list[dict[str, Any]] = []
+    partner_id: str | None = None
+    policy_fingerprint: str | None = None
 
     for task in ["taska", "taskc"]:
         task_path = repro_dir / task
         if not task_path.is_dir():
             continue
         manifest_path = task_path / "manifest.json"
-        condition_ids: List[str] = []
+        condition_ids: list[str] = []
         if manifest_path.exists():
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             all_manifests.append(manifest)
@@ -550,7 +561,7 @@ def run_package_release(
     if ts is None and seed_base is not None:
         ts = _deterministic_timestamp(seed_base)
     if ts is None:
-        ts = datetime.now(timezone.utc).isoformat()
+        ts = datetime.now(UTC).isoformat()
     metadata = {
         "git_sha": _git_commit_hash(repo_root),
         "partner_id": partner_id,
@@ -558,6 +569,10 @@ def run_package_release(
         "seed_base": seed_base,
         "profile": profile,
         "timestamp": ts,
+        "pipeline_mode": pipeline_mode,
+        "llm_backend_id": "none",
+        "llm_model_id": None,
+        "allow_network": allow_network,
     }
     (out_dir / "metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8"

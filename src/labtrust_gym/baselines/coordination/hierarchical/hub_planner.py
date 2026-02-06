@@ -7,9 +7,9 @@ Deterministic; operates on global obs or aggregated summaries.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-MacroAssignment = Tuple[str, str, str, str, int, int]
+MacroAssignment = tuple[str, str, str, str, int, int]
 # (region_id, work_id, device_id, zone_id, priority, deadline_step)
 
 
@@ -24,18 +24,18 @@ class HubPlanner:
 
     def assign(
         self,
-        obs: Dict[str, Any],
-        zone_to_region: Dict[str, str],
-        device_zone: Dict[str, str],
-        device_ids: List[str],
+        obs: dict[str, Any],
+        zone_to_region: dict[str, str],
+        device_zone: dict[str, str],
+        device_ids: list[str],
         t: int,
         rng: Any,
-    ) -> List[MacroAssignment]:
+    ) -> list[MacroAssignment]:
         """
         From global obs, build work list (device, work_id, zone) and assign each to its region.
         Work in zone Z goes to region zone_to_region[Z]. Deterministic: stable sort by priority then device/work.
         """
-        worklist: List[Tuple[int, str, str, str]] = []
+        worklist: list[tuple[int, str, str, str]] = []
         for agent_id, o in obs.items():
             if not isinstance(o, dict):
                 continue
@@ -52,15 +52,11 @@ class HubPlanner:
                 zone_id = device_zone.get(dev_id, "")
                 if not zone_id:
                     continue
-                prio = (
-                    2
-                    if "STAT" in str(head).upper()
-                    else (1 if "URGENT" in str(head).upper() else 0)
-                )
+                prio = 2 if "STAT" in str(head).upper() else (1 if "URGENT" in str(head).upper() else 0)
                 worklist.append((prio, dev_id, head or "W", zone_id))
         worklist.sort(key=lambda x: (-x[0], x[1], x[2]))
-        seen: set = set()
-        out: List[MacroAssignment] = []
+        seen: set[tuple[str, str]] = set()
+        out: list[MacroAssignment] = []
         deadline = t + self.sla_horizon
         for prio, device_id, work_id, zone_id in worklist:
             key = (device_id, work_id)

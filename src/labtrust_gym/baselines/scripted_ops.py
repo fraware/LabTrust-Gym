@@ -8,14 +8,14 @@ QC fail => route to alternate device or hold. Purely deterministic given obs.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Action indices aligned with pz_parallel
 ACTION_NOOP = 0
 ACTION_TICK = 1
 ACTION_QUEUE_RUN = 2
 
-DEFAULT_DEVICE_IDS: List[str] = [
+DEFAULT_DEVICE_IDS: list[str] = [
     "DEV_CENTRIFUGE_BANK_01",
     "DEV_ALIQUOTER_01",
     "DEV_CHEM_A_01",
@@ -25,9 +25,9 @@ DEFAULT_DEVICE_IDS: List[str] = [
 ]
 
 # Default alternates (same zone / compatible); index -> list of indices
-DEFAULT_ALTERNATE_DEVICES: Dict[int, List[int]] = {
-    2: [3],   # DEV_CHEM_A_01 -> DEV_CHEM_B_01
-    3: [2],   # DEV_CHEM_B_01 -> DEV_CHEM_A_01
+DEFAULT_ALTERNATE_DEVICES: dict[int, list[int]] = {
+    2: [3],  # DEV_CHEM_A_01 -> DEV_CHEM_B_01
+    3: [2],  # DEV_CHEM_B_01 -> DEV_CHEM_A_01
     4: [2, 3],
     5: [3],
 }
@@ -55,26 +55,26 @@ def _float_scalar(x: Any, default: float = 0.0) -> float:
     return float(x)
 
 
-def _device_qc_pass(obs: Dict[str, Any], device_idx: int) -> bool:
+def _device_qc_pass(obs: dict[str, Any], device_idx: int) -> bool:
     """True if device at index has QC pass."""
     arr = obs.get("device_qc_pass")
     if arr is None:
         return True
     if hasattr(arr, "flat"):
         return bool(arr.flat[device_idx] if device_idx < arr.size else 1)
-    if isinstance(arr, (list, tuple)) and device_idx < len(arr):
+    if isinstance(arr, list | tuple) and device_idx < len(arr):
         return bool(arr[device_idx])
     return True
 
 
-def _queue_length(obs: Dict[str, Any], device_idx: int, max_len: int = 100) -> int:
+def _queue_length(obs: dict[str, Any], device_idx: int, max_len: int = 100) -> int:
     """Queue length for device at index."""
     arr = obs.get("queue_lengths")
     if arr is None:
         return 0
     if hasattr(arr, "flat"):
         return min(int(arr.flat[device_idx]) if device_idx < arr.size else 0, max_len)
-    if isinstance(arr, (list, tuple)) and device_idx < len(arr):
+    if isinstance(arr, list | tuple) and device_idx < len(arr):
         return min(int(arr[device_idx]), max_len)
     return 0
 
@@ -95,8 +95,8 @@ class ScriptedOpsAgent:
     def __init__(
         self,
         request_override_if_configured: bool = True,
-        alternate_devices: Optional[Dict[int, List[int]]] = None,
-        device_ids: Optional[List[str]] = None,
+        alternate_devices: dict[int, list[int]] | None = None,
+        device_ids: list[str] | None = None,
         door_tick_threshold_s: float = 150.0,
         max_queue_len: int = 50,
     ) -> None:
@@ -108,19 +108,28 @@ class ScriptedOpsAgent:
 
     def act(
         self,
-        observation: Dict[str, Any],
+        observation: dict[str, Any],
         agent_id: str = "ops_0",
-    ) -> Tuple[int, Dict[str, Any]]:
+    ) -> tuple[int, dict[str, Any]]:
         """
         Return (action_index, action_info). Purely deterministic.
 
         observation may include:
           - work_list: list of {work_id, priority, deadline_s, stability_ok, temp_ok, device_id}
             (device_id can be str or int index). If missing, [].
+          - releasable_result_ids: list of result_ids that can be released (generated/held, QC pass).
           - log_frozen, door_restricted_open, door_restricted_duration_s,
           - queue_lengths, device_qc_pass, token_count_override, token_count_restricted.
         """
-        action_info: Dict[str, Any] = {}
+        action_info: dict[str, Any] = {}
+
+        releasable = observation.get("releasable_result_ids") or []
+        if releasable and isinstance(releasable, (list, tuple)) and len(releasable) > 0:
+            rid = releasable[0]
+            return (
+                0,
+                {"action_type": "RELEASE_RESULT", "args": {"result_id": str(rid)}},
+            )
 
         log_frozen = _scalar(observation.get("log_frozen"), 0)
         if log_frozen:
@@ -136,18 +145,17 @@ class ScriptedOpsAgent:
 
         work_list = observation.get("work_list") or []
         token_override = _scalar(observation.get("token_count_override"), 0)
-        token_restricted = _scalar(observation.get("token_count_restricted"), 0)
+        _scalar(observation.get("token_count_restricted"), 0)
 
-        def can_queue_without_override(work: Dict[str, Any]) -> bool:
+        def can_queue_without_override(work: dict[str, Any]) -> bool:
             if work.get("stability_ok", True) and work.get("temp_ok", True):
                 return True
-            return bool(
-                self.request_override_if_configured and token_override > 0
-            )
+            return bool(self.request_override_if_configured and token_override > 0)
 
         eligible = [w for w in work_list if can_queue_without_override(w)]
+
         # STAT first, then EDF (by deadline_s)
-        def key(w: Dict[str, Any]) -> Tuple[int, int]:
+        def key(w: dict[str, Any]) -> tuple[int, int]:
             prio = 0 if (w.get("priority") == "STAT") else 1
             deadline = int(w.get("deadline_s", 0))
             return (prio, deadline)
@@ -176,12 +184,17 @@ class ScriptedOpsAgent:
                 if dev_idx < 0:
                     continue  # hold: no alternate with QC pass
 
-            if _queue_length(observation, dev_idx, self.max_queue_len) >= self.max_queue_len:
+            if (
+                _queue_length(observation, dev_idx, self.max_queue_len)
+                >= self.max_queue_len
+            ):
                 continue
 
             action_info = {
                 "work_id": str(work.get("work_id", "")),
-                "device_id": self.device_ids[dev_idx] if dev_idx < len(self.device_ids) else "",
+                "device_id": (
+                    self.device_ids[dev_idx] if dev_idx < len(self.device_ids) else ""
+                ),
                 "priority": str(work.get("priority", "ROUTINE")),
             }
             return (ACTION_QUEUE_RUN, action_info)

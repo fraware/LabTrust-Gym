@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 def _scalar(x: Any, default: int = 0) -> int:
@@ -25,7 +25,7 @@ def _float_scalar(x: Any, default: float = 0.0) -> float:
     return float(x)
 
 
-def get_zone_from_obs(obs: Dict[str, Any], zone_ids: List[str]) -> Optional[str]:
+def get_zone_from_obs(obs: dict[str, Any], zone_ids: list[str]) -> str | None:
     """Current zone id from obs (my_zone_idx 1-based into zone_ids)."""
     idx = _scalar(obs.get("my_zone_idx"), 0)
     if idx < 1 or idx > len(zone_ids):
@@ -33,7 +33,7 @@ def get_zone_from_obs(obs: Dict[str, Any], zone_ids: List[str]) -> Optional[str]
     return zone_ids[idx - 1]
 
 
-def get_queue_by_device(obs: Dict[str, Any]) -> List[Dict[str, Any]]:
+def get_queue_by_device(obs: dict[str, Any]) -> list[dict[str, Any]]:
     """Queue state per device from obs.queue_by_device."""
     qbd = obs.get("queue_by_device")
     if isinstance(qbd, list):
@@ -41,58 +41,58 @@ def get_queue_by_device(obs: Dict[str, Any]) -> List[Dict[str, Any]]:
     return []
 
 
-def get_zone_id_text(obs: Dict[str, Any]) -> str:
+def get_zone_id_text(obs: dict[str, Any]) -> str:
     """zone_id string from obs (state summary v0.2)."""
     z = obs.get("zone_id")
     return str(z) if z else ""
 
 
-def queue_has_head(obs: Dict[str, Any], device_idx: int) -> bool:
+def queue_has_head(obs: dict[str, Any], device_idx: int) -> bool:
     """True if device at index has queue head."""
     arr = obs.get("queue_has_head")
     if arr is None:
         return False
     if hasattr(arr, "flat"):
         return bool(arr.flat[device_idx] if device_idx < arr.size else 0)
-    if isinstance(arr, (list, tuple)) and device_idx < len(arr):
+    if isinstance(arr, list | tuple) and device_idx < len(arr):
         return bool(arr[device_idx])
     return False
 
 
-def log_frozen(obs: Dict[str, Any]) -> bool:
+def log_frozen(obs: dict[str, Any]) -> bool:
     return _scalar(obs.get("log_frozen"), 0) != 0
 
 
-def restricted_zone_frozen(obs: Dict[str, Any]) -> bool:
+def restricted_zone_frozen(obs: dict[str, Any]) -> bool:
     return _scalar(obs.get("restricted_zone_frozen"), 0) != 0
 
 
-def door_restricted_open(obs: Dict[str, Any]) -> bool:
+def door_restricted_open(obs: dict[str, Any]) -> bool:
     return _scalar(obs.get("door_restricted_open"), 0) != 0
 
 
-def device_qc_pass(obs: Dict[str, Any], device_idx: int) -> bool:
+def device_qc_pass(obs: dict[str, Any], device_idx: int) -> bool:
     arr = obs.get("device_qc_pass")
     if arr is None:
         return True
     if hasattr(arr, "flat"):
         return bool(arr.flat[device_idx] if device_idx < arr.size else 1)
-    if isinstance(arr, (list, tuple)) and device_idx < len(arr):
+    if isinstance(arr, list | tuple) and device_idx < len(arr):
         return bool(arr[device_idx])
     return True
 
 
 def extract_zone_and_device_ids(
-    policy: Dict[str, Any],
-    obs_sample: Optional[Dict[str, Any]] = None,
-) -> Tuple[List[str], List[str], Dict[str, str]]:
+    policy: dict[str, Any],
+    obs_sample: dict[str, Any] | None = None,
+) -> tuple[list[str], list[str], dict[str, str]]:
     """
     Return (zone_ids, device_ids, device_zone_map) from policy or obs.
     device_zone_map: device_id -> zone_id.
     """
-    zone_ids: List[str] = []
-    device_ids: List[str] = []
-    device_zone: Dict[str, str] = {}
+    zone_ids: list[str] = []
+    device_ids: list[str] = []
+    device_zone: dict[str, str] = {}
     layout = (policy or {}).get("zone_layout") or {}
     placement = layout.get("device_placement") or []
     for p in placement:

@@ -1,5 +1,7 @@
 # Role-to-prompt mapping for LLM router (dynamic per act(); supports shift-change).
 # role_id -> prompt_id. Unmapped roles fall back to default (ops_v2).
+# prompt_id -> prompts.v0.2 role_overlays: ops_reception_v2, ops_analytics_v2, ops_v2 -> ops;
+#   ops_transport_v2 -> runner; coordinator roles use coordinator overlay when present in ALLOWED_ACTIONS.
 version: "0.1"
 default_prompt_id: "ops_v2"
 mapping:

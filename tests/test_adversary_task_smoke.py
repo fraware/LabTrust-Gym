@@ -18,13 +18,16 @@ def test_taskd_runs_deterministically() -> None:
     """TaskD with same seed produces identical episode metrics across two runs."""
     pytest.importorskip("gymnasium")
     pytest.importorskip("pettingzoo")
-    root = _repo_root()
+    _repo_root()
     task = get_task("TaskD")
-    from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
+    from labtrust_gym.baselines.adversary import AdversaryAgent
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
-    from labtrust_gym.baselines.adversary import AdversaryAgent
-    from labtrust_gym.envs.pz_parallel import DEFAULT_ZONE_IDS, DEFAULT_DEVICE_IDS
+    from labtrust_gym.envs.pz_parallel import (
+        DEFAULT_DEVICE_IDS,
+        DEFAULT_ZONE_IDS,
+        LabTrustParallelEnv,
+    )
 
     def env_factory(initial_state, reward_config, log_path=None):
         return LabTrustParallelEnv(
@@ -50,20 +53,12 @@ def test_taskd_runs_deterministically() -> None:
         }
 
     seed = 99
-    metrics1, _ = run_episode(
-        task, seed, env_factory, scripted_agents_map=make_agents()
-    )
-    metrics2, _ = run_episode(
-        task, seed, env_factory, scripted_agents_map=make_agents()
-    )
+    metrics1, _ = run_episode(task, seed, env_factory, scripted_agents_map=make_agents())
+    metrics2, _ = run_episode(task, seed, env_factory, scripted_agents_map=make_agents())
     assert metrics1["throughput"] == metrics2["throughput"]
     assert metrics1["steps"] == metrics2["steps"]
-    assert metrics1.get("violations_by_invariant_id") == metrics2.get(
-        "violations_by_invariant_id"
-    )
-    assert metrics1.get("blocked_by_reason_code") == metrics2.get(
-        "blocked_by_reason_code"
-    )
+    assert metrics1.get("violations_by_invariant_id") == metrics2.get("violations_by_invariant_id")
+    assert metrics1.get("blocked_by_reason_code") == metrics2.get("blocked_by_reason_code")
     if "detection_latency_s" in metrics1:
         assert metrics1["detection_latency_s"] == metrics2["detection_latency_s"]
     if "containment_success" in metrics1:
@@ -74,13 +69,16 @@ def test_taskd_produces_detection_metrics() -> None:
     """TaskD run produces detection_latency_s, containment_success, or attribution_confidence_proxy when applicable."""
     pytest.importorskip("gymnasium")
     pytest.importorskip("pettingzoo")
-    root = _repo_root()
+    _repo_root()
     task = get_task("TaskD")
-    from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
+    from labtrust_gym.baselines.adversary import AdversaryAgent
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
-    from labtrust_gym.baselines.adversary import AdversaryAgent
-    from labtrust_gym.envs.pz_parallel import DEFAULT_ZONE_IDS, DEFAULT_DEVICE_IDS
+    from labtrust_gym.envs.pz_parallel import (
+        DEFAULT_DEVICE_IDS,
+        DEFAULT_ZONE_IDS,
+        LabTrustParallelEnv,
+    )
 
     def env_factory(initial_state, reward_config, log_path=None):
         return LabTrustParallelEnv(
@@ -104,9 +102,7 @@ def test_taskd_produces_detection_metrics() -> None:
         "adversary_0": AdversaryAgent(),
     }
 
-    metrics, _ = run_episode(
-        task, 42, env_factory, scripted_agents_map=scripted_agents_map
-    )
+    metrics, _ = run_episode(task, 42, env_factory, scripted_agents_map=scripted_agents_map)
     assert "steps" in metrics
     assert metrics["steps"] > 0
     # Adversary triggers violations; we should see at least one of these

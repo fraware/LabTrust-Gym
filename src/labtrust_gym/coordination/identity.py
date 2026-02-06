@@ -11,7 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 # Reason codes (must match policy/reason_codes/reason_code_registry.v0.1.yaml)
 COORD_SIGNATURE_INVALID = "COORD_SIGNATURE_INVALID"
@@ -30,24 +30,22 @@ KEY_SIGNATURE = "signature"
 
 def _derive_key_seed(master_seed: int, agent_id: str) -> bytes:
     """Deterministic 32-byte seed for Ed25519 from master_seed and agent_id."""
-    msg = f"{master_seed}\0{agent_id}".encode("utf-8")
+    msg = f"{master_seed}\0{agent_id}".encode()
     return hashlib.sha256(msg).digest()[:32]
 
 
-def build_key_store(
-    agent_ids: list[str], master_seed: int
-) -> Dict[str, Tuple[Any, str]]:
+def build_key_store(agent_ids: list[str], master_seed: int) -> dict[str, tuple[Any, str]]:
     """
     Build key store for sign/verify. Returns dict agent_id -> (private_key, public_key_b64).
     Deterministic: same agent_ids and master_seed yield same keys.
     """
     try:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
         from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     except ImportError:
         return {}
 
-    store: Dict[str, Tuple[Any, str]] = {}
+    store: dict[str, tuple[Any, str]] = {}
     for aid in agent_ids:
         seed = _derive_key_seed(master_seed, aid)
         try:
@@ -63,21 +61,19 @@ def build_key_store(
     return store
 
 
-def _canonical_payload(envelope_without_sig: Dict[str, Any]) -> bytes:
+def _canonical_payload(envelope_without_sig: dict[str, Any]) -> bytes:
     """Canonical bytes for signing (deterministic JSON)."""
-    return json.dumps(
-        envelope_without_sig, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    return json.dumps(envelope_without_sig, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def sign_message(
     message_type: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     sender_id: str,
     nonce: int,
     epoch: int,
-    key_store: Dict[str, Tuple[Any, str]],
-) -> Optional[Dict[str, Any]]:
+    key_store: dict[str, tuple[Any, str]],
+) -> dict[str, Any] | None:
     """
     Produce a signed coordination message envelope. Returns None if sender has no key.
     Envelope: sender_id, nonce, epoch, message_type, payload, payload_hash, signature (base64).
@@ -106,9 +102,9 @@ def sign_message(
 
 
 def verify_message(
-    envelope: Dict[str, Any],
-    key_store: Dict[str, Tuple[Any, str]],
-) -> Tuple[bool, Optional[str], Optional[str]]:
+    envelope: dict[str, Any],
+    key_store: dict[str, tuple[Any, str]],
+) -> tuple[bool, str | None, str | None]:
     """
     Verify signature on a coordination message envelope.
     Returns (ok, sender_id, reason_code). If ok then reason_code is None.
@@ -126,8 +122,8 @@ def verify_message(
     envelope_without_sig = {k: v for k, v in envelope.items() if k != KEY_SIGNATURE}
     payload_bytes = _canonical_payload(envelope_without_sig)
     try:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     except ImportError:
         return False, sender_id, COORD_SIGNATURE_INVALID
     try:

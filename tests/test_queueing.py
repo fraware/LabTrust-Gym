@@ -4,12 +4,10 @@ Tests for per-device queue: STAT insertion, ordering, queue_head, START_RUN cons
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.engine.queueing import (
+    PRIORITY_RANK,
     DeviceQueue,
     DeviceQueueItem,
-    PRIORITY_RANK,
     QueueStore,
 )
 
@@ -58,9 +56,7 @@ def test_queue_store_unknown_device() -> None:
     store.set_known_devices(["DEV_CHEM_A_01"])
     assert store.is_known_device("DEV_CHEM_A_01") is True
     assert store.is_known_device("UNKNOWN_DEV") is False
-    ok = store.enqueue(
-        "UNKNOWN_DEV", "S1", "ROUTINE", 0, "A1", None
-    )
+    ok = store.enqueue("UNKNOWN_DEV", "S1", "ROUTINE", 0, "A1", None)
     assert ok is False
     assert store.queue_head("UNKNOWN_DEV") is None
 
@@ -68,12 +64,8 @@ def test_queue_store_unknown_device() -> None:
 def test_queue_store_enqueue_and_head() -> None:
     store = QueueStore()
     store.set_known_devices(["DEV_CHEM_A_01"])
-    store.enqueue(
-        "DEV_CHEM_A_01", "S1", "ROUTINE", 700, "A_ANALYTICS", None
-    )
-    store.enqueue(
-        "DEV_CHEM_A_01", "S2", "STAT", 705, "A_ANALYTICS", None
-    )
+    store.enqueue("DEV_CHEM_A_01", "S1", "ROUTINE", 700, "A_ANALYTICS", None)
+    store.enqueue("DEV_CHEM_A_01", "S2", "STAT", 705, "A_ANALYTICS", None)
     assert store.queue_head("DEV_CHEM_A_01") == "S2"
     assert store.consume_head("DEV_CHEM_A_01") == "S2"
     assert store.queue_head("DEV_CHEM_A_01") == "S1"
@@ -107,19 +99,29 @@ def test_start_run_consumes_head_integration() -> None:
         rng_seed=42,
     )
     # Queue S1 on device
-    env.step({
-        "event_id": "e1", "t_s": 100, "agent_id": "A_ANALYTICS",
-        "action_type": "QUEUE_RUN",
-        "args": {"device_id": "DEV_CHEM_A_01", "accession_ids": ["S1"], "priority": "ROUTINE"},
-        "reason_code": None, "token_refs": [],
-    })
+    env.step(
+        {
+            "event_id": "e1",
+            "t_s": 100,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "QUEUE_RUN",
+            "args": {"device_id": "DEV_CHEM_A_01", "accession_ids": ["S1"], "priority": "ROUTINE"},
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
     assert env.query("queue_head(DEV_CHEM_A_01)") == "S1"
     # START_RUN with device_id only: should consume S1
-    out = env.step({
-        "event_id": "e2", "t_s": 110, "agent_id": "A_ANALYTICS",
-        "action_type": "START_RUN",
-        "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R1"},
-        "reason_code": None, "token_refs": [],
-    })
+    out = env.step(
+        {
+            "event_id": "e2",
+            "t_s": 110,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "START_RUN",
+            "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R1"},
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
     assert out["status"] == "ACCEPTED"
     assert env.query("queue_head(DEV_CHEM_A_01)") is None

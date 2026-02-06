@@ -34,9 +34,7 @@ def _repo_root() -> Path:
 
 # ---- catalogue_runtime unit tests ----
 def test_stability_limits_biochem() -> None:
-    policy = load_stability_policy(
-        _repo_root() / "policy" / "stability" / "stability_policy.v0.1.yaml"
-    )
+    policy = load_stability_policy(_repo_root() / "policy" / "stability" / "stability_policy.v0.1.yaml")
     limits = get_stability_limits_for_panel(policy, "BIOCHEM_PANEL_CORE")
     assert limits["pre_separation_max_s"] == 120 * 60
     assert limits["post_separation_ambient_max_s"] == 360 * 60
@@ -70,16 +68,29 @@ def test_check_stability_expired() -> None:
 
 
 def test_check_temp_out_of_band() -> None:
-    assert check_temp_out_of_band(
-        "REFRIGERATED_2_8",
-        [{"t_s": 4000, "temp_band": "AMBIENT_20_25"}],
-    ) is True
+    assert (
+        check_temp_out_of_band(
+            "REFRIGERATED_2_8",
+            [{"t_s": 4000, "temp_band": "AMBIENT_20_25"}],
+        )
+        is True
+    )
     assert check_temp_out_of_band(None, []) is False
 
 
 def test_specimen_separated_ts_and_aliquot() -> None:
     store = SpecimenStore()
-    store.load_initial([{"specimen_id": "S1", "panel_id": "BIOCHEM_PANEL_CORE", "collection_ts_s": 0, "arrival_ts_s": 600, "separated_ts_s": None}])
+    store.load_initial(
+        [
+            {
+                "specimen_id": "S1",
+                "panel_id": "BIOCHEM_PANEL_CORE",
+                "collection_ts_s": 0,
+                "arrival_ts_s": 600,
+                "separated_ts_s": None,
+            }
+        ]
+    )
     store.set_separated_ts("S1", 1370)
     assert store.get("S1").get("separated_ts_s") == 1370
     store.record_aliquot("A1", "S1")
@@ -92,15 +103,109 @@ def _should_run_golden() -> bool:
 
 
 GS001_SCRIPT = [
-    {"event_id": "e1", "t_s": 600, "agent_id": "A_RECEPTION", "action_type": "CREATE_ACCESSION", "args": {"specimen_id": "S1"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["CREATE_ACCESSION"]}},
-    {"event_id": "e2", "t_s": 610, "agent_id": "A_RECEPTION", "action_type": "CHECK_ACCEPTANCE_RULES", "args": {"specimen_id": "S1"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["CHECK_ACCEPTANCE_RULES"]}},
-    {"event_id": "e3", "t_s": 620, "agent_id": "A_RECEPTION", "action_type": "ACCEPT_SPECIMEN", "args": {"specimen_id": "S1"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["ACCEPT_SPECIMEN"]}},
-    {"event_id": "e4", "t_s": 700, "agent_id": "A_PREAN", "action_type": "MOVE", "args": {"entity_type": "Specimen", "entity_id": "S1", "from_zone": "Z_SORTING_LANES", "to_zone": "Z_CENTRIFUGE_BAY"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["MOVE"]}},
-    {"event_id": "e5", "t_s": 710, "agent_id": "A_PREAN", "action_type": "CENTRIFUGE_START", "args": {"device_id": "DEV_CENTRIFUGE_BANK_01", "specimen_ids": ["S1"]}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["CENTRIFUGE_START"]}},
-    {"event_id": "e6", "t_s": 1370, "agent_id": "A_PREAN", "action_type": "CENTRIFUGE_END", "args": {"device_id": "DEV_CENTRIFUGE_BANK_01", "specimen_ids": ["S1"], "separated_ts_s": 1370}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["CENTRIFUGE_END"]}},
-    {"event_id": "e7", "t_s": 1400, "agent_id": "A_PREAN", "action_type": "ALIQUOT_CREATE", "args": {"device_id": "DEV_ALIQUOTER_01", "specimen_id": "S1", "aliquot_id": "A1"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["ALIQUOT_CREATE"]}},
-    {"event_id": "e8", "t_s": 1450, "agent_id": "A_ANALYTICS", "action_type": "QUEUE_RUN", "args": {"device_id": "DEV_CHEM_A_01", "aliquot_ids": ["A1"]}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["QUEUE_RUN"]}},
-    {"event_id": "e9", "t_s": 1500, "agent_id": "A_ANALYTICS", "action_type": "START_RUN", "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R1", "aliquot_ids": ["A1"]}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["START_RUN"], "violations": ["INV-STAB-BIOCHEM-001:PASS"]}},
+    {
+        "event_id": "e1",
+        "t_s": 600,
+        "agent_id": "A_RECEPTION",
+        "action_type": "CREATE_ACCESSION",
+        "args": {"specimen_id": "S1"},
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {"status": "ACCEPTED", "emits": ["CREATE_ACCESSION"]},
+    },
+    {
+        "event_id": "e2",
+        "t_s": 610,
+        "agent_id": "A_RECEPTION",
+        "action_type": "CHECK_ACCEPTANCE_RULES",
+        "args": {"specimen_id": "S1"},
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {"status": "ACCEPTED", "emits": ["CHECK_ACCEPTANCE_RULES"]},
+    },
+    {
+        "event_id": "e3",
+        "t_s": 620,
+        "agent_id": "A_RECEPTION",
+        "action_type": "ACCEPT_SPECIMEN",
+        "args": {"specimen_id": "S1"},
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {"status": "ACCEPTED", "emits": ["ACCEPT_SPECIMEN"]},
+    },
+    {
+        "event_id": "e4",
+        "t_s": 700,
+        "agent_id": "A_PREAN",
+        "action_type": "MOVE",
+        "args": {
+            "entity_type": "Specimen",
+            "entity_id": "S1",
+            "from_zone": "Z_SORTING_LANES",
+            "to_zone": "Z_CENTRIFUGE_BAY",
+        },
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {"status": "ACCEPTED", "emits": ["MOVE"]},
+    },
+    {
+        "event_id": "e5",
+        "t_s": 710,
+        "agent_id": "A_PREAN",
+        "action_type": "CENTRIFUGE_START",
+        "args": {"device_id": "DEV_CENTRIFUGE_BANK_01", "specimen_ids": ["S1"]},
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {"status": "ACCEPTED", "emits": ["CENTRIFUGE_START"]},
+    },
+    {
+        "event_id": "e6",
+        "t_s": 1370,
+        "agent_id": "A_PREAN",
+        "action_type": "CENTRIFUGE_END",
+        "args": {
+            "device_id": "DEV_CENTRIFUGE_BANK_01",
+            "specimen_ids": ["S1"],
+            "separated_ts_s": 1370,
+        },
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {"status": "ACCEPTED", "emits": ["CENTRIFUGE_END"]},
+    },
+    {
+        "event_id": "e7",
+        "t_s": 1400,
+        "agent_id": "A_PREAN",
+        "action_type": "ALIQUOT_CREATE",
+        "args": {"device_id": "DEV_ALIQUOTER_01", "specimen_id": "S1", "aliquot_id": "A1"},
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {"status": "ACCEPTED", "emits": ["ALIQUOT_CREATE"]},
+    },
+    {
+        "event_id": "e8",
+        "t_s": 1450,
+        "agent_id": "A_ANALYTICS",
+        "action_type": "QUEUE_RUN",
+        "args": {"device_id": "DEV_CHEM_A_01", "aliquot_ids": ["A1"]},
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {"status": "ACCEPTED", "emits": ["QUEUE_RUN"]},
+    },
+    {
+        "event_id": "e9",
+        "t_s": 1500,
+        "agent_id": "A_ANALYTICS",
+        "action_type": "START_RUN",
+        "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R1", "aliquot_ids": ["A1"]},
+        "reason_code": None,
+        "token_refs": [],
+        "expect": {
+            "status": "ACCEPTED",
+            "emits": ["START_RUN"],
+            "violations": ["INV-STAB-BIOCHEM-001:PASS"],
+        },
+    },
 ]
 
 GS001 = {
@@ -129,7 +234,13 @@ GS006 = {
                 "panel_id": "BIOCHEM_PANEL_CORE",
                 "container_type": "SERUM_SST",
                 "specimen_type": "SERUM",
-                "integrity_flags": {"leak": False, "clot": False, "hemolysis": False, "insufficient_volume": False, "label_issue": False},
+                "integrity_flags": {
+                    "leak": False,
+                    "clot": False,
+                    "hemolysis": False,
+                    "insufficient_volume": False,
+                    "label_issue": False,
+                },
                 "separated_ts_s": 42000,
                 "temp_band": "AMBIENT_20_25",
                 "status": "accepted",
@@ -138,10 +249,78 @@ GS006 = {
         "tokens": [],
     },
     "script": [
-        {"event_id": "e1", "t_s": 42010, "agent_id": "A_ANALYTICS", "action_type": "START_RUN", "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R4", "specimen_ids": ["S4"]}, "reason_code": None, "token_refs": [], "expect": {"status": "BLOCKED", "violations": ["INV-STAB-BIOCHEM-002:VIOLATION"], "blocked_reason_code": "TIME_EXPIRED"}},
-        {"event_id": "e2", "t_s": 42020, "agent_id": "A_SUPERVISOR", "action_type": "MINT_TOKEN", "args": {"token_type": "OVERRIDE_RISK_ACCEPTANCE", "subject_type": "specimen", "subject_id": "S4", "reason_code": "TIME_EXPIRED", "approvals": ["A_SUPERVISOR"]}, "reason_code": "TIME_EXPIRED", "token_refs": [], "expect": {"status": "BLOCKED", "violations": ["INV-TOK-001:VIOLATION"]}},
-        {"event_id": "e3", "t_s": 42030, "agent_id": "A_SUPERVISOR", "action_type": "MINT_TOKEN", "args": {"token_type": "OVERRIDE_RISK_ACCEPTANCE", "subject_type": "specimen", "subject_id": "S4", "reason_code": "TIME_EXPIRED", "approvals": [{"approver_agent_id": "A_SUPERVISOR", "approver_key_id": "ed25519:key_supervisor"}, {"approver_agent_id": "A_CLINSCI", "approver_key_id": "ed25519:key_clinsci"}]}, "reason_code": "TIME_EXPIRED", "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["MINT_TOKEN"]}},
-        {"event_id": "e4", "t_s": 42040, "agent_id": "A_ANALYTICS", "action_type": "START_RUN_OVERRIDE", "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R4", "specimen_ids": ["S4"], "reason_code": "TIME_EXPIRED"}, "reason_code": "TIME_EXPIRED", "token_refs": ["T_OVR_S4"], "expect": {"status": "ACCEPTED", "emits": ["START_RUN"], "violations": ["INV-TOK-003:PASS"], "token_consumed": ["T_OVR_S4"]}},
+        {
+            "event_id": "e1",
+            "t_s": 42010,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "START_RUN",
+            "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R4", "specimen_ids": ["S4"]},
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {
+                "status": "BLOCKED",
+                "violations": ["INV-STAB-BIOCHEM-002:VIOLATION"],
+                "blocked_reason_code": "TIME_EXPIRED",
+            },
+        },
+        {
+            "event_id": "e2",
+            "t_s": 42020,
+            "agent_id": "A_SUPERVISOR",
+            "action_type": "MINT_TOKEN",
+            "args": {
+                "token_type": "OVERRIDE_RISK_ACCEPTANCE",
+                "subject_type": "specimen",
+                "subject_id": "S4",
+                "reason_code": "TIME_EXPIRED",
+                "approvals": ["A_SUPERVISOR"],
+            },
+            "reason_code": "TIME_EXPIRED",
+            "token_refs": [],
+            "expect": {"status": "BLOCKED", "violations": ["INV-TOK-001:VIOLATION"]},
+        },
+        {
+            "event_id": "e3",
+            "t_s": 42030,
+            "agent_id": "A_SUPERVISOR",
+            "action_type": "MINT_TOKEN",
+            "args": {
+                "token_type": "OVERRIDE_RISK_ACCEPTANCE",
+                "subject_type": "specimen",
+                "subject_id": "S4",
+                "reason_code": "TIME_EXPIRED",
+                "approvals": [
+                    {
+                        "approver_agent_id": "A_SUPERVISOR",
+                        "approver_key_id": "ed25519:key_supervisor",
+                    },
+                    {"approver_agent_id": "A_CLINSCI", "approver_key_id": "ed25519:key_clinsci"},
+                ],
+            },
+            "reason_code": "TIME_EXPIRED",
+            "token_refs": [],
+            "expect": {"status": "ACCEPTED", "emits": ["MINT_TOKEN"]},
+        },
+        {
+            "event_id": "e4",
+            "t_s": 42040,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "START_RUN_OVERRIDE",
+            "args": {
+                "device_id": "DEV_CHEM_A_01",
+                "run_id": "R4",
+                "specimen_ids": ["S4"],
+                "reason_code": "TIME_EXPIRED",
+            },
+            "reason_code": "TIME_EXPIRED",
+            "token_refs": ["T_OVR_S4"],
+            "expect": {
+                "status": "ACCEPTED",
+                "emits": ["START_RUN"],
+                "violations": ["INV-TOK-003:PASS"],
+                "token_consumed": ["T_OVR_S4"],
+            },
+        },
     ],
 }
 
@@ -164,14 +343,30 @@ GS007 = {
                 "separated_ts_s": 700,
                 "temp_band": "AMBIENT_20_25",
                 "storage_requirement": "REFRIGERATED_2_8",
-                "temp_exposure_log": [{"t_s": 700, "temp_band": "AMBIENT_20_25"}, {"t_s": 4000, "temp_band": "AMBIENT_20_25"}],
+                "temp_exposure_log": [
+                    {"t_s": 700, "temp_band": "AMBIENT_20_25"},
+                    {"t_s": 4000, "temp_band": "AMBIENT_20_25"},
+                ],
                 "status": "accepted",
             }
         ],
         "tokens": [],
     },
     "script": [
-        {"event_id": "e1", "t_s": 4010, "agent_id": "A_ANALYTICS", "action_type": "START_RUN", "args": {"device_id": "DEV_COAG_01", "run_id": "R5", "specimen_ids": ["S5"]}, "reason_code": None, "token_refs": [], "expect": {"status": "BLOCKED", "blocked_reason_code": "TEMP_OUT_OF_BAND", "violations": ["INV-ZONE-006:VIOLATION"]}},
+        {
+            "event_id": "e1",
+            "t_s": 4010,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "START_RUN",
+            "args": {"device_id": "DEV_COAG_01", "run_id": "R5", "specimen_ids": ["S5"]},
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {
+                "status": "BLOCKED",
+                "blocked_reason_code": "TEMP_OUT_OF_BAND",
+                "violations": ["INV-ZONE-006:VIOLATION"],
+            },
+        },
     ],
 }
 

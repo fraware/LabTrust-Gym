@@ -68,7 +68,20 @@ def test_critical_store_ack_gating() -> None:
 def test_comm_record_exists() -> None:
     store = CriticalStore()
     assert store.comm_record_exists("RES_X") is False
-    store.record_ack("RES_X", {"channel": "phone", "receiver_role": "R", "receiver_name_or_id": "X", "receiver_location_or_org": "Y", "read_back_confirmed": False, "outcome": "reached", "acknowledgment_ts_s": 3000}, "A_SUPERVISOR", 3000)
+    store.record_ack(
+        "RES_X",
+        {
+            "channel": "phone",
+            "receiver_role": "R",
+            "receiver_name_or_id": "X",
+            "receiver_location_or_org": "Y",
+            "read_back_confirmed": False,
+            "outcome": "reached",
+            "acknowledgment_ts_s": 3000,
+        },
+        "A_SUPERVISOR",
+        3000,
+    )
     assert store.comm_record_exists("RES_X") is True
 
 
@@ -256,11 +269,84 @@ GS016 = {
         "tokens": [],
     },
     "script": [
-        {"event_id": "e1", "t_s": 2000, "agent_id": "A_ANALYTICS", "action_type": "GENERATE_RESULT", "args": {"result_id": "RES_CRITK", "analyte_code": "BIOCHEM_POTASSIUM_K", "value": 7.0, "units": "mmol/L", "qc_state": "pass"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["CLASSIFY_RESULT"], "state_assertions": ["result_criticality('RES_CRITK') == 'CRIT_A'"]}},
-        {"event_id": "e2", "t_s": 2010, "agent_id": "A_ANALYTICS", "action_type": "RELEASE_RESULT", "args": {"result_id": "RES_CRITK"}, "reason_code": None, "token_refs": [], "expect": {"status": "BLOCKED", "blocked_reason_code": "CRIT_NO_ACK", "violations": ["INV-CRIT-002:VIOLATION"]}},
-        {"event_id": "e3", "t_s": 2020, "agent_id": "A_SUPERVISOR", "action_type": "NOTIFY_CRITICAL_RESULT", "args": {"result_id": "RES_CRITK", "channel": "phone", "receiver_role": "WARD_TEAM_PRIMARY"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED"}},
-        {"event_id": "e4", "t_s": 2030, "agent_id": "A_SUPERVISOR", "action_type": "ACK_CRITICAL_RESULT", "args": {"result_id": "RES_CRITK", "attempt_id": "RES_CRITK_attempt_0", "channel": "phone", "receiver_role": "WARD_TEAM_PRIMARY", "receiver_name_or_id": "WARD_CLINICIAN_1", "receiver_location_or_org": "WARD_X", "read_back_confirmed": True, "outcome": "reached", "acknowledgment_ts_s": 2030}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "violations": ["INV-CRIT-004:PASS"]}},
-        {"event_id": "e5", "t_s": 2040, "agent_id": "A_ANALYTICS", "action_type": "RELEASE_RESULT", "args": {"result_id": "RES_CRITK"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED"}},
+        {
+            "event_id": "e1",
+            "t_s": 2000,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "GENERATE_RESULT",
+            "args": {
+                "result_id": "RES_CRITK",
+                "analyte_code": "BIOCHEM_POTASSIUM_K",
+                "value": 7.0,
+                "units": "mmol/L",
+                "qc_state": "pass",
+            },
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {
+                "status": "ACCEPTED",
+                "emits": ["CLASSIFY_RESULT"],
+                "state_assertions": ["result_criticality('RES_CRITK') == 'CRIT_A'"],
+            },
+        },
+        {
+            "event_id": "e2",
+            "t_s": 2010,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "RELEASE_RESULT",
+            "args": {"result_id": "RES_CRITK"},
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {
+                "status": "BLOCKED",
+                "blocked_reason_code": "CRIT_NO_ACK",
+                "violations": ["INV-CRIT-002:VIOLATION"],
+            },
+        },
+        {
+            "event_id": "e3",
+            "t_s": 2020,
+            "agent_id": "A_SUPERVISOR",
+            "action_type": "NOTIFY_CRITICAL_RESULT",
+            "args": {
+                "result_id": "RES_CRITK",
+                "channel": "phone",
+                "receiver_role": "WARD_TEAM_PRIMARY",
+            },
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {"status": "ACCEPTED"},
+        },
+        {
+            "event_id": "e4",
+            "t_s": 2030,
+            "agent_id": "A_SUPERVISOR",
+            "action_type": "ACK_CRITICAL_RESULT",
+            "args": {
+                "result_id": "RES_CRITK",
+                "attempt_id": "RES_CRITK_attempt_0",
+                "channel": "phone",
+                "receiver_role": "WARD_TEAM_PRIMARY",
+                "receiver_name_or_id": "WARD_CLINICIAN_1",
+                "receiver_location_or_org": "WARD_X",
+                "read_back_confirmed": True,
+                "outcome": "reached",
+                "acknowledgment_ts_s": 2030,
+            },
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {"status": "ACCEPTED", "violations": ["INV-CRIT-004:PASS"]},
+        },
+        {
+            "event_id": "e5",
+            "t_s": 2040,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "RELEASE_RESULT",
+            "args": {"result_id": "RES_CRITK"},
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {"status": "ACCEPTED"},
+        },
     ],
 }
 
@@ -269,8 +355,40 @@ GS017 = {
     "title": "Critical comm without read-back triggers audit violation (but ACK exists)",
     "initial_state": {"system": {}, "specimens": [], "tokens": []},
     "script": [
-        {"event_id": "e0", "t_s": 2990, "agent_id": "A_SUPERVISOR", "action_type": "NOTIFY_CRITICAL_RESULT", "args": {"result_id": "RES_X", "channel": "phone", "receiver_role": "primary_contact"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED"}},
-        {"event_id": "e1", "t_s": 3000, "agent_id": "A_SUPERVISOR", "action_type": "ACK_CRITICAL_RESULT", "args": {"result_id": "RES_X", "attempt_id": "RES_X_attempt_0", "channel": "phone", "receiver_role": "WARD_TEAM_PRIMARY", "receiver_name_or_id": "WARD_CLINICIAN_2", "receiver_location_or_org": "WARD_Y", "read_back_confirmed": False, "outcome": "reached", "acknowledgment_ts_s": 3000}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "violations": ["INV-CRIT-004:VIOLATION"], "state_assertions": ["comm_record_exists(result_id='RES_X') == true"]}},
+        {
+            "event_id": "e0",
+            "t_s": 2990,
+            "agent_id": "A_SUPERVISOR",
+            "action_type": "NOTIFY_CRITICAL_RESULT",
+            "args": {"result_id": "RES_X", "channel": "phone", "receiver_role": "primary_contact"},
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {"status": "ACCEPTED"},
+        },
+        {
+            "event_id": "e1",
+            "t_s": 3000,
+            "agent_id": "A_SUPERVISOR",
+            "action_type": "ACK_CRITICAL_RESULT",
+            "args": {
+                "result_id": "RES_X",
+                "attempt_id": "RES_X_attempt_0",
+                "channel": "phone",
+                "receiver_role": "WARD_TEAM_PRIMARY",
+                "receiver_name_or_id": "WARD_CLINICIAN_2",
+                "receiver_location_or_org": "WARD_Y",
+                "read_back_confirmed": False,
+                "outcome": "reached",
+                "acknowledgment_ts_s": 3000,
+            },
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {
+                "status": "ACCEPTED",
+                "violations": ["INV-CRIT-004:VIOLATION"],
+                "state_assertions": ["comm_record_exists(result_id='RES_X') == true"],
+            },
+        },
     ],
 }
 
@@ -283,7 +401,26 @@ GS018 = {
         "tokens": [],
     },
     "script": [
-        {"event_id": "e1", "t_s": 4000, "agent_id": "A_ANALYTICS", "action_type": "GENERATE_RESULT", "args": {"result_id": "RES_DT", "analyte_code": "BIOCHEM_SODIUM_NA", "value": 165.0, "units": "mmol/L", "qc_state": "pass"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["NOTIFY_CRITICAL_RESULT"], "state_assertions": ["notification_mode_required('RES_DT') == 'phone_or_bleep'"]}},
+        {
+            "event_id": "e1",
+            "t_s": 4000,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "GENERATE_RESULT",
+            "args": {
+                "result_id": "RES_DT",
+                "analyte_code": "BIOCHEM_SODIUM_NA",
+                "value": 165.0,
+                "units": "mmol/L",
+                "qc_state": "pass",
+            },
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {
+                "status": "ACCEPTED",
+                "emits": ["NOTIFY_CRITICAL_RESULT"],
+                "state_assertions": ["notification_mode_required('RES_DT') == 'phone_or_bleep'"],
+            },
+        },
     ],
 }
 

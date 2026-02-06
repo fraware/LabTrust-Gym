@@ -5,8 +5,6 @@ Bounded horizon; one agent per (t, node) by default (INV-ROUTE-001).
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set, Tuple
-
 
 class ReservationTable:
     """
@@ -17,11 +15,11 @@ class ReservationTable:
     __slots__ = ("_table", "_by_agent", "_max_t")
 
     def __init__(self, max_t: int = 128) -> None:
-        self._table: Dict[Tuple[int, str], str] = {}
-        self._by_agent: Dict[str, Set[Tuple[int, str]]] = {}
+        self._table: dict[tuple[int, str], str] = {}
+        self._by_agent: dict[str, set[tuple[int, str]]] = {}
         self._max_t = max(1, max_t)
 
-    def get(self, t: int, node: str) -> Optional[str]:
+    def get(self, t: int, node: str) -> str | None:
         """Agent reserved at (t, node) or None."""
         if t < 0 or t > self._max_t:
             return None
@@ -45,7 +43,7 @@ class ReservationTable:
 
     def reserve_path(
         self,
-        path: List[Tuple[int, str]],
+        path: list[tuple[int, str]],
         agent_id: str,
     ) -> bool:
         """

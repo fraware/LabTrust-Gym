@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 
 class LabTrustEnvAdapter:
@@ -14,13 +14,11 @@ class LabTrustEnvAdapter:
         structured data for the oracle to normalize and assert.
     """
 
-    def reset(
-        self, initial_state: Dict[str, Any], *, deterministic: bool, rng_seed: int
-    ) -> None:
+    def reset(self, initial_state: dict[str, Any], *, deterministic: bool, rng_seed: int) -> None:
         """Reset the simulator to the scenario initial state."""
         raise NotImplementedError
 
-    def step(self, event: Dict[str, Any]) -> Dict[str, Any]:
+    def step(self, event: dict[str, Any]) -> dict[str, Any]:
         """
         Apply one event.
 

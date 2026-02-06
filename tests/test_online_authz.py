@@ -15,7 +15,6 @@ import threading
 import time
 import urllib.error
 import urllib.request
-import pytest
 
 from labtrust_gym.online.config import (
     AUTH_API_KEY,
@@ -105,9 +104,7 @@ def test_auth_off_all_endpoints_accessible() -> None:
         for path in ["/", "/health", "/v0/summary"]:
             status, headers, raw = _request(port, path=path)
             assert status == 200, path
-            assert "X-Request-Id" in headers or "x-request-id" in [
-                h.lower() for h in headers
-            ]
+            assert "X-Request-Id" in headers or "x-request-id" in [h.lower() for h in headers]
         if sys.platform != "win32":
             status, _, raw = _request_post(port, "/v0/step", b"{}")
             assert status == 501, raw.decode("utf-8") if raw else "no body"
@@ -340,9 +337,7 @@ def test_forbidden_logs_request_id() -> None:
     )
     server, port = _start_server(config)
     try:
-        status, headers, raw = _request(
-            port, path="/admin/status", headers={"X-Api-Key": "viewer-k"}
-        )
+        status, headers, raw = _request(port, path="/admin/status", headers={"X-Api-Key": "viewer-k"})
         assert status == 403
         assert headers.get("X-Request-Id") or headers.get("x-request-id")
         assert get_abuse_counters().snapshot()["forbidden"] >= 1

@@ -16,10 +16,10 @@ import os
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # NOOP shape for error fallback (ActionProposal v0.1)
-NOOP_ACTION_V01: Dict[str, Any] = {
+NOOP_ACTION_V01: dict[str, Any] = {
     "action_type": "NOOP",
     "args": {},
     "reason_code": None,
@@ -36,7 +36,7 @@ BACKEND_ID = "ollama_live"
 LOG = logging.getLogger(__name__)
 
 
-def _get_config() -> Tuple[str, str, int]:
+def _get_config() -> tuple[str, str, int]:
     """
     Read config from environment. Returns (base_url, model, timeout_s).
 
@@ -76,16 +76,16 @@ class OllamaLiveBackend:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        model: Optional[str] = None,
-        timeout_s: Optional[int] = None,
+        base_url: str | None = None,
+        model: str | None = None,
+        timeout_s: int | None = None,
     ) -> None:
         url, mod, to = _get_config()
         self._base_url = (base_url or url).rstrip("/") + "/"
         self._model = (model or mod).strip() or "llama3.2"
         self._timeout_s = timeout_s if timeout_s is not None else to
-        self._last_error_code: Optional[str] = None
-        self._last_metrics: Dict[str, Any] = {}
+        self._last_error_code: str | None = None
+        self._last_metrics: dict[str, Any] = {}
         self._total_calls: int = 0
         self._error_count: int = 0
         self._sum_latency_ms: float = 0.0
@@ -96,16 +96,16 @@ class OllamaLiveBackend:
         return bool(self._base_url)
 
     @property
-    def last_error_code(self) -> Optional[str]:
+    def last_error_code(self) -> str | None:
         """Set after generate on timeout/error."""
         return self._last_error_code
 
     @property
-    def last_metrics(self) -> Dict[str, Any]:
+    def last_metrics(self) -> dict[str, Any]:
         """model_id, backend_id, latency_ms, prompt_sha256, response_sha256."""
         return dict(self._last_metrics)
 
-    def get_aggregate_metrics(self) -> Dict[str, Any]:
+    def get_aggregate_metrics(self) -> dict[str, Any]:
         """
         Aggregate stats over all generate calls since init.
         Returns: backend_id, model_id, total_calls, error_count, error_rate,
@@ -125,13 +125,16 @@ class OllamaLiveBackend:
             "mean_latency_ms": round(mean_ms, 2) if mean_ms is not None else None,
         }
 
-    def generate(self, messages: List[Dict[str, str]]) -> str:
+    def generate(self, messages: list[dict[str, str]]) -> str:
         """
         Call Ollama /api/chat and return message content as string.
 
         Agent will use extract_first_json_object + ActionProposal validation + repair.
         On error returns NOOP JSON string.
         """
+        from labtrust_gym.pipeline import check_network_allowed
+
+        check_network_allowed()
         self._last_error_code = None
         self._last_metrics = {}
         self._total_calls += 1
@@ -199,7 +202,7 @@ class OllamaLiveBackend:
         }
         return raw
 
-    def _call_api(self, messages: List[Dict[str, str]]) -> str:
+    def _call_api(self, messages: list[dict[str, str]]) -> str:
         """POST to Ollama /api/chat. Raises on error/timeout."""
         payload = {
             "model": self._model,

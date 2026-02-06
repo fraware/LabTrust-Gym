@@ -9,7 +9,8 @@ without breaking the runner output contract.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from labtrust_gym.coordination.identity import (
     COORD_REPLAY_DETECTED,
@@ -47,9 +48,9 @@ class SignedMessageBus:
 
     def __init__(
         self,
-        key_store: Dict[str, Tuple[Any, str]],
-        identity_policy: Optional[Dict[str, Any]] = None,
-        epoch_fn: Optional[Callable[[], int]] = None,
+        key_store: dict[str, tuple[Any, str]],
+        identity_policy: dict[str, Any] | None = None,
+        epoch_fn: Callable[[], int] | None = None,
     ) -> None:
         """
         key_store: agent_id -> (private_key, public_key_b64) for verify (only public used).
@@ -60,18 +61,12 @@ class SignedMessageBus:
         """
         self._key_store = key_store
         policy = identity_policy or {}
-        self._allowed_message_types: Set[str] = set(
-            policy.get("allowed_message_types") or []
-        )
-        self._high_impact_require_countersign: Set[str] = set(
-            policy.get("high_impact_require_countersign") or []
-        )
+        self._allowed_message_types: set[str] = set(policy.get("allowed_message_types") or [])
+        self._high_impact_require_countersign: set[str] = set(policy.get("high_impact_require_countersign") or [])
         allowed = policy.get("allowed_senders")
-        self._allowed_senders: Optional[Set[str]] = (
-            set(allowed) if isinstance(allowed, list) else None
-        )
+        self._allowed_senders: set[str] | None = set(allowed) if isinstance(allowed, list) else None
         self._epoch_fn = epoch_fn or _default_epoch_fn
-        self._seen_nonces: Set[Tuple[str, int]] = set()
+        self._seen_nonces: set[tuple[str, int]] = set()
 
     def reset(self) -> None:
         """Clear nonce history (e.g. for new episode)."""
@@ -79,8 +74,8 @@ class SignedMessageBus:
 
     def receive(
         self,
-        envelope: Dict[str, Any],
-    ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        envelope: dict[str, Any],
+    ) -> tuple[bool, dict[str, Any] | None, dict[str, Any] | None]:
         """
         Verify and accept or reject a signed coordination message.
         Returns (accepted, delivered_message, violation_step_result).
@@ -175,8 +170,8 @@ class SignedMessageBus:
 
 def _violation_step_result(
     reason_code: str,
-    envelope: Dict[str, Any],
-) -> Dict[str, Any]:
+    envelope: dict[str, Any],
+) -> dict[str, Any]:
     """Build step-result fragment for runner: violations + emits (runner output contract)."""
     return {
         "violations": [
@@ -196,7 +191,7 @@ def _violation_step_result(
     }
 
 
-def load_coordination_identity_policy(policy_path: Any) -> Dict[str, Any]:
+def load_coordination_identity_policy(policy_path: Any) -> dict[str, Any]:
     """Load coordination_identity_policy YAML. Returns dict or empty dict on error."""
     from pathlib import Path
 

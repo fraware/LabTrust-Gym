@@ -94,16 +94,8 @@ def test_agent_can_start_run_at_device_respects_rbac() -> None:
     restricted = set()
     obs_analytics = {"zone_id": "Z_A", "token_active": {}}
     obs_qc = {"zone_id": "Z_A", "token_active": {}}
-    assert (
-        agent_can_start_run_at_device(
-            "A_ANALYTICS", "D1", "Z_A", policy, obs_analytics, restricted
-        )
-        is True
-    )
-    assert (
-        agent_can_start_run_at_device("A_QC", "D1", "Z_A", policy, obs_qc, restricted)
-        is False
-    )
+    assert agent_can_start_run_at_device("A_ANALYTICS", "D1", "Z_A", policy, obs_analytics, restricted) is True
+    assert agent_can_start_run_at_device("A_QC", "D1", "Z_A", policy, obs_qc, restricted) is False
 
 
 def test_agent_can_start_run_at_device_restricted_zone_requires_token() -> None:
@@ -121,14 +113,8 @@ def test_agent_can_start_run_at_device_restricted_zone_requires_token() -> None:
         "token_active": {"TOKEN_RESTRICTED_ENTRY": True},
     }
     assert (
-        agent_can_start_run_at_device(
-            "A1", "D1", "Z_RESTRICTED_BIOHAZARD", policy, obs_no_token, restricted
-        )
-        is False
+        agent_can_start_run_at_device("A1", "D1", "Z_RESTRICTED_BIOHAZARD", policy, obs_no_token, restricted) is False
     )
     assert (
-        agent_can_start_run_at_device(
-            "A1", "D1", "Z_RESTRICTED_BIOHAZARD", policy, obs_with_token, restricted
-        )
-        is True
+        agent_can_start_run_at_device("A1", "D1", "Z_RESTRICTED_BIOHAZARD", policy, obs_with_token, restricted) is True
     )

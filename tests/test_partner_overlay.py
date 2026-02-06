@@ -5,27 +5,26 @@ merged policy used by engine/benchmarks (smoke).
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
 from labtrust_gym.policy.loader import (
     PolicyLoadError,
+    compute_policy_fingerprint,
+    get_partner_overlay_dir,
     load_effective_policy,
     load_partners_index,
-    get_partner_overlay_dir,
-    compute_policy_fingerprint,
 )
 from labtrust_gym.policy.overlay import (
     merge_critical_thresholds,
-    merge_stability_policy,
     merge_enforcement_map,
+    merge_stability_policy,
 )
 from labtrust_gym.policy.validate import (
-    validate_policy,
-    validate_partner_overlay_files,
     validate_merged_policy_consistency,
+    validate_partner_overlay_files,
+    validate_policy,
 )
 
 
@@ -114,9 +113,7 @@ def test_load_partners_index() -> None:
 
 def test_load_effective_policy_base_only() -> None:
     root = _repo_root()
-    effective, fingerprint, partner_id, cal_fp = load_effective_policy(
-        root, partner_id=None
-    )
+    effective, fingerprint, partner_id, cal_fp = load_effective_policy(root, partner_id=None)
     assert partner_id is None
     assert cal_fp is None
     assert isinstance(fingerprint, str) and len(fingerprint) == 64
@@ -137,9 +134,7 @@ def test_load_effective_policy_with_partner_determinism() -> None:
     assert fp1 == fp2
     assert cal_fp1 == cal_fp2
     assert compute_policy_fingerprint(effective1) == fp1
-    assert effective1["critical_thresholds"] != [] or "BIOCHEM_POTASSIUM_K" in str(
-        effective1
-    )
+    assert effective1["critical_thresholds"] != [] or "BIOCHEM_POTASSIUM_K" in str(effective1)
 
 
 def test_validate_policy_base_and_partner() -> None:
@@ -152,21 +147,17 @@ def test_validate_policy_base_and_partner() -> None:
 
 def test_invalid_overlay_fails_schema(tmp_path: Path) -> None:
     """Invalid overlay (missing required keys) should fail schema validation."""
-    from labtrust_gym.policy.loader import load_yaml, load_json, validate_against_schema
+    from labtrust_gym.policy.loader import load_json, load_yaml, validate_against_schema
 
     root = _repo_root()
     bad_overlay = tmp_path / "critical"
     bad_overlay.mkdir()
-    (bad_overlay / "critical_thresholds.v0.1.yaml").write_text(
-        "critical_thresholds:\n  version: 0.1\n"
-    )
+    (bad_overlay / "critical_thresholds.v0.1.yaml").write_text("critical_thresholds:\n  version: 0.1\n")
     schemas_dir = root / "policy" / "schemas"
     schema = load_json(schemas_dir / "critical_thresholds.v0.1.schema.json")
     data = load_yaml(bad_overlay / "critical_thresholds.v0.1.yaml")
     with pytest.raises(PolicyLoadError):
-        validate_against_schema(
-            data, schema, bad_overlay / "critical_thresholds.v0.1.yaml"
-        )
+        validate_against_schema(data, schema, bad_overlay / "critical_thresholds.v0.1.yaml")
 
 
 def test_benchmark_smoke_with_partner() -> None:
@@ -188,10 +179,7 @@ def test_benchmark_smoke_with_partner() -> None:
         )
         assert results.get("partner_id") == "hsl_like"
         assert results.get("policy_fingerprint") is not None
-        assert (
-            isinstance(results["policy_fingerprint"], str)
-            and len(results["policy_fingerprint"]) == 64
-        )
+        assert isinstance(results["policy_fingerprint"], str) and len(results["policy_fingerprint"]) == 64
     finally:
         if out_path.exists():
             out_path.unlink()

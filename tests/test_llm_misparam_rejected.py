@@ -29,8 +29,7 @@ def test_tool_misparam_injector_produces_malformed_action() -> None:
     out, audit_list = inj.mutate_actions(actions_dict)
     assert len(audit_list) >= 1
     assert any(
-        EMIT_INJECTION_APPLIED in (a.get("emits") or [])
-        and a.get("injection_id") == "INJ-TOOL-MISPARAM-001"
+        EMIT_INJECTION_APPLIED in (a.get("emits") or []) and a.get("injection_id") == "INJ-TOOL-MISPARAM-001"
         for a in audit_list
     )
     for aid, ad in out.items():
@@ -54,6 +53,6 @@ def test_tool_misparam_detected_when_blocked() -> None:
     step_outputs = [
         {"status": "BLOCKED", "blocked_reason_code": "RC_DEVICE_UNKNOWN", "emits": []},
     ]
-    extra = inj.observe_step(step_outputs)
+    inj.observe_step(step_outputs)
     assert inj._first_detection_step is not None
     assert inj._attack_success is False

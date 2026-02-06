@@ -7,7 +7,7 @@ Use with: labtrust eval-agent --task TaskA --episodes 2 --agent "examples.extern
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 # Action indices aligned with pz_parallel (NOOP=0, TICK=1, ...)
 ACTION_NOOP = 0
@@ -23,33 +23,29 @@ class SafeNoOpAgent:
     """
 
     def __init__(self) -> None:
-        self._seed: Optional[int] = None
+        self._seed: int | None = None
         self._timing_mode: str = "explicit"
         self._last_action: int = ACTION_NOOP
 
     def reset(
         self,
         seed: int,
-        policy_summary: Optional[Dict[str, Any]] = None,
-        partner_id: Optional[str] = None,
+        policy_summary: dict[str, Any] | None = None,
+        partner_id: str | None = None,
         timing_mode: str = "explicit",
     ) -> None:
         self._seed = seed
         self._timing_mode = (timing_mode or "explicit").strip().lower()
         self._last_action = ACTION_NOOP
 
-    def act(self, observation: Dict[str, Any]) -> int:
+    def act(self, observation: dict[str, Any]) -> int:
         if not isinstance(observation, dict):
             self._last_action = ACTION_NOOP
             return ACTION_NOOP
         log_frozen = observation.get("log_frozen")
         if log_frozen is not None:
             try:
-                v = (
-                    int(log_frozen)
-                    if not hasattr(log_frozen, "item")
-                    else int(log_frozen.item())
-                )
+                v = int(log_frozen) if not hasattr(log_frozen, "item") else int(log_frozen.item())
             except (TypeError, ValueError):
                 v = 0
             if v:
@@ -58,11 +54,7 @@ class SafeNoOpAgent:
         door_open = observation.get("door_restricted_open")
         if door_open is not None:
             try:
-                v = (
-                    int(door_open)
-                    if not hasattr(door_open, "item")
-                    else int(door_open.item())
-                )
+                v = int(door_open) if not hasattr(door_open, "item") else int(door_open.item())
             except (TypeError, ValueError):
                 v = 0
             if v:
@@ -71,7 +63,7 @@ class SafeNoOpAgent:
         self._last_action = ACTION_NOOP
         return ACTION_NOOP
 
-    def explain_last_action(self) -> Optional[Dict[str, Any]]:
+    def explain_last_action(self) -> dict[str, Any] | None:
         return {
             "action_index": self._last_action,
             "action_type": "TICK" if self._last_action == ACTION_TICK else "NOOP",

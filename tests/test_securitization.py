@@ -8,14 +8,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.benchmarks.securitization import (
     _build_coverage_data,
     emit_securitization_packet,
     write_coverage,
     write_deps_inventory,
-    write_reason_codes_md,
 )
 
 
@@ -67,13 +64,11 @@ def test_write_deps_inventory_deterministic() -> None:
         d2 = json.loads(path.read_text(encoding="utf-8"))
         assert d1.get("version") == d2.get("version") == "0.1"
         if d1.get("tool_registry") and d2.get("tool_registry"):
-            assert d1["tool_registry"].get("fingerprint") == d2["tool_registry"].get(
-                "fingerprint"
-            )
+            assert d1["tool_registry"].get("fingerprint") == d2["tool_registry"].get("fingerprint")
 
 
 def test_emit_securitization_packet_creates_all_files() -> None:
-    """emit_securitization_packet creates coverage.json, coverage.md, reason_codes.md, deps_inventory.json, deps_inventory_runtime.json."""
+    """emit_securitization_packet creates coverage, reason_codes, deps_inventory files."""
     root = _repo_root()
     import tempfile
 

@@ -276,7 +276,7 @@ golden_suite:
 
         - { event_id: "e3", t_s: 42030, agent_id: "A_SUPERVISOR", action_type: "MINT_TOKEN", args: { token_type: "OVERRIDE_RISK_ACCEPTANCE", subject_type: "specimen", subject_id: "S4", reason_code: "TIME_EXPIRED", approvals: [{ approver_agent_id: "A_SUPERVISOR", approver_key_id: "ed25519:key_supervisor" }, { approver_agent_id: "A_CLINSCI", approver_key_id: "ed25519:key_clinsci" }] }, reason_code: "TIME_EXPIRED", token_refs: [], expect: { status: "ACCEPTED", emits: ["MINT_TOKEN"], state: { token_active: ["T_OVR_S4"] } } }
 
-        - { event_id: "e4", t_s: 42040, agent_id: "A_ANALYTICS", action_type: "START_RUN_OVERRIDE", args: { device_id: "DEV_CHEM_A_01", run_id: "R4", specimen_ids: ["S4"], reason_code: "TIME_EXPIRED" }, reason_code: "TIME_EXPIRED", token_refs: ["T_OVR_S4"], expect: { status: "ACCEPTED", emits: ["START_RUN"], violations: ["INV-TOK-003:PASS"], token_consumed: ["T_OVR_S4"] } }
+        - { event_id: "e4", t_s: 42040, agent_id: "A_ANALYTICS", action_type: "START_RUN_OVERRIDE", args: { device_id: "DEV_CHEM_A_01", run_id: "R4", specimen_ids: ["S4"], reason_code: "TIME_EXPIRED" }, reason_code: "TIME_EXPIRED", rationale: "Dual approval override for stability-expired specimen S4", token_refs: ["T_OVR_S4"], expect: { status: "ACCEPTED", emits: ["START_RUN"], violations: ["INV-TOK-003:PASS"], token_consumed: ["T_OVR_S4"] } }
 
     - scenario_id: "GS-007"
       title: "Temp out-of-band requires OVERRIDE_RISK_ACCEPTANCE; without token blocked"
@@ -436,7 +436,7 @@ golden_suite:
       script:
         - { event_id: "e1", t_s: 1000, agent_id: "A_ANALYTICS", action_type: "GENERATE_RESULT", args: { result_id: "RES_DRIFT", analyte_code: "BIOCHEM_POTASSIUM_K", value: 4.5, units: "mmol/L", qc_state: "drift" }, reason_code: null, token_refs: [], expect: { status: "ACCEPTED" } }
 
-        - { event_id: "e2", t_s: 1010, agent_id: "A_ANALYTICS", action_type: "RELEASE_RESULT_OVERRIDE", args: { result_id: "RES_DRIFT", reason_code: "QC_DRIFT_SUSPECTED" }, reason_code: "QC_DRIFT_SUSPECTED", token_refs: ["T_QC_DRIFT"], expect: { status: "ACCEPTED", token_consumed: ["T_QC_DRIFT"], state_assertions: ["result_flags('RES_DRIFT') contains 'QC_DRIFT_DISCLAIMER_REQUIRED'"] } }
+        - { event_id: "e2", t_s: 1010, agent_id: "A_ANALYTICS", action_type: "RELEASE_RESULT_OVERRIDE", args: { result_id: "RES_DRIFT", reason_code: "QC_DRIFT_SUSPECTED" }, reason_code: "QC_DRIFT_SUSPECTED", rationale: "Release with QC drift override token and disclaimer", token_refs: ["T_QC_DRIFT"], expect: { status: "ACCEPTED", token_consumed: ["T_QC_DRIFT"], state_assertions: ["result_flags('RES_DRIFT') contains 'QC_DRIFT_DISCLAIMER_REQUIRED'"] } }
 
     - scenario_id: "GS-016"
       title: "Critical CRIT_A: release blocked until NOTIFY + ACK recorded"

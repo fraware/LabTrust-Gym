@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from labtrust_gym.baselines.llm.parse_utils import extract_first_json_object
 
 

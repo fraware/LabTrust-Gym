@@ -42,7 +42,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "ruff>=0.1", "mypy>=1.0"]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+    "types-PyYAML>=6.0",
+    "types-jsonschema>=4.0",
+]
 # PettingZoo Parallel API wrapper; install with: pip install -e ".[env]"
 env = ["pettingzoo>=1.24", "gymnasium>=0.29"]
 # Plotting pipeline for study outputs; install with: pip install -e ".[plots]"
@@ -71,9 +77,16 @@ labtrust_gym = ["policy/**"]
 
 [tool.ruff]
 target-version = "py311"
-line-length = 100
+line-length = 120
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = []
+ignore = [
+    "E501",  # Line length; line-length=120. Shorten incrementally (see docs/AUDIT_COMMANDS.md).
+    "N801",  # Task class names (TaskA_ThroughputSLA, etc.) are intentional identifiers
+    "N802",  # do_GET, do_POST are stdlib HTTP handler names
+    "N806",  # UPPER_CASE in functions used as constant sets/tuples
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -83,6 +96,13 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pettingzoo.*",
+    "pettingzoo",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

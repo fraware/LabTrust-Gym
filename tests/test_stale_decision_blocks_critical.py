@@ -7,15 +7,12 @@ are recorded. Deterministic.
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.coordination.coordination_monitor import (
-    REASON_COORD_STALE_VIEW,
     EMIT_COORD_STALE_DECISION,
+    REASON_COORD_STALE_VIEW,
     check_staleness,
     count_critical_actions,
     timing_metrics,
-    DEFAULT_MAX_STALENESS_MS,
 )
 
 
@@ -56,9 +53,7 @@ def test_fresh_view_no_stale_emit() -> None:
     view_snapshots = {
         "runner_0": {"last_processing_step": 10},
     }
-    stale_count, emits, _ = check_staleness(
-        actions, view_snapshots, decision_step=10, dt_ms=dt_ms
-    )
+    stale_count, emits, _ = check_staleness(actions, view_snapshots, decision_step=10, dt_ms=dt_ms)
     assert stale_count == 0
     assert len(emits) == 0
 

@@ -8,8 +8,6 @@ One-shot repair loop for invalid ActionProposal.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
-
 import pytest
 
 pytest.importorskip("pettingzoo")
@@ -29,7 +27,7 @@ class _RepairMockBackend:
     model_id = "n/a"
     _call_count = 0
 
-    def generate(self, messages: List[Dict[str, str]]) -> str:
+    def generate(self, messages: list[dict[str, str]]) -> str:
         self._call_count += 1
         if self._call_count == 1:
             return '{"action_type": "TICK", "args": {}}'
@@ -68,7 +66,7 @@ def test_try_repair_one_extra_call() -> None:
     call_count = 0
 
     class OneCallBackend:
-        def generate(self, messages: List[Dict[str, str]]) -> str:
+        def generate(self, messages: list[dict[str, str]]) -> str:
             nonlocal call_count
             call_count += 1
             return (
@@ -111,13 +109,8 @@ def test_repair_invalid_then_valid_returns_action() -> None:
     assert llm is not None
     assert llm.get("repair_attempted") is True
     assert llm.get("repair_succeeded") is True
-    assert (
-        "repair_prompt_sha256" in llm and len(llm.get("repair_prompt_sha256", "")) == 64
-    )
-    assert (
-        "repair_response_sha256" in llm
-        and len(llm.get("repair_response_sha256", "")) == 64
-    )
+    assert "repair_prompt_sha256" in llm and len(llm.get("repair_prompt_sha256", "")) == 64
+    assert "repair_response_sha256" in llm and len(llm.get("repair_response_sha256", "")) == 64
     assert action_info.get("action_type") == "TICK"
     assert action_index == 1
 
@@ -127,7 +120,7 @@ def test_repair_fails_then_noop() -> None:
     call_count = 0
 
     class AlwaysInvalidBackend:
-        def generate(self, messages: List[Dict[str, str]]) -> str:
+        def generate(self, messages: list[dict[str, str]]) -> str:
             nonlocal call_count
             call_count += 1
             return '{"action_type": "TICK"}'

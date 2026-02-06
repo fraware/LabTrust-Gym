@@ -12,7 +12,7 @@ import hashlib
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 # Relative to repo_root / "policy" / "coordination"
 COORDINATION_POLICY_FILES = [
@@ -31,7 +31,7 @@ def _sha256_bytes(data: bytes) -> str:
 def _file_hashes(
     repo_root: Path,
     policy_subdir: str = "policy/coordination",
-) -> List[Tuple[str, str]]:
+) -> list[tuple[str, str]]:
     """
     Return sorted list of (relative_path, sha256_hex) for each coordination policy file.
     relative_path is under policy/coordination (e.g. coordination_study_spec.v0.1.yaml).
@@ -40,7 +40,7 @@ def _file_hashes(
     coord_dir = root / Path(*policy_subdir.split("/"))
     if not coord_dir.is_dir():
         return []
-    out: List[Tuple[str, str]] = []
+    out: list[tuple[str, str]] = []
     for name in sorted(COORDINATION_POLICY_FILES):
         path = coord_dir / name
         if path.is_file():
@@ -124,9 +124,7 @@ def write_coordination_card(
     include_file_hashes: bool = True,
 ) -> None:
     """Write rendered COORDINATION_CARD.md to out_path."""
-    content = render_coordination_card(
-        repo_root, include_file_hashes=include_file_hashes
-    )
+    content = render_coordination_card(repo_root, include_file_hashes=include_file_hashes)
     out_path = Path(out_path).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(content, encoding="utf-8")
@@ -148,14 +146,14 @@ def copy_frozen_coordination_policy(
     hashes = _file_hashes(root, policy_subdir)
     fingerprint = coordination_policy_fingerprint(root, policy_subdir)
 
-    manifest_files: List[Dict[str, str]] = []
+    manifest_files: list[dict[str, str]] = []
     for name, h in hashes:
         src = coord_dir / name
         if src.is_file():
             shutil.copy2(src, dest / name)
             manifest_files.append({"path": name, "sha256": h})
 
-    manifest: Dict[str, Any] = {
+    manifest: dict[str, Any] = {
         "coordination_policy_fingerprint": fingerprint,
         "policy_subdir": policy_subdir,
         "files": manifest_files,

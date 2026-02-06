@@ -6,8 +6,8 @@ Live OpenAI backend: config parsing, disabled by default, optional integration.
 No network calls in default run; no .env loading.
 """
 
-import os
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -171,8 +171,7 @@ def test_llm_decision_event_shape_live_backend_no_network() -> None:
 
 
 @pytest.mark.skipif(
-    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1"
-    or not os.environ.get("OPENAI_API_KEY"),
+    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1" or not os.environ.get("OPENAI_API_KEY"),
     reason="Set LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY for live integration",
 )
 def test_openai_live_one_episode_task_a() -> None:

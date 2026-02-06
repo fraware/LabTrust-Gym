@@ -6,7 +6,7 @@ Message delay between hub and cells modeled deterministically from scale.
 from __future__ import annotations
 
 import random
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
@@ -28,13 +28,11 @@ from labtrust_gym.baselines.coordination.obs_utils import (
 from labtrust_gym.engine.zones import build_adjacency_set
 
 
-def _bfs_one_step(
-    start: str, goal: str, adjacency: Set[Tuple[str, str]]
-) -> Optional[str]:
+def _bfs_one_step(start: str, goal: str, adjacency: set[tuple[str, str]]) -> str | None:
     if start == goal:
         return None
-    seen: Set[str] = {start}
-    queue: List[Tuple[str, List[str]]] = [(start, [])]
+    seen: set[str] = {start}
+    queue: list[tuple[str, list[str]]] = [(start, [])]
     while queue:
         node, path = queue.pop(0)
         neighbors = sorted([b for (a, b) in adjacency if a == node and b not in seen])
@@ -58,29 +56,25 @@ class HierarchicalHubRR(CoordinationMethod):
 
     def __init__(self, message_delay_scale: float = 1.0) -> None:
         self._message_delay_scale = message_delay_scale
-        self._rng: Optional[random.Random] = None
-        self._zone_ids: List[str] = []
-        self._device_ids: List[str] = []
-        self._device_zone: Dict[str, str] = {}
-        self._adjacency: Set[Tuple[str, str]] = set()
+        self._rng: random.Random | None = None
+        self._zone_ids: list[str] = []
+        self._device_ids: list[str] = []
+        self._device_zone: dict[str, str] = {}
+        self._adjacency: set[tuple[str, str]] = set()
         self._seed = 0
         self._num_agents = 0
         self._num_sites = 1
-        self._hub_assignments: Dict[str, Tuple[str, str, str]] = {}
-        self._assignment_step: Dict[str, int] = {}
+        self._hub_assignments: dict[str, tuple[str, str, str]] = {}
+        self._assignment_step: dict[str, int] = {}
 
     @property
     def method_id(self) -> str:
         return "hierarchical_hub_rr"
 
-    def reset(
-        self, seed: int, policy: Dict[str, Any], scale_config: Dict[str, Any]
-    ) -> None:
+    def reset(self, seed: int, policy: dict[str, Any], scale_config: dict[str, Any]) -> None:
         self._rng = random.Random(seed)
         self._seed = seed
-        self._zone_ids, self._device_ids, self._device_zone = (
-            extract_zone_and_device_ids(policy)
-        )
+        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         if isinstance(layout, dict):
             self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
@@ -93,24 +87,20 @@ class HierarchicalHubRR(CoordinationMethod):
 
     def propose_actions(
         self,
-        obs: Dict[str, Any],
-        infos: Dict[str, Dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
         t: int,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         agents = sorted(obs.keys())
-        out: Dict[str, Dict[str, Any]] = {
-            a: {"action_index": ACTION_NOOP} for a in agents
-        }
+        out: dict[str, dict[str, Any]] = {a: {"action_index": ACTION_NOOP} for a in agents}
         if not self._device_ids or not self._zone_ids:
             if agents:
                 sample = obs.get(agents[0]) or {}
-                self._zone_ids, self._device_ids, self._device_zone = (
-                    extract_zone_and_device_ids({}, obs_sample=sample)
-                )
+                self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         if not self._device_ids:
             return out
         delay = _message_delay_steps(self._num_agents, self._num_sites, t, self._seed)
-        used_work: Set[Tuple[str, str]] = set()
+        used_work: set[tuple[str, str]] = set()
 
         for agent_id in agents:
             o = obs.get(agent_id) or {}
@@ -159,7 +149,7 @@ class HierarchicalHubRR(CoordinationMethod):
                 del self._hub_assignments[agent_id]
                 del self._assignment_step[agent_id]
 
-        worklist: List[Tuple[int, str, str, str]] = []
+        worklist: list[tuple[int, str, str, str]] = []
         for agent_id in agents:
             o = obs.get(agent_id) or {}
             if log_frozen(o):
@@ -173,11 +163,7 @@ class HierarchicalHubRR(CoordinationMethod):
                 if my_zone != dev_zone:
                     continue
                 head = (qbd[idx] if idx < len(qbd) else {}).get("queue_head", "W")
-                prio = (
-                    2
-                    if "STAT" in str(head).upper()
-                    else (1 if "URGENT" in str(head).upper() else 0)
-                )
+                prio = 2 if "STAT" in str(head).upper() else (1 if "URGENT" in str(head).upper() else 0)
                 worklist.append((prio, dev_id, head or "W", dev_zone))
         worklist.sort(key=lambda x: (-x[0], x[1], x[2]))
 

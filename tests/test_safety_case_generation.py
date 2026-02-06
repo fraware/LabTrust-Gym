@@ -13,8 +13,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.security.safety_case import (
     build_safety_case,
@@ -52,7 +50,7 @@ def test_all_referenced_tests_exist() -> None:
 
 
 def test_safety_case_emit_produces_json_and_md() -> None:
-    """emit_safety_case creates SAFETY_CASE/safety_case.json and safety_case.md with expected structure."""
+    """emit_safety_case creates SAFETY_CASE/safety_case.json and .md with expected structure."""
     root = get_repo_root()
     with tempfile.TemporaryDirectory() as tmp:
         out_dir = Path(tmp) / "out"
@@ -75,7 +73,7 @@ def test_safety_case_emit_produces_json_and_md() -> None:
 
 
 def test_claimed_artifacts_referenced_in_layout() -> None:
-    """Every claimed artifact is either under repo (policy, etc.) or a known paper_v0.1 output path."""
+    """Claimed artifacts are under repo (policy, etc.) or a known paper_v0.1 output path."""
     root = get_repo_root()
     artifacts = get_claimed_artifacts(root)
     assert artifacts, "claims must reference at least one artifact"
@@ -92,9 +90,11 @@ def test_claimed_artifacts_referenced_in_layout() -> None:
     for a in artifacts:
         # Normalize: artifact may be "SAFETY_CASE/safety_case.json" or "SECURITY/"
         top = a.split("/")[0] if "/" in a else a
-        in_paper = (a + "/" if not a.endswith("/") else a) in paper_output_paths or (
-            top + "/"
-        ) in paper_output_paths or a in paper_output_paths
+        in_paper = (
+            (a + "/" if not a.endswith("/") else a) in paper_output_paths
+            or (top + "/") in paper_output_paths
+            or a in paper_output_paths
+        )
         in_repo = (root / a).exists() or (root / top).exists()
         assert in_paper or in_repo, (
             f"Claimed artifact {a!r} is neither under repo nor in paper_v0.1 layout. "
@@ -142,6 +142,4 @@ def test_safety_case_md_consistent_with_claims() -> None:
         assert md_path.exists(), "safety_case.md must be written"
         md_content = md_path.read_text(encoding="utf-8")
     for cid in claim_ids:
-        assert cid in md_content, (
-            f"Generated safety_case.md must contain claim_id {cid!r} (consistent with claims)"
-        )
+        assert cid in md_content, f"Generated safety_case.md must contain claim_id {cid!r} (consistent with claims)"

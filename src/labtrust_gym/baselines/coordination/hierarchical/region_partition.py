@@ -5,18 +5,18 @@ Used by hierarchical coordination to reduce global coupling.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 DEFAULT_NUM_REGIONS = 3
 
 
 def partition_zones_into_regions(
-    zone_ids: List[str],
-    policy: Optional[Dict[str, Any]] = None,
-    scale_config: Optional[Dict[str, Any]] = None,
-    num_regions: Optional[int] = None,
-    rng: Optional[Any] = None,
-) -> Dict[str, str]:
+    zone_ids: list[str],
+    policy: dict[str, Any] | None = None,
+    scale_config: dict[str, Any] | None = None,
+    num_regions: int | None = None,
+    rng: Any | None = None,
+) -> dict[str, str]:
     """
     Map each zone_id to a region_id deterministically.
     Region IDs are R_0, R_1, ... R_{num_regions-1}.
@@ -28,16 +28,14 @@ def partition_zones_into_regions(
     ordered = sorted(zone_ids)
     n = num_regions
     if n is None and scale_config:
-        n = int(scale_config.get("num_sites", 0)) or int(
-            scale_config.get("num_regions", 0)
-        )
+        n = int(scale_config.get("num_sites", 0)) or int(scale_config.get("num_regions", 0))
     if n is None or n < 1:
         n = DEFAULT_NUM_REGIONS
     n = max(1, min(n, len(ordered)))
-    out: Dict[str, str] = {}
+    out: dict[str, str] = {}
     layout = (policy or {}).get("zone_layout") or {}
     zones_list = layout.get("zones") or []
-    zone_to_meta: Dict[str, Dict[str, Any]] = {}
+    zone_to_meta: dict[str, dict[str, Any]] = {}
     for z in zones_list:
         if isinstance(z, dict) and z.get("zone_id"):
             zone_to_meta[z["zone_id"]] = z
@@ -52,14 +50,12 @@ def partition_zones_into_regions(
 
 
 def zone_to_region_map(
-    zone_ids: List[str],
-    policy: Optional[Dict[str, Any]] = None,
-    scale_config: Optional[Dict[str, Any]] = None,
-    num_regions: Optional[int] = None,
-) -> Dict[str, str]:
+    zone_ids: list[str],
+    policy: dict[str, Any] | None = None,
+    scale_config: dict[str, Any] | None = None,
+    num_regions: int | None = None,
+) -> dict[str, str]:
     """
     Convenience: same as partition_zones_into_regions without rng (fully deterministic from data).
     """
-    return partition_zones_into_regions(
-        zone_ids, policy=policy, scale_config=scale_config, num_regions=num_regions
-    )
+    return partition_zones_into_regions(zone_ids, policy=policy, scale_config=scale_config, num_regions=num_regions)

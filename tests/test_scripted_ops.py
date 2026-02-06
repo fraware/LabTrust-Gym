@@ -7,8 +7,6 @@ and respects STAT front-of-line, then EDF on deadline_s.
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.scripted_ops import (
     ACTION_NOOP,
     ACTION_QUEUE_RUN,
@@ -46,8 +44,22 @@ def test_scripted_ops_stat_first() -> None:
     """STAT specimen is chosen before ROUTINE (front-of-line)."""
     agent = ScriptedOpsAgent()
     work_list = [
-        {"work_id": "R1", "priority": "ROUTINE", "deadline_s": 100, "stability_ok": True, "temp_ok": True, "device_id": 0},
-        {"work_id": "S1", "priority": "STAT", "deadline_s": 200, "stability_ok": True, "temp_ok": True, "device_id": 0},
+        {
+            "work_id": "R1",
+            "priority": "ROUTINE",
+            "deadline_s": 100,
+            "stability_ok": True,
+            "temp_ok": True,
+            "device_id": 0,
+        },
+        {
+            "work_id": "S1",
+            "priority": "STAT",
+            "deadline_s": 200,
+            "stability_ok": True,
+            "temp_ok": True,
+            "device_id": 0,
+        },
     ]
     obs = _base_obs(work_list=work_list)
     action_idx, action_info = agent.act(obs, "ops_0")
@@ -60,8 +72,22 @@ def test_scripted_ops_edf_after_stat() -> None:
     """Among non-STAT, earliest deadline first (EDF)."""
     agent = ScriptedOpsAgent()
     work_list = [
-        {"work_id": "R2", "priority": "ROUTINE", "deadline_s": 500, "stability_ok": True, "temp_ok": True, "device_id": 0},
-        {"work_id": "R1", "priority": "ROUTINE", "deadline_s": 100, "stability_ok": True, "temp_ok": True, "device_id": 0},
+        {
+            "work_id": "R2",
+            "priority": "ROUTINE",
+            "deadline_s": 500,
+            "stability_ok": True,
+            "temp_ok": True,
+            "device_id": 0,
+        },
+        {
+            "work_id": "R1",
+            "priority": "ROUTINE",
+            "deadline_s": 100,
+            "stability_ok": True,
+            "temp_ok": True,
+            "device_id": 0,
+        },
     ]
     obs = _base_obs(work_list=work_list)
     action_idx, action_info = agent.act(obs, "ops_0")
@@ -72,7 +98,19 @@ def test_scripted_ops_edf_after_stat() -> None:
 def test_scripted_ops_log_frozen_noop() -> None:
     """When log_frozen=1, agent returns NOOP."""
     agent = ScriptedOpsAgent()
-    obs = _base_obs(log_frozen=1, work_list=[{"work_id": "W1", "priority": "STAT", "deadline_s": 100, "stability_ok": True, "temp_ok": True, "device_id": 0}])
+    obs = _base_obs(
+        log_frozen=1,
+        work_list=[
+            {
+                "work_id": "W1",
+                "priority": "STAT",
+                "deadline_s": 100,
+                "stability_ok": True,
+                "temp_ok": True,
+                "device_id": 0,
+            }
+        ],
+    )
     action_idx, _ = agent.act(obs, "ops_0")
     assert action_idx == ACTION_NOOP
 
@@ -83,7 +121,16 @@ def test_scripted_ops_door_open_long_tick() -> None:
     obs = _base_obs(
         door_restricted_open=1,
         door_restricted_duration_s=150.0,
-        work_list=[{"work_id": "W1", "priority": "STAT", "deadline_s": 100, "stability_ok": True, "temp_ok": True, "device_id": 0}],
+        work_list=[
+            {
+                "work_id": "W1",
+                "priority": "STAT",
+                "deadline_s": 100,
+                "stability_ok": True,
+                "temp_ok": True,
+                "device_id": 0,
+            }
+        ],
     )
     action_idx, _ = agent.act(obs, "ops_0")
     assert action_idx == ACTION_TICK
@@ -101,7 +148,14 @@ def test_scripted_ops_determinism() -> None:
     """Same observation twice yields identical (action_idx, action_info)."""
     agent = ScriptedOpsAgent()
     work_list = [
-        {"work_id": "S1", "priority": "STAT", "deadline_s": 100, "stability_ok": True, "temp_ok": True, "device_id": 0},
+        {
+            "work_id": "S1",
+            "priority": "STAT",
+            "deadline_s": 100,
+            "stability_ok": True,
+            "temp_ok": True,
+            "device_id": 0,
+        },
     ]
     obs = _base_obs(work_list=work_list)
     a1, i1 = agent.act(obs, "ops_0")
@@ -114,7 +168,14 @@ def test_scripted_ops_conservative_hold_without_override() -> None:
     """Work with stability_ok=False and no override token is not queued (hold)."""
     agent = ScriptedOpsAgent(request_override_if_configured=False)
     work_list = [
-        {"work_id": "W1", "priority": "ROUTINE", "deadline_s": 100, "stability_ok": False, "temp_ok": True, "device_id": 0},
+        {
+            "work_id": "W1",
+            "priority": "ROUTINE",
+            "deadline_s": 100,
+            "stability_ok": False,
+            "temp_ok": True,
+            "device_id": 0,
+        },
     ]
     obs = _base_obs(work_list=work_list, token_count_override=0)
     action_idx, _ = agent.act(obs, "ops_0")
@@ -126,7 +187,14 @@ def test_scripted_ops_qc_fail_route_alternate() -> None:
     # Device 0 = CHEM_A (index 2 in DEFAULT_DEVICE_IDS), alternate CHEM_B (index 3)
     agent = ScriptedOpsAgent()
     work_list = [
-        {"work_id": "W1", "priority": "STAT", "deadline_s": 100, "stability_ok": True, "temp_ok": True, "device_id": 2},
+        {
+            "work_id": "W1",
+            "priority": "STAT",
+            "deadline_s": 100,
+            "stability_ok": True,
+            "temp_ok": True,
+            "device_id": 2,
+        },
     ]
     # device_qc_pass: index 2 (CHEM_A) fail, index 3 (CHEM_B) pass
     obs = _base_obs(
@@ -144,7 +212,14 @@ def test_scripted_ops_qc_fail_no_alternate_hold() -> None:
     """If device QC fail and no alternate has QC pass, hold (skip that work)."""
     agent = ScriptedOpsAgent()
     work_list = [
-        {"work_id": "W1", "priority": "STAT", "deadline_s": 100, "stability_ok": True, "temp_ok": True, "device_id": 0},
+        {
+            "work_id": "W1",
+            "priority": "STAT",
+            "deadline_s": 100,
+            "stability_ok": True,
+            "temp_ok": True,
+            "device_id": 0,
+        },
     ]
     # All devices fail QC
     obs = _base_obs(

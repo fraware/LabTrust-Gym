@@ -9,7 +9,7 @@ output contract.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import (
@@ -24,11 +24,11 @@ try:
         agent_can_start_run_at_device,
     )
 except ImportError:
-    _restricted_zone_ids_from_policy = None
-    agent_can_start_run_at_device = None
+    _restricted_zone_ids_from_policy = None  # type: ignore[assignment]
+    agent_can_start_run_at_device = None  # type: ignore[assignment]
 
 
-def _default_policy() -> Dict[str, Any]:
+def _default_policy() -> dict[str, Any]:
     return {
         "horizon_steps": 15,
         "replan_cadence_steps": 1,
@@ -44,24 +44,19 @@ def _default_policy() -> Dict[str, Any]:
 
 def _filter_allocation_by_rbac(
     context: KernelContext,
-    assignments: Tuple[Tuple[str, str, str, int], ...],
-) -> List[Tuple[str, str, str, int]]:
+    assignments: tuple[tuple[str, str, str, int], ...],
+) -> list[tuple[str, str, str, int]]:
     """Drop (agent, work_id, device_id, prio) where agent cannot START_RUN (RBAC/token)."""
-    if (
-        agent_can_start_run_at_device is None
-        or _restricted_zone_ids_from_policy is None
-    ):
+    if agent_can_start_run_at_device is None or _restricted_zone_ids_from_policy is None:
         return list(assignments)
     policy = context.policy or {}
     restricted = _restricted_zone_ids_from_policy(policy)
     device_zone = context.device_zone or {}
-    out: List[Tuple[str, str, str, int]] = []
+    out: list[tuple[str, str, str, int]] = []
     for agent_id, work_id, device_id, prio in assignments:
         zone_id = device_zone.get(device_id, "")
         obs = context.obs.get(agent_id) or {}
-        if agent_can_start_run_at_device(
-            agent_id, device_id, zone_id, policy, obs, restricted
-        ):
+        if agent_can_start_run_at_device(agent_id, device_id, zone_id, policy, obs, restricted):
             out.append((agent_id, work_id, device_id, prio))
     return out
 
@@ -73,9 +68,9 @@ class ORScheduler:
     Only schedules work for (agent, device) that pass RBAC and token checks.
     """
 
-    def __init__(self, policy: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, policy: dict[str, Any] | None = None) -> None:
         self._policy = policy or _default_policy()
-        self._plan_times_ms: List[float] = []
+        self._plan_times_ms: list[float] = []
         self._replan_count = 0
         self._steps = 0
 
@@ -97,7 +92,7 @@ class ORScheduler:
             return ScheduleDecision(per_agent=(), explain="or_empty")
 
         filtered = _filter_allocation_by_rbac(context, assignments)
-        per_agent: Dict[str, List[Tuple[str, int, int]]] = {}
+        per_agent: dict[str, list[tuple[str, int, int]]] = {}
         for agent_id in context.agent_ids:
             o = context.obs.get(agent_id) or {}
             if log_frozen(o):
@@ -114,9 +109,7 @@ class ORScheduler:
             lst = per_agent[aid]
             lst.sort(key=lambda x: (-x[2], x[1], x[0]))
 
-        per_agent_tuple = tuple(
-            (aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst
-        )
+        per_agent_tuple = tuple((aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst)
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         self._plan_times_ms.append(elapsed_ms)
         if self._steps % max(1, replan_cadence) == 0 and self._steps > 1:
@@ -124,7 +117,7 @@ class ORScheduler:
         explain = f"or_h{horizon}_n={len(filtered)}"
         return ScheduleDecision(per_agent=per_agent_tuple, explain=explain)
 
-    def get_schedule_metrics(self) -> Dict[str, Any]:
+    def get_schedule_metrics(self) -> dict[str, Any]:
         """Per-episode: mean_plan_time_ms, replan_rate, deadlock_avoids (0)."""
         n = len(self._plan_times_ms)
         if n == 0:

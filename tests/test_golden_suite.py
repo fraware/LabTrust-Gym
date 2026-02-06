@@ -70,18 +70,14 @@ def test_golden_suite(suite_path: str, tmp_path: Path) -> None:
     Export dirs (receipts, FHIR) are written under tmp_path when running full suite.
     """
     if not _should_run_golden():
-        pytest.skip(
-            "Set LABTRUST_RUN_GOLDEN=1 to run golden suite (engine adapter required)."
-        )
+        pytest.skip("Set LABTRUST_RUN_GOLDEN=1 to run golden suite (engine adapter required).")
 
     root = _repo_root()
     suite_file = root / suite_path
     if not suite_file.exists():
         pytest.skip(f"Suite file not found: {suite_file}")
 
-    schema_path = (
-        root / "policy" / "schemas" / "runner_output_contract.v0.1.schema.json"
-    )
+    schema_path = root / "policy" / "schemas" / "runner_output_contract.v0.1.schema.json"
     if not schema_path.exists():
         schema_path = root / "runner_output_contract.v0.1.schema.json"
     if not schema_path.exists():
@@ -110,9 +106,7 @@ def test_golden_suite(suite_path: str, tmp_path: Path) -> None:
             {
                 "scenario_id": r["scenario_id"],
                 "title": r.get("title", ""),
-                "first_failure": (
-                    r.get("failures", [{}])[0] if r.get("failures") else None
-                ),
+                "first_failure": (r.get("failures", [{}])[0] if r.get("failures") else None),
             }
             for r in failed
         ]
@@ -222,9 +216,7 @@ def test_golden_shift_change_001(tmp_path: Path) -> None:
     Skipped unless LABTRUST_RUN_GOLDEN=1.
     """
     if not _should_run_golden():
-        pytest.skip(
-            "Set LABTRUST_RUN_GOLDEN=1 to run golden scenario GS-SHIFT-CHANGE-001."
-        )
+        pytest.skip("Set LABTRUST_RUN_GOLDEN=1 to run golden scenario GS-SHIFT-CHANGE-001.")
 
     root = _repo_root()
     suite_file = root / "policy" / "golden" / "golden_scenarios.v0.1.yaml"

@@ -106,15 +106,11 @@ def load_online_config() -> OnlineConfig:
     """
     auth_mode_raw = (os.environ.get("LABTRUST_AUTH_MODE") or "").strip().lower()
     raw_legacy = os.environ.get("LABTRUST_ONLINE_API_KEY")
-    legacy_key = (
-        raw_legacy.strip() if raw_legacy and isinstance(raw_legacy, str) else None
-    )
+    legacy_key = raw_legacy.strip() if raw_legacy and isinstance(raw_legacy, str) else None
     if legacy_key == "":
         legacy_key = None
     raw_auth_key = os.environ.get("LABTRUST_AUTH_KEY")
-    auth_key = (
-        raw_auth_key.strip() if raw_auth_key and isinstance(raw_auth_key, str) else None
-    )
+    auth_key = raw_auth_key.strip() if raw_auth_key and isinstance(raw_auth_key, str) else None
     if auth_key == "":
         auth_key = None
     single_key = auth_key or legacy_key
@@ -155,8 +151,7 @@ def load_online_config() -> OnlineConfig:
             DEFAULT_MAX_INFLIGHT,
             min_val=1,
         ),
-        host=(os.environ.get("LABTRUST_SERVE_HOST") or DEFAULT_HOST).strip()
-        or DEFAULT_HOST,
+        host=(os.environ.get("LABTRUST_SERVE_HOST") or DEFAULT_HOST).strip() or DEFAULT_HOST,
         port=_parse_int(
             os.environ.get("LABTRUST_SERVE_PORT"),
             DEFAULT_PORT,

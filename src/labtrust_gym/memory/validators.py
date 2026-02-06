@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 MEM_POISON_DETECTED = "MEM_POISON_DETECTED"
 MEM_WRITE_SCHEMA_FAIL = "MEM_WRITE_SCHEMA_FAIL"
 
 
-def load_memory_policy(policy_root: Optional[Path] = None) -> Dict[str, Any]:
+def load_memory_policy(policy_root: Path | None = None) -> dict[str, Any]:
     """Load memory_policy from policy_root. Returns root dict or default."""
     if policy_root is None:
         return _default_memory_policy()
@@ -32,7 +32,7 @@ def load_memory_policy(policy_root: Optional[Path] = None) -> Dict[str, Any]:
     return root if isinstance(root, dict) else _default_memory_policy()
 
 
-def _default_memory_policy() -> Dict[str, Any]:
+def _default_memory_policy() -> dict[str, Any]:
     return {
         "version": "0.1",
         "allowed_fields": ["content", "summary", "role", "timestamp", "tags", "source"],
@@ -43,9 +43,9 @@ def _default_memory_policy() -> Dict[str, Any]:
     }
 
 
-def _compile_patterns(patterns: List[Dict[str, Any]]) -> List[Tuple[re.Pattern[str], str]]:
+def _compile_patterns(patterns: list[dict[str, Any]]) -> list[tuple[re.Pattern[str], str]]:
     """Compile regex patterns from policy. Returns [(compiled, pattern_id)]."""
-    out: List[Tuple[re.Pattern[str], str]] = []
+    out: list[tuple[re.Pattern[str], str]] = []
     for i, p in enumerate(patterns):
         if not isinstance(p, dict):
             continue
@@ -63,8 +63,8 @@ def _compile_patterns(patterns: List[Dict[str, Any]]) -> List[Tuple[re.Pattern[s
 
 def check_poison(
     text: str,
-    policy: Optional[Dict[str, Any]] = None,
-) -> Tuple[bool, Optional[str], Optional[str]]:
+    policy: dict[str, Any] | None = None,
+) -> tuple[bool, str | None, str | None]:
     """
     Check text for forbidden/poison patterns.
     Returns (is_clean, reason_code, matched_id). If not clean: MEM_POISON_DETECTED.
@@ -80,8 +80,8 @@ def check_poison(
 
 def check_instruction_override(
     text: str,
-    policy: Optional[Dict[str, Any]] = None,
-) -> Tuple[bool, Optional[str], Optional[str]]:
+    policy: dict[str, Any] | None = None,
+) -> tuple[bool, str | None, str | None]:
     """
     Check text for instruction-override patterns.
     Returns (is_clean, reason_code, matched_id). If not clean: MEM_POISON_DETECTED.
@@ -97,8 +97,8 @@ def check_instruction_override(
 
 def check_poison_and_instruction_override(
     text: str,
-    policy: Optional[Dict[str, Any]] = None,
-) -> Tuple[bool, Optional[str], Optional[str]]:
+    policy: dict[str, Any] | None = None,
+) -> tuple[bool, str | None, str | None]:
     """
     Check both poison and instruction-override patterns. Returns (is_clean, reason_code, matched_id).
     Forbidden patterns are checked first, then instruction-override.
@@ -110,9 +110,9 @@ def check_poison_and_instruction_override(
 
 
 def validate_entry_schema(
-    entry: Dict[str, Any],
-    policy: Optional[Dict[str, Any]] = None,
-) -> Tuple[bool, Optional[str]]:
+    entry: dict[str, Any],
+    policy: dict[str, Any] | None = None,
+) -> tuple[bool, str | None]:
     """
     Validate memory entry: allowed fields only, max lengths.
     Returns (ok, reason_code). On failure: MEM_WRITE_SCHEMA_FAIL.
@@ -140,17 +140,17 @@ def validate_entry_schema(
 
 
 def filter_poison_from_entries(
-    entries: List[Dict[str, Any]],
-    policy: Optional[Dict[str, Any]] = None,
+    entries: list[dict[str, Any]],
+    policy: dict[str, Any] | None = None,
     content_key: str = "content",
-) -> Tuple[List[Dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], int]:
     """
     Remove entries that contain poison or instruction-override patterns.
     Returns (filtered_list, removed_count). Deterministic.
     """
     if policy is None:
         policy = _default_memory_policy()
-    kept: List[Dict[str, Any]] = []
+    kept: list[dict[str, Any]] = []
     removed = 0
     for e in entries:
         text = e.get(content_key)

@@ -11,8 +11,6 @@ Same seed + same CoordinationScaleConfig must yield identical:
 
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.benchmarks.coordination_scale import (
     CoordinationScaleConfig,
     generate_scaled_initial_state,
@@ -63,16 +61,8 @@ def test_same_seed_same_config_identical_device_ids() -> None:
     dev1 = s1.get("_scale_device_ids") or []
     dev2 = s2.get("_scale_device_ids") or []
     assert dev1 == dev2
-    placement1 = (
-        (s1.get("effective_policy") or {})
-        .get("equipment_registry", {})
-        .get("device_instances", [])
-    )
-    placement2 = (
-        (s2.get("effective_policy") or {})
-        .get("equipment_registry", {})
-        .get("device_instances", [])
-    )
+    placement1 = (s1.get("effective_policy") or {}).get("equipment_registry", {}).get("device_instances", [])
+    placement2 = (s2.get("effective_policy") or {}).get("equipment_registry", {}).get("device_instances", [])
     assert [p["device_id"] for p in placement1] == [p["device_id"] for p in placement2]
 
 

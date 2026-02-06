@@ -15,6 +15,7 @@ pytest.importorskip("gymnasium")
 
 from labtrust_gym.benchmarks.runner import run_benchmark
 from labtrust_gym.benchmarks.tasks import get_task
+from labtrust_gym.config import get_repo_root
 
 
 def test_benchmark_run_2_episodes_smoke() -> None:
@@ -78,6 +79,45 @@ def test_task_initial_state_deterministic() -> None:
     assert s1 != s3 or s1 == s3
 
 
+def test_initial_state_has_policy_root_and_reagent_stock_for_reset() -> None:
+    """
+    Confirm that the initial_state passed to env.reset() contains policy_root and
+    reagent_initial_stock, and that the reagent policy file exists at the expected path.
+    This ensures START_RUN can pass reagent checks and scripted runs can produce throughput.
+    """
+    repo_root = get_repo_root()
+    task = get_task("TaskA")
+    initial_state = task.get_initial_state(100)
+    overrides = {"policy_root": str(repo_root)}
+    if task.timing_mode is not None:
+        overrides["timing_mode"] = task.timing_mode
+    merged = {**initial_state, **overrides}
+
+    assert (
+        "policy_root" in merged
+    ), "initial_state passed to reset must include policy_root"
+    assert (
+        "reagent_initial_stock" in merged
+    ), "initial_state passed to reset must include reagent_initial_stock (TaskA/B/C provide it)"
+
+    policy_root = Path(merged["policy_root"])
+    reagent_policy_path = (
+        policy_root / "policy" / "reagents" / "reagent_policy.v0.1.yaml"
+    )
+    assert (
+        reagent_policy_path.exists()
+    ), f"reagent policy file must exist at {reagent_policy_path} so engine can load stock"
+
+    stock = merged["reagent_initial_stock"]
+    assert isinstance(stock, dict), "reagent_initial_stock must be a dict"
+    assert (
+        "R_CHEM_CORE" in stock
+    ), "reagent_initial_stock must include R_CHEM_CORE for BIOCHEM panels"
+    assert (
+        float(stock["R_CHEM_CORE"]) >= 14.0
+    ), "R_CHEM_CORE stock must be >= 14 (quantity_per_run for BIOCHEM_PANEL_CORE) for at least one START_RUN"
+
+
 def test_task_e_multisite_stat_runs() -> None:
     """TaskE (MultiSiteSTAT) runs without crash; results have expected structure."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -104,12 +144,15 @@ def test_task_e_multisite_stat_runs() -> None:
 
 def test_task_e_emits_dispatch_transport_at_least_once() -> None:
     """TaskE scripted policy must emit DISPATCH_TRANSPORT at least once per episode."""
-    from labtrust_gym.benchmarks.runner import run_episode
-    from labtrust_gym.benchmarks.tasks import get_task
-    from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
-    from labtrust_gym.envs.pz_parallel import DEFAULT_ZONE_IDS, DEFAULT_DEVICE_IDS
+    from labtrust_gym.benchmarks.runner import run_episode
+    from labtrust_gym.benchmarks.tasks import get_task
+    from labtrust_gym.envs.pz_parallel import (
+        DEFAULT_DEVICE_IDS,
+        DEFAULT_ZONE_IDS,
+        LabTrustParallelEnv,
+    )
 
     task = get_task("TaskE")
     policy_dir = Path(__file__).resolve().parent.parent / "policy"
@@ -170,12 +213,15 @@ def test_task_e_determinism() -> None:
 
 def test_task_e_deterministic_transport_path() -> None:
     """TaskE: fixed seed => deterministic transport path (same transport_consignment_count, same order of transport emits)."""
-    from labtrust_gym.benchmarks.runner import run_episode
-    from labtrust_gym.benchmarks.tasks import get_task
-    from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
-    from labtrust_gym.envs.pz_parallel import DEFAULT_ZONE_IDS, DEFAULT_DEVICE_IDS
+    from labtrust_gym.benchmarks.runner import run_episode
+    from labtrust_gym.benchmarks.tasks import get_task
+    from labtrust_gym.envs.pz_parallel import (
+        DEFAULT_DEVICE_IDS,
+        DEFAULT_ZONE_IDS,
+        LabTrustParallelEnv,
+    )
 
     task = get_task("TaskE")
     policy_dir = Path(__file__).resolve().parent.parent / "policy"

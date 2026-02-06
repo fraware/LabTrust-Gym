@@ -30,10 +30,10 @@ def test_build_contract_record_validates() -> None:
         actions_dict={
             "worker_0": {"action_index": 0},
             "worker_1": {
-            "action_index": 3,
-            "action_type": "MOVE",
-            "args": {"to_zone": "Z_A"},
-        },
+                "action_index": 3,
+                "action_type": "MOVE",
+                "args": {"to_zone": "Z_A"},
+            },
         },
         view_age_ms=10.5,
         plan_time_ms=None,

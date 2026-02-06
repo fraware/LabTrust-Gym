@@ -84,10 +84,7 @@ def test_kernel_same_seed_same_decision_hashes_and_actions() -> None:
 
     payload1 = json.dumps(actions1, sort_keys=True)
     payload2 = json.dumps(actions2, sort_keys=True)
-    assert (
-        hashlib.sha256(payload1.encode()).hexdigest()
-        == hashlib.sha256(payload2.encode()).hexdigest()
-    )
+    assert hashlib.sha256(payload1.encode()).hexdigest() == hashlib.sha256(payload2.encode()).hexdigest()
 
 
 def test_kernel_same_seed_same_actions_across_steps() -> None:
@@ -112,9 +109,7 @@ def test_kernel_same_seed_same_actions_across_steps() -> None:
         ctx = build_kernel_context(obs, {}, t, policy, scale_config, seed)
         actions, decision = method.step(ctx)
         hashes1.append(
-            (decision.allocation_hash, decision.schedule_hash, decision.route_hash)
-            if decision
-            else (None, None, None)
+            (decision.allocation_hash, decision.schedule_hash, decision.route_hash) if decision else (None, None, None)
         )
         actions_ser1.append(json.dumps(actions, sort_keys=True))
 
@@ -126,9 +121,7 @@ def test_kernel_same_seed_same_actions_across_steps() -> None:
         ctx = build_kernel_context(obs, {}, t, policy, scale_config, seed)
         actions, decision = method.step(ctx)
         hashes2.append(
-            (decision.allocation_hash, decision.schedule_hash, decision.route_hash)
-            if decision
-            else (None, None, None)
+            (decision.allocation_hash, decision.schedule_hash, decision.route_hash) if decision else (None, None, None)
         )
         actions_ser2.append(json.dumps(actions, sort_keys=True))
 

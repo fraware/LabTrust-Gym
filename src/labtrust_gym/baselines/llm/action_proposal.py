@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, cast
 
 # Keys allowed by action_proposal.v0.1 (envelope only)
 ACTION_PROPOSAL_KEYS = (
@@ -24,19 +24,19 @@ ACTION_PROPOSAL_KEYS = (
 )
 
 
-def load_action_proposal_schema(path: Optional[Path] = None) -> Dict[str, Any]:
+def load_action_proposal_schema(path: Path | None = None) -> dict[str, Any]:
     """Load action_proposal.v0.1.schema.json for ActionProposal envelope."""
     if path is None:
         path = Path("policy/schemas/action_proposal.v0.1.schema.json")
     if not path.exists():
         return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def validate_action_proposal_dict(
-    d: Dict[str, Any],
-    schema: Optional[Dict[str, Any]] = None,
-) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
+    d: dict[str, Any],
+    schema: dict[str, Any] | None = None,
+) -> tuple[bool, dict[str, Any] | None, str | None]:
     """
     Validate dict against ActionProposal v0.1 schema.
 

@@ -6,8 +6,8 @@ Missing ACK within T steps triggers escalation (fallback to hub reroute).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 DEFAULT_ACK_DEADLINE_STEPS = 10
 
@@ -23,12 +23,12 @@ class HandoffEvent:
     ack_by_t: int
     priority: int = 0
     acked: bool = False
-    ack_t: Optional[int] = None
+    ack_t: int | None = None
 
     def is_expired(self, t: int) -> bool:
         return not self.acked and t > self.ack_by_t
 
-    def to_tuple(self) -> Tuple[str, str, str, str, str, int, int, int]:
+    def to_tuple(self) -> tuple[str, str, str, str, str, int, int, int]:
         return (
             self.work_id,
             self.device_id,
@@ -52,7 +52,7 @@ class HandoffProtocol:
 
     def __init__(self, ack_deadline_steps: int = DEFAULT_ACK_DEADLINE_STEPS) -> None:
         self._ack_deadline_steps = ack_deadline_steps
-        self._pending: List[HandoffEvent] = []
+        self._pending: list[HandoffEvent] = []
         self._cross_region_count = 0
         self._escalation_count = 0
         self._ack_count = 0
@@ -90,13 +90,13 @@ class HandoffProtocol:
                 return True
         return False
 
-    def tick(self, t: int) -> Tuple[List[HandoffEvent], List[HandoffEvent]]:
+    def tick(self, t: int) -> tuple[list[HandoffEvent], list[HandoffEvent]]:
         """
         Returns (still_pending, escalated).
         Escalated = not acked and t > ack_by_t; removed from pending.
         """
-        still_pending: List[HandoffEvent] = []
-        escalated: List[HandoffEvent] = []
+        still_pending: list[HandoffEvent] = []
+        escalated: list[HandoffEvent] = []
         for ev in self._pending:
             if ev.acked:
                 continue
@@ -108,26 +108,19 @@ class HandoffProtocol:
         self._pending = still_pending
         return still_pending, escalated
 
-    def pending_for_region(self, region_id: str) -> List[HandoffEvent]:
+    def pending_for_region(self, region_id: str) -> list[HandoffEvent]:
         return [e for e in self._pending if not e.acked and e.to_region == region_id]
 
     def has_pending(self, work_id: str, device_id: str, to_region: str) -> bool:
         for e in self._pending:
-            if (
-                not e.acked
-                and e.work_id == work_id
-                and e.device_id == device_id
-                and e.to_region == to_region
-            ):
+            if not e.acked and e.work_id == work_id and e.device_id == device_id and e.to_region == to_region:
                 return True
         return False
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         return {
             "cross_region_handoffs": self._cross_region_count,
             "handoff_ack_count": self._ack_count,
             "escalations": self._escalation_count,
-            "handoff_fail_rate": (
-                self._escalation_count / max(1, self._cross_region_count)
-            ),
+            "handoff_fail_rate": (self._escalation_count / max(1, self._cross_region_count)),
         }

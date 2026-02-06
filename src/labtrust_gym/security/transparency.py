@@ -174,9 +174,8 @@ def discover_episodes(artifact_root: Path) -> list[tuple[str, Path, Path, Path |
         episodes_path = task_dir / "episodes.jsonl"
         if not results_path.is_file() or not episodes_path.is_file():
             continue
-        bundle_dir = receipts_dir / task / "EvidenceBundle.v0.1"
-        if not bundle_dir.is_dir():
-            bundle_dir = None
+        candidate_bundle = receipts_dir / task / "EvidenceBundle.v0.1"
+        bundle_dir: Path | None = candidate_bundle if candidate_bundle.is_dir() else None
         out.append((task, results_path, episodes_path, bundle_dir))
     return out
 
@@ -194,15 +193,13 @@ def compute_all_digests(artifact_root: Path) -> list[dict[str, Any]]:
     for multiple episodes we use task_seed or task_index.
     """
     entries: list[dict[str, Any]] = []
-    for (episode_id, results_path, episodes_path, bundle_dir) in discover_episodes(artifact_root):
+    for episode_id, results_path, episodes_path, bundle_dir in discover_episodes(artifact_root):
         blocks = _results_episodes_blocks(results_path)
         if not blocks:
             continue
         for i, block in enumerate(blocks):
             eid = episode_id if len(blocks) == 1 else f"{episode_id}_{block.get('seed', i)}"
-            entries.append(
-                compute_episode_digest(eid, block, episodes_path, bundle_dir)
-            )
+            entries.append(compute_episode_digest(eid, block, episodes_path, bundle_dir))
     return entries
 
 

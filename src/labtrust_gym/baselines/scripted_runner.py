@@ -9,7 +9,7 @@ Purely deterministic given observations.
 from __future__ import annotations
 
 from collections import deque
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from labtrust_gym.engine.zones import (
     build_adjacency_set,
@@ -17,7 +17,7 @@ from labtrust_gym.engine.zones import (
 )
 
 # Zone order must match env's zone list for my_zone_idx (1-based index)
-DEFAULT_ZONE_IDS: List[str] = [
+DEFAULT_ZONE_IDS: list[str] = [
     "Z_SRA_RECEPTION",
     "Z_ACCESSIONING",
     "Z_SORTING_LANES",
@@ -39,7 +39,7 @@ ACTION_OPEN_DOOR = 4
 ACTION_START_RUN = 5
 
 # Default zone order for workflow: reception area -> centrifuge -> aliquot -> analyzer
-DEFAULT_WORKFLOW_ZONES: List[str] = [
+DEFAULT_WORKFLOW_ZONES: list[str] = [
     "Z_SORTING_LANES",
     "Z_CENTRIFUGE_BAY",
     "Z_ALIQUOT_LABEL",
@@ -73,14 +73,14 @@ def _float_scalar(x: Any, default: float = 0.0) -> float:
     return float(x)
 
 
-def _queue_has_head(obs: Dict[str, Any], device_idx: int) -> bool:
+def _queue_has_head(obs: dict[str, Any], device_idx: int) -> bool:
     """True if device at index has queue head."""
     arr = obs.get("queue_has_head")
     if arr is None:
         return False
     if hasattr(arr, "flat"):
         return bool(arr.flat[device_idx] if device_idx < arr.size else 0)
-    if isinstance(arr, (list, tuple)) and device_idx < len(arr):
+    if isinstance(arr, list | tuple) and device_idx < len(arr):
         return bool(arr[device_idx])
     return False
 
@@ -88,13 +88,13 @@ def _queue_has_head(obs: Dict[str, Any], device_idx: int) -> bool:
 def _bfs_one_step(
     start: str,
     goal: str,
-    adjacency: Set[Tuple[str, str]],
-) -> Optional[str]:
+    adjacency: set[tuple[str, str]],
+) -> str | None:
     """Return one step (next zone) from start toward goal along graph, or None."""
     if start == goal:
         return None
-    seen: Set[str] = {start}
-    queue: deque[Tuple[str, List[str]]] = deque([(start, [])])
+    seen: set[str] = {start}
+    queue: deque[tuple[str, list[str]]] = deque([(start, [])])
     while queue:
         node, path = queue.popleft()
         neighbors = [b for (a, b) in adjacency if a == node and b not in seen]
@@ -120,10 +120,10 @@ class ScriptedRunnerAgent:
 
     def __init__(
         self,
-        zone_ids: Optional[List[str]] = None,
-        adjacency_set: Optional[Set[Tuple[str, str]]] = None,
-        device_zone_map: Optional[Dict[str, str]] = None,
-        device_ids: Optional[List[str]] = None,
+        zone_ids: list[str] | None = None,
+        adjacency_set: set[tuple[str, str]] | None = None,
+        device_zone_map: dict[str, str] | None = None,
+        device_ids: list[str] | None = None,
         restricted_zone_id: str = RESTRICTED_ZONE_ID,
         restricted_door_id: str = RESTRICTED_DOOR_ID,
         door_tick_threshold_s: float = 150.0,
@@ -133,9 +133,7 @@ class ScriptedRunnerAgent:
 
         layout = _layout()
         self._zone_ids = zone_ids or list(DEFAULT_ZONE_IDS)
-        self._adjacency = adjacency_set or build_adjacency_set(
-            layout.get("graph_edges", [])
-        )
+        self._adjacency = adjacency_set or build_adjacency_set(layout.get("graph_edges", []))
         self._device_zone = device_zone_map or get_default_device_zone_map()
         self._device_ids = device_ids or list(self._device_zone.keys())
         self._restricted_zone_id = restricted_zone_id
@@ -145,25 +143,25 @@ class ScriptedRunnerAgent:
         self._step_counter = 0
         # TaskE transport state: DISPATCH -> TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE
         self._transport_phase: int = 0  # 0=dispatch, 1=tick, 2=sign, 3=receive, 4=done
-        self._transport_consignment_id: Optional[str] = None
+        self._transport_consignment_id: str | None = None
 
-    def _my_zone(self, obs: Dict[str, Any]) -> Optional[str]:
+    def _my_zone(self, obs: dict[str, Any]) -> str | None:
         """Current zone id from obs (my_zone_idx 1-based into zone_ids)."""
         idx = _scalar(obs.get("my_zone_idx"), 0)
         if idx < 1 or idx > len(self._zone_ids):
             return None
         return self._zone_ids[idx - 1]
 
-    def _adjacent_zones(self, zone_id: str) -> List[str]:
+    def _adjacent_zones(self, zone_id: str) -> list[str]:
         """Legal next zones (graph edges from zone_id). Sorted for determinism."""
         out = [b for (a, b) in self._adjacency if a == zone_id]
         return sorted(out)
 
     def _act_transport(
         self,
-        observation: Dict[str, Any],
+        observation: dict[str, Any],
         agent_id: str,
-    ) -> Optional[Tuple[int, Dict[str, Any]]]:
+    ) -> tuple[int, dict[str, Any]] | None:
         """
         TaskE: if transport_required and this is runner_0, run DISPATCH -> TICK -> SIGN -> RECEIVE.
         Returns (action_index, action_info) or None if not doing transport this step.
@@ -176,9 +174,7 @@ class ScriptedRunnerAgent:
             self._transport_phase = 0
             self._transport_consignment_id = None
             return None
-        in_transit = [
-            c for c in transport_consignments if c.get("status") == "in_transit"
-        ]
+        in_transit = [c for c in transport_consignments if c.get("status") == "in_transit"]
         arrived = [c for c in transport_consignments if c.get("status") == "arrived"]
         if not in_transit and not arrived:
             self._transport_phase = 0
@@ -222,9 +218,9 @@ class ScriptedRunnerAgent:
 
     def act(
         self,
-        observation: Dict[str, Any],
+        observation: dict[str, Any],
         agent_id: str = "runner_0",
-    ) -> Tuple[int, Dict[str, Any]]:
+    ) -> tuple[int, dict[str, Any]]:
         """
         Return (action_index, action_info). Deterministic.
 
@@ -233,7 +229,7 @@ class ScriptedRunnerAgent:
         TaskE: when transport_required, runner_0 emits DISPATCH_TRANSPORT -> TRANSPORT_TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE_TRANSPORT.
         """
         self._step_counter += 1
-        action_info: Dict[str, Any] = {}
+        action_info: dict[str, Any] = {}
 
         transport_out = self._act_transport(observation, agent_id)
         if transport_out is not None:
@@ -245,9 +241,7 @@ class ScriptedRunnerAgent:
 
         restricted_frozen = _scalar(observation.get("restricted_zone_frozen"), 0)
         door_open = _scalar(observation.get("door_restricted_open"), 0)
-        door_duration = _float_scalar(
-            observation.get("door_restricted_duration_s"), 0.0
-        )
+        door_duration = _float_scalar(observation.get("door_restricted_duration_s"), 0.0)
         token_restricted = _scalar(observation.get("token_count_restricted"), 0)
 
         if door_open and door_duration >= self._door_tick_threshold_s:
@@ -296,7 +290,7 @@ class ScriptedRunnerAgent:
 
         return (ACTION_MOVE, {"to_zone": next_zone})
 
-    def _goal_zone(self, observation: Dict[str, Any]) -> str:
+    def _goal_zone(self, observation: dict[str, Any]) -> str:
         """Pick goal zone: first device with queue head, else default reception area."""
         for dev_id in self._device_ids:
             try:

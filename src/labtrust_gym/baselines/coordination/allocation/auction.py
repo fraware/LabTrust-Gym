@@ -7,14 +7,15 @@ Deterministic: stable ordering, seeded tie-breaks.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 # Cost sentinel for "cannot bid" (RBAC/token forbidden)
 BID_FORBIDDEN = 1e9
 
 # Zone requiring token for entry (from token_enforcement_map / zone_layout)
-RESTRICTED_ZONE_IDS: Set[str] = {"Z_RESTRICTED_BIOHAZARD"}
+RESTRICTED_ZONE_IDS: set[str] = {"Z_RESTRICTED_BIOHAZARD"}
 
 
 @dataclass
@@ -31,20 +32,20 @@ class WorkItem:
 class PriceSignals:
     """Congestion and queue pricing for bid computation."""
 
-    zone_congestion: Dict[str, float] = field(default_factory=dict)
-    device_queue_price: Dict[str, float] = field(default_factory=dict)
+    zone_congestion: dict[str, float] = field(default_factory=dict)
+    device_queue_price: dict[str, float] = field(default_factory=dict)
 
 
 def _path_length(
     start: str,
     goal: str,
-    adjacency: Set[Tuple[str, str]],
+    adjacency: set[tuple[str, str]],
 ) -> int:
     """BFS path length; returns large int if unreachable."""
     if start == goal:
         return 0
-    seen: Set[str] = {start}
-    queue: List[Tuple[str, int]] = [(start, 0)]
+    seen: set[str] = {start}
+    queue: list[tuple[str, int]] = [(start, 0)]
     while queue:
         node, dist = queue.pop(0)
         for a, b in adjacency:
@@ -60,9 +61,9 @@ def _path_length(
 def compute_bid(
     agent_id: str,
     item: WorkItem,
-    view: Dict[str, Any],
+    view: dict[str, Any],
     price_signals: PriceSignals,
-    adjacency: Set[Tuple[str, str]],
+    adjacency: set[tuple[str, str]],
     agent_zone: str,
     agent_queue_load: int,
     energy_proxy: float = 0.0,
@@ -89,15 +90,15 @@ def compute_bid(
 
 
 def build_price_signals(
-    obs: Dict[str, Dict[str, Any]],
-    device_zone: Dict[str, str],
-    zone_ids: List[str],
-    device_ids: List[str],
+    obs: dict[str, dict[str, Any]],
+    device_zone: dict[str, str],
+    zone_ids: list[str],
+    device_ids: list[str],
 ) -> PriceSignals:
     """
     Congestion per zone (agent count in zone), device queue price (queue depth + priority mix).
     """
-    zone_count: Dict[str, float] = defaultdict(float)
+    zone_count: dict[str, float] = defaultdict(float)
     for o in obs.values():
         if isinstance(o, dict):
             z = o.get("zone_id") or ""
@@ -105,7 +106,7 @@ def build_price_signals(
                 zone_count[z] += 1.0
     zone_congestion = {z: zone_count.get(z, 0.0) * 1.0 for z in zone_ids}
 
-    device_queue_price: Dict[str, float] = {}
+    device_queue_price: dict[str, float] = {}
     for dev_id in device_ids:
         total = 0.0
         for o in obs.values():
@@ -113,18 +114,12 @@ def build_price_signals(
             for i, d in enumerate(qbd):
                 if not isinstance(d, dict):
                     continue
-                dev_in_list = d.get("device_id") or (
-                    device_ids[i] if i < len(device_ids) else ""
-                )
+                dev_in_list = d.get("device_id") or (device_ids[i] if i < len(device_ids) else "")
                 if dev_in_list != dev_id:
                     continue
                 qlen = int(d.get("queue_len") or 0)
                 head = str(d.get("queue_head") or "")
-                prio = (
-                    2
-                    if "STAT" in head.upper()
-                    else (1 if "URGENT" in head.upper() else 0)
-                )
+                prio = 2 if "STAT" in head.upper() else (1 if "URGENT" in head.upper() else 0)
                 total += qlen * 1.0 + prio * 2.0
         device_queue_price[dev_id] = total
     return PriceSignals(
@@ -133,9 +128,9 @@ def build_price_signals(
     )
 
 
-def _restricted_zone_ids_from_policy(policy: Dict[str, Any]) -> Set[str]:
+def _restricted_zone_ids_from_policy(policy: dict[str, Any]) -> set[str]:
     """Zones that require token for entry (zone_layout.zones with restricted=true)."""
-    out: Set[str] = set(RESTRICTED_ZONE_IDS)
+    out: set[str] = set(RESTRICTED_ZONE_IDS)
     layout = (policy or {}).get("zone_layout") or {}
     for z in layout.get("zones") or []:
         if isinstance(z, dict) and z.get("restricted") and z.get("zone_id"):
@@ -143,7 +138,7 @@ def _restricted_zone_ids_from_policy(policy: Dict[str, Any]) -> Set[str]:
     return out
 
 
-def _agent_role_allows_start_run(policy: Dict[str, Any], agent_id: str) -> bool:
+def _agent_role_allows_start_run(policy: dict[str, Any], agent_id: str) -> bool:
     """True if agent's role has START_RUN in allowed_actions (RBAC)."""
     rbac = (policy or {}).get("rbac_policy") or {}
     agents_map = rbac.get("agents") or {}
@@ -158,7 +153,7 @@ def _agent_role_allows_start_run(policy: Dict[str, Any], agent_id: str) -> bool:
     return "START_RUN" in actions
 
 
-def _agent_has_restricted_entry_token(obs: Dict[str, Any]) -> bool:
+def _agent_has_restricted_entry_token(obs: dict[str, Any]) -> bool:
     """True if obs indicates agent has TOKEN_RESTRICTED_ENTRY."""
     token_active = obs.get("token_active")
     if not isinstance(token_active, dict):
@@ -170,9 +165,9 @@ def agent_can_start_run_at_device(
     agent_id: str,
     device_id: str,
     zone_id: str,
-    policy: Dict[str, Any],
-    obs: Dict[str, Any],
-    restricted_zones: Set[str],
+    policy: dict[str, Any],
+    obs: dict[str, Any],
+    restricted_zones: set[str],
 ) -> bool:
     """
     True if agent is allowed to perform START_RUN at device (RBAC + token for restricted zone).
@@ -191,9 +186,9 @@ CONTAINMENT_STEPS_K = 5
 
 
 def detect_bid_anomalies(
-    bids_used: List[Tuple[str, str, float]],
+    bids_used: list[tuple[str, str, float]],
     threshold_std: float = 2.0,
-) -> Tuple[Set[str], List[Dict[str, Any]]]:
+) -> tuple[set[str], list[dict[str, Any]]]:
     """
     Flag agents whose winning bid is anomalously low (below mean - threshold_std * std).
     Returns (set of agent_ids to contain, list of emit payloads with reason_code).
@@ -207,8 +202,8 @@ def detect_bid_anomalies(
     if std == 0:
         return set(), []
     threshold = mean_bid - threshold_std * std
-    excluded: Set[str] = set()
-    emits: List[Dict[str, Any]] = []
+    excluded: set[str] = set()
+    emits: list[dict[str, Any]] = []
     for agent_id, work_id, bid in bids_used:
         if bid < threshold:
             excluded.add(agent_id)
@@ -225,7 +220,7 @@ def detect_bid_anomalies(
     return excluded, emits
 
 
-def gini_coefficient(work_per_agent: Dict[str, int]) -> float:
+def gini_coefficient(work_per_agent: dict[str, int]) -> float:
     """
     Gini coefficient for work distribution (0 = perfectly equal, 1 = maximally unequal).
     Uses sorted values; deterministic.
@@ -246,14 +241,12 @@ def gini_coefficient(work_per_agent: Dict[str, int]) -> float:
 
 
 def run_auction(
-    items: List[WorkItem],
-    agents: List[str],
+    items: list[WorkItem],
+    agents: list[str],
     bid_fn: Callable[[str, WorkItem], float],
     max_bids: int,
     rng: Any,
-) -> Tuple[
-    List[Tuple[str, str, str, int]], List[Tuple[str, str, float]], Dict[str, Any]
-]:
+) -> tuple[list[tuple[str, str, str, int]], list[tuple[str, str, float]], dict[str, Any]]:
     """
     Sealed-bid auction: each agent bids for each item; assign item to lowest bidder.
     One item per agent per round; max_bids caps total assignments.
@@ -262,9 +255,9 @@ def run_auction(
     all_bids_used: (agent_id, work_id, bid) for winning bids.
     Deterministic: items and agents sorted; tie-break with rng.
     """
-    assignments: List[Tuple[str, str, str, int]] = []
-    bids_used: List[Tuple[str, str, float]] = []
-    all_bids_list: List[float] = []
+    assignments: list[tuple[str, str, str, int]] = []
+    bids_used: list[tuple[str, str, float]] = []
+    all_bids_list: list[float] = []
     rebids = 0
 
     sorted_items = sorted(
@@ -272,8 +265,8 @@ def run_auction(
         key=lambda x: (-x.priority, x.device_id, x.work_id),
     )
     sorted_agents = sorted(agents)
-    assigned_agents: Set[str] = set()
-    used_work: Set[Tuple[str, str]] = set()
+    assigned_agents: set[str] = set()
+    used_work: set[tuple[str, str]] = set()
     bids_budget = max_bids
 
     for item in sorted_items:
@@ -281,7 +274,7 @@ def run_auction(
             break
         if (item.device_id, item.work_id) in used_work:
             continue
-        candidate_bids: List[Tuple[float, str, int]] = []
+        candidate_bids: list[tuple[float, str, int]] = []
         for idx, agent_id in enumerate(sorted_agents):
             if agent_id in assigned_agents:
                 continue
@@ -302,7 +295,7 @@ def run_auction(
         bids_budget -= 1
 
     mean_bid = sum(all_bids_list) / len(all_bids_list) if all_bids_list else 0.0
-    metrics: Dict[str, Any] = {
+    metrics: dict[str, Any] = {
         "mean_bid": round(mean_bid, 4),
         "rebid_rate": rebids / max(1, len(items)),
         "num_assignments": len(assignments),
@@ -321,16 +314,16 @@ class AuctionAllocator:
 
     def __init__(
         self,
-        max_bids: Optional[int] = None,
+        max_bids: int | None = None,
         detector_enabled: bool = True,
         containment_steps: int = CONTAINMENT_STEPS_K,
     ) -> None:
         self._max_bids = max_bids
         self._detector_enabled = detector_enabled
         self._containment_steps = containment_steps
-        self._last_metrics: Dict[str, Any] = {}
-        self._excluded_until_step: Dict[str, int] = {}
-        self._last_emits: List[Dict[str, Any]] = []
+        self._last_metrics: dict[str, Any] = {}
+        self._excluded_until_step: dict[str, int] = {}
+        self._last_emits: list[dict[str, Any]] = []
 
     def allocate(self, context: Any) -> Any:
         from labtrust_gym.baselines.coordination.coordination_kernel import (
@@ -360,24 +353,21 @@ class AuctionAllocator:
         max_bids = (
             self._max_bids
             if self._max_bids is not None
-            else int(scale_config.get("max_bids_per_step", 0))
-            or max(len(agents) * 2, 1)
+            else int(scale_config.get("max_bids_per_step", 0)) or max(len(agents) * 2, 1)
         )
         restricted_zones = _restricted_zone_ids_from_policy(policy)
         t = context.t
         for aid in list(self._excluded_until_step.keys()):
             if t > self._excluded_until_step[aid]:
                 del self._excluded_until_step[aid]
-        excluded_this_step = {
-            aid for aid, until in self._excluded_until_step.items() if t <= until
-        }
+        excluded_this_step = {aid for aid, until in self._excluded_until_step.items() if t <= until}
         injection_id = (scale_config or {}).get("injection_id") or ""
         spoof_agent_id = (scale_config or {}).get("spoof_agent_id")
         if injection_id == INJ_BID_SPOOF_001 and not spoof_agent_id and agents:
             spoof_agent_id = sorted(agents)[0]
 
-        work_items: List[WorkItem] = []
-        seen_work: Set[Tuple[str, str]] = set()
+        work_items: list[WorkItem] = []
+        seen_work: set[tuple[str, str]] = set()
         for agent_id in agents:
             o = obs.get(agent_id) or {}
             if log_frozen(o):
@@ -390,11 +380,7 @@ class AuctionAllocator:
                     continue
                 dev_zone = device_zone.get(dev_id, "")
                 head = (qbd[idx] or {}).get("queue_head", "W")
-                prio = (
-                    2
-                    if "STAT" in str(head).upper()
-                    else (1 if "URGENT" in str(head).upper() else 0)
-                )
+                prio = 2 if "STAT" in str(head).upper() else (1 if "URGENT" in str(head).upper() else 0)
                 key = (dev_id, head or "W")
                 if key in seen_work:
                     continue
@@ -427,9 +413,7 @@ class AuctionAllocator:
                 return BID_FORBIDDEN
             view = view_snapshots.get(agent_id) or o
             qbd = get_queue_by_device(o)
-            load = sum(
-                int((d or {}).get("queue_len", 0)) for d in qbd if isinstance(d, dict)
-            )
+            load = sum(int((d or {}).get("queue_len", 0)) for d in qbd if isinstance(d, dict))
             energy_proxy = 0.0
             raw_bid = compute_bid(
                 agent_id,
@@ -450,21 +434,17 @@ class AuctionAllocator:
                 return max(0.0, raw_bid * 0.1)
             return raw_bid
 
-        assignments, bids_used, metrics = run_auction(
-            work_items, agents, bid_fn, max_bids, rng
-        )
+        assignments, bids_used, metrics = run_auction(work_items, agents, bid_fn, max_bids, rng)
         detector_enabled = scale_config.get("detector_enabled", self._detector_enabled)
         if detector_enabled and bids_used:
             threshold_std = 0.5 if len(bids_used) <= 3 else 2.0
-            excluded_set, emits = detect_bid_anomalies(
-                bids_used, threshold_std=threshold_std
-            )
+            excluded_set, emits = detect_bid_anomalies(bids_used, threshold_std=threshold_std)
             self._last_emits = list(emits)
             for aid in excluded_set:
                 self._excluded_until_step[aid] = t + self._containment_steps
         else:
             self._last_emits = []
-        work_per_agent: Dict[str, int] = defaultdict(int)
+        work_per_agent: dict[str, int] = defaultdict(int)
         for agent_id, _work_id, _dev_id, _prio in assignments:
             work_per_agent[agent_id] += 1
         gini = gini_coefficient(dict(work_per_agent))
@@ -481,6 +461,6 @@ class AuctionAllocator:
             explain=explain,
         )
 
-    def get_alloc_metrics(self) -> Dict[str, Any]:
+    def get_alloc_metrics(self) -> dict[str, Any]:
         """Last-step allocator metrics for results coordination block."""
         return dict(self._last_metrics)

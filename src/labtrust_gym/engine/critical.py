@@ -9,9 +9,8 @@ v0.2: Escalation ladder; NOTIFY creates attempt record (attempt_id, timestamp, c
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, cast
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
@@ -24,7 +23,7 @@ INV_CRIT_002 = "INV-CRIT-002"
 INV_CRIT_004 = "INV-CRIT-004"
 
 
-def load_critical_thresholds(path: str | Path) -> List[Dict[str, Any]]:
+def load_critical_thresholds(path: str | Path) -> list[dict[str, Any]]:
     """Load critical_thresholds YAML. Returns list of threshold entries."""
     p = Path(path)
     if not p.is_absolute():
@@ -40,7 +39,7 @@ def load_critical_thresholds(path: str | Path) -> List[Dict[str, Any]]:
     return list(entries) if isinstance(entries, list) else []
 
 
-def load_escalation_ladder(path: str | Path | None = None) -> Optional[Dict[str, Any]]:
+def load_escalation_ladder(path: str | Path | None = None) -> dict[str, Any] | None:
     """Load escalation_ladder v0.2 YAML. Returns dict with version, minimum_record_fields, tiers; or None if missing."""
     if path is None:
         p = Path("policy/critical/escalation_ladder.v0.2.yaml")
@@ -63,7 +62,7 @@ def classify_criticality(
     analyte_code: str,
     value: float,
     units: str,
-    thresholds: List[Dict[str, Any]],
+    thresholds: list[dict[str, Any]],
 ) -> str:
     """
     Classify result to CRIT_A, CRIT_B, or none based on threshold table.
@@ -85,25 +84,37 @@ def classify_criticality(
     return "none"
 
 
-def default_thresholds() -> List[Dict[str, Any]]:
+def default_thresholds() -> list[dict[str, Any]]:
     """Minimal thresholds when policy file missing (K, Na, etc.)."""
     return [
-        {"analyte_code": "BIOCHEM_POTASSIUM_K", "units": "mmol/L", "low": 2.5, "high": 6.5, "class": "CRIT_A"},
-        {"analyte_code": "BIOCHEM_SODIUM_NA", "units": "mmol/L", "low": 120, "high": 160, "class": "CRIT_A"},
+        {
+            "analyte_code": "BIOCHEM_POTASSIUM_K",
+            "units": "mmol/L",
+            "low": 2.5,
+            "high": 6.5,
+            "class": "CRIT_A",
+        },
+        {
+            "analyte_code": "BIOCHEM_SODIUM_NA",
+            "units": "mmol/L",
+            "low": 120,
+            "high": 160,
+            "class": "CRIT_A",
+        },
     ]
 
 
-def _tier_by_index(ladder: Dict[str, Any], tier_index: int) -> Optional[Dict[str, Any]]:
+def _tier_by_index(ladder: dict[str, Any], tier_index: int) -> dict[str, Any] | None:
     for t in ladder.get("tiers") or []:
         if t.get("tier_index") == tier_index:
-            return t
+            return cast(dict[str, Any] | None, t)
     return None
 
 
-def _tier_by_role(ladder: Dict[str, Any], role: str) -> Optional[Dict[str, Any]]:
+def _tier_by_role(ladder: dict[str, Any], role: str) -> dict[str, Any] | None:
     for t in ladder.get("tiers") or []:
         if t.get("role") == role:
-            return t
+            return cast(dict[str, Any] | None, t)
     return None
 
 
@@ -117,20 +128,20 @@ class CriticalStore:
 
     def __init__(
         self,
-        thresholds: Optional[List[Dict[str, Any]]] = None,
-        ladder: Optional[Dict[str, Any]] = None,
+        thresholds: list[dict[str, Any]] | None = None,
+        ladder: dict[str, Any] | None = None,
     ) -> None:
         self._thresholds = thresholds or []
         self._ladder = ladder
-        self._result_criticality: Dict[str, str] = {}
-        self._comm_records: Dict[str, List[Dict[str, Any]]] = {}
-        self._attempts: Dict[str, List[Dict[str, Any]]] = {}  # result_id -> list of attempt records (v0.2)
-        self._notification_mode_required: Dict[str, str] = {}
+        self._result_criticality: dict[str, str] = {}
+        self._comm_records: dict[str, list[dict[str, Any]]] = {}
+        self._attempts: dict[str, list[dict[str, Any]]] = {}  # result_id -> list of attempt records (v0.2)
+        self._notification_mode_required: dict[str, str] = {}
 
-    def load_thresholds(self, thresholds: List[Dict[str, Any]]) -> None:
+    def load_thresholds(self, thresholds: list[dict[str, Any]]) -> None:
         self._thresholds = list(thresholds)
 
-    def load_ladder(self, ladder: Optional[Dict[str, Any]]) -> None:
+    def load_ladder(self, ladder: dict[str, Any] | None) -> None:
         self._ladder = ladder
 
     def set_criticality(self, result_id: str, criticality: str) -> None:
@@ -147,9 +158,7 @@ class CriticalStore:
         units: str,
     ) -> str:
         """Classify and store criticality for result. Returns CRIT_A, CRIT_B, or none."""
-        crit = classify_criticality(
-            analyte_code, float(value) if value is not None else 0, units, self._thresholds
-        )
+        crit = classify_criticality(analyte_code, float(value) if value is not None else 0, units, self._thresholds)
         self.set_criticality(result_id, crit)
         return crit
 
@@ -160,9 +169,9 @@ class CriticalStore:
         receiver_role: str,
         agent_id: str,
         t_s: int,
-        message_template_id: Optional[str] = None,
-        criticality_class: Optional[str] = None,
-    ) -> Tuple[Optional[str], Optional[str]]:
+        message_template_id: str | None = None,
+        criticality_class: str | None = None,
+    ) -> tuple[str | None, str | None]:
         """
         Record NOTIFY_CRITICAL_RESULT.
         v0.2: Creates attempt record; validates mode in tier allowed_contact_modes.
@@ -175,6 +184,8 @@ class CriticalStore:
                 tier = _tier_by_role(self._ladder, receiver_role) or _tier_by_index(self._ladder, 0)
             if tier is None:
                 tier = _tier_by_index(self._ladder, 0)
+            if tier is None:
+                return None, CRIT_MODE_NOT_ALLOWED
             allowed = tier.get("allowed_contact_modes") or []
             mode = (channel or "").strip().lower()
             if allowed and mode and mode not in [m.lower() for m in allowed]:
@@ -193,31 +204,35 @@ class CriticalStore:
                 "tier_index": tier.get("tier_index", 0),
             }
             attempts_list.append(attempt)
-            self._comm_records.setdefault(rid, []).append({
+            self._comm_records.setdefault(rid, []).append(
+                {
+                    "type": "notify",
+                    "attempt_id": attempt_id,
+                    "channel": channel,
+                    "receiver_role": receiver_role,
+                    "sender_agent_id": agent_id,
+                    "communicated_ts": t_s,
+                }
+            )
+            return attempt_id, None
+        self._comm_records.setdefault(rid, []).append(
+            {
                 "type": "notify",
-                "attempt_id": attempt_id,
                 "channel": channel,
                 "receiver_role": receiver_role,
                 "sender_agent_id": agent_id,
                 "communicated_ts": t_s,
-            })
-            return attempt_id, None
-        self._comm_records.setdefault(rid, []).append({
-            "type": "notify",
-            "channel": channel,
-            "receiver_role": receiver_role,
-            "sender_agent_id": agent_id,
-            "communicated_ts": t_s,
-        })
+            }
+        )
         return None, None
 
     def record_ack(
         self,
         result_id: str,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         agent_id: str,
         t_s: int,
-    ) -> Tuple[bool, Optional[str], Optional[str]]:
+    ) -> tuple[bool, str | None, str | None]:
         """
         Record ACK_CRITICAL_RESULT.
         v0.1: Returns (read_back_ok, violation_id).
@@ -309,7 +324,7 @@ class CriticalStore:
         """e.g. phone_or_bleep when downtime forces oral path."""
         self._notification_mode_required[str(result_id)] = mode
 
-    def notification_mode_required(self, result_id: str) -> Optional[str]:
+    def notification_mode_required(self, result_id: str) -> str | None:
         return self._notification_mode_required.get(str(result_id))
 
     def can_escalate(self, result_id: str, now_s: int) -> bool:
@@ -337,20 +352,22 @@ class CriticalStore:
         next_role: str,
         agent_id: str,
         t_s: int,
-        message_template_id: Optional[str] = None,
-        criticality_class: Optional[str] = None,
-    ) -> Tuple[bool, Optional[str]]:
+        message_template_id: str | None = None,
+        criticality_class: str | None = None,
+    ) -> tuple[bool, str | None]:
         """
         Record ESCALATE_CRITICAL_RESULT (v0.2). Appends new attempt at next tier.
         Returns (ok, reason_code). reason_code CRIT_ESCALATION_OUT_OF_ORDER if tier order violated.
         """
         rid = str(result_id)
         if not self._ladder:
-            self._comm_records.setdefault(rid, []).append({
-                "type": "escalate",
-                "sender_agent_id": agent_id,
-                "communicated_ts": t_s,
-            })
+            self._comm_records.setdefault(rid, []).append(
+                {
+                    "type": "escalate",
+                    "sender_agent_id": agent_id,
+                    "communicated_ts": t_s,
+                }
+            )
             return True, None
         attempts_list = self._attempts.get(rid, [])
         current_tier_index = attempts_list[-1].get("tier_index", 0) if attempts_list else -1
@@ -373,11 +390,13 @@ class CriticalStore:
             "tier_index": next_index,
         }
         attempts_list.append(attempt)
-        self._comm_records.setdefault(rid, []).append({
-            "type": "escalate",
-            "attempt_id": attempt_id,
-            "next_role": next_role,
-            "sender_agent_id": agent_id,
-            "communicated_ts": t_s,
-        })
+        self._comm_records.setdefault(rid, []).append(
+            {
+                "type": "escalate",
+                "attempt_id": attempt_id,
+                "next_role": next_role,
+                "sender_agent_id": agent_id,
+                "communicated_ts": t_s,
+            }
+        )
         return True, None

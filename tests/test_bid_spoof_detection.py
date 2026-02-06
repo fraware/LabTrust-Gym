@@ -25,9 +25,7 @@ def _minimal_obs_and_policy(
     policy = {
         "zone_layout": {
             "zones": [{"zone_id": zone_id}],
-            "device_placement": [
-                {"device_id": d, "zone_id": zone_id} for d in device_ids
-            ],
+            "device_placement": [{"device_id": d, "zone_id": zone_id} for d in device_ids],
             "graph_edges": [],
         },
     }
@@ -36,10 +34,7 @@ def _minimal_obs_and_policy(
         obs[aid] = {
             "zone_id": zone_id,
             "queue_has_head": [1] * len(device_ids),
-            "queue_by_device": [
-                {"device_id": d, "queue_head": f"W_{d}", "queue_len": 1}
-                for d in device_ids
-            ],
+            "queue_by_device": [{"device_id": d, "queue_head": f"W_{d}", "queue_len": 1} for d in device_ids],
             "log_frozen": 0,
         }
     return obs, policy
@@ -56,10 +51,7 @@ def test_detect_bid_anomalies_flags_low_bid() -> None:
     excluded, emits = detect_bid_anomalies(bids_used, threshold_std=0.5)
     assert "A1" in excluded
     assert len(emits) >= 1
-    assert any(
-        e.get("agent_id") == "A1" and e.get("reason_code") == REASON_CODE_BID_ANOMALY
-        for e in emits
-    )
+    assert any(e.get("agent_id") == "A1" and e.get("reason_code") == REASON_CODE_BID_ANOMALY for e in emits)
 
 
 def test_detect_bid_anomalies_no_anomaly_when_bids_similar() -> None:
@@ -88,9 +80,7 @@ def test_inj_bid_spoof_001_spoofing_agent_wins_without_detector() -> None:
     allocator = AuctionAllocator(max_bids=3, detector_enabled=False)
     decision = allocator.allocate(ctx)
     assigned_agents = [a[0] for a in decision.assignments]
-    assert (
-        "A1" in assigned_agents
-    ), "spoofing agent (first in sorted order) should win with detector off"
+    assert "A1" in assigned_agents, "spoofing agent (first in sorted order) should win with detector off"
 
 
 def test_inj_bid_spoof_001_detector_emits_and_containment_reduces_spoof_wins() -> None:
@@ -109,17 +99,13 @@ def test_inj_bid_spoof_001_detector_emits_and_containment_reduces_spoof_wins() -
         seed=100,
         rng=random.Random(100),
     )
-    decision0 = allocator.allocate(ctx0)
+    allocator.allocate(ctx0)
     metrics0 = allocator.get_alloc_metrics()
     alloc_emits = metrics0.get("alloc_emits") or []
     has_anomaly_emit = any(
-        e.get("emit") == "BID_ANOMALY_DETECTED"
-        and e.get("reason_code") == REASON_CODE_BID_ANOMALY
-        for e in alloc_emits
+        e.get("emit") == "BID_ANOMALY_DETECTED" and e.get("reason_code") == REASON_CODE_BID_ANOMALY for e in alloc_emits
     )
-    assert (
-        has_anomaly_emit
-    ), "detector should emit BID_ANOMALY_DETECTED for spoofed low bid"
+    assert has_anomaly_emit, "detector should emit BID_ANOMALY_DETECTED for spoofed low bid"
 
     ctx1 = KernelContext(
         obs=obs,
@@ -132,9 +118,7 @@ def test_inj_bid_spoof_001_detector_emits_and_containment_reduces_spoof_wins() -
     )
     decision1 = allocator.allocate(ctx1)
     assigned_step1 = [a[0] for a in decision1.assignments]
-    assert (
-        "A1" not in assigned_step1
-    ), "containment should exclude spoofing agent on next step(s)"
+    assert "A1" not in assigned_step1, "containment should exclude spoofing agent on next step(s)"
 
 
 def test_taskh_auction_bid_spoof_smoke(tmp_path) -> None:
@@ -166,18 +150,14 @@ def test_taskh_auction_bid_spoof_smoke(tmp_path) -> None:
     metrics = episodes[0].get("metrics") or {}
     coord = metrics.get("coordination") or {}
     alloc = coord.get("alloc") or {}
-    assert (
-        "mean_bid" in alloc
-        or "num_assignments" in alloc
-        or "gini_work_distribution" in alloc
-    )
+    assert "mean_bid" in alloc or "num_assignments" in alloc or "gini_work_distribution" in alloc
 
 
 def test_bid_forbidden_not_used_as_winning_bid() -> None:
     """Bids at or above BID_FORBIDDEN are never selected as winning."""
     from labtrust_gym.baselines.coordination.allocation.auction import (
-        run_auction,
         WorkItem,
+        run_auction,
     )
 
     items = [WorkItem("W1", "D1", "Z_A", 1)]

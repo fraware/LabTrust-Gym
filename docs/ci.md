@@ -1,6 +1,6 @@
 # CI gates and regression
 
-CI runs on every push/PR to `main` and keeps the default pipeline **fast**. Optional benchmark smoke runs only on **schedule** (nightly) or when **manually triggered** with "Run benchmark smoke" enabled.
+CI runs on every push/PR to `main` and keeps the default pipeline **fast**. All CI jobs use **pipeline_mode=deterministic** (no LLM, no network); `--allow-network` and `LABTRUST_ALLOW_NETWORK` are not set, so the environment stays offline. Optional benchmark smoke runs only on **schedule** (nightly) or when **manually triggered** with "Run benchmark smoke" enabled.
 
 ## Gates (always run on push/PR)
 

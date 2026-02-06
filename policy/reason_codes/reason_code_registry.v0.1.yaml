@@ -555,6 +555,20 @@ reason_code_registry:
       triggers: ["LLM_ACTION_DECODE"]
       default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
 
+    - code: "RC_LLM_INVALID_OUTPUT"
+      namespace: "LLM"
+      severity: "P0_STOP"
+      description: "Live LLM returned output that did not conform to the structured output schema (invalid JSON or schema violation)."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    - code: "RC_LLM_PROPOSED_INVALID"
+      namespace: "LLM"
+      severity: "P0_STOP"
+      description: "LLM proposal failed deterministic validation (action not in allowed_actions, args schema mismatch, or pre-check failed)."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
     - code: "LLM_REFUSED"
       namespace: "LLM"
       severity: "P3_WARN"

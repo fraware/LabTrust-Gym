@@ -9,7 +9,7 @@ Multi-site transport: consignments, DISPATCH_TRANSPORT, TRANSPORT_TICK, RECEIVE_
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, cast
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
@@ -18,7 +18,7 @@ TRANSPORT_TEMP_EXCURSION = "TRANSPORT_TEMP_EXCURSION"
 TRANSPORT_CHAIN_OF_CUSTODY_BROKEN = "TRANSPORT_CHAIN_OF_CUSTODY_BROKEN"
 
 
-def load_sites_policy(path: Path | str | None = None) -> Dict[str, Any]:
+def load_sites_policy(path: Path | str | None = None) -> dict[str, Any]:
     """Load sites_policy.v0.1 YAML. Returns dict with sites, site_graph, routes."""
     if path is None:
         p = Path("policy/sites/sites_policy.v0.1.yaml")
@@ -42,7 +42,7 @@ def load_sites_policy(path: Path | str | None = None) -> Dict[str, Any]:
     }
 
 
-def _route_allowed(policy: Dict[str, Any], from_site: str, to_site: str) -> bool:
+def _route_allowed(policy: dict[str, Any], from_site: str, to_site: str) -> bool:
     """True if policy allows route from_site -> to_site (site_graph enabled)."""
     for edge in policy.get("site_graph") or []:
         if edge.get("from_site") == from_site and edge.get("to_site") == to_site:
@@ -50,11 +50,11 @@ def _route_allowed(policy: Dict[str, Any], from_site: str, to_site: str) -> bool
     return False
 
 
-def _get_route(policy: Dict[str, Any], from_site: str, to_site: str) -> Optional[Dict[str, Any]]:
+def _get_route(policy: dict[str, Any], from_site: str, to_site: str) -> dict[str, Any] | None:
     """Return route config for from_site -> to_site or None."""
     for r in policy.get("routes") or []:
         if r.get("from_site") == from_site and r.get("to_site") == to_site:
-            return r
+            return cast(dict[str, Any] | None, r)
     return None
 
 
@@ -68,7 +68,7 @@ def _sample_transport_time_s(
         return int(mean_s)
     # Gaussian-like: use uniform around mean for reproducibility
     delta = rng.randint(-min(std_s, mean_s // 2), min(std_s, mean_s // 2))
-    return max(1, int(mean_s) + delta)
+    return int(max(1, int(mean_s) + delta))
 
 
 class TransportStore:
@@ -80,15 +80,15 @@ class TransportStore:
 
     def __init__(
         self,
-        policy: Optional[Dict[str, Any]] = None,
-        rng: Optional[Any] = None,
+        policy: dict[str, Any] | None = None,
+        rng: Any | None = None,
     ) -> None:
         self._policy = policy or {}
         self._rng = rng
-        self._consignments: Dict[str, Dict[str, Any]] = {}
+        self._consignments: dict[str, dict[str, Any]] = {}
         self._next_consignment_id = 0
 
-    def load_policy(self, policy: Dict[str, Any]) -> None:
+    def load_policy(self, policy: dict[str, Any]) -> None:
         self._policy = policy
 
     def set_rng(self, rng: Any) -> None:
@@ -96,12 +96,12 @@ class TransportStore:
 
     def dispatch(
         self,
-        specimen_ids: List[str],
+        specimen_ids: list[str],
         origin_site: str,
         dest_site: str,
         now_s: int,
         agent_id: str,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """
         DISPATCH_TRANSPORT: create consignment, set expected arrival.
         Returns (consignment_id, reason_code). reason_code TRANSPORT_ROUTE_FORBIDDEN if route not allowed.
@@ -133,12 +133,12 @@ class TransportStore:
         }
         return cid, None
 
-    def tick(self, now_s: int) -> List[Tuple[str, Optional[str]]]:
+    def tick(self, now_s: int) -> list[tuple[str, str | None]]:
         """
         TRANSPORT_TICK: advance state; may apply bounded temp drift.
         Returns list of (consignment_id, reason_code) for consignments that had temp excursion (reason_code TRANSPORT_TEMP_EXCURSION).
         """
-        excursions: List[Tuple[str, Optional[str]]] = []
+        excursions: list[tuple[str, str | None]] = []
         for cid, c in list(self._consignments.items()):
             if c.get("status") != "in_transit":
                 continue
@@ -156,7 +156,7 @@ class TransportStore:
         consignment_id: str,
         now_s: int,
         agent_id: str,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         RECEIVE_TRANSPORT: mark consignment arrived at destination.
         Returns (ok, reason_code). reason_code TRANSPORT_TEMP_EXCURSION if temp out of band.
@@ -178,7 +178,7 @@ class TransportStore:
         self,
         consignment_id: str,
         agent_id: str,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         CHAIN_OF_CUSTODY_SIGN: optional dual-approval for handoff anomaly; mark signed.
         Returns (ok, reason_code).
@@ -197,25 +197,27 @@ class TransportStore:
             max_drift = c.get("temp_drift_max_c", 2.0)
             c["current_temp_drift_c"] = max_drift
 
-    def get_consignment(self, consignment_id: str) -> Optional[Dict[str, Any]]:
+    def get_consignment(self, consignment_id: str) -> dict[str, Any] | None:
         return self._consignments.get(consignment_id)
 
-    def list_in_transit(self) -> List[str]:
+    def list_in_transit(self) -> list[str]:
         return [cid for cid, c in self._consignments.items() if c.get("status") == "in_transit"]
 
-    def list_consignments_info(self) -> List[Dict[str, Any]]:
+    def list_consignments_info(self) -> list[dict[str, Any]]:
         """Return list of consignment dicts for obs/query: consignment_id, specimen_ids, expected_arrival_ts, chain_of_custody_signed, status."""
-        out: List[Dict[str, Any]] = []
+        out: list[dict[str, Any]] = []
         for cid, c in sorted(self._consignments.items()):
-            out.append({
-                "consignment_id": cid,
-                "specimen_ids": list(c.get("specimen_ids") or []),
-                "origin_site": c.get("origin_site", ""),
-                "dest_site": c.get("dest_site", ""),
-                "expected_arrival_ts": c.get("expected_arrival_ts"),
-                "chain_of_custody_signed": bool(c.get("chain_of_custody_signed", False)),
-                "status": c.get("status", "in_transit"),
-            })
+            out.append(
+                {
+                    "consignment_id": cid,
+                    "specimen_ids": list(c.get("specimen_ids") or []),
+                    "origin_site": c.get("origin_site", ""),
+                    "dest_site": c.get("dest_site", ""),
+                    "expected_arrival_ts": c.get("expected_arrival_ts"),
+                    "chain_of_custody_signed": bool(c.get("chain_of_custody_signed", False)),
+                    "status": c.get("status", "in_transit"),
+                }
+            )
         return out
 
     def dispatch_has_receive_or_token(self, consignment_id: str) -> bool:

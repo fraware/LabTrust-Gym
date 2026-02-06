@@ -55,9 +55,7 @@ class KeyedTokenBuckets:
     def __init__(self, rate: float, capacity: float | None = None) -> None:
         self._rate = rate
         self._capacity = capacity
-        self._buckets: dict[str, TokenBucket] = defaultdict(
-            lambda: TokenBucket(rate, capacity)
-        )
+        self._buckets: dict[str, TokenBucket] = defaultdict(lambda: TokenBucket(rate, capacity))
         self._lock = threading.Lock()
 
     def allow(self, key: str) -> bool:

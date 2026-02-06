@@ -14,12 +14,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.policy.loader import load_yaml
 
 
-def load_attack_suite(policy_root: Path) -> Dict[str, Any]:
+def load_attack_suite(policy_root: Path) -> dict[str, Any]:
     """Load security_attack_suite.v0.1.yaml from policy/golden/."""
     path = policy_root / "policy" / "golden" / "security_attack_suite.v0.1.yaml"
     if not path.exists():
@@ -28,7 +28,7 @@ def load_attack_suite(policy_root: Path) -> Dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def load_prompt_injection_scenarios(policy_root: Path) -> List[Dict[str, Any]]:
+def load_prompt_injection_scenarios(policy_root: Path) -> list[dict[str, Any]]:
     """Load prompt_injection_scenarios.v0.1.yaml scenarios."""
     path = policy_root / "policy" / "golden" / "prompt_injection_scenarios.v0.1.yaml"
     if not path.exists():
@@ -40,10 +40,10 @@ def load_prompt_injection_scenarios(policy_root: Path) -> List[Dict[str, Any]]:
 
 def _run_prompt_injection_attack(
     scenario_id: str,
-    scenarios: List[Dict[str, Any]],
+    scenarios: list[dict[str, Any]],
     policy_root: Path,
     seed: int,
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Run one prompt-injection scenario in-process (same logic as golden test).
     Returns (passed, error_message).
@@ -90,7 +90,7 @@ def _run_prompt_injection_attack(
     if proposal_type not in allowed and proposal_type != "NOOP":
         return (
             False,
-            f"proposal action_type {proposal_type!r} not in allowed " f"{allowed}",
+            f"proposal action_type {proposal_type!r} not in allowed {allowed}",
         )
     return True, None
 
@@ -98,8 +98,8 @@ def _run_prompt_injection_attack(
 def _observation_with_injection(
     injection_key: str,
     adversarial_string: str,
-    allowed_actions: List[str],
-) -> dict:
+    allowed_actions: list[str],
+) -> dict[str, Any]:
     obs = {
         "zone_id": "Z_SRA_RECEPTION",
         "site_id": "SITE_HUB",
@@ -118,7 +118,7 @@ def _observation_with_injection(
 def _run_test_ref_attack(
     test_ref: str,
     repo_root: Path,
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Run attack via pytest subprocess for test_ref (e.g. tests.test_tool_sandbox).
     Returns (passed, error_message).
@@ -157,10 +157,10 @@ def _run_test_ref_attack(
 
 def run_security_suite(
     policy_root: Path,
-    repo_root: Optional[Path] = None,
+    repo_root: Path | None = None,
     smoke_only: bool = True,
     seed: int = 42,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Run all attacks in the security attack suite (smoke-only or full).
     Returns list of result dicts: attack_id, passed, outcome, duration_ms, error.
@@ -171,19 +171,17 @@ def run_security_suite(
     if smoke_only:
         attacks = [a for a in attacks if a.get("smoke") is True]
     scenarios = load_prompt_injection_scenarios(policy_root)
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for attack in attacks:
         attack_id = attack.get("attack_id", "unknown")
         expected = attack.get("expected_outcome", "blocked")
         t0 = time.perf_counter()
         passed = False
-        err: Optional[str] = None
+        err: str | None = None
         scenario_ref = attack.get("scenario_ref")
         test_ref = attack.get("test_ref")
         if scenario_ref:
-            passed, err = _run_prompt_injection_attack(
-                scenario_ref, scenarios, policy_root, seed
-            )
+            passed, err = _run_prompt_injection_attack(scenario_ref, scenarios, policy_root, seed)
         elif test_ref:
             passed, err = _run_test_ref_attack(test_ref, repo_root)
         else:
@@ -204,9 +202,9 @@ def run_security_suite(
 
 
 def write_attack_results(
-    results: List[Dict[str, Any]],
+    results: list[dict[str, Any]],
     out_path: Path,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Write attack_results.json with results and optional metadata."""
     out_path = Path(out_path)
@@ -230,11 +228,11 @@ def write_attack_results(
 def run_suite_and_emit(
     policy_root: Path,
     out_dir: Path,
-    repo_root: Optional[Path] = None,
+    repo_root: Path | None = None,
     smoke_only: bool = True,
     seed: int = 42,
-    metadata: Optional[Dict[str, Any]] = None,
-) -> List[Dict[str, Any]]:
+    metadata: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     """
     Run security suite and write SECURITY/attack_results.json under out_dir.
     Returns results list.

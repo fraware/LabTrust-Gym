@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 UI_BUNDLE_VERSION = "0.1"
 
@@ -63,10 +63,10 @@ def _detect_run_type(run_dir: Path) -> str:
 
 
 def _normalize_event(
-    raw: Dict[str, Any], task: str = "", episode_index: int = 0
-) -> Dict[str, Any]:
+    raw: dict[str, Any], task: str = "", episode_index: int = 0
+) -> dict[str, Any]:
     """Normalize one JSONL step line to stable UI event fields."""
-    out: Dict[str, Any] = {}
+    out: dict[str, Any] = {}
     for k in EVENT_FIELDS:
         if k in raw:
             out[k] = raw[k]
@@ -84,9 +84,9 @@ def _normalize_event(
     return out
 
 
-def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
+def _load_jsonl(path: Path) -> list[dict[str, Any]]:
     """Load JSONL file; return list of dicts."""
-    lines: List[Dict[str, Any]] = []
+    lines: list[dict[str, Any]] = []
     if not path.is_file():
         return lines
     with open(path, encoding="utf-8") as f:
@@ -101,13 +101,90 @@ def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
     return lines
 
 
+def _get_pipeline_mode_from_run(
+    run_dir: Path,
+    run_type: str,
+    tasks: list[str],
+) -> str | None:
+    """Extract pipeline_mode from run dir: metadata.json (package_release) or first Task*.json (quick_eval)."""
+    fields = _get_pipeline_fields_from_run(run_dir, run_type, tasks)
+    return fields.get("pipeline_mode")
+
+
+def _get_pipeline_fields_from_run(
+    run_dir: Path,
+    run_type: str,
+    tasks: list[str],
+) -> dict[str, Any]:
+    """
+    Extract pipeline display fields from run dir for UI/index.
+    Returns dict with pipeline_mode, llm_backend_id, llm_model_id, allow_network (when present).
+    """
+    out: dict[str, Any] = {}
+    if run_type == "package_release":
+        meta_path = run_dir / "metadata.json"
+        if meta_path.exists():
+            try:
+                data = json.loads(meta_path.read_text(encoding="utf-8"))
+                for key in (
+                    "pipeline_mode",
+                    "llm_backend_id",
+                    "llm_model_id",
+                    "allow_network",
+                ):
+                    if key in data:
+                        out[key] = data[key]
+                return out
+            except (json.JSONDecodeError, OSError):
+                pass
+        # Fallback: first results.json under _repr
+        repr_dir = run_dir / "_repr"
+        if repr_dir.is_dir():
+            for task_dir in sorted(repr_dir.iterdir()):
+                if not task_dir.is_dir():
+                    continue
+                res_path = task_dir / "results.json"
+                if res_path.exists():
+                    try:
+                        data = json.loads(res_path.read_text(encoding="utf-8"))
+                        for key in (
+                            "pipeline_mode",
+                            "llm_backend_id",
+                            "llm_model_id",
+                            "allow_network",
+                        ):
+                            if key in data:
+                                out[key] = data[key]
+                    except (json.JSONDecodeError, OSError):
+                        pass
+                    break
+        return out
+    for task in tasks:
+        res_path = run_dir / f"{task}.json"
+        if res_path.exists():
+            try:
+                data = json.loads(res_path.read_text(encoding="utf-8"))
+                for key in (
+                    "pipeline_mode",
+                    "llm_backend_id",
+                    "llm_model_id",
+                    "allow_network",
+                ):
+                    if key in data:
+                        out[key] = data[key]
+            except (json.JSONDecodeError, OSError):
+                pass
+            break
+    return out
+
+
 def _collect_quick_eval(
     run_dir: Path,
-) -> Tuple[List[str], List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]]]:
     """Collect tasks, episodes index, and receipt entries for quick-eval layout."""
-    tasks: List[str] = []
-    episodes: List[Dict[str, Any]] = []
-    receipts_index: List[Dict[str, Any]] = []
+    tasks: list[str] = []
+    episodes: list[dict[str, Any]] = []
+    receipts_index: list[dict[str, Any]] = []
     logs_dir = run_dir / "logs"
     for res_path in sorted(run_dir.glob("Task*.json")):
         task = res_path.stem
@@ -137,12 +214,12 @@ def _collect_quick_eval(
 
 def _collect_package_release(
     run_dir: Path,
-) -> Tuple[List[str], List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
+) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
     """Collect tasks, episodes, receipts_index, baselines for package-release layout."""
-    tasks: List[str] = []
-    episodes: List[Dict[str, Any]] = []
-    receipts_index: List[Dict[str, Any]] = []
-    baselines: List[str] = []
+    tasks: list[str] = []
+    episodes: list[dict[str, Any]] = []
+    receipts_index: list[dict[str, Any]] = []
+    baselines: list[str] = []
 
     # _repr/<task>/: results.json, episodes.jsonl; receipts/<task>/
     repr_dir = run_dir / "_repr"
@@ -180,7 +257,7 @@ def _collect_package_release(
             # Receipts for this task
             rec_dir = run_dir / "receipts" / task
             if rec_dir.is_dir():
-                receipt_files: List[str] = []
+                receipt_files: list[str] = []
                 bundle_dir = rec_dir / "EvidenceBundle.v0.1"
                 if bundle_dir.is_dir():
                     for f in bundle_dir.iterdir():
@@ -228,11 +305,11 @@ def _collect_package_release(
 def _build_events(
     run_dir: Path,
     run_type: str,
-    tasks: List[str],
-    episodes: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    tasks: list[str],
+    episodes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Build normalized events.json from episode logs."""
-    events: List[Dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
     for ep in episodes:
         task = ep.get("task", "")
         ep_idx = ep.get("episode_index", 0)
@@ -251,13 +328,13 @@ COORD_TELEMETRY_KEY = "coord_telemetry"
 
 def _collect_coord_telemetry(
     run_dir: Path,
-    episodes: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    episodes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     For each episode with a log_ref, if coord_decisions.jsonl exists in the same
     directory, add an entry { episode_key, coord_decisions_ref } and return list.
     """
-    refs: List[Dict[str, Any]] = []
+    refs: list[dict[str, Any]] = []
     for ep in episodes:
         log_ref = ep.get("log_ref")
         if not log_ref:
@@ -266,15 +343,20 @@ def _collect_coord_telemetry(
         coord_path = log_path.parent / "coord_decisions.jsonl"
         if not coord_path.is_file():
             continue
-        episode_key = ep.get("episode_key") or f"{ep.get('task', '')}_{ep.get('episode_index', 0)}"
-        refs.append({
-            "episode_key": episode_key,
-            "coord_decisions_ref": f"{COORD_TELEMETRY_KEY}/{episode_key}.jsonl",
-        })
+        episode_key = (
+            ep.get("episode_key")
+            or f"{ep.get('task', '')}_{ep.get('episode_index', 0)}"
+        )
+        refs.append(
+            {
+                "episode_key": episode_key,
+                "coord_decisions_ref": f"{COORD_TELEMETRY_KEY}/{episode_key}.jsonl",
+            }
+        )
     return refs
 
 
-def _load_reason_codes_json(repo_root: Path) -> Dict[str, Any]:
+def _load_reason_codes_json(repo_root: Path) -> dict[str, Any]:
     """Load reason code registry and return UI shape: { version, codes }."""
     reg_path = repo_root / "policy" / "reason_codes" / "reason_code_registry.v0.1.yaml"
     if not reg_path.exists():
@@ -291,7 +373,7 @@ def _load_reason_codes_json(repo_root: Path) -> Dict[str, Any]:
 def export_ui_bundle(
     run_dir: Path,
     out_zip_path: Path,
-    repo_root: Optional[Path] = None,
+    repo_root: Path | None = None,
 ) -> Path:
     """
     Export a UI-ready zip from a labtrust run directory.
@@ -313,13 +395,14 @@ def export_ui_bundle(
 
     if run_type == "quick_eval":
         tasks, episodes, receipts_index = _collect_quick_eval(run_dir)
-        baselines = []
+        baselines: list[str] = []
     else:
         tasks, episodes, receipts_index, baselines = _collect_package_release(run_dir)
 
     events = _build_events(run_dir, run_type, tasks, episodes)
     coord_telemetry_refs = _collect_coord_telemetry(run_dir, episodes)
 
+    pipeline_fields = _get_pipeline_fields_from_run(run_dir, run_type, tasks)
     index = {
         "ui_bundle_version": UI_BUNDLE_VERSION,
         "run_type": run_type,
@@ -327,6 +410,9 @@ def export_ui_bundle(
         "episodes": episodes,
         "baselines": baselines,
     }
+    for key in ("pipeline_mode", "llm_backend_id", "llm_model_id", "allow_network"):
+        if key in pipeline_fields:
+            index[key] = pipeline_fields[key]
     if coord_telemetry_refs:
         index[COORD_TELEMETRY_KEY] = coord_telemetry_refs
     reason_codes = _load_reason_codes_json(Path(repo_root))
@@ -350,12 +436,18 @@ def export_ui_bundle(
                 (
                     e
                     for e in episodes
-                    if (e.get("episode_key") or f"{e.get('task', '')}_{e.get('episode_index', 0)}") == episode_key
+                    if (
+                        e.get("episode_key")
+                        or f"{e.get('task', '')}_{e.get('episode_index', 0)}"
+                    )
+                    == episode_key
                 ),
                 None,
             )
             if ep and ep.get("log_ref"):
-                coord_path = run_dir / Path(ep["log_ref"]).parent / "coord_decisions.jsonl"
+                coord_path = (
+                    run_dir / Path(ep["log_ref"]).parent / "coord_decisions.jsonl"
+                )
                 if coord_path.is_file():
                     zf.writestr(coord_ref, coord_path.read_text(encoding="utf-8"))
 

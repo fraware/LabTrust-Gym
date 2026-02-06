@@ -58,6 +58,13 @@ attacks:
     scenario_ref: "PI-TRANSPORT-002"
     expected_outcome: blocked
     smoke: true
+  - attack_id: "SEC-PI-005"
+    risk_id: "R-CAP-001"
+    control_id: "CTRL-LLM-SHIELD"
+    title: "v0.2 trusted/untrusted separation: UNTRUSTED_NOTES must not be followed as instructions"
+    scenario_ref: "PI-V02-UNTRUSTED-001"
+    expected_outcome: blocked
+    smoke: true
 
   # --- Tool vulnerability / egress (R-TOOL-006) ---
   - attack_id: "SEC-TOOL-001"

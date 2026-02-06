@@ -9,7 +9,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -24,7 +23,7 @@ def _repo_root() -> Path:
 
 
 def test_trust_ablations_smoke_artifact_files_exist() -> None:
-    """When LABTRUST_REPRO_SMOKE=1, run trust_ablations study (tiny) and assert artifact files exist."""
+    """LABTRUST_REPRO_SMOKE=1: run trust_ablations study (tiny), assert artifact files exist."""
     if os.environ.get("LABTRUST_REPRO_SMOKE", "").strip().lower() not in (
         "1",
         "true",
@@ -58,9 +57,7 @@ def test_trust_ablations_smoke_artifact_files_exist() -> None:
             text=True,
             timeout=180,
         )
-        assert result.returncode == 0, (
-            f"run-study failed: stderr={result.stderr!r} stdout={result.stdout!r}"
-        )
+        assert result.returncode == 0, f"run-study failed: stderr={result.stderr!r} stdout={result.stdout!r}"
 
         assert (out_dir / "manifest.json").exists()
         assert (out_dir / "conditions.jsonl").exists()
@@ -89,9 +86,7 @@ def test_trust_ablations_smoke_artifact_files_exist() -> None:
             text=True,
             timeout=60,
         )
-        assert result_plots.returncode == 0, (
-            f"make-plots failed: stderr={result_plots.stderr!r}"
-        )
+        assert result_plots.returncode == 0, f"make-plots failed: stderr={result_plots.stderr!r}"
 
         fig_dir = out_dir / "figures"
         tables_dir = fig_dir / "data_tables"

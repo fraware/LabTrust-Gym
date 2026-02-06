@@ -12,10 +12,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, cast
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
-
 
 TOKEN_STATES = ("ACTIVE", "CONSUMED", "EXPIRED", "REVOKED", "MINTED")
 
@@ -31,10 +30,10 @@ class Token:
     subject_id: str
     issued_at_ts_s: int
     expires_at_ts_s: int
-    reason_code: Optional[str]
-    approvals: List[Dict[str, Any]] = field(default_factory=list)
+    reason_code: str | None
+    approvals: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """For serialization / initial_state.tokens."""
         return {
             "token_id": self.token_id,
@@ -49,7 +48,7 @@ class Token:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> Token:
+    def from_dict(cls, d: dict[str, Any]) -> Token:
         """Build Token from dict (e.g. initial_state.tokens or mint args)."""
         return cls(
             token_id=str(d["token_id"]),
@@ -64,7 +63,7 @@ class Token:
         )
 
 
-def load_token_registry(path: str | Path) -> Dict[str, Any]:
+def load_token_registry(path: str | Path) -> dict[str, Any]:
     """Load token_registry YAML. Returns dict with token_types."""
     p = Path(path)
     if not p.is_absolute():
@@ -76,14 +75,14 @@ def load_token_registry(path: str | Path) -> Dict[str, Any]:
     reg = data.get("token_registry")
     if reg is None:
         raise PolicyLoadError(p, "missing top-level key 'token_registry'")
-    return reg
+    return cast(dict[str, Any], reg)
 
 
 def validate_dual_approval(
-    approvals: List[Dict[str, Any]],
+    approvals: list[dict[str, Any]],
     token_type: str,
-    registry: Dict[str, Any],
-) -> tuple[bool, Optional[str]]:
+    registry: dict[str, Any],
+) -> tuple[bool, str | None]:
     """
     Validate dual approval: two distinct approvers, distinct keys, required count.
     Returns (ok, violation_id). violation_id INV-TOK-001 when invalid.

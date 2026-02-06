@@ -9,7 +9,7 @@ TrivialRouter: BFS move or START_RUN from schedule; deterministic.
 from __future__ import annotations
 
 from collections import deque
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import (
@@ -30,19 +30,19 @@ try:
         gini_coefficient,
     )
 except ImportError:
-    gini_coefficient = None
+    gini_coefficient = None  # type: ignore[assignment]
 
 
 def _bfs_next_zone(
     start: str,
     goal: str,
-    adjacency: Set[Tuple[str, str]],
-) -> Optional[str]:
+    adjacency: set[tuple[str, str]],
+) -> str | None:
     """Next zone from start toward goal. Deterministic."""
     if start == goal:
         return None
-    seen: Set[str] = {start}
-    queue: deque[Tuple[str, List[str]]] = deque([(start, [])])
+    seen: set[str] = {start}
+    queue: deque[tuple[str, list[str]]] = deque([(start, [])])
     while queue:
         node, path = queue.popleft()
         neighbors = sorted([b for (a, b) in adjacency if a == node and b not in seen])
@@ -58,15 +58,15 @@ def _bfs_next_zone(
 class CentralizedAllocator:
     """Greedy allocation: STAT > URGENT > ROUTINE, colocation, compute_budget."""
 
-    def __init__(self, compute_budget: Optional[int] = None) -> None:
+    def __init__(self, compute_budget: int | None = None) -> None:
         self._compute_budget = compute_budget
-        self._last_assignments: List[Tuple[str, str, str, int]] = []
+        self._last_assignments: list[tuple[str, str, str, int]] = []
 
-    def get_alloc_metrics(self) -> Optional[Dict[str, Any]]:
+    def get_alloc_metrics(self) -> dict[str, Any] | None:
         """Alloc metrics: gini_work_distribution from last allocation."""
         if not self._last_assignments or gini_coefficient is None:
             return None
-        work_per_agent: Dict[str, int] = {}
+        work_per_agent: dict[str, int] = {}
         for agent_id, _work_id, _device_id, _prio in self._last_assignments:
             work_per_agent[agent_id] = work_per_agent.get(agent_id, 0) + 1
         return {"gini_work_distribution": round(gini_coefficient(work_per_agent), 4)}
@@ -76,15 +76,11 @@ class CentralizedAllocator:
         zone_ids = context.zone_ids or []
         device_ids = context.device_ids or []
         device_zone = context.device_zone or {}
-        budget = (
-            self._compute_budget
-            if self._compute_budget is not None
-            else len(agents) * 2
-        )
+        budget = self._compute_budget if self._compute_budget is not None else len(agents) * 2
         if not device_ids:
             return AllocationDecision(explain="no_devices")
 
-        worklist: List[Tuple[int, str, str, str]] = []
+        worklist: list[tuple[int, str, str, str]] = []
         for agent_id in agents:
             o = context.obs.get(agent_id) or {}
             if log_frozen(o):
@@ -98,17 +94,13 @@ class CentralizedAllocator:
                 if my_zone != dev_zone:
                     continue
                 head = (qbd[idx] if idx < len(qbd) else {}).get("queue_head", "W")
-                prio = (
-                    2
-                    if "STAT" in str(head).upper()
-                    else (1 if "URGENT" in str(head).upper() else 0)
-                )
+                prio = 2 if "STAT" in str(head).upper() else (1 if "URGENT" in str(head).upper() else 0)
                 worklist.append((prio, dev_id, head or "W", dev_zone))
 
         worklist.sort(key=lambda x: (-x[0], x[1], x[2]))
-        assigned: Set[str] = set()
-        used_work: Set[Tuple[str, str]] = set()
-        assignments: List[Tuple[str, str, str, int]] = []
+        assigned: set[str] = set()
+        used_work: set[tuple[str, str]] = set()
+        assignments: list[tuple[str, str, str, int]] = []
 
         for prio, device_id, work_id, zone_id in worklist:
             if len(assigned) >= budget:
@@ -140,7 +132,7 @@ class EDFScheduler:
         context: KernelContext,
         allocation: AllocationDecision,
     ) -> ScheduleDecision:
-        per_agent: Dict[str, List[Tuple[str, int, int]]] = {}
+        per_agent: dict[str, list[tuple[str, int, int]]] = {}
         for agent_id, work_id, device_id, prio in allocation.assignments:
             deadline = context.t + 20
             if agent_id not in per_agent:
@@ -148,9 +140,7 @@ class EDFScheduler:
             per_agent[agent_id].append((work_id, deadline, prio))
         for aid in per_agent:
             per_agent[aid].sort(key=lambda x: (x[1], -x[2], x[0]))
-        per_agent_tuple = tuple(
-            (aid, tuple(lst)) for aid, lst in sorted(per_agent.items())
-        )
+        per_agent_tuple = tuple((aid, tuple(lst)) for aid, lst in sorted(per_agent.items()))
         return ScheduleDecision(per_agent=per_agent_tuple, explain="edf")
 
 
@@ -158,7 +148,7 @@ class TrivialRouter:
     """BFS move to goal zone or START_RUN for first scheduled work. Deterministic."""
 
     def __init__(self) -> None:
-        self._adjacency: Set[Tuple[str, str]] = set()
+        self._adjacency: set[tuple[str, str]] = set()
 
     def route(
         self,
@@ -172,13 +162,13 @@ class TrivialRouter:
         zone_ids = context.zone_ids or []
         device_ids = context.device_ids or []
         device_zone = context.device_zone or {}
-        per_agent: List[Tuple[str, str, Tuple[Tuple[str, Any], ...]]] = []
+        per_agent: list[tuple[str, str, tuple[tuple[str, Any], ...]]] = []
 
-        assignment_by_agent: Dict[str, Tuple[str, str, int]] = {}
+        assignment_by_agent: dict[str, tuple[str, str, int]] = {}
         for agent_id, work_id, device_id, prio in allocation.assignments:
             assignment_by_agent[agent_id] = (work_id, device_id, prio)
 
-        schedule_first: Dict[str, Tuple[str, str, int]] = {}
+        schedule_first: dict[str, tuple[str, str, int]] = {}
         for agent_id, seq in schedule.per_agent:
             if seq:
                 work_id, deadline, prio = seq[0]
@@ -245,8 +235,8 @@ class WHCARouter:
 
     def __init__(self, horizon: int = 10) -> None:
         self._horizon = max(1, min(64, horizon))
-        self._route_metrics: Dict[str, Any] = {}
-        self._accumulated: Dict[str, Any] = {
+        self._route_metrics: dict[str, Any] = {}
+        self._accumulated: dict[str, Any] = {
             "replan_rate_sum": 0.0,
             "steps": 0,
             "deadlock_avoids": 0,
@@ -260,7 +250,7 @@ class WHCARouter:
             "deadlock_avoids": 0,
         }
 
-    def get_route_metrics(self) -> Dict[str, Any]:
+    def get_route_metrics(self) -> dict[str, Any]:
         """Aggregated route metrics for results coordination block."""
         s = self._accumulated["steps"]
         if s == 0:
@@ -281,6 +271,9 @@ class WHCARouter:
         allocation: AllocationDecision,
         schedule: ScheduleDecision,
     ) -> RouteDecision:
+        from labtrust_gym.baselines.coordination.routing.fallback import (
+            safe_wait_policy,
+        )
         from labtrust_gym.baselines.coordination.routing.graph import (
             build_routing_graph,
         )
@@ -290,17 +283,9 @@ class WHCARouter:
         from labtrust_gym.baselines.coordination.routing.whca_router import (
             whca_route_and_reserve,
         )
-        from labtrust_gym.baselines.coordination.routing.fallback import (
-            safe_wait_policy,
-        )
 
-        layout = (
-            (context.policy or {}).get("zone_layout")
-            or (context.policy or {}).get("zone_layout_policy")
-            or {}
-        )
+        layout = (context.policy or {}).get("zone_layout") or (context.policy or {}).get("zone_layout_policy") or {}
         zone_ids = context.zone_ids or []
-        device_ids = context.device_ids or []
         device_zone = context.device_zone or {}
         rng = context.rng
 
@@ -309,23 +294,23 @@ class WHCARouter:
         except Exception:
             graph = None
         if graph is None or not graph.nodes():
-            per_agent = []
+            per_agent_no_graph: list[tuple[str, str, tuple[tuple[str, Any], ...]]] = []
             for agent_id in context.agent_ids:
-                per_agent.append((agent_id, "NOOP", ()))
+                per_agent_no_graph.append((agent_id, "NOOP", ()))
             self._route_metrics = {
                 "replan_rate": 0.0,
                 "mean_plan_time_ms": 0.0,
                 "deadlock_avoids": 0,
             }
-            return RouteDecision(per_agent=tuple(per_agent), explain="whca_no_graph")
+            return RouteDecision(per_agent=tuple(per_agent_no_graph), explain="whca_no_graph")
 
         max_t = context.t + self._horizon + 1
         reservations = ReservationTable(max_t=max_t)
 
-        assignment_by_agent: Dict[str, Tuple[str, str, int]] = {}
+        assignment_by_agent: dict[str, tuple[str, str, int]] = {}
         for agent_id, work_id, device_id, prio in allocation.assignments:
             assignment_by_agent[agent_id] = (work_id, device_id, prio)
-        schedule_first: Dict[str, Tuple[str, str, int]] = {}
+        schedule_first: dict[str, tuple[str, str, int]] = {}
         for agent_id, seq in schedule.per_agent:
             if seq and agent_id in assignment_by_agent:
                 work_id, deadline, _ = seq[0]
@@ -334,7 +319,7 @@ class WHCARouter:
 
         no_path_count = 0
         deadlock_avoids = 0
-        per_agent: List[Tuple[str, str, Tuple[Tuple[str, Any], ...]]] = []
+        per_agent: list[tuple[str, str, tuple[tuple[str, Any], ...]]] = []
 
         for agent_id in sorted(context.agent_ids):
             o = context.obs.get(agent_id) or {}
@@ -361,9 +346,7 @@ class WHCARouter:
             else:
                 goal = my_zone
 
-            has_token = bool(
-                (o.get("token_active") or {}).get("TOKEN_RESTRICTED_ENTRY")
-            )
+            has_token = bool((o.get("token_active") or {}).get("TOKEN_RESTRICTED_ENTRY"))
             path = whca_route_and_reserve(
                 agent_id,
                 my_zone,

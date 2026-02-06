@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 # Max bytes for payload_small (keep events compact for audit)
 PAYLOAD_SMALL_MAX_BYTES = 512
@@ -42,14 +42,14 @@ class BlackboardEvent:
     t_emit: int
     type: str
     payload_hash: str
-    payload_small: Dict[str, Any]
+    payload_small: dict[str, Any]
 
     @property
     def seq(self) -> int:
         """Monotonic sequence number (same as id)."""
         return self.id
 
-    def to_replay_dict(self) -> Dict[str, Any]:
+    def to_replay_dict(self) -> dict[str, Any]:
         """Minimal dict for replay (no large blobs)."""
         return {
             "id": self.id,
@@ -70,7 +70,7 @@ class BlackboardLog:
     __slots__ = ("_events", "_head_hash", "_next_id")
 
     def __init__(self) -> None:
-        self._events: List[BlackboardEvent] = []
+        self._events: list[BlackboardEvent] = []
         self._head_hash = ""
         self._next_id = 0
 
@@ -79,7 +79,7 @@ class BlackboardLog:
         t_event: int,
         t_emit: int,
         event_type: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
     ) -> BlackboardEvent:
         """
         Append one event. payload_small is payload truncated to PAYLOAD_SMALL_MAX_BYTES.
@@ -114,15 +114,15 @@ class BlackboardLog:
         return self._head_hash
 
     @property
-    def events(self) -> List[BlackboardEvent]:
+    def events(self) -> list[BlackboardEvent]:
         """Read-only list of all events in order."""
         return list(self._events)
 
-    def events_since(self, after_id: int) -> List[BlackboardEvent]:
+    def events_since(self, after_id: int) -> list[BlackboardEvent]:
         """Events with id > after_id, in order."""
         return [e for e in self._events if e.id > after_id]
 
-    def replay(self) -> List[Dict[str, Any]]:
+    def replay(self) -> list[dict[str, Any]]:
         """Replay all events as list of dicts (deterministic)."""
         return [e.to_replay_dict() for e in self._events]
 

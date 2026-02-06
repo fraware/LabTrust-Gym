@@ -7,7 +7,7 @@ when time reaches run end_time.
 
 from __future__ import annotations
 
-from typing import Any, Callable, List, Tuple
+from collections.abc import Callable
 
 
 class Clock:
@@ -30,13 +30,12 @@ class Clock:
     def advance_to(
         self,
         t_s: int,
-        completion_callback: Callable[[int], List[Tuple[str, str]]],
-    ) -> List[Tuple[str, str]]:
+        completion_callback: Callable[[int], list[tuple[str, str]]],
+    ) -> list[tuple[str, str]]:
         """
         Advance clock to t_s. Call completion_callback(now_ts) to get
         list of (device_id, run_id) that completed in (prev_now, t_s].
         Returns that list.
         """
-        prev = self._now_ts
         self._now_ts = int(t_s)
         return completion_callback(self._now_ts)

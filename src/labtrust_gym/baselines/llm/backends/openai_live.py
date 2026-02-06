@@ -14,13 +14,13 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, cast
 
 # Usage dict: prompt_tokens, completion_tokens, total_tokens (from API)
-UsageDict = Dict[str, int]
+UsageDict = dict[str, int]
 
 # NOOP shape for error fallback (ActionProposal v0.1)
-NOOP_ACTION_V01: Dict[str, Any] = {
+NOOP_ACTION_V01: dict[str, Any] = {
     "action_type": "NOOP",
     "args": {},
     "reason_code": None,
@@ -39,7 +39,7 @@ BACKEND_ID = "openai_live"
 LOG = logging.getLogger(__name__)
 
 
-def _get_config() -> Tuple[str, str, int, int]:
+def _get_config() -> tuple[str, str, int, int]:
     """Read config from environment only. Returns (api_key, model, timeout_s, retries)."""
     api_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
     model = (os.environ.get("LABTRUST_OPENAI_MODEL") or "gpt-4o-mini").strip()
@@ -57,7 +57,7 @@ def _get_config() -> Tuple[str, str, int, int]:
     return (api_key, model, timeout_s, retries)
 
 
-def _action_proposal_schema_for_api() -> Dict[str, Any]:
+def _action_proposal_schema_for_api() -> dict[str, Any]:
     """
     ActionProposal schema for OpenAI API (no allOf/if/then; API unsupported).
     Full validation is done locally with action_proposal.v0.1.
@@ -96,7 +96,7 @@ def _sha256(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
-def _percentile(sorted_vals: List[float], p: float) -> Optional[float]:
+def _percentile(sorted_vals: list[float], p: float) -> float | None:
     """Percentile p (0..100). Returns None if empty."""
     if not sorted_vals:
         return None
@@ -106,7 +106,7 @@ def _percentile(sorted_vals: List[float], p: float) -> Optional[float]:
     return sorted_vals[lo] + (k - lo) * (sorted_vals[hi] - sorted_vals[lo])
 
 
-def _load_model_pricing(repo_root: Optional[Any] = None) -> Dict[str, Any]:
+def _load_model_pricing(repo_root: Any | None = None) -> dict[str, Any]:
     """Load policy/llm/model_pricing.v0.1.yaml. Returns {} if missing."""
     try:
         from pathlib import Path
@@ -135,8 +135,8 @@ def _estimated_cost_usd(
     model_id: str,
     total_prompt_tokens: int,
     total_completion_tokens: int,
-    repo_root: Optional[Any] = None,
-) -> Optional[float]:
+    repo_root: Any | None = None,
+) -> float | None:
     """Compute estimated cost in USD from model_pricing.v0.1.yaml. Returns None if no pricing."""
     models = _load_model_pricing(repo_root)
     prices = models.get(model_id) if model_id else None
@@ -183,10 +183,11 @@ class OpenAILiveBackend:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        timeout_s: Optional[int] = None,
-        retries: Optional[int] = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        timeout_s: int | None = None,
+        retries: int | None = None,
+        trace_collector: Any = None,
     ) -> None:
         key, mod, to, ret = _get_config()
         self._api_key = (api_key or key).strip()
@@ -195,15 +196,16 @@ class OpenAILiveBackend:
         self._retries = retries if retries is not None else ret
         self._schema = _action_proposal_schema_for_api()
         self._system_plus_developer = _build_system_plus_developer()
-        self._last_error_code: Optional[str] = None
-        self._last_metrics: Dict[str, Any] = {}
+        self._trace_collector = trace_collector
+        self._last_error_code: str | None = None
+        self._last_metrics: dict[str, Any] = {}
         self._total_calls: int = 0
         self._error_count: int = 0
         self._sum_latency_ms: float = 0.0
         self._total_tokens: int = 0
         self._total_prompt_tokens: int = 0
         self._total_completion_tokens: int = 0
-        self._latency_ms_list: List[float] = []
+        self._latency_ms_list: list[float] = []
 
     @property
     def is_available(self) -> bool:
@@ -211,16 +213,16 @@ class OpenAILiveBackend:
         return bool(self._api_key)
 
     @property
-    def last_error_code(self) -> Optional[str]:
+    def last_error_code(self) -> str | None:
         """Set after propose_action/generate on refusal/timeout/error."""
         return self._last_error_code
 
     @property
-    def last_metrics(self) -> Dict[str, Any]:
+    def last_metrics(self) -> dict[str, Any]:
         """model_id, backend_id, latency_ms, prompt_sha256, response_sha256."""
         return dict(self._last_metrics)
 
-    def get_aggregate_metrics(self) -> Dict[str, Any]:
+    def get_aggregate_metrics(self) -> dict[str, Any]:
         """
         Aggregate stats over all generate/propose_action calls since init or last reset.
         Returns: backend_id, model_id, total_calls, error_count, error_rate, sum_latency_ms,
@@ -239,7 +241,7 @@ class OpenAILiveBackend:
             if self._total_calls > 0 and self._total_tokens is not None
             else None
         )
-        out: Dict[str, Any] = {
+        out: dict[str, Any] = {
             "backend_id": BACKEND_ID,
             "model_id": self._model,
             "total_calls": self._total_calls,
@@ -261,7 +263,7 @@ class OpenAILiveBackend:
             out["estimated_cost_usd"] = round(cost, 6)
         return out
 
-    def propose_action(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def propose_action(self, context: dict[str, Any]) -> dict[str, Any]:
         """
         Propose one action from context. Returns ActionProposal dict or NOOP on error.
 
@@ -269,6 +271,9 @@ class OpenAILiveBackend:
         state_summary, allowed_actions, active_tokens, recent_violations,
         enforcement_state.
         """
+        from labtrust_gym.pipeline import check_network_allowed
+
+        check_network_allowed()
         self._last_error_code = None
         self._last_metrics = {}
         self._total_calls += 1
@@ -381,9 +386,11 @@ class OpenAILiveBackend:
             "total_tokens": usage.get("total_tokens"),
             "action_proposal": out,
         }
+        if self._trace_collector is not None:
+            self._trace_collector.record(messages, raw, prompt_sha256, usage)
         return out
 
-    def _call_api(self, messages: List[Dict[str, str]]) -> Tuple[str, UsageDict]:
+    def _call_api(self, messages: list[dict[str, str]]) -> tuple[str, UsageDict]:
         """Call OpenAI Chat Completions with Structured Outputs. Returns (content, usage)."""
         try:
             from openai import OpenAI
@@ -402,13 +409,13 @@ class OpenAILiveBackend:
             },
         }
         attempt = 0
-        last_exc: Optional[Exception] = None
+        last_exc: Exception | None = None
         while attempt <= self._retries:
             try:
                 resp = client.chat.completions.create(
                     model=self._model,
-                    messages=messages,
-                    response_format=response_format,
+                    messages=cast(Any, messages),
+                    response_format=cast(Any, response_format),
                     timeout=float(self._timeout_s),
                 )
             except Exception as e:
@@ -442,20 +449,11 @@ class OpenAILiveBackend:
             return (content.strip(), usage)
         raise last_exc or RuntimeError("No response")
 
-
-def _usage_from_response(resp: Any) -> UsageDict:
-    """Extract prompt_tokens, completion_tokens, total_tokens from OpenAI response."""
-    u = getattr(resp, "usage", None)
-    if u is None:
-        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-    return {
-        "prompt_tokens": int(getattr(u, "prompt_tokens", 0) or 0),
-        "completion_tokens": int(getattr(u, "completion_tokens", 0) or 0),
-        "total_tokens": int(getattr(u, "total_tokens", 0) or 0),
-    }
-
-    def generate(self, messages: List[Dict[str, str]]) -> str:
+    def generate(self, messages: list[dict[str, str]]) -> str:
         """LLMBackend protocol: return raw JSON string. Uses messages as-is for API."""
+        from labtrust_gym.pipeline import check_network_allowed
+
+        check_network_allowed()
         self._last_error_code = None
         self._last_metrics = {}
         self._total_calls += 1
@@ -508,3 +506,70 @@ def _usage_from_response(resp: Any) -> UsageDict:
             "total_tokens": usage.get("total_tokens"),
         }
         return raw
+
+    def healthcheck(self) -> dict[str, Any]:
+        """
+        One minimal request; returns dict with ok, model_id, latency_ms, usage, error.
+        Caller must ensure pipeline_mode=llm_live and allow_network.
+        """
+        from labtrust_gym.pipeline import check_network_allowed
+
+        check_network_allowed()
+        if not self._api_key:
+            return {
+                "ok": False,
+                "model_id": self._model,
+                "latency_ms": None,
+                "usage": {},
+                "error": "OPENAI_API_KEY not set",
+            }
+        messages = [
+            {
+                "role": "user",
+                "content": "Return a single JSON object: action_type=NOOP, args={}, reason_code=null, token_refs=[], rationale=Health check, confidence=1.0, safety_notes=.",
+            },
+        ]
+        start = time.perf_counter()
+        try:
+            raw, usage = self._call_api(messages)
+            latency_ms = (time.perf_counter() - start) * 1000
+        except Exception as e:
+            latency_ms = (time.perf_counter() - start) * 1000
+            return {
+                "ok": False,
+                "model_id": self._model,
+                "latency_ms": round(latency_ms, 2),
+                "usage": {},
+                "error": str(e)[:400],
+            }
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict) and "action_type" in data:
+                return {
+                    "ok": True,
+                    "model_id": self._model,
+                    "latency_ms": round(latency_ms, 2),
+                    "usage": usage,
+                    "error": None,
+                }
+        except json.JSONDecodeError:
+            pass
+        return {
+            "ok": False,
+            "model_id": self._model,
+            "latency_ms": round(latency_ms, 2),
+            "usage": usage,
+            "error": "Response did not match ActionProposal schema",
+        }
+
+
+def _usage_from_response(resp: Any) -> UsageDict:
+    """Extract prompt_tokens, completion_tokens, total_tokens from OpenAI response."""
+    u = getattr(resp, "usage", None)
+    if u is None:
+        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    return {
+        "prompt_tokens": int(getattr(u, "prompt_tokens", 0) or 0),
+        "completion_tokens": int(getattr(u, "completion_tokens", 0) or 0),
+        "total_tokens": int(getattr(u, "total_tokens", 0) or 0),
+    }

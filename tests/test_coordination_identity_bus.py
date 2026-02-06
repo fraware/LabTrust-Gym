@@ -11,15 +11,15 @@ from __future__ import annotations
 
 import pytest
 
+from labtrust_gym.coordination.bus import SignedMessageBus
 from labtrust_gym.coordination.identity import (
-    COORD_SIGNATURE_INVALID,
     COORD_REPLAY_DETECTED,
     COORD_SENDER_NOT_AUTHORIZED,
+    COORD_SIGNATURE_INVALID,
     build_key_store,
     sign_message,
     verify_message,
 )
-from labtrust_gym.coordination.bus import SignedMessageBus
 
 
 def test_build_key_store_deterministic() -> None:
@@ -113,10 +113,7 @@ def test_replay_rejected_deterministically() -> None:
     assert delivered2 is None
     assert violation2 is not None
     assert violation2.get("emits") == [COORD_REPLAY_DETECTED]
-    assert any(
-        v.get("reason_code") == COORD_REPLAY_DETECTED
-        for v in violation2.get("violations") or []
-    )
+    assert any(v.get("reason_code") == COORD_REPLAY_DETECTED for v in violation2.get("violations") or [])
 
 
 def test_sender_not_authorized() -> None:
@@ -143,10 +140,7 @@ def test_sender_not_authorized() -> None:
     assert accepted is False
     assert violation is not None
     assert violation.get("emits") == [COORD_SENDER_NOT_AUTHORIZED]
-    assert any(
-        v.get("reason_code") == COORD_SENDER_NOT_AUTHORIZED
-        for v in violation.get("violations") or []
-    )
+    assert any(v.get("reason_code") == COORD_SENDER_NOT_AUTHORIZED for v in violation.get("violations") or [])
 
 
 def test_violation_step_result_runner_contract() -> None:

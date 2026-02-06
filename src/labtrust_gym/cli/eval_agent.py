@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from labtrust_gym.baselines.agent_api import load_agent, wrap_agent_for_runner
 from labtrust_gym.benchmarks.runner import run_benchmark
@@ -23,10 +23,12 @@ def run_eval_agent(
     out_path: Path,
     *,
     seed: int = 123,
-    partner_id: Optional[str] = None,
-    timing: Optional[str] = None,
-    repo_root: Optional[Path] = None,
-) -> Dict[str, Any]:
+    partner_id: str | None = None,
+    timing: str | None = None,
+    repo_root: Path | None = None,
+    pipeline_mode: str = "deterministic",
+    allow_network: bool = False,
+) -> dict[str, Any]:
     """
     Load agent from agent_spec (module:Class or module:function), run N episodes, write results.json.
 
@@ -40,7 +42,7 @@ def run_eval_agent(
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
     from labtrust_gym.envs.pz_parallel import DEFAULT_DEVICE_IDS, DEFAULT_ZONE_IDS
 
-    scripted_agents_map: Dict[str, Any] = {
+    scripted_agents_map: dict[str, Any] = {
         "ops_0": wrapped,
         "runner_0": ScriptedRunnerAgent(
             zone_ids=DEFAULT_ZONE_IDS,
@@ -61,7 +63,7 @@ def run_eval_agent(
         scripted_agents_map["adversary_insider_0"] = InsiderAdversaryAgent()
     # Baseline id for results: sanitized spec (e.g. examples.external_agent_demo:SafeNoOpAgent -> external_plugin)
     agent_baseline_id = _spec_to_baseline_id(agent_spec)
-    overrides: Dict[str, Any] = {}
+    overrides: dict[str, Any] = {}
     if timing is not None:
         overrides["timing_mode"] = timing
     if partner_id is not None:
@@ -76,6 +78,8 @@ def run_eval_agent(
         partner_id=partner_id,
         timing_mode=timing,
         initial_state_overrides=overrides if overrides else None,
+        pipeline_mode=pipeline_mode,
+        allow_network=allow_network,
     )
     # Override agent_baseline_id so results reflect the external agent
     results["agent_baseline_id"] = agent_baseline_id
@@ -139,17 +143,35 @@ def register_parser(subparsers: Any) -> None:
         default=None,
         help="Timing mode (default: task default)",
     )
+    p.add_argument(
+        "--pipeline-mode",
+        choices=["deterministic", "llm_offline", "llm_live"],
+        default="deterministic",
+        help="Pipeline mode (default: deterministic); llm_live requires --allow-network",
+    )
+    p.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network for live LLM (only with --pipeline-mode llm_live); also LABTRUST_ALLOW_NETWORK=1",
+    )
     p.set_defaults(func=_run_eval_agent)
 
 
 def _run_eval_agent(args: argparse.Namespace) -> int:
     """CLI entry for eval-agent."""
+    import os
+
     from labtrust_gym.config import get_repo_root
 
     root = get_repo_root()
     out = Path(args.out)
     if not out.is_absolute():
         out = root / out
+    pipeline_mode = getattr(args, "pipeline_mode", "deterministic") or "deterministic"
+    allow_network = getattr(args, "allow_network", False) or (
+        (os.environ.get("LABTRUST_ALLOW_NETWORK") or "").strip().lower()
+        in ("1", "true", "yes")
+    )
     run_eval_agent(
         task=args.task,
         episodes=args.episodes,
@@ -159,6 +181,8 @@ def _run_eval_agent(args: argparse.Namespace) -> int:
         partner_id=getattr(args, "partner", None),
         timing=getattr(args, "timing", None),
         repo_root=root,
+        pipeline_mode=pipeline_mode,
+        allow_network=allow_network,
     )
     print(f"Wrote {out}", file=__import__("sys").stderr)
     return 0

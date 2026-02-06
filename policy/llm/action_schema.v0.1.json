@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "labtrust.llm.action_schema.v0.1",
-  "title": "LLM agent action output schema v0.1",
-  "description": "Strict JSON schema for LLM-proposed actions (action_type + action_info).",
+  "title": "LLM agent action output schema v0.1 (legacy)",
+  "description": "Legacy: integer action_type (0-5) and action_info. Prefer llm_action.schema.v0.2 for new use (string action_type, ActionProposal).",
   "type": "object",
   "required": ["action_type"],
   "additionalProperties": false,
@@ -22,10 +22,7 @@
         "priority": { "type": "string", "enum": ["ROUTINE", "URGENT", "STAT"] },
         "to_zone": { "type": "string" },
         "door_id": { "type": "string" },
-        "token_refs": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
+        "token_refs": { "type": "array", "items": { "type": "string" } }
       }
     }
   }

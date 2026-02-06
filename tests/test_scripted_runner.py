@@ -14,11 +14,11 @@ from labtrust_gym.baselines.scripted_runner import (
     DEFAULT_ZONE_IDS,
     ScriptedRunnerAgent,
 )
+from labtrust_gym.engine.zones import _default_layout as _layout
 from labtrust_gym.engine.zones import (
     build_adjacency_set,
     get_default_device_zone_map,
 )
-from labtrust_gym.engine.zones import _default_layout as _layout
 
 
 def _adjacency() -> set:
@@ -64,9 +64,7 @@ def test_scripted_runner_never_proposes_illegal_move() -> None:
         action_idx, action_info = agent.act(obs, "runner_0")
         if action_idx == ACTION_MOVE:
             to_zone = action_info.get("to_zone", "")
-            assert (my_zone, to_zone) in adjacency, (
-                f"MOVE from {my_zone} to {to_zone} is not a legal edge"
-            )
+            assert (my_zone, to_zone) in adjacency, f"MOVE from {my_zone} to {to_zone} is not a legal edge"
 
 
 def test_scripted_runner_never_start_run_when_not_colocated() -> None:
@@ -90,9 +88,7 @@ def test_scripted_runner_never_start_run_when_not_colocated() -> None:
             action_idx, action_info = agent.act(obs, "runner_0")
             if action_idx == ACTION_START_RUN:
                 device_id = action_info.get("device_id", "")
-                assert my_zone == device_zone.get(
-                    device_id
-                ), (
+                assert my_zone == device_zone.get(device_id), (
                     f"START_RUN for device {device_id} from zone {my_zone} "
                     f"(device zone is {device_zone.get(device_id)})"
                 )

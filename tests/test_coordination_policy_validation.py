@@ -11,6 +11,12 @@ from pathlib import Path
 
 import pytest
 
+from labtrust_gym.policy.coordination import (
+    get_required_bench_cells,
+    load_coordination_methods,
+    load_coordination_study_spec,
+    load_method_risk_matrix,
+)
 from labtrust_gym.policy.loader import (
     PolicyLoadError,
     load_json,
@@ -20,12 +26,6 @@ from labtrust_gym.policy.validate import (
     POLICY_FILES_WITH_SCHEMAS,
     validate_policy,
     validate_policy_file_against_schema,
-)
-from labtrust_gym.policy.coordination import (
-    get_required_bench_cells,
-    load_coordination_methods,
-    load_coordination_study_spec,
-    load_method_risk_matrix,
 )
 
 
@@ -98,9 +98,7 @@ def test_coordination_methods_schema_rejects_invalid_class() -> None:
         }
     }
     with pytest.raises(PolicyLoadError):
-        validate_against_schema(
-            invalid, schema, root / "coordination_methods.v0.1.yaml"
-        )
+        validate_against_schema(invalid, schema, root / "coordination_methods.v0.1.yaml")
 
 
 def test_method_risk_matrix_schema_rejects_invalid_coverage() -> None:
@@ -169,9 +167,7 @@ def test_get_required_bench_cells_filters_correctly() -> None:
     matrix = load_method_risk_matrix(path)
     required = get_required_bench_cells(matrix)
     assert isinstance(required, list)
-    assert all(
-        isinstance(c, dict) and c.get("required_bench") is True for c in required
-    )
+    assert all(isinstance(c, dict) and c.get("required_bench") is True for c in required)
     assert len(required) <= len(matrix.get("cells", []))
 
 

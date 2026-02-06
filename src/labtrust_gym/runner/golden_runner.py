@@ -16,7 +16,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, cast
 
 import yaml
 
@@ -31,7 +31,7 @@ from labtrust_gym.runner.emits_validator import load_emits_vocab, validate_emits
 class Failure:
     event_id: str
     message: str
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 
 @dataclass
@@ -41,14 +41,14 @@ class StepReport:
     agent_id: str
     action_type: str
     status: str
-    emits: List[str]
-    violations: List[Dict[str, Any]]
-    blocked_reason_code: Optional[str]
-    token_consumed: List[str]
-    state_assertions_checked: List[str]
-    hashchain: Dict[str, Any]
-    raw_engine_result: Dict[str, Any]
-    raw_event: Optional[Dict[str, Any]] = None
+    emits: list[str]
+    violations: list[dict[str, Any]]
+    blocked_reason_code: str | None
+    token_consumed: list[str]
+    state_assertions_checked: list[str]
+    hashchain: dict[str, Any]
+    raw_engine_result: dict[str, Any]
+    raw_event: dict[str, Any] | None = None
 
 
 @dataclass
@@ -56,22 +56,22 @@ class ScenarioReport:
     scenario_id: str
     title: str
     passed: bool
-    failures: List[Failure]
-    step_reports: List[StepReport]
+    failures: list[Failure]
+    step_reports: list[StepReport]
 
 
-def _load_yaml(path: Path) -> Dict[str, Any]:
+def _load_yaml(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        return cast(dict[str, Any], yaml.safe_load(f))
 
 
-def _require(d: Dict[str, Any], k: str, event_id: str) -> Any:
+def _require(d: dict[str, Any], k: str, event_id: str) -> Any:
     if k not in d:
         raise AssertionError(f"[{event_id}] Engine result missing required field: {k}")
     return d[k]
 
 
-def _normalize_violation(v: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_violation(v: dict[str, Any]) -> dict[str, Any]:
     return {
         "invariant_id": v.get("invariant_id"),
         "status": v.get("status"),
@@ -80,7 +80,7 @@ def _normalize_violation(v: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _parse_expected_violation_token(s: str) -> Tuple[str, str]:
+def _parse_expected_violation_token(s: str) -> tuple[str, str]:
     if ":" not in s:
         raise ValueError(f"Invalid violation token format: {s}")
     inv, st = s.split(":", 1)
@@ -91,9 +91,9 @@ def _parse_expected_violation_token(s: str) -> Tuple[str, str]:
 
 
 def _violation_index(
-    violations: List[Dict[str, Any]],
-) -> Dict[Tuple[str, str], Dict[str, Any]]:
-    idx: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    violations: list[dict[str, Any]],
+) -> dict[tuple[str, str], dict[str, Any]]:
+    idx: dict[tuple[str, str], dict[str, Any]] = {}
     for v in violations:
         inv = v.get("invariant_id")
         st = v.get("status")
@@ -107,23 +107,23 @@ def _assert_equals(actual: Any, expected: Any, msg: str) -> None:
         raise AssertionError(f"{msg} | expected={expected!r}, actual={actual!r}")
 
 
-def _assert_contains(container: List[Any], item: Any, msg: str) -> None:
+def _assert_contains(container: list[Any], item: Any, msg: str) -> None:
     if item not in container:
         raise AssertionError(f"{msg} | missing={item!r}, container={container!r}")
 
 
-def _assert_all_contains(container: List[Any], items: List[Any], msg: str) -> None:
+def _assert_all_contains(container: list[Any], items: list[Any], msg: str) -> None:
     for it in items:
         _assert_contains(container, it, msg)
 
 
 def _build_episode_log_entries(
-    step_reports: List[StepReport],
-) -> List[Dict[str, Any]]:
+    step_reports: list[StepReport],
+) -> list[dict[str, Any]]:
     """Build JSONL-style entries from step reports for export_receipts."""
     from labtrust_gym.logging.episode_log import build_log_entry
 
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     for sr in step_reports:
         if sr.raw_event is None or not sr.raw_engine_result:
             continue
@@ -135,7 +135,7 @@ def _build_episode_log_entries(
     return entries
 
 
-def _write_episode_log(path: Path, entries: List[Dict[str, Any]]) -> None:
+def _write_episode_log(path: Path, entries: list[dict[str, Any]]) -> None:
     """Write episode log JSONL (deterministic: sort_keys=True)."""
     with path.open("w", encoding="utf-8") as f:
         for entry in entries:
@@ -148,23 +148,26 @@ def _write_episode_log(path: Path, entries: List[Dict[str, Any]]) -> None:
 def run_export_receipts(
     episode_log_path: Path,
     out_dir: Path,
-    partner_id: Optional[str] = None,
-    policy_fingerprint: Optional[str] = None,
+    partner_id: str | None = None,
+    policy_fingerprint: str | None = None,
 ) -> Path:
     """Export receipts + evidence bundle from episode log to out_dir. Returns path to EvidenceBundle.v0.1 dir."""
     from labtrust_gym.export.receipts import export_receipts
+
     return export_receipts(episode_log_path, out_dir, policy_fingerprint=policy_fingerprint, partner_id=partner_id)
 
 
-def run_verify_bundle(bundle_dir: Path, policy_root: Optional[Path] = None) -> Tuple[bool, str, List[str]]:
+def run_verify_bundle(bundle_dir: Path, policy_root: Path | None = None) -> tuple[bool, str, list[str]]:
     """Run verify_bundle on bundle_dir. Returns (passed, report_text, errors)."""
     from labtrust_gym.export.verify import verify_bundle
+
     return verify_bundle(bundle_dir, policy_root=policy_root, allow_extra_files=False)
 
 
 def run_export_fhir(receipts_dir: Path, out_dir: Path, out_filename: str = "fhir_bundle.json") -> Path:
     """Export FHIR bundle from receipts dir to out_dir. Returns path to output file."""
     from labtrust_gym.export.fhir_r4 import export_fhir
+
     return export_fhir(receipts_dir, out_dir, out_filename=out_filename)
 
 
@@ -182,21 +185,18 @@ class GoldenRunner:
         env: LabTrustEnvAdapter,
         *,
         emits_vocab_path: str = "policy/emits/emits_vocab.v0.1.yaml",
-        reason_code_registry_path: Optional[str] = None,
-        strict_reason_codes: Optional[bool] = None,
-        policy_root: Optional[Union[str, Path]] = None,
+        reason_code_registry_path: str | None = None,
+        strict_reason_codes: bool | None = None,
+        policy_root: str | Path | None = None,
     ):
         self.env = env
         self.allowed_emits = load_emits_vocab(emits_vocab_path)
         self._policy_root = Path(policy_root) if policy_root else Path.cwd()
-        strict = (
-            strict_reason_codes
-            if strict_reason_codes is not None
-            else _strict_reason_codes_from_env()
-        )
-        self._reason_registry: Dict[str, Dict[str, Any]] = {}
+        strict = strict_reason_codes if strict_reason_codes is not None else _strict_reason_codes_from_env()
+        self._reason_registry: dict[str, dict[str, Any]] = {}
         if strict:
             from labtrust_gym.policy.reason_codes import load_reason_code_registry
+
             path = reason_code_registry_path or "policy/reason_codes/reason_code_registry.v0.1.yaml"
             p = Path(path)
             if not p.is_absolute():
@@ -208,20 +208,21 @@ class GoldenRunner:
     def run_suite(
         self,
         suite_yaml_path: str,
-        work_dir: Optional[Union[str, Path]] = None,
-    ) -> Dict[str, Any]:
+        work_dir: str | Path | None = None,
+    ) -> dict[str, Any]:
         suite = _load_yaml(Path(suite_yaml_path))
         suite_meta = suite.get("golden_suite", {})
         suite_version = suite_meta.get("version", "unknown")
 
         rng_seed = int(suite_meta.get("deterministic", {}).get("rng_seed", 0))
-        scenario_reports: List[ScenarioReport] = []
+        scenario_reports: list[ScenarioReport] = []
         base_work = Path(work_dir) if work_dir else None
+        fixtures = suite_meta.get("fixtures", {})
 
         for scen in suite_meta.get("scenarios", []):
             scenario_work = (base_work / scen["scenario_id"]) if base_work else None
             scenario_reports.append(
-                self._run_scenario(scen, rng_seed=rng_seed, work_dir=scenario_work)
+                self._run_scenario(scen, rng_seed=rng_seed, work_dir=scenario_work, fixtures=fixtures)
             )
 
         out = {
@@ -232,18 +233,24 @@ class GoldenRunner:
 
     def _run_scenario(
         self,
-        scen: Dict[str, Any],
+        scen: dict[str, Any],
         *,
         rng_seed: int,
-        work_dir: Optional[Path] = None,
+        work_dir: Path | None = None,
+        fixtures: dict[str, Any] | None = None,
     ) -> ScenarioReport:
         scenario_id = scen["scenario_id"]
         title = scen.get("title", "")
-        failures: List[Failure] = []
-        step_reports: List[StepReport] = []
+        failures: list[Failure] = []
+        step_reports: list[StepReport] = []
+        fixtures = fixtures or {}
 
         try:
             initial_state = dict(scen.get("initial_state", {}))
+            if "agents" not in initial_state and fixtures.get("agents"):
+                initial_state["agents"] = list(fixtures["agents"])
+            if self._policy_root is not None and "policy_root" not in initial_state:
+                initial_state["policy_root"] = str(self._policy_root)
             if "transport_fault_injection" in scen:
                 initial_state["transport_fault_injection"] = scen["transport_fault_injection"]
             self.env.reset(initial_state, deterministic=True, rng_seed=rng_seed)
@@ -254,11 +261,7 @@ class GoldenRunner:
                     sr = self._run_step(step)
                     step_reports.append(sr)
                 except AssertionError as e:
-                    failures.append(
-                        Failure(
-                            event_id=event_id, message=str(e), details={"step": step}
-                        )
-                    )
+                    failures.append(Failure(event_id=event_id, message=str(e), details={"step": step}))
                     step_reports.append(
                         StepReport(
                             event_id=event_id,
@@ -283,11 +286,7 @@ class GoldenRunner:
                     break
 
         except AssertionError as e:
-            failures.append(
-                Failure(
-                    event_id="__RESET__", message=str(e), details={"scenario": scen}
-                )
-            )
+            failures.append(Failure(event_id="__RESET__", message=str(e), details={"scenario": scen}))
 
         passed = len(failures) == 0
         if passed and (scen.get("post_run_hooks") or scen.get("post_run")):
@@ -299,7 +298,10 @@ class GoldenRunner:
                     Failure(
                         event_id="__POST_RUN__",
                         message=str(e),
-                        details={"post_run_hooks": scen.get("post_run_hooks"), "post_run": scen.get("post_run")},
+                        details={
+                            "post_run_hooks": scen.get("post_run_hooks"),
+                            "post_run": scen.get("post_run"),
+                        },
                     )
                 )
 
@@ -311,7 +313,7 @@ class GoldenRunner:
             step_reports=step_reports,
         )
 
-    def _run_step(self, step: Dict[str, Any]) -> StepReport:
+    def _run_step(self, step: dict[str, Any]) -> StepReport:
         expect = step.get("expect", {})
         event = {
             "event_id": step["event_id"],
@@ -326,6 +328,8 @@ class GoldenRunner:
             event["key_id"] = step["key_id"]
         if "signature" in step:
             event["signature"] = step["signature"]
+        if "rationale" in step:
+            event["rationale"] = step["rationale"]
 
         result = self.env.step(event)
 
@@ -337,6 +341,7 @@ class GoldenRunner:
 
         if self._strict_reason_codes:
             from labtrust_gym.policy.reason_codes import validate_reason_code
+
             validate_reason_code(
                 result.get("blocked_reason_code"),
                 self._reason_registry,
@@ -357,9 +362,7 @@ class GoldenRunner:
         v_idx = _violation_index(violations)
 
         if "status" in expect:
-            _assert_equals(
-                status, expect["status"], f"[{event['event_id']}] status mismatch"
-            )
+            _assert_equals(status, expect["status"], f"[{event['event_id']}] status mismatch")
 
         if status == "BLOCKED":
             if expect.get("blocked_reason_code"):
@@ -370,14 +373,10 @@ class GoldenRunner:
                 )
             else:
                 if blocked_reason_code is None:
-                    raise AssertionError(
-                        f"[{event['event_id']}] BLOCKED but blocked_reason_code is null"
-                    )
+                    raise AssertionError(f"[{event['event_id']}] BLOCKED but blocked_reason_code is null")
 
         if "emits" in expect:
-            _assert_all_contains(
-                emits, expect["emits"], f"[{event['event_id']}] missing emitted events"
-            )
+            _assert_all_contains(emits, expect["emits"], f"[{event['event_id']}] missing emitted events")
 
         if "violations" in expect:
             for tok in expect["violations"]:
@@ -395,7 +394,7 @@ class GoldenRunner:
                     f"[{event['event_id']}] expected token not consumed",
                 )
 
-        checked: List[str] = []
+        checked: list[str] = []
         if "state_assertions" in expect:
             for expr in expect["state_assertions"]:
                 expr = expr.strip()
@@ -424,9 +423,7 @@ class GoldenRunner:
                     )
                     checked.append(expr)
                 else:
-                    raise AssertionError(
-                        f"[{event['event_id']}] invalid state_assertion: {expr}"
-                    )
+                    raise AssertionError(f"[{event['event_id']}] invalid state_assertion: {expr}")
 
         if "state" in expect:
             checked.append("structured_state_assertions_present")
@@ -453,10 +450,10 @@ class GoldenRunner:
 
     def _run_post_run_phase(
         self,
-        scen: Dict[str, Any],
-        step_reports: List[StepReport],
-        failures: List[Failure],
-        work_dir: Optional[Path] = None,
+        scen: dict[str, Any],
+        step_reports: list[StepReport],
+        failures: list[Failure],
+        work_dir: Path | None = None,
     ) -> None:
         """Run post_run_hooks (if any) then post_run (if any). Uses work_dir or a temp dir."""
         entries = _build_episode_log_entries(step_reports)
@@ -467,7 +464,7 @@ class GoldenRunner:
         episode_log_path = work / "episode_log.jsonl"
         _write_episode_log(episode_log_path, entries)
 
-        receipts_dir: Optional[Path] = None
+        receipts_dir: Path | None = None
 
         hooks = scen.get("post_run_hooks") or []
         for hook in hooks:
@@ -504,11 +501,11 @@ class GoldenRunner:
 
     def _run_post_run(
         self,
-        post_run: List[Dict[str, Any]],
-        step_reports: List[StepReport],
-        failures: List[Failure],
+        post_run: list[dict[str, Any]],
+        step_reports: list[StepReport],
+        failures: list[Failure],
         work_dir: Path,
-        receipts_dir: Optional[Path] = None,
+        receipts_dir: Path | None = None,
     ) -> None:
         """Execute post_run actions: export receipts/FHIR, assert file exists/schema valid. work_dir already has episode log and possibly receipts from post_run_hooks."""
         work = Path(work_dir)
@@ -560,6 +557,7 @@ class GoldenRunner:
                 if not schema_path.exists():
                     raise AssertionError(f"ASSERT_SCHEMA_VALID: schema not found: {schema_path}")
                 from labtrust_gym.policy.loader import load_json, validate_against_schema
+
                 data = load_json(p)
                 schema = load_json(schema_path)
                 validate_against_schema(data, schema, path=p)

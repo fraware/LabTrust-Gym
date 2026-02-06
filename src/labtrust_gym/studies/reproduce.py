@@ -12,7 +12,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from labtrust_gym.studies.plots import make_plots
 from labtrust_gym.studies.study_runner import run_study
@@ -22,7 +22,7 @@ def _minimal_spec(
     task: str,
     episodes: int,
     seed_base: int = 42,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build minimal reproduce spec: trust_skeleton [on, off], dual_approval [on, off]."""
     return {
         "task": task,
@@ -37,7 +37,7 @@ def _minimal_spec(
     }
 
 
-def _write_spec_yaml(spec: Dict[str, Any], path: Path) -> None:
+def _write_spec_yaml(spec: dict[str, Any], path: Path) -> None:
     import yaml
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,9 +49,9 @@ def _write_spec_yaml(spec: Dict[str, Any], path: Path) -> None:
 
 def run_reproduce(
     profile: str,
-    out_dir: Optional[Path] = None,
-    repo_root: Optional[Path] = None,
-    seed_base: Optional[int] = None,
+    out_dir: Path | None = None,
+    repo_root: Path | None = None,
+    seed_base: int | None = None,
 ) -> Path:
     """
     Run minimal reproduce: TaskA and TaskC study sweep + plots.
@@ -63,7 +63,11 @@ def run_reproduce(
     Returns out_dir.
     """
     repo_root = repo_root or Path.cwd()
-    smoke = os.environ.get("LABTRUST_REPRO_SMOKE", "").strip().lower() in ("1", "true", "yes")
+    smoke = os.environ.get("LABTRUST_REPRO_SMOKE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
     if profile == "minimal":
         episodes = 1 if smoke else 2
@@ -80,7 +84,7 @@ def run_reproduce(
         out_dir = repo_root / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    tasks: List[str] = ["TaskA", "TaskC"]
+    tasks: list[str] = ["TaskA", "TaskC"]
     seed_base = seed_base if seed_base is not None else 100
 
     for task in tasks:
@@ -96,9 +100,9 @@ def run_reproduce(
 
 def main(
     profile: str,
-    out_dir: Optional[Path] = None,
-    repo_root: Optional[Path] = None,
-    seed_base: Optional[int] = None,
+    out_dir: Path | None = None,
+    repo_root: Path | None = None,
+    seed_base: int | None = None,
 ) -> int:
     """CLI entry: run reproduce and write runs/<id>/taskA, taskC with figures."""
     try:
@@ -106,8 +110,18 @@ def main(
             profile=profile, out_dir=out_dir, repo_root=repo_root, seed_base=seed_base
         )
         print(f"Reproduce written to {result}", file=sys.stderr)
-        print(f"  taskA: {result / 'taska'}/figures", file=sys.stderr)
-        print(f"  taskC: {result / 'taskc'}/figures", file=sys.stderr)
+        print(
+            f"  taskA: {result / 'taska'}/figures  ({result / 'taska' / 'RUN_SUMMARY.md'})",
+            file=sys.stderr,
+        )
+        print(
+            f"  taskC: {result / 'taskc'}/figures  ({result / 'taskc' / 'RUN_SUMMARY.md'})",
+            file=sys.stderr,
+        )
+        print(
+            "  For each task: figures/RUN_REPORT.md explains metrics and figure interpretation.",
+            file=sys.stderr,
+        )
         return 0
     except Exception as e:
         print(f"reproduce failed: {e}", file=sys.stderr)

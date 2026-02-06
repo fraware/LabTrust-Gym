@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, cast
 
 from labtrust_gym.export.receipts import (
     POLICY_PACK_MANIFEST_FILENAME,
@@ -26,21 +26,21 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _load_json_file(path: Path) -> Dict[str, Any]:
+def _load_json_file(path: Path) -> dict[str, Any]:
     """Load JSON file; raise with path on parse error."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except json.JSONDecodeError as e:
         raise PolicyLoadError(path, f"invalid JSON: {e}") from e
 
 
 def _check_manifest_integrity(
     bundle_dir: Path,
-    manifest: Dict[str, Any],
+    manifest: dict[str, Any],
     allow_extra_files: bool,
-) -> List[str]:
+) -> list[str]:
     """Recompute SHA-256 for every file in manifest; check missing/extra. Returns list of errors."""
-    errors: List[str] = []
+    errors: list[str] = []
     manifest_paths = {f["path"] for f in manifest.get("files", [])}
     for f in manifest.get("files", []):
         path = f.get("path")
@@ -54,9 +54,7 @@ def _check_manifest_integrity(
             continue
         actual = _sha256_file(full)
         if actual != expected_sha:
-            errors.append(
-                f"manifest: hash mismatch for {path}: expected {expected_sha[:16]}..., got {actual[:16]}..."
-            )
+            errors.append(f"manifest: hash mismatch for {path}: expected {expected_sha[:16]}..., got {actual[:16]}...")
     if not allow_extra_files:
         for p in bundle_dir.iterdir():
             if not p.is_file():
@@ -71,17 +69,13 @@ def _check_manifest_integrity(
 
 def _check_schemas(
     bundle_dir: Path,
-    manifest: Dict[str, Any],
+    manifest: dict[str, Any],
     policy_root: Path,
-) -> List[str]:
+) -> list[str]:
     """Validate manifest and each receipt against JSON schemas. Returns list of errors."""
-    errors: List[str] = []
-    receipt_schema_path = (
-        policy_root / "policy" / "schemas" / "receipt.v0.1.schema.json"
-    )
-    manifest_schema_path = (
-        policy_root / "policy" / "schemas" / "evidence_bundle_manifest.v0.1.schema.json"
-    )
+    errors: list[str] = []
+    receipt_schema_path = policy_root / "policy" / "schemas" / "receipt.v0.1.schema.json"
+    manifest_schema_path = policy_root / "policy" / "schemas" / "evidence_bundle_manifest.v0.1.schema.json"
     if not receipt_schema_path.exists():
         errors.append(f"schema missing: {receipt_schema_path}")
         return errors
@@ -99,12 +93,7 @@ def _check_schemas(
         if not path or not path.endswith(".json") or path == "manifest.json":
             continue
         if path == POLICY_PACK_MANIFEST_FILENAME:
-            policy_manifest_schema_path = (
-                policy_root
-                / "policy"
-                / "schemas"
-                / "policy_pack_manifest.v0.1.schema.json"
-            )
+            policy_manifest_schema_path = policy_root / "policy" / "schemas" / "policy_pack_manifest.v0.1.schema.json"
             if policy_manifest_schema_path.exists():
                 full = bundle_dir / path
                 if full.exists():
@@ -126,9 +115,9 @@ def _check_schemas(
     return errors
 
 
-def _check_fhir_if_present(bundle_dir: Path) -> List[str]:
+def _check_fhir_if_present(bundle_dir: Path) -> list[str]:
     """If fhir_bundle.json exists, validate JSON and minimal structure. Returns list of errors."""
-    errors: List[str] = []
+    errors: list[str] = []
     for name in ("fhir_bundle.json", "fhir_bundle_export.v0.1.json"):
         path = bundle_dir / name
         if not path.exists():
@@ -151,18 +140,16 @@ def _check_fhir_if_present(bundle_dir: Path) -> List[str]:
     return errors
 
 
-def _check_hashchain_proof(bundle_dir: Path) -> List[str]:
+def _check_hashchain_proof(bundle_dir: Path) -> list[str]:
     """Verify hashchain_proof.json matches last entry of episode_log_subset (head_hash, length, last_event_hash)."""
-    errors: List[str] = []
+    errors: list[str] = []
     proof_path = bundle_dir / "hashchain_proof.json"
     log_path = bundle_dir / "episode_log_subset.jsonl"
     if not proof_path.exists():
         errors.append("hashchain_proof.json: missing")
         return errors
     if not log_path.exists():
-        errors.append(
-            "episode_log_subset.jsonl: missing (required for hashchain check)"
-        )
+        errors.append("episode_log_subset.jsonl: missing (required for hashchain check)")
         return errors
     try:
         proof = _load_json_file(proof_path)
@@ -172,9 +159,7 @@ def _check_hashchain_proof(bundle_dir: Path) -> List[str]:
     entries = load_episode_log(log_path)
     if not entries:
         if proof.get("length") != 0:
-            errors.append(
-                f"hashchain_proof: length {proof.get('length')} but episode_log has 0 entries"
-            )
+            errors.append(f"hashchain_proof: length {proof.get('length')} but episode_log has 0 entries")
         return errors
     last = entries[-1]
     hc = last.get("hashchain") or {}
@@ -189,13 +174,11 @@ def _check_hashchain_proof(bundle_dir: Path) -> List[str]:
     if proof.get("last_event_hash") != expected_last:
         errors.append("hashchain_proof: last_event_hash mismatch with last entry")
     if proof.get("length") != expected_len:
-        errors.append(
-            f"hashchain_proof: length {proof.get('length')} != episode_log entries {expected_len}"
-        )
+        errors.append(f"hashchain_proof: length {proof.get('length')} != episode_log entries {expected_len}")
     return errors
 
 
-def _violations_from_log_entry(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _violations_from_log_entry(entry: dict[str, Any]) -> list[dict[str, Any]]:
     """Normalize violations from a log entry for comparison."""
     out = []
     for v in entry.get("violations") or []:
@@ -211,23 +194,21 @@ def _violations_from_log_entry(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def _check_policy_manifest_and_root_hash(
     bundle_dir: Path,
-    manifest: Dict[str, Any],
-    policy_root: Optional[Path] = None,
-) -> List[str]:
+    manifest: dict[str, Any],
+    policy_root: Path | None = None,
+) -> list[str]:
     """
     If policy_pack_manifest.v0.1.json is in bundle: when policy_root given, verify
     policy file hashes; recompute root_hash; verify manifest.policy_root_hash and
     each receipt.policy_root_hash match.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     manifest_paths = {f.get("path") for f in manifest.get("files", [])}
     if POLICY_PACK_MANIFEST_FILENAME not in manifest_paths:
         return errors
     policy_manifest_path = bundle_dir / POLICY_PACK_MANIFEST_FILENAME
     if not policy_manifest_path.exists():
-        errors.append(
-            f"{POLICY_PACK_MANIFEST_FILENAME}: listed in manifest but missing"
-        )
+        errors.append(f"{POLICY_PACK_MANIFEST_FILENAME}: listed in manifest but missing")
         return errors
     try:
         policy_manifest = _load_json_file(policy_manifest_path)
@@ -273,9 +254,7 @@ def _check_policy_manifest_and_root_hash(
     # EvidenceBundle manifest must reference same policy_root_hash
     manifest_policy_hash = manifest.get("policy_root_hash")
     if manifest_policy_hash is None:
-        errors.append(
-            "manifest: policy_root_hash missing but policy_pack_manifest present"
-        )
+        errors.append("manifest: policy_root_hash missing but policy_pack_manifest present")
     elif manifest_policy_hash != expected_root:
         errors.append(
             f"manifest: policy_root_hash does not match policy_pack_manifest "
@@ -307,14 +286,14 @@ def _check_policy_manifest_and_root_hash(
 
 
 def _check_tool_registry_fingerprint(
-    manifest: Dict[str, Any],
+    manifest: dict[str, Any],
     policy_root: Path,
-) -> List[str]:
+) -> list[str]:
     """
     When manifest has tool_registry_fingerprint: load tool registry from policy_root,
     recompute digest, and verify it matches. Returns list of errors.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     expected = manifest.get("tool_registry_fingerprint")
     if not expected or not isinstance(expected, str):
         return errors
@@ -342,14 +321,14 @@ def _check_tool_registry_fingerprint(
 
 
 def _check_rbac_policy_fingerprint(
-    manifest: Dict[str, Any],
+    manifest: dict[str, Any],
     policy_root: Path,
-) -> List[str]:
+) -> list[str]:
     """
     When manifest has rbac_policy_fingerprint: load RBAC policy from policy_root,
     recompute digest, and verify it matches. Returns list of errors.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     expected = manifest.get("rbac_policy_fingerprint")
     if not expected or not isinstance(expected, str):
         return errors
@@ -361,15 +340,13 @@ def _check_rbac_policy_fingerprint(
         rbac_policy = load_rbac_policy(rbac_path)
         if not rbac_policy or not rbac_policy.get("roles"):
             errors.append(
-                "manifest: rbac_policy_fingerprint present but policy "
-                "rbac/rbac_policy.v0.1.yaml not found or empty"
+                "manifest: rbac_policy_fingerprint present but policy rbac/rbac_policy.v0.1.yaml not found or empty"
             )
             return errors
         actual = rbac_policy_fingerprint(rbac_policy)
         if actual != expected:
             errors.append(
-                f"manifest: rbac_policy_fingerprint mismatch: "
-                f"expected {expected[:16]}..., recomputed {actual[:16]}..."
+                f"manifest: rbac_policy_fingerprint mismatch: expected {expected[:16]}..., recomputed {actual[:16]}..."
             )
     except Exception as e:
         errors.append(f"rbac_policy_fingerprint check: {e}")
@@ -386,14 +363,14 @@ def _policy_yaml_fingerprint(path: Path) -> str:
 
 
 def _check_coordination_policy_fingerprint(
-    manifest: Dict[str, Any],
+    manifest: dict[str, Any],
     policy_root: Path,
-) -> List[str]:
+) -> list[str]:
     """
     When manifest has coordination_policy_fingerprint: load
     policy/coordination_identity_policy.v0.1.yaml, recompute digest, verify.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     expected = manifest.get("coordination_policy_fingerprint")
     if not expected or not isinstance(expected, str):
         return errors
@@ -417,23 +394,20 @@ def _check_coordination_policy_fingerprint(
 
 
 def _check_memory_policy_fingerprint(
-    manifest: Dict[str, Any],
+    manifest: dict[str, Any],
     policy_root: Path,
-) -> List[str]:
+) -> list[str]:
     """
     When manifest has memory_policy_fingerprint: load policy/memory_policy.v0.1.yaml,
     recompute digest, verify.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     expected = manifest.get("memory_policy_fingerprint")
     if not expected or not isinstance(expected, str):
         return errors
     path = policy_root / "policy" / "memory_policy.v0.1.yaml"
     if not path.exists():
-        errors.append(
-            "manifest: memory_policy_fingerprint present but "
-            "policy/memory_policy.v0.1.yaml not found"
-        )
+        errors.append("manifest: memory_policy_fingerprint present but policy/memory_policy.v0.1.yaml not found")
         return errors
     try:
         actual = _policy_yaml_fingerprint(path)
@@ -447,21 +421,19 @@ def _check_memory_policy_fingerprint(
     return errors
 
 
-def _check_invariant_trace(bundle_dir: Path) -> List[str]:
+def _check_invariant_trace(bundle_dir: Path) -> list[str]:
     """Re-run invariant consistency: violations in episode_log_subset must be superset of invariant_eval_trace."""
-    errors: List[str] = []
+    errors: list[str] = []
     log_path = bundle_dir / "episode_log_subset.jsonl"
     trace_path = bundle_dir / "invariant_eval_trace.jsonl"
     if not log_path.exists():
-        errors.append(
-            "episode_log_subset.jsonl: missing (required for invariant check)"
-        )
+        errors.append("episode_log_subset.jsonl: missing (required for invariant check)")
         return errors
     if not trace_path.exists():
         # Trace can be empty (no violations exported)
         return errors
     entries = load_episode_log(log_path)
-    trace_by_step: Dict[int, List[Dict[str, Any]]] = {}
+    trace_by_step: dict[int, list[dict[str, Any]]] = {}
     for line in trace_path.read_text(encoding="utf-8").strip().splitlines():
         if not line.strip():
             continue
@@ -481,10 +453,7 @@ def _check_invariant_trace(bundle_dir: Path) -> List[str]:
             )
             continue
         log_violations = _violations_from_log_entry(entries[step_index])
-        log_ids = {
-            (v.get("invariant_id"), v.get("status"), v.get("reason_code"))
-            for v in log_violations
-        }
+        log_ids = {(v.get("invariant_id"), v.get("status"), v.get("reason_code")) for v in log_violations}
         for tv in trace_violations:
             key = (tv.get("invariant_id"), tv.get("status"), tv.get("reason_code"))
             if key not in log_ids:
@@ -498,9 +467,9 @@ def _check_invariant_trace(bundle_dir: Path) -> List[str]:
 
 def verify_bundle(
     bundle_dir: Path,
-    policy_root: Optional[Path] = None,
+    policy_root: Path | None = None,
     allow_extra_files: bool = False,
-) -> Tuple[bool, str, List[str]]:
+) -> tuple[bool, str, list[str]]:
     """
     Run all verification checks on an EvidenceBundle.v0.1 directory.
 
@@ -512,7 +481,7 @@ def verify_bundle(
     """
     bundle_dir = Path(bundle_dir)
     policy_root = policy_root or Path.cwd()
-    errors: List[str] = []
+    errors: list[str] = []
 
     manifest_path = bundle_dir / "manifest.json"
     if not manifest_path.exists():
@@ -528,9 +497,7 @@ def verify_bundle(
     errors.extend(_check_fhir_if_present(bundle_dir))
     errors.extend(_check_hashchain_proof(bundle_dir))
     errors.extend(_check_invariant_trace(bundle_dir))
-    errors.extend(
-        _check_policy_manifest_and_root_hash(bundle_dir, manifest, policy_root)
-    )
+    errors.extend(_check_policy_manifest_and_root_hash(bundle_dir, manifest, policy_root))
     errors.extend(_check_tool_registry_fingerprint(manifest, policy_root))
     errors.extend(_check_rbac_policy_fingerprint(manifest, policy_root))
     errors.extend(_check_coordination_policy_fingerprint(manifest, policy_root))
@@ -541,8 +508,7 @@ def verify_bundle(
     count_receipts = sum(
         1
         for f in manifest.get("files", [])
-        if "receipt_" in str(f.get("path", ""))
-        and str(f.get("path", "")).endswith(".v0.1.json")
+        if "receipt_" in str(f.get("path", "")) and str(f.get("path", "")).endswith(".v0.1.json")
     )
     report_lines = [
         "VERIFICATION REPORT",

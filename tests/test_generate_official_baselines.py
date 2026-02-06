@@ -128,9 +128,7 @@ def test_generate_official_baselines_determinism_explicit_timing(tmp_path: Path)
         assert e1.get("seed") == e2.get("seed"), f"episode {i} seed mismatch"
         m1 = e1.get("metrics") or {}
         m2 = e2.get("metrics") or {}
-        assert m1.get("throughput") == m2.get("throughput"), (
-            f"episode {i} throughput mismatch"
-        )
+        assert m1.get("throughput") == m2.get("throughput"), f"episode {i} throughput mismatch"
         assert m1.get("steps") == m2.get("steps"), f"episode {i} steps mismatch"
 
 

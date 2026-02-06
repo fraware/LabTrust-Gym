@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any, cast
 
 import yaml
 
@@ -27,10 +27,13 @@ from labtrust_gym.policy.overlay import (
 )
 
 # Optional: jsonschema is a dependency in pyproject.toml
+from types import ModuleType
+
 try:
-    import jsonschema
+    import jsonschema as _jsonschema_module
+    jsonschema: ModuleType | None = _jsonschema_module
 except ImportError:
-    jsonschema = None  # type: ignore[assignment]
+    jsonschema = None
 
 
 class PolicyLoadError(Exception):
@@ -50,7 +53,7 @@ def load_json(path: Path) -> dict[str, Any]:
         raise PolicyLoadError(path, "file not found")
     try:
         text = path.read_text(encoding="utf-8")
-        return json.loads(text)
+        return cast(dict[str, Any], json.loads(text))
     except json.JSONDecodeError as e:
         raise PolicyLoadError(path, f"invalid JSON: {e}") from e
 
@@ -84,9 +87,7 @@ def load_policy_file(path: Path) -> dict[str, Any]:
         return load_json(path)
     if suffix in (".yaml", ".yml"):
         return load_yaml(path)
-    raise PolicyLoadError(
-        path, f"unsupported extension {suffix!r}; use .json, .yaml, or .yml"
-    )
+    raise PolicyLoadError(path, f"unsupported extension {suffix!r}; use .json, .yaml, or .yml")
 
 
 def validate_against_schema(
@@ -115,9 +116,7 @@ def validate_against_schema(
             msg += f" at {e.absolute_path}"
         raise PolicyLoadError(path or Path("."), msg) from e
     except Exception as e:
-        raise PolicyLoadError(
-            path or Path("."), f"schema validation failed: {e}"
-        ) from e
+        raise PolicyLoadError(path or Path("."), f"schema validation failed: {e}") from e
 
 
 # Policy file -> schema file mapping (filename under policy/ -> schema under policy/schemas/)
@@ -234,14 +233,17 @@ def _load_base_equipment(root: Path) -> dict[str, Any]:
     if not p.exists():
         return {"device_types": {}, "device_instances": []}
     data = load_yaml(p)
-    return data.get("equipment_registry", data) if isinstance(data, dict) else {}
+    return cast(
+        dict[str, Any],
+        data.get("equipment_registry", data) if isinstance(data, dict) else {},
+    )
 
 
 def _load_base_escalation_ladder(root: Path) -> dict[str, Any] | None:
     p = root / BASE_POLICY_PATHS["escalation_ladder"]
     if not p.exists():
         return None
-    return load_yaml(p)
+    return cast(dict[str, Any] | None, load_yaml(p))
 
 
 def _load_overlay_critical_list(overlay_dir: Path) -> list[dict[str, Any]] | None:
@@ -277,7 +279,10 @@ def _load_overlay_equipment(overlay_dir: Path) -> dict[str, Any] | None:
     if not p.exists():
         return None
     data = load_yaml(p)
-    return data.get("equipment_registry", data) if isinstance(data, dict) else {}
+    return cast(
+        dict[str, Any],
+        data.get("equipment_registry", data) if isinstance(data, dict) else {},
+    )
 
 
 def _load_overlay_escalation_ladder(overlay_dir: Path) -> dict[str, Any] | None:
@@ -307,17 +312,13 @@ def _load_overlay_calibration(overlay_dir: Path) -> dict[str, Any] | None:
 
 def compute_calibration_fingerprint(calibration: dict[str, Any]) -> str:
     """Compute SHA-256 hash of canonical JSON of calibration (deterministic)."""
-    payload = json.dumps(calibration, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+    payload = json.dumps(calibration, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
 def compute_policy_fingerprint(effective_policy: dict[str, Any]) -> str:
     """Compute SHA-256 hash of canonical JSON of effective policy (deterministic)."""
-    payload = json.dumps(
-        effective_policy, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    payload = json.dumps(effective_policy, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -381,9 +382,10 @@ def build_policy_pack_manifest(
 def load_effective_policy(
     root: Path,
     partner_id: str | None = None,
-) -> Tuple[dict[str, Any], str, str | None]:
+) -> tuple[dict[str, Any], str, str | None, str | None]:
     """
-    Load base policy; if partner_id given, load overlay and merge. Return (effective_policy, fingerprint, partner_id).
+    Load base policy; if partner_id given, load overlay and merge.
+    Return (effective_policy, fingerprint, partner_id, calibration_fingerprint).
 
     effective_policy keys: critical_thresholds (list), stability_policy (dict), enforcement_map (dict),
     equipment_registry (dict). Used by engine when passed in initial_state["effective_policy"].
@@ -397,9 +399,7 @@ def load_effective_policy(
     if partner_id:
         overlay_dir = get_partner_overlay_dir(root, partner_id)
         if not overlay_dir.is_dir():
-            raise PolicyLoadError(
-                overlay_dir, f"partner overlay dir not found for {partner_id!r}"
-            )
+            raise PolicyLoadError(overlay_dir, f"partner overlay dir not found for {partner_id!r}")
         overlay_critical = _load_overlay_critical_list(overlay_dir)
         overlay_stability = _load_overlay_stability(overlay_dir)
         overlay_enforcement = _load_overlay_enforcement(overlay_dir)
@@ -452,7 +452,5 @@ def load_effective_policy(
         "calibration": calibration,
     }
     fingerprint = compute_policy_fingerprint(effective_policy)
-    calibration_fingerprint = (
-        compute_calibration_fingerprint(calibration) if calibration else None
-    )
+    calibration_fingerprint = compute_calibration_fingerprint(calibration) if calibration else None
     return effective_policy, fingerprint, partner_id, calibration_fingerprint

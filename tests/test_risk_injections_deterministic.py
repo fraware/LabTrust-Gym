@@ -10,14 +10,11 @@ import json
 import pytest
 
 from labtrust_gym.security.risk_injections import (
-    InjectionConfig,
     make_injector,
 )
 
 
-def _sequence_hash(
-    seed: int, injection_id: str, steps: int, intensity: float = 1.0
-) -> str:
+def _sequence_hash(seed: int, injection_id: str, steps: int, intensity: float = 1.0) -> str:
     """Deterministic hash of (obs_audits, action_audits) over steps."""
     inj = make_injector(injection_id, intensity=intensity, seed_offset=0)
     inj.reset(seed, None)
@@ -76,7 +73,7 @@ def test_same_seed_same_injection_sequence(injection_id: str) -> None:
 
 
 def test_different_seed_different_sequence() -> None:
-    """Different seeds produce different sequences for injectors that use RNG per step (e.g. ID-SPOOF)."""
+    """Different seeds -> different sequences for injectors using RNG per step (e.g. ID-SPOOF)."""
     h1 = _sequence_hash(1, "INJ-ID-SPOOF-001", 20)
     h2 = _sequence_hash(2, "INJ-ID-SPOOF-001", 20)
     assert h1 != h2

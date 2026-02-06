@@ -6,7 +6,7 @@ with reason_code COORD_STALE_VIEW. Deterministic.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 REASON_COORD_STALE_VIEW = "COORD_STALE_VIEW"
 EMIT_COORD_STALE_DECISION = "COORD_STALE_DECISION"
@@ -14,7 +14,7 @@ DEFAULT_MAX_STALENESS_MS = 500.0
 DEFAULT_DT_MS = 10.0
 
 
-def _is_critical_action(action_dict: Dict[str, Any]) -> bool:
+def _is_critical_action(action_dict: dict[str, Any]) -> bool:
     """True if action is START_RUN or OPEN_DOOR (restricted door / critical)."""
     atype = (action_dict or {}).get("action_type") or ""
     if atype == "START_RUN":
@@ -28,20 +28,20 @@ def _is_critical_action(action_dict: Dict[str, Any]) -> bool:
 
 
 def check_staleness(
-    actions: Dict[str, Dict[str, Any]],
-    view_snapshots: Dict[str, Dict[str, Any]],
+    actions: dict[str, dict[str, Any]],
+    view_snapshots: dict[str, dict[str, Any]],
     decision_step: int,
     dt_ms: float = DEFAULT_DT_MS,
     max_staleness_ms: float = DEFAULT_MAX_STALENESS_MS,
-) -> Tuple[int, List[Dict[str, Any]], List[float]]:
+) -> tuple[int, list[dict[str, Any]], list[float]]:
     """
     For each agent with a critical action, check if view is stale.
     Returns (stale_count, emit_payloads, view_ages_ms_per_agent).
     view_ages_ms: one value per agent that had a snapshot (for mean/p95 metrics).
     """
     stale_count = 0
-    emits: List[Dict[str, Any]] = []
-    view_ages_ms: List[float] = []
+    emits: list[dict[str, Any]] = []
+    view_ages_ms: list[float] = []
 
     for agent_id, action_dict in actions.items():
         snap = view_snapshots.get(agent_id) or {}
@@ -74,7 +74,7 @@ def check_staleness(
     return stale_count, emits, view_ages_ms
 
 
-def count_critical_actions(actions: Dict[str, Dict[str, Any]]) -> int:
+def count_critical_actions(actions: dict[str, dict[str, Any]]) -> int:
     """Number of agents with a critical action this step."""
     return sum(1 for ad in (actions or {}).values() if _is_critical_action(ad))
 
@@ -82,12 +82,10 @@ def count_critical_actions(actions: Dict[str, Dict[str, Any]]) -> int:
 def timing_metrics(
     total_critical_actions: int,
     stale_count: int,
-    view_ages_ms: List[float],
-) -> Dict[str, Any]:
+    view_ages_ms: list[float],
+) -> dict[str, Any]:
     """Build timing.* metrics for results."""
-    stale_rate = (
-        stale_count / total_critical_actions if total_critical_actions > 0 else 0.0
-    )
+    stale_rate = stale_count / total_critical_actions if total_critical_actions > 0 else 0.0
     if not view_ages_ms:
         return {
             "stale_action_rate": round(stale_rate, 4),

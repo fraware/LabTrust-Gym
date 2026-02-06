@@ -11,11 +11,11 @@ B009: Central output shaping and redaction for online endpoints and public artif
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 # Keys that must never appear in viewer-facing or public summary output.
 # Used to validate that summary builders do not leak sensitive data.
-FORBIDDEN_IN_SUMMARY: Set[str] = frozenset(
+FORBIDDEN_IN_SUMMARY: frozenset[str] = frozenset(
     {
         "signature",  # raw signature bytes
         "raw_prompt",
@@ -34,7 +34,7 @@ FORBIDDEN_IN_SUMMARY: Set[str] = frozenset(
 
 # Top-level keys allowed in run summary (viewer-safe). Additional nested keys
 # for metrics are constrained to numeric/aggregate names.
-ALLOWED_SUMMARY_TOP_LEVEL: Set[str] = frozenset(
+ALLOWED_SUMMARY_TOP_LEVEL: frozenset[str] = frozenset(
     {
         "n_episodes",
         "task",
@@ -55,7 +55,7 @@ ALLOWED_SUMMARY_TOP_LEVEL: Set[str] = frozenset(
 )
 
 
-def _violations_total_from_metrics(metrics: Dict[str, Any]) -> int:
+def _violations_total_from_metrics(metrics: dict[str, Any]) -> int:
     """Sum violation counts from violations_by_invariant_id."""
     vbi = metrics.get("violations_by_invariant_id") or {}
     if isinstance(vbi, dict):
@@ -63,7 +63,7 @@ def _violations_total_from_metrics(metrics: Dict[str, Any]) -> int:
     return 0
 
 
-def _blocked_count_from_metrics(metrics: Dict[str, Any]) -> int:
+def _blocked_count_from_metrics(metrics: dict[str, Any]) -> int:
     """Sum blocked counts from blocked_by_reason_code."""
     bbr = metrics.get("blocked_by_reason_code") or {}
     if isinstance(bbr, dict):
@@ -72,8 +72,8 @@ def _blocked_count_from_metrics(metrics: Dict[str, Any]) -> int:
 
 
 def build_run_summary(
-    results_or_episodes: Dict[str, Any] | List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    results_or_episodes: dict[str, Any] | list[dict[str, Any]],
+) -> dict[str, Any]:
     """
     Build a viewer-safe run summary: aggregated metrics, blocked count, violation count.
 
@@ -97,12 +97,12 @@ def build_run_summary(
     throughput_sum = 0
     violations_total = 0
     blocked_count = 0
-    blocked_by_reason: Dict[str, int] = {}
-    violations_by_invariant: Dict[str, int] = {}
-    on_time_rates: List[float] = []
-    p50_tat: List[float] = []
-    p95_tat: List[float] = []
-    critical_compliance: List[float] = []
+    blocked_by_reason: dict[str, int] = {}
+    violations_by_invariant: dict[str, int] = {}
+    on_time_rates: list[float] = []
+    p50_tat: list[float] = []
+    p95_tat: list[float] = []
+    critical_compliance: list[float] = []
     steps_total = 0
 
     for ep in episodes:
@@ -115,9 +115,7 @@ def build_run_summary(
         for k, v in (metrics.get("blocked_by_reason_code") or {}).items():
             blocked_by_reason[str(k)] = blocked_by_reason.get(str(k), 0) + int(v)
         for k, v in (metrics.get("violations_by_invariant_id") or {}).items():
-            violations_by_invariant[str(k)] = violations_by_invariant.get(
-                str(k), 0
-            ) + int(v)
+            violations_by_invariant[str(k)] = violations_by_invariant.get(str(k), 0) + int(v)
         r = metrics.get("on_time_rate")
         if r is not None:
             on_time_rates.append(float(r))
@@ -132,12 +130,12 @@ def build_run_summary(
             critical_compliance.append(float(r))
         steps_total += int(metrics.get("steps") or 0)
 
-    def _mean(vals: List[float]) -> Optional[float]:
+    def _mean(vals: list[float]) -> float | None:
         if not vals:
             return None
         return sum(vals) / len(vals)
 
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "n_episodes": n_episodes,
         "throughput_mean": (throughput_sum / n_episodes) if n_episodes else 0,
         "violations_total": violations_total,
@@ -168,13 +166,13 @@ def build_run_summary(
 
 
 def summary_contains_no_forbidden_fields(
-    summary: Dict[str, Any],
-) -> Tuple[bool, List[str]]:
+    summary: dict[str, Any],
+) -> tuple[bool, list[str]]:
     """
     Check that a summary dict contains no forbidden keys (at any nesting).
     Returns (True, []) if safe; (False, [list of forbidden keys found]) otherwise.
     """
-    found: List[str] = []
+    found: list[str] = []
     forbidden_lower = {k.lower() for k in FORBIDDEN_IN_SUMMARY}
 
     def scan(obj: Any, path: str = "") -> None:
@@ -214,9 +212,9 @@ def obfuscate_identifier(
 
 
 def shape_signature_verification(
-    sv: Dict[str, Any],
+    sv: dict[str, Any],
     keep_raw: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Return a signature_verification view: by default only validity + key_id (no raw signature).
     """
@@ -232,9 +230,9 @@ def shape_signature_verification(
 
 
 def shape_llm_decision(
-    llm: Dict[str, Any],
+    llm: dict[str, Any],
     full_fidelity: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Return LLM decision view: by default hashes + minimal metadata only (no full prompt/response).
     """
@@ -242,7 +240,7 @@ def shape_llm_decision(
         return {}
     if full_fidelity:
         return dict(llm)
-    out: Dict[str, Any] = {}
+    out: dict[str, Any] = {}
     for key in (
         "prompt_sha256",
         "response_sha256",
@@ -259,12 +257,12 @@ def shape_llm_decision(
 
 
 def shape_episode_log_entry_for_role(
-    entry: Dict[str, Any],
+    entry: dict[str, Any],
     role: str,
     obfuscate_specimen: bool = True,
     obfuscate_work_id: bool = True,
     id_mode: str = "hash",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Shape a single episode log entry for output. Viewer should not receive raw entries
     (use build_run_summary instead). For admin, optionally obfuscate identifiers and
@@ -286,13 +284,9 @@ def shape_episode_log_entry_for_role(
         if isinstance(args, dict):
             args = dict(args)
             if obfuscate_specimen and "specimen_id" in args:
-                args["specimen_id"] = obfuscate_identifier(
-                    str(args["specimen_id"]), mode=id_mode
-                )
+                args["specimen_id"] = obfuscate_identifier(str(args["specimen_id"]), mode=id_mode)
             if obfuscate_work_id and "work_id" in args:
-                args["work_id"] = obfuscate_identifier(
-                    str(args["work_id"]), mode=id_mode
-                )
+                args["work_id"] = obfuscate_identifier(str(args["work_id"]), mode=id_mode)
             out["args"] = args
 
     sv = out.get("signature_verification")
@@ -307,12 +301,12 @@ def shape_episode_log_entry_for_role(
 
 
 def shape_for_role(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     role: str | None,
     *,
     want_summary: bool = True,
     want_raw_logs: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Shape payload for role. Viewer: summary only. Admin: may include raw logs if want_raw_logs.
     """
@@ -324,16 +318,12 @@ def shape_for_role(
         return build_run_summary(
             {
                 "episodes": episodes,
-                **{
-                    k: data.get(k)
-                    for k in ("task", "agent_baseline_id", "partner_id")
-                    if k in data
-                },
+                **{k: data.get(k) for k in ("task", "agent_baseline_id", "partner_id") if k in data},
             }
         )
 
     # Admin
-    out: Dict[str, Any] = {}
+    out: dict[str, Any] = {}
     if want_summary:
         out["summary"] = build_run_summary(data)
     if want_raw_logs and data.get("episode_log_entries"):

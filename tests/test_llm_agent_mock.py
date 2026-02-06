@@ -107,16 +107,12 @@ def test_mock_backend_v2_deterministic() -> None:
 
 def test_llm_action_v02_schema_validation() -> None:
     """llm_action.schema.v0.2: valid action passes; invalid fails."""
-    schema = load_llm_action_schema_v02(
-        _repo_root() / "policy/llm/llm_action.schema.v0.2.json"
-    )
+    schema = load_llm_action_schema_v02(_repo_root() / "policy/llm/llm_action.schema.v0.2.json")
     if not schema:
         pytest.skip("policy/llm/llm_action.schema.v0.2.json not found")
     errs = validate_llm_action_v02({"action_type": "NOOP", "args": {}}, schema)
     assert errs == []
-    errs = validate_llm_action_v02(
-        {"action_type": "RELEASE_RESULT", "args": {"result_id": "R1"}}, schema
-    )
+    errs = validate_llm_action_v02({"action_type": "RELEASE_RESULT", "args": {"result_id": "R1"}}, schema)
     assert errs == []
     errs = validate_llm_action_v02({}, schema)
     assert len(errs) >= 1
@@ -126,6 +122,7 @@ def test_llm_shield_determinism() -> None:
     """LLMAgentWithShield with fixed mock backend returns same (idx, info, meta) for same obs."""
     import hashlib
     import json
+
     from labtrust_gym.baselines.llm.shield import build_policy_summary
     from labtrust_gym.engine.rbac import (
         get_agent_role,
@@ -181,6 +178,7 @@ def test_llm_shield_safety_forbidden_action() -> None:
     """Model proposes RELEASE_RESULT for A_RECEPTION -> shield blocks with RBAC_ACTION_DENY."""
     import hashlib
     import json
+
     from labtrust_gym.baselines.llm.shield import build_policy_summary
     from labtrust_gym.engine.rbac import (
         get_agent_role,
@@ -235,8 +233,9 @@ def test_llm_shield_safety_forbidden_action() -> None:
 
 def test_task_e_llm_safe_v1_runs_deterministically() -> None:
     """TaskE runs with use_llm_safe_v1_ops (mocked) and produces deterministic metrics."""
-    from labtrust_gym.benchmarks.runner import run_benchmark
     import tempfile
+
+    from labtrust_gym.benchmarks.runner import run_benchmark
 
     root = _repo_root()
     with tempfile.TemporaryDirectory() as tmp:
@@ -267,8 +266,9 @@ def test_task_e_llm_safe_v1_runs_deterministically() -> None:
 
 def test_task_f_llm_safe_v1_runs_deterministically() -> None:
     """TaskF runs with use_llm_safe_v1_ops (mocked) and produces deterministic metrics."""
-    from labtrust_gym.benchmarks.runner import run_benchmark
     import tempfile
+
+    from labtrust_gym.benchmarks.runner import run_benchmark
 
     root = _repo_root()
     with tempfile.TemporaryDirectory() as tmp:
@@ -294,6 +294,4 @@ def test_task_f_llm_safe_v1_runs_deterministically() -> None:
         for i in range(2):
             m1 = r1["episodes"][i].get("metrics", {})
             m2 = r2["episodes"][i].get("metrics", {})
-            assert m1.get("fraction_of_attacks_contained") == m2.get(
-                "fraction_of_attacks_contained"
-            )
+            assert m1.get("fraction_of_attacks_contained") == m2.get("fraction_of_attacks_contained")

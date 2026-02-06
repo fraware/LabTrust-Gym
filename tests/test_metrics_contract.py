@@ -32,9 +32,7 @@ def _schema_type_set(node: dict) -> set[str]:
     t = node.get("type")
     if t is None:
         if "const" in node:
-            return (
-                {"string"} if isinstance(node["const"], str) else {"number", "integer"}
-            )
+            return {"string"} if isinstance(node["const"], str) else {"number", "integer"}
         return set()
     if isinstance(t, str):
         return {t}
@@ -92,9 +90,7 @@ def test_results_v02_v03_schema_compatibility_top_level() -> None:
             continue
         t2 = _schema_type_set(p2)
         t3 = _schema_type_set(p3)
-        assert _types_compatible(
-            t2, t3
-        ), f"v0.2 top-level field {key!r}: type {t2} not compatible with v0.3 type {t3}"
+        assert _types_compatible(t2, t3), f"v0.2 top-level field {key!r}: type {t2} not compatible with v0.3 type {t3}"
 
 
 def test_results_v02_v03_schema_compatibility_episode_metrics() -> None:
@@ -113,9 +109,9 @@ def test_results_v02_v03_schema_compatibility_episode_metrics() -> None:
             continue
         t2 = _schema_type_set(p2)
         t3 = _schema_type_set(p3)
-        assert _types_compatible(
-            t2, t3
-        ), f"v0.2 episode.metrics field {key!r}: type {t2} not compatible with v0.3 type {t3}"
+        assert _types_compatible(t2, t3), (
+            f"v0.2 episode.metrics field {key!r}: type {t2} not compatible with v0.3 type {t3}"
+        )
 
 
 # Minimal v0.2-valid results fixture for summarize-results tests.
@@ -148,20 +144,10 @@ def test_summarize_results_output_files(tmp_path: Path) -> None:
     assert v02_csv.exists(), "summary_v0.2.csv must exist"
     v02_header = v02_csv.read_text(encoding="utf-8").split("\n")[0]
     v02_columns = [c.strip('"') for c in v02_header.split(",")]
-    paper_only = [
-        c
-        for c in v02_columns
-        if "_p50" in c or "_p90" in c or "mean_ci_lower" in c or "mean_ci_upper" in c
-    ]
-    assert (
-        not paper_only
-    ), f"summary_v0.2.csv must not contain paper-grade columns: {paper_only}"
-    assert any(
-        "_mean" in c for c in v02_columns
-    ), "summary_v0.2.csv should have *_mean columns"
-    assert any(
-        "_std" in c for c in v02_columns
-    ), "summary_v0.2.csv should have *_std columns"
+    paper_only = [c for c in v02_columns if "_p50" in c or "_p90" in c or "mean_ci_lower" in c or "mean_ci_upper" in c]
+    assert not paper_only, f"summary_v0.2.csv must not contain paper-grade columns: {paper_only}"
+    assert any("_mean" in c for c in v02_columns), "summary_v0.2.csv should have *_mean columns"
+    assert any("_std" in c for c in v02_columns), "summary_v0.2.csv should have *_std columns"
 
     # summary_v0.3.csv exists (may have NaNs for quantiles/CI if not present)
     v03_csv = out_dir / "summary_v0.3.csv"
@@ -175,19 +161,19 @@ def test_summarize_results_output_files(tmp_path: Path) -> None:
     md_lines = md_path.read_text(encoding="utf-8").strip().split("\n")
     assert len(md_lines) >= 2, "summary.md must have header and separator"
     md_header = md_lines[0]
-    assert (
-        "_p50" not in md_header and "_p90" not in md_header
-    ), "summary.md must not contain quantile columns (v0.2-only)"
-    assert (
-        "mean_ci_lower" not in md_header and "mean_ci_upper" not in md_header
-    ), "summary.md must not contain CI columns (v0.2-only)"
+    assert "_p50" not in md_header and "_p90" not in md_header, (
+        "summary.md must not contain quantile columns (v0.2-only)"
+    )
+    assert "mean_ci_lower" not in md_header and "mean_ci_upper" not in md_header, (
+        "summary.md must not contain CI columns (v0.2-only)"
+    )
 
     # summary.csv exists (copy of v0.2)
     summary_csv = out_dir / "summary.csv"
     assert summary_csv.exists(), "summary.csv must exist"
-    assert summary_csv.read_text(encoding="utf-8") == v02_csv.read_text(
-        encoding="utf-8"
-    ), "summary.csv must equal summary_v0.2.csv"
+    assert summary_csv.read_text(encoding="utf-8") == v02_csv.read_text(encoding="utf-8"), (
+        "summary.csv must equal summary_v0.2.csv"
+    )
 
 
 def test_summarize_results_v02_csv_mean_std_only(tmp_path: Path) -> None:
@@ -210,6 +196,4 @@ def test_summarize_results_v02_csv_mean_std_only(tmp_path: Path) -> None:
     for c in cols:
         if c in ("task", "agent_baseline_id", "partner_id", "n_episodes"):
             continue
-        assert c.endswith("_mean") or c.endswith(
-            "_std"
-        ), f"v0.2 summary column must be *_mean or *_std: {c}"
+        assert c.endswith("_mean") or c.endswith("_std"), f"v0.2 summary column must be *_mean or *_std: {c}"

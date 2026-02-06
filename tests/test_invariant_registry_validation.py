@@ -6,10 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from labtrust_gym.policy.loader import load_json, validate_against_schema
-from labtrust_gym.policy.validate import validate_policy_file_against_schema
 from labtrust_gym.policy.invariants_registry import load_invariant_registry
-from labtrust_gym.policy.loader import PolicyLoadError
+from labtrust_gym.policy.loader import PolicyLoadError, load_json, validate_against_schema
+from labtrust_gym.policy.validate import validate_policy_file_against_schema
 
 
 def _repo_root() -> Path:

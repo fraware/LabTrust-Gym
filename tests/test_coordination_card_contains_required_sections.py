@@ -12,7 +12,6 @@ import pytest
 
 from labtrust_gym.studies.coordination_card import render_coordination_card
 
-
 REQUIRED_SECTIONS = [
     "## Scope",
     "## Scenario generation",

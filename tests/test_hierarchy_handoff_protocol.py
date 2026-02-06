@@ -5,9 +5,9 @@ Handoff protocol: HandoffEvent creation, ACK within T steps, escalation on missi
 from __future__ import annotations
 
 from labtrust_gym.baselines.coordination.hierarchical.handoff import (
+    HUB_REGION_ID,
     HandoffEvent,
     HandoffProtocol,
-    HUB_REGION_ID,
 )
 
 

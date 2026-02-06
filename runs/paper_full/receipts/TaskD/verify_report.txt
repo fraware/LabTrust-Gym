@@ -1,0 +1,5 @@
+VERIFICATION REPORT
+  Bundle: C:\Users\mateo\LabTrust-Gym\runs\paper_full\receipts\TaskD\EvidenceBundle.v0.1
+  Manifest files: 4
+  Receipts: 0
+  Result: PASS

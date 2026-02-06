@@ -8,18 +8,13 @@ Deterministic; no new deps.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
-from labtrust_gym.baselines.coordination.interface import (
-    ACTION_NOOP,
-    CoordinationMethod,
-)
-from labtrust_gym.baselines.coordination.obs_utils import get_zone_from_obs
-from labtrust_gym.engine.zones import build_adjacency_set
-
-from labtrust_gym.baselines.coordination.hierarchical.region_partition import (
-    partition_zones_into_regions,
+from labtrust_gym.baselines.coordination.decision_types import CoordinationDecision
+from labtrust_gym.baselines.coordination.hierarchical.handoff import (
+    HUB_REGION_ID,
+    HandoffProtocol,
 )
 from labtrust_gym.baselines.coordination.hierarchical.hub_planner import (
     HubPlanner,
@@ -27,24 +22,29 @@ from labtrust_gym.baselines.coordination.hierarchical.hub_planner import (
 from labtrust_gym.baselines.coordination.hierarchical.local_controller import (
     LocalController,
 )
-from labtrust_gym.baselines.coordination.hierarchical.handoff import (
-    HandoffProtocol,
-    HUB_REGION_ID,
+from labtrust_gym.baselines.coordination.hierarchical.region_partition import (
+    partition_zones_into_regions,
 )
+from labtrust_gym.baselines.coordination.interface import (
+    ACTION_NOOP,
+    CoordinationMethod,
+)
+from labtrust_gym.baselines.coordination.obs_utils import get_zone_from_obs
+from labtrust_gym.engine.zones import build_adjacency_set
 
 
 def _build_region_index(
-    zone_to_region: Dict[str, str],
-    agent_ids: List[str],
-    obs: Dict[str, Any],
-    zone_ids: List[str],
-    device_ids: List[str],
-    device_zone: Dict[str, str],
-) -> Tuple[Dict[str, List[str]], Dict[str, List[str]], Dict[str, List[str]], Set[str]]:
+    zone_to_region: dict[str, str],
+    agent_ids: list[str],
+    obs: dict[str, Any],
+    zone_ids: list[str],
+    device_ids: list[str],
+    device_zone: dict[str, str],
+) -> tuple[dict[str, list[str]], dict[str, list[str]], dict[str, list[str]], set[str]]:
     """Agents, zones, devices per region; set of region_ids."""
-    agents_per_region: Dict[str, List[str]] = defaultdict(list)
-    zones_per_region: Dict[str, List[str]] = defaultdict(list)
-    devices_per_region: Dict[str, List[str]] = defaultdict(list)
+    agents_per_region: dict[str, list[str]] = defaultdict(list)
+    zones_per_region: dict[str, list[str]] = defaultdict(list)
+    devices_per_region: dict[str, list[str]] = defaultdict(list)
     for zid, rid in zone_to_region.items():
         zones_per_region[rid].append(zid)
     for zid in zone_ids:
@@ -80,11 +80,11 @@ class HierarchicalHubLocal(CoordinationMethod):
         self._hub = HubPlanner(sla_horizon=sla_horizon)
         self._handoff = HandoffProtocol(ack_deadline_steps=ack_deadline_steps)
         self._local = LocalController(use_whca=False)
-        self._zone_to_region: Dict[str, str] = {}
-        self._policy: Dict[str, Any] = {}
-        self._scale_config: Dict[str, Any] = {}
+        self._zone_to_region: dict[str, str] = {}
+        self._policy: dict[str, Any] = {}
+        self._scale_config: dict[str, Any] = {}
         self._seed = 0
-        self._last_hierarchy_metrics: Dict[str, Any] = {}
+        self._last_hierarchy_metrics: dict[str, Any] = {}
 
     @property
     def method_id(self) -> str:
@@ -93,8 +93,8 @@ class HierarchicalHubLocal(CoordinationMethod):
     def reset(
         self,
         seed: int,
-        policy: Dict[str, Any],
-        scale_config: Dict[str, Any],
+        policy: dict[str, Any],
+        scale_config: dict[str, Any],
     ) -> None:
         self._seed = seed
         self._policy = policy or {}
@@ -113,9 +113,7 @@ class HierarchicalHubLocal(CoordinationMethod):
         )
         self._handoff = HandoffProtocol(ack_deadline_steps=self._ack_deadline_steps)
 
-    def step(
-        self, context: KernelContext
-    ) -> Tuple[Dict[str, Dict[str, Any]], Optional[CoordinationDecision]]:
+    def step(self, context: KernelContext) -> tuple[dict[str, dict[str, Any]], CoordinationDecision | None]:
         obs = context.obs or {}
         t = context.t
         zone_ids = list(context.zone_ids or [])
@@ -136,31 +134,21 @@ class HierarchicalHubLocal(CoordinationMethod):
             zones_per_region,
             devices_per_region,
             region_ids,
-        ) = _build_region_index(
-            zone_to_region, agent_ids, obs, zone_ids, device_ids, device_zone
-        )
+        ) = _build_region_index(zone_to_region, agent_ids, obs, zone_ids, device_ids, device_zone)
         layout = (policy or {}).get("zone_layout") or {}
         adjacency = build_adjacency_set(layout.get("graph_edges") or [])
 
         still_pending, escalated = self._handoff.tick(t)
-        escalated_work: Set[Tuple[str, str]] = set(
-            (e.work_id, e.device_id) for e in escalated
-        )
+        escalated_work: set[tuple[str, str]] = set((e.work_id, e.device_id) for e in escalated)
 
         macro = self._hub.assign(obs, zone_to_region, device_zone, device_ids, t, rng)
-        region_assignments: Dict[str, List[Tuple[str, str, str, str, int, int]]] = (
-            defaultdict(list)
-        )
+        region_assignments: dict[str, list[tuple[str, str, str, str, int, int]]] = defaultdict(list)
         for region_id, work_id, device_id, zone_id, prio, deadline in macro:
             if (work_id, device_id) in escalated_work:
                 continue
-            region_assignments[region_id].append(
-                (region_id, work_id, device_id, zone_id, prio, deadline)
-            )
+            region_assignments[region_id].append((region_id, work_id, device_id, zone_id, prio, deadline))
             if not self._handoff.has_pending(work_id, device_id, region_id):
-                self._handoff.create_handoff(
-                    work_id, device_id, HUB_REGION_ID, region_id, zone_id, t, prio
-                )
+                self._handoff.create_handoff(work_id, device_id, HUB_REGION_ID, region_id, zone_id, t, prio)
 
         for rid in sorted(region_ids):
             seen_rid = {(a[2], a[1]) for a in region_assignments[rid]}
@@ -178,9 +166,7 @@ class HierarchicalHubLocal(CoordinationMethod):
                         )
                     )
 
-        actions: Dict[str, Dict[str, Any]] = {
-            aid: {"action_index": ACTION_NOOP} for aid in agent_ids
-        }
+        actions: dict[str, dict[str, Any]] = {aid: {"action_index": ACTION_NOOP} for aid in agent_ids}
         for rid in sorted(region_ids):
             ragents = sorted(agents_per_region.get(rid, []))
             rzones = sorted(zones_per_region.get(rid, []))
@@ -219,13 +205,11 @@ class HierarchicalHubLocal(CoordinationMethod):
 
     def propose_actions(
         self,
-        obs: Dict[str, Any],
-        infos: Dict[str, Dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
         t: int,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         import random
-
-        from labtrust_gym.baselines.coordination.compose import build_kernel_context
 
         policy = self._policy
         scale_config = self._scale_config
@@ -243,5 +227,5 @@ class HierarchicalHubLocal(CoordinationMethod):
         actions, _ = self.step(ctx)
         return actions
 
-    def get_hierarchy_metrics(self) -> Dict[str, Any]:
+    def get_hierarchy_metrics(self) -> dict[str, Any]:
         return dict(self._last_hierarchy_metrics)

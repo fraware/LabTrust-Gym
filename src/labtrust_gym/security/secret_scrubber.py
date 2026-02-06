@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Iterable
-
+from collections.abc import Iterable
+from typing import Any
 
 # Env var names that are considered secret (case-insensitive substring match)
 _SECRET_NAME_PATTERNS = (
@@ -67,14 +67,14 @@ def scrub_secrets(
     return result
 
 
-def scrub_dict_for_log(d: dict) -> dict:
+def scrub_dict_for_log(d: dict[str, Any]) -> dict[str, Any]:
     """
     Return a copy of d with secret-like keys redacted.
 
     Keys whose name (case-insensitive) contains KEY, SECRET, PASSWORD, TOKEN
     are replaced with placeholder value. Nested dicts are processed recursively.
     """
-    out: dict = {}
+    out: dict[str, Any] = {}
     for k, v in d.items():
         if isinstance(v, dict):
             out[k] = scrub_dict_for_log(v)

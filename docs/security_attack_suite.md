@@ -2,6 +2,20 @@
 
 The security attack suite is a **first-class golden benchmark** that maps risks (from `policy/risks/risk_registry.v0.1.yaml`) to controls and executable scenarios. It provides a coverage harness for jailbreaks and prompt injection, tool vulnerability and egress, identity spoofing and replay, memory poisoning, and observability. The **securitization packet** is an auditable set of artifacts emitted under `SECURITY/` for release and paper artifacts.
 
+## Prerequisites
+
+The suite needs packages in the **same Python environment** that runs `labtrust`. Prefer `python -m pip` so the active interpreter (e.g. your venv) gets the packages:
+
+- **Prompt-injection attacks (SEC-PI-001 to SEC-PI-004):** `pettingzoo` and `gymnasium`. Install with: `python -m pip install pettingzoo gymnasium` or `pip install -e ".[env]"`.
+- **Test-ref attacks (SEC-TOOL-001, SEC-COORD-001, etc.):** `pytest` (run as subprocess). Install with: `python -m pip install pytest` or `pip install -e ".[dev]"`.
+
+Full suite in current environment: `python -m pip install -e ".[dev,env]"`. If you use a virtual environment, activate it first.
+
+If you see **0/10 passed**, check `SECURITY/attack_results.json` in the output directory for each attack’s `error` field. Typical causes: missing pettingzoo/gymnasium or pytest in the environment that runs `labtrust`.
+
+**Windows / venv: pip installs to the wrong Python**  
+If you run `pip install ...` and see "Requirement already satisfied" under `...\Python\Python312\lib\site-packages` (global Python) while `labtrust` runs from `.venv\Scripts\python.exe`, packages are in the wrong environment. Use the **exact copy-paste command** printed by the CLI hint. In **PowerShell** you must use the call operator: `& "C:\Path\To\LabTrust-Gym\.venv\Scripts\python.exe" -m pip install pettingzoo gymnasium pytest`. In Cmd, omit the leading `& `.
+
 ## Overview
 
 - **Attack suite**: `policy/golden/security_attack_suite.v0.1.yaml` defines controls (e.g. CTRL-LLM-SHIELD, CTRL-TOOL-SANDBOX, CTRL-COORD-IDENTITY, CTRL-MEMORY) and attacks with `risk_id`, `control_id`, `scenario_ref` (prompt-injection scenarios) or `test_ref` (pytest module), `expected_outcome` (blocked/detected), and `smoke` (CI flag).

@@ -9,11 +9,10 @@ import pytest
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_NOOP,
-    action_dict_to_index_and_info,
     CoordinationMethod,
+    action_dict_to_index_and_info,
 )
 from labtrust_gym.baselines.coordination.registry import make_coordination_method
-from labtrust_gym.benchmarks.tasks import get_task
 
 
 def _tiny_scale_policy() -> dict:
@@ -49,9 +48,7 @@ def _fake_obs(agent_ids: list[str], t: int) -> dict:
         out[aid] = {
             "my_zone_idx": 1 + (i % 2),
             "zone_id": "Z_B" if i % 2 else "Z_A",
-            "queue_by_device": [
-                {"device_id": "DEV_1", "queue_len": 0, "queue_head": None}
-            ],
+            "queue_by_device": [{"device_id": "DEV_1", "queue_len": 0, "queue_head": None}],
             "queue_has_head": [0],
             "log_frozen": 0,
             "door_restricted_open": 0,
@@ -94,9 +91,7 @@ def test_coordination_method_smoke_50_steps(method_id: str) -> None:
     """Each non-LLM, non-MARL method runs 50 steps and returns valid actions."""
     policy = _tiny_scale_policy()
     scale_config = {"num_agents_total": 2, "num_sites": 1}
-    method = make_coordination_method(
-        method_id, policy, repo_root=None, scale_config=scale_config
-    )
+    method = make_coordination_method(method_id, policy, repo_root=None, scale_config=scale_config)
     assert isinstance(method, CoordinationMethod)
     _run_50_steps(method, policy, scale_config)
 
@@ -115,17 +110,15 @@ def test_centralized_planner_compute_budget() -> None:
     obs = _fake_obs(agents, 0)
     actions_dict = method.propose_actions(obs, {}, 0)
     assert len(actions_dict) == 3
-    non_noop = sum(
-        1 for a in actions_dict.values() if a.get("action_index") != ACTION_NOOP
-    )
+    non_noop = sum(1 for a in actions_dict.values() if a.get("action_index") != ACTION_NOOP)
     assert non_noop <= 1
 
 
 def test_marl_ppo_stub_skip_if_no_deps() -> None:
     """marl_ppo is skipped (or raises) when SB3 not installed."""
     try:
-        import stable_baselines3  # noqa: F401
         import gymnasium  # noqa: F401
+        import stable_baselines3  # noqa: F401
 
         pytest.skip("SB3 installed; test only runs when marl extra missing")
     except ImportError:

@@ -9,18 +9,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
+from labtrust_gym.engine.core_env import CoreEnv
 from labtrust_gym.testing.fuzz import (
     generate_event_sequence,
     run_fuzz_session,
 )
-from labtrust_gym.engine.core_env import CoreEnv
 from labtrust_gym.tools.registry import load_tool_registry
 
 
 def _repo_root() -> Path:
     from labtrust_gym.config import get_repo_root
+
     return Path(get_repo_root())
 
 

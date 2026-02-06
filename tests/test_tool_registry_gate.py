@@ -1,5 +1,5 @@
 """
-Tests for tool registry gate (B010): unknown tool_id BLOCKED, hash validation, EvidenceBundle digest.
+Tests for tool registry gate (B010): unknown tool_id BLOCKED, hash validation, EvidenceBundle.
 """
 
 from __future__ import annotations
@@ -9,20 +9,20 @@ from pathlib import Path
 
 import pytest
 
+from labtrust_gym.auth.authorize import (
+    is_tool_allowed,
+    rbac_policy_fingerprint,
+)
 from labtrust_gym.engine.core_env import CoreEnv
 from labtrust_gym.tools.registry import (
-    TOOL_NOT_IN_REGISTRY,
     TOOL_NOT_ALLOWED_FOR_ROLE,
+    TOOL_NOT_IN_REGISTRY,
     check_tool_allowed,
     combined_policy_fingerprint,
     get_tool_entry,
     load_tool_registry,
     tool_registry_fingerprint,
     validate_registry_hashes,
-)
-from labtrust_gym.auth.authorize import (
-    is_tool_allowed,
-    rbac_policy_fingerprint,
 )
 
 
@@ -141,7 +141,7 @@ def test_tool_not_allowed_for_role_when_allow_list_restricts() -> None:
 
 
 def test_tool_excluded_for_role_rbac_blocked() -> None:
-    """When RBAC role has allowed_tool_ids and tool_id not in list, BLOCKED with TOOL_NOT_ALLOWED_FOR_ROLE."""
+    """RBAC allowed_tool_ids: if tool_id not in list -> BLOCKED with TOOL_NOT_ALLOWED_FOR_ROLE."""
     registry = {
         "tool_registry": {
             "version": "0.1",
@@ -331,11 +331,11 @@ def test_evidence_bundle_includes_tool_registry_digest_and_verification_checks(
     assert manifest_path.exists()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest.get("tool_registry_fingerprint") == tool_fp
-    # policy_fingerprint should be combined (not raw policy_fp) when tool_registry_fingerprint was set
+    # policy_fingerprint is combined (not raw policy_fp) when tool_registry_fingerprint set
     assert manifest.get("policy_fingerprint") != policy_fp
     assert len(manifest["policy_fingerprint"]) == 64
 
-    # Verification: when policy_root has no tool_registry file, verification reports error for tool_registry_fingerprint.
+    # If policy_root has no tool_registry, verification reports error for tool_registry_fingerprint.
     passed, report, errors = verify_bundle(
         out / "EvidenceBundle.v0.1",
         policy_root=tmp_path,
@@ -343,9 +343,7 @@ def test_evidence_bundle_includes_tool_registry_digest_and_verification_checks(
     )
     assert "tool_registry_fingerprint" in manifest
     if not passed and errors:
-        assert any(
-            "tool_registry" in e or "tool_registry_fingerprint" in e for e in errors
-        )
+        assert any("tool_registry" in e or "tool_registry_fingerprint" in e for e in errors)
 
 
 def test_get_tool_entry() -> None:
@@ -380,9 +378,7 @@ def test_load_tool_registry_from_repo(repo_root: Path) -> None:
         assert reg == {} or "tool_registry" in reg
 
 
-def test_evidence_bundle_verify_recomputes_rbac_and_tool_fingerprints(
-    repo_root: Path, tmp_path: Path
-) -> None:
+def test_evidence_bundle_verify_recomputes_rbac_and_tool_fingerprints(repo_root: Path, tmp_path: Path) -> None:
     """Verify bundle recomputes RBAC and tool registry fingerprints from policy_root."""
     from labtrust_gym.engine.rbac import load_rbac_policy
     from labtrust_gym.export.receipts import write_evidence_bundle

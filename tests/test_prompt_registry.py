@@ -132,7 +132,7 @@ def test_llm_decision_includes_prompt_id_version_fingerprint() -> None:
         LLMAgentWithShield,
     )
 
-    root = Path(__file__).resolve().parent.parent
+    Path(__file__).resolve().parent.parent
     rbac = {
         "roles": [{"role_id": "ops", "allowed_actions": ["NOOP", "TICK"]}],
         "agents": {"ops_0": "ops"},
@@ -198,7 +198,7 @@ def test_shift_change_prompt_id_changes_with_role_in_observation() -> None:
         LLMAgentWithShield,
     )
 
-    root = Path(__file__).resolve().parent.parent
+    Path(__file__).resolve().parent.parent
     rbac = {
         "roles": [
             {"role_id": "ROLE_RECEPTION", "allowed_actions": ["NOOP", "TICK"]},

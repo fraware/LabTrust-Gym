@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,15 +19,15 @@ class InvariantEntry:
     description: str
     severity: str  # info | low | med | high | critical
     scope: str  # specimen | result | device | zone | agent | system
-    signals: List[str]
-    logic_template: Dict[str, Any]  # type + parameters
-    exception_hooks: Dict[str, Any]  # override_token_types, allow_when
-    enforcement_hint: Dict[str, Any]  # recommend_action
-    reason_code: Optional[str] = None
-    triggers: List[str] = field(default_factory=list)
+    signals: list[str]
+    logic_template: dict[str, Any]  # type + parameters
+    exception_hooks: dict[str, Any]  # override_token_types, allow_when
+    enforcement_hint: dict[str, Any]  # recommend_action
+    reason_code: str | None = None
+    triggers: list[str] = field(default_factory=list)
 
 
-def _normalize_entry(raw: Dict[str, Any]) -> InvariantEntry:
+def _normalize_entry(raw: dict[str, Any]) -> InvariantEntry:
     """Build InvariantEntry from raw YAML entry."""
     logic = raw.get("logic_template") or {}
     if isinstance(logic, str):
@@ -59,7 +59,7 @@ def _normalize_entry(raw: Dict[str, Any]) -> InvariantEntry:
     )
 
 
-def load_invariant_registry(path: Optional[Path] = None) -> List[InvariantEntry]:
+def load_invariant_registry(path: Path | None = None) -> list[InvariantEntry]:
     """
     Load invariant registry YAML and return list of InvariantEntry.
     Path defaults to policy/invariants/invariant_registry.v1.0.yaml.
@@ -69,6 +69,7 @@ def load_invariant_registry(path: Optional[Path] = None) -> List[InvariantEntry]
         return []
     try:
         import yaml
+
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception:
         return []
@@ -77,7 +78,7 @@ def load_invariant_registry(path: Optional[Path] = None) -> List[InvariantEntry]
     raw_list = data.get("invariants")
     if not isinstance(raw_list, list):
         return []
-    entries: List[InvariantEntry] = []
+    entries: list[InvariantEntry] = []
     for raw in raw_list:
         if isinstance(raw, dict) and raw.get("invariant_id"):
             entries.append(_normalize_entry(raw))

@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import random
 
-import pytest
-
 from labtrust_gym.baselines.coordination.routing.graph import RoutingGraph
 from labtrust_gym.baselines.coordination.routing.reservations import (
     ReservationTable,

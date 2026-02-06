@@ -14,7 +14,6 @@ from labtrust_gym.benchmarks.security_runner import (
     load_attack_suite,
     run_security_suite,
     run_suite_and_emit,
-    write_attack_results,
 )
 
 
@@ -23,7 +22,7 @@ def _repo_root() -> Path:
 
 
 def test_load_attack_suite() -> None:
-    """Attack suite YAML loads and has attacks with risk_id, control_id, scenario_ref or test_ref."""
+    """Attack suite YAML loads; attacks have risk_id, control_id, scenario_ref or test_ref."""
     root = _repo_root()
     suite = load_attack_suite(root)
     assert isinstance(suite, dict)

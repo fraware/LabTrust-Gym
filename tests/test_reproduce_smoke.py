@@ -54,9 +54,7 @@ def test_reproduce_smoke_minimal_runs() -> None:
             text=True,
             timeout=120,
         )
-        assert result.returncode == 0, (
-            f"stderr={result.stderr!r} stdout={result.stdout!r}"
-        )
+        assert result.returncode == 0, f"stderr={result.stderr!r} stdout={result.stdout!r}"
         assert (out_dir / "spec_TaskA.yaml").exists()
         assert (out_dir / "spec_TaskC.yaml").exists()
         assert (out_dir / "taska").is_dir()

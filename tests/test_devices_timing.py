@@ -30,10 +30,7 @@ def test_load_equipment_registry_returns_inner_dict() -> None:
     assert "device_types" in reg
     assert "device_instances" in reg
     assert "CENTRIFUGE_BANK" in reg.get("device_types", {})
-    assert any(
-        inst.get("device_id") == "DEV_CENTRIFUGE_BANK_01"
-        for inst in reg.get("device_instances", [])
-    )
+    assert any(inst.get("device_id") == "DEV_CENTRIFUGE_BANK_01" for inst in reg.get("device_instances", []))
 
 
 def test_device_store_deterministic_service_time_same_seed() -> None:
@@ -46,12 +43,8 @@ def test_device_store_deterministic_service_time_same_seed() -> None:
     store2 = DeviceStore(registry=reg, rng=rng2)
     store1.set_known_devices(["DEV_CHEM_A_01"])
     store2.set_known_devices(["DEV_CHEM_A_01"])
-    ok1 = store1.start_run(
-        "DEV_CHEM_A_01", "R1", 100, specimen_ids=["S1"], panel_id="BIOCHEM_PANEL_CORE"
-    )
-    ok2 = store2.start_run(
-        "DEV_CHEM_A_01", "R1", 100, specimen_ids=["S1"], panel_id="BIOCHEM_PANEL_CORE"
-    )
+    ok1 = store1.start_run("DEV_CHEM_A_01", "R1", 100, specimen_ids=["S1"], panel_id="BIOCHEM_PANEL_CORE")
+    ok2 = store2.start_run("DEV_CHEM_A_01", "R1", 100, specimen_ids=["S1"], panel_id="BIOCHEM_PANEL_CORE")
     assert ok1 and ok2
     run1 = store1.get_active_run("DEV_CHEM_A_01")
     run2 = store2.get_active_run("DEV_CHEM_A_01")
@@ -151,14 +144,16 @@ def test_golden_suite_still_uses_explicit_timing() -> None:
     }
     env.reset(initial_state, deterministic=True, rng_seed=12345)
     # START_RUN without timing_mode => explicit => no device_store => ACCEPTED
-    result = env.step({
-        "event_id": "e1",
-        "t_s": 1500,
-        "agent_id": "A_ANALYTICS",
-        "action_type": "START_RUN",
-        "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R1", "specimen_ids": ["S1"]},
-        "reason_code": None,
-        "token_refs": [],
-    })
+    result = env.step(
+        {
+            "event_id": "e1",
+            "t_s": 1500,
+            "agent_id": "A_ANALYTICS",
+            "action_type": "START_RUN",
+            "args": {"device_id": "DEV_CHEM_A_01", "run_id": "R1", "specimen_ids": ["S1"]},
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
     assert result["status"] == "ACCEPTED"
     assert "START_RUN" in (result.get("emits") or [])

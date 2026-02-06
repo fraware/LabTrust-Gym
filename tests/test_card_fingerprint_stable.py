@@ -5,7 +5,6 @@ yield the same fingerprint; changing content or set yields a different fingerpri
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest

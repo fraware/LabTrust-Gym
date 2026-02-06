@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
@@ -21,11 +21,11 @@ from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 class DetectionResult:
     """Result of adversarial detection run."""
 
-    flags: List[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
     severity: int = 0
     suggested_action: str = "NOOP"
-    reason_code: Optional[str] = None
-    matched_pattern_ids: List[str] = field(default_factory=list)
+    reason_code: str | None = None
+    matched_pattern_ids: list[str] = field(default_factory=list)
 
 
 def _get_repo_root() -> Path:
@@ -39,9 +39,9 @@ def _get_repo_root() -> Path:
 
 
 def load_adversarial_detection_policy(
-    path: Optional[Path] = None,
-    repo_root: Optional[Path] = None,
-) -> Dict[str, Any]:
+    path: Path | None = None,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
     """
     Load adversarial_detection.v0.1.yaml. Returns dict with version, severity_threshold,
     patterns, suggested_actions, max_text_length.
@@ -94,17 +94,15 @@ def load_adversarial_detection_policy(
     return {
         "version": data.get("version", "0.1"),
         "severity_threshold": max(0, min(3, int(data.get("severity_threshold", 1)))),
-        "max_text_length": max(
-            100, min(100000, int(data.get("max_text_length", 2000)))
-        ),
+        "max_text_length": max(100, min(100000, int(data.get("max_text_length", 2000)))),
         "patterns": patterns,
         "suggested_actions": suggested,
     }
 
 
-def _collect_texts(context: Dict[str, Any], max_len: int) -> List[str]:
+def _collect_texts(context: dict[str, Any], max_len: int) -> list[str]:
     """Collect and truncate all text fields from observation context."""
-    texts: List[str] = []
+    texts: list[str] = []
     for key in ("specimen_notes", "scenario_notes", "llm_output_text"):
         raw = context.get(key)
         if raw is None:
@@ -132,7 +130,7 @@ def _collect_texts(context: Dict[str, Any], max_len: int) -> List[str]:
     return texts
 
 
-def _match_pattern(pattern_spec: Dict[str, Any], text: str) -> bool:
+def _match_pattern(pattern_spec: dict[str, Any], text: str) -> bool:
     """Return True if text matches pattern (substring case-insensitive or re: regex)."""
     pat = pattern_spec.get("pattern")
     if not isinstance(pat, str) or not pat:
@@ -146,9 +144,9 @@ def _match_pattern(pattern_spec: Dict[str, Any], text: str) -> bool:
 
 
 def detect_adversarial(
-    observation_context: Dict[str, Any],
-    policy: Optional[Dict[str, Any]] = None,
-    repo_root: Optional[Path] = None,
+    observation_context: dict[str, Any],
+    policy: dict[str, Any] | None = None,
+    repo_root: Path | None = None,
 ) -> DetectionResult:
     """
     Run adversarial detection on observation context.
@@ -176,10 +174,10 @@ def detect_adversarial(
             matched_pattern_ids=[],
         )
 
-    flags: List[str] = []
-    matched_ids: List[str] = []
+    flags: list[str] = []
+    matched_ids: list[str] = []
     max_severity = 0
-    reason_code: Optional[str] = None
+    reason_code: str | None = None
 
     for pat in patterns:
         if not isinstance(pat, dict):

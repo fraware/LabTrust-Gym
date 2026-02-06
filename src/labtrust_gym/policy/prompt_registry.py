@@ -17,7 +17,6 @@ from typing import Any
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
-
 DEFAULT_PROMPT_ID = "ops_v2"
 DEFAULT_PROMPT_VERSION = "2.0.0"
 PROMPT_REGISTRY_FILENAME = "prompt_registry.v0.1.yaml"
@@ -53,6 +52,22 @@ def load_defaults(repo_root: Path | None = None) -> tuple[str, str]:
         str(pid) if pid is not None else DEFAULT_PROMPT_ID,
         str(ver) if ver is not None else DEFAULT_PROMPT_VERSION,
     )
+
+
+def load_use_prompts_v02(repo_root: Path | None = None) -> bool:
+    """
+    Load use_prompts_v02 from policy/llm/defaults.yaml.
+    When true, use policy/llm/prompts.v0.2.yaml and content-based prompt_fingerprint.
+    """
+    root = _get_repo_root(repo_root)
+    path = root / "policy" / "llm" / DEFAULTS_FILENAME
+    if not path.exists():
+        return False
+    try:
+        data = load_yaml(path)
+    except PolicyLoadError:
+        return False
+    return bool(data.get("use_prompts_v02", False))
 
 
 def load_prompt(

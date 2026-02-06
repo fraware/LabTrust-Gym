@@ -5,8 +5,6 @@ is rejected with COORD_SHIELD_REJECT_COLLISION (INV-ROUTE-001).
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.assurance.simplex import (
     REASON_SHIELD_COLLISION,
     ShieldResult,
@@ -63,9 +61,7 @@ def test_shield_rejects_collision_two_agents_same_target() -> None:
     assert isinstance(result, ShieldResult)
     assert result.ok is False
     assert result.counters.get("collision", 0) >= 1
-    assert any(
-        REASON_SHIELD_COLLISION in r or "INV-ROUTE-001" in r for r in result.reasons
-    )
+    assert any(REASON_SHIELD_COLLISION in r or "INV-ROUTE-001" in r for r in result.reasons)
 
 
 def test_shield_accepts_no_collision() -> None:

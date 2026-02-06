@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.engine.audit_log import canonical_serialize
 
@@ -72,12 +72,12 @@ def build_signing_payload(
     t_s: int,
     agent_id: str,
     action_type: str,
-    action_params: Dict[str, Any],
-    token_refs: List[str],
-    partner_id: Optional[str],
-    policy_fingerprint: Optional[str],
+    action_params: dict[str, Any],
+    token_refs: list[str],
+    partner_id: str | None,
+    policy_fingerprint: str | None,
     prev_hash: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Build the canonical signing payload dict (same key order via sort_keys in serialization).
     Optional fields use None for deterministic JSON.
@@ -95,12 +95,12 @@ def build_signing_payload(
     }
 
 
-def canonical_payload_bytes(payload: Dict[str, Any]) -> bytes:
+def canonical_payload_bytes(payload: dict[str, Any]) -> bytes:
     """Serialize payload with same canonicalization as audit log (deterministic)."""
     return canonical_serialize(payload)
 
 
-def load_key_registry(path: Path) -> Dict[str, Any]:
+def load_key_registry(path: Path) -> dict[str, Any]:
     """Load key_registry YAML. Returns dict with key_registry.version and key_registry.keys."""
     from labtrust_gym.policy.loader import load_yaml
 
@@ -114,7 +114,7 @@ def load_key_registry(path: Path) -> Dict[str, Any]:
     return {"version": reg.get("version", "0.1"), "keys": keys}
 
 
-def _key_by_id(registry: Dict[str, Any], key_id: str) -> Optional[Dict[str, Any]]:
+def _key_by_id(registry: dict[str, Any], key_id: str) -> dict[str, Any] | None:
     """Return first key entry with given key_id or None."""
     for k in registry.get("keys", []):
         if isinstance(k, dict) and k.get("key_id") == key_id:
@@ -122,7 +122,7 @@ def _key_by_id(registry: Dict[str, Any], key_id: str) -> Optional[Dict[str, Any]
     return None
 
 
-def _key_valid_at(key: Dict[str, Any], now_ts: int) -> Tuple[bool, Optional[str]]:
+def _key_valid_at(key: dict[str, Any], now_ts: int) -> tuple[bool, str | None]:
     """Return (True, None) if key is valid at now_ts; else (False, reason_code)."""
     status = (key.get("status") or "ACTIVE").strip().upper()
     if status == "REVOKED":
@@ -148,8 +148,8 @@ def verify_signature(
     Returns True if valid, False otherwise.
     """
     try:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     except ImportError:
         return False
     try:
@@ -170,13 +170,13 @@ def verify_signature(
 
 
 def verify_action_signature(
-    event: Dict[str, Any],
+    event: dict[str, Any],
     prev_hash: str,
-    partner_id: Optional[str],
-    policy_fingerprint: Optional[str],
-    registry: Dict[str, Any],
+    partner_id: str | None,
+    policy_fingerprint: str | None,
+    registry: dict[str, Any],
     now_ts: int,
-) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+) -> tuple[bool, str | None, dict[str, Any] | None]:
     """
     Verify signature on event if present. Returns (passed, reason_code, signature_verification_info).
     - If no signature required (non-mutating or no strict): (True, None, info) with info.passed from actual verify if signature was present.
@@ -188,7 +188,7 @@ def verify_action_signature(
     action_type = (event.get("action_type") or "").strip()
     key_id = event.get("key_id")
     signature_b64 = event.get("signature")
-    info: Dict[str, Any] = {"passed": False, "reason_code": None, "key_id": key_id}
+    info: dict[str, Any] = {"passed": False, "reason_code": None, "key_id": key_id}
 
     if not key_id and not signature_b64:
         # No signature supplied

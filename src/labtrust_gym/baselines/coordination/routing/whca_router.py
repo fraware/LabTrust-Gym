@@ -6,7 +6,7 @@ Deterministic tie-breaks via rng; no external MAPF libs.
 from __future__ import annotations
 
 import heapq
-from typing import Any, Callable, List, Optional, Set, Tuple
+from typing import Any
 
 from labtrust_gym.baselines.coordination.routing.graph import RoutingGraph
 from labtrust_gym.baselines.coordination.routing.reservations import (
@@ -17,7 +17,7 @@ from labtrust_gym.baselines.coordination.routing.reservations import (
 def _manhattan_heuristic(
     node: str,
     goal: str,
-    zone_order: Optional[List[str]],
+    zone_order: list[str] | None,
 ) -> int:
     """Heuristic: 0 if node==goal else 1 (topological graph, no coordinates)."""
     if node == goal:
@@ -42,8 +42,8 @@ def whca_route(
     reservations: ReservationTable,
     rng: Any,
     has_restricted_token: bool = False,
-    zone_order: Optional[List[str]] = None,
-) -> List[Tuple[int, str]]:
+    zone_order: list[str] | None = None,
+) -> list[tuple[int, str]]:
     """
     Plan path from (t0, start) to (t, goal) with t in [t0, t0+horizon].
     A* over (t, node); edge cost 1 time step; avoids (t, n) already reserved by another.
@@ -57,8 +57,8 @@ def whca_route(
         return [(t0, start)]
 
     max_t = min(t0 + horizon, reservations._max_t)
-    seen: Set[Tuple[int, str]] = set()
-    open_heap: List[Tuple[int, int, int, str, List[Tuple[int, str]]]] = []
+    seen: set[tuple[int, str]] = set()
+    open_heap: list[tuple[int, int, int, str, list[tuple[int, str]]]] = []
     g = 0
     h = _manhattan_heuristic(start, goal, zone_order)
     heapq.heappush(
@@ -123,8 +123,8 @@ def whca_route_and_reserve(
     reservations: ReservationTable,
     rng: Any,
     has_restricted_token: bool = False,
-    zone_order: Optional[List[str]] = None,
-) -> List[Tuple[int, str]]:
+    zone_order: list[str] | None = None,
+) -> list[tuple[int, str]]:
     """
     Plan with whca_route; if path found, reserve it and return path.
     Else return [].

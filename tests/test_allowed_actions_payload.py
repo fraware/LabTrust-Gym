@@ -7,17 +7,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
+from labtrust_gym.baselines.llm.agent import _allowed_actions_from_user_message
 from labtrust_gym.baselines.llm.allowed_actions_payload import (
-    DEFAULT_MAX_ACTIONS,
-    DEFAULT_MAX_LIST_LEN,
     ACTION_SPEC_REGISTRY,
     allowed_actions_from_payload,
     build_allowed_actions_payload,
     serialize_allowed_actions_payload,
 )
-from labtrust_gym.baselines.llm.agent import _allowed_actions_from_user_message
 from labtrust_gym.baselines.llm.prompts import build_user_payload_from_context
 
 

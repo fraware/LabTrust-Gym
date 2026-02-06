@@ -14,7 +14,6 @@ import pytest
 
 from labtrust_gym.engine.catalogue_runtime import (
     RC_REAGENT_STOCKOUT,
-    build_initial_reagent_stock,
     get_panel_reagent_requirement,
     load_reagent_policy,
 )
@@ -28,6 +27,7 @@ from labtrust_gym.engine.devices import (
 
 def _repo_root() -> Path:
     from labtrust_gym.config import get_repo_root
+
     return Path(get_repo_root())
 
 

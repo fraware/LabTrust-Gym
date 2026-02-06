@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+
 # Normalized platform string (no paths, no hostnames)
 def _platform_identifier() -> str:
     return sys.platform  # e.g. "win32", "linux", "darwin"
@@ -34,12 +35,15 @@ def _pyproject_toml_hash(repo_root: Path | None) -> str | None:
             return hashlib.sha256(p.read_bytes()).hexdigest()
     try:
         from importlib.resources import files
+
         pkg_root = files("labtrust_gym")
         # When installed, pyproject may not be in package; try parent
-        for candidate in (pkg_root / ".." / ".." / "pyproject.toml",
-                          pkg_root / ".." / "pyproject.toml"):
+        for candidate in (
+            pkg_root / ".." / ".." / "pyproject.toml",
+            pkg_root / ".." / "pyproject.toml",
+        ):
             try:
-                path = candidate.resolve()
+                path = Path(str(candidate)).resolve()
                 if path.is_file():
                     return hashlib.sha256(path.read_bytes()).hexdigest()
             except (OSError, ValueError):
@@ -59,17 +63,21 @@ def collect_runtime_deps(repo_root: Path | None = None) -> dict[str, Any]:
     packages: list[dict[str, str]] = []
     try:
         from importlib.metadata import distributions
+
         for d in distributions():
-            name = d.metadata.get("Name") or d.metadata.get("name")
-            version = d.metadata.get("Version") or d.metadata.get("version")
+            meta = d.metadata
+            name = getattr(meta, "Name", None) or getattr(meta, "name", None)
+            version = getattr(meta, "Version", None) or getattr(meta, "version", None)
             name_str = (name or "").strip() if name is not None else ""
             if not name_str:
                 continue
             name_norm = name_str.lower().replace("_", "-")
-            packages.append({
-                "name": name_norm,
-                "version": (version or "unknown").strip(),
-            })
+            packages.append(
+                {
+                    "name": name_norm,
+                    "version": (version or "unknown").strip(),
+                }
+            )
     except Exception:
         pass
     packages.sort(key=lambda x: (x["name"], x["version"]))

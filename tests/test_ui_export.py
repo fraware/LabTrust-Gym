@@ -33,9 +33,7 @@ def _quick_eval_fixture_dir(tmp_path: Path) -> Path:
     # Copy or create TaskA.json (results.v0.2 shape)
     results_src = _repo_root() / "ui_fixtures" / "results_v0.2.json"
     if results_src.exists():
-        (run_dir / "TaskA.json").write_text(
-            results_src.read_text(encoding="utf-8"), encoding="utf-8"
-        )
+        (run_dir / "TaskA.json").write_text(results_src.read_text(encoding="utf-8"), encoding="utf-8")
     else:
         (run_dir / "TaskA.json").write_text(
             json.dumps(
@@ -51,9 +49,7 @@ def _quick_eval_fixture_dir(tmp_path: Path) -> Path:
         )
     log_src = _repo_root() / "ui_fixtures" / "episode_log.jsonl"
     if log_src.exists():
-        (logs_dir / "TaskA.jsonl").write_text(
-            log_src.read_text(encoding="utf-8"), encoding="utf-8"
-        )
+        (logs_dir / "TaskA.jsonl").write_text(log_src.read_text(encoding="utf-8"), encoding="utf-8")
     else:
         line = json.dumps(
             {

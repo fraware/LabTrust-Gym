@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from dataclasses import asdict
+from pathlib import Path
 
 import jsonschema
 import pytest
@@ -98,15 +98,17 @@ def test_core_env_reset_step_query() -> None:
         deterministic=True,
         rng_seed=42,
     )
-    out = env.step({
-        "event_id": "e1",
-        "t_s": 8000,
-        "agent_id": "A_RECEPTION",
-        "action_type": "CREATE_ACCESSION",
-        "args": {"specimen_id": "S1"},
-        "reason_code": None,
-        "token_refs": [],
-    })
+    out = env.step(
+        {
+            "event_id": "e1",
+            "t_s": 8000,
+            "agent_id": "A_RECEPTION",
+            "action_type": "CREATE_ACCESSION",
+            "args": {"specimen_id": "S1"},
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
     assert out["status"] == "ACCEPTED"
     assert "CREATE_ACCESSION" in out["emits"]
     assert out["hashchain"]["length"] == 1
@@ -125,38 +127,49 @@ def test_core_env_forensic_freeze_blocks_further_steps() -> None:
         deterministic=True,
         rng_seed=42,
     )
-    env.step({
-        "event_id": "e1",
-        "t_s": 8000,
-        "agent_id": "A_RECEPTION",
-        "action_type": "CREATE_ACCESSION",
-        "args": {"specimen_id": "S1"},
-        "reason_code": None,
-        "token_refs": [],
-    })
-    out2 = env.step({
-        "event_id": "e2",
-        "t_s": 8010,
-        "agent_id": "A_RECEPTION",
-        "action_type": "ACCEPT_SPECIMEN",
-        "args": {"specimen_id": "S1"},
-        "reason_code": None,
-        "token_refs": [],
-    })
+    env.step(
+        {
+            "event_id": "e1",
+            "t_s": 8000,
+            "agent_id": "A_RECEPTION",
+            "action_type": "CREATE_ACCESSION",
+            "args": {"specimen_id": "S1"},
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
+    out2 = env.step(
+        {
+            "event_id": "e2",
+            "t_s": 8010,
+            "agent_id": "A_RECEPTION",
+            "action_type": "ACCEPT_SPECIMEN",
+            "args": {"specimen_id": "S1"},
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
     assert out2["status"] == "ACCEPTED"
     assert "FORENSIC_FREEZE_LOG" in out2["emits"]
     assert env.query("system_state('log_frozen')") == "true"
     assert env.query("last_reason_code_system") == "AUDIT_CHAIN_BROKEN"
 
-    out3 = env.step({
-        "event_id": "e3",
-        "t_s": 8020,
-        "agent_id": "A_RECEPTION",
-        "action_type": "MOVE",
-        "args": {"entity_type": "Agent", "entity_id": "A_RECEPTION", "from_zone": "Z_SRA_RECEPTION", "to_zone": "Z_ACCESSIONING"},
-        "reason_code": None,
-        "token_refs": [],
-    })
+    out3 = env.step(
+        {
+            "event_id": "e3",
+            "t_s": 8020,
+            "agent_id": "A_RECEPTION",
+            "action_type": "MOVE",
+            "args": {
+                "entity_type": "Agent",
+                "entity_id": "A_RECEPTION",
+                "from_zone": "Z_SRA_RECEPTION",
+                "to_zone": "Z_ACCESSIONING",
+            },
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
     assert out3["status"] == "BLOCKED"
     assert out3["blocked_reason_code"] == "AUDIT_CHAIN_BROKEN"
 

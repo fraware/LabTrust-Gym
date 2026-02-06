@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from labtrust_gym.baselines.llm.context_builder import (
     CAP_K,
     UNTRUSTED_MAX_CHARS,
@@ -34,12 +32,8 @@ def test_state_summary_stable_for_same_inputs() -> None:
         "policy_fingerprint": "abc",
         "strict_signatures": True,
     }
-    s1 = build_state_summary_v0_2(
-        engine_state, policy, "A_RECEPTION", "ROLE_RECEPTION", 12345, "explicit"
-    )
-    s2 = build_state_summary_v0_2(
-        engine_state, policy, "A_RECEPTION", "ROLE_RECEPTION", 12345, "explicit"
-    )
+    s1 = build_state_summary_v0_2(engine_state, policy, "A_RECEPTION", "ROLE_RECEPTION", 12345, "explicit")
+    s2 = build_state_summary_v0_2(engine_state, policy, "A_RECEPTION", "ROLE_RECEPTION", 12345, "explicit")
     assert json.dumps(s1, sort_keys=True) == json.dumps(s2, sort_keys=True)
     assert s1["schema_version"] == "0.2"
     assert s1["location"]["zone_id"] == "Z_RECEPTION"
@@ -54,14 +48,8 @@ def test_caps_enforced() -> None:
     engine_state = {
         "zone_id": "Z",
         "site_id": "SITE_HUB",
-        "queue_by_device": [
-            {"device_id": f"DEV_{i}", "queue_head": f"W{i}", "queue_len": i}
-            for i in range(20)
-        ],
-        "recent_violations": [
-            {"invariant_id": f"INV-{i}", "severity": "HIGH", "at_ts_s": i}
-            for i in range(15)
-        ],
+        "queue_by_device": [{"device_id": f"DEV_{i}", "queue_head": f"W{i}", "queue_len": i} for i in range(20)],
+        "recent_violations": [{"invariant_id": f"INV-{i}", "severity": "HIGH", "at_ts_s": i} for i in range(15)],
         "log_frozen": False,
     }
     policy = {"strict_signatures": False}
@@ -82,9 +70,7 @@ def test_injection_text_only_in_untrusted_notes() -> None:
         "specimen_notes": malicious,
     }
     policy = {"strict_signatures": False}
-    s = build_state_summary_v0_2(
-        engine_state, policy, "A_RECEPTION", "ROLE", 0, "explicit"
-    )
+    s = build_state_summary_v0_2(engine_state, policy, "A_RECEPTION", "ROLE", 0, "explicit")
     assert s["untrusted_notes"]["present"] is True
     assert len(s["untrusted_notes"]["samples"]) >= 1
     sample = s["untrusted_notes"]["samples"][0]
@@ -134,9 +120,7 @@ def test_state_summary_has_required_fields() -> None:
         "policy_fingerprint": "fp",
         "strict_signatures": True,
     }
-    s = build_state_summary_v0_2(
-        engine_state, policy, "A_RECEPTION", "ROLE_RECEPTION", 12345, "explicit"
-    )
+    s = build_state_summary_v0_2(engine_state, policy, "A_RECEPTION", "ROLE_RECEPTION", 12345, "explicit")
     assert "schema_version" in s and s["schema_version"] == "0.2"
     assert "location" in s and "site_id" in s["location"] and "zone_id" in s["location"]
     assert "queue" in s and "by_device" in s["queue"] and "cap_k" in s["queue"]

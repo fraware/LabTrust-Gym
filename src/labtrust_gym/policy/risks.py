@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
@@ -20,7 +20,7 @@ class RiskRegistry:
     """Loaded risk registry: version and risk_id -> entry mapping."""
 
     version: str
-    risks: Dict[str, Dict[str, Any]]
+    risks: dict[str, dict[str, Any]]
 
 
 def load_risk_registry(path: Path | str) -> RiskRegistry:
@@ -40,9 +40,9 @@ def load_risk_registry(path: Path | str) -> RiskRegistry:
     if not isinstance(raw_list, list):
         raise PolicyLoadError(
             p,
-            "risk_registry.risks must be a list, got " f"{type(raw_list).__name__}",
+            f"risk_registry.risks must be a list, got {type(raw_list).__name__}",
         )
-    risks: Dict[str, Dict[str, Any]] = {}
+    risks: dict[str, dict[str, Any]] = {}
     for entry in raw_list:
         if not isinstance(entry, dict):
             continue
@@ -52,6 +52,6 @@ def load_risk_registry(path: Path | str) -> RiskRegistry:
     return RiskRegistry(version=version, risks=risks)
 
 
-def get_risk(registry: RiskRegistry, risk_id: str) -> Optional[Dict[str, Any]]:
+def get_risk(registry: RiskRegistry, risk_id: str) -> dict[str, Any] | None:
     """Lookup risk by risk_id. Returns risk entry dict or None if not found."""
     return registry.risks.get(risk_id) if risk_id else None

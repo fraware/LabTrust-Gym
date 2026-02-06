@@ -2,7 +2,7 @@
 Reception acceptance rules and specimen state machine.
 
 - engine/specimens.py: SpecimenStore, CREATE_ACCESSION, CHECK_ACCEPTANCE_RULES,
-  ACCEPT_SPECIMEN (ID_MISMATCH, INT_LEAKING, CNT_CITRATE_FILL_INVALID), HOLD_SPECIMEN (reason_code required).
+  ACCEPT_SPECIMEN (ID_MISMATCH, INT_LEAKING, CNT_CITRATE_FILL_INVALID), HOLD_SPECIMEN (reason_code).
 - BLOCKED actions do not mutate specimen state.
 - GS-003: citrate underfill => HOLD_SPECIMEN, CNT_CITRATE_FILL_INVALID, INV-COAG-FILL-001.
 - GS-004: id_match false => REJECT_SPECIMEN, ID_MISMATCH.
@@ -55,14 +55,16 @@ def test_specimen_store_accept_id_mismatch() -> None:
 
 def test_specimen_store_accept_leak() -> None:
     store = SpecimenStore()
-    store.load_initial([
-        {
-            "specimen_id": "S3",
-            "integrity_flags": {"leak": True},
-            "hazard_flag": True,
-            "status": "arrived_at_reception",
-        }
-    ])
+    store.load_initial(
+        [
+            {
+                "specimen_id": "S3",
+                "integrity_flags": {"leak": True},
+                "hazard_flag": True,
+                "status": "arrived_at_reception",
+            }
+        ]
+    )
     outcome, emits, blocked, violations = store.accept_specimen("S3")
     assert outcome == "ACCEPTED"
     assert "REJECT_SPECIMEN" in emits
@@ -72,14 +74,16 @@ def test_specimen_store_accept_leak() -> None:
 
 def test_specimen_store_accept_citrate_underfill() -> None:
     store = SpecimenStore()
-    store.load_initial([
-        {
-            "specimen_id": "S2",
-            "container_type": "PLASMA_CITRATE",
-            "fill_ratio_ok": False,
-            "status": "arrived_at_reception",
-        }
-    ])
+    store.load_initial(
+        [
+            {
+                "specimen_id": "S2",
+                "container_type": "PLASMA_CITRATE",
+                "fill_ratio_ok": False,
+                "status": "arrived_at_reception",
+            }
+        ]
+    )
     outcome, emits, blocked, violations = store.accept_specimen("S2")
     assert outcome == "ACCEPTED"
     assert "HOLD_SPECIMEN" in emits
@@ -126,7 +130,13 @@ GS003 = {
                 "panel_id": "COAG_PANEL_CORE",
                 "container_type": "PLASMA_CITRATE",
                 "specimen_type": "PLASMA",
-                "integrity_flags": {"leak": False, "clot": False, "hemolysis": False, "insufficient_volume": False, "label_issue": False},
+                "integrity_flags": {
+                    "leak": False,
+                    "clot": False,
+                    "hemolysis": False,
+                    "insufficient_volume": False,
+                    "label_issue": False,
+                },
                 "fill_ratio_ok": False,
                 "hazard_flag": False,
                 "separated_ts_s": None,
@@ -137,7 +147,16 @@ GS003 = {
         "tokens": [],
     },
     "script": [
-        {"event_id": "e1", "t_s": 610, "agent_id": "A_RECEPTION", "action_type": "CHECK_ACCEPTANCE_RULES", "args": {"specimen_id": "S2"}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "emits": ["CHECK_ACCEPTANCE_RULES"]}},
+        {
+            "event_id": "e1",
+            "t_s": 610,
+            "agent_id": "A_RECEPTION",
+            "action_type": "CHECK_ACCEPTANCE_RULES",
+            "args": {"specimen_id": "S2"},
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {"status": "ACCEPTED", "emits": ["CHECK_ACCEPTANCE_RULES"]},
+        },
         {
             "event_id": "e2",
             "t_s": 620,
@@ -160,7 +179,16 @@ GS004 = {
     "title": "Identity mismatch is non-overridable hard-stop",
     "initial_state": {"system": {}, "specimens": [{"template_ref": "S_BIOCHEM_OK"}], "tokens": []},
     "script": [
-        {"event_id": "e1", "t_s": 610, "agent_id": "A_RECEPTION", "action_type": "CHECK_ACCEPTANCE_RULES", "args": {"specimen_id": "S1", "id_match": False}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED"}},
+        {
+            "event_id": "e1",
+            "t_s": 610,
+            "agent_id": "A_RECEPTION",
+            "action_type": "CHECK_ACCEPTANCE_RULES",
+            "args": {"specimen_id": "S1", "id_match": False},
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {"status": "ACCEPTED"},
+        },
         {
             "event_id": "e2",
             "t_s": 620,
@@ -188,7 +216,13 @@ GS005 = {
                 "panel_id": "BIOCHEM_PANEL_CORE",
                 "container_type": "SERUM_SST",
                 "specimen_type": "SERUM",
-                "integrity_flags": {"leak": True, "clot": False, "hemolysis": False, "insufficient_volume": False, "label_issue": False},
+                "integrity_flags": {
+                    "leak": True,
+                    "clot": False,
+                    "hemolysis": False,
+                    "insufficient_volume": False,
+                    "label_issue": False,
+                },
                 "fill_ratio_ok": None,
                 "hazard_flag": True,
                 "separated_ts_s": None,
@@ -254,7 +288,27 @@ def test_query_specimen_status_and_last_reason_code() -> None:
         pytest.skip("Set LABTRUST_RUN_GOLDEN=1")
     env = CoreEnv()
     env.reset(GS003["initial_state"], deterministic=True, rng_seed=12345)
-    env.step({"event_id": "e1", "t_s": 610, "agent_id": "A_RECEPTION", "action_type": "CHECK_ACCEPTANCE_RULES", "args": {"specimen_id": "S2"}, "reason_code": None, "token_refs": []})
-    env.step({"event_id": "e2", "t_s": 620, "agent_id": "A_RECEPTION", "action_type": "ACCEPT_SPECIMEN", "args": {"specimen_id": "S2"}, "reason_code": None, "token_refs": []})
+    env.step(
+        {
+            "event_id": "e1",
+            "t_s": 610,
+            "agent_id": "A_RECEPTION",
+            "action_type": "CHECK_ACCEPTANCE_RULES",
+            "args": {"specimen_id": "S2"},
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
+    env.step(
+        {
+            "event_id": "e2",
+            "t_s": 620,
+            "agent_id": "A_RECEPTION",
+            "action_type": "ACCEPT_SPECIMEN",
+            "args": {"specimen_id": "S2"},
+            "reason_code": None,
+            "token_refs": [],
+        }
+    )
     assert env.query("specimen_status('S2')") == "held"
     assert env.query("last_reason_code('S2')") == CNT_CITRATE_FILL_INVALID

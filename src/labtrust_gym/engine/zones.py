@@ -10,7 +10,7 @@ Zone graph and door semantics.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, cast
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
@@ -22,7 +22,7 @@ ALARM = "ALARM"
 KILL_SWITCH_ZONE = "KILL_SWITCH_ZONE"
 
 # Default agent positions from golden suite fixtures (used when no initial_state.agents).
-DEFAULT_AGENT_ZONES: Dict[str, str] = {
+DEFAULT_AGENT_ZONES: dict[str, str] = {
     "A_RECEPTION": "Z_SRA_RECEPTION",
     "A_RUNNER": "Z_SORTING_LANES",
     "A_PREAN": "Z_PREANALYTICS",
@@ -34,7 +34,7 @@ DEFAULT_AGENT_ZONES: Dict[str, str] = {
 }
 
 
-def load_zone_layout(path: str | Path) -> Dict[str, Any]:
+def load_zone_layout(path: str | Path) -> dict[str, Any]:
     """Load zone_layout_policy YAML. Returns dict with zones, doors, graph_edges."""
     p = Path(path)
     if not p.is_absolute():
@@ -46,12 +46,12 @@ def load_zone_layout(path: str | Path) -> Dict[str, Any]:
     layout = data.get("zone_layout_policy")
     if layout is None:
         raise PolicyLoadError(p, "missing top-level key 'zone_layout_policy'")
-    return layout
+    return cast(dict[str, Any], layout)
 
 
-def build_adjacency_set(graph_edges: List[Dict[str, Any]]) -> Set[Tuple[str, str]]:
+def build_adjacency_set(graph_edges: list[dict[str, Any]]) -> set[tuple[str, str]]:
     """Build set of (from_zone, to_zone) for legal movement (bidirectional)."""
-    adj: Set[Tuple[str, str]] = set()
+    adj: set[tuple[str, str]] = set()
     for e in graph_edges or []:
         f = e.get("from")
         t = e.get("to")
@@ -61,9 +61,9 @@ def build_adjacency_set(graph_edges: List[Dict[str, Any]]) -> Set[Tuple[str, str
     return adj
 
 
-def build_device_zone_map(device_placement: List[Dict[str, Any]]) -> Dict[str, str]:
+def build_device_zone_map(device_placement: list[dict[str, Any]]) -> dict[str, str]:
     """Build device_id -> zone_id from zone_layout_policy device_placement (or equipment registry)."""
-    out: Dict[str, str] = {}
+    out: dict[str, str] = {}
     for d in device_placement or []:
         dev_id = d.get("device_id")
         zone_id = d.get("zone_id")
@@ -72,9 +72,9 @@ def build_device_zone_map(device_placement: List[Dict[str, Any]]) -> Dict[str, s
     return out
 
 
-def build_doors_map(doors: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def build_doors_map(doors: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Build door_id -> { from_zone, to_zone, max_open_s, restricted, requires_token }."""
-    out: Dict[str, Dict[str, Any]] = {}
+    out: dict[str, dict[str, Any]] = {}
     for d in doors or []:
         door_id = d.get("door_id")
         if not door_id:
@@ -98,18 +98,18 @@ class ZoneState:
     Used by core_env for MOVE, OPEN_DOOR, TICK and query(zone_state(...)).
     """
 
-    def __init__(self, layout: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, layout: dict[str, Any] | None = None) -> None:
         if layout is None:
             layout = _default_layout()
         self._adjacency = build_adjacency_set(layout.get("graph_edges", []))
         self._doors = build_doors_map(layout.get("doors", []))
-        self._agent_positions: Dict[str, str] = dict(DEFAULT_AGENT_ZONES)
-        self._door_open_since: Dict[str, Optional[int]] = {did: None for did in self._doors}
-        self._zone_frozen: Dict[str, bool] = {}
+        self._agent_positions: dict[str, str] = dict(DEFAULT_AGENT_ZONES)
+        self._door_open_since: dict[str, int | None] = {did: None for did in self._doors}
+        self._zone_frozen: dict[str, bool] = {}
 
     def reset(
         self,
-        agent_positions: Optional[Dict[str, str]] = None,
+        agent_positions: dict[str, str] | None = None,
     ) -> None:
         """Reset positions and door/zone state. Agent positions default from DEFAULT_AGENT_ZONES."""
         self._agent_positions = dict(agent_positions) if agent_positions else dict(DEFAULT_AGENT_ZONES)
@@ -119,7 +119,7 @@ class ZoneState:
     def set_agent_position(self, agent_id: str, zone_id: str) -> None:
         self._agent_positions[agent_id] = zone_id
 
-    def get_agent_zone(self, agent_id: str) -> Optional[str]:
+    def get_agent_zone(self, agent_id: str) -> str | None:
         return self._agent_positions.get(agent_id)
 
     def is_adjacent(self, from_zone: str, to_zone: str) -> bool:
@@ -132,13 +132,13 @@ class ZoneState:
         agent_id: str,
         from_zone: str,
         to_zone: str,
-    ) -> Tuple[bool, List[Dict[str, str]], Optional[str]]:
+    ) -> tuple[bool, list[dict[str, str]], str | None]:
         """
         Attempt move. Returns (ok, violations, blocked_reason_code).
         If not adjacent: BLOCKED with INV-ZONE-001, RC_ILLEGAL_MOVE.
         If to_zone is restricted: caller must enforce token (INV-ZONE-004 in core_env).
         """
-        violations: List[Dict[str, str]] = []
+        violations: list[dict[str, str]] = []
         current = self._agent_positions.get(agent_id)
         if current and current != from_zone:
             violations.append({"invariant_id": INV_ZONE_001, "status": "VIOLATION"})
@@ -162,13 +162,13 @@ class ZoneState:
         info = self._doors.get(door_id)
         return bool(info and info.get("restricted")) if info else False
 
-    def tick(self, t_s: int) -> Tuple[List[Dict[str, str]], List[str]]:
+    def tick(self, t_s: int) -> tuple[list[dict[str, str]], list[str]]:
         """
         Check door-open-too-long. Returns (violations, emits).
         For each door open beyond max_open_s: INV-ZONE-005, ALARM, KILL_SWITCH_ZONE; freeze zones.
         """
-        violations: List[Dict[str, str]] = []
-        emits: List[str] = []
+        violations: list[dict[str, str]] = []
+        emits: list[str] = []
         for door_id, open_ts in self._door_open_since.items():
             if open_ts is None:
                 continue
@@ -191,7 +191,7 @@ class ZoneState:
         """Return 'frozen' or 'normal' for state_assertions."""
         return "frozen" if self._zone_frozen.get(zone_id) else "normal"
 
-    def get_door_state(self, door_id: str) -> Tuple[bool, Optional[int]]:
+    def get_door_state(self, door_id: str) -> tuple[bool, int | None]:
         """Return (is_open, open_since_ts). open_since_ts is None when closed."""
         if door_id not in self._doors:
             return False, None
@@ -199,12 +199,12 @@ class ZoneState:
         return (open_since is not None, open_since)
 
 
-def get_default_device_zone_map() -> Dict[str, str]:
+def get_default_device_zone_map() -> dict[str, str]:
     """Device id -> zone_id when no zone layout policy is loaded (e.g. tests)."""
     return build_device_zone_map(_default_layout().get("device_placement", []))
 
 
-def _default_layout() -> Dict[str, Any]:
+def _default_layout() -> dict[str, Any]:
     """Minimal layout when policy file not found: graph_edges and doors for GS-008, GS-009, GS-020."""
     return {
         "graph_edges": [
@@ -218,7 +218,11 @@ def _default_layout() -> Dict[str, Any]:
             {"from": "Z_ALIQUOT_LABEL", "to": "Z_ANALYZER_HALL_B"},
             {"from": "Z_ANALYZER_HALL_A", "to": "Z_QC_SUPERVISOR"},
             {"from": "Z_ANALYZER_HALL_B", "to": "Z_QC_SUPERVISOR"},
-            {"from": "Z_SRA_RECEPTION", "to": "Z_RESTRICTED_BIOHAZARD", "via_door": "D_RESTRICTED_AIRLOCK"},
+            {
+                "from": "Z_SRA_RECEPTION",
+                "to": "Z_RESTRICTED_BIOHAZARD",
+                "via_door": "D_RESTRICTED_AIRLOCK",
+            },
             {"from": "Z_RESTRICTED_BIOHAZARD", "to": "Z_WASTE_DISPOSAL", "via_door": "D_WASTE"},
         ],
         "doors": [

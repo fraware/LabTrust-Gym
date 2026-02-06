@@ -1,8 +1,8 @@
 """
 Tests for tool selection error metric: allowed-by-registry but inapplicable for current state.
 
-- Golden scenario: state_label=accessioning (read-only), LLM calls write_lims_v1 -> tool_selection_error
-  recorded, violation and emit, step not blocked (soft fail).
+- Golden: state_label=accessioning (read-only), LLM calls write_lims_v1 -> tool_selection_error,
+  violation and emit, step not blocked (soft fail).
 - Deterministic across seeds.
 - Metrics: tool_selection_errors_count, tool_selection_errors_rate.
 """
@@ -11,15 +11,14 @@ from pathlib import Path
 
 import pytest
 
+from labtrust_gym.benchmarks.metrics import compute_episode_metrics
+from labtrust_gym.engine.core_env import TOOL_SELECTION_ERROR, CoreEnv
+
 
 @pytest.fixture
 def repo_root() -> Path:
     """Repo root for policy paths."""
     return Path(__file__).resolve().parent.parent
-
-
-from labtrust_gym.benchmarks.metrics import compute_episode_metrics
-from labtrust_gym.engine.core_env import CoreEnv, TOOL_SELECTION_ERROR
 
 
 def _minimal_initial_state(
@@ -57,13 +56,11 @@ def _minimal_initial_state(
 
 def test_tool_selection_error_when_write_at_read_only_phase() -> None:
     """
-    Golden scenario: state_label=accessioning allows only lims.read, queue.read.
-    Agent calls write_lims_v1 (lims.write) -> tool selection error recorded, step ACCEPTED (soft fail).
+    Golden: accessioning allows only lims.read, queue.read.
+    Agent calls write_lims_v1 -> tool selection error recorded, step ACCEPTED (soft fail).
     """
     repo_root = Path(__file__).resolve().parent.parent
-    schema_path = (
-        repo_root / "policy" / "tool_args" / "write_lims_v1.args.v0.1.schema.json"
-    )
+    schema_path = repo_root / "policy" / "tool_args" / "write_lims_v1.args.v0.1.schema.json"
     if not schema_path.exists():
         pytest.skip("write_lims_v1 arg schema not found")
     registry = {
@@ -119,9 +116,7 @@ def test_tool_selection_error_when_write_at_read_only_phase() -> None:
     if result.get("status") == "ACCEPTED":
         assert TOOL_SELECTION_ERROR in emits
     if result.get("status") == "BLOCKED":
-        pytest.skip(
-            "step blocked (arg validation or RBAC); tool_selection_error and violation verified"
-        )
+        pytest.skip("step blocked (arg validation or RBAC); tool_selection_error and violation verified")
     assert result.get("status") == "ACCEPTED"
 
 

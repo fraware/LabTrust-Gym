@@ -11,7 +11,7 @@ RBAC policy evaluator: gates actions before state mutation.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 # Reason codes (must match policy/reason_codes/reason_code_registry.v0.1.yaml)
 RBAC_ACTION_DENY = "RBAC_ACTION_DENY"
@@ -19,9 +19,10 @@ RBAC_ZONE_DENY = "RBAC_ZONE_DENY"
 RBAC_DEVICE_DENY = "RBAC_DEVICE_DENY"
 
 
-def load_rbac_policy(path: Path) -> Dict[str, Any]:
+def load_rbac_policy(path: Path) -> dict[str, Any]:
     """Load rbac_policy YAML. Returns dict with rbac_policy.version, roles, agents, action_constraints."""
     from labtrust_gym.policy.loader import load_yaml
+
     if not path.exists():
         return {"version": "0.1", "roles": {}, "agents": {}, "action_constraints": {}}
     data = load_yaml(path)
@@ -48,9 +49,9 @@ def load_rbac_policy(path: Path) -> Dict[str, Any]:
 def check(
     agent_id: str,
     action_type: str,
-    context: Dict[str, Any],
-    policy: Dict[str, Any],
-) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+    context: dict[str, Any],
+    policy: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any]]:
     """
     Decide allow/deny for agent_id + action_type + context.
     Returns (allowed, reason_code, rbac_decision).
@@ -58,7 +59,7 @@ def check(
 
     Backward compat: if policy has no agents/roles or agent_id not in agents, allow (permissive).
     """
-    decision: Dict[str, Any] = {"allowed": True, "reason_code": None, "role_id": None}
+    decision: dict[str, Any] = {"allowed": True, "reason_code": None, "role_id": None}
     if not policy:
         return True, None, decision
     agents_map = policy.get("agents") or {}
@@ -99,7 +100,7 @@ def check(
     return True, None, decision
 
 
-def get_agent_role(agent_id: str, policy: Dict[str, Any]) -> Optional[str]:
+def get_agent_role(agent_id: str, policy: dict[str, Any]) -> str | None:
     """Return role_id for agent_id from policy, or None if not in policy."""
     if not policy:
         return None
@@ -109,7 +110,7 @@ def get_agent_role(agent_id: str, policy: Dict[str, Any]) -> Optional[str]:
     return agents_map.get(agent_id)
 
 
-def get_allowed_actions(agent_id: str, policy: Dict[str, Any]) -> list[str]:
+def get_allowed_actions(agent_id: str, policy: dict[str, Any]) -> list[str]:
     """Return list of allowed action types for agent_id (RBAC-filtered). Empty if not in policy."""
     role_id = get_agent_role(agent_id, policy)
     if role_id is None:

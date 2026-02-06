@@ -57,6 +57,9 @@ This trains PPO for a few hundred steps and runs eval to ensure the pipeline run
 
 ## Caveats
 
+- **Windows / torch**: If MARL smoke tests skip with "DLL initialization routine failed" (WinError 1114), the default PyPI torch wheel can conflict with an existing CUDA/VC++ setup. Install a matching torch build (e.g. CPU-only: `pip install torch --index-url https://download.pytorch.org/whl/cpu`) or restore your previous torch/torchvision/torchaudio versions so they match.
+- **Conda + venv**: If your prompt shows both a conda env and a venv (e.g. `(base) (labtrust-gym)` or `(gym) (labtrust-gym)`), `pip` may install into the conda env while `python`/`pytest` use the venv, so stable_baselines3 is missing where tests run. **Fix:** use a single environment. Option A: deactivate the venv (`deactivate`) so only conda is active; then `python -c "import stable_baselines3"` and, if needed, `pip install -e ".[marl]"` from the repo root. Option B: use only the venv (e.g. open a shell with no conda, activate venv, then `python -m pip install -e ".[dev,env,marl]"`). Then run `LABTRUST_MARL_SMOKE=1 pytest tests/test_marl_smoke.py -v`.
+- **AMD / no CUDA**: CUDA is NVIDIA-only. On AMD (e.g. Ryzen with Radeon), use CPU-only PyTorch or DirectML. See [PyTorch on AMD or CPU-only](installation.md#pytorch-on-amd-or-cpu-only-no-cuda) in the installation guide.
 - **Single-agent**: Only ops_0 is learned; runners are scripted. Multi-agent PPO would require a different setup (e.g. joint action space or independent learners).
 - **Observation**: The wrapper flattens the ops_0 observation dict to a Box for SB3. QUEUE_RUN action uses placeholder work_id/device_id; for richer behavior, extend the action space or use heuristics to fill action_info.
 - **Reward**: Uses the task’s reward_config (e.g. throughput_reward, violation_penalty). Tune for your objective.

@@ -3,9 +3,13 @@ Hierarchical coordination: HubPlanner (macro per region/site) and LocalControlle
 Deterministic region partition; handoff protocol for cross-region work.
 """
 
-from labtrust_gym.baselines.coordination.hierarchical.region_partition import (
-    partition_zones_into_regions,
-    zone_to_region_map,
+from labtrust_gym.baselines.coordination.hierarchical.handoff import (
+    HUB_REGION_ID,
+    HandoffEvent,
+    HandoffProtocol,
+)
+from labtrust_gym.baselines.coordination.hierarchical.hierarchical_method import (
+    HierarchicalHubLocal,
 )
 from labtrust_gym.baselines.coordination.hierarchical.hub_planner import (
     HubPlanner,
@@ -14,13 +18,9 @@ from labtrust_gym.baselines.coordination.hierarchical.hub_planner import (
 from labtrust_gym.baselines.coordination.hierarchical.local_controller import (
     LocalController,
 )
-from labtrust_gym.baselines.coordination.hierarchical.handoff import (
-    HandoffEvent,
-    HandoffProtocol,
-    HUB_REGION_ID,
-)
-from labtrust_gym.baselines.coordination.hierarchical.hierarchical_method import (
-    HierarchicalHubLocal,
+from labtrust_gym.baselines.coordination.hierarchical.region_partition import (
+    partition_zones_into_regions,
+    zone_to_region_map,
 )
 
 __all__ = [

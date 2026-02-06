@@ -8,15 +8,16 @@ Records enforcement events into audit log when audit_callback is provided.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, cast
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
-EnforcementItem = Dict[str, Any]  # type, target?, duration_s?, reason_code?, rule_id?
+EnforcementItem = dict[str, Any]  # type, target?, duration_s?, reason_code?, rule_id?
 
 
-def load_enforcement_map(path: Optional[Path] = None) -> Dict[str, Any]:
+def load_enforcement_map(path: Path | None = None) -> dict[str, Any]:
     """
     Load enforcement_map YAML. Returns dict with version, rules list.
     Path defaults to policy/enforcement/enforcement_map.v0.1.yaml.
@@ -34,7 +35,7 @@ def load_enforcement_map(path: Optional[Path] = None) -> Dict[str, Any]:
     return {"version": data.get("version", "0.1"), "rules": rules}
 
 
-def _match_rule(rule: Dict[str, Any], violation: Dict[str, Any]) -> bool:
+def _match_rule(rule: dict[str, Any], violation: dict[str, Any]) -> bool:
     """True if rule.match matches violation (invariant_id, severity, scope)."""
     match = rule.get("match") or {}
     inv_id = violation.get("invariant_id")
@@ -56,9 +57,9 @@ def _match_rule(rule: Dict[str, Any], violation: Dict[str, Any]) -> bool:
 
 
 def _get_escalation_action(
-    rule: Dict[str, Any],
+    rule: dict[str, Any],
     violation_count: int,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Return action dict for violation count using rule.action or rule.escalation.
     Pick highest escalation tier where count >= violation_count_min.
@@ -73,16 +74,16 @@ def _get_escalation_action(
                 best = tier.get("action")
                 best_min = min_c
         if best:
-            return best
-    return rule.get("action")
+            return cast(dict[str, Any] | None, best)
+    return cast(dict[str, Any] | None, rule.get("action"))
 
 
 def _apply_action(
-    action: Dict[str, Any],
+    action: dict[str, Any],
     agent_id: str,
     rule_id: str,
-    reason_code: Optional[str],
-    event: Dict[str, Any],
+    reason_code: str | None,
+    event: dict[str, Any],
 ) -> EnforcementItem:
     """Build one enforcement item from action dict."""
     out: EnforcementItem = {
@@ -110,15 +111,18 @@ class EnforcementEngine:
     (agent_id, rule_id) for escalation. Deterministic; optionally records to audit.
     """
 
-    def __init__(self, map_path: Optional[Path] = None, map_data: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, map_path: Path | None = None, map_data: dict[str, Any] | None = None) -> None:
         if map_data is not None:
             rules = map_data.get("rules")
-            self._map = {"version": map_data.get("version", "0.1"), "rules": rules if isinstance(rules, list) else []}
+            self._map = {
+                "version": map_data.get("version", "0.1"),
+                "rules": rules if isinstance(rules, list) else [],
+            }
         else:
             self._map = load_enforcement_map(map_path)
-        self._rules: List[Dict[str, Any]] = self._map.get("rules") or []
+        self._rules: list[dict[str, Any]] = self._map.get("rules") or []
         # (agent_id, rule_id) -> violation count (for escalation)
-        self._violation_counts: Dict[Tuple[str, str], int] = {}
+        self._violation_counts: dict[tuple[str, str], int] = {}
 
     def reset_counts(self) -> None:
         """Clear violation counts (e.g. on env reset)."""
@@ -126,17 +130,17 @@ class EnforcementEngine:
 
     def apply(
         self,
-        event: Dict[str, Any],
-        violations: List[Dict[str, Any]],
-        audit_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> List[EnforcementItem]:
+        event: dict[str, Any],
+        violations: list[dict[str, Any]],
+        audit_callback: Callable[[dict[str, Any]], None] | None = None,
+    ) -> list[EnforcementItem]:
         """
         Match violations against rules, apply escalation, return list of enforcement items.
         Only VIOLATION status is considered. Order is deterministic (rule order, then violation order).
         If audit_callback is provided, each enforcement is recorded as an audit event.
         """
         agent_id = str(event.get("agent_id", ""))
-        enforcements: List[EnforcementItem] = []
+        enforcements: list[EnforcementItem] = []
         violation_list = [v for v in violations if v.get("status") == "VIOLATION"]
 
         for rule in self._rules:
@@ -151,30 +155,30 @@ class EnforcementEngine:
                 if not action:
                     continue
                 reason_code = v.get("reason_code")
-                item = _apply_action(
-                    action, agent_id, rule_id, reason_code, event
-                )
+                item = _apply_action(action, agent_id, rule_id, reason_code, event)
                 enforcements.append(item)
                 if audit_callback:
-                    audit_callback({
-                        "event_type": "ENFORCEMENT",
-                        "rule_id": rule_id,
-                        "action_type": item.get("type"),
-                        "target": item.get("target"),
-                        "duration_s": item.get("duration_s"),
-                        "reason_code": reason_code,
-                        "violation_count": count,
-                    })
+                    audit_callback(
+                        {
+                            "event_type": "ENFORCEMENT",
+                            "rule_id": rule_id,
+                            "action_type": item.get("type"),
+                            "target": item.get("target"),
+                            "duration_s": item.get("duration_s"),
+                            "reason_code": reason_code,
+                            "violation_count": count,
+                        }
+                    )
 
         return enforcements
 
 
 def apply_enforcement(
-    event: Dict[str, Any],
-    violations: List[Dict[str, Any]],
-    engine: Optional[EnforcementEngine],
-    audit_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-) -> List[EnforcementItem]:
+    event: dict[str, Any],
+    violations: list[dict[str, Any]],
+    engine: EnforcementEngine | None,
+    audit_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> list[EnforcementItem]:
     """If engine is None return []; else return engine.apply(...)."""
     if engine is None:
         return []

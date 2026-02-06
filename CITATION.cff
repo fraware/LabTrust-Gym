@@ -9,7 +9,7 @@ repository-code: "https://github.com/fraware/LabTrust-Gym"
 url: "https://github.com/fraware/LabTrust-Gym"
 license: Apache-2.0
 version: 0.1.0
-date-released: 2025-01-01
+date-released: 2026-02-15
 # After minting v0.1.0 on Zenodo, add: identifiers: [{ type: doi, value: "10.5281/zenodo.XXXXX" }]
 keywords:
   - multi-agent

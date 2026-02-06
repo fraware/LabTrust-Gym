@@ -7,7 +7,7 @@ delivers to ViewReplicas via CommsModel. KernelContext can read global_log and v
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.coordination.blackboard import BlackboardLog
 from labtrust_gym.coordination.clock_model import ClockModel
@@ -23,18 +23,18 @@ from labtrust_gym.coordination.views import (
 
 
 def derive_facts_from_step(
-    step_results: List[Dict[str, Any]],
+    step_results: list[dict[str, Any]],
     env: Any,
     t: int,
-    device_ids: Optional[List[str]] = None,
-    zone_ids: Optional[List[str]] = None,
-    agent_ids: Optional[List[str]] = None,
-) -> List[Tuple[str, Dict[str, Any]]]:
+    device_ids: list[str] | None = None,
+    zone_ids: list[str] | None = None,
+    agent_ids: list[str] | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
     """
     Derive blackboard facts from step_results and env state.
     Returns list of (event_type, payload) for BlackboardLog.append.
     """
-    facts: List[Tuple[str, Dict[str, Any]]] = []
+    facts: list[tuple[str, dict[str, Any]]] = []
     engine = getattr(env, "_engine", None)
     if engine is None:
         return facts
@@ -127,10 +127,10 @@ class BlackboardHarness:
 
     def __init__(
         self,
-        agent_ids: List[str],
-        device_ids: Optional[List[str]] = None,
-        zone_ids: Optional[List[str]] = None,
-        comms_config: Optional[CommsConfig] = None,
+        agent_ids: list[str],
+        device_ids: list[str] | None = None,
+        zone_ids: list[str] | None = None,
+        comms_config: CommsConfig | None = None,
         seed: int = 0,
     ) -> None:
         self._agent_ids = sorted(agent_ids)
@@ -144,12 +144,12 @@ class BlackboardHarness:
         self._last_delivery_id = -1
         self._device_ids = device_ids or []
         self._zone_ids = zone_ids or []
-        self._clock_model: Optional[ClockModel] = None
+        self._clock_model: ClockModel | None = None
 
     def reset(
         self,
         seed: int,
-        clock_skew_config: Optional[Tuple[Dict[str, float], Dict[str, float]]] = None,
+        clock_skew_config: tuple[dict[str, float], dict[str, float]] | None = None,
     ) -> None:
         """
         Reset log, comms, and replicas for new episode.
@@ -172,7 +172,7 @@ class BlackboardHarness:
 
     def step(
         self,
-        step_results: List[Dict[str, Any]],
+        step_results: list[dict[str, Any]],
         env: Any,
         t: int,
     ) -> None:
@@ -193,9 +193,7 @@ class BlackboardHarness:
         new_events = self._log.events_since(self._last_delivery_id)
         deliveries = self._comms.apply(new_events, t)
         for aid in self._agent_ids:
-            self._replicas[aid].apply_batch(
-                deliveries.get(aid) or [], processing_step=t
-            )
+            self._replicas[aid].apply_batch(deliveries.get(aid) or [], processing_step=t)
         if new_events:
             self._last_delivery_id = new_events[-1].id
 
@@ -203,10 +201,10 @@ class BlackboardHarness:
     def global_log(self) -> BlackboardLog:
         return self._log
 
-    def view_snapshots(self) -> Dict[str, Dict[str, Any]]:
+    def view_snapshots(self) -> dict[str, dict[str, Any]]:
         """Per-agent snapshot for KernelContext (decentralized methods)."""
         return {aid: self._replicas[aid].snapshot() for aid in self._agent_ids}
 
-    def get_comm_metrics(self) -> Dict[str, Any]:
+    def get_comm_metrics(self) -> dict[str, Any]:
         """Comm metrics for results coordination block."""
         return self._comms.get_metrics()

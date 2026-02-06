@@ -27,15 +27,13 @@ try:
         ScriptedRunnerAgent,
     )
     from labtrust_gym.envs.pz_parallel import (
-        LabTrustParallelEnv,
         ACTION_TICK,
-        DEFAULT_ZONE_IDS,
         DEFAULT_DEVICE_IDS,
+        DEFAULT_ZONE_IDS,
+        LabTrustParallelEnv,
     )
 except ImportError as e:
-    print(
-        "Requires labtrust-gym and env deps. Install: pip install -e '.[env]'"
-    )
+    print("Requires labtrust-gym and env deps. Install: pip install -e '.[env]'")
     raise SystemExit(1) from e
 
 
@@ -90,9 +88,7 @@ def main() -> None:
 
         for agent_id in env.agents:
             if agent_id.startswith("runner_"):
-                a_idx, a_info = runner_agent.act(
-                    obs.get(agent_id, {}), agent_id
-                )
+                a_idx, a_info = runner_agent.act(obs.get(agent_id, {}), agent_id)
                 actions[agent_id] = a_idx
                 if a_idx in (ACTION_MOVE, ACTION_OPEN_DOOR, ACTION_START_RUN):
                     if a_info:
@@ -100,9 +96,7 @@ def main() -> None:
             elif agent_id not in actions:
                 actions[agent_id] = ACTION_TICK if step % 2 == 1 else 0
 
-        obs, rewards, term, trunc, infos = env.step(
-            actions, action_infos=action_infos
-        )
+        obs, rewards, term, trunc, infos = env.step(actions, action_infos=action_infos)
 
         total_violations += infos["ops_0"].get("violation_count", 0)
         total_blocked += infos["ops_0"].get("blocked_count", 0)

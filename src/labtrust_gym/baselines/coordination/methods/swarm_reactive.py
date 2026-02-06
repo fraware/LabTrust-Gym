@@ -9,7 +9,7 @@ Deterministic given obs.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
@@ -35,13 +35,13 @@ from labtrust_gym.engine.zones import build_adjacency_set
 def _bfs_one_step(
     start: str,
     goal: str,
-    adjacency: Set[Tuple[str, str]],
-) -> Optional[str]:
+    adjacency: set[tuple[str, str]],
+) -> str | None:
     """Next zone from start toward goal. Deterministic."""
     if start == goal:
         return None
-    seen: Set[str] = {start}
-    queue: List[Tuple[str, List[str]]] = [(start, [])]
+    seen: set[str] = {start}
+    queue: list[tuple[str, list[str]]] = [(start, [])]
     while queue:
         node, path = queue.pop(0)
         neighbors = sorted([b for (a, b) in adjacency if a == node and b not in seen])
@@ -58,10 +58,10 @@ class SwarmReactive(CoordinationMethod):
     """Purely local rules; no global state or messaging."""
 
     def __init__(self) -> None:
-        self._zone_ids: List[str] = []
-        self._device_ids: List[str] = []
-        self._device_zone: Dict[str, str] = {}
-        self._adjacency: Set[Tuple[str, str]] = set()
+        self._zone_ids: list[str] = []
+        self._device_ids: list[str] = []
+        self._device_zone: dict[str, str] = {}
+        self._adjacency: set[tuple[str, str]] = set()
         self._restricted_zone_id: str = "Z_RESTRICTED_BIOHAZARD"
 
     @property
@@ -71,12 +71,10 @@ class SwarmReactive(CoordinationMethod):
     def reset(
         self,
         seed: int,
-        policy: Dict[str, Any],
-        scale_config: Dict[str, Any],
+        policy: dict[str, Any],
+        scale_config: dict[str, Any],
     ) -> None:
-        self._zone_ids, self._device_ids, self._device_zone = (
-            extract_zone_and_device_ids(policy)
-        )
+        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         if isinstance(layout, dict):
             self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
@@ -93,20 +91,16 @@ class SwarmReactive(CoordinationMethod):
 
     def propose_actions(
         self,
-        obs: Dict[str, Any],
-        infos: Dict[str, Dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
         t: int,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         agents = sorted(obs.keys())
-        out: Dict[str, Dict[str, Any]] = {
-            a: {"action_index": ACTION_NOOP} for a in agents
-        }
+        out: dict[str, dict[str, Any]] = {a: {"action_index": ACTION_NOOP} for a in agents}
 
         if not self._zone_ids and agents:
             sample = obs.get(agents[0]) or {}
-            self._zone_ids, self._device_ids, self._device_zone = (
-                extract_zone_and_device_ids({}, obs_sample=sample)
-            )
+            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         if not self._zone_ids:
             return out
 
@@ -136,12 +130,7 @@ class SwarmReactive(CoordinationMethod):
                         }
                 continue
 
-            if (
-                door_restricted_open(o)
-                and my_zone == self._restricted_zone_id
-                and t > 0
-                and t % 3 == 0
-            ):
+            if door_restricted_open(o) and my_zone == self._restricted_zone_id and t > 0 and t % 3 == 0:
                 out[agent_id] = {"action_index": ACTION_TICK}
                 continue
 
@@ -172,7 +161,7 @@ class SwarmReactive(CoordinationMethod):
                     continue
                 q_len = 0
                 if idx < len(qbd):
-                    q_len = int((qbd[idx].get("queue_len") or 0))
+                    q_len = int(qbd[idx].get("queue_len") or 0)
                 if q_len > 0 and not queue_has_head(o, idx):
                     out[agent_id] = {
                         "action_index": ACTION_QUEUE_RUN,

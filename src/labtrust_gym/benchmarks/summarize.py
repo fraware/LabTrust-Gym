@@ -10,7 +10,7 @@ import json
 import math
 import statistics
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 RESULTS_SCHEMA_VERSION = "0.2"
 RESULTS_SCHEMA_VERSION_V03 = "0.3"
@@ -29,7 +29,7 @@ METRIC_KEYS = [
 ]
 
 
-def _normalize_to_v02(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _normalize_to_v02(data: dict[str, Any]) -> dict[str, Any] | None:
     """Normalize a results dict to v0.2 shape (task, seeds, policy_fingerprint, partner_id, git_sha, agent_baseline_id, episodes)."""
     task = data.get("task")
     episodes = data.get("episodes")
@@ -55,7 +55,7 @@ def _normalize_to_v02(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
-def _violations_total(metrics: Dict[str, Any]) -> int:
+def _violations_total(metrics: dict[str, Any]) -> int:
     """Sum violation counts from violations_by_invariant_id."""
     vbi = metrics.get("violations_by_invariant_id") or {}
     if isinstance(vbi, dict):
@@ -63,7 +63,7 @@ def _violations_total(metrics: Dict[str, Any]) -> int:
     return 0
 
 
-def _extract_metric(metrics: Dict[str, Any], key: str) -> Optional[float]:
+def _extract_metric(metrics: dict[str, Any], key: str) -> float | None:
     if key == "violations_total":
         return float(_violations_total(metrics))
     if key == "containment_success":
@@ -74,12 +74,12 @@ def _extract_metric(metrics: Dict[str, Any], key: str) -> Optional[float]:
     v = metrics.get(key)
     if v is None:
         return None
-    if isinstance(v, (int, float)):
+    if isinstance(v, int | float):
         return float(v)
     return None
 
 
-def _percentile(sorted_vals: List[float], p: float) -> Optional[float]:
+def _percentile(sorted_vals: list[float], p: float) -> float | None:
     """Percentile p (0..100) from sorted list. Returns None if empty."""
     if not sorted_vals:
         return None
@@ -89,7 +89,7 @@ def _percentile(sorted_vals: List[float], p: float) -> Optional[float]:
     return sorted_vals[lo] + (k - lo) * (sorted_vals[hi] - sorted_vals[lo])
 
 
-def _ci_95_mean(vals: List[float]) -> Tuple[Optional[float], Optional[float]]:
+def _ci_95_mean(vals: list[float]) -> tuple[float | None, float | None]:
     """95% CI for mean: (lower, upper). Returns (None, None) if len < 2 or empty."""
     if len(vals) < 2:
         return (None, None)
@@ -100,18 +100,18 @@ def _ci_95_mean(vals: List[float]) -> Tuple[Optional[float], Optional[float]]:
     return (mean - half, mean + half)
 
 
-def _aggregate_episodes(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _aggregate_episodes(episodes: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute mean and std for each metric across episodes. Returns dict with key_mean, key_std (v0.2)."""
     if not episodes:
         return {}
-    values_by_key: Dict[str, List[float]] = {k: [] for k in METRIC_KEYS}
+    values_by_key: dict[str, list[float]] = {k: [] for k in METRIC_KEYS}
     for ep in episodes:
         metrics = ep.get("metrics") or {}
         for key in METRIC_KEYS:
             x = _extract_metric(metrics, key)
             if x is not None:
                 values_by_key[key].append(x)
-    out: Dict[str, Any] = {}
+    out: dict[str, Any] = {}
     for key in METRIC_KEYS:
         vals = values_by_key[key]
         if vals:
@@ -137,12 +137,12 @@ def _aggregate_episodes(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
     return out
 
 
-def _aggregate_episodes_v03(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _aggregate_episodes_v03(episodes: list[dict[str, Any]]) -> dict[str, Any]:
     """Paper-grade: v0.2 aggregates plus quantiles (p50, p90) and 95% CI for key metrics."""
     base = _aggregate_episodes(episodes)
     if not episodes:
         return base
-    values_by_key: Dict[str, List[float]] = {k: [] for k in METRIC_KEYS}
+    values_by_key: dict[str, list[float]] = {k: [] for k in METRIC_KEYS}
     for ep in episodes:
         metrics = ep.get("metrics") or {}
         for key in METRIC_KEYS:
@@ -162,10 +162,10 @@ def _aggregate_episodes_v03(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
     return base
 
 
-def load_results_from_path(path: Path) -> List[Dict[str, Any]]:
+def load_results_from_path(path: Path) -> list[dict[str, Any]]:
     """Load one or more results.json from a path (file or directory). Returns list of normalized v0.2 dicts."""
     path = Path(path).resolve()
-    loaded: List[Dict[str, Any]] = []
+    loaded: list[dict[str, Any]] = []
     if path.is_file():
         if path.suffix.lower() == ".json":
             try:
@@ -198,8 +198,8 @@ def load_results_from_path(path: Path) -> List[Dict[str, Any]]:
 
 
 def summarize_results(
-    results_list: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    results_list: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Group by (task, agent_baseline_id, partner_id) and aggregate metrics (mean/std).
     Returns list of row dicts for CSV/markdown: task, agent_baseline_id, partner_id, n_episodes, throughput_mean, throughput_std, ...
@@ -207,7 +207,7 @@ def summarize_results(
     """
     from collections import defaultdict
 
-    groups: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for r in results_list:
         task = r.get("task") or "unknown"
         baseline = r.get("agent_baseline_id") or "scripted_ops_v1"
@@ -215,13 +215,13 @@ def summarize_results(
         key = (task, baseline, partner)
         groups[key].append(r)
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for (task, baseline, partner), group in sorted(groups.items()):
-        all_episodes: List[Dict[str, Any]] = []
+        all_episodes: list[dict[str, Any]] = []
         for g in group:
             all_episodes.extend(g.get("episodes") or [])
         agg = _aggregate_episodes(all_episodes)
-        row: Dict[str, Any] = {
+        row: dict[str, Any] = {
             "task": task,
             "agent_baseline_id": baseline,
             "partner_id": partner or None,
@@ -233,15 +233,15 @@ def summarize_results(
 
 
 def summarize_results_v03(
-    results_list: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    results_list: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Same grouping as summarize_results; aggregate with quantiles and 95% CI (paper-grade v0.3).
     Returns list of row dicts with v0.2 columns plus *_p50, *_p90, *_mean_ci_lower, *_mean_ci_upper.
     """
     from collections import defaultdict
 
-    groups: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for r in results_list:
         task = r.get("task") or "unknown"
         baseline = r.get("agent_baseline_id") or "scripted_ops_v1"
@@ -249,13 +249,13 @@ def summarize_results_v03(
         key = (task, baseline, partner)
         groups[key].append(r)
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for (task, baseline, partner), group in sorted(groups.items()):
-        all_episodes: List[Dict[str, Any]] = []
+        all_episodes: list[dict[str, Any]] = []
         for g in group:
             all_episodes.extend(g.get("episodes") or [])
         agg = _aggregate_episodes_v03(all_episodes)
-        row: Dict[str, Any] = {
+        row: dict[str, Any] = {
             "task": task,
             "agent_baseline_id": baseline,
             "partner_id": partner or None,
@@ -266,12 +266,12 @@ def summarize_results_v03(
     return rows
 
 
-def rows_to_csv(rows: List[Dict[str, Any]]) -> str:
+def rows_to_csv(rows: list[dict[str, Any]]) -> str:
     """Convert rows to CSV (header + rows). Deterministic column order."""
     if not rows:
         return ""
-    all_keys: List[str] = []
-    seen: set = set()
+    all_keys: list[str] = []
+    seen: set[str] = set()
     for r in rows:
         for k in sorted(r.keys()):
             if k not in seen:
@@ -294,12 +294,12 @@ def _csv_escape(s: str) -> str:
     return s
 
 
-def rows_to_markdown_table(rows: List[Dict[str, Any]]) -> str:
+def rows_to_markdown_table(rows: list[dict[str, Any]]) -> str:
     """Convert rows to markdown table."""
     if not rows:
         return ""
-    all_keys: List[str] = []
-    seen: set = set()
+    all_keys: list[str] = []
+    seen: set[str] = set()
     for r in rows:
         for k in sorted(r.keys()):
             if k not in seen:
@@ -323,8 +323,8 @@ def rows_to_markdown_table(rows: List[Dict[str, Any]]) -> str:
 
 
 def validate_results_v02(
-    data: Dict[str, Any], schema_path: Optional[Path] = None
-) -> List[str]:
+    data: dict[str, Any], schema_path: Path | None = None
+) -> list[str]:
     """
     Validate a results dict against results.v0.2.schema.json. Returns list of error messages; empty if valid.
     """
@@ -358,8 +358,8 @@ def validate_results_v02(
 
 
 def validate_results_v03(
-    data: Dict[str, Any], schema_path: Optional[Path] = None
-) -> List[str]:
+    data: dict[str, Any], schema_path: Path | None = None
+) -> list[str]:
     """
     Validate a results dict against results.v0.3.schema.json. Document must have schema_version "0.3".
     Returns list of error messages; empty if valid.
@@ -392,9 +392,9 @@ def validate_results_v03(
         return [str(e)]
 
 
-def _load_raw_results_with_metadata(in_paths: List[Path]) -> List[Dict[str, Any]]:
+def _load_raw_results_with_metadata(in_paths: list[Path]) -> list[dict[str, Any]]:
     """Load raw results dicts (with metadata) from paths. One dict per results file."""
-    raw_list: List[Dict[str, Any]] = []
+    raw_list: list[dict[str, Any]] = []
     for path_in in in_paths:
         p = Path(path_in).resolve()
         if p.is_file() and p.suffix.lower() == ".json":
@@ -417,10 +417,10 @@ def _load_raw_results_with_metadata(in_paths: List[Path]) -> List[Dict[str, Any]
 
 
 def _build_llm_economics_rows(
-    raw_results: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    raw_results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Build one row per result that has metadata.llm_backend_id (for llm_economics table)."""
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for data in raw_results:
         meta = data.get("metadata") or {}
         if not meta.get("llm_backend_id"):
@@ -443,11 +443,34 @@ def _build_llm_economics_rows(
     return rows
 
 
+SUMMARY_MD_HEADER = """# Benchmark summary
+
+## Metric definitions
+
+| Metric | Description |
+|--------|-------------|
+| task | Benchmark task name (e.g. TaskA, TaskB). |
+| agent_baseline_id | Baseline or agent ID (e.g. scripted_ops_v1). |
+| partner_id | Partner overlay ID if used; empty otherwise. |
+| n_episodes | Number of episodes aggregated for this row. |
+| throughput_mean | Mean specimens released (RELEASE_RESULT) per episode. Higher is better. |
+| throughput_std | Std dev of throughput across episodes. |
+| p50_turnaround_s_mean | Mean 50th percentile turnaround (accept to release) in seconds. |
+| p95_turnaround_s_mean | Mean 95th percentile turnaround in seconds. Lower is better for SLA. |
+| on_time_rate_mean | Fraction of results released within SLA window. |
+| violations_total_mean | Mean total invariant violations per episode. Lower is better. |
+| critical_communication_compliance_rate_mean | Fraction of critical results with required notify/ack. |
+
+## Results
+
+"""
+
+
 def run_summarize(
-    in_paths: List[Path],
+    in_paths: list[Path],
     out_dir: Path,
     out_basename: str = "summary",
-) -> Tuple[Path, Path]:
+) -> tuple[Path, Path]:
     """
     Load all results from in_paths (files or dirs), aggregate, write summary_v0.2.csv,
     summary_v0.3.csv, summary.csv (copy of v0.2), and summary.md.
@@ -456,7 +479,7 @@ def run_summarize(
     """
     out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    all_results: List[Dict[str, Any]] = []
+    all_results: list[dict[str, Any]] = []
     for p in in_paths:
         all_results.extend(load_results_from_path(Path(p)))
     rows_v02 = summarize_results(all_results)
@@ -468,7 +491,8 @@ def run_summarize(
     csv_v02_path.write_text(rows_to_csv(rows_v02), encoding="utf-8")
     csv_v03_path.write_text(rows_to_csv(rows_v03), encoding="utf-8")
     csv_path.write_text(rows_to_csv(rows_v02), encoding="utf-8")
-    md_path.write_text(rows_to_markdown_table(rows_v02), encoding="utf-8")
+    md_content = SUMMARY_MD_HEADER + rows_to_markdown_table(rows_v02)
+    md_path.write_text(md_content, encoding="utf-8")
     raw_list = _load_raw_results_with_metadata(in_paths)
     llm_rows = _build_llm_economics_rows(raw_list)
     if llm_rows:
