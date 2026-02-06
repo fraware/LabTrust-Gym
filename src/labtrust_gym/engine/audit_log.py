@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 
-def canonical_serialize(event: Dict[str, Any]) -> bytes:
+def canonical_serialize(event: dict[str, Any]) -> bytes:
     """
     Deterministic serialization of an event dict: sorted keys, stable encoding.
     Used for hash chain computation.
@@ -40,11 +40,9 @@ class AuditLog:
     Append-only hash chain. Supports fault injection for testing forensic freeze.
     """
 
-    def __init__(self, fault_injection: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, fault_injection: dict[str, Any] | None = None) -> None:
         self._fault_injection = fault_injection or {}
-        self._break_hash_prev_on_event_id: Optional[str] = self._fault_injection.get(
-            "break_hash_prev_on_event_id"
-        )
+        self._break_hash_prev_on_event_id: str | None = self._fault_injection.get("break_hash_prev_on_event_id")
         self._head_hash: str = ""
         self._last_event_hash: str = ""
         self._length: int = 0
@@ -62,7 +60,7 @@ class AuditLog:
     def length(self) -> int:
         return self._length
 
-    def append(self, event: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
+    def append(self, event: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         """
         Append an event to the chain. Returns (hashchain_dict, chain_broken).
 
@@ -93,7 +91,7 @@ class AuditLog:
         }
         return out, chain_broken
 
-    def hashchain_snapshot(self) -> Dict[str, Any]:
+    def hashchain_snapshot(self) -> dict[str, Any]:
         """Current hashchain state for step() return."""
         return {
             "head_hash": self._head_hash,

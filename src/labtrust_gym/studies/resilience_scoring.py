@@ -9,12 +9,12 @@ Deterministic: same cell_metrics and policy yield same score.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from labtrust_gym.policy.loader import load_yaml
 
 
-def load_resilience_scoring_policy(path: Optional[Path] = None) -> Dict[str, Any]:
+def load_resilience_scoring_policy(path: Path | None = None) -> dict[str, Any]:
     """
     Load resilience scoring policy from YAML. If path is None, load default
     policy/coordination/resilience_scoring.v0.1.yaml relative to repo root.
@@ -24,19 +24,12 @@ def load_resilience_scoring_policy(path: Optional[Path] = None) -> Dict[str, Any
     else:
         from labtrust_gym.config import get_repo_root
 
-        p = (
-            Path(get_repo_root())
-            / "policy"
-            / "coordination"
-            / "resilience_scoring.v0.1.yaml"
-        )
+        p = Path(get_repo_root()) / "policy" / "coordination" / "resilience_scoring.v0.1.yaml"
     if not p.is_absolute():
         p = Path.cwd() / p
     data = load_yaml(p)
     if "weights" not in data or "components" not in data:
-        raise ValueError(
-            f"Invalid resilience scoring policy: missing weights or components in {p}"
-        )
+        raise ValueError(f"Invalid resilience scoring policy: missing weights or components in {p}")
     return dict(data)
 
 
@@ -45,7 +38,7 @@ def _normalize(
     range_min: float,
     range_max: float,
     direction: str,
-    saturation: Optional[list] = None,
+    saturation: list[float] | None = None,
 ) -> float:
     """
     Map value into [0, 1] using linear interpolation over [range_min, range_max].
@@ -61,13 +54,13 @@ def _normalize(
     if direction == "lower_better":
         raw = 1.0 - raw
     out = s0 + raw * (s1 - s0)
-    return max(s0, min(s1, out))
+    return float(max(s0, min(s1, out)))
 
 
 def compute_components(
-    cell_metrics: Dict[str, Any],
-    policy: Dict[str, Any],
-) -> Dict[str, float]:
+    cell_metrics: dict[str, Any],
+    policy: dict[str, Any],
+) -> dict[str, float]:
     """
     Compute per-component scores from cell_metrics using policy normalization.
 
@@ -77,8 +70,8 @@ def compute_components(
     """
     missing_behavior = policy.get("missing_metric_behavior", "omit")
     components_cfg = policy.get("components") or {}
-    weights = policy.get("weights") or {}
-    out: Dict[str, float] = {}
+    policy.get("weights") or {}
+    out: dict[str, float] = {}
 
     for comp_name in ("perf", "safety", "security", "coordination"):
         comp_cfg = components_cfg.get(comp_name)
@@ -125,8 +118,8 @@ def compute_components(
 
 
 def compute_resilience_score(
-    components: Dict[str, float],
-    weights: Dict[str, float],
+    components: dict[str, float],
+    weights: dict[str, float],
 ) -> float:
     """
     Weighted sum of component scores. Component keys: component_perf, component_safety,

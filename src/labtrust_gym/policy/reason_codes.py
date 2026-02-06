@@ -9,12 +9,12 @@ Load and validate reason codes from policy/reason_codes/reason_code_registry.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
 
-def load_reason_code_registry(path: str | Path) -> Dict[str, Dict[str, Any]]:
+def load_reason_code_registry(path: str | Path) -> dict[str, dict[str, Any]]:
     """
     Load reason code registry from YAML.     Returns dict code -> code info (namespace, severity, description, etc.).
     Path may be relative to cwd or absolute.
@@ -37,7 +37,7 @@ def load_reason_code_registry(path: str | Path) -> Dict[str, Dict[str, Any]]:
             p,
             f"reason_code_registry.codes must be a list, got {type(codes_list).__name__}",
         )
-    out: Dict[str, Dict[str, Any]] = {}
+    out: dict[str, dict[str, Any]] = {}
     for entry in codes_list:
         if not isinstance(entry, dict):
             continue
@@ -47,21 +47,19 @@ def load_reason_code_registry(path: str | Path) -> Dict[str, Dict[str, Any]]:
     return out
 
 
-def get_code(
-    registry: Dict[str, Dict[str, Any]], code: str
-) -> Optional[Dict[str, Any]]:
+def get_code(registry: dict[str, dict[str, Any]], code: str) -> dict[str, Any] | None:
     """Lookup code in registry. Returns code info dict or None if not found."""
     return registry.get(code) if code else None
 
 
-def allowed_codes(registry: Dict[str, Dict[str, Any]]) -> Set[str]:
+def allowed_codes(registry: dict[str, dict[str, Any]]) -> set[str]:
     """Return set of all registered code strings."""
     return set(registry.keys())
 
 
 def validate_reason_code(
-    code: Optional[str],
-    registry: Dict[str, Dict[str, Any]],
+    code: str | None,
+    registry: dict[str, dict[str, Any]],
     *,
     event_id: str = "",
     context: str = "reason_code",

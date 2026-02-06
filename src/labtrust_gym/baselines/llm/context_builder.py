@@ -12,7 +12,7 @@ Context builder v0.2: bounded, injection-hardened state summary for LLM.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 CAP_K = 10
 UNTRUSTED_MAX_CHARS = 200
@@ -29,15 +29,15 @@ def _truncate_and_escape(text: str, max_chars: int = UNTRUSTED_MAX_CHARS) -> str
     return s
 
 
-def _collect_untrusted_samples(engine_state: Dict[str, Any]) -> List[Dict[str, str]]:
+def _collect_untrusted_samples(engine_state: dict[str, Any]) -> list[dict[str, str]]:
     """
     Collect free text from engine_state that must be treated as untrusted.
     Returns list of {"source": "specimen_note"|"scenario_note"|..., "text": "..."}
     with truncated, escaped text. Do not place free text in main decision fields.
     """
-    samples: List[Dict[str, str]] = []
+    samples: list[dict[str, str]] = []
     # Map engine_state key -> explicit tag for audit
-    source_tag: Dict[str, str] = {
+    source_tag: dict[str, str] = {
         "specimen_notes": "specimen_note",
         "scenario_notes": "scenario_note",
         "notes": "note",
@@ -68,7 +68,7 @@ def _collect_untrusted_samples(engine_state: Dict[str, Any]) -> List[Dict[str, s
     return samples[:CAP_K]
 
 
-def _cap_list(items: List[Any], cap: int = CAP_K) -> List[Any]:
+def _cap_list(items: list[Any], cap: int = CAP_K) -> list[Any]:
     """Return first cap items."""
     if not isinstance(items, list):
         return []
@@ -76,13 +76,13 @@ def _cap_list(items: List[Any], cap: int = CAP_K) -> List[Any]:
 
 
 def build_state_summary_v0_2(
-    engine_state: Dict[str, Any],
-    policy: Dict[str, Any],
+    engine_state: dict[str, Any],
+    policy: dict[str, Any],
     agent_id: str,
     role_id: str,
     now_ts_s: int,
     timing_mode: str = "explicit",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Build state summary v0.2: bounded, injection-hardened, decision-relevant only.
 
@@ -94,19 +94,9 @@ def build_state_summary_v0_2(
     optionally allowed_actions, etc.).
     """
     partner_id = str(policy.get("partner_id") or engine_state.get("partner_id") or "")
-    policy_fingerprint = str(
-        policy.get("policy_fingerprint") or engine_state.get("policy_fingerprint") or ""
-    )
-    strict_signatures = bool(
-        policy.get("strict_signatures")
-        or engine_state.get("strict_signatures")
-        or False
-    )
-    log_frozen = bool(
-        policy.get("log_frozen")
-        if "log_frozen" in policy
-        else engine_state.get("log_frozen", False)
-    )
+    policy_fingerprint = str(policy.get("policy_fingerprint") or engine_state.get("policy_fingerprint") or "")
+    strict_signatures = bool(policy.get("strict_signatures") or engine_state.get("strict_signatures") or False)
+    log_frozen = bool(policy.get("log_frozen") if "log_frozen" in policy else engine_state.get("log_frozen", False))
 
     zone_id = engine_state.get("zone_id") or engine_state.get("agent_zone") or ""
     site_id = engine_state.get("site_id") or "SITE_HUB"
@@ -122,9 +112,7 @@ def build_state_summary_v0_2(
             queue_by_device[i] = {
                 "device_id": str(q.get("device_id", "")),
                 "queue_head": str(q.get("queue_head", "")),
-                "queue_len": (
-                    int(q.get("queue_len", 0)) if q.get("queue_len") is not None else 0
-                ),
+                "queue_len": (int(q.get("queue_len", 0)) if q.get("queue_len") is not None else 0),
             }
 
     active_runs = _cap_list(engine_state.get("active_runs") or [], cap=CAP_K)
@@ -155,19 +143,13 @@ def build_state_summary_v0_2(
         for r in pending_results
     ]
 
-    pending_criticals = _cap_list(
-        engine_state.get("pending_criticals") or [], cap=CAP_K
-    )
+    pending_criticals = _cap_list(engine_state.get("pending_criticals") or [], cap=CAP_K)
     pending_criticals = [
         (
             {
                 "result_id": str(c.get("result_id", "")),
                 "tier": int(c.get("tier", 0)) if c.get("tier") is not None else 0,
-                "ack_due_in_s": (
-                    int(c.get("ack_due_in_s", 0))
-                    if c.get("ack_due_in_s") is not None
-                    else 0
-                ),
+                "ack_due_in_s": (int(c.get("ack_due_in_s", 0)) if c.get("ack_due_in_s") is not None else 0),
             }
             if isinstance(c, dict)
             else {"result_id": "", "tier": 0, "ack_due_in_s": 0}
@@ -181,11 +163,7 @@ def build_state_summary_v0_2(
             {
                 "token_id": str(t.get("token_id", "")),
                 "token_type": str(t.get("token_type", "")),
-                "expires_in_s": (
-                    int(t.get("expires_in_s", 0))
-                    if t.get("expires_in_s") is not None
-                    else 0
-                ),
+                "expires_in_s": (int(t.get("expires_in_s", 0)) if t.get("expires_in_s") is not None else 0),
             }
             if isinstance(t, dict)
             else {"token_id": "", "token_type": "", "expires_in_s": 0}
@@ -193,17 +171,13 @@ def build_state_summary_v0_2(
         for t in active_tokens
     ]
 
-    recent_violations = _cap_list(
-        engine_state.get("recent_violations") or [], cap=CAP_K
-    )
+    recent_violations = _cap_list(engine_state.get("recent_violations") or [], cap=CAP_K)
     recent_violations = [
         (
             {
                 "invariant_id": str(v.get("invariant_id", "")),
                 "severity": str(v.get("severity", "")),
-                "at_ts_s": (
-                    int(v.get("at_ts_s", 0)) if v.get("at_ts_s") is not None else 0
-                ),
+                "at_ts_s": (int(v.get("at_ts_s", 0)) if v.get("at_ts_s") is not None else 0),
             }
             if isinstance(v, dict)
             else {"invariant_id": "", "severity": "", "at_ts_s": 0}

@@ -9,12 +9,12 @@ Load and validate emits against the canonical vocabulary.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Set
+from typing import Any
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
 
-def load_emits_vocab(path: str | Path) -> Set[str]:
+def load_emits_vocab(path: str | Path) -> set[str]:
     """
     Load the canonical emit set from YAML.
     Path may be relative to cwd or absolute. Returns set of allowed emit strings.
@@ -41,8 +41,8 @@ def load_emits_vocab(path: str | Path) -> Set[str]:
 
 
 def validate_emits(
-    emits: List[str],
-    allowed: Set[str],
+    emits: list[str],
+    allowed: set[str],
     *,
     event_id: str = "",
 ) -> None:
@@ -57,8 +57,8 @@ def validate_emits(
 
 
 def validate_engine_step_emits(
-    result: dict,
-    allowed: Set[str],
+    result: dict[str, Any],
+    allowed: set[str],
     *,
     event_id: str = "",
 ) -> None:

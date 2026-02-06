@@ -10,7 +10,7 @@ Provider-neutral live LLM interface.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -22,7 +22,7 @@ class ProviderBackend(Protocol):
     so the engine and agent do not depend on any specific provider.
     """
 
-    def propose_action(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def propose_action(self, context: dict[str, Any]) -> dict[str, Any]:
         """
         Propose one action from context. Returns ActionProposal dict (or NOOP on error).
 

@@ -1,0 +1,8 @@
+{
+  "episodes_baselines": 50,
+  "episodes_study_taskf": 50,
+  "git_sha": "f168410be388f50462178ea9e0defffd0483857b",
+  "profile": "paper_v0.1",
+  "seed_base": 100,
+  "timestamp": "1970-01-01T00:01:40Z"
+}

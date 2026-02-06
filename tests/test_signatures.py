@@ -2,8 +2,8 @@
 Unit tests for signed actions: canonical payload, key registry, Ed25519 verification.
 
 - Valid signature passes; invalid fails; revoked/expired key fails deterministically.
-- Golden GS-SIG-026 (no signature => BLOCKED SIG_MISSING) and GS-SIG-027 (invalid sig => BLOCKED SIG_INVALID)
-  are run by test_golden_suite when LABTRUST_RUN_GOLDEN=1.
+- GS-SIG-026/027 (no sig => SIG_MISSING, invalid => SIG_INVALID) in test_golden_suite when
+  LABTRUST_RUN_GOLDEN=1.
 """
 
 from __future__ import annotations
@@ -13,19 +13,19 @@ from pathlib import Path
 
 import pytest
 
+from labtrust_gym.engine.audit_log import canonical_serialize
 from labtrust_gym.engine.signatures import (
+    SIG_INVALID,
+    SIG_KEY_EXPIRED,
+    SIG_KEY_REVOKED,
+    SIG_MISSING,
     build_signing_payload,
     canonical_payload_bytes,
     is_mutating_action,
     load_key_registry,
     verify_action_signature,
     verify_signature,
-    SIG_MISSING,
-    SIG_INVALID,
-    SIG_KEY_REVOKED,
-    SIG_KEY_EXPIRED,
 )
-from labtrust_gym.engine.audit_log import canonical_serialize
 
 
 def test_build_signing_payload_deterministic() -> None:
@@ -100,7 +100,13 @@ def test_verify_signature_valid_passes() -> None:
 
 def test_verify_action_signature_missing() -> None:
     """Event without key_id/signature => (False, SIG_MISSING, info)."""
-    event = {"event_id": "e1", "t_s": 0, "agent_id": "A_RECEPTION", "action_type": "MOVE", "args": {}}
+    event = {
+        "event_id": "e1",
+        "t_s": 0,
+        "agent_id": "A_RECEPTION",
+        "action_type": "MOVE",
+        "args": {},
+    }
     registry = {"version": "0.1", "keys": []}
     passed, reason, info = verify_action_signature(event, "prev", None, None, registry, 0)
     assert passed is False
@@ -119,7 +125,12 @@ def test_verify_action_signature_invalid_sig_fails() -> None:
         "t_s": 9010,
         "agent_id": "A_RECEPTION",
         "action_type": "MOVE",
-        "args": {"entity_type": "Agent", "entity_id": "A_RECEPTION", "from_zone": "Z_SRA_RECEPTION", "to_zone": "Z_ACCESSIONING"},
+        "args": {
+            "entity_type": "Agent",
+            "entity_id": "A_RECEPTION",
+            "from_zone": "Z_SRA_RECEPTION",
+            "to_zone": "Z_ACCESSIONING",
+        },
         "key_id": "ed25519:key_reception",
         "signature": base64.b64encode(bytes(64)).decode(),
     }
@@ -131,8 +142,27 @@ def test_verify_action_signature_invalid_sig_fails() -> None:
 
 def test_revoked_key_fails() -> None:
     """Key with status REVOKED => (False, SIG_KEY_REVOKED)."""
-    reg = {"version": "0.1", "keys": [{"key_id": "k1", "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=", "agent_id": "A_RECEPTION", "role_id": "ROLE_RECEPTION", "status": "REVOKED"}]}
-    event = {"event_id": "e1", "t_s": 0, "agent_id": "A_RECEPTION", "action_type": "MOVE", "args": {}, "key_id": "k1", "signature": base64.b64encode(bytes(64)).decode()}
+    reg = {
+        "version": "0.1",
+        "keys": [
+            {
+                "key_id": "k1",
+                "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=",
+                "agent_id": "A_RECEPTION",
+                "role_id": "ROLE_RECEPTION",
+                "status": "REVOKED",
+            }
+        ],
+    }
+    event = {
+        "event_id": "e1",
+        "t_s": 0,
+        "agent_id": "A_RECEPTION",
+        "action_type": "MOVE",
+        "args": {},
+        "key_id": "k1",
+        "signature": base64.b64encode(bytes(64)).decode(),
+    }
     passed, reason, _ = verify_action_signature(event, "prev", None, None, reg, 0)
     assert passed is False
     assert reason == SIG_KEY_REVOKED
@@ -140,8 +170,28 @@ def test_revoked_key_fails() -> None:
 
 def test_expired_key_fails() -> None:
     """Key with not_after_ts_s < now_ts => (False, SIG_KEY_EXPIRED)."""
-    reg = {"version": "0.1", "keys": [{"key_id": "k1", "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=", "agent_id": "A_RECEPTION", "role_id": "ROLE_RECEPTION", "status": "ACTIVE", "not_after_ts_s": 100}]}
-    event = {"event_id": "e1", "t_s": 0, "agent_id": "A_RECEPTION", "action_type": "MOVE", "args": {}, "key_id": "k1", "signature": base64.b64encode(bytes(64)).decode()}
+    reg = {
+        "version": "0.1",
+        "keys": [
+            {
+                "key_id": "k1",
+                "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=",
+                "agent_id": "A_RECEPTION",
+                "role_id": "ROLE_RECEPTION",
+                "status": "ACTIVE",
+                "not_after_ts_s": 100,
+            }
+        ],
+    }
+    event = {
+        "event_id": "e1",
+        "t_s": 0,
+        "agent_id": "A_RECEPTION",
+        "action_type": "MOVE",
+        "args": {},
+        "key_id": "k1",
+        "signature": base64.b64encode(bytes(64)).decode(),
+    }
     passed, reason, _ = verify_action_signature(event, "prev", None, None, reg, 200)
     assert passed is False
     assert reason == SIG_KEY_EXPIRED
@@ -159,6 +209,7 @@ def test_gs_sig_026_no_signature_blocked(monkeypatch) -> None:
     """GS-SIG-026: strict mode, mutating action without signature => BLOCKED SIG_MISSING."""
     monkeypatch.setenv("LABTRUST_STRICT_SIGNATURES", "1")
     from labtrust_gym.engine.core_env import CoreEnv
+
     env = CoreEnv()
     initial_state = {
         "system": {"now_s": 0, "downtime_active": False},
@@ -172,7 +223,12 @@ def test_gs_sig_026_no_signature_blocked(monkeypatch) -> None:
         "t_s": 9000,
         "agent_id": "A_RECEPTION",
         "action_type": "MOVE",
-        "args": {"entity_type": "Agent", "entity_id": "A_RECEPTION", "from_zone": "Z_SRA_RECEPTION", "to_zone": "Z_ACCESSIONING"},
+        "args": {
+            "entity_type": "Agent",
+            "entity_id": "A_RECEPTION",
+            "from_zone": "Z_SRA_RECEPTION",
+            "to_zone": "Z_ACCESSIONING",
+        },
         "reason_code": None,
         "token_refs": [],
     }
@@ -185,6 +241,7 @@ def test_gs_sig_027_invalid_signature_blocked(monkeypatch) -> None:
     """GS-SIG-027: strict mode, invalid signature => BLOCKED SIG_INVALID."""
     monkeypatch.setenv("LABTRUST_STRICT_SIGNATURES", "1")
     from labtrust_gym.engine.core_env import CoreEnv
+
     env = CoreEnv()
     initial_state = {
         "system": {"now_s": 0, "downtime_active": False},
@@ -200,7 +257,12 @@ def test_gs_sig_027_invalid_signature_blocked(monkeypatch) -> None:
         "key_id": "ed25519:key_reception",
         "signature": base64.b64encode(bytes(64)).decode(),
         "action_type": "MOVE",
-        "args": {"entity_type": "Agent", "entity_id": "A_RECEPTION", "from_zone": "Z_SRA_RECEPTION", "to_zone": "Z_ACCESSIONING"},
+        "args": {
+            "entity_type": "Agent",
+            "entity_id": "A_RECEPTION",
+            "from_zone": "Z_SRA_RECEPTION",
+            "to_zone": "Z_ACCESSIONING",
+        },
         "reason_code": None,
         "token_refs": [],
     }
@@ -210,8 +272,9 @@ def test_gs_sig_027_invalid_signature_blocked(monkeypatch) -> None:
 
 
 def test_default_strict_off_mutating_without_sig_accepted() -> None:
-    """Without strict_signatures, mutating action without signature is accepted (backward compat)."""
+    """Without strict_signatures, mutating action without sig is accepted (backward compat)."""
     from labtrust_gym.engine.core_env import CoreEnv
+
     env = CoreEnv()
     initial_state = {
         "system": {"now_s": 0, "downtime_active": False},
@@ -225,7 +288,12 @@ def test_default_strict_off_mutating_without_sig_accepted() -> None:
         "t_s": 9000,
         "agent_id": "A_RECEPTION",
         "action_type": "MOVE",
-        "args": {"entity_type": "Agent", "entity_id": "A_RECEPTION", "from_zone": "Z_SRA_RECEPTION", "to_zone": "Z_ACCESSIONING"},
+        "args": {
+            "entity_type": "Agent",
+            "entity_id": "A_RECEPTION",
+            "from_zone": "Z_SRA_RECEPTION",
+            "to_zone": "Z_ACCESSIONING",
+        },
         "reason_code": None,
         "token_refs": [],
     }

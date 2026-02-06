@@ -8,31 +8,30 @@ Does not modify results contract; refactor is incremental.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
+from labtrust_gym.control_plane.gates import apply_gates
 from labtrust_gym.control_plane.interface import (
     ControlPlane,
     GateDecision,
 )
-from labtrust_gym.control_plane.gates import apply_gates
+from labtrust_gym.engine import enforcement as enforcement_module
 
 # Re-export engine modules for clear boundary (control-plane owns these concepts)
 from labtrust_gym.engine import rbac as rbac_module
 from labtrust_gym.engine import signatures as signatures_module
-from labtrust_gym.engine import enforcement as enforcement_module
 from labtrust_gym.engine import tokens_runtime as tokens_runtime_module
 
 
 def apply_enforcement_post_step(
-    event: Dict[str, Any],
-    violations: List[Dict[str, Any]],
-    engine: Optional[Any],
-    audit_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-) -> List[Dict[str, Any]]:
+    event: dict[str, Any],
+    violations: list[dict[str, Any]],
+    engine: Any | None,
+    audit_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> list[dict[str, Any]]:
     """Route post-step enforcement through control-plane. Delegates to engine.enforcement.apply_enforcement."""
-    return enforcement_module.apply_enforcement(
-        event, violations, engine, audit_callback
-    )
+    return enforcement_module.apply_enforcement(event, violations, engine, audit_callback)
 
 
 __all__ = [

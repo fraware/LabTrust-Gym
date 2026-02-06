@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from labtrust_gym.baselines.marl.ppo_train import _eval_policy
 
@@ -16,8 +16,8 @@ def eval_ppo(
     task_name: str = "TaskA",
     episodes: int = 50,
     seed: int = 123,
-    out_path: Optional[Path] = None,
-) -> Dict[str, Any]:
+    out_path: Path | None = None,
+) -> dict[str, Any]:
     """
     Load model, run N episodes with deterministic seeds, return and optionally save metrics.
     """

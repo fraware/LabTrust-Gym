@@ -97,17 +97,13 @@ def test_coordination_study_same_seed_same_summary_coord_hash(tmp_path: Path) ->
     norm2 = _normalize_csv_for_hash(raw2)
     h1 = hashlib.sha256(norm1).hexdigest()
     h2 = hashlib.sha256(norm2).hexdigest()
-    assert (
-        h1 == h2
-    ), "Same seed_base and spec must yield identical summary_coord.csv (excluding timestamps)"
+    assert h1 == h2, "Same seed_base and spec must yield identical summary_coord.csv (excluding timestamps)"
 
 
 def test_coordination_study_legacy_injection_id_completes(tmp_path: Path) -> None:
     """Study spec with legacy injection_id (inj_tool_selection_noise) uses NoOpInjector and completes."""
     repo = _repo_root()
-    spec_path = (
-        repo / "tests" / "fixtures" / "coordination_study_legacy_injection_spec.yaml"
-    )
+    spec_path = repo / "tests" / "fixtures" / "coordination_study_legacy_injection_spec.yaml"
     if not spec_path.exists():
         pytest.skip(f"Fixture spec not found: {spec_path}")
 

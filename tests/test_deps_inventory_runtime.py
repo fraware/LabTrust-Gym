@@ -9,8 +9,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.security.deps_inventory import (
     collect_runtime_deps,
     write_deps_inventory_runtime,

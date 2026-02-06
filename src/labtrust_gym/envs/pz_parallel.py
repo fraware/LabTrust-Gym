@@ -12,12 +12,12 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
-from labtrust_gym.engine.core_env import CoreEnv
 from labtrust_gym.baselines.llm.shield import LLM_ACTION_FILTERED
+from labtrust_gym.engine.core_env import CoreEnv
 from labtrust_gym.security.adversarial_detection import (
     detect_adversarial,
     load_adversarial_detection_policy,
@@ -27,12 +27,15 @@ from labtrust_gym.security.adversarial_detection import (
 try:
     from gymnasium import spaces
     from pettingzoo.utils.env import ParallelEnv
-except ImportError:
-    ParallelEnv = None  # type: ignore[misc, assignment]
-    spaces = None
+
+    _pettingzoo_import_error: BaseException | None = None
+except ImportError as _e:
+    ParallelEnv = None  # type: ignore[assignment]
+    spaces = None  # type: ignore[assignment]
+    _pettingzoo_import_error = _e
 
 # Default zone/device lists aligned with engine default layout (zones._default_layout)
-DEFAULT_ZONE_IDS: List[str] = [
+DEFAULT_ZONE_IDS: list[str] = [
     "Z_SRA_RECEPTION",
     "Z_ACCESSIONING",
     "Z_SORTING_LANES",
@@ -44,7 +47,7 @@ DEFAULT_ZONE_IDS: List[str] = [
     "Z_QC_SUPERVISOR",
     "Z_RESTRICTED_BIOHAZARD",
 ]
-DEFAULT_DEVICE_IDS: List[str] = [
+DEFAULT_DEVICE_IDS: list[str] = [
     "DEV_CENTRIFUGE_BANK_01",
     "DEV_ALIQUOTER_01",
     "DEV_CHEM_A_01",
@@ -65,7 +68,7 @@ ACTION_OPEN_DOOR = 4
 ACTION_START_RUN = 5
 
 
-def _zone_to_index(zone_id: Optional[str], zone_ids: List[str]) -> int:
+def _zone_to_index(zone_id: str | None, zone_ids: list[str]) -> int:
     if not zone_id:
         return 0
     try:
@@ -79,6 +82,13 @@ def _safe_int(x: Any, default: int = 0) -> int:
         return int(x)
     except (TypeError, ValueError):
         return default
+
+
+if ParallelEnv is None:
+    raise ImportError(
+        "LabTrustParallelEnv requires pettingzoo and gymnasium. "
+        'Install with: pip install -e ".[env]"'
+    ) from _pettingzoo_import_error
 
 
 class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
@@ -97,17 +107,16 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         num_adversaries: int = 0,
         num_insiders: int = 0,
         dt_s: int = 10,
-        reward_config: Optional[Dict[str, Any]] = None,
-        policy_dir: Optional[Path] = None,
-        log_path: Optional[Path] = None,
-        scale_agents: Optional[List[Dict[str, str]]] = None,
-        scale_device_ids: Optional[List[str]] = None,
-        scale_zone_ids: Optional[List[str]] = None,
+        reward_config: dict[str, Any] | None = None,
+        policy_dir: Path | None = None,
+        log_path: Path | None = None,
+        scale_agents: list[dict[str, str]] | None = None,
+        scale_device_ids: list[str] | None = None,
+        scale_zone_ids: list[str] | None = None,
     ) -> None:
         if ParallelEnv is None or spaces is None:
             raise ImportError(
-                "PettingZoo and Gymnasium are required for LabTrustParallelEnv. "
-                'Install with: pip install -e ".[env]"'
+                'PettingZoo and Gymnasium are required for LabTrustParallelEnv. Install with: pip install -e ".[env]"'
             )
         super().__init__()
         self._num_runners = max(0, num_runners)
@@ -116,13 +125,13 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         self._dt_s = max(1, dt_s)
         self._reward_config = reward_config or {}
         self._policy_dir = Path(policy_dir) if policy_dir else Path("policy")
-        self._repo_root: Optional[Path] = None
+        self._repo_root: Path | None = None
         if self._policy_dir.is_dir():
             self._repo_root = self._policy_dir.resolve().parent
         self._log_path = Path(log_path) if log_path else None
-        self._episode_logger: Optional[Any] = None
-        self._last_observations: Dict[str, Any] = {}
-        self._observation_text_override: Optional[Dict[str, Any]] = None
+        self._episode_logger: Any | None = None
+        self._last_observations: dict[str, Any] = {}
+        self._observation_text_override: dict[str, Any] | None = None
         if self._log_path:
             from labtrust_gym.logging.episode_log import EpisodeLogger
 
@@ -202,24 +211,24 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         }
 
         # Action: discrete action type (MVP)
-        self.action_spaces = {
+        self.action_spaces: dict[str, Any] = {
             a: spaces.Discrete(NUM_ACTION_TYPES) for a in self.possible_agents
         }
 
         self._engine = CoreEnv()
         self._step_count = 0
-        self._seed_value: Optional[int] = None
+        self._seed_value: int | None = None
         self.agents = list(self.possible_agents)
 
-    def seed(self, seed: Optional[int] = None) -> None:
+    def seed(self, seed: int | None = None) -> None:
         """Set seed for deterministic behavior. Use with reset(seed=...)."""
         self._seed_value = seed
 
     def reset(
         self,
-        seed: Optional[int] = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         if seed is not None:
             self._seed_value = seed
         rng_seed = self._seed_value if self._seed_value is not None else 0
@@ -273,10 +282,10 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         self.agents = list(self.possible_agents)
         observations = self._collect_observations()
         self._last_observations = dict(observations)
-        infos = {a: {} for a in self.agents}
+        infos: dict[str, dict[str, Any]] = {a: {} for a in self.agents}
         return observations, infos
 
-    def _collect_observations(self) -> Dict[str, Any]:
+    def _collect_observations(self) -> dict[str, Any]:
         obs = {}
         for agent in self.agents:
             engine_id = self._pz_to_engine.get(agent, agent)
@@ -300,7 +309,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
 
             queue_lengths = np.zeros(len(self._device_ids), dtype=np.int32)
             queue_has_head = np.zeros(len(self._device_ids), dtype=np.int8)
-            queue_by_device: List[Dict[str, Any]] = []
+            queue_by_device: list[dict[str, Any]] = []
             for i, dev in enumerate(self._device_ids):
                 try:
                     qlen = _safe_int(self._engine.query(f"queue_length('{dev}')"))
@@ -388,6 +397,36 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 ) or ""
             except Exception:
                 pass
+            work_list: list[dict[str, Any]] = []
+            releasable_result_ids: list[str] = []
+            try:
+                accepted_ids = self._engine.query("accepted_specimen_ids_not_in_queue")
+                default_dev = ""
+                if self._device_ids:
+                    default_dev = self._device_ids[0]
+                    for d in self._device_ids:
+                        if "CHEM" in d or "HAEM" in d or "COAG" in d:
+                            default_dev = d
+                            break
+                for sid in accepted_ids or []:
+                    work_list.append(
+                        {
+                            "work_id": str(sid),
+                            "device_id": default_dev,
+                            "priority": "ROUTINE",
+                            "deadline_s": 0,
+                            "stability_ok": True,
+                            "temp_ok": True,
+                        }
+                    )
+            except ValueError:
+                pass
+            try:
+                releasable_result_ids = list(
+                    self._engine.query("releasable_result_ids") or []
+                )
+            except ValueError:
+                pass
             obs[agent] = {
                 "my_zone_idx": my_zone_idx,
                 "door_restricted_open": door_open,
@@ -398,6 +437,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "specimen_status_counts": specimen_counts,
                 "device_qc_pass": device_qc_pass,
                 "log_frozen": log_frozen_int,
+                "work_list": work_list,
+                "releasable_result_ids": releasable_result_ids,
                 "token_count_override": np.array(
                     [token_count_override], dtype=np.int32
                 ),
@@ -422,8 +463,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         self,
         agent: str,
         action: int,
-        action_info: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        action_info: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Translate discrete action (and optional action_info) to engine event."""
         engine_id = self._pz_to_engine.get(agent, agent)
         t_s = self._step_count * self._dt_s
@@ -444,7 +485,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         }
         # Custom event from action_info (e.g. insider adversary, LLM safe: RELEASE_RESULT, MOVE with signature, etc.)
         if info.get("action_type"):
-            ev: Dict[str, Any] = {
+            ev: dict[str, Any] = {
                 "event_id": event_id,
                 "t_s": t_s,
                 "agent_id": engine_id,
@@ -558,34 +599,34 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
 
     def step(
         self,
-        actions: Dict[str, Any],
-        action_infos: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> Tuple[
-        Dict[str, Any],
-        Dict[str, float],
-        Dict[str, bool],
-        Dict[str, bool],
-        Dict[str, Dict[str, Any]],
+        actions: dict[str, Any],
+        action_infos: dict[str, dict[str, Any]] | None = None,
+    ) -> tuple[
+        dict[str, Any],
+        dict[str, float],
+        dict[str, bool],
+        dict[str, bool],
+        dict[str, dict[str, Any]],
     ]:
         self._step_count += 1
-        t_s = self._step_count * self._dt_s
+        self._step_count * self._dt_s
 
         rewards = {a: 0.0 for a in self.agents}
         violation_count = 0
         blocked_count = 0
         result_released = False
         action_infos = action_infos or {}
-        step_results: List[Dict[str, Any]] = []
+        step_results: list[dict[str, Any]] = []
 
         for agent in self.agents:
             action = actions.get(agent, ACTION_NOOP)
-            if isinstance(action, (np.integer, np.int64, np.int32)):
+            if isinstance(action, np.integer | np.int64 | np.int32):
                 action = int(action)
             event = self._action_to_event(
                 agent, action, action_info=action_infos.get(agent)
             )
             # Adversarial detector: run on observation context (previous obs + LLM output)
-            obs_ctx: Dict[str, Any] = {}
+            obs_ctx: dict[str, Any] = {}
             last_obs = (getattr(self, "_last_observations", None) or {}).get(
                 agent
             ) or {}
@@ -706,19 +747,20 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             self._episode_logger.close()
             self._episode_logger = None
 
-    def get_timing_summary(self) -> Dict[str, Any]:
+    def get_timing_summary(self) -> dict[str, Any]:
         """Return timing_mode, episode_time_s, device_busy_s from engine. For benchmark utilization metrics."""
         return self._engine.get_timing_summary()
 
-    def get_episode_time_s(self) -> Optional[int]:
+    def get_episode_time_s(self) -> int | None:
         """Episode duration in seconds: engine clock (simulated) or step_count * dt_s (explicit)."""
         summary = self._engine.get_timing_summary()
-        if summary.get("episode_time_s") is not None:
-            return summary["episode_time_s"]
+        ep_s = summary.get("episode_time_s")
+        if ep_s is not None and isinstance(ep_s, int):
+            return int(ep_s)
         return (self._step_count * self._dt_s) if self._step_count else None
 
 
-def _hash_obs(obs: Dict[str, Any]) -> str:
+def _hash_obs(obs: dict[str, Any]) -> str:
     """Stable hash of observation dict for determinism tests."""
 
     def _enc(o: Any) -> Any:

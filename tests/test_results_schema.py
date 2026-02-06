@@ -13,16 +13,15 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.benchmarks.summarize import (
-    load_results_from_path,
-    summarize_results,
-    summarize_results_v03,
-    run_summarize,
-    rows_to_csv,
-    validate_results_v02,
-    validate_results_v03,
-    _normalize_to_v02,
     _build_llm_economics_rows,
     _load_raw_results_with_metadata,
+    _normalize_to_v02,
+    load_results_from_path,
+    run_summarize,
+    summarize_results,
+    summarize_results_v03,
+    validate_results_v02,
+    validate_results_v03,
 )
 
 
@@ -178,7 +177,7 @@ def test_summarize_aggregates_by_task_baseline_partner(tmp_path: Path) -> None:
 def test_summarize_writes_llm_economics_when_metadata_has_llm_backend(
     tmp_path: Path,
 ) -> None:
-    """When any result has metadata.llm_backend_id, run_summarize writes llm_economics.csv and .md."""
+    """When result has metadata.llm_backend_id, run_summarize writes llm_economics.csv and .md."""
     results_dir = tmp_path / "results"
     results_dir.mkdir()
     (results_dir / "results.json").write_text(
@@ -294,31 +293,23 @@ def test_summarize_v02_output_unchanged_for_fixture(tmp_path: Path) -> None:
         "agent_baseline_id": "scripted_ops_v1",
         "git_sha": "abc",
     }
-    (results_dir / "results.json").write_text(
-        json.dumps(fixture, indent=2), encoding="utf-8"
-    )
+    (results_dir / "results.json").write_text(json.dumps(fixture, indent=2), encoding="utf-8")
     out1 = tmp_path / "out1"
     out2 = tmp_path / "out2"
     run_summarize([results_dir], out1, out_basename="summary")
     run_summarize([results_dir], out2, out_basename="summary")
     csv_v02_1 = (out1 / "summary_v0.2.csv").read_text(encoding="utf-8")
     csv_v02_2 = (out2 / "summary_v0.2.csv").read_text(encoding="utf-8")
-    assert (
-        csv_v02_1 == csv_v02_2
-    ), "summary_v0.2.csv must be identical for same inputs (determinism)"
+    assert csv_v02_1 == csv_v02_2, "summary_v0.2.csv must be identical for same inputs (determinism)"
     assert out1 / "summary_v0.2.csv" in list(out1.iterdir())
     assert out1 / "summary_v0.3.csv" in list(out1.iterdir())
-    assert (out1 / "summary.csv").read_text(
-        encoding="utf-8"
-    ) == csv_v02_1, "summary.csv must equal summary_v0.2.csv"
+    assert (out1 / "summary.csv").read_text(encoding="utf-8") == csv_v02_1, "summary.csv must equal summary_v0.2.csv"
     rows = summarize_results(load_results_from_path(results_dir))
     assert len(rows) == 1
     assert rows[0]["task"] == "TaskA"
     assert rows[0]["n_episodes"] == 2
     assert rows[0]["throughput_mean"] == 11.0
-    assert rows[0]["throughput_std"] == pytest.approx(
-        2**0.5
-    )  # sample stdev of [10, 12]
+    assert rows[0]["throughput_std"] == pytest.approx(2**0.5)  # sample stdev of [10, 12]
     assert rows[0]["p50_turnaround_s_mean"] == 90.0
 
 

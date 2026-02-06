@@ -11,10 +11,9 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from labtrust_gym.policy.loader import load_yaml
 
@@ -28,7 +27,7 @@ DEFAULT_ROLE_MIX = {
 }
 
 
-def load_benchmark_pack(repo_root: Path) -> Dict[str, Any]:
+def load_benchmark_pack(repo_root: Path) -> dict[str, Any]:
     """Load benchmark_pack.v0.1.yaml. Returns dict with tasks, scale_configs, baselines, etc."""
     path = repo_root / PACK_POLICY_PATH.replace("/", os.sep)
     if not path.exists():
@@ -45,16 +44,16 @@ def load_benchmark_pack(repo_root: Path) -> Dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _all_pack_tasks(pack: Dict[str, Any]) -> List[str]:
+def _all_pack_tasks(pack: dict[str, Any]) -> list[str]:
     """Return ordered list of task names (core + coordination + experimental)."""
-    out: List[str] = []
+    out: list[str] = []
     for key in ("core", "coordination", "experimental"):
         out.extend(pack.get("tasks", {}).get(key) or [])
     return out
 
 
 def _scale_config_to_coordination_scale_config(
-    scale_id: str, scale_row: Dict[str, Any]
+    scale_id: str, scale_row: dict[str, Any]
 ) -> Any:
     """Build CoordinationScaleConfig from pack scale_configs entry."""
     from labtrust_gym.benchmarks.coordination_scale import CoordinationScaleConfig
@@ -84,7 +83,9 @@ def run_official_pack(
     seed_base: int,
     smoke: bool = True,
     full_security: bool = False,
-    episodes_per_task: Optional[int] = None,
+    episodes_per_task: int | None = None,
+    pipeline_mode: str = "deterministic",
+    allow_network: bool = False,
 ) -> Path:
     """
     Run the official benchmark pack: baselines, SECURITY/, SAFETY_CASE/, TRANSPARENCY_LOG/.
@@ -95,7 +96,22 @@ def run_official_pack(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     pack = load_benchmark_pack(repo_root)
-    tasks = _all_pack_tasks(pack)
+    tasks_raw = _all_pack_tasks(pack)
+    import labtrust_gym.benchmarks.tasks as _tasks_mod
+
+    _registry = getattr(_tasks_mod, "_TASK_REGISTRY", {})
+    known_tasks = set(_registry) if isinstance(_registry, dict) else set()
+    tasks = [t for t in tasks_raw if t and isinstance(t, str) and t in known_tasks]
+    if len(tasks) < len(tasks_raw):
+        import warnings
+
+        for t in tasks_raw:
+            if not t or not isinstance(t, str) or t not in known_tasks:
+                warnings.warn(
+                    f"run_official_pack: skipping unknown task {t!r}; known: {sorted(known_tasks)}",
+                    UserWarning,
+                    stacklevel=1,
+                )
     baselines_map = pack.get("baselines") or {}
     scale_configs = pack.get("scale_configs") or {}
     required_reports = pack.get("required_reports") or [
@@ -107,9 +123,9 @@ def run_official_pack(
     if episodes_per_task is None:
         episodes_per_task = 1 if smoke else 50
 
-    ts = (
-        datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seed_base)
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ts = (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed_base)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
 
     # 1) Baselines: generate-official-baselines into <out>/baselines/
     baselines_dir = out_dir / "baselines"
@@ -131,12 +147,16 @@ def run_official_pack(
         bid = task_to_baseline.get(task) or "scripted_ops_v1"
         suffix = bid.replace("_v1", "").replace("_v0", "")
         out_path = results_dir / f"{task}_{suffix}.json"
-        coord_method: Optional[str] = None
+        coord_method: str | None = None
         if task in ("TaskG", "TaskH"):
             coord_method = bid.replace("_v0", "").replace("_v1", "")
             if coord_method.startswith("kernel_"):
                 pass
-            elif coord_method in ("centralized_planner", "hierarchical_hub_rr", "llm_constrained"):
+            elif coord_method in (
+                "centralized_planner",
+                "hierarchical_hub_rr",
+                "llm_constrained",
+            ):
                 pass
             else:
                 coord_method = "centralized_planner"
@@ -148,12 +168,14 @@ def run_official_pack(
             repo_root=repo_root,
             scale_config_override=scale_config_override,
             coord_method=coord_method,
+            pipeline_mode=pipeline_mode,
+            allow_network=allow_network,
         )
 
     # 2) Security suite -> <out>/SECURITY/
     try:
-        from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
         from labtrust_gym.benchmarks.securitization import emit_securitization_packet
+        from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
 
         run_suite_and_emit(
             policy_root=repo_root,
@@ -166,9 +188,7 @@ def run_official_pack(
         emit_securitization_packet(repo_root, out_dir)
     except Exception as e:
         (out_dir / "SECURITY").mkdir(parents=True, exist_ok=True)
-        (out_dir / "SECURITY" / "run_error.txt").write_text(
-            str(e), encoding="utf-8"
-        )
+        (out_dir / "SECURITY" / "run_error.txt").write_text(str(e), encoding="utf-8")
 
     # 3) Safety case -> <out>/SAFETY_CASE/
     try:

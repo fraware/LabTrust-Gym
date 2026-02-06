@@ -20,13 +20,12 @@ import jsonschema
 import pytest
 
 from labtrust_gym.engine.core_env import CoreEnv
+from labtrust_gym.engine.tokens_runtime import TokenStore
 from labtrust_gym.policy.tokens import (
     Token,
-    load_token_registry,
     validate_dual_approval,
 )
 from labtrust_gym.runner import GoldenRunner
-from labtrust_gym.engine.tokens_runtime import TokenStore
 
 
 def _repo_root() -> Path:
@@ -110,18 +109,20 @@ def test_token_store_mint_consume_revoke_is_valid() -> None:
 
 def test_token_store_load_initial() -> None:
     store = TokenStore()
-    store.load_initial([
-        {
-            "token_id": "T_EXP",
-            "token_type": "TOKEN_RESTRICTED_ENTRY",
-            "state": "ACTIVE",
-            "subject_type": "agent",
-            "subject_id": "A_SUPERVISOR",
-            "issued_at_ts_s": 0,
-            "expires_at_ts_s": 100,
-            "reason_code": "SYS_DOWNTIME_ACTIVE",
-        }
-    ])
+    store.load_initial(
+        [
+            {
+                "token_id": "T_EXP",
+                "token_type": "TOKEN_RESTRICTED_ENTRY",
+                "state": "ACTIVE",
+                "subject_type": "agent",
+                "subject_id": "A_SUPERVISOR",
+                "issued_at_ts_s": 0,
+                "expires_at_ts_s": 100,
+                "reason_code": "SYS_DOWNTIME_ACTIVE",
+            }
+        ]
+    )
     assert store.is_valid("T_EXP", 50) is True
     assert store.is_valid("T_EXP", 200) is False
 
@@ -148,8 +149,14 @@ GS010 = {
                 "subject_id": "S1",
                 "reason_code": "TIME_EXPIRED",
                 "approvals": [
-                    {"approver_agent_id": "A_SUPERVISOR", "approver_key_id": "ed25519:key_supervisor"},
-                    {"approver_agent_id": "A_SUPERVISOR", "approver_key_id": "ed25519:key_supervisor"},
+                    {
+                        "approver_agent_id": "A_SUPERVISOR",
+                        "approver_key_id": "ed25519:key_supervisor",
+                    },
+                    {
+                        "approver_agent_id": "A_SUPERVISOR",
+                        "approver_key_id": "ed25519:key_supervisor",
+                    },
                 ],
             },
             "reason_code": "TIME_EXPIRED",
@@ -316,6 +323,7 @@ def test_gs010_through_gs013_from_yaml() -> None:
     if not _should_run_golden():
         pytest.skip("Set LABTRUST_RUN_GOLDEN=1 to run token scenarios from YAML.")
     import yaml
+
     root = _repo_root()
     suite_path = root / "policy" / "golden" / "golden_scenarios.v0.1.yaml"
     if not suite_path.exists():
@@ -346,7 +354,10 @@ def test_gs010_through_gs013_from_yaml() -> None:
     runner = GoldenRunner(env, emits_vocab_path=str(emits_path))
     rng_seed = int(suite_meta.get("deterministic", {}).get("rng_seed", 0))
     reports = [runner._run_scenario(scen, rng_seed=rng_seed) for scen in token_scenarios]
-    out = {"suite_version": suite_meta.get("version", "0.1"), "scenario_reports": [asdict(r) for r in reports]}
+    out = {
+        "suite_version": suite_meta.get("version", "0.1"),
+        "scenario_reports": [asdict(r) for r in reports],
+    }
     jsonschema.validate(instance=out, schema=schema)
     failed = [r for r in reports if not r.passed]
     assert not failed, f"GS-010–013 from YAML failed: {[f.scenario_id for f in failed]}"

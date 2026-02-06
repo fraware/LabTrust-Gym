@@ -10,12 +10,12 @@ Capabilities vocabulary and tool-registry validation.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
-from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
+from labtrust_gym.policy.loader import load_yaml
 
 
-def load_capabilities_vocab(path: Path | str) -> Set[str]:
+def load_capabilities_vocab(path: Path | str) -> set[str]:
     """
     Load capabilities vocabulary from policy/capabilities.v0.1.yaml.
     Returns set of capability_ids. Path may be directory (policy root) or file.
@@ -36,16 +36,16 @@ def load_capabilities_vocab(path: Path | str) -> Set[str]:
 
 
 def validate_capabilities(
-    registry: Dict[str, Any],
-    cap_vocab: Set[str],
-) -> List[str]:
+    registry: dict[str, Any],
+    cap_vocab: set[str],
+) -> list[str]:
     """
     Validate that every tool's capabilities in the registry are a subset of cap_vocab.
     registry: loaded tool registry dict (with "tool_registry" -> "tools").
     cap_vocab: set of allowed capability IDs from capabilities.v0.1.yaml.
     Returns list of error messages; empty if valid.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     tr = registry.get("tool_registry") if isinstance(registry, dict) else {}
     tools = tr.get("tools") if isinstance(tr, dict) else []
     if not isinstance(tools, list):
@@ -64,14 +64,11 @@ def validate_capabilities(
                 continue
             cap_str = str(cap).strip()
             if cap_vocab and cap_str not in cap_vocab:
-                errors.append(
-                    f"tool_id {tool_id!r}: capability {cap_str!r} not in "
-                    "capabilities vocabulary"
-                )
+                errors.append(f"tool_id {tool_id!r}: capability {cap_str!r} not in capabilities vocabulary")
     return errors
 
 
-def load_state_tool_capability_map(path: Path | str) -> Dict[str, List[str]]:
+def load_state_tool_capability_map(path: Path | str) -> dict[str, list[str]]:
     """
     Load state_tool_capability_map.v0.1.yaml. Returns state_label -> list of
     allowed_capability IDs. Path may be directory (policy root) or file.
@@ -88,7 +85,7 @@ def load_state_tool_capability_map(path: Path | str) -> Dict[str, List[str]]:
     labels = root.get("state_labels")
     if not isinstance(labels, dict):
         return {}
-    out: Dict[str, List[str]] = {}
+    out: dict[str, list[str]] = {}
     for state_label, entry in labels.items():
         if not isinstance(entry, dict):
             continue
@@ -99,9 +96,9 @@ def load_state_tool_capability_map(path: Path | str) -> Dict[str, List[str]]:
 
 
 def get_allowed_capabilities_for_state(
-    state_label: Optional[str],
-    state_map: Dict[str, List[str]],
-) -> Optional[List[str]]:
+    state_label: str | None,
+    state_map: dict[str, list[str]],
+) -> list[str] | None:
     """
     Return allowed capability IDs for the given state_label. If state_label is
     None or not in map, returns state_map.get("default"). If no default, returns None

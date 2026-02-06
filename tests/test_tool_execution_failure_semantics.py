@@ -75,9 +75,7 @@ def test_tool_adapter_raises_exception_blocked_with_tool_exec_exception(
     def failing_adapter(tool_id: str, args: dict):
         raise RuntimeError("simulated tool failure")
 
-    initial_state = _minimal_initial_state(
-        registry, policy_root=policy_root, tool_adapter=failing_adapter
-    )
+    initial_state = _minimal_initial_state(registry, policy_root=policy_root, tool_adapter=failing_adapter)
     env = CoreEnv()
     env.reset(initial_state, deterministic=True, rng_seed=42)
     event = {
@@ -110,9 +108,7 @@ def test_tool_returns_malformed_output_blocked_with_tool_output_malformed(
         return "not a dict"
 
     registry, policy_root = repo_registry_and_root
-    initial_state = _minimal_initial_state(
-        registry, policy_root=policy_root, tool_adapter=malformed_adapter
-    )
+    initial_state = _minimal_initial_state(registry, policy_root=policy_root, tool_adapter=malformed_adapter)
     env = CoreEnv()
     env.reset(initial_state, deterministic=True, rng_seed=42)
     event = {
@@ -200,9 +196,7 @@ def test_execute_tool_safely_unit_exception() -> None:
     def raise_adapter(tool_id: str, args: dict):  # noqa: ARG001
         raise ValueError("unit test")
 
-    ok, result, err = execute_tool_safely(
-        "read_lims_v1", {"accession_id": "A1"}, adapter=raise_adapter
-    )
+    ok, result, err = execute_tool_safely("read_lims_v1", {"accession_id": "A1"}, adapter=raise_adapter)
     assert ok is False
     assert result == {}
     assert err is not None
@@ -216,9 +210,7 @@ def test_execute_tool_safely_unit_malformed() -> None:
     def list_adapter(tool_id: str, args: dict):  # noqa: ARG001
         return [1, 2, 3]
 
-    ok, result, err = execute_tool_safely(
-        "read_lims_v1", {"accession_id": "A1"}, adapter=list_adapter
-    )
+    ok, result, err = execute_tool_safely("read_lims_v1", {"accession_id": "A1"}, adapter=list_adapter)
     assert ok is False
     assert err is not None
     assert err.get("reason_code") == TOOL_OUTPUT_MALFORMED
@@ -231,9 +223,7 @@ def test_execute_tool_safely_unit_timeout() -> None:
         time.sleep(5.0)
         return {}
 
-    ok, result, err = execute_tool_safely(
-        "read_lims_v1", {}, adapter=slow, timeout_s=0.05
-    )
+    ok, result, err = execute_tool_safely("read_lims_v1", {}, adapter=slow, timeout_s=0.05)
     assert ok is False
     assert err is not None
     assert err.get("reason_code") == TOOL_TIMEOUT

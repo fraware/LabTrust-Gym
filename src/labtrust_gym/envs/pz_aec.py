@@ -8,7 +8,7 @@ Deterministic when used with same seed and action sequence.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from labtrust_gym.envs.pz_parallel import (
     ACTION_NOOP,
@@ -19,13 +19,13 @@ from labtrust_gym.envs.pz_parallel import (
 try:
     from pettingzoo.utils.conversions import parallel_to_aec
 except ImportError:
-    parallel_to_aec = None  # type: ignore[misc, assignment]
+    parallel_to_aec = None
 
 
 def labtrust_aec_env(
     num_runners: int = 2,
     dt_s: int = 10,
-    reward_config: Optional[Dict[str, Any]] = None,
+    reward_config: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -53,10 +53,7 @@ def labtrust_aec_env(
         PettingZoo AEC (parallel_to_aec + OrderEnforcingWrapper).
     """
     if parallel_to_aec is None:
-        raise ImportError(
-            "PettingZoo is required for labtrust_aec_env. "
-            'Install with: pip install -e ".[env]"'
-        )
+        raise ImportError('PettingZoo is required for labtrust_aec_env. Install with: pip install -e ".[env]"')
     parallel_env = LabTrustParallelEnv(
         num_runners=num_runners,
         dt_s=dt_s,

@@ -9,11 +9,11 @@ Per-device work queues with deterministic STAT/URGENT/ROUTINE ordering.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 PriorityClass = Literal["STAT", "URGENT", "ROUTINE"]
 
-PRIORITY_RANK: Dict[str, int] = {
+PRIORITY_RANK: dict[str, int] = {
     "STAT": 0,
     "URGENT": 1,
     "ROUTINE": 2,
@@ -28,7 +28,7 @@ class DeviceQueueItem:
     priority_class: PriorityClass
     enqueued_ts_s: int
     requested_by_agent: str
-    reason_code: Optional[str] = None
+    reason_code: str | None = None
     tie_break: int = 0
 
     def __lt__(self, other: DeviceQueueItem) -> bool:
@@ -47,7 +47,7 @@ class DeviceQueue:
     """Queue for one device; items kept sorted by ordering rule."""
 
     device_id: str
-    items: List[DeviceQueueItem] = field(default_factory=list)
+    items: list[DeviceQueueItem] = field(default_factory=list)
     _next_tie_break: int = 0
 
     def enqueue(
@@ -56,7 +56,7 @@ class DeviceQueue:
         priority_class: PriorityClass,
         enqueued_ts_s: int,
         requested_by_agent: str,
-        reason_code: Optional[str] = None,
+        reason_code: str | None = None,
         *,
         allow_duplicate_work_id: bool = True,
     ) -> bool:
@@ -78,13 +78,13 @@ class DeviceQueue:
         self.items.sort()
         return True
 
-    def head_work_id(self) -> Optional[str]:
+    def head_work_id(self) -> str | None:
         """Return work_id at front, or None if empty."""
         if not self.items:
             return None
         return self.items[0].work_id
 
-    def consume_head(self) -> Optional[str]:
+    def consume_head(self) -> str | None:
         """Remove and return work_id at front; None if empty."""
         if not self.items:
             return None
@@ -98,10 +98,10 @@ class QueueStore:
     """
 
     def __init__(self) -> None:
-        self._queues: Dict[str, DeviceQueue] = {}
-        self._known_device_ids: Optional[Dict[str, Any]] = None
+        self._queues: dict[str, DeviceQueue] = {}
+        self._known_device_ids: dict[str, Any] | None = None
 
-    def set_known_devices(self, device_ids: List[str]) -> None:
+    def set_known_devices(self, device_ids: list[str]) -> None:
         """Set the set of valid device ids (e.g. from zone device_placement)."""
         self._known_device_ids = {d: True for d in device_ids}
 
@@ -122,7 +122,7 @@ class QueueStore:
         priority_class: PriorityClass,
         enqueued_ts_s: int,
         requested_by_agent: str,
-        reason_code: Optional[str] = None,
+        reason_code: str | None = None,
         *,
         allow_duplicate_work_id: bool = True,
     ) -> bool:
@@ -138,7 +138,7 @@ class QueueStore:
             allow_duplicate_work_id=allow_duplicate_work_id,
         )
 
-    def queue_head(self, device_id: str) -> Optional[str]:
+    def queue_head(self, device_id: str) -> str | None:
         """Return work_id at front of device queue, or None if empty/unknown."""
         if device_id not in self._queues:
             return None
@@ -150,8 +150,16 @@ class QueueStore:
             return 0
         return len(self._queues[device_id].items)
 
-    def consume_head(self, device_id: str) -> Optional[str]:
+    def consume_head(self, device_id: str) -> str | None:
         """Remove and return work_id at front; None if empty/unknown."""
         if device_id not in self._queues:
             return None
         return self._queues[device_id].consume_head()
+
+    def all_enqueued_work_ids(self) -> list[str]:
+        """Return all work_ids currently in any device queue. Deterministic order (sorted)."""
+        seen: set[str] = set()
+        for q in self._queues.values():
+            for item in q.items:
+                seen.add(item.work_id)
+        return sorted(seen)

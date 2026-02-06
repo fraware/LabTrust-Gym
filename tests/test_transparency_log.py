@@ -9,11 +9,8 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.security.transparency import (
     build_merkle_tree,
-    compute_episode_digest,
     discover_episodes,
     verify_merkle_proof,
     write_transparency_log,
@@ -32,9 +29,7 @@ def _minimal_artifact_dir(tmp_path: Path) -> Path:
         "agent_baseline_id": "scripted_ops_v1",
     }
     (repr_dir / "results.json").write_text(json.dumps(results, sort_keys=True), encoding="utf-8")
-    (repr_dir / "episodes.jsonl").write_text(
-        '{"action_type":"CREATE_ACCESSION","t_s":10}\n', encoding="utf-8"
-    )
+    (repr_dir / "episodes.jsonl").write_text('{"action_type":"CREATE_ACCESSION","t_s":10}\n', encoding="utf-8")
     return tmp_path
 
 
@@ -45,15 +40,18 @@ def _artifact_with_bundle(tmp_path: Path) -> Path:
     bundle_dir.mkdir(parents=True)
     manifest = {
         "version": "0.1",
-        "files": [{"path": "manifest.json", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}],
+        "files": [
+            {
+                "path": "manifest.json",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            }
+        ],
         "policy_fingerprint": None,
         "partner_id": None,
         "policy_root_hash": None,
         "signature": None,
     }
-    (bundle_dir / "manifest.json").write_text(
-        json.dumps(manifest, sort_keys=True), encoding="utf-8"
-    )
+    (bundle_dir / "manifest.json").write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
     return tmp_path
 
 
@@ -107,9 +105,7 @@ def test_inclusion_proof_verifies() -> None:
         assert proof_path.exists(), f"Proof file expected at {proof_path}"
         proof = json.loads(proof_path.read_text(encoding="utf-8"))
         leaf_digest = entries[0]["digest"]
-        assert verify_merkle_proof(leaf_digest, proof, root_hex), (
-            "Inclusion proof must verify for episode digest"
-        )
+        assert verify_merkle_proof(leaf_digest, proof, root_hex), "Inclusion proof must verify for episode digest"
 
 
 def test_tamper_proof_fails() -> None:
@@ -141,9 +137,7 @@ def test_tamper_proof_fails() -> None:
         )
         new_digest = new_digest_entry["digest"]
         assert new_digest != original_digest, "Tampered content must yield different digest"
-        assert not verify_merkle_proof(new_digest, proof, root_hex), (
-            "Original proof must fail for tampered digest"
-        )
+        assert not verify_merkle_proof(new_digest, proof, root_hex), "Original proof must fail for tampered digest"
         # Original digest still verifies against original root
         assert verify_merkle_proof(original_digest, proof, root_hex)
 

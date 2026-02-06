@@ -1,9 +1,9 @@
 """
 Unit tests for runtime control actions (UPDATE_ROSTER, INJECT_SPECIMEN).
 
-- Runtime control always requires SYSTEM agent_id, RBAC allowlist (R_SYSTEM_CONTROL), and valid signature.
-- Wrong key or missing signature -> BLOCKED; control_decision recorded in step output and episode log.
-- GS-SHIFT-CHANGE-001 (signed SYSTEM) and GS-SHIFT-CHANGE-002 (wrong key -> BLOCKED) run in test_golden_suite when LABTRUST_RUN_GOLDEN=1.
+- Runtime control requires SYSTEM agent_id, RBAC allowlist (R_SYSTEM_CONTROL), and valid signature.
+- Wrong key or missing signature -> BLOCKED; control_decision in step output and episode log.
+- GS-SHIFT-CHANGE-001/002 run in test_golden_suite when LABTRUST_RUN_GOLDEN=1.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.engine.signatures import (
-    RUNTIME_CONTROL_ACTION_TYPES,
     R_SYSTEM_CONTROL_ROLE,
+    RUNTIME_CONTROL_ACTION_TYPES,
     SIG_MISSING,
     SIG_ROLE_MISMATCH,
 )
@@ -51,9 +51,7 @@ def test_runtime_control_missing_signature_blocked() -> None:
         "t_s": 700,
         "agent_id": "SYSTEM",
         "action_type": "UPDATE_ROSTER",
-        "args": {
-            "roster": {"A_RECEPTION": "ROLE_ANALYTICS", "A_ANALYTICS": "ROLE_RECEPTION"}
-        },
+        "args": {"roster": {"A_RECEPTION": "ROLE_ANALYTICS", "A_ANALYTICS": "ROLE_RECEPTION"}},
         "reason_code": None,
         "token_refs": [],
     }
@@ -87,9 +85,7 @@ def test_runtime_control_wrong_key_blocked() -> None:
         "key_id": "ed25519:key_analytics",
         "signature": "GOLDEN_TEST_ACCEPT",
         "action_type": "UPDATE_ROSTER",
-        "args": {
-            "roster": {"A_RECEPTION": "ROLE_ANALYTICS", "A_ANALYTICS": "ROLE_RECEPTION"}
-        },
+        "args": {"roster": {"A_RECEPTION": "ROLE_ANALYTICS", "A_ANALYTICS": "ROLE_RECEPTION"}},
         "reason_code": None,
         "token_refs": [],
     }
@@ -99,14 +95,11 @@ def test_runtime_control_wrong_key_blocked() -> None:
     control = result.get("control_decision")
     assert control is not None
     assert control.get("allowed") is False
-    assert (
-        control.get("signature_passed") is False
-        or control.get("reason_code") == SIG_ROLE_MISMATCH
-    )
+    assert control.get("signature_passed") is False or control.get("reason_code") == SIG_ROLE_MISMATCH
 
 
 def test_runtime_control_system_key_accepted() -> None:
-    """UPDATE_ROSTER with SYSTEM key and GOLDEN_TEST_ACCEPT -> ACCEPTED; control_decision allowed."""
+    """UPDATE_ROSTER with SYSTEM key and GOLDEN_TEST_ACCEPT -> ACCEPTED; control_decision ok."""
     if os.environ.get("LABTRUST_RUN_GOLDEN") != "1":
         pytest.skip("LABTRUST_RUN_GOLDEN=1 required for engine")
     from labtrust_gym.engine.core_env import CoreEnv
@@ -125,9 +118,7 @@ def test_runtime_control_system_key_accepted() -> None:
         "key_id": "ed25519:key_system_control",
         "signature": "GOLDEN_TEST_ACCEPT",
         "action_type": "UPDATE_ROSTER",
-        "args": {
-            "roster": {"A_RECEPTION": "ROLE_ANALYTICS", "A_ANALYTICS": "ROLE_RECEPTION"}
-        },
+        "args": {"roster": {"A_RECEPTION": "ROLE_ANALYTICS", "A_ANALYTICS": "ROLE_RECEPTION"}},
         "reason_code": None,
         "token_refs": [],
     }

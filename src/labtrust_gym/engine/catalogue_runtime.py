@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, cast
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
@@ -25,7 +25,7 @@ INV_STAB_BIOCHEM_002 = "INV-STAB-BIOCHEM-002"
 INV_ZONE_006 = "INV-ZONE-006"
 
 
-def load_stability_policy(path: str | Path) -> Dict[str, Any]:
+def load_stability_policy(path: str | Path) -> dict[str, Any]:
     """Load stability_policy YAML. Returns dict with panel_rules."""
     p = Path(path)
     if not p.is_absolute():
@@ -37,28 +37,28 @@ def load_stability_policy(path: str | Path) -> Dict[str, Any]:
     return data
 
 
-def load_catalogue_seed(path: str | Path) -> Dict[str, Any]:
+def load_catalogue_seed(path: str | Path) -> dict[str, Any]:
     """Load test_catalogue seed JSON. Returns dict with panels list."""
     p = Path(path)
     if not p.is_absolute():
         p = Path.cwd() / p
     text = p.read_text(encoding="utf-8")
     data = json.loads(text)
-    return data
+    return cast(dict[str, Any], data)
 
 
-def get_panel_from_catalogue(catalogue: Dict[str, Any], panel_id: str) -> Optional[Dict[str, Any]]:
+def get_panel_from_catalogue(catalogue: dict[str, Any], panel_id: str) -> dict[str, Any] | None:
     """Return panel dict by panel_id from catalogue.panels."""
     for panel in catalogue.get("panels") or []:
         if panel.get("panel_id") == panel_id:
-            return panel
+            return cast(dict[str, Any] | None, panel)
     return None
 
 
 def get_stability_limits_for_panel(
-    stability_policy: Dict[str, Any],
+    stability_policy: dict[str, Any],
     panel_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Return stability limits for panel from stability_policy.panel_rules.
     Returns dict with: pre_separation_max_s, post_separation_ambient_max_s,
@@ -87,12 +87,12 @@ def get_stability_limits_for_panel(
 
 def check_stability(
     collection_ts_s: int,
-    separated_ts_s: Optional[int],
+    separated_ts_s: int | None,
     now_s: int,
     panel_id: str,
-    stability_policy: Dict[str, Any],
+    stability_policy: dict[str, Any],
     temp_band: str = "AMBIENT_20_25",
-) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+) -> tuple[bool, str | None, str | None, str | None]:
     """
     Check stability for START_RUN. Returns (ok, violation_id, reason_code, pass_invariant_id).
     - If pre_separation breached (collection to separation > max) => (False, INV-STAB-BIOCHEM-002, TIME_EXPIRED, None).
@@ -121,8 +121,8 @@ def check_stability(
 
 
 def check_temp_out_of_band(
-    storage_requirement: Optional[str],
-    temp_exposure_log: Optional[List[Dict[str, Any]]],
+    storage_requirement: str | None,
+    temp_exposure_log: list[dict[str, Any]] | None,
 ) -> bool:
     """
     True if specimen has storage_requirement (e.g. REFRIGERATED_2_8) but temp_exposure_log
@@ -140,7 +140,7 @@ def check_temp_out_of_band(
     return False
 
 
-def default_stability_limits() -> Dict[str, Any]:
+def default_stability_limits() -> dict[str, Any]:
     """Minimal limits when policy file missing (biochem 2h pre-spin, 6h post ambient)."""
     return {
         "pre_separation_max_s": 7200,
@@ -150,7 +150,7 @@ def default_stability_limits() -> Dict[str, Any]:
     }
 
 
-def load_reagent_policy(path: Optional[Path] = None) -> Dict[str, Any]:
+def load_reagent_policy(path: Path | None = None) -> dict[str, Any]:
     """Load reagent_policy YAML; return reagent_policy dict or empty."""
     path = path or Path("policy/reagents/reagent_policy.v0.1.yaml")
     if not path.exists():
@@ -159,13 +159,13 @@ def load_reagent_policy(path: Optional[Path] = None) -> Dict[str, Any]:
         data = load_yaml(path)
     except PolicyLoadError:
         return {}
-    return data.get("reagent_policy", data) if isinstance(data, dict) else {}
+    return cast(dict[str, Any], data.get("reagent_policy", data) if isinstance(data, dict) else {})
 
 
 def get_panel_reagent_requirement(
-    reagent_policy: Dict[str, Any],
+    reagent_policy: dict[str, Any],
     panel_id: str,
-) -> Optional[Tuple[str, float, str]]:
+) -> tuple[str, float, str] | None:
     """
     Return (reagent_id, quantity_per_run, stockout_action) for panel_id, or None.
     stockout_action is HOLD or REROUTE per policy.
@@ -182,9 +182,9 @@ def get_panel_reagent_requirement(
     return None
 
 
-def build_initial_reagent_stock(reagent_policy: Dict[str, Any]) -> Dict[str, float]:
+def build_initial_reagent_stock(reagent_policy: dict[str, Any]) -> dict[str, float]:
     """Build initial stock dict from reagent_policy.reagents (reagent_id -> initial_stock)."""
-    stock: Dict[str, float] = {}
+    stock: dict[str, float] = {}
     for r in reagent_policy.get("reagents") or []:
         if isinstance(r, dict) and r.get("reagent_id") is not None:
             stock[str(r["reagent_id"])] = float(r.get("initial_stock", 0))

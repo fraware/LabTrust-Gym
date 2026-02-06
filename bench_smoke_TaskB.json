@@ -1,4 +1,5 @@
 {
+  "schema_version": "0.2",
   "task": "TaskB",
   "num_episodes": 1,
   "base_seed": 42,
@@ -15,13 +16,20 @@
     "reward_config": {
       "throughput_reward": 1.0,
       "violation_penalty": 0.1
-    }
+    },
+    "timing_mode": "explicit",
+    "coord_method": null,
+    "injection_id": null
   },
   "policy_versions": {
     "emits_vocab": "0.1",
     "catalogue_schema": "unknown"
   },
-  "git_commit_hash": "2f6c5521764d6337335046237b3b06a9528085d0",
+  "git_sha": "f168410be388f50462178ea9e0defffd0483857b",
+  "git_commit_hash": "f168410be388f50462178ea9e0defffd0483857b",
+  "partner_id": null,
+  "policy_fingerprint": null,
+  "agent_baseline_id": "scripted_ops_v1",
   "episodes": [
     {
       "seed": 42,
@@ -29,15 +37,26 @@
         "throughput": 0,
         "p50_turnaround_s": null,
         "p95_turnaround_s": null,
+        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
+        "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {},
-        "blocked_by_reason_code": {},
+        "blocked_by_reason_code": {
+          "RBAC_ACTION_DENY": 120
+        },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
         "tokens_consumed": 0,
         "holds_count": 0,
-        "steps": 120
+        "transport_consignment_count": 0,
+        "transport_temp_excursions": 0,
+        "coc_breaks_count": 0,
+        "steps": 120,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "attribution_confidence_proxy": 1.0
       }
     }
-  ]
+  ],
+  "tool_registry_fingerprint": "03242dac72175c4bfeafa4c92ab888904b135e0f71af0cf68e62de89d5db844d"
 }

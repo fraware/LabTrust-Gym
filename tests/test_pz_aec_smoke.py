@@ -27,12 +27,14 @@ from labtrust_gym.envs.pz_aec import (
 
 def _hash_obs(obs: Any) -> str:
     """Stable hash of observation for determinism tests."""
+
     def _enc(o: Any) -> Any:
         if hasattr(o, "tolist"):
             return o.tolist()
         if isinstance(o, dict):
             return {k: _enc(v) for k, v in sorted(o.items())}
         return o
+
     return hashlib.sha256(json.dumps(_enc(obs), sort_keys=True).encode()).hexdigest()
 
 
@@ -55,6 +57,7 @@ def test_pz_aec_instantiate_reset_step_50() -> None:
 
 def test_pz_aec_determinism() -> None:
     """Same seed + same action sequence -> identical (obs hash, reward) per step."""
+
     def run_trajectory(seed: int, max_steps: int) -> list:
         env = labtrust_aec_env(num_runners=2)
         env.reset(seed=seed)

@@ -12,7 +12,7 @@ Specimen state machine and reception acceptance rules.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 ID_MISMATCH = "ID_MISMATCH"
 INT_LEAKING = "INT_LEAKING"
@@ -21,7 +21,7 @@ AUDIT_MISSING_REASON_CODE = "AUDIT_MISSING_REASON_CODE"
 INV_COAG_FILL_001 = "INV-COAG-FILL-001"
 
 # Default templates from golden suite fixtures (when template_ref is used).
-DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
+DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
     "S_BIOCHEM_OK": {
         "specimen_id": "S1",
         "patient_identifiers_hash": "pid:hash:001",
@@ -68,9 +68,9 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
 
 
 def _expand_specimen(
-    entry: Dict[str, Any],
-    templates: Optional[Dict[str, Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    entry: dict[str, Any],
+    templates: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Expand template_ref to full specimen dict; else copy with status/last_reason_code."""
     templates = templates or DEFAULT_TEMPLATES
     if "template_ref" in entry:
@@ -93,13 +93,13 @@ class SpecimenStore:
     - last_id_match: specimen_id -> bool | None (from last CHECK_ACCEPTANCE_RULES).
     """
 
-    def __init__(self, templates: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
-        self._specimens: Dict[str, Dict[str, Any]] = {}
-        self._last_id_match: Dict[str, Optional[bool]] = {}
+    def __init__(self, templates: dict[str, dict[str, Any]] | None = None) -> None:
+        self._specimens: dict[str, dict[str, Any]] = {}
+        self._last_id_match: dict[str, bool | None] = {}
         self._templates = templates or dict(DEFAULT_TEMPLATES)
-        self._aliquot_to_specimen: Dict[str, str] = {}
+        self._aliquot_to_specimen: dict[str, str] = {}
 
-    def load_initial(self, specimens: List[Dict[str, Any]]) -> None:
+    def load_initial(self, specimens: list[dict[str, Any]]) -> None:
         """Load specimens from initial_state; expand template_ref."""
         self._specimens = {}
         self._last_id_match = {}
@@ -110,7 +110,7 @@ class SpecimenStore:
             if sid:
                 self._specimens[str(sid)] = spec
 
-    def add_specimen(self, entry: Dict[str, Any]) -> bool:
+    def add_specimen(self, entry: dict[str, Any]) -> bool:
         """Add one specimen at runtime (e.g. INJECT_SPECIMEN for golden shift-change). Returns True if added."""
         spec = _expand_specimen(entry, self._templates)
         sid = spec.get("specimen_id")
@@ -121,7 +121,7 @@ class SpecimenStore:
         self._specimens[str(sid)] = spec
         return True
 
-    def get(self, specimen_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, specimen_id: str) -> dict[str, Any] | None:
         return self._specimens.get(specimen_id)
 
     def set_separated_ts(self, specimen_id: str, t_s: int) -> bool:
@@ -137,9 +137,9 @@ class SpecimenStore:
 
     def resolve_to_specimen_ids(
         self,
-        specimen_ids: Optional[List[str]] = None,
-        aliquot_ids: Optional[List[str]] = None,
-    ) -> List[str]:
+        specimen_ids: list[str] | None = None,
+        aliquot_ids: list[str] | None = None,
+    ) -> list[str]:
         """Resolve specimen_ids or aliquot_ids to list of specimen_ids."""
         if specimen_ids:
             return [str(s) for s in specimen_ids]
@@ -152,19 +152,28 @@ class SpecimenStore:
             return out
         return []
 
-    def specimen_status(self, specimen_id: str) -> Optional[str]:
+    def specimen_status(self, specimen_id: str) -> str | None:
         spec = self._specimens.get(specimen_id)
         return spec.get("status") if spec else None
 
-    def get_status_counts(self) -> Dict[str, int]:
+    def get_status_counts(self) -> dict[str, int]:
         """Return counts of specimens per status (for observation)."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for spec in self._specimens.values():
             st = spec.get("status") or "unknown"
             counts[st] = counts.get(st, 0) + 1
         return counts
 
-    def last_reason_code(self, specimen_id: str) -> Optional[str]:
+    def list_specimen_ids_by_status(self, status: str) -> list[str]:
+        """Return specimen_ids with the given status. Deterministic order (sorted)."""
+        out = [
+            sid
+            for sid, spec in self._specimens.items()
+            if (spec.get("status") or "") == status
+        ]
+        return sorted(out)
+
+    def last_reason_code(self, specimen_id: str) -> str | None:
         spec = self._specimens.get(specimen_id)
         return spec.get("last_reason_code") if spec else None
 
@@ -177,7 +186,7 @@ class SpecimenStore:
         return True
 
     def check_acceptance_rules(
-        self, specimen_id: str, id_match: Optional[bool] = None
+        self, specimen_id: str, id_match: bool | None = None
     ) -> bool:
         """Store id_match for specimen (from args). True if specimen exists."""
         if specimen_id not in self._specimens:
@@ -188,7 +197,7 @@ class SpecimenStore:
     def accept_specimen(
         self,
         specimen_id: str,
-    ) -> Tuple[str, List[str], Optional[str], List[Dict[str, str]]]:
+    ) -> tuple[str, list[str], str | None, list[dict[str, str]]]:
         """
         Apply acceptance rules. Returns (outcome, emits, blocked_reason_code, violations).
         outcome: "ACCEPTED" | "REJECTED" | "HELD"
@@ -235,7 +244,7 @@ class SpecimenStore:
         spec["last_reason_code"] = None
         return "ACCEPTED", ["ACCEPT_SPECIMEN"], None, []
 
-    def reject_specimen(self, specimen_id: str, reason_code: Optional[str]) -> bool:
+    def reject_specimen(self, specimen_id: str, reason_code: str | None) -> bool:
         if specimen_id not in self._specimens:
             return False
         self._specimens[specimen_id]["status"] = "rejected"
@@ -243,8 +252,8 @@ class SpecimenStore:
         return True
 
     def hold_specimen(
-        self, specimen_id: str, reason_code: Optional[str]
-    ) -> Tuple[bool, Optional[str]]:
+        self, specimen_id: str, reason_code: str | None
+    ) -> tuple[bool, str | None]:
         """
         Hold specimen with reason_code. Returns (ok, blocked_reason_code).
         If reason_code is None/empty => (False, AUDIT_MISSING_REASON_CODE),

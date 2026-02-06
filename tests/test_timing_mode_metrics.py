@@ -92,7 +92,7 @@ def test_simulated_mode_deterministic(tmp_path: Path) -> None:
 
 
 def test_utilization_metrics_only_in_simulated(tmp_path: Path) -> None:
-    """device_utilization and device_queue_length_* appear in simulated mode; not (or None/0) in explicit."""
+    """device_utilization and device_queue_length_* in simulated; not (or None/0) in explicit."""
     repo = Path(__file__).resolve().parent.parent
     if not (repo / "policy").is_dir():
         pytest.skip("repo root not found")
@@ -125,8 +125,14 @@ def test_utilization_metrics_only_in_simulated(tmp_path: Path) -> None:
 
     # Explicit: no device_utilization / device_queue_length_* (or empty/0)
     assert "device_utilization" not in metrics_explicit or metrics_explicit.get("device_utilization") in (None, {})
-    assert "device_queue_length_mean" not in metrics_explicit or metrics_explicit.get("device_queue_length_mean") in (None, {})
-    assert "device_queue_length_max" not in metrics_explicit or metrics_explicit.get("device_queue_length_max") in (None, {})
+    assert "device_queue_length_mean" not in metrics_explicit or metrics_explicit.get("device_queue_length_mean") in (
+        None,
+        {},
+    )
+    assert "device_queue_length_max" not in metrics_explicit or metrics_explicit.get("device_queue_length_max") in (
+        None,
+        {},
+    )
 
     # Simulated: device_utilization and queue stats present (may be empty dict if no devices used)
     assert "device_utilization" in metrics_simulated

@@ -65,15 +65,9 @@ def test_partner_overlay_simulated_device_utilization_and_differ(
 
     metrics_default = data_default["episodes"][0]["metrics"]
     metrics_hsl = data_hsl["episodes"][0]["metrics"]
-    assert (
-        "device_utilization" in metrics_default
-    ), "device_utilization must exist in simulated mode (default)"
-    assert (
-        "device_utilization" in metrics_hsl
-    ), "device_utilization must exist in simulated mode (hsl_like)"
+    assert "device_utilization" in metrics_default, "device_utilization must exist in simulated mode (default)"
+    assert "device_utilization" in metrics_hsl, "device_utilization must exist in simulated mode (hsl_like)"
 
     fp_default = data_default.get("policy_fingerprint")
     fp_hsl = data_hsl.get("policy_fingerprint")
-    assert (
-        fp_default != fp_hsl
-    ), "Overlay effect: policy_fingerprint should differ between default and hsl_like"
+    assert fp_default != fp_hsl, "Overlay effect: policy_fingerprint should differ between default and hsl_like"

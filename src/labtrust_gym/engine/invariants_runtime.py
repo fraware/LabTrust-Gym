@@ -5,8 +5,9 @@ runs post-step (ACCEPTED only), returns standardized violations.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.engine.catalogue_runtime import (
     INV_STAB_BIOCHEM_001,
@@ -18,14 +19,14 @@ from labtrust_gym.policy.invariants_registry import (
     load_invariant_registry,
 )
 
-ViolationItem = Dict[str, Any]  # invariant_id, status, reason_code?, details?
+ViolationItem = dict[str, Any]  # invariant_id, status, reason_code?, details?
 
 
 def _check_adjacency(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/adjacency: MOVE from_zone, to_zone."""
     if event.get("action_type") != "MOVE":
         return None
@@ -45,9 +46,9 @@ def _check_adjacency(
 
 def _check_colocation(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/colocation: device action requires agent in device zone."""
     action_type = event.get("action_type", "")
     action_types = params.get("action_types") or []
@@ -73,9 +74,9 @@ def _check_colocation(
 
 def _check_restricted_door_or_zone(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/restricted_door_or_zone: OPEN_DOOR/MOVE to restricted requires token."""
     action_type = event.get("action_type", "")
     args = event.get("args") or {}
@@ -97,9 +98,9 @@ def _check_restricted_door_or_zone(
 
 def _check_door_open_duration(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """temporal/door_open_duration: TICK checks door open too long."""
     if event.get("action_type") != "TICK":
         return None
@@ -134,9 +135,9 @@ def _check_door_open_duration(
 
 def _check_token_active(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/token_active: token_refs must be active (INV-TOK-002 only; revoked => INV-TOK-006)."""
     token_refs = event.get("token_refs") or []
     if not token_refs:
@@ -155,9 +156,9 @@ def _check_token_active(
 
 def _check_token_revoked(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/token_not_revoked: token_refs must not be revoked (INV-TOK-006)."""
     token_refs = event.get("token_refs") or []
     if not token_refs or not hasattr(env, "_tokens"):
@@ -171,9 +172,9 @@ def _check_token_revoked(
 
 def _check_critical_acked(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/critical_acked: RELEASE_RESULT requires ack for critical."""
     if event.get("action_type") != "RELEASE_RESULT":
         return None
@@ -191,9 +192,9 @@ def _check_critical_acked(
 
 def _check_stability_pass(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/stability_pass: START_RUN when specimen stability within limits => PASS (INV-STAB-BIOCHEM-001)."""
     if event.get("action_type") != "START_RUN":
         return None
@@ -207,9 +208,7 @@ def _check_stability_pass(
         return None
     resolved = specimen_ids
     if hasattr(specimens, "resolve_to_specimen_ids"):
-        resolved = specimens.resolve_to_specimen_ids(
-            args.get("specimen_ids"), args.get("aliquot_ids")
-        ) or []
+        resolved = specimens.resolve_to_specimen_ids(args.get("specimen_ids"), args.get("aliquot_ids")) or []
     t_s = int(event.get("t_s", 0))
     for sid in resolved[:1]:
         spec = specimens.get(sid) if hasattr(specimens, "get") else None
@@ -231,9 +230,9 @@ def _check_stability_pass(
 
 def _check_cold_chain_ok(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/cold_chain_ok: START_RUN; only emit VIOLATION when temp out of band (no PASS to keep golden unchanged)."""
     if event.get("action_type") != "START_RUN":
         return None
@@ -243,9 +242,7 @@ def _check_cold_chain_ok(
     if not specimens or not specimen_ids:
         return None
     if hasattr(specimens, "resolve_to_specimen_ids"):
-        specimen_ids = specimens.resolve_to_specimen_ids(
-            args.get("specimen_ids"), args.get("aliquot_ids")
-        ) or []
+        specimen_ids = specimens.resolve_to_specimen_ids(args.get("specimen_ids"), args.get("aliquot_ids")) or []
     for sid in specimen_ids:
         spec = specimens.get(sid) if hasattr(specimens, "get") else None
         if not spec:
@@ -260,9 +257,9 @@ def _check_cold_chain_ok(
 
 def _check_coag_fill_valid(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/coag_fill_valid: ACCEPT_SPECIMEN; citrate + invalid fill => VIOLATION."""
     if event.get("action_type") != "ACCEPT_SPECIMEN":
         return None
@@ -285,9 +282,9 @@ def _check_coag_fill_valid(
 
 def _check_token_scope_ok(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/token_scope_ok: START_RUN_OVERRIDE with valid token_refs => PASS (INV-TOK-003)."""
     if event.get("action_type") != "START_RUN_OVERRIDE":
         return None
@@ -299,9 +296,9 @@ def _check_token_scope_ok(
 
 def _check_read_back_confirmed(
     env: Any,
-    event: Dict[str, Any],
-    params: Dict[str, Any],
-) -> Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]:
+    event: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[bool, str | None, dict[str, Any] | None] | None:
     """state/read_back_confirmed: ACK_CRITICAL_RESULT; read_back_confirmed true => PASS, false => VIOLATION."""
     if event.get("action_type") != "ACK_CRITICAL_RESULT":
         return None
@@ -314,7 +311,7 @@ def _check_read_back_confirmed(
     return None
 
 
-_TEMPLATE_HANDLERS: Dict[Tuple[str, str], Callable[..., Optional[Tuple[bool, Optional[str], Optional[Dict[str, Any]]]]]] = {
+_TEMPLATE_HANDLERS: dict[tuple[str, str], Callable[..., tuple[bool, str | None, dict[str, Any] | None] | None]] = {
     ("state", "adjacency"): _check_adjacency,
     ("state", "colocation"): _check_colocation,
     ("state", "restricted_door_or_zone"): _check_restricted_door_or_zone,
@@ -336,25 +333,23 @@ class InvariantsRuntime:
     evaluates post-step and returns violations list.
     """
 
-    def __init__(self, registry_path: Optional[Path] = None) -> None:
+    def __init__(self, registry_path: Path | None = None) -> None:
         self._entries = load_invariant_registry(registry_path)
-        self._by_id: Dict[str, InvariantEntry] = {
-            e.invariant_id: e for e in self._entries
-        }
+        self._by_id: dict[str, InvariantEntry] = {e.invariant_id: e for e in self._entries}
 
     def evaluate(
         self,
         env: Any,
-        event: Dict[str, Any],
-        step_result: Dict[str, Any],
-    ) -> List[ViolationItem]:
+        event: dict[str, Any],
+        step_result: dict[str, Any],
+    ) -> list[ViolationItem]:
         """
         Run compiled checks for this event/result. Only runs when status is ACCEPTED.
         Returns list of violation items: {invariant_id, status, reason_code?, details?}.
         """
         if step_result.get("status") != "ACCEPTED":
             return []
-        violations: List[ViolationItem] = []
+        violations: list[ViolationItem] = []
         for entry in self._entries:
             logic = entry.logic_template
             t = logic.get("type", "state")
@@ -384,17 +379,22 @@ class InvariantsRuntime:
 
 
 def merge_violations_by_invariant_id(
-    legacy: List[ViolationItem],
-    registry: List[ViolationItem],
-) -> List[ViolationItem]:
-    """Merge registry violations into legacy; registry overwrites same invariant_id."""
-    by_id: Dict[str, ViolationItem] = {}
+    legacy: list[ViolationItem],
+    registry: list[ViolationItem],
+) -> list[ViolationItem]:
+    """Merge registry violations into legacy. Prefer VIOLATION over PASS when both exist for same invariant_id."""
+    by_id: dict[str, ViolationItem] = {}
     for v in legacy:
         inv_id = v.get("invariant_id")
         if inv_id:
             by_id[inv_id] = v
     for v in registry:
         inv_id = v.get("invariant_id")
-        if inv_id:
-            by_id[inv_id] = v
+        if not inv_id:
+            continue
+        existing = by_id.get(inv_id)
+        # Do not let registry PASS overwrite legacy VIOLATION (e.g. zones.tick door-open-too-long)
+        if existing and existing.get("status") == "VIOLATION" and v.get("status") == "PASS":
+            continue
+        by_id[inv_id] = v
     return list(by_id.values())

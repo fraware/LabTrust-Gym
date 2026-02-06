@@ -13,7 +13,6 @@ import pytest
 from labtrust_gym.baselines.coordination.assurance.simplex import (
     _safe_fallback_route,
     select_controller,
-    validate_plan,
     wrap_with_simplex_shield,
 )
 from labtrust_gym.baselines.coordination.decision_types import RouteDecision
@@ -82,6 +81,7 @@ def test_wrapped_method_step_returns_actions_and_decision() -> None:
     wrapped = wrap_with_simplex_shield(advanced, None)
     wrapped.reset(42, {}, {})
     import random
+
     from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 
     obs = {

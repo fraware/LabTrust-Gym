@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from labtrust_gym.benchmarks.security_runner import load_attack_suite
 from labtrust_gym.policy.reason_codes import load_reason_code_registry
@@ -21,7 +21,7 @@ from labtrust_gym.policy.risks import load_risk_registry
 
 def _build_coverage_data(
     policy_root: Path,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Build risk -> control -> tests -> artifacts mapping from risk_registry
     and security_attack_suite. Deterministic for same policy files.
@@ -34,7 +34,7 @@ def _build_coverage_data(
         risk_reg = load_risk_registry(risk_reg_path)
     except Exception:
         risk_reg = None
-    risk_entries: Dict[str, List[Dict[str, Any]]] = {}
+    risk_entries: dict[str, list[dict[str, Any]]] = {}
     for a in attacks:
         risk_id = a.get("risk_id") or "unknown"
         entry = {
@@ -46,13 +46,13 @@ def _build_coverage_data(
             "smoke": a.get("smoke"),
         }
         risk_entries.setdefault(risk_id, []).append(entry)
-    coverage = {
+    coverage: dict[str, Any] = {
         "version": "0.1",
         "risk_to_controls": {},
         "control_to_tests": {},
         "artifacts": ["SECURITY/attack_results.json", "receipts/"],
     }
-    control_to_tests: Dict[str, List[str]] = {}
+    control_to_tests: dict[str, list[str]] = {}
     for risk_id, entries in risk_entries.items():
         control_ids = list({e["control_id"] for e in entries if e["control_id"]})
         coverage["risk_to_controls"][risk_id] = {
@@ -65,7 +65,7 @@ def _build_coverage_data(
                 key = e.get("scenario_ref") or e.get("test_ref") or e["attack_id"]
                 control_to_tests.setdefault(cid, []).append(key)
     coverage["control_to_tests"] = control_to_tests
-    risk_names: Dict[str, str] = {}
+    risk_names: dict[str, str] = {}
     if risk_reg:
         for rid, r in risk_reg.risks.items():
             risk_names[rid] = r.get("name", rid)
@@ -77,7 +77,7 @@ def _build_coverage_data(
 def write_coverage(
     policy_root: Path,
     out_dir: Path,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Write SECURITY/coverage.json and SECURITY/coverage.md. Returns coverage dict."""
     coverage = _build_coverage_data(policy_root)
     security_dir = out_dir / "SECURITY"
@@ -115,7 +115,7 @@ def write_coverage(
 def write_reason_codes_md(
     policy_root: Path,
     out_dir: Path,
-    namespaces: Optional[List[str]] = None,
+    namespaces: list[str] | None = None,
 ) -> None:
     """
     Generate SECURITY/reason_codes.md from reason_code_registry.
@@ -157,7 +157,7 @@ def write_deps_inventory(
     """
     security_dir = out_dir / "SECURITY"
     security_dir.mkdir(parents=True, exist_ok=True)
-    inv: Dict[str, Any] = {
+    inv: dict[str, Any] = {
         "version": "0.1",
         "tool_registry": None,
         "rbac_policy_path": "policy/rbac/rbac_policy.v0.1.yaml",
@@ -205,7 +205,7 @@ def write_deps_inventory(
 def emit_securitization_packet(
     policy_root: Path,
     out_dir: Path,
-    reason_code_namespaces: Optional[List[str]] = None,
+    reason_code_namespaces: list[str] | None = None,
 ) -> None:
     """
     Write full SECURITY packet: coverage.json, coverage.md, reason_codes.md,

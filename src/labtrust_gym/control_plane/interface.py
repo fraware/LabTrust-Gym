@@ -9,7 +9,7 @@ without duplicating contract semantics.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass
@@ -21,9 +21,9 @@ class GateDecision:
     """
 
     allowed: bool
-    step_output_fragment: Dict[str, Any] = field(default_factory=dict)
+    step_output_fragment: dict[str, Any] = field(default_factory=dict)
 
-    def to_step_output(self) -> Dict[str, Any]:
+    def to_step_output(self) -> dict[str, Any]:
         """Fragment to merge into engine step result (no hashchain; engine adds that)."""
         return dict(self.step_output_fragment)
 
@@ -37,8 +37,8 @@ class ControlPlane(Protocol):
 
     def apply(
         self,
-        event: Dict[str, Any],
-        context: Dict[str, Any],
+        event: dict[str, Any],
+        context: dict[str, Any],
     ) -> GateDecision:
         """
         Run first gates on event. Returns GateDecision; when allowed=False,
@@ -48,9 +48,9 @@ class ControlPlane(Protocol):
 
     def apply_enforcement(
         self,
-        step_result: Dict[str, Any],
-        context: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        step_result: dict[str, Any],
+        context: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """
         Post-step enforcement: given step result (violations, etc.), return
         list of enforcement actions (throttle_agent, kill_switch, etc.).

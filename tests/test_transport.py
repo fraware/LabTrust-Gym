@@ -10,11 +10,10 @@ import pytest
 
 from labtrust_gym.engine.transport import (
     TRANSPORT_ROUTE_FORBIDDEN,
-    TRANSPORT_TEMP_EXCURSION,
     TransportStore,
-    load_sites_policy,
-    _route_allowed,
     _get_route,
+    _route_allowed,
+    load_sites_policy,
 )
 
 
@@ -43,7 +42,12 @@ def test_route_legality() -> None:
             {"from_site": "SITE_HUB", "to_site": "SITE_ACUTE", "enabled": False},
         ],
         "routes": [
-            {"route_id": "ACUTE_TO_HUB", "from_site": "SITE_ACUTE", "to_site": "SITE_HUB", "transport_time_mean_s": 600},
+            {
+                "route_id": "ACUTE_TO_HUB",
+                "from_site": "SITE_ACUTE",
+                "to_site": "SITE_HUB",
+                "transport_time_mean_s": 600,
+            },
         ],
     }
     assert _route_allowed(policy, "SITE_ACUTE", "SITE_HUB") is True
@@ -66,16 +70,26 @@ def test_dispatch_forbidden_route() -> None:
 
 def test_dispatch_receive_determinism() -> None:
     """Same seed + dispatch + receive => same consignment_id and received_ts."""
+
     class SimpleRNG:
         def __init__(self, seed: int):
             self._v = seed
+
         def randint(self, a: int, b: int) -> int:
             self._v = (self._v * 31 + 17) % 1000
             return a + (self._v % max(1, b - a + 1))
+
     policy = {
         "site_graph": [{"from_site": "SITE_ACUTE", "to_site": "SITE_HUB", "enabled": True}],
         "routes": [
-            {"route_id": "A2H", "from_site": "SITE_ACUTE", "to_site": "SITE_HUB", "transport_time_mean_s": 100, "transport_time_std_s": 0, "temp_drift_max_c": 1.0},
+            {
+                "route_id": "A2H",
+                "from_site": "SITE_ACUTE",
+                "to_site": "SITE_HUB",
+                "transport_time_mean_s": 100,
+                "transport_time_std_s": 0,
+                "temp_drift_max_c": 1.0,
+            },
         ],
     }
     rng = SimpleRNG(42)
@@ -99,7 +113,14 @@ def test_chain_of_custody_sign() -> None:
     policy = {
         "site_graph": [{"from_site": "SITE_ACUTE", "to_site": "SITE_HUB", "enabled": True}],
         "routes": [
-            {"route_id": "A2H", "from_site": "SITE_ACUTE", "to_site": "SITE_HUB", "transport_time_mean_s": 100, "transport_time_std_s": 0, "temp_drift_max_c": 2.0},
+            {
+                "route_id": "A2H",
+                "from_site": "SITE_ACUTE",
+                "to_site": "SITE_HUB",
+                "transport_time_mean_s": 100,
+                "transport_time_std_s": 0,
+                "temp_drift_max_c": 2.0,
+            },
         ],
     }
     store = TransportStore(policy=policy)
@@ -115,16 +136,26 @@ def test_chain_of_custody_sign() -> None:
 
 def test_transport_tick_temp_excursion() -> None:
     """TRANSPORT_TICK can record temp excursion when drift exceeds bound (bounded model)."""
+
     class DriftRNG:
         def __init__(self):
             self._v = 0.99
+
         def random(self) -> float:
             self._v = (self._v + 0.1) % 1.0
             return self._v
+
     policy = {
         "site_graph": [{"from_site": "SITE_ACUTE", "to_site": "SITE_HUB", "enabled": True}],
         "routes": [
-            {"route_id": "A2H", "from_site": "SITE_ACUTE", "to_site": "SITE_HUB", "transport_time_mean_s": 100, "transport_time_std_s": 0, "temp_drift_max_c": 0.5},
+            {
+                "route_id": "A2H",
+                "from_site": "SITE_ACUTE",
+                "to_site": "SITE_HUB",
+                "transport_time_mean_s": 100,
+                "transport_time_std_s": 0,
+                "temp_drift_max_c": 0.5,
+            },
         ],
     }
     rng = DriftRNG()

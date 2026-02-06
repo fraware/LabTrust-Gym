@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def _canonical_json(obj: Any) -> str:
@@ -19,22 +19,22 @@ def _canonical_json(obj: Any) -> str:
 def build_contract_record(
     method_id: str,
     t_step: int,
-    actions_dict: Dict[str, Dict[str, Any]],
-    view_age_ms: Optional[float] = None,
-    view_age_ms_per_agent: Optional[Dict[str, float]] = None,
-    plan_time_ms: Optional[float] = None,
-    invariants_considered: Optional[List[str]] = None,
+    actions_dict: dict[str, dict[str, Any]],
+    view_age_ms: float | None = None,
+    view_age_ms_per_agent: dict[str, float] | None = None,
+    plan_time_ms: float | None = None,
+    invariants_considered: list[str] | None = None,
     safety_shield_applied: bool = False,
-    safety_shield_details: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    safety_shield_details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Build one timestep record conforming to coord_method_output_contract.v0.1.
     actions_dict: agent_id -> {action_index, action_type?, args?}.
     """
-    actions: List[Dict[str, Any]] = []
+    actions: list[dict[str, Any]] = []
     for agent_id in sorted(actions_dict.keys()):
         ad = actions_dict[agent_id] or {}
-        entry: Dict[str, Any] = {"agent_id": agent_id}
+        entry: dict[str, Any] = {"agent_id": agent_id}
         if "action_index" in ad:
             entry["action_index"] = int(ad["action_index"])
         if ad.get("action_type") is not None:
@@ -43,7 +43,7 @@ def build_contract_record(
             entry["args"] = dict(ad["args"])
         actions.append(entry)
 
-    record: Dict[str, Any] = {
+    record: dict[str, Any] = {
         "method_id": method_id,
         "t_step": t_step,
         "actions": actions,
@@ -51,9 +51,7 @@ def build_contract_record(
     if view_age_ms is not None:
         record["view_age_ms"] = round(view_age_ms, 2)
     if view_age_ms_per_agent:
-        record["view_age_ms_per_agent"] = {
-            k: round(v, 2) for k, v in view_age_ms_per_agent.items()
-        }
+        record["view_age_ms_per_agent"] = {k: round(v, 2) for k, v in view_age_ms_per_agent.items()}
     if plan_time_ms is not None:
         record["plan_time_ms"] = round(plan_time_ms, 2)
     if invariants_considered is not None:
@@ -65,9 +63,9 @@ def build_contract_record(
 
 
 def validate_contract_record(
-    record: Dict[str, Any],
-    schema_path: Optional[Path] = None,
-) -> List[str]:
+    record: dict[str, Any],
+    schema_path: Path | None = None,
+) -> list[str]:
     """
     Validate record against coord_method_output_contract.v0.1 schema.
     Returns list of error messages; empty if valid.
@@ -79,6 +77,7 @@ def validate_contract_record(
     if schema_path is None:
         try:
             from labtrust_gym.config import get_repo_root
+
             root = get_repo_root()
             schema_path = root / "policy" / "schemas"
             schema_path = schema_path / "coord_method_output_contract.v0.1.schema.json"
@@ -94,6 +93,6 @@ def validate_contract_record(
         return [str(e)]
 
 
-def serialize_contract_record(record: Dict[str, Any]) -> str:
+def serialize_contract_record(record: dict[str, Any]) -> str:
     """One-line canonical JSON for coord_decisions.jsonl."""
     return _canonical_json(record) + "\n"

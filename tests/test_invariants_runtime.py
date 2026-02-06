@@ -11,7 +11,6 @@ from labtrust_gym.engine.invariants_runtime import (
     InvariantsRuntime,
     merge_violations_by_invariant_id,
 )
-from labtrust_gym.policy.invariants_registry import load_invariant_registry
 
 
 def _repo_root() -> Path:

@@ -1,0 +1,26 @@
+{
+  "coordination_policy_fingerprint": "4b07969d79f98285fb14cba327e556ee51f00bc19dba9ff3523eb92c196dd014",
+  "files": [
+    {
+      "path": "coordination_methods.v0.1.yaml",
+      "sha256": "0061c79b8cc058c06c55f8c2524040269a882b8f6c986a138ad12e2a90f446fe"
+    },
+    {
+      "path": "coordination_study_spec.v0.1.yaml",
+      "sha256": "444fe7bfc81880ea0308a31dc340961d0f25423dc589b533888addd2d865c6ee"
+    },
+    {
+      "path": "method_risk_matrix.v0.1.yaml",
+      "sha256": "3e30b8d31ec40f77e8201c5fb2d44f601359efe3375d226057862053d114b45a"
+    },
+    {
+      "path": "resilience_scoring.v0.1.yaml",
+      "sha256": "92300e1434532c4bd29edc34943e2c07ff009672b4e8a9952a1caa538517b688"
+    },
+    {
+      "path": "scale_configs.v0.1.yaml",
+      "sha256": "64cc5ae6a04620850ab33fa9c98004380a36b3b9fc13c0a5cf8d764350f31ef8"
+    }
+  ],
+  "policy_subdir": "policy/coordination"
+}

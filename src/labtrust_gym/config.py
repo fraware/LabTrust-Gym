@@ -33,9 +33,11 @@ def get_repo_root() -> Path:
             return p.parent
     try:
         from importlib.resources import files
+
         pkg_policy = files("labtrust_gym") / "policy"
-        if pkg_policy.is_dir() and (pkg_policy / "emits").exists():
-            return pkg_policy.parent
+        pkg_path = Path(str(pkg_policy))
+        if pkg_path.is_dir() and (pkg_path / "emits").exists():
+            return pkg_path.parent
     except Exception:
         pass
     repo = _find_repo_root()

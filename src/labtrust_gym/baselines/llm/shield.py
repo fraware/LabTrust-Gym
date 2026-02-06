@@ -5,9 +5,10 @@ Filters candidate action -> pass or rewrite to safe noop; records LLM_ACTION_FIL
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
-from labtrust_gym.engine.rbac import check as rbac_check, RBAC_ACTION_DENY
+from labtrust_gym.engine.rbac import RBAC_ACTION_DENY
+from labtrust_gym.engine.rbac import check as rbac_check
 from labtrust_gym.engine.signatures import is_mutating_action
 from labtrust_gym.security.agent_capabilities import (
     AGENT_CAPABILITY_DENY,
@@ -23,12 +24,12 @@ SIG_INVALID = "SIG_INVALID"
 
 
 def apply_shield(
-    candidate: Dict[str, Any],
+    candidate: dict[str, Any],
     agent_id: str,
-    rbac_policy: Dict[str, Any],
-    policy_summary: Dict[str, Any],
-    capability_profile: Optional[Dict[str, Any]] = None,
-) -> Tuple[Dict[str, Any], bool, Optional[str]]:
+    rbac_policy: dict[str, Any],
+    policy_summary: dict[str, Any],
+    capability_profile: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], bool, str | None]:
     """
     Filter candidate action through RBAC, capability profile, and signature-required checks.
     Returns (safe_action_dict, filtered, reason_code).
@@ -46,18 +47,14 @@ def apply_shield(
     strict_signatures = bool(policy_summary.get("strict_signatures", False))
     # Only block on allowed_actions list when agent is in policy (non-empty list)
     allowed_actions = policy_summary.get("allowed_actions")
-    noop_base: Dict[str, Any] = {
+    noop_base: dict[str, Any] = {
         "action_type": "NOOP",
         "args": {},
         "reason_code": None,
         "token_refs": [],
         "rationale": (candidate.get("rationale") or "").strip(),
     }
-    if (
-        isinstance(allowed_actions, list)
-        and len(allowed_actions) > 0
-        and action_type not in allowed_actions
-    ):
+    if isinstance(allowed_actions, list) and len(allowed_actions) > 0 and action_type not in allowed_actions:
         return (noop_base, True, RBAC_ACTION_DENY)
     # Capability profile (B006): defense-in-depth; refuse action outside profile or signing_proxy if disabled
     if capability_profile is not None:
@@ -69,7 +66,7 @@ def apply_shield(
         if not tooling.get("signing_proxy", True) and (key_id or signature):
             return (noop_base, True, AGENT_CAPABILITY_DENY)
     # RBAC check (action_type + context)
-    context: Dict[str, Any] = {}
+    context: dict[str, Any] = {}
     if args:
         context["device_id"] = args.get("device_id")
         context["zone_id"] = policy_summary.get("agent_zone")
@@ -79,7 +76,7 @@ def apply_shield(
     if strict_signatures and is_mutating_action(action_type):
         if not key_id or not signature:
             return (noop_base, True, SIG_MISSING)
-    safe: Dict[str, Any] = {
+    safe: dict[str, Any] = {
         "action_type": action_type,
         "args": args,
         "reason_code": candidate.get("reason_code"),
@@ -103,21 +100,21 @@ CITATION_ANCHOR_CRITICAL = "POLICY:CRITICAL:critical_ladder_summary"
 
 
 def build_policy_summary(
-    allowed_actions: Optional[list] = None,
-    agent_zone: Optional[str] = None,
-    zone_graph: Optional[Dict[str, list]] = None,
-    queue_head: Optional[Dict[str, str]] = None,
-    pending_criticals: Optional[list] = None,
+    allowed_actions: list[str] | None = None,
+    agent_zone: str | None = None,
+    zone_graph: dict[str, list[str]] | None = None,
+    queue_head: dict[str, str] | None = None,
+    pending_criticals: list[str] | None = None,
     log_frozen: bool = False,
     strict_signatures: bool = False,
-    key_constraints: Optional[list] = None,
-    critical_ladder_summary: Optional[Dict[str, Any]] = None,
-    restricted_zones: Optional[list] = None,
-    token_requirements: Optional[Dict[str, list]] = None,
-    role_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    key_constraints: list[str] | None = None,
+    critical_ladder_summary: dict[str, Any] | None = None,
+    restricted_zones: list[str] | None = None,
+    token_requirements: dict[str, list[str]] | None = None,
+    role_id: str | None = None,
+) -> dict[str, Any]:
     """Build policy_summary dict for LLM (what the agent can see). Conforms to policy_summary.schema.v0.1. Includes stable citation_anchors for rationale."""
-    out: Dict[str, Any] = {
+    out: dict[str, Any] = {
         "allowed_actions": list(allowed_actions) if allowed_actions else [],
         "agent_zone": agent_zone,
         "zone_graph": dict(zone_graph) if zone_graph else {},
@@ -136,7 +133,7 @@ def build_policy_summary(
         out["token_requirements"] = {k: list(v) for k, v in token_requirements.items()}
 
     # Stable citation anchors: at least RBAC; add section anchors for present sections
-    citation_anchors: list = [CITATION_ANCHOR_RBAC_ALLOWED]
+    citation_anchors: list[str] = [CITATION_ANCHOR_RBAC_ALLOWED]
     if role_id:
         citation_anchors.append(f"POLICY:RBAC:roles.{role_id}.allowed_actions")
     if restricted_zones:
@@ -154,16 +151,16 @@ def build_policy_summary(
 
 
 def generate_policy_summary_from_policy(
-    repo_root: Optional[Any] = None,
-    allowed_actions: Optional[list] = None,
-    agent_zone: Optional[str] = None,
-    zone_graph: Optional[Dict[str, list]] = None,
-    queue_head: Optional[Dict[str, str]] = None,
-    pending_criticals: Optional[list] = None,
+    repo_root: Any | None = None,
+    allowed_actions: list[str] | None = None,
+    agent_zone: str | None = None,
+    zone_graph: dict[str, list[str]] | None = None,
+    queue_head: dict[str, str] | None = None,
+    pending_criticals: list[str] | None = None,
     log_frozen: bool = False,
     strict_signatures: bool = False,
-    role_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    role_id: str | None = None,
+) -> dict[str, Any]:
     """
     Build policy summary with minimal key constraints, critical ladder, restricted zones, token requirements.
     Loads from policy/ when repo_root is provided; otherwise uses stub defaults.
@@ -171,10 +168,10 @@ def generate_policy_summary_from_policy(
     """
     from pathlib import Path
 
-    key_constraints: list = []
-    critical_ladder_summary: Dict[str, Any] = {}
-    restricted_zones: list = []
-    token_requirements: Dict[str, list] = {}
+    key_constraints: list[str] = []
+    critical_ladder_summary: dict[str, Any] = {}
+    restricted_zones: list[str] = []
+    token_requirements: dict[str, list[str]] = {}
 
     root = Path(repo_root) if repo_root else None
     if root and (root / "policy").exists():
@@ -199,11 +196,7 @@ def generate_policy_summary_from_policy(
                 from labtrust_gym.policy.loader import load_yaml
 
                 token_data = load_yaml(token_map_path)
-                enforcement = (
-                    token_data.get("token_enforcement_map")
-                    or token_data.get("action_tokens")
-                    or {}
-                )
+                enforcement = token_data.get("token_enforcement_map") or token_data.get("action_tokens") or {}
                 if isinstance(enforcement, dict):
                     for action, tokens in enforcement.items():
                         if isinstance(tokens, list):

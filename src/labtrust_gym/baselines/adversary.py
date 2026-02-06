@@ -10,7 +10,7 @@ Policies (step-based, deterministic):
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Action indices aligned with pz_parallel
 ACTION_NOOP = 0
@@ -20,7 +20,7 @@ ACTION_MOVE = 3
 ACTION_OPEN_DOOR = 4
 ACTION_START_RUN = 5
 
-DEFAULT_DEVICE_IDS: List[str] = [
+DEFAULT_DEVICE_IDS: list[str] = [
     "DEV_CENTRIFUGE_BANK_01",
     "DEV_ALIQUOTER_01",
     "DEV_CHEM_A_01",
@@ -60,7 +60,7 @@ class AdversaryAgent:
 
     def __init__(
         self,
-        device_ids: Optional[List[str]] = None,
+        device_ids: list[str] | None = None,
         misroute_step: int = 2,
         unauthorized_door_step: int = 5,
         expired_token_step: int = 8,
@@ -75,15 +75,15 @@ class AdversaryAgent:
 
     def act(
         self,
-        observation: Dict[str, Any],
+        observation: dict[str, Any],
         agent_id: str = "adversary_0",
-    ) -> Tuple[int, Dict[str, Any]]:
+    ) -> tuple[int, dict[str, Any]]:
         """
         Return (action_index, action_info). Deterministic by step counter.
         """
         step = self._step_counter
         self._step_counter += 1
-        action_info: Dict[str, Any] = {}
+        action_info: dict[str, Any] = {}
 
         log_frozen = _scalar(observation.get("log_frozen"), 0)
         if log_frozen:

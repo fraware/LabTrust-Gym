@@ -1,19 +1,55 @@
 # Live LLM benchmark mode
 
-This document describes how to run benchmarks with a live LLM backend (e.g. OpenAI), environment variables, and important caveats about non-determinism and cost.
+This document describes pipeline modes (deterministic vs LLM offline vs LLM live), how to run benchmarks with a live LLM backend (e.g. OpenAI), environment variables, and important caveats about non-determinism and cost.
+
+## Pipeline modes
+
+LabTrust-Gym uses a first-class **pipeline_mode** to separate deterministic/offline runs from live-LLM runs:
+
+| Mode | Description | Network |
+|------|-------------|---------|
+| **deterministic** | Scripted agents only; no LLM interface is invoked. | Forbidden (fail-fast if any HTTP is attempted). |
+| **llm_offline** | Uses the LLM agent interface but only with the deterministic, offline backend (seeded; no API). | Forbidden. |
+| **llm_live** | Allows network-backed LLM backends (OpenAI, Ollama). | Allowed only when explicitly opted in (see below). |
+
+**Defaults:** `run-benchmark`, `quick-eval`, `run-official-pack`, and `package-release` default to **deterministic** (no LLM, no network). CI and regression runs stay offline by default.
+
+**Network gating:**
+
+- In **deterministic** and **llm_offline**, any attempt to use network (e.g. live LLM backend) fails fast with a clear error.
+- In **llm_live**, you must explicitly allow network: pass **`--allow-network`** or set **`LABTRUST_ALLOW_NETWORK=1`**. Otherwise the run fails with a message asking for one of these.
+
+**Startup banner:** When a benchmark or pack run starts, the CLI prints pipeline_mode, llm_backend id (if any), and whether network is allowed, e.g.:
+
+```
+[LabTrust] pipeline_mode='deterministic' llm_backend='none' network=disabled
+```
+
+When **llm_live** is selected and network is allowed, the CLI also prints a **red warning**: **WILL MAKE NETWORK CALLS / MAY INCUR COST**.
+
+**Where pipeline is recorded:** So a reviewer can tell at a glance whether a run was live-LLM or deterministic, the following are always written:
+
+- **results.json** (top-level): **pipeline_mode**, **llm_backend_id**, **llm_model_id** (if any), **allow_network**.
+- **metadata.json** (package-release): same fields when applicable.
+- **index.json** (UI export zip): same fields for display in the UI.
+
+**Why you saw no OpenAI calls:** Runs are offline by default. If you expected the live LLM to be called and saw no API traffic, you were likely in **deterministic** or **llm_offline** mode (or **llm_live** without `--allow-network`). Use `--pipeline-mode llm_live --allow-network` and the red warning will confirm that network is enabled.
 
 ## Enabling live LLM
 
-Use the `--llm-backend` option with `run-benchmark`:
+Use the `--llm-backend` option with `run-benchmark` and (for openai_live/ollama_live) `--allow-network` or `LABTRUST_ALLOW_NETWORK=1`:
 
 ```bash
-labtrust run-benchmark --task TaskA --episodes 3 --seed 42 --out results.json --llm-backend openai_live
+labtrust run-benchmark --task TaskA --episodes 3 --seed 42 --out results.json --llm-backend openai_live --allow-network
 ```
+
+Or set `LABTRUST_ALLOW_NETWORK=1` in the environment instead of `--allow-network`.
 
 Backends:
 
 - **deterministic** (default when using LLM): Seeded, offline, no API calls. Same seed and task yield identical results. Use for CI and reproducibility.
-- **openai_live**: Calls OpenAI Chat Completions with Structured Outputs. Requires `OPENAI_API_KEY`. Non-deterministic and incurs API cost.
+- **openai_live**: Calls OpenAI Chat Completions with Structured Outputs (ActionProposal schema). Requires `OPENAI_API_KEY`. Non-deterministic and incurs API cost.
+- **openai_responses**: Production-grade OpenAI backend using the Responses API with a strict single-step decision JSON Schema (`action`, `args`, `reason_code`, `confidence`, `explanation_short`). Same env vars as openai_live; invalid schema responses yield NOOP with reason code **RC_LLM_INVALID_OUTPUT**.
 - **ollama_live**: Calls a local Ollama server. Configure with `LABTRUST_LOCAL_LLM_URL`, `LABTRUST_LOCAL_LLM_MODEL`, `LABTRUST_LOCAL_LLM_TIMEOUT`. Non-deterministic; no API cost when running locally.
 
 If you omit `--llm-backend`, the benchmark uses scripted agents (no LLM). To use the deterministic LLM baseline:
@@ -34,6 +70,31 @@ Legacy flag `--use-llm-live-openai` is equivalent to `--llm-backend openai_live`
 | `LABTRUST_LLM_RETRIES` | Number of retries on transient errors. | 0 |
 
 The code does not load `.env` automatically; set these in the shell or use a tool that injects them.
+
+## Structured Outputs and machine-safe responses
+
+Live OpenAI backends use **Structured Outputs** (OpenAI response_format with JSON Schema) so that the model response is constrained to a fixed shape. This eliminates parsing brittleness: you get schema-valid JSON every time or a safe fallback.
+
+- **openai_live**: Uses an ActionProposal schema (action_type, args, reason_code, token_refs, rationale, confidence, safety_notes). The API returns only valid JSON matching that schema.
+- **openai_responses**: Uses a single-step decision schema: `action`, `args`, `reason_code`, `confidence`, `explanation_short` (maxLength 280). The backend maps this to the internal ActionProposal format. If the model returns invalid JSON or a value outside the schema (e.g. confidence not in [0,1], explanation_short > 280 chars), the backend returns **NOOP** with reason code **RC_LLM_INVALID_OUTPUT** and does not pass the response through. This keeps runs machine-safe and auditable.
+
+Deterministic and llm_offline runs **never** call the live backend; pipeline gating ensures no network is used unless pipeline_mode is **llm_live** and **allow_network** is set.
+
+## Live healthcheck
+
+To verify that the live OpenAI backend is reachable and returns schema-valid output without running a full benchmark:
+
+```bash
+labtrust llm-healthcheck --backend openai_responses --model gpt-4o-mini --allow-network
+```
+
+Or use the default model (from `LABTRUST_OPENAI_MODEL`):
+
+```bash
+labtrust llm-healthcheck --backend openai_live --allow-network
+```
+
+Output (stderr): `ok`, `model_id`, `latency_ms`, `usage`, and `error` if the check failed. Exit code 0 if the single minimal request succeeded and the response matched the expected schema; 1 otherwise. Requires `--allow-network` or `LABTRUST_ALLOW_NETWORK=1`.
 
 ## Environment variables (ollama_live)
 

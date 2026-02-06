@@ -13,24 +13,33 @@ import threading
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from labtrust_gym.online.authz import has_privilege, required_role_for_path
 from labtrust_gym.online.config import OnlineConfig, resolve_role
 from labtrust_gym.online.rate_limit import KeyedTokenBuckets
-from labtrust_gym.security.output_shaping import build_run_summary
 from labtrust_gym.online.telemetry import (
-    emit_security_alert,
-    get_abuse_counters,
     ONLINE_AUTH_FAILURE,
     ONLINE_BODY_TOO_LARGE,
     ONLINE_FORBIDDEN,
     ONLINE_RATE_LIMIT,
     ONLINE_TOO_MANY_INFLIGHT,
+    emit_security_alert,
+    get_abuse_counters,
 )
+from labtrust_gym.security.output_shaping import build_run_summary
 
 if TYPE_CHECKING:
+    from typing import Protocol
+
     from labtrust_gym.online.telemetry import AbuseCounters
+
+    class _LabTrustServerProto(Protocol):
+        labtrust_config: OnlineConfig
+        labtrust_limiters_per_key: KeyedTokenBuckets
+        labtrust_limiters_per_ip: KeyedTokenBuckets
+        labtrust_inflight_semaphore: threading.Semaphore
+        labtrust_abuse_counters: AbuseCounters
 
 
 def _client_ip(handler: BaseHTTPRequestHandler) -> str:
@@ -53,7 +62,7 @@ def _extract_api_key(handler: BaseHTTPRequestHandler) -> str | None:
     return None
 
 
-def _send_json(handler: BaseHTTPRequestHandler, status: int, body: dict) -> None:
+def _send_json(handler: BaseHTTPRequestHandler, status: int, body: dict[str, Any]) -> None:
     """Send JSON response with consistent headers and X-Request-Id (B007)."""
     payload = json.dumps(body).encode("utf-8")
     handler.send_response(status)
@@ -67,9 +76,7 @@ def _send_json(handler: BaseHTTPRequestHandler, status: int, body: dict) -> None
     handler.wfile.flush()
 
 
-def _send_error(
-    handler: BaseHTTPRequestHandler, status: int, code: str, message: str
-) -> None:
+def _send_error(handler: BaseHTTPRequestHandler, status: int, code: str, message: str) -> None:
     """Send a consistent error response (no internal details)."""
     _send_json(handler, status, {"error": message, "code": code})
 
@@ -83,13 +90,14 @@ class LabTrustHTTPRequestHandler(BaseHTTPRequestHandler):
     limiters_per_ip: KeyedTokenBuckets
     inflight_semaphore: threading.Semaphore
     abuse_counters: AbuseCounters
+    _user_role: str | None
 
     def log_message(self, format: str, *args: object) -> None:
         """Log to server logger; avoid default stdout."""
         pass
 
     def _get_server_attrs(self) -> None:
-        server = self.server
+        server = cast("_LabTrustServerProto", self.server)
         if hasattr(server, "labtrust_config"):
             self.config = server.labtrust_config
             self.limiters_per_key = server.labtrust_limiters_per_key
@@ -190,9 +198,7 @@ class LabTrustHTTPRequestHandler(BaseHTTPRequestHandler):
                 counters=self.abuse_counters,
                 request_id=getattr(self, "_request_id", None),
             )
-            _send_error(
-                self, 503, "too_many_requests", "Service temporarily unavailable"
-            )
+            _send_error(self, 503, "too_many_requests", "Service temporarily unavailable")
             return False
         return True
 
@@ -257,9 +263,7 @@ class LabTrustHTTPRequestHandler(BaseHTTPRequestHandler):
             path = self.path.split("?")[0].rstrip("/") or "/"
             if path in ("/v0/step", "/v0/step/"):
                 # Stub: future AI endpoint; return 501 for now so tests can hit a real route
-                _send_json(
-                    self, 501, {"error": "Not implemented", "code": "not_implemented"}
-                )
+                _send_json(self, 501, {"error": "Not implemented", "code": "not_implemented"})
             else:
                 _send_error(self, 404, "not_found", "Not found")
         except Exception:
@@ -277,12 +281,8 @@ class LabTrustHTTPServer(ThreadingMixIn, HTTPServer):
         self.labtrust_config = config
         cap_key = max(1.0, 2 * config.rate_limit_rps_per_key)
         cap_ip = max(1.0, 2 * config.rate_limit_rps_per_ip)
-        self.labtrust_limiters_per_key = KeyedTokenBuckets(
-            config.rate_limit_rps_per_key, cap_key
-        )
-        self.labtrust_limiters_per_ip = KeyedTokenBuckets(
-            config.rate_limit_rps_per_ip, cap_ip
-        )
+        self.labtrust_limiters_per_key = KeyedTokenBuckets(config.rate_limit_rps_per_key, cap_key)
+        self.labtrust_limiters_per_ip = KeyedTokenBuckets(config.rate_limit_rps_per_ip, cap_ip)
         self.labtrust_inflight_semaphore = threading.Semaphore(config.max_inflight)
         self.labtrust_abuse_counters = get_abuse_counters()
 

@@ -12,7 +12,7 @@ Policy-constrained LLM prompts for LabTrust-Gym: ActionProposal-only output.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
 # --- 2.1 SYSTEM prompt (ops agent: strict control, no surprises) ------------
 
@@ -85,14 +85,14 @@ Return a single ActionProposal JSON now."""
 def build_user_payload_action_proposal(
     *,
     partner_id: str = "",
-    policy_fingerprint: Optional[str] = None,
+    policy_fingerprint: str | None = None,
     now_ts_s: int = 0,
     timing_mode: str = "explicit",
-    state_summary_json: Optional[str] = None,
-    allowed_actions_json: Optional[str] = None,
-    active_tokens_json: Optional[str] = None,
-    recent_violations_json: Optional[str] = None,
-    enforcement_state_json: Optional[str] = None,
+    state_summary_json: str | None = None,
+    allowed_actions_json: str | None = None,
+    active_tokens_json: str | None = None,
+    recent_violations_json: str | None = None,
+    enforcement_state_json: str | None = None,
 ) -> str:
     """
     Build the USER message content from the ActionProposal payload template.
@@ -101,20 +101,12 @@ def build_user_payload_action_proposal(
     (or from the action spec registry), so the LLM never guesses the action surface.
     """
     state_summary_json = state_summary_json if state_summary_json is not None else "{}"
-    allowed_actions_json = (
-        allowed_actions_json if allowed_actions_json is not None else "[]"
-    )
+    allowed_actions_json = allowed_actions_json if allowed_actions_json is not None else "[]"
     active_tokens_json = active_tokens_json if active_tokens_json is not None else "[]"
-    recent_violations_json = (
-        recent_violations_json if recent_violations_json is not None else "[]"
-    )
-    enforcement_state_json = (
-        enforcement_state_json if enforcement_state_json is not None else "{}"
-    )
+    recent_violations_json = recent_violations_json if recent_violations_json is not None else "[]"
+    enforcement_state_json = enforcement_state_json if enforcement_state_json is not None else "{}"
     return (
-        USER_PAYLOAD_TEMPLATE_ACTION_PROPOSAL.replace(
-            "{{partner_id}}", str(partner_id or "")
-        )
+        USER_PAYLOAD_TEMPLATE_ACTION_PROPOSAL.replace("{{partner_id}}", str(partner_id or ""))
         .replace("{{policy_fingerprint}}", str(policy_fingerprint or ""))
         .replace("{{now_ts_s}}", str(now_ts_s))
         .replace("{{timing_mode}}", str(timing_mode))
@@ -129,15 +121,15 @@ def build_user_payload_action_proposal(
 def build_user_payload_from_context(
     *,
     partner_id: str = "",
-    policy_fingerprint: Optional[str] = None,
+    policy_fingerprint: str | None = None,
     now_ts_s: int,
     timing_mode: str = "explicit",
-    state_summary: Optional[Dict[str, Any]] = None,
-    allowed_actions: Optional[list] = None,
-    allowed_actions_payload: Optional[list] = None,
-    active_tokens: Optional[list] = None,
-    recent_violations: Optional[list] = None,
-    enforcement_state: Optional[Dict[str, Any]] = None,
+    state_summary: dict[str, Any] | None = None,
+    allowed_actions: list[str] | None = None,
+    allowed_actions_payload: list[dict[str, Any]] | None = None,
+    active_tokens: list[str] | None = None,
+    recent_violations: list[str] | None = None,
+    enforcement_state: dict[str, Any] | None = None,
 ) -> str:
     """
     Build USER payload from structured context (serializes dicts/lists to JSON).
@@ -146,9 +138,7 @@ def build_user_payload_from_context(
     it is used verbatim for ALLOWED_ACTIONS_JSON; otherwise allowed_actions (list of strings) is used.
     """
     state_summary_json = json.dumps(state_summary or {}, sort_keys=True)
-    if allowed_actions_payload is not None and isinstance(
-        allowed_actions_payload, list
-    ):
+    if allowed_actions_payload is not None and isinstance(allowed_actions_payload, list):
         allowed_actions_json = json.dumps(allowed_actions_payload, sort_keys=True)
     else:
         allowed_actions_json = json.dumps(allowed_actions or [], sort_keys=True)

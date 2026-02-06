@@ -11,10 +11,10 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Canonical objectives: (key, direction). key "security_success" is derived as 1 - sec.attack_success_rate.
-DEFAULT_OBJECTIVES: List[Tuple[str, str]] = [
+DEFAULT_OBJECTIVES: list[tuple[str, str]] = [
     ("perf.throughput", "max"),
     ("perf.p95_tat", "min"),
     ("safety.violations_total", "min"),
@@ -22,7 +22,7 @@ DEFAULT_OBJECTIVES: List[Tuple[str, str]] = [
 ]
 
 
-def _objective_value(row: Dict[str, Any], key: str) -> Optional[float]:
+def _objective_value(row: dict[str, Any], key: str) -> float | None:
     """Resolve objective value; security_success = 1 - sec.attack_success_rate."""
     if key == "security_success":
         rate = row.get("sec.attack_success_rate")
@@ -39,9 +39,9 @@ def _objective_value(row: Dict[str, Any], key: str) -> Optional[float]:
 
 
 def _pareto_dominates(
-    a: Dict[str, Any],
-    b: Dict[str, Any],
-    objectives: List[Tuple[str, str]],
+    a: dict[str, Any],
+    b: dict[str, Any],
+    objectives: list[tuple[str, str]],
 ) -> bool:
     """
     True if a dominates b: for each objective (key, direction), a is no worse;
@@ -67,16 +67,16 @@ def _pareto_dominates(
 
 
 def compute_nondominated_per_scale(
-    summary_rows: List[Dict[str, Any]],
-    objectives: Optional[List[Tuple[str, str]]] = None,
-) -> Dict[str, List[Dict[str, Any]]]:
+    summary_rows: list[dict[str, Any]],
+    objectives: list[tuple[str, str]] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
     """
     Compute nondominated (Pareto) set per scale_id.
     Returns dict: scale_id -> list of row dicts on the front (no other row dominates them).
     """
     objectives = objectives or DEFAULT_OBJECTIVES
     scale_ids = sorted({r.get("scale_id", "") for r in summary_rows})
-    out: Dict[str, List[Dict[str, Any]]] = {}
+    out: dict[str, list[dict[str, Any]]] = {}
     for scale_id in scale_ids:
         subset = [r for r in summary_rows if r.get("scale_id") == scale_id]
         front = []
@@ -95,11 +95,11 @@ def compute_nondominated_per_scale(
 
 
 def bootstrap_ci(
-    values: List[float],
+    values: list[float],
     seed: int,
     n_bootstrap: int = 1000,
     confidence: float = 0.95,
-) -> Tuple[float, float, float]:
+) -> tuple[float, float, float]:
     """
     Deterministic bootstrap CI for the mean.
     Returns (ci_low, mean, ci_high). Same seed => same result.
@@ -109,7 +109,7 @@ def bootstrap_ci(
     rng = random.Random(seed)
     n = len(values)
     mean_obs = sum(values) / n
-    bootstrap_means: List[float] = []
+    bootstrap_means: list[float] = []
     for _ in range(n_bootstrap):
         sample = [values[rng.randint(0, n - 1)] for _ in range(n)]
         bootstrap_means.append(sum(sample) / n)
@@ -127,10 +127,10 @@ def bootstrap_ci(
 
 
 def compute_per_method_ci(
-    summary_rows: List[Dict[str, Any]],
+    summary_rows: list[dict[str, Any]],
     seed: int,
-    metric_keys: Optional[List[str]] = None,
-) -> Dict[str, Dict[str, Dict[str, float]]]:
+    metric_keys: list[str] | None = None,
+) -> dict[str, dict[str, dict[str, float]]]:
     """
     Per-method bootstrap CIs for selected metrics.
     Returns dict: method_id -> metric_key -> {mean, ci_low, ci_high}.
@@ -142,13 +142,13 @@ def compute_per_method_ci(
         "robustness.resilience_score",
         "security_success",
     ]
-    method_cells: Dict[str, List[Dict[str, Any]]] = {}
+    method_cells: dict[str, list[dict[str, Any]]] = {}
     for r in summary_rows:
         mid = r.get("method_id", "")
         if mid:
             method_cells.setdefault(mid, []).append(r)
 
-    out: Dict[str, Dict[str, Dict[str, float]]] = {}
+    out: dict[str, dict[str, dict[str, float]]] = {}
     for method_id, rows in method_cells.items():
         out[method_id] = {}
         for key in metric_keys:
@@ -179,10 +179,10 @@ def compute_per_method_ci(
 
 
 def build_pareto_artifact(
-    summary_rows: List[Dict[str, Any]],
+    summary_rows: list[dict[str, Any]],
     seed: int,
-    objectives: Optional[List[Tuple[str, str]]] = None,
-) -> Dict[str, Any]:
+    objectives: list[tuple[str, str]] | None = None,
+) -> dict[str, Any]:
     """
     Build artifact for pareto.json: fronts per scale, per_method_ci, version.
     """
@@ -191,8 +191,8 @@ def build_pareto_artifact(
     per_method_ci = compute_per_method_ci(summary_rows, seed)
 
     # Serialize front rows as minimal dicts (method_id, scale_id, injection_id + objective metrics)
-    def _row_summary(r: Dict[str, Any]) -> Dict[str, Any]:
-        out_row: Dict[str, Any] = {
+    def _row_summary(r: dict[str, Any]) -> dict[str, Any]:
+        out_row: dict[str, Any] = {
             "method_id": r.get("method_id"),
             "scale_id": r.get("scale_id"),
             "injection_id": r.get("injection_id"),
@@ -204,7 +204,7 @@ def build_pareto_artifact(
                 out_row[key] = r.get(key)
         return out_row
 
-    fronts_serializable: Dict[str, List[Dict[str, Any]]] = {}
+    fronts_serializable: dict[str, list[dict[str, Any]]] = {}
     for scale_id, rows in fronts.items():
         fronts_serializable[scale_id] = [_row_summary(r) for r in rows]
 
@@ -218,7 +218,7 @@ def build_pareto_artifact(
     }
 
 
-def write_pareto_json(out_path: Path, data: Dict[str, Any]) -> None:
+def write_pareto_json(out_path: Path, data: dict[str, Any]) -> None:
     """Write pareto.json (deterministic key order)."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as f:
@@ -227,8 +227,8 @@ def write_pareto_json(out_path: Path, data: Dict[str, Any]) -> None:
 
 def write_pareto_md(
     out_path: Path,
-    data: Dict[str, Any],
-    summary_rows: List[Dict[str, Any]],
+    data: dict[str, Any],
+    summary_rows: list[dict[str, Any]],
 ) -> None:
     """
     Write pareto.md: interpretation guide, fronts per scale, per-method CIs.
@@ -282,15 +282,16 @@ def write_pareto_md(
 
 def write_frontier_svg(
     out_path: Path,
-    summary_rows: List[Dict[str, Any]],
-    fronts_per_scale: Dict[str, List[Dict[str, Any]]],
-    objectives: Optional[List[Tuple[str, str]]] = None,
+    summary_rows: list[dict[str, Any]],
+    fronts_per_scale: dict[str, list[dict[str, Any]]],
+    objectives: list[tuple[str, str]] | None = None,
 ) -> None:
     """
     Write canonical frontier plot: throughput vs p95_tat, frontier points highlighted.
     """
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
@@ -299,16 +300,20 @@ def write_frontier_svg(
     objectives = objectives or DEFAULT_OBJECTIVES
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    front_set: set = set()
+    front_set: set[tuple[str, str, str]] = set()
     for scale_id, rows in fronts_per_scale.items():
         for r in rows:
-            key = (r.get("method_id"), r.get("scale_id"), r.get("injection_id"))
+            key = (
+                r.get("method_id") or "",
+                r.get("scale_id") or "",
+                r.get("injection_id") or "",
+            )
             front_set.add(key)
 
-    xs: List[float] = []
-    ys: List[float] = []
-    labels: List[str] = []
-    is_front: List[bool] = []
+    xs: list[float] = []
+    ys: list[float] = []
+    labels: list[str] = []
+    is_front: list[bool] = []
     for r in summary_rows:
         p95 = _objective_value(r, "perf.p95_tat")
         thr = _objective_value(r, "perf.throughput")
@@ -349,10 +354,10 @@ def write_frontier_svg(
 
 def write_pareto_artifacts(
     pareto_dir: Path,
-    summary_rows: List[Dict[str, Any]],
+    summary_rows: list[dict[str, Any]],
     seed: int,
-    spec: Optional[Dict[str, Any]] = None,
-    objectives: Optional[List[Tuple[str, str]]] = None,
+    spec: dict[str, Any] | None = None,
+    objectives: list[tuple[str, str]] | None = None,
 ) -> None:
     """
     Write PARETO/pareto.json, PARETO/pareto.md, PARETO/frontier.svg.

@@ -4,6 +4,10 @@ Composition: swapping only the router changes route_hash but not allocation_hash
 
 from __future__ import annotations
 
+from labtrust_gym.baselines.coordination.compose import (
+    build_kernel_context,
+    compose_kernel,
+)
 from labtrust_gym.baselines.coordination.coordination_kernel import (
     KernelContext,
     RouteDecision,
@@ -17,14 +21,11 @@ from labtrust_gym.baselines.coordination.kernel_components import (
     EDFScheduler,
     TrivialRouter,
 )
-from labtrust_gym.baselines.coordination.compose import (
-    build_kernel_context,
-    compose_kernel,
-)
 
 
 def _minimal_policy() -> dict:
     from pathlib import Path
+
     from labtrust_gym.policy.loader import load_yaml
 
     root = Path(__file__).resolve().parent.parent

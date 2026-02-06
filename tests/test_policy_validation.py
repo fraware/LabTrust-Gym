@@ -88,7 +88,7 @@ def test_invalid_policy_file_against_schema_returns_errors() -> None:
         schema_dir.mkdir(parents=True)
         policy_path = policy_dir / "emits_vocab.v0.1.yaml"
         schema_path = schema_dir / "emits_vocab.v0.1.schema.json"
-        policy_path.write_text("emits_vocab:\n  version: \"0.1\"\n", encoding="utf-8")
+        policy_path.write_text('emits_vocab:\n  version: "0.1"\n', encoding="utf-8")
         schema_path.write_text(
             '{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["emits_vocab"],"properties":{"emits_vocab":{"type":"object","required":["canonical_set"],"properties":{"canonical_set":{"type":"array","minItems":1,"items":{"type":"string"}}}}}}',
             encoding="utf-8",

@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, cast
 
 from labtrust_gym.benchmarks.coordination_scale import (
     CoordinationScaleConfig,
@@ -41,8 +41,8 @@ DEFAULT_ZONES = [
 
 
 def _make_agents(
-    zone_overrides: Optional[Dict[str, str]] = None,
-) -> List[Dict[str, str]]:
+    zone_overrides: dict[str, str] | None = None,
+) -> list[dict[str, str]]:
     zone_overrides = zone_overrides or {}
     out = []
     for i, (eid, z) in enumerate(zip(DEFAULT_AGENTS_ENGINE, DEFAULT_ZONES)):
@@ -56,9 +56,9 @@ def _specimen_template(
     status: str = "arrived_at_reception",
     panel_id: str = "BIOCHEM_PANEL_CORE",
     arrival_ts_s: int = 0,
-    priority_class: Optional[str] = None,
-) -> Dict[str, Any]:
-    out: Dict[str, Any] = {
+    priority_class: str | None = None,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
         "specimen_id": specimen_id,
         "patient_identifiers_hash": f"pid:hash:{specimen_id}",
         "collection_ts_s": 0,
@@ -86,7 +86,7 @@ def _specimen_template(
 
 def _sample_arrival_and_n_from_calibration(
     rng: random.Random,
-    calibration: Optional[Dict[str, Any]],
+    calibration: dict[str, Any] | None,
     default_n_min: int,
     default_n_max: int,
     default_arrival_max: int,
@@ -113,7 +113,7 @@ def _sample_arrival_and_n_from_calibration(
     return n, arrivals
 
 
-def _stat_rate_from_calibration(calibration: Optional[Dict[str, Any]]) -> float:
+def _stat_rate_from_calibration(calibration: dict[str, Any] | None) -> float:
     """Return stat_rate in [0, 1] from calibration or 0.0."""
     if not calibration or not isinstance(calibration.get("workload_priors"), dict):
         return 0.0
@@ -147,25 +147,25 @@ class BenchmarkTask:
 
     name: str
     max_steps: int
-    scripted_agents: List[str]
-    reward_config: Dict[str, Any]
-    sla_turnaround_s: Optional[int] = None  # for on-time rate (accept->release)
-    attack_start_step: Optional[int] = (
+    scripted_agents: list[str]
+    reward_config: dict[str, Any]
+    sla_turnaround_s: int | None = None  # for on-time rate (accept->release)
+    attack_start_step: int | None = (
         None  # TaskD: first adversarial action step for detection_latency_s
     )
-    insider_attack_steps: Optional[List[int]] = (
+    insider_attack_steps: list[int] | None = (
         None  # TaskF: step indices of insider attack attempts for containment metrics
     )
-    timing_mode: Optional[str] = (
+    timing_mode: str | None = (
         None  # "explicit" | "simulated"; None => use CLI/spec override
     )
-    scale_config: Optional[CoordinationScaleConfig] = None  # TaskG/TaskH
+    scale_config: CoordinationScaleConfig | None = None  # TaskG/TaskH
 
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Deterministic initial_state given seed. calibration optional (workload priors)."""
         scale = self.scale_config
         if scale is not None:
@@ -217,8 +217,8 @@ class TaskA_ThroughputSLA(BenchmarkTask):
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=3, default_n_max=6, default_arrival_max=50
@@ -234,6 +234,7 @@ class TaskA_ThroughputSLA(BenchmarkTask):
                         arrivals[i] if i < len(arrivals) else rng.randint(0, 50)
                     ),
                     priority_class=prio,
+                    status="accepted",
                 )
             )
         return {
@@ -241,6 +242,11 @@ class TaskA_ThroughputSLA(BenchmarkTask):
             "agents": _make_agents(),
             "specimens": specimens,
             "tokens": [],
+            "reagent_initial_stock": {
+                "R_CHEM_CORE": 1000.0,
+                "R_HAEM_CORE": 500.0,
+                "R_COAG_CORE": 400.0,
+            },
         }
 
 
@@ -262,8 +268,8 @@ class TaskB_STATInsertionUnderLoad(BenchmarkTask):
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=4, default_n_max=6, default_arrival_max=80
@@ -279,6 +285,7 @@ class TaskB_STATInsertionUnderLoad(BenchmarkTask):
                         arrivals[i] if i < len(arrivals) else rng.randint(0, 80)
                     ),
                     priority_class=prio,
+                    status="accepted",
                 )
             )
         return {
@@ -286,6 +293,11 @@ class TaskB_STATInsertionUnderLoad(BenchmarkTask):
             "agents": _make_agents(),
             "specimens": specimens,
             "tokens": [],
+            "reagent_initial_stock": {
+                "R_CHEM_CORE": 1000.0,
+                "R_HAEM_CORE": 500.0,
+                "R_COAG_CORE": 400.0,
+            },
         }
 
 
@@ -304,8 +316,8 @@ class TaskC_QCFailCascade(BenchmarkTask):
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=2, default_n_max=4, default_arrival_max=30
@@ -321,6 +333,7 @@ class TaskC_QCFailCascade(BenchmarkTask):
                         arrivals[i] if i < len(arrivals) else rng.randint(0, 30)
                     ),
                     priority_class=prio,
+                    status="accepted",
                 )
             )
         return {
@@ -328,12 +341,17 @@ class TaskC_QCFailCascade(BenchmarkTask):
             "agents": _make_agents(),
             "specimens": specimens,
             "tokens": [],
+            "reagent_initial_stock": {
+                "R_CHEM_CORE": 1000.0,
+                "R_HAEM_CORE": 500.0,
+                "R_COAG_CORE": 400.0,
+            },
         }
 
 
 def _make_agents_with_adversary(
-    zone_overrides: Optional[Dict[str, str]] = None,
-) -> List[Dict[str, str]]:
+    zone_overrides: dict[str, str] | None = None,
+) -> list[dict[str, str]]:
     """Agents for TaskD: ops, runners, qc, supervisor, adversary_0."""
     base = _make_agents(zone_overrides)
     base.append({"agent_id": "A_ADVERSARY_0", "zone_id": "Z_SORTING_LANES"})
@@ -362,8 +380,8 @@ class TaskD_AdversarialDisruption(BenchmarkTask):
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=3, default_n_max=5, default_arrival_max=50
@@ -390,8 +408,8 @@ class TaskD_AdversarialDisruption(BenchmarkTask):
 
 
 def _make_agents_with_insider(
-    zone_overrides: Optional[Dict[str, str]] = None,
-) -> List[Dict[str, str]]:
+    zone_overrides: dict[str, str] | None = None,
+) -> list[dict[str, str]]:
     """Agents for TaskF: ops, runner_0, qc, supervisor, adversary_insider_0 (A_INSIDER_0 with limited RBAC)."""
     zone_overrides = zone_overrides or {}
     out = [
@@ -448,8 +466,8 @@ class TaskF_InsiderAndKeyMisuse(BenchmarkTask):
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=2, default_n_max=4, default_arrival_max=50
@@ -533,8 +551,8 @@ class TaskE_MultiSiteSTAT(BenchmarkTask):
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=3, default_n_max=5, default_arrival_max=100
@@ -591,11 +609,12 @@ class TaskI_DeviceOutageSurge(BenchmarkTask):
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         rng = random.Random(seed)
         try:
             from labtrust_gym.config import get_repo_root
+
             root = Path(get_repo_root())
         except Exception:
             root = Path(".")
@@ -647,11 +666,12 @@ class TaskJ_ReagentStockout(BenchmarkTask):
     def get_initial_state(
         self,
         seed: int,
-        calibration: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         rng = random.Random(seed)
         try:
             from labtrust_gym.config import get_repo_root
+
             root = Path(get_repo_root())
         except Exception:
             root = Path(".")
@@ -681,7 +701,7 @@ class TaskJ_ReagentStockout(BenchmarkTask):
         }
 
 
-_TASK_REGISTRY: Dict[str, type] = {
+_TASK_REGISTRY: dict[str, type] = {
     "TaskA": TaskA_ThroughputSLA,
     "TaskA_ThroughputSLA": TaskA_ThroughputSLA,
     "TaskB": TaskB_STATInsertionUnderLoad,
@@ -710,4 +730,9 @@ def get_task(name: str) -> BenchmarkTask:
     cls = _TASK_REGISTRY.get(name)
     if cls is None:
         raise ValueError(f"Unknown task: {name}. Known: {list(_TASK_REGISTRY.keys())}")
-    return cls()
+    if not callable(cls):
+        raise TypeError(
+            f"Task {name!r} maps to non-callable {type(cls).__name__!r}; "
+            "registry entry must be a BenchmarkTask class."
+        )
+    return cast(BenchmarkTask, cls())

@@ -131,16 +131,26 @@ def test_golden_runner_non_strict_accepts_any_reason_code() -> None:
             emits_path = root / "emits_vocab.v0.1.yaml"
         if not emits_path.exists():
             pytest.skip("Emits vocab not found")
-        env = _MockEnv({
-            "status": "BLOCKED",
-            "emits": [],
-            "violations": [],
-            "blocked_reason_code": "SOME_UNKNOWN_CODE",
-            "token_consumed": [],
-            "hashchain": {"head_hash": "x", "length": 0, "last_event_hash": "x"},
-        })
+        env = _MockEnv(
+            {
+                "status": "BLOCKED",
+                "emits": [],
+                "violations": [],
+                "blocked_reason_code": "SOME_UNKNOWN_CODE",
+                "token_consumed": [],
+                "hashchain": {"head_hash": "x", "length": 0, "last_event_hash": "x"},
+            }
+        )
         runner = GoldenRunner(env, emits_vocab_path=str(emits_path), strict_reason_codes=False)
-        step = {"event_id": "e1", "t_s": 0, "agent_id": "A", "action_type": "X", "args": {}, "reason_code": None, "token_refs": []}
+        step = {
+            "event_id": "e1",
+            "t_s": 0,
+            "agent_id": "A",
+            "action_type": "X",
+            "args": {},
+            "reason_code": None,
+            "token_refs": [],
+        }
         report = runner._run_step(step)
         assert report.status == "BLOCKED"
         assert report.blocked_reason_code == "SOME_UNKNOWN_CODE"
@@ -160,21 +170,31 @@ def test_golden_runner_strict_rejects_unknown_blocked_reason_code() -> None:
         reason_path = root / "reason_code_registry.v0.1.yaml"
     if not emits_path.exists() or not reason_path.exists():
         pytest.skip("Policy files not found")
-    env = _MockEnv({
-        "status": "BLOCKED",
-        "emits": [],
-        "violations": [],
-        "blocked_reason_code": "NOT_IN_REGISTRY_CODE",
-        "token_consumed": [],
-        "hashchain": {"head_hash": "x", "length": 0, "last_event_hash": "x"},
-    })
+    env = _MockEnv(
+        {
+            "status": "BLOCKED",
+            "emits": [],
+            "violations": [],
+            "blocked_reason_code": "NOT_IN_REGISTRY_CODE",
+            "token_consumed": [],
+            "hashchain": {"head_hash": "x", "length": 0, "last_event_hash": "x"},
+        }
+    )
     runner = GoldenRunner(
         env,
         emits_vocab_path=str(emits_path),
         reason_code_registry_path=str(reason_path),
         strict_reason_codes=True,
     )
-    step = {"event_id": "e1", "t_s": 0, "agent_id": "A", "action_type": "X", "args": {}, "reason_code": None, "token_refs": []}
+    step = {
+        "event_id": "e1",
+        "t_s": 0,
+        "agent_id": "A",
+        "action_type": "X",
+        "args": {},
+        "reason_code": None,
+        "token_refs": [],
+    }
     with pytest.raises(AssertionError, match="unknown.*blocked_reason_code|NOT_IN_REGISTRY"):
         runner._run_step(step)
 
@@ -190,21 +210,31 @@ def test_golden_runner_strict_accepts_registered_reason_code() -> None:
         reason_path = root / "reason_code_registry.v0.1.yaml"
     if not emits_path.exists() or not reason_path.exists():
         pytest.skip("Policy files not found")
-    env = _MockEnv({
-        "status": "BLOCKED",
-        "emits": [],
-        "violations": [],
-        "blocked_reason_code": "AUDIT_CHAIN_BROKEN",
-        "token_consumed": [],
-        "hashchain": {"head_hash": "x", "length": 0, "last_event_hash": "x"},
-    })
+    env = _MockEnv(
+        {
+            "status": "BLOCKED",
+            "emits": [],
+            "violations": [],
+            "blocked_reason_code": "AUDIT_CHAIN_BROKEN",
+            "token_consumed": [],
+            "hashchain": {"head_hash": "x", "length": 0, "last_event_hash": "x"},
+        }
+    )
     runner = GoldenRunner(
         env,
         emits_vocab_path=str(emits_path),
         reason_code_registry_path=str(reason_path),
         strict_reason_codes=True,
     )
-    step = {"event_id": "e1", "t_s": 0, "agent_id": "A", "action_type": "X", "args": {}, "reason_code": None, "token_refs": []}
+    step = {
+        "event_id": "e1",
+        "t_s": 0,
+        "agent_id": "A",
+        "action_type": "X",
+        "args": {},
+        "reason_code": None,
+        "token_refs": [],
+    }
     report = runner._run_step(step)
     assert report.status == "BLOCKED"
     assert report.blocked_reason_code == "AUDIT_CHAIN_BROKEN"
@@ -221,21 +251,31 @@ def test_golden_runner_strict_rejects_unknown_action_reason_code() -> None:
         reason_path = root / "reason_code_registry.v0.1.yaml"
     if not emits_path.exists() or not reason_path.exists():
         pytest.skip("Policy files not found")
-    env = _MockEnv({
-        "status": "ACCEPTED",
-        "emits": ["MINT_TOKEN"],
-        "violations": [],
-        "blocked_reason_code": None,
-        "token_consumed": [],
-        "hashchain": {"head_hash": "x", "length": 1, "last_event_hash": "y"},
-    })
+    env = _MockEnv(
+        {
+            "status": "ACCEPTED",
+            "emits": ["MINT_TOKEN"],
+            "violations": [],
+            "blocked_reason_code": None,
+            "token_consumed": [],
+            "hashchain": {"head_hash": "x", "length": 1, "last_event_hash": "y"},
+        }
+    )
     runner = GoldenRunner(
         env,
         emits_vocab_path=str(emits_path),
         reason_code_registry_path=str(reason_path),
         strict_reason_codes=True,
     )
-    step = {"event_id": "e1", "t_s": 0, "agent_id": "A", "action_type": "MINT_TOKEN", "args": {}, "reason_code": "UNKNOWN_ACTION_CODE", "token_refs": []}
+    step = {
+        "event_id": "e1",
+        "t_s": 0,
+        "agent_id": "A",
+        "action_type": "MINT_TOKEN",
+        "args": {},
+        "reason_code": "UNKNOWN_ACTION_CODE",
+        "token_refs": [],
+    }
     with pytest.raises(AssertionError, match="unknown.*reason_code|UNKNOWN_ACTION"):
         runner._run_step(step)
 
@@ -251,14 +291,16 @@ def test_golden_runner_strict_accepts_registered_event_reason_code() -> None:
         reason_path = root / "reason_code_registry.v0.1.yaml"
     if not emits_path.exists() or not reason_path.exists():
         pytest.skip("Policy files not found")
-    env = _MockEnv({
-        "status": "ACCEPTED",
-        "emits": ["REJECT_SPECIMEN"],
-        "violations": [],
-        "blocked_reason_code": None,
-        "token_consumed": [],
-        "hashchain": {"head_hash": "x", "length": 1, "last_event_hash": "y"},
-    })
+    env = _MockEnv(
+        {
+            "status": "ACCEPTED",
+            "emits": ["REJECT_SPECIMEN"],
+            "violations": [],
+            "blocked_reason_code": None,
+            "token_consumed": [],
+            "hashchain": {"head_hash": "x", "length": 1, "last_event_hash": "y"},
+        }
+    )
     runner = GoldenRunner(
         env,
         emits_vocab_path=str(emits_path),

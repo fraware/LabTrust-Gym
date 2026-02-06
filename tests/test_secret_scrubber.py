@@ -9,7 +9,6 @@ B008: Unit tests for secret scrubber.
 
 from __future__ import annotations
 
-import os
 import pytest
 
 from labtrust_gym.security.secret_scrubber import (

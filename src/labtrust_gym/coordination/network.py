@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import math
 import random
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 from labtrust_gym.coordination.blackboard import BlackboardEvent
 
@@ -31,18 +31,18 @@ def _sample_delay_ms(rng: random.Random, p50_ms: float, p95_ms: float) -> float:
 
 
 def _resolve_partition_affected(
-    partition_schedule: List[Dict[str, Any]],
-    agent_ids: List[str],
+    partition_schedule: list[dict[str, Any]],
+    agent_ids: list[str],
     rng: random.Random,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Resolve affected_agent_fraction to affected_agents per interval (deterministic given rng).
     In-place style: returns new list with resolved intervals.
     """
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for interval in partition_schedule or []:
         frac = interval.get("affected_agent_fraction")
-        if frac is not None and isinstance(frac, (int, float)):
+        if frac is not None and isinstance(frac, int | float):
             k = max(0, min(len(agent_ids), int(len(agent_ids) * float(frac))))
             affected = set(rng.sample(agent_ids, k)) if k > 0 else set()
             out.append(
@@ -66,7 +66,7 @@ def _resolve_partition_affected(
 def _is_partitioned(
     agent_id: str,
     now_t: int,
-    partition_schedule: List[Dict[str, Any]],
+    partition_schedule: list[dict[str, Any]],
 ) -> bool:
     """True if agent is in a partition interval at now_t (no delivery)."""
     for interval in partition_schedule or []:
@@ -82,7 +82,7 @@ def _is_partitioned(
 def _drop_rate_at_step(
     now_t: int,
     base_drop_rate: float,
-    drop_spike: Optional[Dict[str, Any]],
+    drop_spike: dict[str, Any] | None,
 ) -> float:
     """Effective drop rate at step now_t (spike overlay if in window)."""
     if drop_spike:
@@ -114,19 +114,19 @@ class NetworkModel:
 
     def __init__(
         self,
-        agent_ids: List[str],
-        policy: Dict[str, Any],
+        agent_ids: list[str],
+        policy: dict[str, Any],
         rng: random.Random,
     ) -> None:
         self._agent_ids = sorted(agent_ids)
         self._policy = policy or {}
-        self._resolved_partition: List[Dict[str, Any]] = []
+        self._resolved_partition: list[dict[str, Any]] = []
         self._rng = rng
-        self._pending_by_agent: Dict[str, List[Tuple[BlackboardEvent, int, float]]] = {
+        self._pending_by_agent: dict[str, list[tuple[BlackboardEvent, int, float]]] = {
             aid: [] for aid in self._agent_ids
         }
         self._msg_count = 0
-        self._delivered_latencies_ms: List[float] = []
+        self._delivered_latencies_ms: list[float] = []
         self._dropped_count = 0
         self._partition_drop_count = 0
         self._resolve_partition()
@@ -152,16 +152,14 @@ class NetworkModel:
 
     def apply(
         self,
-        log_events: List[BlackboardEvent],
+        log_events: list[BlackboardEvent],
         now_t: int,
-    ) -> Dict[str, List[BlackboardEvent]]:
+    ) -> dict[str, list[BlackboardEvent]]:
         """
         Process new log events and current step; return deliveries per agent.
         Applies delay (p50/p95), drop_rate, partition_schedule, drop_spike, reorder_window.
         """
-        deliveries: Dict[str, List[BlackboardEvent]] = {
-            aid: [] for aid in self._agent_ids
-        }
+        deliveries: dict[str, list[BlackboardEvent]] = {aid: [] for aid in self._agent_ids}
         if not log_events:
             self._flush_pending(now_t, deliveries)
             return deliveries
@@ -201,16 +199,14 @@ class NetworkModel:
     def _flush_pending(
         self,
         now_t: int,
-        deliveries: Dict[str, List[BlackboardEvent]],
+        deliveries: dict[str, list[BlackboardEvent]],
     ) -> None:
         """Move pending events due at now_t into deliveries; apply reorder_window."""
         reorder_window = int(self._policy.get("reorder_window", 0))
         for aid in self._agent_ids:
             pending = self._pending_by_agent[aid]
             due = [(ev, step, lat) for ev, step, lat in pending if step <= now_t]
-            self._pending_by_agent[aid] = [
-                (ev, step, lat) for ev, step, lat in pending if step > now_t
-            ]
+            self._pending_by_agent[aid] = [(ev, step, lat) for ev, step, lat in pending if step > now_t]
             if not due:
                 continue
             events_with_lat = sorted(due, key=lambda x: (x[1], x[0].id))
@@ -223,9 +219,9 @@ class NetworkModel:
 
     def _reorder(
         self,
-        events_with_lat: List[Tuple[BlackboardEvent, int, float]],
+        events_with_lat: list[tuple[BlackboardEvent, int, float]],
         window: int,
-    ) -> List[Tuple[BlackboardEvent, int, float]]:
+    ) -> list[tuple[BlackboardEvent, int, float]]:
         """Within-window random reorder (deterministic with self._rng)."""
         if window <= 0 or len(events_with_lat) <= 1:
             return events_with_lat
@@ -233,7 +229,7 @@ class NetworkModel:
         self._rng.shuffle(out)
         return out
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Return comm metrics: msg_count, p95_latency_ms, drop_rate, partition_events."""
         n = len(self._delivered_latencies_ms)
         if n == 0:
@@ -242,14 +238,8 @@ class NetworkModel:
             sorted_lat = sorted(self._delivered_latencies_ms)
             idx = min(int(0.95 * n), n - 1)
             p95_ms = sorted_lat[idx]
-        total_attempts = (
-            self._msg_count + self._dropped_count + self._partition_drop_count
-        )
-        drop_rate = (
-            (self._dropped_count + self._partition_drop_count) / total_attempts
-            if total_attempts > 0
-            else 0.0
-        )
+        total_attempts = self._msg_count + self._dropped_count + self._partition_drop_count
+        drop_rate = (self._dropped_count + self._partition_drop_count) / total_attempts if total_attempts > 0 else 0.0
         return {
             "msg_count": self._msg_count,
             "p95_latency_ms": round(p95_ms, 2),

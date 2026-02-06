@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "labtrust.llm.policy_summary.v0.1",
   "title": "Policy summary for LLM agent v0.1",
-  "description": "What the agent can see: allowed_actions, zone graph, queue_head, pending_criticals.",
+  "description": "What the agent can see: allowed_actions, zone graph, queue_head, pending_criticals. v0.2 preferred for new use; structure kept for backward compatibility.",
   "type": "object",
   "required": ["allowed_actions"],
   "additionalProperties": true,

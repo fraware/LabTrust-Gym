@@ -6,12 +6,11 @@ from __future__ import annotations
 
 import random
 
+from labtrust_gym.baselines.coordination.hierarchical import HierarchicalHubLocal
+from labtrust_gym.baselines.coordination.hierarchical.hub_planner import HubPlanner
 from labtrust_gym.baselines.coordination.hierarchical.region_partition import (
-    partition_zones_into_regions,
     zone_to_region_map,
 )
-from labtrust_gym.baselines.coordination.hierarchical.hub_planner import HubPlanner
-from labtrust_gym.baselines.coordination.hierarchical import HierarchicalHubLocal
 
 
 def test_region_partition_deterministic() -> None:

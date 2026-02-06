@@ -12,8 +12,9 @@ Wrap adapters through sandbox or call check_output after execution.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 # Reason codes (must match policy/reason_codes/reason_code_registry.v0.1.yaml)
 TOOL_EGRESS_DENIED = "TOOL_EGRESS_DENIED"
@@ -24,7 +25,7 @@ TOOL_DATA_CLASS_VIOLATION = "TOOL_DATA_CLASS_VIOLATION"
 DEFAULT_EGRESS_INDICATOR_KEYS = ("egress_to", "forward_to", "destination")
 
 
-def load_tool_boundary_policy(policy_root: Optional[Path] = None) -> Dict[str, Any]:
+def load_tool_boundary_policy(policy_root: Path | None = None) -> dict[str, Any]:
     """Load tool_boundary_policy from policy_root. Returns root dict or empty dict."""
     if policy_root is None:
         return {}
@@ -42,9 +43,9 @@ def load_tool_boundary_policy(policy_root: Optional[Path] = None) -> Dict[str, A
 
 
 def _get_tool_limits(
-    boundary_policy: Dict[str, Any],
+    boundary_policy: dict[str, Any],
     tool_id: str,
-) -> Tuple[int, int, List[str], Set[str], List[str]]:
+) -> tuple[int, int, list[str], set[str], list[str]]:
     """Return (max_bytes_out, max_records_out, allowed_egress_endpoints, allowed_classes, egress_indicator_keys)."""
     default = boundary_policy.get("default") or {}
     tools = boundary_policy.get("tools") or []
@@ -56,21 +57,13 @@ def _get_tool_limits(
     if entry is None:
         entry = default
     max_bytes = int(entry.get("max_bytes_out") or default.get("max_bytes_out") or 4096)
-    max_records = int(
-        entry.get("max_records_out") or default.get("max_records_out") or 100
-    )
+    max_records = int(entry.get("max_records_out") or default.get("max_records_out") or 100)
     allowed_endpoints = list(
-        entry.get("allowed_egress_endpoints")
-        or default.get("allowed_egress_endpoints")
-        or ["internal"]
+        entry.get("allowed_egress_endpoints") or default.get("allowed_egress_endpoints") or ["internal"]
     )
-    out_class = (
-        entry.get("output_classification") or default.get("output_classification") or {}
-    )
+    out_class = entry.get("output_classification") or default.get("output_classification") or {}
     allowed_classes = set(out_class.get("allowed_classes") or ["Operational"])
-    indicator_keys = list(
-        boundary_policy.get("egress_indicator_keys") or DEFAULT_EGRESS_INDICATOR_KEYS
-    )
+    indicator_keys = list(boundary_policy.get("egress_indicator_keys") or DEFAULT_EGRESS_INDICATOR_KEYS)
     return max_bytes, max_records, allowed_endpoints, allowed_classes, indicator_keys
 
 
@@ -86,9 +79,9 @@ def _count_records(obj: Any) -> int:
     return 1
 
 
-def _collect_values_at_path(obj: Any, path: str) -> List[Any]:
+def _collect_values_at_path(obj: Any, path: str) -> list[Any]:
     """Collect values matching path. path may be 'key' or '*.key' (any key named key)."""
-    out: List[Any] = []
+    out: list[Any] = []
     if not path or path == ".":
         return [obj]
     parts = path.split(".", 1)
@@ -125,7 +118,7 @@ def _path_matches_rule(current_path: str, rule_path: str) -> bool:
     return current_path.endswith("." + rule_path)
 
 
-def _classify_path(path: str, rules: List[Dict[str, Any]]) -> Optional[str]:
+def _classify_path(path: str, rules: list[dict[str, Any]]) -> str | None:
     """Return data class for path if any rule matches, else None."""
     for r in rules:
         rule_path = (r.get("path") or "").strip()
@@ -139,9 +132,9 @@ def _classify_path(path: str, rules: List[Dict[str, Any]]) -> Optional[str]:
 def _walk_and_classify(
     obj: Any,
     prefix: str,
-    rules: List[Dict[str, Any]],
-    allowed_classes: Set[str],
-) -> Optional[Tuple[str, str]]:
+    rules: list[dict[str, Any]],
+    allowed_classes: set[str],
+) -> tuple[str, str] | None:
     """Walk obj; if any key path is classified and not in allowed_classes, return (path, class)."""
     if not rules:
         return None
@@ -177,10 +170,10 @@ class ToolSandbox:
 
     def __init__(
         self,
-        policy_root: Optional[Path] = None,
-        tool_id: Optional[str] = None,
-        role_id: Optional[str] = None,
-        boundary_policy: Optional[Dict[str, Any]] = None,
+        policy_root: Path | None = None,
+        tool_id: str | None = None,
+        role_id: str | None = None,
+        boundary_policy: dict[str, Any] | None = None,
     ) -> None:
         self._policy_root = Path(policy_root) if policy_root else None
         self._tool_id = (tool_id or "").strip() or None
@@ -191,9 +184,9 @@ class ToolSandbox:
 
     def check_output(
         self,
-        result: Dict[str, Any],
-        tool_id_override: Optional[str] = None,
-    ) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+        result: dict[str, Any],
+        tool_id_override: str | None = None,
+    ) -> tuple[bool, str | None, dict[str, Any] | None]:
         """
         Enforce boundary on tool output. Returns (allowed, reason_code, details).
         If allowed is True, reason_code and details are None.
@@ -201,8 +194,8 @@ class ToolSandbox:
         if not self._boundary_policy:
             return True, None, None
         tool_id = (tool_id_override or self._tool_id) or ""
-        max_bytes, max_records, allowed_endpoints, allowed_classes, egress_keys = (
-            _get_tool_limits(self._boundary_policy, tool_id)
+        max_bytes, max_records, allowed_endpoints, allowed_classes, egress_keys = _get_tool_limits(
+            self._boundary_policy, tool_id
         )
         allowed_set = set(allowed_endpoints)
 
@@ -276,33 +269,31 @@ class ToolSandbox:
 
     def wrap_adapter(
         self,
-        adapter: Callable[[str, Dict[str, Any]], Any],
-        tool_id_for_check: Optional[str] = None,
-    ) -> Callable[[str, Dict[str, Any]], Any]:
-        """Return an adapter that runs the inner adapter then enforces check_output. On violation, raises SandboxViolation."""
+        adapter: Callable[[str, dict[str, Any]], Any],
+        tool_id_for_check: str | None = None,
+    ) -> Callable[[str, dict[str, Any]], Any]:
+        """Return adapter that runs inner then enforces check_output. On violation, raises SandboxViolationError."""
 
-        class SandboxViolation(Exception):
+        class SandboxViolationError(Exception):
             def __init__(
                 self,
                 reason_code: str,
                 message: str,
-                details: Optional[Dict[str, Any]] = None,
+                details: dict[str, Any] | None = None,
             ) -> None:
                 self.reason_code = reason_code
                 self.message = message
                 self.details = details or {}
                 super().__init__(message)
 
-        def wrapped(tid: str, args: Dict[str, Any]) -> Any:
+        def wrapped(tid: str, args: dict[str, Any]) -> Any:
             out = adapter(tid, args)
             if not isinstance(out, dict):
                 return out
             tid_check = tool_id_for_check or tid
-            allowed, reason_code, details = self.check_output(
-                out, tool_id_override=tid_check
-            )
+            allowed, reason_code, details = self.check_output(out, tool_id_override=tid_check)
             if not allowed and reason_code:
-                raise SandboxViolation(
+                raise SandboxViolationError(
                     reason_code,
                     details.get("message", reason_code) if details else reason_code,
                     details,
@@ -313,12 +304,12 @@ class ToolSandbox:
 
 
 def check_output_with_policy(
-    result: Dict[str, Any],
+    result: dict[str, Any],
     tool_id: str,
-    policy_root: Optional[Path] = None,
-    boundary_policy: Optional[Dict[str, Any]] = None,
-    role_id: Optional[str] = None,
-) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+    policy_root: Path | None = None,
+    boundary_policy: dict[str, Any] | None = None,
+    role_id: str | None = None,
+) -> tuple[bool, str | None, dict[str, Any] | None]:
     """
     One-shot boundary check. Loads policy if boundary_policy not provided.
     Returns (allowed, reason_code, details).

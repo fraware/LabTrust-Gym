@@ -6,7 +6,7 @@ Controls ops_0 only; other agents use scripted policies. Flattens ops_0 observat
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -18,9 +18,9 @@ except ImportError:
     spaces = None  # type: ignore[assignment]
 
 
-def _flatten_obs(obs: Dict[str, Any], n_d: int = 6, n_status: int = 8) -> np.ndarray:
+def _flatten_obs(obs: dict[str, Any], n_d: int = 6, n_status: int = 8) -> Any:
     """Flatten ops_0 observation dict to a single float32 vector."""
-    parts: List[np.ndarray] = []
+    parts: list[Any] = []
     parts.append(np.array([float(obs.get("my_zone_idx", 0))], dtype=np.float32))
     parts.append(np.array([float(obs.get("door_restricted_open", 0))], dtype=np.float32))
     dur = obs.get("door_restricted_duration_s")
@@ -65,7 +65,7 @@ def _flatten_obs(obs: Dict[str, Any], n_d: int = 6, n_status: int = 8) -> np.nda
 
 if gymnasium is not None and spaces is not None:
 
-    class LabTrustGymnasiumWrapper(gymnasium.Env):  # type: ignore[misc]
+    class LabTrustGymnasiumWrapper(gymnasium.Env):  # type: ignore[type-arg]
         """
         Gymnasium env wrapping LabTrustParallelEnv for single-agent PPO.
         Controlled agent: ops_0. Other agents use scripted_agents_map.
@@ -75,7 +75,7 @@ if gymnasium is not None and spaces is not None:
             self,
             env: Any,
             controlled_agent: str = "ops_0",
-            scripted_agents_map: Optional[Dict[str, Any]] = None,
+            scripted_agents_map: dict[str, Any] | None = None,
             max_steps: int = 80,
             n_d: int = 6,
             n_status: int = 8,
@@ -87,7 +87,7 @@ if gymnasium is not None and spaces is not None:
             self._scripted = scripted_agents_map or {}
             self._max_steps = max_steps
             self._step_count = 0
-            self._last_obs: Dict[str, Any] = {}
+            self._last_obs: dict[str, Any] = {}
             self._n_d = n_d
             self._n_status = n_status
             self._num_action_types = num_action_types
@@ -102,9 +102,9 @@ if gymnasium is not None and spaces is not None:
 
         def reset(
             self,
-            seed: Optional[int] = None,
-            options: Optional[Dict[str, Any]] = None,
-        ) -> Tuple[np.ndarray, Dict[str, Any]]:
+            seed: int | None = None,
+            options: dict[str, Any] | None = None,
+        ) -> tuple[Any, dict[str, Any]]:
             self._step_count = 0
             if seed is not None:
                 self._env.seed(seed)
@@ -117,12 +117,10 @@ if gymnasium is not None and spaces is not None:
             )
             return flat, {}
 
-        def step(
-            self, action: int
-        ) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
+        def step(self, action: int) -> tuple[Any, float, bool, bool, dict[str, Any]]:
             obs_dict = self._last_obs
-            actions: Dict[str, Any] = {}
-            action_infos: Dict[str, Dict[str, Any]] = {}
+            actions: dict[str, Any] = {}
+            action_infos: dict[str, dict[str, Any]] = {}
             for agent in self._env.agents:
                 if agent == self._controlled:
                     actions[agent] = int(action)
@@ -135,17 +133,13 @@ if gymnasium is not None and spaces is not None:
                             "priority": "ROUTINE",
                         }
                 elif agent in self._scripted:
-                    a_idx, a_info = self._scripted[agent].act(
-                        obs_dict.get(agent, {}), agent
-                    )
+                    a_idx, a_info = self._scripted[agent].act(obs_dict.get(agent, {}), agent)
                     actions[agent] = a_idx
                     if a_info and a_idx not in (0, 1):
                         action_infos[agent] = a_info
                 else:
                     actions[agent] = 0
-            obs_dict, rewards, term, trunc, infos = self._env.step(
-                actions, action_infos=action_infos
-            )
+            obs_dict, rewards, term, trunc, infos = self._env.step(actions, action_infos=action_infos)
             self._last_obs = obs_dict
             self._step_count += 1
             flat = _flatten_obs(
@@ -163,26 +157,26 @@ if gymnasium is not None and spaces is not None:
             self._env.close()
 
 else:
-    LabTrustGymnasiumWrapper = None  # type: ignore[misc, assignment]
+    LabTrustGymnasiumWrapper = None  # type: ignore[misc]
 
 
 def make_task_env(
     task_name: str = "TaskA",
     max_steps: int = 80,
-    reward_config: Optional[Dict[str, Any]] = None,
-) -> Tuple[Any, Any]:
+    reward_config: dict[str, Any] | None = None,
+) -> tuple[Any, Any]:
     """
     Create LabTrustParallelEnv for task and wrap for SB3.
     Returns (gym_env, raw_parallel_env).
     Caller must call gym_env.reset(seed=..., options={"initial_state": task.get_initial_state(seed)}).
     """
+    from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
     from labtrust_gym.benchmarks.tasks import get_task
     from labtrust_gym.envs.pz_parallel import (
         DEFAULT_DEVICE_IDS,
         DEFAULT_ZONE_IDS,
         LabTrustParallelEnv,
     )
-    from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
 
     task = get_task(task_name)
     reward_config = reward_config or task.reward_config

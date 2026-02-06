@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.benchmarks.metrics import compute_episode_metrics
+from labtrust_gym.tools.execution import execute_tool_safely
 from labtrust_gym.tools.sandbox import (
     TOOL_DATA_CLASS_VIOLATION,
     TOOL_EGRESS_DENIED,
@@ -22,7 +23,6 @@ from labtrust_gym.tools.sandbox import (
     check_output_with_policy,
     load_tool_boundary_policy,
 )
-from labtrust_gym.tools.execution import execute_tool_safely
 
 
 @pytest.fixture
@@ -52,10 +52,7 @@ def test_exfil_attempt_blocked_tool_egress_denied(boundary_policy: dict) -> None
     assert reason_code == TOOL_EGRESS_DENIED
     assert details is not None
     assert details.get("egress_key") == "egress_to"
-    assert (
-        "exfil" in details.get("destination", "").lower()
-        or "example" in details.get("destination", "").lower()
-    )
+    assert "exfil" in details.get("destination", "").lower() or "example" in details.get("destination", "").lower()
 
 
 def test_egress_internal_allowed(boundary_policy: dict) -> None:
@@ -101,7 +98,7 @@ def test_caps_exceeded_records_tool_egress_limit_exceeded(
     """Output exceeding max_records_out (list length) yields TOOL_EGRESS_LIMIT_EXCEEDED."""
     if not boundary_policy:
         pytest.skip("tool_boundary_policy.v0.1.yaml not found")
-    # query_queue_v1 has max_records_out: 50; default 100. Use default by using a tool_id with low limit
+    # query_queue_v1: max_records_out 50 / default 100. Use tool_id with low limit here.
     policy = dict(boundary_policy)
     policy.setdefault("tools", [])
     policy["tools"] = list(policy["tools"]) + [

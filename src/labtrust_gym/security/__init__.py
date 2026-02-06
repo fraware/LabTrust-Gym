@@ -20,7 +20,6 @@ from labtrust_gym.security.fs_safety import (
     resolve_within_base,
 )
 from labtrust_gym.security.output_shaping import (
-    build_run_summary,
     obfuscate_identifier,
     shape_llm_decision,
     shape_signature_verification,

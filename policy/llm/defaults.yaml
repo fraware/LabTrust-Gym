@@ -1,4 +1,6 @@
 # Default prompt selection for LLM agents (used when prompt_id/version not overridden).
 # Code fallback if missing: prompt_id "ops_v2", version "2.0.0".
+# use_prompts_v02: when true, use policy/llm/prompts.v0.2.yaml and content-based fingerprint.
 prompt_id: "ops_v2"
 version: "2.0.0"
+use_prompts_v02: true

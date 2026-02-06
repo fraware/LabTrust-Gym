@@ -11,11 +11,10 @@ from __future__ import annotations
 import hashlib
 import json
 import random
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from labtrust_gym.baselines.coordination.decision_types import (
     AllocationDecision,
-    CoordinationDecision,
     RouteDecision,
     ScheduleDecision,
 )
@@ -56,15 +55,15 @@ class KernelContext:
 
     def __init__(
         self,
-        obs: Dict[str, Any],
-        infos: Dict[str, Dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
         t: int,
-        policy: Dict[str, Any],
-        scale_config: Dict[str, Any],
+        policy: dict[str, Any],
+        scale_config: dict[str, Any],
         seed: int,
-        rng: Optional[random.Random] = None,
-        global_log: Optional[Any] = None,
-        view_snapshots: Optional[Dict[str, Dict[str, Any]]] = None,
+        rng: random.Random | None = None,
+        global_log: Any | None = None,
+        view_snapshots: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         self.obs = obs
         self.infos = infos
@@ -82,29 +81,29 @@ class KernelContext:
         self.global_log = global_log
         self.view_snapshots = view_snapshots or {}
 
-    def _extract_zone_ids(self) -> List[str]:
+    def _extract_zone_ids(self) -> list[str]:
         layout = (self.policy or {}).get("zone_layout") or {}
         zones = layout.get("zones") or []
         if isinstance(zones, list):
             return [
-                z.get("zone_id")
+                str(z.get("zone_id", ""))
                 for z in zones
                 if isinstance(z, dict) and z.get("zone_id")
             ]
         return []
 
-    def _extract_device_ids(self) -> List[str]:
+    def _extract_device_ids(self) -> list[str]:
         layout = (self.policy or {}).get("zone_layout") or {}
         placement = layout.get("device_placement") or []
         if isinstance(placement, list):
             return [
-                p.get("device_id")
+                str(p.get("device_id", ""))
                 for p in placement
                 if isinstance(p, dict) and p.get("device_id")
             ]
         return []
 
-    def _extract_device_zone(self) -> Dict[str, str]:
+    def _extract_device_zone(self) -> dict[str, str]:
         layout = (self.policy or {}).get("zone_layout") or {}
         placement = layout.get("device_placement") or []
         out = {}
@@ -113,7 +112,7 @@ class KernelContext:
                 out[p["device_id"]] = p.get("zone_id", "")
         return out
 
-    def _extract_adjacency(self) -> set:
+    def _extract_adjacency(self) -> set[tuple[str, str]]:
         from labtrust_gym.engine.zones import build_adjacency_set
 
         layout = (self.policy or {}).get("zone_layout") or {}
@@ -130,8 +129,7 @@ class KernelContext:
                 canonical[aid] = {
                     k: o[k]
                     for k in sorted(o.keys())
-                    if k
-                    in ("zone_id", "my_zone_idx", "queue_has_head", "queue_by_device")
+                    if k in ("zone_id", "my_zone_idx", "queue_has_head", "queue_by_device")
                 }
             self._state_hash = _stable_hash(canonical)
         return self._state_hash

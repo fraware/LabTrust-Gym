@@ -5,9 +5,21 @@ Coordination method factory: load registry from policy YAML and instantiate meth
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, cast
 
+from labtrust_gym.baselines.coordination.allocation.auction import (
+    AuctionAllocator,
+)
+from labtrust_gym.baselines.coordination.compose import compose_kernel
+from labtrust_gym.baselines.coordination.hierarchical import HierarchicalHubLocal
 from labtrust_gym.baselines.coordination.interface import CoordinationMethod
+from labtrust_gym.baselines.coordination.kernel_components import (
+    CentralizedAllocator,
+    EDFScheduler,
+    TrivialRouter,
+    WHCARouter,
+)
+from labtrust_gym.baselines.coordination.kernels.scheduler_or import ORScheduler
 from labtrust_gym.baselines.coordination.methods.centralized_planner import (
     CentralizedPlanner,
 )
@@ -27,21 +39,8 @@ from labtrust_gym.baselines.coordination.methods.swarm_reactive import (
     SwarmReactive,
 )
 
-from labtrust_gym.baselines.coordination.compose import compose_kernel
-from labtrust_gym.baselines.coordination.kernel_components import (
-    CentralizedAllocator,
-    EDFScheduler,
-    TrivialRouter,
-    WHCARouter,
-)
-from labtrust_gym.baselines.coordination.allocation.auction import (
-    AuctionAllocator,
-)
-from labtrust_gym.baselines.coordination.hierarchical import HierarchicalHubLocal
-from labtrust_gym.baselines.coordination.kernels.scheduler_or import ORScheduler
 
-
-def _load_scheduler_or_policy(repo_root: Optional[Path]) -> Dict[str, Any]:
+def _load_scheduler_or_policy(repo_root: Path | None) -> dict[str, Any]:
     """Load scheduler_or_policy.v0.1.yaml from repo; return dict or empty."""
     if repo_root is None:
         return {}
@@ -57,7 +56,7 @@ def _load_scheduler_or_policy(repo_root: Optional[Path]) -> Dict[str, Any]:
         return {}
 
 
-_METHOD_CLASSES: Dict[str, type] = {
+_METHOD_CLASSES: dict[str, type] = {
     "centralized_planner": CentralizedPlanner,
     "hierarchical_hub_rr": HierarchicalHubRR,
     "hierarchical_hub_local": HierarchicalHubLocal,
@@ -68,9 +67,8 @@ _METHOD_CLASSES: Dict[str, type] = {
 }
 
 
-def _get_marl_ppo_if_available(**kwargs: Any) -> Optional[CoordinationMethod]:
+def _get_marl_ppo_if_available(**kwargs: Any) -> CoordinationMethod | None:
     from labtrust_gym.baselines.coordination.methods.marl_ppo import (
-        MarlPPOStub,
         make_marl_ppo_if_available,
     )
 
@@ -79,16 +77,16 @@ def _get_marl_ppo_if_available(**kwargs: Any) -> Optional[CoordinationMethod]:
 
 def make_coordination_method(
     method_id: str,
-    policy: Dict[str, Any],
-    repo_root: Optional[Path] = None,
-    scale_config: Optional[Dict[str, Any]] = None,
-    compute_budget: Optional[int] = None,
+    policy: dict[str, Any],
+    repo_root: Path | None = None,
+    scale_config: dict[str, Any] | None = None,
+    compute_budget: int | None = None,
     collusion: bool = False,
     message_delay_scale: float = 1.0,
     gossip_rounds: int = 3,
-    model_path: Optional[str] = None,
-    llm_agent: Optional[Any] = None,
-    pz_to_engine: Optional[Dict[str, str]] = None,
+    model_path: str | None = None,
+    llm_agent: Any | None = None,
+    pz_to_engine: dict[str, str] | None = None,
     **kwargs: Any,
 ) -> CoordinationMethod:
     """
@@ -96,17 +94,12 @@ def make_coordination_method(
     Loads default_params from policy/coordination/coordination_methods.v0.1.yaml when
     repo_root is set; kwargs and explicit args override.
     """
-    params: Dict[str, Any] = {}
+    params: dict[str, Any] = {}
     if repo_root is not None:
         try:
             from labtrust_gym.policy.coordination import load_coordination_methods
 
-            reg_path = (
-                Path(repo_root)
-                / "policy"
-                / "coordination"
-                / "coordination_methods.v0.1.yaml"
-            )
+            reg_path = Path(repo_root) / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
             if reg_path.exists():
                 registry = load_coordination_methods(reg_path)
                 entry = registry.get(method_id)
@@ -136,8 +129,7 @@ def make_coordination_method(
         inst = _get_marl_ppo_if_available(model_path=params.get("model_path"))
         if inst is None:
             raise ImportError(
-                "marl_ppo requires stable-baselines3 and gymnasium. "
-                "Install with: pip install labtrust-gym[marl]"
+                "marl_ppo requires stable-baselines3 and gymnasium. Install with: pip install labtrust-gym[marl]"
             )
         return inst
 
@@ -164,11 +156,11 @@ def make_coordination_method(
             f"kernel_auction_whca_shielded, marl_ppo"
         )
     if method_id == "kernel_centralized_edf":
-        alloc = CentralizedAllocator(
+        alloc: CentralizedAllocator | AuctionAllocator = CentralizedAllocator(
             compute_budget=params.get("compute_budget"),
         )
-        sched = EDFScheduler()
-        router = TrivialRouter()
+        sched: EDFScheduler | ORScheduler = EDFScheduler()
+        router: TrivialRouter | WHCARouter = TrivialRouter()
         return compose_kernel(alloc, sched, router, "kernel_centralized_edf")
     if method_id == "kernel_whca":
         alloc = CentralizedAllocator(
@@ -226,20 +218,25 @@ def make_coordination_method(
             horizon=params.get("whca_horizon", 15),
         )
         advanced = compose_kernel(alloc, sched, router, "kernel_auction_whca")
-        return wrap_with_simplex_shield(advanced, None)
+        return cast(CoordinationMethod, wrap_with_simplex_shield(advanced, None))
+    if cls is None:
+        raise ValueError(f"Unknown method_id: {method_id}")
     if method_id == "centralized_planner":
-        return cls(compute_budget=params.get("compute_budget"))
+        return cast(CoordinationMethod, cls(compute_budget=params.get("compute_budget")))
     if method_id == "hierarchical_hub_rr":
-        return cls(message_delay_scale=params.get("message_delay_scale", 1.0))
+        return cast(CoordinationMethod, cls(message_delay_scale=params.get("message_delay_scale", 1.0)))
     if method_id == "hierarchical_hub_local":
-        return cls(
-            ack_deadline_steps=params.get("ack_deadline_steps", 10),
-            sla_horizon=params.get("sla_horizon", 20),
+        return cast(
+            CoordinationMethod,
+            cls(
+                ack_deadline_steps=params.get("ack_deadline_steps", 10),
+                sla_horizon=params.get("sla_horizon", 20),
+            ),
         )
     if method_id == "market_auction":
-        return cls(collusion=params.get("collusion", False))
+        return cast(CoordinationMethod, cls(collusion=params.get("collusion", False)))
     if method_id == "gossip_consensus":
-        return cls(gossip_rounds=params.get("gossip_rounds", 3))
+        return cast(CoordinationMethod, cls(gossip_rounds=params.get("gossip_rounds", 3)))
     if method_id == "swarm_reactive":
-        return cls()
-    return cls()
+        return cast(CoordinationMethod, cls())
+    return cast(CoordinationMethod, cls())

@@ -4,8 +4,6 @@ Spoof injection must be blocked when strict_signatures=True; attack_success_rate
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.security.risk_injections import IdSpoofInjector, InjectionConfig
 
 
@@ -29,8 +27,7 @@ def test_spoof_injection_produces_audit_entry() -> None:
     out, audit_list = inj.mutate_actions(actions_dict)
     assert len(audit_list) >= 1
     assert any(
-        a.get("injection_id") == "INJ-ID-SPOOF-001"
-        and "SECURITY_INJECTION_APPLIED" in (a.get("emits") or [])
+        a.get("injection_id") == "INJ-ID-SPOOF-001" and "SECURITY_INJECTION_APPLIED" in (a.get("emits") or [])
         for a in audit_list
     )
     spoofed_agent = None

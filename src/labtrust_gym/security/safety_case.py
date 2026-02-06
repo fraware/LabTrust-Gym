@@ -12,26 +12,28 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, cast
 
 from labtrust_gym.policy.loader import load_yaml
-
 
 SAFETY_CASE_DIR = "SAFETY_CASE"
 SAFETY_CASE_JSON = "safety_case.json"
 SAFETY_CASE_MD = "safety_case.md"
 
 
-def load_claims(policy_root: Path) -> Dict[str, Any]:
+def load_claims(policy_root: Path) -> dict[str, Any]:
     """Load safety case claims from policy/safety_case/claims.v0.1.yaml."""
     path = policy_root / "policy" / "safety_case" / "claims.v0.1.yaml"
     if not path.exists():
         return {"version": "0.1", "claims": []}
     data = load_yaml(path)
-    return data.get("safety_case_claims", data) if isinstance(data, dict) else {"version": "0.1", "claims": []}
+    out = (
+        data.get("safety_case_claims", data) if isinstance(data, dict) else {"version": "0.1", "claims": []}
+    )
+    return cast(dict[str, Any], out)
 
 
-def _claim_to_dict(c: Dict[str, Any]) -> Dict[str, Any]:
+def _claim_to_dict(c: dict[str, Any]) -> dict[str, Any]:
     """Normalize a claim for JSON output."""
     return {
         "claim_id": c.get("claim_id", ""),
@@ -43,7 +45,7 @@ def _claim_to_dict(c: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def build_safety_case(policy_root: Path) -> Dict[str, Any]:
+def build_safety_case(policy_root: Path) -> dict[str, Any]:
     """
     Build the full safety case structure: version, claims (each with claim_id, statement,
     controls, tests, artifacts, commands). Deterministic for same policy file.
@@ -57,7 +59,7 @@ def build_safety_case(policy_root: Path) -> Dict[str, Any]:
     }
 
 
-def write_safety_case_md(safety_case: Dict[str, Any], md_path: Path) -> None:
+def write_safety_case_md(safety_case: dict[str, Any], md_path: Path) -> None:
     """Write human-readable safety_case.md."""
     lines = [
         "# Safety case (auto-generated)",
@@ -104,7 +106,7 @@ def write_safety_case_md(safety_case: Dict[str, Any], md_path: Path) -> None:
     md_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def emit_safety_case(policy_root: Path, out_dir: Path) -> Dict[str, Any]:
+def emit_safety_case(policy_root: Path, out_dir: Path) -> dict[str, Any]:
     """
     Write SAFETY_CASE/safety_case.json and SAFETY_CASE/safety_case.md under out_dir.
     Returns the safety_case dict.
@@ -122,10 +124,10 @@ def emit_safety_case(policy_root: Path, out_dir: Path) -> Dict[str, Any]:
     return safety_case
 
 
-def get_claimed_tests(policy_root: Path) -> List[str]:
+def get_claimed_tests(policy_root: Path) -> list[str]:
     """Return list of test module/path strings referenced in claims (for validation)."""
     claims_data = load_claims(policy_root)
-    tests: List[str] = []
+    tests: list[str] = []
     for c in claims_data.get("claims") or []:
         for t in c.get("tests") or []:
             if t and t not in tests:
@@ -133,10 +135,10 @@ def get_claimed_tests(policy_root: Path) -> List[str]:
     return tests
 
 
-def get_claimed_artifacts(policy_root: Path) -> List[str]:
+def get_claimed_artifacts(policy_root: Path) -> list[str]:
     """Return list of artifact paths referenced in claims (for paper layout validation)."""
     claims_data = load_claims(policy_root)
-    artifacts: List[str] = []
+    artifacts: list[str] = []
     for c in claims_data.get("claims") or []:
         for a in c.get("artifacts") or []:
             if a and a not in artifacts:

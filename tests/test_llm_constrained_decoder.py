@@ -7,18 +7,17 @@ from pathlib import Path
 
 import pytest
 
+from labtrust_gym.baselines.llm.agent import (
+    DeterministicConstrainedBackend,
+    LLMAgentWithShield,
+    load_llm_action_schema_v02,
+)
 from labtrust_gym.baselines.llm.decoder import (
     MISSING_CITATION,
     MISSING_RATIONALE,
     decode_constrained,
     validate_schema_returns_errors,
 )
-from labtrust_gym.baselines.llm.agent import (
-    DeterministicConstrainedBackend,
-    LLMAgentWithShield,
-    load_llm_action_schema_v02,
-)
-from labtrust_gym.engine.rbac import get_allowed_actions, load_rbac_policy
 
 
 def _repo_root() -> Path:
@@ -27,9 +26,7 @@ def _repo_root() -> Path:
 
 def test_decode_constrained_illegal_action_rejected() -> None:
     """Proposed action_type not in allowed_actions -> rejected, NOOP, RBAC_ACTION_DENY."""
-    schema = load_llm_action_schema_v02(
-        _repo_root() / "policy/llm/llm_action.schema.v0.2.json"
-    )
+    schema = load_llm_action_schema_v02(_repo_root() / "policy/llm/llm_action.schema.v0.2.json")
     if not schema:
         pytest.skip("llm_action.schema.v0.2.json not found")
     policy_summary = {
@@ -57,9 +54,7 @@ def test_decode_constrained_illegal_action_rejected() -> None:
 
 def test_decode_constrained_missing_rationale_rejected() -> None:
     """Missing or empty rationale -> rejected, NOOP, MISSING_RATIONALE."""
-    schema = load_llm_action_schema_v02(
-        _repo_root() / "policy/llm/llm_action.schema.v0.2.json"
-    )
+    schema = load_llm_action_schema_v02(_repo_root() / "policy/llm/llm_action.schema.v0.2.json")
     if not schema:
         pytest.skip("llm_action.schema.v0.2.json not found")
     policy_summary = {
@@ -94,9 +89,7 @@ def test_decode_constrained_missing_rationale_rejected() -> None:
 
 def test_decode_constrained_valid_passes() -> None:
     """Valid action with rationale and citation anchor in allowed_actions -> pass."""
-    schema = load_llm_action_schema_v02(
-        _repo_root() / "policy/llm/llm_action.schema.v0.2.json"
-    )
+    schema = load_llm_action_schema_v02(_repo_root() / "policy/llm/llm_action.schema.v0.2.json")
     if not schema:
         pytest.skip("llm_action.schema.v0.2.json not found")
     policy_summary = {
@@ -124,9 +117,7 @@ def test_decode_constrained_valid_passes() -> None:
 
 def test_decode_constrained_missing_citation_rejected() -> None:
     """Rationale without any citation anchor -> rejected, NOOP, MISSING_CITATION."""
-    schema = load_llm_action_schema_v02(
-        _repo_root() / "policy/llm/llm_action.schema.v0.2.json"
-    )
+    schema = load_llm_action_schema_v02(_repo_root() / "policy/llm/llm_action.schema.v0.2.json")
     if not schema:
         pytest.skip("llm_action.schema.v0.2.json not found")
     policy_summary = {
@@ -201,13 +192,8 @@ def test_deterministic_constrained_backend_fixed_seed_reproducible() -> None:
 
 def test_deterministic_backend_stable_llm_decision_hashes() -> None:
     """DeterministicConstrainedBackend: same seed + same observation => stable prompt_sha256 and response_sha256."""
-    from labtrust_gym.baselines.llm.shield import build_policy_summary
 
-    rbac = {
-        "roles": [
-            {"role_id": "reception", "allowed_actions": ["NOOP", "TICK", "QUEUE_RUN"]}
-        ]
-    }
+    rbac = {"roles": [{"role_id": "reception", "allowed_actions": ["NOOP", "TICK", "QUEUE_RUN"]}]}
     obs = {"t_s": 0, "allowed_actions": ["NOOP", "TICK", "QUEUE_RUN"]}
     backend1 = DeterministicConstrainedBackend(seed=777, default_action_type="NOOP")
     agent1 = LLMAgentWithShield(
@@ -239,9 +225,9 @@ def test_deterministic_backend_stable_llm_decision_hashes() -> None:
 def test_deterministic_hashes() -> None:
     """prompt_hash, policy_summary_hash, allowed_actions_hash are deterministic for same input."""
     from labtrust_gym.baselines.llm.agent import (
-        _prompt_hash,
-        _policy_summary_hash,
         _allowed_actions_hash,
+        _policy_summary_hash,
+        _prompt_hash,
     )
 
     messages = [
@@ -272,12 +258,11 @@ def test_deterministic_hashes() -> None:
 def test_deterministic_constrained_backend_produces_compliant_rationale() -> None:
     """DeterministicConstrainedBackend output passes decode_constrained citation check (official baseline)."""
     import json
+
     from labtrust_gym.baselines.llm.shield import build_policy_summary
 
     backend = DeterministicConstrainedBackend(seed=0, default_action_type="NOOP")
-    policy_summary = build_policy_summary(
-        allowed_actions=["NOOP", "TICK"], role_id="reception"
-    )
+    policy_summary = build_policy_summary(allowed_actions=["NOOP", "TICK"], role_id="reception")
     citation_anchors = list(policy_summary.get("citation_anchors") or [])
     user = json.dumps(
         {"allowed_actions": ["NOOP", "TICK"], "citation_anchors": citation_anchors},
@@ -300,8 +285,9 @@ def test_deterministic_constrained_backend_produces_compliant_rationale() -> Non
 
 def test_task_f_llm_baseline_rbac_containment() -> None:
     """TaskF with use_llm_safe_v1_ops: LLM baseline uses DeterministicConstrainedBackend; RBAC/insider containment still demonstrated."""
-    from labtrust_gym.benchmarks.runner import run_benchmark
     import tempfile
+
+    from labtrust_gym.benchmarks.runner import run_benchmark
 
     root = _repo_root()
     with tempfile.TemporaryDirectory() as tmp:

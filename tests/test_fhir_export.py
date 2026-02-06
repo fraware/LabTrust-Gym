@@ -13,10 +13,9 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.export.fhir_r4 import (
-    load_receipts_from_dir,
+    export_fhir,
     receipts_to_fhir_bundle,
     validate_bundle_structure,
-    export_fhir,
 )
 from labtrust_gym.policy.loader import load_json, validate_against_schema
 
@@ -41,8 +40,17 @@ def test_one_receipt_bundle_correct_references() -> None:
             "reason_codes": [],
             "tokens": {"minted": [], "consumed": [], "revoked": []},
             "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
             "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
         },
     ]
@@ -81,8 +89,17 @@ def test_multiple_observations_per_diagnostic_report() -> None:
             "reason_codes": [],
             "tokens": {"minted": [], "consumed": [], "revoked": []},
             "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
             "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
         },
         {
@@ -97,8 +114,17 @@ def test_multiple_observations_per_diagnostic_report() -> None:
             "reason_codes": [],
             "tokens": {"minted": [], "consumed": [], "revoked": []},
             "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
             "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
         },
         {
@@ -113,8 +139,17 @@ def test_multiple_observations_per_diagnostic_report() -> None:
             "reason_codes": [],
             "tokens": {"minted": [], "consumed": [], "revoked": []},
             "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
             "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
         },
     ]
@@ -145,8 +180,17 @@ def test_critical_result_includes_interpretation_flag() -> None:
             "reason_codes": ["CRIT_A"],
             "tokens": {"minted": [], "consumed": [], "revoked": []},
             "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
             "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
         },
     ]
@@ -159,7 +203,8 @@ def test_critical_result_includes_interpretation_flag() -> None:
     assert len(interp) >= 1
     assert any(
         c.get("code") == "CR" or "Critical" in str(c.get("display", ""))
-        for cod in interp for c in (cod.get("coding") or [])
+        for cod in interp
+        for c in (cod.get("coding") or [])
     )
 
 
@@ -179,8 +224,17 @@ def test_fhir_export_determinism() -> None:
             "reason_codes": [],
             "tokens": {"minted": [], "consumed": [], "revoked": []},
             "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
             "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
         },
         {
@@ -195,8 +249,17 @@ def test_fhir_export_determinism() -> None:
             "reason_codes": [],
             "tokens": {"minted": [], "consumed": [], "revoked": []},
             "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
             "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
         },
     ]
@@ -220,8 +283,17 @@ def test_partner_id_and_policy_fingerprint_in_bundle_meta() -> None:
             "reason_codes": [],
             "tokens": {"minted": [], "consumed": [], "revoked": []},
             "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
             "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
         },
     ]
@@ -255,7 +327,10 @@ def test_fhir_bundle_export_schema_validation() -> None:
         "entry": [
             {"fullUrl": "#Specimen/S1", "resource": {"resourceType": "Specimen", "id": "S1"}},
             {"fullUrl": "#Observation/R1", "resource": {"resourceType": "Observation", "id": "R1"}},
-            {"fullUrl": "#DiagnosticReport/R1", "resource": {"resourceType": "DiagnosticReport", "id": "R1"}},
+            {
+                "fullUrl": "#DiagnosticReport/R1",
+                "resource": {"resourceType": "DiagnosticReport", "id": "R1"},
+            },
         ],
     }
     validate_against_schema(bundle, schema, schema_path)
@@ -266,22 +341,34 @@ def test_export_fhir_from_receipts_dir(tmp_path: Path) -> None:
     receipts_dir = tmp_path / "receipts"
     receipts_dir.mkdir()
     (receipts_dir / "receipt_result_R1.v0.1.json").write_text(
-        json.dumps({
-            "version": "0.1",
-            "entity_type": "result",
-            "specimen_id": None,
-            "result_id": "R1",
-            "panel_id": "P1",
-            "device_ids": [],
-            "timestamps": {},
-            "decision": "RELEASED",
-            "reason_codes": [],
-            "tokens": {"minted": [], "consumed": [], "revoked": []},
-            "critical_comm_records": {"attempts": [], "ack_summary": []},
-            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
-            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
-            "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
-        }, sort_keys=True),
+        json.dumps(
+            {
+                "version": "0.1",
+                "entity_type": "result",
+                "specimen_id": None,
+                "result_id": "R1",
+                "panel_id": "P1",
+                "device_ids": [],
+                "timestamps": {},
+                "decision": "RELEASED",
+                "reason_codes": [],
+                "tokens": {"minted": [], "consumed": [], "revoked": []},
+                "critical_comm_records": {"attempts": [], "ack_summary": []},
+                "invariant_summary": {
+                    "violated_ids": [],
+                    "first_violation_ts": None,
+                    "final_status": "PASS",
+                },
+                "enforcement_summary": {
+                    "throttle": [],
+                    "kill_switch": [],
+                    "freeze_zone": [],
+                    "forensic_freeze": [],
+                },
+                "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
+            },
+            sort_keys=True,
+        ),
         encoding="utf-8",
     )
     out_dir = tmp_path / "out"

@@ -14,6 +14,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+
 import pytest
 
 from labtrust_gym.online.config import AUTH_API_KEY, AUTH_OFF, OnlineConfig
@@ -194,10 +195,7 @@ def test_concurrency_limit_triggers_503() -> None:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(2)
         sock.connect(("127.0.0.1", port))
-        sock.sendall(
-            b"POST /v0/step HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5000\r\n\r\n"
-            + b"x" * 100
-        )
+        sock.sendall(b"POST /v0/step HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5000\r\n\r\n" + b"x" * 100)
         time.sleep(1.0)
         sock.close()
 

@@ -7,10 +7,10 @@ from labtrust_gym.baselines.llm.action_proposal import (
     validate_action_proposal_dict,
 )
 from labtrust_gym.baselines.llm.agent import (
+    DeterministicConstrainedBackend,
     LLMAgent,
     LLMAgentWithShield,
     LLMBackend,
-    DeterministicConstrainedBackend,
     MockDeterministicBackend,
     MockDeterministicBackendV2,
     OpenAIBackend,

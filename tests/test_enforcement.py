@@ -13,8 +13,8 @@ import pytest
 
 from labtrust_gym.engine.enforcement import (
     EnforcementEngine,
-    load_enforcement_map,
     apply_enforcement,
+    load_enforcement_map,
 )
 
 
@@ -75,7 +75,11 @@ def test_enforcement_escalation_on_repeated_violations() -> None:
     event = {"event_id": "e1", "agent_id": "A1"}
     # INV-ZONE-005: first violation -> throttle, second -> freeze_zone
     violations_zone = [
-        {"invariant_id": "INV-ZONE-005", "status": "VIOLATION", "reason_code": "RC_DOOR_OPEN_TOO_LONG"},
+        {
+            "invariant_id": "INV-ZONE-005",
+            "status": "VIOLATION",
+            "reason_code": "RC_DOOR_OPEN_TOO_LONG",
+        },
     ]
     e1 = engine.apply(event, violations_zone, audit_callback=None)
     assert len(e1) >= 1
@@ -84,7 +88,7 @@ def test_enforcement_escalation_on_repeated_violations() -> None:
     # Same rule again: escalation tier 2 (violation_count_min 2)
     e2 = engine.apply(event, violations_zone, audit_callback=None)
     assert len(e2) >= 1
-    second_types = [x.get("type") for x in e2]
+    [x.get("type") for x in e2]
     # Should have freeze_zone on second occurrence (escalation)
     freeze = [x for x in e2 if x.get("type") == "freeze_zone"]
     assert len(freeze) >= 1

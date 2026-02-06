@@ -14,10 +14,10 @@ pytest.importorskip("pettingzoo")
 pytest.importorskip("gymnasium")
 
 from labtrust_gym.envs.pz_parallel import (
-    LabTrustParallelEnv,
-    _hash_obs,
     ACTION_NOOP,
     ACTION_TICK,
+    LabTrustParallelEnv,
+    _hash_obs,
 )
 
 
@@ -47,9 +47,7 @@ def test_pz_parallel_determinism() -> None:
         env.reset(seed=seed)
         out = []
         for step in range(steps):
-            actions = {
-                a: (ACTION_NOOP if step % 2 == 0 else ACTION_TICK) for a in env.agents
-            }
+            actions = {a: (ACTION_NOOP if step % 2 == 0 else ACTION_TICK) for a in env.agents}
             obs, rewards, terminations, truncations, _ = env.step(actions)
             out.append(
                 (

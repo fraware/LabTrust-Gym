@@ -10,17 +10,17 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
+from labtrust_gym.baselines.llm.tool_proxy import get_tool_capabilities
 from labtrust_gym.tools.registry import (
     TOOL_NOT_ALLOWED_FOR_ROLE,
     TOOL_NOT_IN_REGISTRY,
     get_tool_entry,
 )
-from labtrust_gym.baselines.llm.tool_proxy import get_tool_capabilities
 
 
-def rbac_policy_fingerprint(rbac_policy: Dict[str, Any]) -> str:
+def rbac_policy_fingerprint(rbac_policy: dict[str, Any]) -> str:
     """
     Compute SHA-256 (hex) digest of the RBAC policy for reproducibility and EvidenceBundle.
     Same content => same digest. Input: loaded rbac_policy dict (roles, agents, etc.).
@@ -28,19 +28,17 @@ def rbac_policy_fingerprint(rbac_policy: Dict[str, Any]) -> str:
     if not rbac_policy or not isinstance(rbac_policy, dict):
         payload = json.dumps({}, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(payload).hexdigest()
-    payload = json.dumps(rbac_policy, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+    payload = json.dumps(rbac_policy, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
 def is_tool_allowed(
-    role_id: Optional[str],
+    role_id: str | None,
     tool_id: str,
-    registry: Dict[str, Any],
-    rbac_policy: Optional[Dict[str, Any]],
-    context: Optional[Dict[str, Any]],
-) -> Tuple[bool, Optional[str]]:
+    registry: dict[str, Any],
+    rbac_policy: dict[str, Any] | None,
+    context: dict[str, Any] | None,
+) -> tuple[bool, str | None]:
     """
     Check whether a tool call is allowed for the given role: tool must be in registry
     and (when rbac_policy and role_id are set) role must allow the tool via
@@ -69,9 +67,9 @@ def is_tool_allowed(
     has_cap_list = isinstance(allowed_caps, list) and len(allowed_caps) > 0
     if not has_tool_list and not has_cap_list:
         return True, None
-    if has_tool_list and tool_id in allowed_tool_ids:
+    if has_tool_list and allowed_tool_ids is not None and tool_id in allowed_tool_ids:
         return True, None
-    if has_cap_list:
+    if has_cap_list and allowed_caps is not None:
         tool_caps = get_tool_capabilities(registry, tool_id)
         cap_set = set(allowed_caps)
         if tool_caps and any(c in cap_set for c in tool_caps):

@@ -7,7 +7,7 @@ Degrades gracefully under message loss (drop modeled deterministically).
 from __future__ import annotations
 
 import random
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
@@ -27,13 +27,11 @@ from labtrust_gym.engine.zones import build_adjacency_set
 GOSSIP_ROUNDS = 3
 
 
-def _bfs_one_step(
-    start: str, goal: str, adjacency: Set[Tuple[str, str]]
-) -> Optional[str]:
+def _bfs_one_step(start: str, goal: str, adjacency: set[tuple[str, str]]) -> str | None:
     if start == goal:
         return None
-    seen: Set[str] = {start}
-    queue: List[Tuple[str, List[str]]] = [(start, [])]
+    seen: set[str] = {start}
+    queue: list[tuple[str, list[str]]] = [(start, [])]
     while queue:
         node, path = queue.pop(0)
         neighbors = sorted([b for (a, b) in adjacency if a == node and b not in seen])
@@ -57,25 +55,21 @@ class GossipConsensus(CoordinationMethod):
 
     def __init__(self, gossip_rounds: int = GOSSIP_ROUNDS) -> None:
         self._gossip_rounds = gossip_rounds
-        self._rng: Optional[random.Random] = None
-        self._zone_ids: List[str] = []
-        self._device_ids: List[str] = []
-        self._device_zone: Dict[str, str] = {}
-        self._adjacency: Set[Tuple[str, str]] = set()
+        self._rng: random.Random | None = None
+        self._zone_ids: list[str] = []
+        self._device_ids: list[str] = []
+        self._device_zone: dict[str, str] = {}
+        self._adjacency: set[tuple[str, str]] = set()
         self._seed = 0
 
     @property
     def method_id(self) -> str:
         return "gossip_consensus"
 
-    def reset(
-        self, seed: int, policy: Dict[str, Any], scale_config: Dict[str, Any]
-    ) -> None:
+    def reset(self, seed: int, policy: dict[str, Any], scale_config: dict[str, Any]) -> None:
         self._rng = random.Random(seed)
         self._seed = seed
-        self._zone_ids, self._device_ids, self._device_zone = (
-            extract_zone_and_device_ids(policy)
-        )
+        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         if isinstance(layout, dict):
             self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
@@ -84,25 +78,21 @@ class GossipConsensus(CoordinationMethod):
 
     def propose_actions(
         self,
-        obs: Dict[str, Any],
-        infos: Dict[str, Dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
         t: int,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         agents = sorted(obs.keys())
-        out: Dict[str, Dict[str, Any]] = {
-            a: {"action_index": ACTION_NOOP} for a in agents
-        }
+        out: dict[str, dict[str, Any]] = {a: {"action_index": ACTION_NOOP} for a in agents}
         if not self._device_ids or not self._zone_ids:
             if agents:
                 sample = obs.get(agents[0]) or {}
-                self._zone_ids, self._device_ids, self._device_zone = (
-                    extract_zone_and_device_ids({}, obs_sample=sample)
-                )
+                self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         if not self._device_ids:
             return out
 
         # Build work items (device_id, work_id, zone_id) from any agent's obs
-        worklist: List[Tuple[str, str, str]] = []
+        worklist: list[tuple[str, str, str]] = []
         for agent_id in agents:
             o = obs.get(agent_id) or {}
             qbd = get_queue_by_device(o)
@@ -115,7 +105,7 @@ class GossipConsensus(CoordinationMethod):
         worklist = list(dict.fromkeys([(a, b, c) for a, b, c in worklist]))
 
         # Local load: agent_id -> (zone_id, num_assigned)
-        load: Dict[str, Tuple[str, int]] = {}
+        load: dict[str, tuple[str, int]] = {}
         for i, aid in enumerate(agents):
             o = obs.get(aid) or {}
             my_zone = get_zone_from_obs(o, self._zone_ids) or o.get("zone_id") or ""
@@ -123,7 +113,7 @@ class GossipConsensus(CoordinationMethod):
 
         # Gossip rounds: share load; under message loss some agents keep 0
         for round_k in range(self._gossip_rounds):
-            next_load: Dict[str, Tuple[str, int]] = dict(load)
+            next_load: dict[str, tuple[str, int]] = dict(load)
             for i, aid in enumerate(agents):
                 for j, oid in enumerate(agents):
                     if i == j:
@@ -137,7 +127,7 @@ class GossipConsensus(CoordinationMethod):
             load = next_load
 
         # Assign work to least-loaded colocated agent (consensus: same zone)
-        used_work: Set[Tuple[str, str]] = set()
+        used_work: set[tuple[str, str]] = set()
         for device_id, work_id, zone_id in worklist:
             if (device_id, work_id) in used_work:
                 continue
@@ -149,8 +139,7 @@ class GossipConsensus(CoordinationMethod):
             candidates = [
                 (aid, load.get(aid, ("", 0))[1])
                 for aid in agents
-                if not (obs.get(aid) or {}).get("log_frozen")
-                and _zone_of(aid) == zone_id
+                if not (obs.get(aid) or {}).get("log_frozen") and _zone_of(aid) == zone_id
             ]
             candidates.sort(key=lambda x: (x[1], x[0]))
             for aid, _ in candidates:
@@ -178,11 +167,7 @@ class GossipConsensus(CoordinationMethod):
                 if not z:
                     continue
                 for i, d in enumerate(self._device_ids):
-                    if (
-                        d == dev_id
-                        and i < len(qbd)
-                        and (qbd[i].get("queue_len") or 0) > 0
-                    ):
+                    if d == dev_id and i < len(qbd) and (qbd[i].get("queue_len") or 0) > 0:
                         goal = z
                         break
             if my_zone != goal:

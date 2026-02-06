@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.baselines.coordination.coordination_kernel import (
     Allocator,
@@ -38,8 +38,8 @@ def _stable_hash(obj: Any) -> str:
 def _route_to_action_dict(
     agent_id: str,
     action_type: str,
-    args_tuple: Tuple[Tuple[str, Any], ...],
-) -> Dict[str, Any]:
+    args_tuple: tuple[tuple[str, Any], ...],
+) -> dict[str, Any]:
     """Convert route (action_type, args_tuple) to action_dict for env."""
     args = dict(args_tuple) if args_tuple else {}
     if action_type == "NOOP":
@@ -86,8 +86,8 @@ def compose_kernel(
             self._router = router
             self._method_id = method_id
             self._seed = 0
-            self._policy: Dict[str, Any] = {}
-            self._scale_config: Dict[str, Any] = {}
+            self._policy: dict[str, Any] = {}
+            self._scale_config: dict[str, Any] = {}
 
         @property
         def method_id(self) -> str:
@@ -96,8 +96,8 @@ def compose_kernel(
         def reset(
             self,
             seed: int,
-            policy: Dict[str, Any],
-            scale_config: Dict[str, Any],
+            policy: dict[str, Any],
+            scale_config: dict[str, Any],
         ) -> None:
             self._seed = seed
             self._policy = policy or {}
@@ -112,7 +112,7 @@ def compose_kernel(
         def step(
             self,
             context: KernelContext,
-        ) -> Tuple[Dict[str, Dict[str, Any]], Optional[CoordinationDecision]]:
+        ) -> tuple[dict[str, dict[str, Any]], CoordinationDecision | None]:
             alloc = self._allocator.allocate(context)
             sched = self._scheduler.schedule(context, alloc)
             route = self._router.route(context, alloc, sched)
@@ -137,40 +137,38 @@ def compose_kernel(
                 explain_route=route.explain,
             )
 
-            actions: Dict[str, Dict[str, Any]] = {}
+            actions: dict[str, dict[str, Any]] = {}
             for agent_id in context.agent_ids:
                 actions[agent_id] = {"action_index": ACTION_NOOP}
             for agent_id, action_type, args_tuple in route.per_agent:
-                actions[agent_id] = _route_to_action_dict(
-                    agent_id, action_type, args_tuple
-                )
+                actions[agent_id] = _route_to_action_dict(agent_id, action_type, args_tuple)
             for agent_id in context.agent_ids:
                 if agent_id not in actions:
                     actions[agent_id] = {"action_index": ACTION_NOOP}
 
             return actions, decision
 
-        def get_route_metrics(self) -> Optional[Dict[str, Any]]:
+        def get_route_metrics(self) -> dict[str, Any] | None:
             """Route metrics from router if available (e.g. WHCARouter)."""
             fn = getattr(self._router, "get_route_metrics", None)
             return fn() if callable(fn) else None
 
-        def get_alloc_metrics(self) -> Optional[Dict[str, Any]]:
+        def get_alloc_metrics(self) -> dict[str, Any] | None:
             """Allocator metrics if available (e.g. AuctionAllocator: gini, mean_bid, rebid_rate)."""
             fn = getattr(self._allocator, "get_alloc_metrics", None)
             return fn() if callable(fn) else None
 
-        def get_schedule_metrics(self) -> Optional[Dict[str, Any]]:
+        def get_schedule_metrics(self) -> dict[str, Any] | None:
             """Schedule metrics if available (e.g. ORScheduler: mean_plan_time_ms, replan_rate)."""
             fn = getattr(self._scheduler, "get_schedule_metrics", None)
             return fn() if callable(fn) else None
 
         def propose_actions(
             self,
-            obs: Dict[str, Any],
-            infos: Dict[str, Dict[str, Any]],
+            obs: dict[str, Any],
+            infos: dict[str, dict[str, Any]],
             t: int,
-        ) -> Dict[str, Dict[str, Any]]:
+        ) -> dict[str, dict[str, Any]]:
             import random
 
             rng = random.Random(self._seed + t)
@@ -190,20 +188,20 @@ def compose_kernel(
 
 
 def build_kernel_context(
-    obs: Dict[str, Any],
-    infos: Dict[str, Dict[str, Any]],
+    obs: dict[str, Any],
+    infos: dict[str, dict[str, Any]],
     t: int,
-    policy: Dict[str, Any],
-    scale_config: Dict[str, Any],
+    policy: dict[str, Any],
+    scale_config: dict[str, Any],
     episode_seed: int,
-    blackboard_harness: Optional[Any] = None,
+    blackboard_harness: Any | None = None,
 ) -> KernelContext:
     """Build KernelContext for runner (single place for consistency)."""  # noqa: D205
     import random
 
     rng = random.Random(episode_seed + t)
     global_log = None
-    view_snapshots: Dict[str, Dict[str, Any]] = {}
+    view_snapshots: dict[str, dict[str, Any]] = {}
     if blackboard_harness is not None:
         global_log = blackboard_harness.global_log
         view_snapshots = blackboard_harness.view_snapshots()

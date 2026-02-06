@@ -6,7 +6,6 @@ Deterministic: same seed => same skew/offset per agent.
 from __future__ import annotations
 
 import random
-from typing import Any, Dict, List, Optional
 
 
 class ClockModel:
@@ -19,15 +18,15 @@ class ClockModel:
 
     def __init__(
         self,
-        agent_ids: List[str],
-        skew_ppm: Optional[Dict[str, float]] = None,
-        offset_ms: Optional[Dict[str, float]] = None,
+        agent_ids: list[str],
+        skew_ppm: dict[str, float] | None = None,
+        offset_ms: dict[str, float] | None = None,
         seed: int = 0,
     ) -> None:
         self._agent_ids = sorted(agent_ids)
         self._rng = random.Random(seed)
-        self._skew_ppm: Dict[str, float] = {}
-        self._offset_ms: Dict[str, float] = {}
+        self._skew_ppm: dict[str, float] = {}
+        self._offset_ms: dict[str, float] = {}
         for aid in self._agent_ids:
             self._skew_ppm[aid] = (skew_ppm or {}).get(aid, 0.0)
             self._offset_ms[aid] = (offset_ms or {}).get(aid, 0.0)
@@ -35,8 +34,8 @@ class ClockModel:
     def reset(
         self,
         seed: int,
-        skew_ppm_override: Optional[Dict[str, float]] = None,
-        offset_ms_override: Optional[Dict[str, float]] = None,
+        skew_ppm_override: dict[str, float] | None = None,
+        offset_ms_override: dict[str, float] | None = None,
     ) -> None:
         self._rng = random.Random(seed)
         for aid in self._agent_ids:
@@ -82,7 +81,7 @@ class ClockModel:
     def view_age_ms(
         self,
         decision_step: int,
-        last_processing_step: Optional[int],
+        last_processing_step: int | None,
         dt_ms: float = 10.0,
     ) -> float:
         """

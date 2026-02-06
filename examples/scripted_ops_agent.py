@@ -25,9 +25,7 @@ try:
     )
     from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
 except ImportError as e:
-    print(
-        "Requires labtrust-gym and env deps. Install: pip install -e '.[env]'"
-    )
+    print("Requires labtrust-gym and env deps. Install: pip install -e '.[env]'")
     raise SystemExit(1) from e
 
 
@@ -89,9 +87,7 @@ def main() -> None:
             if a != "ops_0":
                 actions[a] = random.randint(0, 2)  # NOOP, TICK, QUEUE_RUN
 
-        obs, rewards, terminations, truncations, infos = env.step(
-            actions, action_infos=action_infos
-        )
+        obs, rewards, terminations, truncations, infos = env.step(actions, action_infos=action_infos)
 
         total_violations += infos["ops_0"].get("violation_count", 0)
         total_blocked += infos["ops_0"].get("blocked_count", 0)
@@ -106,9 +102,7 @@ def main() -> None:
     print("  total_violations:", total_violations)
     print("  total_blocked:   ", total_blocked)
     print("  throughput (result_released count):", total_throughput)
-    print(
-        "  on_time_rate:     N/A (define from specimen deadlines in full impl)"
-    )
+    print("  on_time_rate:     N/A (define from specimen deadlines in full impl)")
 
 
 if __name__ == "__main__":

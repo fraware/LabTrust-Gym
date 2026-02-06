@@ -1,0 +1,7 @@
+VERIFICATION REPORT
+  Bundle: C:\Users\mateo\LabTrust-Gym\runs\paper_smoke\receipts\TaskF\EvidenceBundle.v0.1
+  Manifest files: 5
+  Receipts: 1
+  Result: FAIL
+  First error: hashchain_proof: length 245 != episode_log entries 250
+  Total errors: 1

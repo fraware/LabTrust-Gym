@@ -5,20 +5,17 @@ Otherwise stub that raises a clear error (skipped in studies unless [marl] insta
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import CoordinationMethod
 
-MARL_IMPORT_ERROR = (
-    "marl_ppo requires stable-baselines3 and gymnasium. "
-    "Install with: pip install labtrust-gym[marl]"
-)
+MARL_IMPORT_ERROR = "marl_ppo requires stable-baselines3 and gymnasium. Install with: pip install labtrust-gym[marl]"
 
 
 def _check_sb3() -> None:
     try:
-        import stable_baselines3  # noqa: F401
         import gymnasium  # noqa: F401
+        import stable_baselines3  # noqa: F401
     except ImportError as e:
         raise ImportError(MARL_IMPORT_ERROR) from e
 
@@ -32,16 +29,14 @@ class MarlPPOStub(CoordinationMethod):
 
     def __init__(self, model_path: str | None = None) -> None:
         self._model_path = model_path
-        self._policy = None
-        self._env = None
+        self._policy: Any = None
+        self._env: Any = None
 
     @property
     def method_id(self) -> str:
         return "marl_ppo"
 
-    def reset(
-        self, seed: int, policy: Dict[str, Any], scale_config: Dict[str, Any]
-    ) -> None:
+    def reset(self, seed: int, policy: dict[str, Any], scale_config: dict[str, Any]) -> None:
         _check_sb3()
         if self._model_path:
             try:
@@ -55,10 +50,10 @@ class MarlPPOStub(CoordinationMethod):
 
     def propose_actions(
         self,
-        obs: Dict[str, Any],
-        infos: Dict[str, Dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
         t: int,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         _check_sb3()
         if self._policy is None:
             raise NotImplementedError(
@@ -67,7 +62,7 @@ class MarlPPOStub(CoordinationMethod):
                 "and use a different coordination method for this run."
             )
         agents = sorted(obs.keys())
-        out: Dict[str, Dict[str, Any]] = {}
+        out: dict[str, dict[str, Any]] = {}
         for agent_id in agents:
             o = obs.get(agent_id) or {}
             try:
@@ -80,9 +75,7 @@ class MarlPPOStub(CoordinationMethod):
         return out
 
 
-def make_marl_ppo_if_available(
-    model_path: str | None = None, **kwargs: Any
-) -> CoordinationMethod | None:
+def make_marl_ppo_if_available(model_path: str | None = None, **kwargs: Any) -> CoordinationMethod | None:
     """Return MarlPPOStub (or future PPO wrapper) if SB3 available, else None."""
     try:
         _check_sb3()

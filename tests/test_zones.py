@@ -59,7 +59,13 @@ def test_build_device_zone_map() -> None:
 
 def test_build_doors_map() -> None:
     doors = [
-        {"door_id": "D_RESTRICTED_AIRLOCK", "from_zone": "Z_SRA", "to_zone": "Z_RESTRICTED", "max_open_s": 120, "requires_token": "TOKEN_RESTRICTED_ENTRY"},
+        {
+            "door_id": "D_RESTRICTED_AIRLOCK",
+            "from_zone": "Z_SRA",
+            "to_zone": "Z_RESTRICTED",
+            "max_open_s": 120,
+            "requires_token": "TOKEN_RESTRICTED_ENTRY",
+        },
     ]
     m = build_doors_map(doors)
     assert "D_RESTRICTED_AIRLOCK" in m
@@ -164,8 +170,26 @@ GS009 = {
         ],
     },
     "script": [
-        {"event_id": "e1", "t_s": 700, "agent_id": "A_SUPERVISOR", "action_type": "OPEN_DOOR", "args": {"door_id": "D_RESTRICTED_AIRLOCK"}, "reason_code": "SYS_DOWNTIME_ACTIVE", "token_refs": ["T_RESTRICT_1"], "expect": {"status": "ACCEPTED"}},
-        {"event_id": "e2", "t_s": 900, "agent_id": "A_SUPERVISOR", "action_type": "TICK", "args": {}, "reason_code": None, "token_refs": [], "expect": {"status": "ACCEPTED", "violations": []}},
+        {
+            "event_id": "e1",
+            "t_s": 700,
+            "agent_id": "A_SUPERVISOR",
+            "action_type": "OPEN_DOOR",
+            "args": {"door_id": "D_RESTRICTED_AIRLOCK"},
+            "reason_code": "SYS_DOWNTIME_ACTIVE",
+            "token_refs": ["T_RESTRICT_1"],
+            "expect": {"status": "ACCEPTED"},
+        },
+        {
+            "event_id": "e2",
+            "t_s": 900,
+            "agent_id": "A_SUPERVISOR",
+            "action_type": "TICK",
+            "args": {},
+            "reason_code": None,
+            "token_refs": [],
+            "expect": {"status": "ACCEPTED", "violations": []},
+        },
         {
             "event_id": "e3",
             "t_s": 1030,
@@ -241,11 +265,9 @@ GS020 = {
 }
 
 
-@pytest.mark.parametrize(
-    "scenario", [GS008, GS009, GS019, GS020], ids=["GS-008", "GS-009", "GS-019", "GS-020"]
-)
+@pytest.mark.parametrize("scenario", [GS008, GS009, GS019, GS020], ids=["GS-008", "GS-009", "GS-019", "GS-020"])
 def test_gs008_gs009_gs019_gs020(scenario: dict) -> None:
-    """Run GS-008, GS-009, GS-019 (colocation), GS-020 with CoreEnv. Skipped unless LABTRUST_RUN_GOLDEN=1."""
+    """Run GS-008, GS-009, GS-019, GS-020 with CoreEnv. Skipped unless LABTRUST_RUN_GOLDEN=1."""
     if not _should_run_golden():
         pytest.skip("Set LABTRUST_RUN_GOLDEN=1 to run zone scenarios.")
     root = _repo_root()
@@ -261,7 +283,7 @@ def test_gs008_gs009_gs019_gs020(scenario: dict) -> None:
 
 
 def test_colocation_unit_agent_not_in_device_zone() -> None:
-    """Unit test: START_RUN from agent in Z_SRA_RECEPTION for device in Z_ANALYZER_HALL_A is BLOCKED."""
+    """START_RUN from agent in Z_SRA_RECEPTION for device in Z_ANALYZER_HALL_A -> BLOCKED."""
     if not _should_run_golden():
         pytest.skip("Set LABTRUST_RUN_GOLDEN=1 to run colocation test.")
     root = _repo_root()
@@ -291,7 +313,4 @@ def test_colocation_unit_agent_not_in_device_zone() -> None:
     assert out["status"] == "BLOCKED"
     assert out.get("blocked_reason_code") == "RC_DEVICE_NOT_COLOCATED"
     violations = out.get("violations", [])
-    assert any(
-        v.get("invariant_id") == "INV-ZONE-002" and v.get("status") == "VIOLATION"
-        for v in violations
-    )
+    assert any(v.get("invariant_id") == "INV-ZONE-002" and v.get("status") == "VIOLATION" for v in violations)

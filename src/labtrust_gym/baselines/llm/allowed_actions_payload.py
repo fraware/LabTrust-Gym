@@ -10,10 +10,10 @@ Canonical allowed-actions JSON payload for LLM user prompt.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Default zone/device lists (aligned with pz_parallel; avoid circular import)
-DEFAULT_ZONE_IDS: List[str] = [
+DEFAULT_ZONE_IDS: list[str] = [
     "Z_SRA_RECEPTION",
     "Z_ACCESSIONING",
     "Z_SORTING_LANES",
@@ -25,7 +25,7 @@ DEFAULT_ZONE_IDS: List[str] = [
     "Z_QC_SUPERVISOR",
     "Z_RESTRICTED_BIOHAZARD",
 ]
-DEFAULT_DEVICE_IDS: List[str] = [
+DEFAULT_DEVICE_IDS: list[str] = [
     "DEV_CENTRIFUGE_BANK_01",
     "DEV_ALIQUOTER_01",
     "DEV_CHEM_A_01",
@@ -40,7 +40,7 @@ DEFAULT_MAX_ACTIONS = 32
 DEFAULT_MAX_LIST_LEN = 8
 
 # Action spec: args_examples, required_tokens (optional), description
-ACTION_SPEC_REGISTRY: Dict[str, Dict[str, Any]] = {
+ACTION_SPEC_REGISTRY: dict[str, dict[str, Any]] = {
     "NOOP": {
         "args_examples": [{}],
         "required_tokens": False,
@@ -178,7 +178,7 @@ ACTION_SPEC_REGISTRY: Dict[str, Dict[str, Any]] = {
 }
 
 
-def _truncate_list(lst: List[Any], max_len: int) -> List[Any]:
+def _truncate_list(lst: list[Any], max_len: int) -> list[Any]:
     """Return list truncated to max_len (deterministic)."""
     if max_len <= 0 or not lst:
         return list(lst)
@@ -186,13 +186,13 @@ def _truncate_list(lst: List[Any], max_len: int) -> List[Any]:
 
 
 def build_allowed_actions_payload(
-    state: Optional[Dict[str, Any]] = None,
-    allowed_actions: Optional[List[str]] = None,
-    zone_ids: Optional[List[str]] = None,
-    device_ids: Optional[List[str]] = None,
+    state: dict[str, Any] | None = None,
+    allowed_actions: list[str] | None = None,
+    zone_ids: list[str] | None = None,
+    device_ids: list[str] | None = None,
     max_actions: int = DEFAULT_MAX_ACTIONS,
     max_list_len: int = DEFAULT_MAX_LIST_LEN,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Build canonical allowed-actions JSON payload for the user prompt.
 
@@ -213,7 +213,7 @@ def build_allowed_actions_payload(
     """
     state = state or {}
     allowed_actions = allowed_actions or []
-    payload: List[Dict[str, Any]] = []
+    payload: list[dict[str, Any]] = []
     for action_type in allowed_actions:
         if len(payload) >= max_actions:
             break
@@ -248,7 +248,7 @@ def build_allowed_actions_payload(
             examples = [{}]
         required_tokens = spec.get("required_tokens", False)
         description = spec.get("description", f"Action: {action_type}.")
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "action_type": action_type,
             "args_examples": examples,
             "description": description,
@@ -259,15 +259,15 @@ def build_allowed_actions_payload(
     return payload
 
 
-def allowed_actions_from_payload(payload: List[Dict[str, Any]]) -> List[str]:
+def allowed_actions_from_payload(payload: list[dict[str, Any]]) -> list[str]:
     """Extract list of action_type strings from canonical payload (for decoder/shield parity)."""
-    out: List[str] = []
+    out: list[str] = []
     for e in payload:
         if isinstance(e, dict) and e.get("action_type"):
             out.append(str(e["action_type"]))
     return out
 
 
-def serialize_allowed_actions_payload(payload: List[Dict[str, Any]]) -> str:
+def serialize_allowed_actions_payload(payload: list[dict[str, Any]]) -> str:
     """Canonical JSON string for payload (deterministic sort_keys)."""
     return json.dumps(payload, sort_keys=True)

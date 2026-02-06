@@ -9,24 +9,26 @@ One merge function per policy type. Rules:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
 def merge_critical_thresholds(
-    base: List[Dict[str, Any]],
-    overlay: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    base: list[dict[str, Any]],
+    overlay: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Merge critical threshold lists. Overlay may replace entries by (analyte_code, units);
     may add new entries. Base entries not overridden are kept.
     """
-    def key_fn(e: Dict[str, Any]) -> tuple:
+
+    def key_fn(e: dict[str, Any]) -> tuple[str, str]:
         return (str(e.get("analyte_code", "")), str(e.get("units", "")))
-    by_key: Dict[tuple, Dict[str, Any]] = {key_fn(e): e for e in base}
+
+    by_key: dict[tuple[str, str], dict[str, Any]] = {key_fn(e): e for e in base}
     for e in overlay:
         by_key[key_fn(e)] = e
     base_keys = {key_fn(e) for e in base}
-    result: List[Dict[str, Any]] = [by_key[key_fn(e)] for e in base]
+    result: list[dict[str, Any]] = [by_key[key_fn(e)] for e in base]
     for e in overlay:
         k = key_fn(e)
         if k not in base_keys:
@@ -35,9 +37,9 @@ def merge_critical_thresholds(
 
 
 def merge_stability_policy(
-    base: Dict[str, Any],
-    overlay: Dict[str, Any],
-) -> Dict[str, Any]:
+    base: dict[str, Any],
+    overlay: dict[str, Any],
+) -> dict[str, Any]:
     """
     Merge stability policy. Overlay replaces top-level keys; panel_rules merged by panel_id
     (overlay panel replaces base for same panel_id). Base required structure preserved.
@@ -55,16 +57,16 @@ def merge_stability_policy(
 
 
 def merge_enforcement_map(
-    base: Dict[str, Any],
-    overlay: Dict[str, Any],
-) -> Dict[str, Any]:
+    base: dict[str, Any],
+    overlay: dict[str, Any],
+) -> dict[str, Any]:
     """
     Merge enforcement map. Overlay rules replace base rules by rule_id; may add rules.
     Base version/enforcement_map_id overridden by overlay if present.
     """
-    base_rules: List[Dict[str, Any]] = list(base.get("rules") or [])
-    overlay_rules: List[Dict[str, Any]] = list(overlay.get("rules") or [])
-    by_rule_id: Dict[str, Dict[str, Any]] = {r.get("rule_id", f"_i{i}"): r for i, r in enumerate(base_rules)}
+    base_rules: list[dict[str, Any]] = list(base.get("rules") or [])
+    overlay_rules: list[dict[str, Any]] = list(overlay.get("rules") or [])
+    by_rule_id: dict[str, dict[str, Any]] = {r.get("rule_id", f"_i{i}"): r for i, r in enumerate(base_rules)}
     for r in overlay_rules:
         rid = r.get("rule_id", "")
         if rid:
@@ -78,9 +80,9 @@ def merge_enforcement_map(
 
 
 def merge_escalation_ladder(
-    base: Dict[str, Any],
-    overlay: Dict[str, Any],
-) -> Dict[str, Any]:
+    base: dict[str, Any],
+    overlay: dict[str, Any],
+) -> dict[str, Any]:
     """
     Merge escalation ladder. Overlay replaces base (full replace: version, minimum_record_fields, tiers).
     Required keys kept; overlay tiers replace base tiers when present.
@@ -95,9 +97,9 @@ def merge_escalation_ladder(
 
 
 def merge_equipment_registry(
-    base: Dict[str, Any],
-    overlay: Dict[str, Any],
-) -> Dict[str, Any]:
+    base: dict[str, Any],
+    overlay: dict[str, Any],
+) -> dict[str, Any]:
     """
     Merge equipment registry. Overlay may replace device_types by key, device_instances by key.
     Required keys (version, units, scope, global_scheduling, device_types, device_instances) kept.
@@ -122,9 +124,9 @@ def merge_equipment_registry(
 
 
 def merge_emits_vocab_add_only(
-    base_emit_set: set,
-    overlay_emit_list: List[str],
-) -> set:
+    base_emit_set: set[str],
+    overlay_emit_list: list[str],
+) -> set[str]:
     """
     Emits: overlay may add only; may not delete base. Returns union of base and overlay emits.
     """
@@ -135,9 +137,9 @@ def merge_emits_vocab_add_only(
 
 
 def merge_reason_codes_add_only(
-    base_codes: List[Dict[str, Any]],
-    overlay_codes: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    base_codes: list[dict[str, Any]],
+    overlay_codes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     Reason codes: overlay may add only; may not delete base. Returns base + new overlay codes
     (by code string; overlay entry with same code as base is ignored to avoid deletion).

@@ -7,7 +7,7 @@ Token store in env state: mint, consume, revoke, is_valid.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from labtrust_gym.policy.tokens import Token, token_state_after_time
 
@@ -16,16 +16,16 @@ class TokenStore:
     """In-memory token store: token_id -> Token. Used by engine state."""
 
     def __init__(self) -> None:
-        self._tokens: Dict[str, Token] = {}
+        self._tokens: dict[str, Token] = {}
         self._next_id: int = 0
 
-    def load_initial(self, tokens: List[Dict[str, Any]]) -> None:
+    def load_initial(self, tokens: list[dict[str, Any]]) -> None:
         """Load initial tokens from scenario initial_state.tokens."""
         for t in tokens or []:
             tok = Token.from_dict(t)
             self._tokens[tok.token_id] = tok
 
-    def get(self, token_id: str) -> Optional[Token]:
+    def get(self, token_id: str) -> Token | None:
         """Return token by id or None."""
         return self._tokens.get(token_id)
 
@@ -37,8 +37,8 @@ class TokenStore:
         subject_id: str,
         issued_at_ts_s: int,
         expires_at_ts_s: int,
-        reason_code: Optional[str],
-        approvals: List[Dict[str, Any]],
+        reason_code: str | None,
+        approvals: list[dict[str, Any]],
     ) -> Token:
         """Create and store a new ACTIVE token. Raises if token_id exists."""
         if token_id in self._tokens:
@@ -82,7 +82,7 @@ class TokenStore:
             return False
         return True
 
-    def validity_violation(self, token_id: str, t_s: int) -> Optional[str]:
+    def validity_violation(self, token_id: str, t_s: int) -> str | None:
         """Violation id if invalid: INV-TOK-002 (expired/consumed), INV-TOK-006 (revoked)."""
         tok = self._tokens.get(token_id)
         if not tok:
@@ -95,7 +95,7 @@ class TokenStore:
             return "INV-TOK-002"
         return None
 
-    def list_active_ids(self, subject_id: Optional[str] = None) -> List[str]:
+    def list_active_ids(self, subject_id: str | None = None) -> list[str]:
         """Token ids that are ACTIVE (optionally for subject_id)."""
         out = []
         for tid, tok in self._tokens.items():

@@ -13,12 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from labtrust_gym.config import get_repo_root
 from labtrust_gym.benchmarks.official_pack import (
+    _all_pack_tasks,
     load_benchmark_pack,
     run_official_pack,
-    _all_pack_tasks,
 )
+from labtrust_gym.config import get_repo_root
 
 
 def test_load_benchmark_pack() -> None:
@@ -38,9 +38,7 @@ def test_load_benchmark_pack() -> None:
 def test_official_pack_smoke_required_folders() -> None:
     """Run official pack with smoke; assert required folders and files exist."""
     root = get_repo_root()
-    prev = os.environ.get("LABTRUST_OFFICIAL_PACK_SMOKE"), os.environ.get(
-        "LABTRUST_PAPER_SMOKE"
-    )
+    prev = os.environ.get("LABTRUST_OFFICIAL_PACK_SMOKE"), os.environ.get("LABTRUST_PAPER_SMOKE")
     try:
         os.environ["LABTRUST_OFFICIAL_PACK_SMOKE"] = "1"
         if "LABTRUST_PAPER_SMOKE" in os.environ:
@@ -60,9 +58,7 @@ def test_official_pack_smoke_required_folders() -> None:
             assert (out / "TRANSPARENCY_LOG").is_dir()
             assert (out / "pack_manifest.json").exists()
             assert (out / "PACK_SUMMARY.md").exists()
-            manifest = __import__("json").loads(
-                (out / "pack_manifest.json").read_text(encoding="utf-8")
-            )
+            manifest = __import__("json").loads((out / "pack_manifest.json").read_text(encoding="utf-8"))
             assert manifest.get("version") == "0.1"
             assert "tasks" in manifest
             assert "seed_base" in manifest
@@ -83,9 +79,7 @@ def test_verify_bundle_runs() -> None:
     bundle_path = root / "ui_fixtures" / "evidence_bundle" / "EvidenceBundle.v0.1"
     if not bundle_path.is_dir():
         pytest.skip("ui_fixtures/evidence_bundle/EvidenceBundle.v0.1 not found")
-    passed, report, errors = verify_bundle(
-        bundle_path, policy_root=root, allow_extra_files=True
-    )
+    passed, report, errors = verify_bundle(bundle_path, policy_root=root, allow_extra_files=True)
     assert isinstance(passed, bool)
     assert isinstance(report, str)
     assert isinstance(errors, list)

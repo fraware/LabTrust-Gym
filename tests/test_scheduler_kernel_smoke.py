@@ -8,13 +8,8 @@ from pathlib import Path
 
 from labtrust_gym.baselines.coordination.compose import (
     build_kernel_context,
-    compose_kernel,
 )
 from labtrust_gym.baselines.coordination.decision_types import CoordinationDecision
-from labtrust_gym.baselines.coordination.kernel_components import (
-    CentralizedAllocator,
-    TrivialRouter,
-)
 from labtrust_gym.baselines.coordination.kernels.scheduler_or import ORScheduler
 from labtrust_gym.baselines.coordination.registry import make_coordination_method
 

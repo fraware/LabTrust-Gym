@@ -43,11 +43,7 @@ def resolve_within_base(base_dir: Path, requested: str) -> Path | None:
         combined.relative_to(base)
     except ValueError:
         return None
-    if (
-        ".." in requested
-        or requested.startswith("/")
-        or (len(requested) >= 2 and requested[1] == ":")
-    ):
+    if ".." in requested or requested.startswith("/") or (len(requested) >= 2 and requested[1] == ":"):
         return None
     return combined
 

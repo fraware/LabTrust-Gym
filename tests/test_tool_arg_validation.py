@@ -150,9 +150,7 @@ def test_valid_args_with_optional_limit_pass(repo_registry_and_root) -> None:
 def test_load_arg_schema(repo_registry_and_root) -> None:
     """load_arg_schema(ref, policy_root) returns the schema dict."""
     _registry, policy_root = repo_registry_and_root
-    schema = load_arg_schema(
-        "tool_args/read_lims_v1.args.v0.1.schema.json", policy_root
-    )
+    schema = load_arg_schema("tool_args/read_lims_v1.args.v0.1.schema.json", policy_root)
     assert isinstance(schema, dict)
     assert schema.get("type") == "object"
     assert "accession_id" in schema.get("required", [])
@@ -165,9 +163,7 @@ def test_validate_tool_args_unit(repo_registry_and_root) -> None:
     entry = get_tool_entry(registry, "read_lims_v1")
     assert entry is not None and entry.get("arg_schema_ref")
 
-    ok, reason, details = validate_tool_args(
-        "read_lims_v1", {"accession_id": "A1"}, registry, policy_root
-    )
+    ok, reason, details = validate_tool_args("read_lims_v1", {"accession_id": "A1"}, registry, policy_root)
     assert ok is True
     assert reason is None
 
@@ -175,8 +171,6 @@ def test_validate_tool_args_unit(repo_registry_and_root) -> None:
     assert ok2 is False
     assert reason2 == TOOL_ARG_SCHEMA_FAIL
 
-    ok3, reason3, _ = validate_tool_args(
-        "read_lims_v1", {"accession_id": "A1", "limit": 9999}, registry, policy_root
-    )
+    ok3, reason3, _ = validate_tool_args("read_lims_v1", {"accession_id": "A1", "limit": 9999}, registry, policy_root)
     assert ok3 is False
     assert reason3 == TOOL_ARG_RANGE_FAIL

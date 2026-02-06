@@ -7,24 +7,22 @@ from __future__ import annotations
 
 import random
 
-import pytest
-
 from labtrust_gym.baselines.coordination.routing.graph import RoutingGraph
+from labtrust_gym.baselines.coordination.routing.invariants import (
+    check_inv_route_001,
+)
 from labtrust_gym.baselines.coordination.routing.reservations import (
     ReservationTable,
 )
 from labtrust_gym.baselines.coordination.routing.whca_router import (
     whca_route_and_reserve,
 )
-from labtrust_gym.baselines.coordination.routing.invariants import (
-    check_inv_route_001,
-)
 
 
 def _line_graph(n: int) -> RoutingGraph:
     """Linear chain Z0-Z1-...-Z(n-1)."""
     nodes = {f"Z{i}" for i in range(n)}
-    edges = {(f"Z{i}", f"Z{i+1}") for i in range(n - 1)}
+    edges = {(f"Z{i}", f"Z{i + 1}") for i in range(n - 1)}
     return RoutingGraph(nodes=nodes, edges=edges)
 
 
@@ -43,7 +41,7 @@ def test_whca_no_collisions_small_graph() -> None:
         ("a3", "Z4", "Z0"),
         ("a4", "Z2", "Z4"),
     ]
-    planned: List[Tuple[str, int, str]] = []
+    planned: list[tuple[str, int, str]] = []
     for agent_id, start, goal in agents_goals:
         path = whca_route_and_reserve(
             agent_id,
@@ -70,11 +68,11 @@ def test_whca_no_collisions_many_agents() -> None:
         for j in range(4):
             n = i * 4 + j
             if j < 3:
-                edges.add((f"Z{n}", f"Z{n+1}"))
-                edges.add((f"Z{n+1}", f"Z{n}"))
+                edges.add((f"Z{n}", f"Z{n + 1}"))
+                edges.add((f"Z{n + 1}", f"Z{n}"))
             if i < 2:
-                edges.add((f"Z{n}", f"Z{n+4}"))
-                edges.add((f"Z{n+4}", f"Z{n}"))
+                edges.add((f"Z{n}", f"Z{n + 4}"))
+                edges.add((f"Z{n + 4}", f"Z{n}"))
     graph = RoutingGraph(nodes=nodes, edges=edges)
     rng = random.Random(123)
     horizon = 15

@@ -16,10 +16,6 @@ pytest.importorskip("matplotlib")
 from labtrust_gym.studies.plots import (
     get_data_table_paths,
     make_plots,
-    write_data_tables,
-    _load_study_results,
-    _aggregate_per_condition,
-    _build_global_aggregates,
 )
 
 
@@ -67,9 +63,7 @@ def test_plots_data_tables_determinism() -> None:
 
         assert set(contents1.keys()) == set(contents2.keys())
         for name in contents1:
-            assert contents1[name] == contents2[name], (
-                f"Data table {name} must be identical across runs (determinism)"
-            )
+            assert contents1[name] == contents2[name], f"Data table {name} must be identical across runs (determinism)"
 
 
 def test_plots_output_structure() -> None:

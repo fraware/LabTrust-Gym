@@ -12,13 +12,13 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, cast
 
 from labtrust_gym.benchmarks.metrics import compute_episode_metrics
 from labtrust_gym.benchmarks.tasks import BenchmarkTask, get_task
 
 
-def _git_commit_hash(cwd: Optional[Path] = None) -> Optional[str]:
+def _git_commit_hash(cwd: Path | None = None) -> str | None:
     """Return current git commit hash or None."""
     try:
         out = subprocess.run(
@@ -35,9 +35,9 @@ def _git_commit_hash(cwd: Optional[Path] = None) -> Optional[str]:
     return None
 
 
-def _policy_versions(root: Path) -> Dict[str, str]:
+def _policy_versions(root: Path) -> dict[str, str]:
     """Read policy file versions (emits vocab, catalogue schema, etc.)."""
-    versions: Dict[str, str] = {}
+    versions: dict[str, str] = {}
     emits_path = root / "policy" / "emits" / "emits_vocab.v0.1.yaml"
     if emits_path.exists():
         try:
@@ -64,13 +64,13 @@ def run_episode(
     task: BenchmarkTask,
     episode_seed: int,
     env_factory: Any,
-    scripted_agents_map: Optional[Dict[str, Any]] = None,
-    log_path: Optional[Path] = None,
-    initial_state_overrides: Optional[Dict[str, Any]] = None,
-    coord_method: Optional[Any] = None,
-    risk_injector: Optional[Any] = None,
-    comms_config: Optional[Any] = None,
-) -> tuple[Dict[str, Any], List[List[Dict[str, Any]]]]:
+    scripted_agents_map: dict[str, Any] | None = None,
+    log_path: Path | None = None,
+    initial_state_overrides: dict[str, Any] | None = None,
+    coord_method: Any | None = None,
+    risk_injector: Any | None = None,
+    comms_config: Any | None = None,
+) -> tuple[dict[str, Any], list[list[dict[str, Any]]]]:
     """
     Run one episode. Returns (metrics_dict, step_results_per_step).
 
@@ -99,7 +99,7 @@ def run_episode(
     policy_summary = initial_state.get("policy_summary")
     partner_id = initial_state.get("partner_id")
     effective_policy = initial_state.get("effective_policy") or policy_summary or {}
-    scale_config_dict: Dict[str, Any] = {}
+    scale_config_dict: dict[str, Any] = {}
     if hasattr(task, "scale_config") and task.scale_config is not None:
         from dataclasses import asdict
 
@@ -122,27 +122,27 @@ def run_episode(
                     str(initial_state.get("timing_mode", "explicit")).strip().lower()
                     or "explicit",
                 )
-    step_results_per_step: List[List[Dict[str, Any]]] = []
-    t_s_list: List[int] = []
+    step_results_per_step: list[list[dict[str, Any]]] = []
+    t_s_list: list[int] = []
     dt_s = getattr(env, "_dt_s", 10)
-    coord_decisions_path: Optional[Path] = None
+    coord_decisions_path: Path | None = None
     if coord_method is not None and log_path is not None:
         coord_decisions_path = log_path.parent / "coord_decisions.jsonl"
         coord_decisions_path.write_text("", encoding="utf-8")
     timing_mode = str(initial_state.get("timing_mode", "explicit")).strip().lower()
     if timing_mode not in ("explicit", "simulated"):
         timing_mode = "explicit"
-    queue_lengths_per_step: List[Dict[str, int]] = []
-    infos: Dict[str, Dict[str, Any]] = {}
+    queue_lengths_per_step: list[dict[str, int]] = []
+    infos: dict[str, dict[str, Any]] = {}
     total_critical_episode = 0
     stale_count_episode = 0
-    view_ages_ms_episode: List[float] = []
+    view_ages_ms_episode: list[float] = []
     dt_ms = 10000.0
 
-    blackboard_harness: Optional[Any] = None
+    blackboard_harness: Any | None = None
     if coord_method is not None and (getattr(task, "scale_config", None) is not None):
-        from labtrust_gym.coordination.harness import BlackboardHarness
         from labtrust_gym.coordination.comms_model import CommsConfig
+        from labtrust_gym.coordination.harness import BlackboardHarness
 
         agent_ids = list(env.agents)
         device_ids = list(getattr(env, "_device_ids", []) or [])
@@ -165,13 +165,13 @@ def run_episode(
         dt_ms = float(getattr(env, "_dt_s", 10)) * 1000.0
 
     for step_t in range(task.max_steps):
-        view_ages_ms_step = []
+        view_ages_ms_step: list[float] = []
         obs_for_step = obs
-        audit_obs: Optional[Dict[str, Any]] = None
+        audit_obs: dict[str, Any] | None = None
         if risk_injector is not None:
             obs_for_step, audit_obs = risk_injector.mutate_obs(obs)
-        actions: Dict[str, Any] = {}
-        action_infos: Dict[str, Dict[str, Any]] = {}
+        actions: dict[str, Any] = {}
+        action_infos: dict[str, dict[str, Any]] = {}
         coord_decision = None
         if coord_method is not None:
             from labtrust_gym.baselines.coordination.interface import (
@@ -206,12 +206,12 @@ def run_episode(
                 if info:
                     action_infos[agent_id] = dict(info)
             # Coordination timing: detect stale decisions (critical actions on old view)
-            stale_emit_payloads_this_step: List[Dict[str, Any]] = []
+            stale_emit_payloads_this_step: list[dict[str, Any]] = []
             if blackboard_harness is not None:
                 from labtrust_gym.coordination.coordination_monitor import (
+                    DEFAULT_MAX_STALENESS_MS,
                     check_staleness,
                     count_critical_actions,
-                    DEFAULT_MAX_STALENESS_MS,
                 )
 
                 view_snapshots = blackboard_harness.view_snapshots()
@@ -287,6 +287,7 @@ def run_episode(
                 serialize_contract_record,
                 validate_contract_record,
             )
+
             view_age_ms = max(view_ages_ms_step) if view_ages_ms_step else None
             view_age_ms_per_agent = None
             if stale_emit_payloads_this_step:
@@ -326,7 +327,7 @@ def run_episode(
             and hasattr(env, "_engine")
             and hasattr(env, "_device_ids")
         ):
-            q_per_dev: Dict[str, int] = {}
+            q_per_dev: dict[str, int] = {}
             for dev in getattr(env, "_device_ids", []):
                 try:
                     q_per_dev[dev] = int(env._engine.query(f"queue_length('{dev}')"))
@@ -335,7 +336,7 @@ def run_episode(
             if q_per_dev:
                 queue_lengths_per_step.append(q_per_dev)
 
-    timing_summary: Dict[str, Any] = {}
+    timing_summary: dict[str, Any] = {}
     if hasattr(env, "get_timing_summary"):
         timing_summary = env.get_timing_summary()
     episode_time_s = timing_summary.get("episode_time_s")
@@ -384,9 +385,7 @@ def run_episode(
         alloc_metrics = getattr(coord_method, "get_alloc_metrics", lambda: None)()
         if alloc_metrics is not None:
             metrics.setdefault("coordination", {})["alloc"] = alloc_metrics
-        sched_metrics = getattr(
-            coord_method, "get_schedule_metrics", lambda: None
-        )()
+        sched_metrics = getattr(coord_method, "get_schedule_metrics", lambda: None)()
         if sched_metrics is not None:
             metrics.setdefault("coordination", {})["sched"] = sched_metrics
         hierarchy_metrics = getattr(
@@ -399,9 +398,9 @@ def run_episode(
 
 def _default_pz_to_engine(
     num_runners: int = 2, num_insiders: int = 0
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Standard PZ agent -> engine agent_id mapping (matches LabTrustParallelEnv default)."""
-    d: Dict[str, str] = {"ops_0": "A_OPS_0"}
+    d: dict[str, str] = {"ops_0": "A_OPS_0"}
     for i in range(num_runners):
         d[f"runner_{i}"] = f"A_RUNNER_{i}"
     d["qc_0"] = "A_QC_0"
@@ -416,21 +415,25 @@ def run_benchmark(
     num_episodes: int,
     base_seed: int,
     out_path: Path,
-    env_factory: Optional[Any] = None,
-    scripted_agents_map: Optional[Dict[str, Any]] = None,
-    repo_root: Optional[Path] = None,
-    log_path: Optional[Path] = None,
-    initial_state_overrides: Optional[Dict[str, Any]] = None,
-    partner_id: Optional[str] = None,
+    env_factory: Any | None = None,
+    scripted_agents_map: dict[str, Any] | None = None,
+    repo_root: Path | None = None,
+    log_path: Path | None = None,
+    initial_state_overrides: dict[str, Any] | None = None,
+    partner_id: str | None = None,
     use_llm_safe_v1_ops: bool = False,
     use_llm_live_openai: bool = False,
-    llm_backend: Optional[str] = None,
-    llm_agents: Optional[List[str]] = None,
-    timing_mode: Optional[str] = None,
-    coord_method: Optional[str] = None,
-    injection_id: Optional[str] = None,
-    scale_config_override: Optional[Any] = None,
-) -> Dict[str, Any]:
+    llm_backend: str | None = None,
+    llm_agents: list[str] | None = None,
+    llm_output_mode: str = "json_schema",
+    timing_mode: str | None = None,
+    coord_method: str | None = None,
+    injection_id: str | None = None,
+    scale_config_override: Any | None = None,
+    pipeline_mode: str | None = None,
+    allow_network: bool | None = None,
+    llm_trace_collector: Any | None = None,
+) -> dict[str, Any]:
     """
     Run N episodes for the task, write results.json.
 
@@ -438,13 +441,26 @@ def run_benchmark(
     log_path: optional JSONL path for episode step log (truncated at start).
     initial_state_overrides: optional dict merged into each episode initial_state (e.g. timing_mode).
     partner_id: optional partner overlay ID; effective_policy and policy_fingerprint injected into initial_state.
-    llm_backend: optional "deterministic" | "openai_live" | "ollama_live" to use LLM for agents in llm_agents; None = scripted.
+    llm_backend: optional "deterministic" | "openai_live" | "openai_responses" | "ollama_live" to use LLM for agents in llm_agents; None = scripted.
     llm_agents: agent IDs that use LLM (e.g. ["ops_0"] or ["ops_0", "runner_0"]). Default ["ops_0"] when llm_backend set.
+    llm_output_mode: for openai_responses backend, "json_schema" (default) or "tool_call".
     timing_mode: optional "explicit" | "simulated"; overrides task default and initial_state_overrides.
     coord_method: optional coordination method_id for TaskG_COORD_SCALE / TaskH_COORD_RISK (e.g. centralized_planner).
     injection_id: optional risk injection id for TaskH_COORD_RISK (e.g. INJ-ID-SPOOF-001); loads config from study spec.
     scale_config_override: optional CoordinationScaleConfig for TaskG/TaskH; when set, overrides task scale and horizon.
+    pipeline_mode: optional "deterministic" | "llm_offline" | "llm_live"; when set, configures pipeline and enforces network gating.
+    allow_network: optional; when True and pipeline_mode is llm_live, allows live LLM backends.
+    llm_trace_collector: optional; when set, live LLM backends record redacted requests/responses/fingerprints/usage for LLM_TRACE bundle.
     """
+    from labtrust_gym.pipeline import (
+        PipelineMode,
+        get_llm_backend_id,
+        get_pipeline_mode,
+        print_startup_banner,
+        require_llm_live_allow_network,
+        set_pipeline_config,
+    )
+
     if llm_backend is None and use_llm_live_openai:
         llm_backend = "openai_live"
     if llm_backend is None and use_llm_safe_v1_ops:
@@ -452,7 +468,61 @@ def run_benchmark(
     if llm_agents is None and llm_backend is not None:
         llm_agents = ["ops_0"]
     llm_agents = llm_agents or []
-    llm_backend_ref: Optional[Any] = None
+
+    # Resolve pipeline_mode and allow_network (caller may pass explicitly; otherwise infer from llm_backend)
+    if pipeline_mode is not None and pipeline_mode not in (
+        "deterministic",
+        "llm_offline",
+        "llm_live",
+    ):
+        raise ValueError(
+            f"pipeline_mode must be deterministic, llm_offline, or llm_live, got {pipeline_mode!r}"
+        )
+    if pipeline_mode is None:
+        if llm_backend is None:
+            pipeline_mode = "deterministic"
+        elif llm_backend == "deterministic":
+            pipeline_mode = "llm_offline"
+        else:
+            pipeline_mode = "llm_live"
+    _live_backends = ("openai_live", "openai_responses", "ollama_live")
+    if pipeline_mode == "deterministic" and llm_backend in _live_backends:
+        raise ValueError(
+            "pipeline_mode=deterministic does not allow live LLM backends. "
+            "Use --pipeline-mode llm_live and --allow-network to use openai_live, openai_responses, or ollama_live."
+        )
+    if pipeline_mode == "llm_offline" and llm_backend in _live_backends:
+        raise ValueError(
+            "pipeline_mode=llm_offline allows only the deterministic LLM backend (no network). "
+            "Use --llm-backend deterministic for offline LLM, or --pipeline-mode llm_live and --allow-network for live."
+        )
+    if allow_network is None:
+        allow_network = False
+    llm_backend_id_for_banner: str | None = None
+    if llm_backend == "deterministic":
+        llm_backend_id_for_banner = "deterministic_constrained"
+    elif llm_backend == "openai_live":
+        llm_backend_id_for_banner = "openai_live"
+    elif llm_backend == "openai_responses":
+        llm_backend_id_for_banner = "openai_responses"
+    elif llm_backend == "ollama_live":
+        llm_backend_id_for_banner = "ollama_live"
+    set_pipeline_config(
+        pipeline_mode=cast(PipelineMode, pipeline_mode),
+        allow_network=allow_network,
+        llm_backend_id=llm_backend_id_for_banner,
+    )
+    if pipeline_mode == "llm_live" and llm_backend in (
+        "openai_live",
+        "openai_responses",
+        "ollama_live",
+    ):
+        require_llm_live_allow_network()
+    print_startup_banner()
+
+    llm_backend_ref: Any = None
+    if not task_name or not isinstance(task_name, str):
+        raise ValueError(f"task_name must be a non-empty string, got {task_name!r}")
     task = get_task(task_name)
     overrides = dict(initial_state_overrides or {})
     if timing_mode is not None:
@@ -464,8 +534,9 @@ def run_benchmark(
 
         repo_root = get_repo_root()
     repo_root = Path(repo_root)
-    effective_policy: Optional[Dict[str, Any]] = None
-    policy_fingerprint: Optional[str] = None
+    overrides["policy_root"] = str(repo_root)
+    effective_policy: dict[str, Any] | None = None
+    policy_fingerprint: str | None = None
     if partner_id:
         from labtrust_gym.policy.loader import load_effective_policy
 
@@ -491,6 +562,8 @@ def run_benchmark(
     try:
         from labtrust_gym.tools.registry import (
             load_tool_registry,
+        )
+        from labtrust_gym.tools.registry import (
             tool_registry_fingerprint as tool_reg_fp,
         )
 
@@ -511,8 +584,8 @@ def run_benchmark(
             except Exception:
                 pass
             try:
-                from labtrust_gym.engine.rbac import load_rbac_policy
                 from labtrust_gym.auth.authorize import rbac_policy_fingerprint
+                from labtrust_gym.engine.rbac import load_rbac_policy
 
                 rbac_path = repo_root / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
                 rbac_policy = load_rbac_policy(rbac_path)
@@ -524,8 +597,8 @@ def run_benchmark(
                 pass
     except Exception:
         pass
-    key_registry_merged: Optional[Dict[str, Any]] = None
-    get_private_key_fn: Optional[Any] = None
+    key_registry_merged: dict[str, Any] | None = None
+    get_private_key_fn: Any | None = None
     if llm_backend and use_strict_signatures:
         from labtrust_gym.baselines.llm.signing_proxy import (
             ensure_run_ephemeral_key,
@@ -553,8 +626,8 @@ def run_benchmark(
         Path(log_path).parent.mkdir(parents=True, exist_ok=True)
         Path(log_path).write_text("", encoding="utf-8")
     is_scale_task = task_name in ("TaskG_COORD_SCALE", "TaskH_COORD_RISK")
-    scale_probe_state: Optional[Dict[str, Any]] = None
-    coord_method_instance: Optional[Any] = None
+    scale_probe_state: dict[str, Any] | None = None
+    coord_method_instance: Any | None = None
     if is_scale_task:
         if scale_config_override is not None:
             from labtrust_gym.benchmarks.coordination_scale import (
@@ -569,16 +642,20 @@ def run_benchmark(
             scale_probe_state = task.get_initial_state(base_seed)
     if is_scale_task and coord_method:
         from dataclasses import asdict
+
         from labtrust_gym.baselines.coordination.registry import (
             make_coordination_method,
         )
 
+        _scale_cfg = (
+            scale_config_override
+            if scale_config_override is not None
+            else getattr(task, "scale_config", None)
+        )
         scale_config_dict = (
             asdict(scale_config_override)
             if scale_config_override is not None
-            else (
-                asdict(task.scale_config) if getattr(task, "scale_config", None) else {}
-            )
+            else (asdict(_scale_cfg) if _scale_cfg is not None else {})
         )
         if task_name == "TaskH_COORD_RISK" and injection_id:
             scale_config_dict = dict(scale_config_dict)
@@ -630,7 +707,7 @@ def run_benchmark(
 
     if task_name == "TaskH_COORD_RISK" and injection_id == "INJ-ID-SPOOF-001":
         overrides["strict_signatures"] = True
-    risk_injector_instance: Optional[Any] = None
+    risk_injector_instance: Any | None = None
     if task_name == "TaskH_COORD_RISK" and injection_id:
         if injection_id == "INJ-BID-SPOOF-001":
             pass
@@ -680,11 +757,11 @@ def run_benchmark(
             scale_zone_ids = scale_probe_state.get("_scale_zone_ids")
 
             def _env_factory(
-                initial_state: Dict[str, Any],
-                reward_config: Dict[str, Any],
-                log_path: Optional[Path] = None,
-                policy_fingerprint: Optional[str] = None,
-                partner_id: Optional[str] = None,
+                initial_state: dict[str, Any],
+                reward_config: dict[str, Any],
+                log_path: Path | None = None,
+                policy_fingerprint: str | None = None,
+                partner_id: str | None = None,
             ) -> Any:
                 return LabTrustParallelEnv(
                     num_runners=0,
@@ -702,11 +779,11 @@ def run_benchmark(
         else:
 
             def _env_factory(
-                initial_state: Dict[str, Any],
-                reward_config: Dict[str, Any],
-                log_path: Optional[Path] = None,
-                policy_fingerprint: Optional[str] = None,
-                partner_id: Optional[str] = None,
+                initial_state: dict[str, Any],
+                reward_config: dict[str, Any],
+                log_path: Path | None = None,
+                policy_fingerprint: str | None = None,
+                partner_id: str | None = None,
             ) -> Any:
                 return LabTrustParallelEnv(
                     num_runners=num_runners,
@@ -719,9 +796,9 @@ def run_benchmark(
                 )
 
         def _make_env(
-            initial_state: Dict[str, Any],
-            reward_config: Dict[str, Any],
-            log_path: Optional[Path] = None,
+            initial_state: dict[str, Any],
+            reward_config: dict[str, Any],
+            log_path: Path | None = None,
         ) -> Any:
             return _env_factory(
                 initial_state,
@@ -737,8 +814,8 @@ def run_benchmark(
         from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
         from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
         from labtrust_gym.envs.pz_parallel import (
-            DEFAULT_ZONE_IDS,
             DEFAULT_DEVICE_IDS,
+            DEFAULT_ZONE_IDS,
         )
 
         if is_scale_task and scale_probe_state:
@@ -774,8 +851,8 @@ def run_benchmark(
             }
         if not is_scale_task and llm_backend == "deterministic":
             from labtrust_gym.baselines.llm.agent import (
-                LLMAgentWithShield,
                 DeterministicConstrainedBackend,
+                LLMAgentWithShield,
             )
             from labtrust_gym.engine.rbac import load_rbac_policy
             from labtrust_gym.security.agent_capabilities import load_agent_capabilities
@@ -818,8 +895,46 @@ def run_benchmark(
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
-            backend = OpenAILiveBackend()
-            llm_backend_ref = backend
+            backend = OpenAILiveBackend(trace_collector=llm_trace_collector)
+            llm_backend_ref = cast(Any, backend)
+            for aid in llm_agents:
+                if aid not in scripted_agents_map:
+                    continue
+                scripted_agents_map[aid] = LLMAgentWithShield(
+                    backend=backend,
+                    rbac_policy=rbac_policy,
+                    pz_to_engine=pz_to_engine,
+                    strict_signatures=use_strict_signatures,
+                    key_registry=key_registry_merged,
+                    get_private_key=get_private_key_fn,
+                    capability_policy=capability_policy,
+                )
+        elif not is_scale_task and llm_backend == "openai_responses":
+            from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
+            from labtrust_gym.baselines.llm.backends.openai_responses import (
+                OpenAILiveResponsesBackend,
+            )
+            from labtrust_gym.engine.rbac import load_rbac_policy
+            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
+
+            rbac_path = (
+                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            )
+            rbac_policy = load_rbac_policy(rbac_path)
+            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
+            pz_to_engine = _default_pz_to_engine(
+                num_runners=num_runners, num_insiders=num_insiders
+            )
+            from labtrust_gym.policy.prompt_registry import load_use_prompts_v02
+
+            prompts_policy = "v0.2" if load_use_prompts_v02(repo_root) else "v0.1"
+            backend = OpenAILiveResponsesBackend(
+                repo_root=repo_root,
+                output_mode=llm_output_mode,
+                prompts_policy=prompts_policy,
+                trace_collector=llm_trace_collector,
+            )
+            llm_backend_ref = cast(Any, backend)
             for aid in llm_agents:
                 if aid not in scripted_agents_map:
                     continue
@@ -848,7 +963,7 @@ def run_benchmark(
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
-            backend = OllamaLiveBackend()
+            backend = cast(Any, OllamaLiveBackend())
             llm_backend_ref = backend
             for aid in llm_agents:
                 if aid not in scripted_agents_map:
@@ -872,7 +987,7 @@ def run_benchmark(
             scripted_agents_map["adversary_insider_0"] = InsiderAdversaryAgent()
 
     seeds = [base_seed + i for i in range(num_episodes)]
-    episodes_metrics: List[Dict[str, Any]] = []
+    episodes_metrics: list[dict[str, Any]] = []
 
     use_fresh_agents_per_episode = task_name in ("TaskD", "TaskD_AdversarialDisruption")
     use_fresh_agents_taskf = task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse")
@@ -880,12 +995,12 @@ def run_benchmark(
     for ep_seed in seeds:
         agents_map = scripted_agents_map
         if use_fresh_agents_per_episode and scripted_agents_map is not None:
+            from labtrust_gym.baselines.adversary import AdversaryAgent
             from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
             from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
-            from labtrust_gym.baselines.adversary import AdversaryAgent
             from labtrust_gym.envs.pz_parallel import (
-                DEFAULT_ZONE_IDS,
                 DEFAULT_DEVICE_IDS,
+                DEFAULT_ZONE_IDS,
             )
 
             agents_map = {
@@ -901,12 +1016,12 @@ def run_benchmark(
                 "adversary_0": AdversaryAgent(),
             }
         if use_fresh_agents_taskf and scripted_agents_map is not None:
+            from labtrust_gym.baselines.insider_adversary import InsiderAdversaryAgent
             from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
             from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
-            from labtrust_gym.baselines.insider_adversary import InsiderAdversaryAgent
             from labtrust_gym.envs.pz_parallel import (
-                DEFAULT_ZONE_IDS,
                 DEFAULT_DEVICE_IDS,
+                DEFAULT_ZONE_IDS,
             )
 
             agents_map = {
@@ -945,6 +1060,8 @@ def run_benchmark(
         agent_baseline_id = "llm_safe_v1"
     elif llm_backend == "openai_live":
         agent_baseline_id = "llm_live_openai_v1"
+    elif llm_backend == "openai_responses":
+        agent_baseline_id = "llm_live_openai_responses_v1"
     else:
         agent_baseline_id = (
             "adversary_v1"
@@ -957,8 +1074,16 @@ def run_benchmark(
         )
 
     effective_timing = (initial_state_overrides or {}).get("timing_mode", "explicit")
-    results = {
+    results_mode = get_pipeline_mode()
+    results_llm_backend_id = get_llm_backend_id() or "none"
+    non_deterministic = results_mode == "llm_live" and allow_network
+    results: dict[str, Any] = {
         "schema_version": "0.2",
+        "pipeline_mode": results_mode,
+        "llm_backend_id": results_llm_backend_id,
+        "llm_model_id": None,
+        "allow_network": allow_network,
+        "non_deterministic": non_deterministic,
         "task": task_name,
         "num_episodes": num_episodes,
         "base_seed": base_seed,
@@ -979,9 +1104,11 @@ def run_benchmark(
         "agent_baseline_id": agent_baseline_id,
         "episodes": episodes_metrics,
     }
-    tool_reg_fp = (initial_state_overrides or {}).get("tool_registry_fingerprint")
-    if tool_reg_fp is not None:
-        results["tool_registry_fingerprint"] = tool_reg_fp
+    tool_reg_fp_override = (initial_state_overrides or {}).get(
+        "tool_registry_fingerprint"
+    )
+    if tool_reg_fp_override is not None:
+        results["tool_registry_fingerprint"] = tool_reg_fp_override
 
     if llm_backend is not None:
         if llm_backend == "deterministic":
@@ -991,7 +1118,10 @@ def run_benchmark(
                 "llm_error_rate": 0.0,
                 "mean_llm_latency_ms": None,
             }
-        elif llm_backend == "openai_live" and llm_backend_ref is not None:
+        elif (
+            llm_backend in ("openai_live", "openai_responses")
+            and llm_backend_ref is not None
+        ):
             agg = llm_backend_ref.get_aggregate_metrics()
             results["metadata"] = {
                 "llm_backend_id": agg.get("backend_id"),
@@ -1019,6 +1149,21 @@ def run_benchmark(
                 "llm_error_rate": None,
                 "mean_llm_latency_ms": None,
             }
+    if results.get("metadata") is not None:
+        pf = None
+        if llm_backend_ref is not None:
+            lm = getattr(llm_backend_ref, "last_metrics", None)
+            if isinstance(lm, dict):
+                pf = lm.get("prompt_fingerprint")
+        if pf is None and scripted_agents_map:
+            for _aid, agent in scripted_agents_map.items():
+                pf = getattr(agent, "_last_prompt_fingerprint", None)
+                if pf:
+                    break
+        if pf is not None:
+            results["metadata"]["prompt_fingerprint"] = pf
+        if "llm_model_id" in results["metadata"]:
+            results["llm_model_id"] = results["metadata"]["llm_model_id"]
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1033,8 +1178,8 @@ def main(
     episodes: int,
     seed: int,
     out: str,
-    repo_root: Optional[Path] = None,
-    log_path: Optional[str] = None,
+    repo_root: Path | None = None,
+    log_path: str | None = None,
 ) -> int:
     """CLI entry: run benchmark and write results.json."""
     if repo_root is None:

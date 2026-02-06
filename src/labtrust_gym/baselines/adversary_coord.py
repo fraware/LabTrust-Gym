@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class RedTeamStrategy(str, Enum):
@@ -26,7 +26,7 @@ class RedTeamStrategy(str, Enum):
 
 
 # Strategy -> injection_id for risk_injections. Deterministic runs use these IDs.
-STRATEGY_TO_INJECTION_ID: Dict[RedTeamStrategy, str] = {
+STRATEGY_TO_INJECTION_ID: dict[RedTeamStrategy, str] = {
     RedTeamStrategy.COLLUSION: "INJ-COLLUSION-001",
     RedTeamStrategy.SLOW_ROLL_POISONING: "INJ-SLOW-POISON-001",
     RedTeamStrategy.IDENTITY_ROTATION: "INJ-ID-SPOOF-001",
@@ -46,7 +46,7 @@ class SuccessDetectionContainment:
 
 
 # Per-strategy definitions (consistent with risk_injectors and metrics)
-RED_TEAM_DEFINITIONS: Dict[RedTeamStrategy, SuccessDetectionContainment] = {
+RED_TEAM_DEFINITIONS: dict[RedTeamStrategy, SuccessDetectionContainment] = {
     RedTeamStrategy.COLLUSION: SuccessDetectionContainment(
         success_definition="Colluding bid accepted and affects allocation (starved/unfair).",
         detection_definition="Bid anomaly or signature/RBAC flags spoofed or biased bid.",
@@ -85,12 +85,14 @@ def get_injection_id_for_strategy(strategy: RedTeamStrategy) -> str:
     return STRATEGY_TO_INJECTION_ID.get(strategy, "")
 
 
-def get_definitions_for_strategy(strategy: RedTeamStrategy) -> Optional[SuccessDetectionContainment]:
+def get_definitions_for_strategy(
+    strategy: RedTeamStrategy,
+) -> SuccessDetectionContainment | None:
     """Return success/detection/containment definitions for the strategy."""
     return RED_TEAM_DEFINITIONS.get(strategy)
 
 
-def all_strategies() -> List[RedTeamStrategy]:
+def all_strategies() -> list[RedTeamStrategy]:
     """Return all red-team strategies in stable order."""
     return [
         RedTeamStrategy.COLLUSION,
@@ -102,7 +104,7 @@ def all_strategies() -> List[RedTeamStrategy]:
     ]
 
 
-def strategy_for_injection_id(injection_id: str) -> Optional[RedTeamStrategy]:
+def strategy_for_injection_id(injection_id: str) -> RedTeamStrategy | None:
     """Return the strategy that uses this injection_id, or None."""
     for s, iid in STRATEGY_TO_INJECTION_ID.items():
         if iid == injection_id:
@@ -123,7 +125,7 @@ def deterministic_schedule_for_strategy(
     strategy: RedTeamStrategy,
     horizon_steps: int = 200,
     seed: int = 0,
-) -> List[RedTeamScheduleEntry]:
+) -> list[RedTeamScheduleEntry]:
     """
     Deterministic schedule (step, injection_id, intensity) for strategy.
     Same seed => same schedule (official runs).
@@ -143,10 +145,10 @@ def deterministic_schedule_for_strategy(
 
 def evaluate_episode_outcome(
     attack_success: bool,
-    first_detection_step: Optional[int],
-    first_containment_step: Optional[int],
-    first_application_step: Optional[int],
-) -> Dict[str, Any]:
+    first_detection_step: int | None,
+    first_containment_step: int | None,
+    first_application_step: int | None,
+) -> dict[str, Any]:
     """
     Evaluate episode: success, detected, contained, stealth_success (success w/o detection).
     """

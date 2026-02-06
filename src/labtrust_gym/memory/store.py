@@ -8,11 +8,11 @@ get(query, role_id) returns only non-expired entries and filters poison/instruct
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.memory.validators import (
-    MEM_POISON_DETECTED,
     MEM_WRITE_SCHEMA_FAIL,
     check_poison_and_instruction_override,
     filter_poison_from_entries,
@@ -24,17 +24,17 @@ MEM_WRITE_UNAUTHENTICATED = "MEM_WRITE_UNAUTHENTICATED"
 MEM_RETRIEVAL_FILTERED = "MEM_RETRIEVAL_FILTERED"
 
 
-def _canonical_bytes(obj: Dict[str, Any]) -> bytes:
+def _canonical_bytes(obj: dict[str, Any]) -> bytes:
     return json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def _verify_memory_signature(
-    entry: Dict[str, Any],
+    entry: dict[str, Any],
     writer_agent_id: str,
-    signature: Optional[str],
+    signature: str | None,
     ttl: int,
     key_store: Any,
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Verify signature for (entry, writer_agent_id, ttl) using key_store.
     key_store: agent_id -> (private_key, public_key_b64) as in coordination.identity.
@@ -79,28 +79,24 @@ class MemoryStore:
 
     def __init__(
         self,
-        policy_root: Optional[Path] = None,
-        policy: Optional[Dict[str, Any]] = None,
-        key_store: Optional[Dict[str, Any]] = None,
-        now_ts_fn: Optional[Callable[[], int]] = None,
+        policy_root: Path | None = None,
+        policy: dict[str, Any] | None = None,
+        key_store: dict[str, Any] | None = None,
+        now_ts_fn: Callable[[], int] | None = None,
     ) -> None:
         self._policy_root = Path(policy_root) if policy_root else None
-        self._policy = (
-            policy
-            if policy is not None
-            else load_memory_policy(self._policy_root)
-        )
+        self._policy = policy if policy is not None else load_memory_policy(self._policy_root)
         self._key_store = key_store or {}
         self._now_ts_fn = now_ts_fn or (lambda: 0)
-        self._entries: List[Dict[str, Any]] = []
+        self._entries: list[dict[str, Any]] = []
 
     def put(
         self,
-        entry: Dict[str, Any],
+        entry: dict[str, Any],
         writer_agent_id: str,
-        signature: Optional[str] = None,
-        ttl: Optional[int] = None,
-    ) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+        signature: str | None = None,
+        ttl: int | None = None,
+    ) -> tuple[bool, str | None, dict[str, Any] | None]:
         """
         Store an entry. Returns (ok, reason_code, details).
         Enforces: authenticated write (when policy requires), schema, no poison; TTL bounds.
@@ -116,7 +112,10 @@ class MemoryStore:
 
         if policy.get("require_authenticated_writes"):
             ok, code = _verify_memory_signature(
-                entry, writer_agent_id, signature, ttl_s,
+                entry,
+                writer_agent_id,
+                signature,
+                ttl_s,
                 self._key_store,
             )
             if not ok:
@@ -144,9 +143,9 @@ class MemoryStore:
 
     def get(
         self,
-        query: Optional[Dict[str, Any]] = None,
-        role_id: Optional[str] = None,
-    ) -> Tuple[List[Dict[str, Any]], int, Optional[str]]:
+        query: dict[str, Any] | None = None,
+        role_id: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int, str | None]:
         """
         Retrieve entries: drop expired, filter poison. Returns (entries, filtered_count, emit_if_filtered).
         query: optional filter (e.g. by role/tags); currently unused, all non-expired considered.
@@ -154,10 +153,8 @@ class MemoryStore:
         """
         now = self._now_ts_fn()
         non_expired = [e for e in self._entries if (e.get("_expires_at") or 0) > now]
-        filtered, removed = filter_poison_from_entries(
-            non_expired, self._policy, content_key="content"
-        )
-        out: List[Dict[str, Any]] = []
+        filtered, removed = filter_poison_from_entries(non_expired, self._policy, content_key="content")
+        out: list[dict[str, Any]] = []
         for e in filtered:
             clean = {k: v for k, v in e.items() if not k.startswith("_")}
             out.append(clean)
@@ -169,6 +166,6 @@ class MemoryStore:
         self._entries.clear()
 
 
-def load_memory_policy_from_root(policy_root: Optional[Path] = None) -> Dict[str, Any]:
+def load_memory_policy_from_root(policy_root: Path | None = None) -> dict[str, Any]:
     """Convenience: load memory policy from repo root."""
     return load_memory_policy(Path(policy_root) if policy_root else None)

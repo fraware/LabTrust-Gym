@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import json
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, cast
 
 from labtrust_gym.tools.registry import get_tool_entry
 
@@ -28,22 +29,20 @@ TOOL_DATA_CLASS_VIOLATION = "TOOL_DATA_CLASS_VIOLATION"
 DEFAULT_TOOL_TIMEOUT_S = 30.0
 
 
-def _default_stub_adapter(tool_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+def _default_stub_adapter(tool_id: str, args: dict[str, Any]) -> dict[str, Any]:
     """Stub adapter when no adapter is provided: returns empty dict (safe no-op)."""
     return {}
 
 
-def _load_output_schema(ref: str, policy_root: Path) -> Dict[str, Any]:
+def _load_output_schema(ref: str, policy_root: Path) -> dict[str, Any]:
     """Load JSON schema from policy_root/policy/ref."""
     path = Path(policy_root) / "policy" / ref
     if not path.is_file():
         raise FileNotFoundError(f"output schema not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
-def _validate_output_against_schema(
-    result: Any, schema: Dict[str, Any]
-) -> Tuple[bool, Optional[str]]:
+def _validate_output_against_schema(result: Any, schema: dict[str, Any]) -> tuple[bool, str | None]:
     """Validate result against JSON schema. Returns (valid, error_message)."""
     try:
         import jsonschema
@@ -57,15 +56,15 @@ def _validate_output_against_schema(
 
 def execute_tool_safely(
     tool_id: str,
-    args: Dict[str, Any],
+    args: dict[str, Any],
     *,
-    adapter: Optional[Callable[[str, Dict[str, Any]], Any]] = None,
-    registry: Optional[Dict[str, Any]] = None,
-    policy_root: Optional[Path] = None,
-    timeout_s: Optional[float] = None,
-    output_schema_ref: Optional[str] = None,
-    sandbox_ctx: Optional[Dict[str, Any]] = None,
-) -> Tuple[bool, Any, Optional[Dict[str, Any]]]:
+    adapter: Callable[[str, dict[str, Any]], Any] | None = None,
+    registry: dict[str, Any] | None = None,
+    policy_root: Path | None = None,
+    timeout_s: float | None = None,
+    output_schema_ref: str | None = None,
+    sandbox_ctx: dict[str, Any] | None = None,
+) -> tuple[bool, Any, dict[str, Any] | None]:
     """
     Execute a tool in a safe wrapper: exception capture, timeout, output validation.
 
@@ -83,8 +82,8 @@ def execute_tool_safely(
         timeout_s = DEFAULT_TOOL_TIMEOUT_S
     sandbox_ctx = sandbox_ctx or {}
 
-    result_holder: list = []
-    exc_holder: list = []
+    result_holder: list[Any] = []
+    exc_holder: list[Exception] = []
 
     def run() -> None:
         try:
@@ -173,9 +172,7 @@ def execute_tool_safely(
     # Sandbox / boundary: deny-by-default egress, byte/record caps, data classification.
     sandbox = (sandbox_ctx or {}).get("sandbox")
     if sandbox is not None:
-        allowed, boundary_reason, boundary_details = sandbox.check_output(
-            result, tool_id_override=tool_id
-        )
+        allowed, boundary_reason, boundary_details = sandbox.check_output(result, tool_id_override=tool_id)
         if not allowed and boundary_reason:
             return (
                 False,
@@ -183,9 +180,7 @@ def execute_tool_safely(
                 {
                     "reason_code": boundary_reason,
                     "message": (
-                        boundary_details.get("message", boundary_reason)
-                        if boundary_details
-                        else boundary_reason
+                        boundary_details.get("message", boundary_reason) if boundary_details else boundary_reason
                     ),
                     "details": boundary_details,
                 },

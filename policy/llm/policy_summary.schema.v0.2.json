@@ -125,6 +125,31 @@
         }
       }
     },
+    "queue_head": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "device_id to work_id at queue head (optional)"
+    },
+    "restricted_zones": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Zone IDs requiring token for entry (optional)"
+    },
+    "token_requirements": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } },
+      "description": "action_type to required token types (optional)"
+    },
+    "citation_anchors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Policy citation anchors for rationale (optional)"
+    },
+    "critical_ladder_summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Critical result escalation ladder (optional)"
+    },
     "untrusted_notes": {
       "type": "object",
       "required": ["present", "samples"],

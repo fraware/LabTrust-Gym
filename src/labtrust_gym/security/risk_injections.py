@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import copy
 import random
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, cast
 
 # Emit types (must exist in emits_vocab)
 EMIT_INJECTION_APPLIED = "SECURITY_INJECTION_APPLIED"
@@ -30,18 +30,18 @@ class InjectionConfig:
     injection_id: str
     intensity: float  # in [0, 1]
     seed_offset: int
-    target: Optional[str] = None  # agent_id, method_id, or channel id
+    target: str | None = None  # agent_id, method_id, or channel id
 
 
 def _audit_entry(
     emit: str,
     injection_id: str,
     step: int,
-    payload: Optional[Dict[str, Any]] = None,
-    reason_code: Optional[str] = None,
-) -> Dict[str, Any]:
+    payload: dict[str, Any] | None = None,
+    reason_code: str | None = None,
+) -> dict[str, Any]:
     """Build an audit result dict for appending to step_results (emits + hashable)."""
-    out: Dict[str, Any] = {
+    out: dict[str, Any] = {
         "emits": [emit],
         "injection_id": injection_id,
         "injection_step": step,
@@ -62,25 +62,21 @@ class RiskInjector:
 
     def __init__(self, config: InjectionConfig) -> None:
         self._config = config
-        self._rng: Optional[random.Random] = None
+        self._rng: random.Random | None = None
         self._step = 0
         self._applied_this_step = False
-        self._audit_entries_this_step: List[Dict[str, Any]] = []
+        self._audit_entries_this_step: list[dict[str, Any]] = []
         # Metrics state
-        self._first_application_step: Optional[int] = None
-        self._first_detection_step: Optional[int] = None
-        self._first_containment_step: Optional[int] = None
-        self._attack_success = (
-            False  # True if any spoof/misparam led to accepted mutating action
-        )
+        self._first_application_step: int | None = None
+        self._first_detection_step: int | None = None
+        self._first_containment_step: int | None = None
+        self._attack_success = False  # True if any spoof/misparam led to accepted mutating action
 
     @property
     def injection_id(self) -> str:
         return self._config.injection_id
 
-    def reset(
-        self, seed: int, injection_config: Optional[InjectionConfig] = None
-    ) -> None:
+    def reset(self, seed: int, injection_config: InjectionConfig | None = None) -> None:
         cfg = injection_config or self._config
         self._config = cfg
         self._rng = random.Random(seed + cfg.seed_offset)
@@ -92,31 +88,27 @@ class RiskInjector:
         self._first_detection_step = None
         self._attack_success = False
 
-    def mutate_obs(
-        self, obs: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         """Return (possibly mutated obs, optional audit entry to append)."""
         return obs, None
 
-    def mutate_messages(
-        self, messages: List[Dict[str, Any]]
-    ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    def mutate_messages(self, messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
         """Return (possibly mutated messages, optional audit entry)."""
         return messages, None
 
     def mutate_actions(
-        self, action_dict: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         """Return (possibly mutated action_dict, list of audit entries to append to step_results)."""
         return action_dict, []
 
-    def observe_step(self, step_outputs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def observe_step(self, step_outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Called after env.step. Update detection/containment state; return any extra
         audit entries (e.g. SECURITY_INJECTION_DETECTED, SECURITY_INJECTION_CONTAINED).
         """
         self._step += 1
-        extra: List[Dict[str, Any]] = []
+        extra: list[dict[str, Any]] = []
         for r in step_outputs:
             if r.get("blocked_reason_code") in (
                 RC_SPOOF_BLOCKED,
@@ -153,7 +145,7 @@ class RiskInjector:
         self._audit_entries_this_step = []
         return extra
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Return sec.* and related metrics for this episode."""
         return {
             "attack_success": self._attack_success,
@@ -169,9 +161,7 @@ class RiskInjector:
 class CommsPoisonInjector(RiskInjector):
     """With p=intensity flip message fields or inject fake queue_head update."""
 
-    def mutate_obs(
-        self, obs: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if not self._rng or self._rng.random() > self._config.intensity:
             return obs, None
         obs = copy.deepcopy(obs)
@@ -186,16 +176,14 @@ class CommsPoisonInjector(RiskInjector):
                 idx = self._rng.randint(0, min(len(qhd) - 1, 2))
                 try:
                     flat = getattr(qhd, "flat", qhd)
-                    arr = list(flat)
+                    arr = list(flat) if flat is not None else []
                     if idx < len(arr):
                         arr[idx] = 1 if (arr[idx] == 0 or not arr[idx]) else 0
                         obs[victim] = dict(o)
                         try:
                             import numpy as np
 
-                            obs[victim]["queue_has_head"] = np.array(
-                                arr, dtype=getattr(qhd, "dtype", np.int64)
-                            )
+                            obs[victim]["queue_has_head"] = np.array(arr, dtype=getattr(qhd, "dtype", np.int64))
                         except Exception:
                             obs[victim]["queue_has_head"] = arr
                 except (TypeError, IndexError):
@@ -219,8 +207,8 @@ class IdSpoofInjector(RiskInjector):
     """Attempt to make actions appear from another agent_id/key_id; success if any accepted."""
 
     def mutate_actions(
-        self, action_dict: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._config.intensity <= 0:
             return action_dict, []
         agents = sorted(action_dict.keys())
@@ -249,7 +237,7 @@ class IdSpoofInjector(RiskInjector):
         )
         return out, [audit]
 
-    def observe_step(self, step_outputs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def observe_step(self, step_outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         applied = self._applied_this_step
         extra = super().observe_step(step_outputs)
         if applied:
@@ -268,20 +256,14 @@ class IdSpoofInjector(RiskInjector):
 class DosPlannerInjector(RiskInjector):
     """Enforce compute budget; if exceeded, planner drops assignments (stale plan)."""
 
-    def __init__(
-        self, config: InjectionConfig, compute_budget: Optional[int] = 1
-    ) -> None:
+    def __init__(self, config: InjectionConfig, compute_budget: int | None = 1) -> None:
         super().__init__(config)
         self._compute_budget = compute_budget if compute_budget is not None else 1
 
     def mutate_actions(
-        self, action_dict: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
-        non_noop = [
-            a
-            for a, ad in action_dict.items()
-            if ad.get("action_index", 0) not in (0, 1)
-        ]
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+        non_noop = [a for a, ad in action_dict.items() if ad.get("action_index", 0) not in (0, 1)]
         if len(non_noop) <= self._compute_budget:
             return action_dict, []
         out = copy.deepcopy(action_dict)
@@ -311,8 +293,8 @@ class CollusionInjector(RiskInjector):
     """Subset of agents coordinate bids to starve tasks or break fairness."""
 
     def mutate_actions(
-        self, action_dict: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._rng.random() > self._config.intensity:
             return action_dict, []
         agents = sorted(action_dict.keys())
@@ -345,8 +327,8 @@ class ToolMisparamInjector(RiskInjector):
     """Inject malformed structured output at rate=intensity; schema should reject."""
 
     def mutate_actions(
-        self, action_dict: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._rng.random() > self._config.intensity:
             return action_dict, []
         agents = sorted(action_dict.keys())
@@ -370,7 +352,7 @@ class ToolMisparamInjector(RiskInjector):
         )
         return out, [audit]
 
-    def observe_step(self, step_outputs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def observe_step(self, step_outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         applied = self._applied_this_step
         extra = super().observe_step(step_outputs)
         if applied:
@@ -549,19 +531,15 @@ class ClockSkewInjector(RiskInjector):
 
     def __init__(self, config: InjectionConfig) -> None:
         super().__init__(config)
-        self._skew_ppm: Dict[str, float] = {}
-        self._offset_ms: Dict[str, float] = {}
+        self._skew_ppm: dict[str, float] = {}
+        self._offset_ms: dict[str, float] = {}
 
-    def reset(
-        self, seed: int, injection_config: Optional[InjectionConfig] = None
-    ) -> None:
+    def reset(self, seed: int, injection_config: InjectionConfig | None = None) -> None:
         super().reset(seed, injection_config)
         self._skew_ppm = {}
         self._offset_ms = {}
 
-    def get_clock_config(
-        self, agent_ids: List[str]
-    ) -> Tuple[Dict[str, float], Dict[str, float]]:
+    def get_clock_config(self, agent_ids: list[str]) -> tuple[dict[str, float], dict[str, float]]:
         """
         Return (skew_ppm, offset_ms) per agent. Seeded from config; call after reset(seed).
         intensity scales skew_ppm and offset_ms ranges (e.g. 0.2 => small skew).
@@ -573,8 +551,8 @@ class ClockSkewInjector(RiskInjector):
             )
         skew_ppm_range = 50.0 + 100.0 * self._config.intensity
         offset_ms_range = 25.0 + 50.0 * self._config.intensity
-        skew_ppm: Dict[str, float] = {}
-        offset_ms: Dict[str, float] = {}
+        skew_ppm: dict[str, float] = {}
+        offset_ms: dict[str, float] = {}
         for aid in sorted(agent_ids):
             skew_ppm[aid] = (self._rng.random() * 2 - 1) * skew_ppm_range
             offset_ms[aid] = (self._rng.random() * 2 - 1) * offset_ms_range
@@ -591,11 +569,9 @@ class MemoryPoisonInjector(RiskInjector):
 
     def __init__(self, config: InjectionConfig) -> None:
         super().__init__(config)
-        self._corruption_step: Optional[int] = None
+        self._corruption_step: int | None = None
 
-    def mutate_obs(
-        self, obs: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if not self._rng or self._rng.random() > self._config.intensity:
             return obs, None
         obs = copy.deepcopy(obs)
@@ -631,19 +607,15 @@ class SlowRollPoisonInjector(RiskInjector):
     def __init__(self, config: InjectionConfig, delay_steps: int = 20) -> None:
         super().__init__(config)
         self._delay_steps = delay_steps
-        self._effective_step: Optional[int] = None
+        self._effective_step: int | None = None
 
-    def reset(
-        self, seed: int, injection_config: Optional[InjectionConfig] = None
-    ) -> None:
+    def reset(self, seed: int, injection_config: InjectionConfig | None = None) -> None:
         super().reset(seed, injection_config)
         self._effective_step = None
         if self._rng:
             self._delay_steps = max(5, int(10 + self._rng.random() * 30))
 
-    def mutate_obs(
-        self, obs: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if self._step < self._delay_steps or not self._rng or self._rng.random() > self._config.intensity:
             return obs, None
         obs = copy.deepcopy(obs)
@@ -657,6 +629,7 @@ class SlowRollPoisonInjector(RiskInjector):
             if hasattr(qhd, "__len__") and len(qhd) > 0:
                 try:
                     import numpy as np
+
                     arr = np.array(qhd, copy=True)
                     idx = min(1, arr.size - 1)
                     arr.flat[idx] = 1 if (arr.flat[idx] == 0) else 0
@@ -688,12 +661,12 @@ class ReplayInjector(RiskInjector):
 
     def __init__(self, config: InjectionConfig) -> None:
         super().__init__(config)
-        self._last_action: Optional[Dict[str, Any]] = None
-        self._last_agent: Optional[str] = None
+        self._last_action: dict[str, Any] | None = None
+        self._last_agent: str | None = None
 
     def mutate_actions(
-        self, action_dict: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._config.intensity <= 0:
             return action_dict, []
         agents = sorted(action_dict.keys())
@@ -706,7 +679,11 @@ class ReplayInjector(RiskInjector):
             self._last_action = copy.deepcopy(current)
             self._last_agent = victim
         # Replay: if we have a stored action, inject it from another agent (replay attempt)
-        if self._last_action is not None and self._last_agent is not None and self._rng.random() <= self._config.intensity:
+        if (
+            self._last_action is not None
+            and self._last_agent is not None
+            and self._rng.random() <= self._config.intensity
+        ):
             replayer = self._rng.choice([a for a in agents if a != self._last_agent])
             out = copy.deepcopy(action_dict)
             replayed = copy.deepcopy(self._last_action)
@@ -725,7 +702,7 @@ class ReplayInjector(RiskInjector):
             return out, [audit]
         return action_dict, []
 
-    def observe_step(self, step_outputs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def observe_step(self, step_outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         extra = super().observe_step(step_outputs)
         if self._applied_this_step:
             for r in step_outputs:
@@ -743,19 +720,15 @@ class NoOpInjector(RiskInjector):
     injection_ids that are not yet implemented (e.g. inj_tool_selection_noise).
     """
 
-    def mutate_obs(
-        self, obs: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         return obs, None
 
-    def mutate_messages(
-        self, messages: List[Dict[str, Any]]
-    ) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    def mutate_messages(self, messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
         return messages, None
 
     def mutate_actions(
-        self, action_dict: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         return action_dict, []
 
 
@@ -777,7 +750,7 @@ LEGACY_INJECTION_IDS = (
 )
 
 # Factory
-INJECTION_REGISTRY: Dict[str, type] = {
+INJECTION_REGISTRY: dict[str, type] = {
     "INJ-COMMS-POISON-001": CommsPoisonInjector,
     "INJ-COMMS-DELAY-001": CommsDelayInjector,
     "INJ-COMMS-DROP-001": CommsDropInjector,
@@ -802,15 +775,13 @@ def make_injector(
     injection_id: str,
     intensity: float = 0.2,
     seed_offset: int = 0,
-    target: Optional[str] = None,
+    target: str | None = None,
     **kwargs: Any,
 ) -> RiskInjector:
     """Build a RiskInjector from injection_id and config. Legacy/placeholder IDs use NoOpInjector."""
     cls = INJECTION_REGISTRY.get(injection_id)
     if cls is None:
-        raise ValueError(
-            f"Unknown injection_id: {injection_id}. Known: {sorted(INJECTION_REGISTRY.keys())}"
-        )
+        raise ValueError(f"Unknown injection_id: {injection_id}. Known: {sorted(INJECTION_REGISTRY.keys())}")
     config = InjectionConfig(
         injection_id=injection_id,
         intensity=max(0.0, min(1.0, intensity)),
@@ -818,5 +789,5 @@ def make_injector(
         target=target,
     )
     if injection_id == "INJ-DOS-PLANNER-001":
-        return cls(config, compute_budget=kwargs.get("compute_budget", 1))
-    return cls(config)
+        return cast(RiskInjector, cls(config, compute_budget=kwargs.get("compute_budget", 1)))
+    return cast(RiskInjector, cls(config))

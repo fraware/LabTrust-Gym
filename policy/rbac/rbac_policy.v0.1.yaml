@@ -12,6 +12,7 @@ rbac_policy:
 
     ROLE_RECEPTION:
       allowed_actions:
+        - NOOP
         - TICK
         - MOVE
         - CREATE_ACCESSION
@@ -23,6 +24,7 @@ rbac_policy:
 
     ROLE_RUNNER:
       allowed_actions:
+        - NOOP
         - TICK
         - MOVE
         - OPEN_DOOR
@@ -37,6 +39,7 @@ rbac_policy:
 
     ROLE_PREANALYTICS:
       allowed_actions:
+        - NOOP
         - TICK
         - MOVE
         - CENTRIFUGE_START
@@ -45,6 +48,7 @@ rbac_policy:
 
     ROLE_ANALYTICS:
       allowed_actions:
+        - NOOP
         - TICK
         - MOVE
         - QUEUE_RUN
@@ -68,14 +72,17 @@ rbac_policy:
 
     ROLE_QC:
       allowed_actions:
+        - NOOP
         - TICK
         - MOVE
         - QC_EVENT
 
     ROLE_SUPERVISOR:
       allowed_actions:
+        - NOOP
         - TICK
         - MOVE
+        - OPEN_DOOR
         - MINT_TOKEN
         - REVOKE_TOKEN
         - NOTIFY_CRITICAL_RESULT
@@ -86,6 +93,7 @@ rbac_policy:
 
     ROLE_CLINICAL_SCIENTIST:
       allowed_actions:
+        - NOOP
         - TICK
         - MOVE
         - MINT_TOKEN
@@ -94,6 +102,7 @@ rbac_policy:
 
     ROLE_SECURITY_OFFICER:
       allowed_actions:
+        - NOOP
         - TICK
         - MOVE
         - OPEN_DOOR

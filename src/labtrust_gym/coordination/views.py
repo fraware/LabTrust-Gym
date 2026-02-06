@@ -8,7 +8,7 @@ ViewReplica.snapshot() returns minimal state: queue heads, zone occupancy, devic
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from labtrust_gym.coordination.blackboard import BlackboardEvent
 
@@ -41,21 +41,19 @@ class ViewReplica:
     def __init__(self, agent_id: str) -> None:
         self._agent_id = agent_id
         self._last_event_id = -1
-        self._last_processing_step: Optional[int] = None
-        self._last_event_t_event: Optional[int] = None
-        self._queue_heads: Dict[str, Optional[str]] = {}
-        self._zone_occupancy: Dict[str, List[str]] = defaultdict(list)
-        self._device_status: Dict[str, str] = {}
-        self._specimen_statuses: Dict[str, Dict[str, Any]] = {}
-        self._agent_zones: Dict[str, str] = {}
+        self._last_processing_step: int | None = None
+        self._last_event_t_event: int | None = None
+        self._queue_heads: dict[str, str | None] = {}
+        self._zone_occupancy: dict[str, list[str]] = defaultdict(list)
+        self._device_status: dict[str, str] = {}
+        self._specimen_statuses: dict[str, dict[str, Any]] = {}
+        self._agent_zones: dict[str, str] = {}
 
     @property
     def agent_id(self) -> str:
         return self._agent_id
 
-    def apply(
-        self, event: BlackboardEvent, processing_step: Optional[int] = None
-    ) -> None:
+    def apply(self, event: BlackboardEvent, processing_step: int | None = None) -> None:
         """
         Apply one event to this replica. Updates internal state from payload_small.
         processing_step: decision_time step when this event was delivered (for staleness).
@@ -94,14 +92,14 @@ class ViewReplica:
 
     def apply_batch(
         self,
-        events: List[BlackboardEvent],
-        processing_step: Optional[int] = None,
+        events: list[BlackboardEvent],
+        processing_step: int | None = None,
     ) -> None:
         """Apply events in order (e.g. after delivery from CommsModel)."""
         for ev in sorted(events, key=lambda e: e.id):
             self.apply(ev, processing_step=processing_step)
 
-    def snapshot(self) -> Dict[str, Any]:
+    def snapshot(self) -> dict[str, Any]:
         """
         Minimal state used by policies: queue heads, zone occupancy, device status, specimen statuses.
         Includes last_processing_step and last_event_t_event for timing/staleness.

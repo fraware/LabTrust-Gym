@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Reason codes (must exist in policy/reason_codes/reason_code_registry.v0.1.yaml)
 TOOL_NOT_IN_REGISTRY = "TOOL_NOT_IN_REGISTRY"
@@ -24,7 +24,7 @@ def _registry_path_from_root(root: Path) -> Path:
     return Path(root) / "policy" / "tool_registry.v0.1.yaml"
 
 
-def load_tool_registry(root_or_path: Optional[Path] = None) -> Dict[str, Any]:
+def load_tool_registry(root_or_path: Path | None = None) -> dict[str, Any]:
     """
     Load tool registry YAML. If root_or_path is a directory, load
     policy/tool_registry.v0.1.yaml; if a file, load that path.
@@ -48,7 +48,7 @@ def load_tool_registry(root_or_path: Optional[Path] = None) -> Dict[str, Any]:
     return data
 
 
-def tool_registry_fingerprint(registry_or_path: Dict[str, Any] | Path) -> str:
+def tool_registry_fingerprint(registry_or_path: dict[str, Any] | Path) -> str:
     """
     Compute SHA-256 (hex) digest of the tool registry for reproducibility
     and EvidenceBundle. Input: loaded registry dict (with "tool_registry" key)
@@ -63,24 +63,22 @@ def tool_registry_fingerprint(registry_or_path: Dict[str, Any] | Path) -> str:
 
 
 def validate_registry_hashes(
-    registry: Dict[str, Any],
-    expected_hashes: Optional[Dict[str, str]] = None,
-) -> List[str]:
+    registry: dict[str, Any],
+    expected_hashes: dict[str, str] | None = None,
+) -> list[str]:
     """
     Validate that each tool entry's sha256 (or wheel_hash) matches expected_hashes when provided.
     expected_hashes: optional dict tool_id -> expected_sha256_hex.
     Returns list of error messages; empty if valid.
     """
-    errors: List[str] = []
+    errors: list[str] = []
     tr = registry.get("tool_registry") if isinstance(registry, dict) else {}
     tools = tr.get("tools") if isinstance(tr, dict) else []
     if not isinstance(tools, list):
         return ["tool_registry.tools must be an array"]
     if not expected_hashes:
         return []
-    by_id = {
-        t.get("tool_id"): t for t in tools if isinstance(t, dict) and t.get("tool_id")
-    }
+    by_id = {t.get("tool_id"): t for t in tools if isinstance(t, dict) and t.get("tool_id")}
     for tool_id, expected in expected_hashes.items():
         if not tool_id or not expected:
             continue
@@ -92,14 +90,11 @@ def validate_registry_hashes(
         if actual is None:
             continue
         if actual.strip().lower() != expected.strip().lower():
-            errors.append(
-                f"tool_id {tool_id!r}: registry hash {actual!r} does not match "
-                f"expected {expected!r}"
-            )
+            errors.append(f"tool_id {tool_id!r}: registry hash {actual!r} does not match expected {expected!r}")
     return errors
 
 
-def get_tool_entry(registry: Dict[str, Any], tool_id: str) -> Optional[Dict[str, Any]]:
+def get_tool_entry(registry: dict[str, Any], tool_id: str) -> dict[str, Any] | None:
     """Return the registry entry for tool_id or None."""
     tr = registry.get("tool_registry") if isinstance(registry, dict) else {}
     tools = tr.get("tools") if isinstance(tr, dict) else []
@@ -113,11 +108,11 @@ def get_tool_entry(registry: Dict[str, Any], tool_id: str) -> Optional[Dict[str,
 
 def check_tool_allowed(
     tool_id: str,
-    registry: Dict[str, Any],
-    agent_id: Optional[str] = None,
-    role_id: Optional[str] = None,
-    allowed_tools: Optional[List[str]] = None,
-) -> Tuple[bool, Optional[str]]:
+    registry: dict[str, Any],
+    agent_id: str | None = None,
+    role_id: str | None = None,
+    allowed_tools: list[str] | None = None,
+) -> tuple[bool, str | None]:
     """
     Check whether a tool call is allowed: tool must be in registry and (if
     allowed_tools is set) in the scenario/role allow-list.
@@ -137,8 +132,8 @@ def check_tool_allowed(
 
 def combined_policy_fingerprint(
     policy_fingerprint: str,
-    tool_registry_fingerprint_value: Optional[str] = None,
-    rbac_policy_fingerprint_value: Optional[str] = None,
+    tool_registry_fingerprint_value: str | None = None,
+    rbac_policy_fingerprint_value: str | None = None,
 ) -> str:
     """
     Combine policy fingerprint with tool registry and RBAC policy digests for

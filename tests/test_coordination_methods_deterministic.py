@@ -7,8 +7,6 @@ from __future__ import annotations
 import hashlib
 import json
 
-import pytest
-
 from labtrust_gym.baselines.coordination.methods.centralized_planner import (
     CentralizedPlanner,
 )
@@ -42,9 +40,7 @@ def _obs_for_step(agent_ids: list[str], step: int) -> dict:
         aid: {
             "my_zone_idx": 1 + (step + i) % 2,
             "zone_id": "Z_B" if (step + i) % 2 else "Z_A",
-            "queue_by_device": [
-                {"device_id": "DEV_1", "queue_len": 1, "queue_head": "W1"}
-            ],
+            "queue_by_device": [{"device_id": "DEV_1", "queue_len": 1, "queue_head": "W1"}],
             "queue_has_head": [1],
             "log_frozen": 0,
             "door_restricted_open": 0,

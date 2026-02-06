@@ -5,8 +5,6 @@ determines how the component score is computed.
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.studies.resilience_scoring import (
     compute_components,
     compute_resilience_score,

@@ -26,9 +26,7 @@ from labtrust_gym.security.output_shaping import (
 )
 
 
-def _request(
-    port: int, path: str, headers: dict[str, str] | None = None
-) -> tuple[int, dict]:
+def _request(port: int, path: str, headers: dict[str, str] | None = None) -> tuple[int, dict]:
     """GET path; return (status_code, parsed_json_body)."""
     url = f"http://127.0.0.1:{port}{path}"
     req = urllib.request.Request(url, method="GET", headers=headers or {})
@@ -71,9 +69,7 @@ def test_viewer_cannot_fetch_raw_episode_logs() -> None:
     )
     server, port = _start_server(config)
     try:
-        status, body = _request(
-            port, "/v0/episode-log", headers={"X-Api-Key": "viewer-k"}
-        )
+        status, body = _request(port, "/v0/episode-log", headers={"X-Api-Key": "viewer-k"})
         assert status == 403, body
         assert body.get("code") == "forbidden"
     finally:
@@ -95,9 +91,7 @@ def test_admin_can_fetch_episode_log() -> None:
     )
     server, port = _start_server(config)
     try:
-        status, body = _request(
-            port, "/v0/episode-log", headers={"X-Api-Key": "admin-k"}
-        )
+        status, body = _request(port, "/v0/episode-log", headers={"X-Api-Key": "admin-k"})
         assert status == 200
         assert "entries" in body
         assert isinstance(body["entries"], list)

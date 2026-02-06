@@ -12,7 +12,7 @@ Attack phases (by step, 0-based):
 from __future__ import annotations
 
 import base64
-from typing import Any, Dict, Tuple
+from typing import Any
 
 # Use NOOP index; action_info carries action_type override for env
 ACTION_NOOP = 0
@@ -51,15 +51,15 @@ class InsiderAdversaryAgent:
 
     def act(
         self,
-        observation: Dict[str, Any],
+        observation: dict[str, Any],
         agent_id: str = "adversary_insider_0",
-    ) -> Tuple[int, Dict[str, Any]]:
+    ) -> tuple[int, dict[str, Any]]:
         """
         Return (action_index, action_info). action_info may contain action_type, args, key_id, signature, token_refs for custom event.
         """
         step = self._step_counter
         self._step_counter += 1
-        action_info: Dict[str, Any] = {}
+        action_info: dict[str, Any] = {}
 
         # Phase 1: forbidden action (RELEASE_RESULT without role)
         if step == self._phase1_step:

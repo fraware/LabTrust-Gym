@@ -10,8 +10,9 @@ FHIR R4 export: convert Receipt.v0.1 (from evidence bundle) into a minimal FHIR 
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 FHIR_BUNDLE_TYPE = "collection"
 FHIR_VERSION = "4.0.1"
@@ -21,23 +22,26 @@ def _canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True)
 
 
-def _timestamp_to_fhir_datetime(t_s: Optional[int]) -> Optional[str]:
+def _timestamp_to_fhir_datetime(t_s: int | None) -> str | None:
     """Convert sim timestamp (seconds) to FHIR dateTime (UTC ISO 8601). Epoch 0 = 1970-01-01."""
     if t_s is None:
         return None
-    from datetime import datetime, timezone
-    dt = datetime.fromtimestamp(int(t_s), tz=timezone.utc)
+    from datetime import datetime
+
+    dt = datetime.fromtimestamp(int(t_s), tz=UTC)
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def load_receipts_from_dir(receipts_dir: Path) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[str]]:
+def load_receipts_from_dir(
+    receipts_dir: Path,
+) -> tuple[list[dict[str, Any]], str | None, str | None]:
     """
     Load all receipt_*.v0.1.json from directory; read partner_id and policy_fingerprint from manifest if present.
     Returns (receipts, partner_id, policy_fingerprint). Receipts sorted by entity_type then specimen_id/result_id.
     """
     receipts_dir = Path(receipts_dir)
-    partner_id: Optional[str] = None
-    policy_fingerprint: Optional[str] = None
+    partner_id: str | None = None
+    policy_fingerprint: str | None = None
     manifest_path = receipts_dir / "manifest.json"
     if manifest_path.exists():
         try:
@@ -46,7 +50,7 @@ def load_receipts_from_dir(receipts_dir: Path) -> Tuple[List[Dict[str, Any]], Op
             policy_fingerprint = manifest.get("policy_fingerprint")
         except Exception:
             pass
-    receipts: List[Dict[str, Any]] = []
+    receipts: list[dict[str, Any]] = []
     for p in sorted(receipts_dir.glob("receipt_*.v0.1.json")):
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
@@ -54,17 +58,19 @@ def load_receipts_from_dir(receipts_dir: Path) -> Tuple[List[Dict[str, Any]], Op
                 receipts.append(data)
         except Exception:
             continue
+
     # Deterministic order: specimen first (by specimen_id), then result (by result_id)
-    def _sort_key(r: Dict[str, Any]) -> tuple:
+    def _sort_key(r: dict[str, Any]) -> tuple[int, str, str]:
         et = r.get("entity_type", "")
         sid = r.get("specimen_id") or ""
         rid = r.get("result_id") or ""
         return (0 if et == "specimen" else 1, sid, rid)
+
     receipts.sort(key=_sort_key)
     return receipts, partner_id, policy_fingerprint
 
 
-def _receipt_to_fhir_specimen(receipt: Dict[str, Any]) -> Dict[str, Any]:
+def _receipt_to_fhir_specimen(receipt: dict[str, Any]) -> dict[str, Any]:
     """Map receipt (entity_type=specimen) to FHIR R4 Specimen."""
     sid = receipt.get("specimen_id") or "unknown"
     accession_ids = receipt.get("accession_ids") or []
@@ -72,7 +78,7 @@ def _receipt_to_fhir_specimen(receipt: Dict[str, Any]) -> Dict[str, Any]:
     timestamps = receipt.get("timestamps") or {}
     received_ts = timestamps.get("received") or timestamps.get("accepted")
     received_time = _timestamp_to_fhir_datetime(received_ts) if received_ts is not None else None
-    spec: Dict[str, Any] = {
+    spec: dict[str, Any] = {
         "resourceType": "Specimen",
         "id": sid,
         "identifier": [{"system": "urn:labtrust:specimen", "value": sid}],
@@ -82,18 +88,20 @@ def _receipt_to_fhir_specimen(receipt: Dict[str, Any]) -> Dict[str, Any]:
     if received_time:
         spec["receivedTime"] = received_time
     if received_ts is not None and received_time is None:
-        spec.setdefault("extension", []).append({
-            "url": "http://labtrust.org/fhir/StructureDefinition/received-timestamp",
-            "valueInteger": int(received_ts),
-        })
+        spec.setdefault("extension", []).append(
+            {
+                "url": "http://labtrust.org/fhir/StructureDefinition/received-timestamp",
+                "valueInteger": int(received_ts),
+            }
+        )
     return spec
 
 
 def _receipt_to_fhir_observation(
-    receipt: Dict[str, Any],
+    receipt: dict[str, Any],
     index: int,
     interpretation_from_reason: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Map receipt (entity_type=result) to FHIR R4 Observation."""
     rid = receipt.get("result_id") or f"obs-{index}"
     panel_id = receipt.get("panel_id") or rid
@@ -103,7 +111,7 @@ def _receipt_to_fhir_observation(
     timestamps = receipt.get("timestamps") or {}
     issued_ts = timestamps.get("result_generated") or timestamps.get("released")
     issued = _timestamp_to_fhir_datetime(issued_ts) if issued_ts is not None else None
-    obs: Dict[str, Any] = {
+    obs: dict[str, Any] = {
         "resourceType": "Observation",
         "id": rid,
         "status": "final",
@@ -114,25 +122,57 @@ def _receipt_to_fhir_observation(
     # Value: receipt has no numeric value; use placeholder or valueString
     obs["valueString"] = "result"
     if interpretation_from_reason:
-        interp: List[Dict[str, Any]] = []
+        interp: list[dict[str, Any]] = []
         for rc in reason_codes:
             rc_upper = (rc or "").upper()
             if "CRIT" in rc_upper or "CRITICAL" in rc_upper:
-                interp.append({"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", "code": "CR", "display": "Critical"}]})
+                interp.append(
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                                "code": "CR",
+                                "display": "Critical",
+                            }
+                        ]
+                    }
+                )
                 break
             if "HIGH" in rc_upper:
-                interp.append({"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", "code": "H", "display": "High"}]})
+                interp.append(
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                                "code": "H",
+                                "display": "High",
+                            }
+                        ]
+                    }
+                )
                 break
             if "LOW" in rc_upper:
-                interp.append({"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", "code": "L", "display": "Low"}]})
+                interp.append(
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                                "code": "L",
+                                "display": "Low",
+                            }
+                        ]
+                    }
+                )
                 break
         if interp:
             obs["interpretation"] = interp
     if device_id:
-        obs.setdefault("extension", []).append({
-            "url": "http://labtrust.org/fhir/StructureDefinition/device-identifier",
-            "valueIdentifier": {"system": "urn:labtrust:device", "value": device_id},
-        })
+        obs.setdefault("extension", []).append(
+            {
+                "url": "http://labtrust.org/fhir/StructureDefinition/device-identifier",
+                "valueIdentifier": {"system": "urn:labtrust:device", "value": device_id},
+            }
+        )
     if issued:
         obs["issued"] = issued
     return obs
@@ -151,17 +191,17 @@ def _diagnostic_report_status(decision: str) -> str:
 
 
 def _receipt_to_fhir_diagnostic_report(
-    receipt: Dict[str, Any],
+    receipt: dict[str, Any],
     specimen_ref: str,
-    observation_refs: List[str],
-) -> Dict[str, Any]:
+    observation_refs: list[str],
+) -> dict[str, Any]:
     """Map receipt (entity_type=result) to FHIR R4 DiagnosticReport."""
     rid = receipt.get("result_id") or "dr-unknown"
     status = _diagnostic_report_status(receipt.get("decision", ""))
     timestamps = receipt.get("timestamps") or {}
     issued_ts = timestamps.get("result_generated") or timestamps.get("released")
     issued = _timestamp_to_fhir_datetime(issued_ts) if issued_ts is not None else None
-    dr: Dict[str, Any] = {
+    dr: dict[str, Any] = {
         "resourceType": "DiagnosticReport",
         "id": rid,
         "status": status,
@@ -174,44 +214,52 @@ def _receipt_to_fhir_diagnostic_report(
 
 
 def receipts_to_fhir_bundle(
-    receipts: List[Dict[str, Any]],
-    partner_id: Optional[str] = None,
-    policy_fingerprint: Optional[str] = None,
-) -> Dict[str, Any]:
+    receipts: list[dict[str, Any]],
+    partner_id: str | None = None,
+    policy_fingerprint: str | None = None,
+) -> dict[str, Any]:
     """
     Build FHIR R4 Bundle (type=collection) from receipts.
     Deterministic: specimens first, then observations (one per result receipt), then diagnostic reports.
     Each result receipt produces one Observation and one DiagnosticReport; specimen ref = first Specimen in bundle.
     """
-    specimens: List[Dict[str, Any]] = []
-    result_receipts: List[Dict[str, Any]] = []
+    specimens: list[dict[str, Any]] = []
+    result_receipts: list[dict[str, Any]] = []
     for r in receipts:
         if r.get("entity_type") == "specimen":
             specimens.append(r)
         elif r.get("entity_type") == "result":
             result_receipts.append(r)
     # Build resources
-    fhir_specimens: List[Dict[str, Any]] = [_receipt_to_fhir_specimen(s) for s in specimens]
+    fhir_specimens: list[dict[str, Any]] = [_receipt_to_fhir_specimen(s) for s in specimens]
     first_specimen_id = fhir_specimens[0]["id"] if fhir_specimens else None
     specimen_ref = f"#Specimen/{first_specimen_id}" if first_specimen_id else None
     if not specimen_ref and result_receipts:
         specimen_ref = "#Specimen/placeholder"
-        fhir_specimens.append({"resourceType": "Specimen", "id": "placeholder", "identifier": [{"system": "urn:labtrust:specimen", "value": "placeholder"}]})
-    fhir_observations: List[Dict[str, Any]] = [_receipt_to_fhir_observation(r, i) for i, r in enumerate(result_receipts)]
-    fhir_reports: List[Dict[str, Any]] = []
+        fhir_specimens.append(
+            {
+                "resourceType": "Specimen",
+                "id": "placeholder",
+                "identifier": [{"system": "urn:labtrust:specimen", "value": "placeholder"}],
+            }
+        )
+    fhir_observations: list[dict[str, Any]] = [
+        _receipt_to_fhir_observation(r, i) for i, r in enumerate(result_receipts)
+    ]
+    fhir_reports: list[dict[str, Any]] = []
     for i, r in enumerate(result_receipts):
         obs_id = fhir_observations[i]["id"] if i < len(fhir_observations) else f"obs-{i}"
         obs_refs = [f"#Observation/{obs_id}"]
         fhir_reports.append(_receipt_to_fhir_diagnostic_report(r, specimen_ref or "#Specimen/unknown", obs_refs))
     # Bundle.entry: deterministic order Specimen(s), Observation(s), DiagnosticReport(s)
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     for s in fhir_specimens:
         entries.append({"fullUrl": f"#Specimen/{s['id']}", "resource": s})
     for o in fhir_observations:
         entries.append({"fullUrl": f"#Observation/{o['id']}", "resource": o})
     for d in fhir_reports:
         entries.append({"fullUrl": f"#DiagnosticReport/{d['id']}", "resource": d})
-    bundle: Dict[str, Any] = {
+    bundle: dict[str, Any] = {
         "resourceType": "Bundle",
         "meta": {},
         "type": FHIR_BUNDLE_TYPE,
@@ -220,19 +268,21 @@ def receipts_to_fhir_bundle(
     if partner_id:
         bundle["meta"]["tag"] = [{"system": "http://labtrust.org/fhir/partner", "code": partner_id}]
     if policy_fingerprint:
-        bundle["meta"].setdefault("extension", []).append({
-            "url": "http://labtrust.org/fhir/StructureDefinition/policy-fingerprint",
-            "valueString": policy_fingerprint,
-        })
+        bundle["meta"].setdefault("extension", []).append(
+            {
+                "url": "http://labtrust.org/fhir/StructureDefinition/policy-fingerprint",
+                "valueString": policy_fingerprint,
+            }
+        )
     return bundle
 
 
-def validate_bundle_structure(bundle: Dict[str, Any]) -> List[str]:
+def validate_bundle_structure(bundle: dict[str, Any]) -> list[str]:
     """
     Lightweight structural validation: required keys, references resolve within bundle.
     Returns list of error messages (empty if valid).
     """
-    errors: List[str] = []
+    errors: list[str] = []
     if bundle.get("resourceType") != "Bundle":
         errors.append("Bundle must have resourceType 'Bundle'")
     if bundle.get("type") != FHIR_BUNDLE_TYPE:
@@ -241,7 +291,7 @@ def validate_bundle_structure(bundle: Dict[str, Any]) -> List[str]:
     if not isinstance(entries, list):
         errors.append("Bundle.entry must be an array")
         return errors
-    ids: set = set()
+    ids: set[str] = set()
     for i, e in enumerate(entries):
         if not isinstance(e, dict):
             errors.append(f"entry[{i}] must be an object")

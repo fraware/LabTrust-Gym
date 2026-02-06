@@ -13,7 +13,7 @@ import hashlib
 import json
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.benchmarks.runner import run_benchmark
 from labtrust_gym.benchmarks.summarize import _normalize_to_v02
@@ -36,7 +36,7 @@ def _sha256_file(path: Path) -> str:
     return _sha256_bytes(path.read_bytes())
 
 
-def _v02_metrics_canonical(results: Dict[str, Any]) -> str:
+def _v02_metrics_canonical(results: dict[str, Any]) -> str:
     """Canonical representation of v0.2-relevant content: task, seeds, episodes (seed + metrics)."""
     norm = _normalize_to_v02(results)
     if not norm:
@@ -46,10 +46,7 @@ def _v02_metrics_canonical(results: Dict[str, Any]) -> str:
         "task": norm["task"],
         "seeds": norm["seeds"],
         "agent_baseline_id": norm["agent_baseline_id"],
-        "episodes": [
-            {"seed": ep.get("seed"), "metrics": ep.get("metrics") or {}}
-            for ep in norm.get("episodes") or []
-        ],
+        "episodes": [{"seed": ep.get("seed"), "metrics": ep.get("metrics") or {}} for ep in norm.get("episodes") or []],
     }
     return _canonical_json(out)
 
@@ -60,10 +57,10 @@ def _run_and_hash(
     base_seed: int,
     run_dir: Path,
     repo_root: Path,
-    partner_id: Optional[str] = None,
-    timing_mode: Optional[str] = None,
-    coord_method: Optional[str] = None,
-) -> Tuple[Dict[str, Any], str, str, Optional[str]]:
+    partner_id: str | None = None,
+    timing_mode: str | None = None,
+    coord_method: str | None = None,
+) -> tuple[dict[str, Any], str, str, str | None]:
     """
     Run benchmark once in run_dir; return (results, episode_log_sha256, results_sha256, receipts_bundle_root_hash).
     Hashes use canonicalization where needed (results = canonical JSON; episode log = raw file bytes).
@@ -87,7 +84,7 @@ def _run_and_hash(
     results_sha256 = _sha256_string(_canonical_json(results))
     receipts_dir = run_dir / "receipts"
     receipts_dir.mkdir(parents=True, exist_ok=True)
-    bundle_root_hash: Optional[str] = None
+    bundle_root_hash: str | None = None
     try:
         from labtrust_gym.export.receipts import export_receipts
 
@@ -111,11 +108,11 @@ def run_determinism_report(
     num_episodes: int,
     base_seed: int,
     out_dir: Path,
-    partner_id: Optional[str] = None,
-    timing_mode: Optional[str] = None,
-    repo_root: Optional[Path] = None,
-    coord_method: Optional[str] = None,
-) -> Tuple[bool, Dict[str, Any], str]:
+    partner_id: str | None = None,
+    timing_mode: str | None = None,
+    repo_root: Path | None = None,
+    coord_method: str | None = None,
+) -> tuple[bool, dict[str, Any], str]:
     """
     Run benchmark twice in fresh temp dirs with identical args; compare hashes and v0.2 metrics.
 
@@ -135,7 +132,7 @@ def run_determinism_report(
     if task_name in ("TaskG_COORD_SCALE", "TaskH_COORD_RISK") and coord_method is None:
         coord_method = "kernel_centralized_edf"
 
-    errors: List[str] = []
+    errors: list[str] = []
 
     with tempfile.TemporaryDirectory(prefix="labtrust_det_run1_") as td1:
         results1, log_sha1, res_sha1, bundle_hash1 = _run_and_hash(
@@ -163,23 +160,15 @@ def run_determinism_report(
     if log_sha1 != log_sha2:
         errors.append("Episode log SHA-256 mismatch (non-deterministic episode log)")
     if res_sha1 != res_sha2:
-        errors.append(
-            "Results.json canonical SHA-256 mismatch (non-deterministic results)"
-        )
+        errors.append("Results.json canonical SHA-256 mismatch (non-deterministic results)")
     v02_c1 = _v02_metrics_canonical(results1)
     v02_c2 = _v02_metrics_canonical(results2)
     if v02_c1 != v02_c2:
         errors.append("v0.2 metrics canonical representation mismatch")
-    if (
-        bundle_hash1 is not None
-        and bundle_hash2 is not None
-        and bundle_hash1 != bundle_hash2
-    ):
+    if bundle_hash1 is not None and bundle_hash2 is not None and bundle_hash1 != bundle_hash2:
         errors.append("Receipts bundle root hash mismatch")
     elif (bundle_hash1 is None) != (bundle_hash2 is None):
-        errors.append(
-            "Receipts bundle export failed for one run; cannot compare bundle root hash"
-        )
+        errors.append("Receipts bundle export failed for one run; cannot compare bundle root hash")
 
     run1_payload = {
         "episode_log_sha256": log_sha1,
@@ -206,9 +195,7 @@ def run_determinism_report(
         "v02_metrics_identical": v02_c1 == v02_c2,
         "episode_log_identical": log_sha1 == log_sha2,
         "results_identical": res_sha1 == res_sha2,
-        "receipts_bundle_identical": (
-            (bundle_hash1 == bundle_hash2) if (bundle_hash1 and bundle_hash2) else None
-        ),
+        "receipts_bundle_identical": ((bundle_hash1 == bundle_hash2) if (bundle_hash1 and bundle_hash2) else None),
     }
 
     md_lines = [
@@ -241,12 +228,9 @@ def run_determinism_report(
         [
             "## Hashes (run1 vs run2)",
             "",
-            f"- Episode log SHA-256: `{log_sha1}` vs `{log_sha2}` "
-            + ("✓" if log_sha1 == log_sha2 else "✗"),
-            f"- Results canonical SHA-256: `{res_sha1}` vs `{res_sha2}` "
-            + ("✓" if res_sha1 == res_sha2 else "✗"),
-            f"- v0.2 metrics canonical: "
-            + ("identical ✓" if v02_c1 == v02_c2 else "mismatch ✗"),
+            f"- Episode log SHA-256: `{log_sha1}` vs `{log_sha2}` " + ("✓" if log_sha1 == log_sha2 else "✗"),
+            f"- Results canonical SHA-256: `{res_sha1}` vs `{res_sha2}` " + ("✓" if res_sha1 == res_sha2 else "✗"),
+            "- v0.2 metrics canonical: " + ("identical ✓" if v02_c1 == v02_c2 else "mismatch ✗"),
             "",
         ]
     )

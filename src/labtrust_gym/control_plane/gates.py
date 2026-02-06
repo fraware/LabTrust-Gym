@@ -7,12 +7,16 @@ into step output (or short-circuit return when allowed=False).
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from labtrust_gym.control_plane.interface import GateDecision
 from labtrust_gym.engine.rbac import (
     check as rbac_check,
+)
+from labtrust_gym.engine.rbac import (
     get_agent_role as rbac_get_agent_role,
+)
+from labtrust_gym.engine.rbac import (
     get_allowed_actions as rbac_get_allowed_actions,
 )
 from labtrust_gym.engine.signatures import (
@@ -28,8 +32,8 @@ SIG_ROLE_MISMATCH = "SIG_ROLE_MISMATCH"
 
 
 def apply_gates(
-    event: Dict[str, Any],
-    context: Dict[str, Any],
+    event: dict[str, Any],
+    context: dict[str, Any],
 ) -> GateDecision:
     """
     Run RBAC, capability, and signature gates. Returns GateDecision.
@@ -42,16 +46,14 @@ def apply_gates(
     action_type = str(event.get("action_type", ""))
     args = event.get("args") or {}
 
-    rbac_context: Dict[str, Any] = {
+    rbac_context: dict[str, Any] = {
         "zone_id": context.get("zone_id"),
         "device_id": args.get("device_id"),
     }
     if context.get("zones") and agent_id:
         rbac_context["zone_id"] = context["zones"].get_agent_zone(agent_id)
 
-    allowed, rbac_reason, rbac_decision = rbac_check(
-        agent_id, action_type, rbac_context, rbac_policy
-    )
+    allowed, rbac_reason, rbac_decision = rbac_check(agent_id, action_type, rbac_context, rbac_policy)
     if not allowed and rbac_reason:
         return GateDecision(
             allowed=False,
@@ -101,15 +103,15 @@ def apply_gates(
             )
 
     strict_signatures = context.get("strict_signatures", False)
-    prev_hash = context.get("prev_hash")
+    prev_hash = context.get("prev_hash") or ""
     t_s = context.get("t_s", 0)
     key_registry = context.get("key_registry") or {}
     partner_id = context.get("partner_id")
     policy_fingerprint = context.get("policy_fingerprint")
 
-    sig_passed: Optional[bool] = None
-    sig_reason: Optional[str] = None
-    sig_info: Optional[Dict[str, Any]] = None
+    sig_passed: bool | None = None
+    sig_reason: str | None = None
+    sig_info: dict[str, Any] | None = None
     if event.get("key_id") or event.get("signature"):
         passed, reason, info = verify_action_signature(
             event,
@@ -151,11 +153,7 @@ def apply_gates(
         if sig_passed is True and sig_info:
             agent_role = rbac_get_agent_role(agent_id, rbac_policy)
             key_role = sig_info.get("key_role_id")
-            if (
-                agent_role is not None
-                and key_role is not None
-                and agent_role != key_role
-            ):
+            if agent_role is not None and key_role is not None and agent_role != key_role:
                 return GateDecision(
                     allowed=False,
                     step_output_fragment={
@@ -166,7 +164,7 @@ def apply_gates(
                     },
                 )
 
-    fragment: Dict[str, Any] = {
+    fragment: dict[str, Any] = {
         "rbac_decision": rbac_decision,
     }
     if sig_info is not None:

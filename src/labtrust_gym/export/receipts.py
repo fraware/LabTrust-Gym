@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.tools.registry import combined_policy_fingerprint
 
@@ -22,9 +22,9 @@ MANIFEST_VERSION = "0.1"
 EVIDENCE_BUNDLE_DIR = "EvidenceBundle.v0.1"
 
 
-def load_episode_log(path: Path) -> List[Dict[str, Any]]:
+def load_episode_log(path: Path) -> list[dict[str, Any]]:
     """Load episode log JSONL; one dict per line. Deterministic order."""
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     text = path.read_text(encoding="utf-8")
     for line in text.strip().splitlines():
         line = line.strip()
@@ -40,11 +40,11 @@ def _canonical_json(obj: Any) -> str:
 
 
 def _entity_ids_from_entries(
-    entries: List[Dict[str, Any]],
-) -> Tuple[List[str], List[str]]:
+    entries: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
     """Collect specimen_id and result_id from log entries (args). Deterministic sorted."""
-    specimen_ids: set = set()
-    result_ids: set = set()
+    specimen_ids: set[str] = set()
+    result_ids: set[str] = set()
     for e in entries:
         args = e.get("args") or {}
         if isinstance(args, dict):
@@ -71,11 +71,11 @@ def _entity_ids_from_entries(
 def _decision_for_entity(
     entity_type: str,
     entity_id: str,
-    entries: List[Dict[str, Any]],
+    entries: list[dict[str, Any]],
 ) -> str:
     """Infer decision: RELEASED, HELD, REJECTED, or BLOCKED from last relevant step."""
-    last_status: Optional[str] = None
-    last_action: Optional[str] = None
+    last_status: str | None = None
+    last_action: str | None = None
     for e in entries:
         args = e.get("args") or {}
         if not isinstance(args, dict):
@@ -116,10 +116,10 @@ def _decision_for_entity(
 def _timestamps_for_entity(
     entity_type: str,
     entity_id: str,
-    entries: List[Dict[str, Any]],
-) -> Dict[str, int]:
+    entries: list[dict[str, Any]],
+) -> dict[str, int]:
     """Collect timestamps (t_s) for received, accepted, separated, queued, run_started, result_generated, released."""
-    out: Dict[str, int] = {}
+    out: dict[str, int] = {}
     for e in entries:
         args = e.get("args") or {}
         if not isinstance(args, dict):
@@ -149,11 +149,11 @@ def _timestamps_for_entity(
 def _reason_codes_for_entity(
     entity_type: str,
     entity_id: str,
-    entries: List[Dict[str, Any]],
-) -> List[str]:
+    entries: list[dict[str, Any]],
+) -> list[str]:
     """Collect reason_codes from blocked_reason_code and violations."""
-    codes: List[str] = []
-    seen: set = set()
+    codes: list[str] = []
+    seen: set[str] = set()
     for e in entries:
         args = e.get("args") or {}
         if not isinstance(args, dict):
@@ -177,10 +177,10 @@ def _reason_codes_for_entity(
 def _tokens_for_entity(
     entity_type: str,
     entity_id: str,
-    entries: List[Dict[str, Any]],
-) -> Dict[str, List[Dict[str, Any]]]:
+    entries: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
     """Tokens consumed linked to step index; minted/revoked from emits if present."""
-    consumed: List[Dict[str, Any]] = []
+    consumed: list[dict[str, Any]] = []
     for i, e in enumerate(entries):
         args = e.get("args") or {}
         if not isinstance(args, dict):
@@ -197,11 +197,11 @@ def _tokens_for_entity(
 def _invariant_summary_for_entity(
     entity_type: str,
     entity_id: str,
-    entries: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    entries: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Violated invariant_ids, first_violation_ts, final_status."""
-    violated: List[str] = []
-    first_ts: Optional[int] = None
+    violated: list[str] = []
+    first_ts: int | None = None
     for e in entries:
         args = e.get("args") or {}
         if not isinstance(args, dict):
@@ -229,13 +229,13 @@ def _invariant_summary_for_entity(
 def _enforcement_summary_for_entity(
     entity_type: str,
     entity_id: str,
-    entries: List[Dict[str, Any]],
-) -> Dict[str, List[Dict[str, Any]]]:
+    entries: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
     """Throttle, kill_switch, freeze_zone, forensic_freeze from enforcements in relevant steps."""
-    throttle: List[Dict[str, Any]] = []
-    kill_switch: List[Dict[str, Any]] = []
-    freeze_zone: List[Dict[str, Any]] = []
-    forensic_freeze: List[Dict[str, Any]] = []
+    throttle: list[dict[str, Any]] = []
+    kill_switch: list[dict[str, Any]] = []
+    freeze_zone: list[dict[str, Any]] = []
+    forensic_freeze: list[dict[str, Any]] = []
     for e in entries:
         args = e.get("args") or {}
         if not isinstance(args, dict):
@@ -263,13 +263,13 @@ def _enforcement_summary_for_entity(
     }
 
 
-def _signature_summary_from_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _signature_summary_from_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """Signature verification summary: total_verified, total_failed, first_failure_reason_code, failing_reason_codes."""
     total_verified = 0
     total_failed = 0
-    first_failure_reason_code: Optional[str] = None
-    failing_reason_codes: List[str] = []
-    seen_codes: set = set()
+    first_failure_reason_code: str | None = None
+    failing_reason_codes: list[str] = []
+    seen_codes: set[str] = set()
     for e in entries:
         sv = e.get("signature_verification")
         if not isinstance(sv, dict):
@@ -293,7 +293,7 @@ def _signature_summary_from_entries(entries: List[Dict[str, Any]]) -> Dict[str, 
     }
 
 
-def _hashchain_from_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _hashchain_from_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """Last hashchain state from entries (last line with hashchain)."""
     for e in reversed(entries):
         h = e.get("hashchain")
@@ -305,10 +305,7 @@ def _hashchain_from_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "break_status": (
                     "broken"
                     if e.get("emits")
-                    and (
-                        "FORENSIC_FREEZE" in str(e.get("emits"))
-                        or "FORENSIC_FREEZE_LOG" in str(e.get("emits"))
-                    )
+                    and ("FORENSIC_FREEZE" in str(e.get("emits")) or "FORENSIC_FREEZE_LOG" in str(e.get("emits")))
                     else "intact"
                 ),
             }
@@ -322,10 +319,10 @@ def _hashchain_from_entries(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 def _chain_of_custody_for_specimen(
     entity_id: str,
-    entries: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    entries: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Chain-of-custody transport events for this specimen (forensic quality). DISPATCH -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE."""
-    consignment_to_specimens: Dict[str, List[str]] = {}
+    consignment_to_specimens: dict[str, list[str]] = {}
     for e in entries:
         if e.get("action_type") != "DISPATCH_TRANSPORT":
             continue
@@ -336,7 +333,7 @@ def _chain_of_custody_for_specimen(
             consignment_to_specimens[cid] = specimen_ids
     if not consignment_to_specimens:
         return []
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for e in entries:
         action = e.get("action_type", "")
         t_s = int(e.get("t_s", 0))
@@ -351,11 +348,7 @@ def _chain_of_custody_for_specimen(
                     "status": e.get("status"),
                 }
             )
-        elif (
-            action == "CHAIN_OF_CUSTODY_SIGN"
-            and cid
-            and cid in consignment_to_specimens
-        ):
+        elif action == "CHAIN_OF_CUSTODY_SIGN" and cid and cid in consignment_to_specimens:
             out.append(
                 {
                     "action_type": "CHAIN_OF_CUSTODY_SIGN",
@@ -380,18 +373,16 @@ def _chain_of_custody_for_specimen(
 def build_receipt(
     entity_type: str,
     entity_id: str,
-    entries: List[Dict[str, Any]],
-    hashchain_fallback: Dict[str, Any],
-) -> Dict[str, Any]:
+    entries: list[dict[str, Any]],
+    hashchain_fallback: dict[str, Any],
+) -> dict[str, Any]:
     """Build one Receipt.v0.1 dict for a specimen or result."""
     decision = _decision_for_entity(entity_type, entity_id, entries)
     timestamps = _timestamps_for_entity(entity_type, entity_id, entries)
     reason_codes = _reason_codes_for_entity(entity_type, entity_id, entries)
     tokens = _tokens_for_entity(entity_type, entity_id, entries)
     invariant_summary = _invariant_summary_for_entity(entity_type, entity_id, entries)
-    enforcement_summary = _enforcement_summary_for_entity(
-        entity_type, entity_id, entries
-    )
+    enforcement_summary = _enforcement_summary_for_entity(entity_type, entity_id, entries)
     hc = hashchain_fallback
     for e in reversed(entries):
         args = e.get("args") or {}
@@ -414,7 +405,7 @@ def build_receipt(
         hc = hashchain_fallback
 
     signature_summary = _signature_summary_from_entries(entries)
-    receipt: Dict[str, Any] = {
+    receipt: dict[str, Any] = {
         "version": RECEIPT_VERSION,
         "entity_type": entity_type,
         "decision": decision,
@@ -473,11 +464,11 @@ def build_receipt(
     return receipt
 
 
-def build_receipts_from_log(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def build_receipts_from_log(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Build Receipt.v0.1 list for all specimens and results in the log. Deterministic order."""
     specimen_ids, result_ids = _entity_ids_from_entries(entries)
     hc_fallback = _hashchain_from_entries(entries)
-    receipts: List[Dict[str, Any]] = []
+    receipts: list[dict[str, Any]] = []
     for sid in specimen_ids:
         receipts.append(build_receipt("specimen", sid, entries, hc_fallback))
     for rid in result_ids:
@@ -499,14 +490,14 @@ POLICY_PACK_MANIFEST_FILENAME = "policy_pack_manifest.v0.1.json"
 
 def write_evidence_bundle(
     out_dir: Path,
-    receipts: List[Dict[str, Any]],
-    entries: List[Dict[str, Any]],
-    policy_fingerprint: Optional[str] = None,
-    partner_id: Optional[str] = None,
+    receipts: list[dict[str, Any]],
+    entries: list[dict[str, Any]],
+    policy_fingerprint: str | None = None,
+    partner_id: str | None = None,
     sign_bundle: bool = False,
-    policy_root: Optional[Path] = None,
-    tool_registry_fingerprint: Optional[str] = None,
-    rbac_policy_fingerprint: Optional[str] = None,
+    policy_root: Path | None = None,
+    tool_registry_fingerprint: str | None = None,
+    rbac_policy_fingerprint: str | None = None,
 ) -> Path:
     """
     Write EvidenceBundle.v0.1/ under out_dir.
@@ -519,19 +510,15 @@ def write_evidence_bundle(
     bundle_dir = out_dir / EVIDENCE_BUNDLE_DIR
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
-    policy_root_hash: Optional[str] = None
+    policy_root_hash: str | None = None
     if policy_root is not None and partner_id is not None:
         try:
             from labtrust_gym.policy.loader import build_policy_pack_manifest
 
-            policy_manifest = build_policy_pack_manifest(
-                Path(policy_root), partner_id=partner_id
-            )
+            policy_manifest = build_policy_pack_manifest(Path(policy_root), partner_id=partner_id)
             policy_root_hash = policy_manifest.get("root_hash")
             policy_manifest_path = bundle_dir / POLICY_PACK_MANIFEST_FILENAME
-            policy_manifest_path.write_text(
-                _canonical_json(policy_manifest) + "\n", encoding="utf-8"
-            )
+            policy_manifest_path.write_text(_canonical_json(policy_manifest) + "\n", encoding="utf-8")
         except Exception:
             policy_root_hash = None
 
@@ -539,7 +526,7 @@ def write_evidence_bundle(
     def _safe_filename(s: str) -> str:
         return "".join(c if c.isalnum() or c in "_-" else "_" for c in s)
 
-    written_files: List[str] = []
+    written_files: list[str] = []
     if policy_root_hash is not None:
         written_files.append(POLICY_PACK_MANIFEST_FILENAME)
     for r in receipts:
@@ -594,7 +581,7 @@ def write_evidence_bundle(
         tool_registry_fingerprint,
         rbac_policy_fingerprint,
     )
-    manifest: Dict[str, Any] = {
+    manifest: dict[str, Any] = {
         "version": MANIFEST_VERSION,
         "files": [],
         "policy_fingerprint": effective_policy_fp,
@@ -624,11 +611,11 @@ def write_evidence_bundle(
 def export_receipts(
     run_path: Path,
     out_dir: Path,
-    policy_fingerprint: Optional[str] = None,
-    partner_id: Optional[str] = None,
-    policy_root: Optional[Path] = None,
-    tool_registry_fingerprint: Optional[str] = None,
-    rbac_policy_fingerprint: Optional[str] = None,
+    policy_fingerprint: str | None = None,
+    partner_id: str | None = None,
+    policy_root: Path | None = None,
+    tool_registry_fingerprint: str | None = None,
+    rbac_policy_fingerprint: str | None = None,
 ) -> Path:
     """
     Load episode log from run_path (JSONL), build receipts, write EvidenceBundle.v0.1 to out_dir.
@@ -645,7 +632,7 @@ def export_receipts(
             "length": 0,
             "break_status": "intact",
         }
-        receipts = [
+        receipts: list[dict[str, Any]] = [
             {
                 "version": RECEIPT_VERSION,
                 "entity_type": "specimen",
@@ -675,16 +662,10 @@ def export_receipts(
         ]
     else:
         receipts = build_receipts_from_log(entries)
-    pf = policy_fingerprint or (
-        entries[0].get("policy_fingerprint") if entries else None
-    )
+    pf = policy_fingerprint or (entries[0].get("policy_fingerprint") if entries else None)
     pid = partner_id or (entries[0].get("partner_id") if entries else None)
-    tr_fp = tool_registry_fingerprint or (
-        entries[0].get("tool_registry_fingerprint") if entries else None
-    )
-    rbac_fp = rbac_policy_fingerprint or (
-        entries[0].get("rbac_policy_fingerprint") if entries else None
-    )
+    tr_fp = tool_registry_fingerprint or (entries[0].get("tool_registry_fingerprint") if entries else None)
+    rbac_fp = rbac_policy_fingerprint or (entries[0].get("rbac_policy_fingerprint") if entries else None)
     return write_evidence_bundle(
         out_dir,
         receipts,

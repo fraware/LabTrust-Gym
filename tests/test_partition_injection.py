@@ -8,8 +8,8 @@ Detection: comm.partition_events > 0 and/or coordination.stale_action_rate incre
 
 from __future__ import annotations
 
-from labtrust_gym.coordination.comms_model import CommsConfig, CommsModel
 from labtrust_gym.coordination.blackboard import BlackboardEvent
+from labtrust_gym.coordination.comms_model import CommsConfig, CommsModel
 from labtrust_gym.security.risk_injections import make_injector
 
 
@@ -41,9 +41,7 @@ def test_comms_model_with_network_policy_uses_network_model() -> None:
     }
     cfg = CommsConfig(perfect=False, network_policy=policy)
     comms = CommsModel(agent_ids=["a", "b"], config=cfg, seed=7)
-    ev = BlackboardEvent(
-        id=0, t_event=0, t_emit=0, type="X", payload_hash="h", payload_small={}
-    )
+    ev = BlackboardEvent(id=0, t_event=0, t_emit=0, type="X", payload_hash="h", payload_small={})
     for t in range(5):
         comms.apply([ev] if t == 0 else [], t)
     metrics = comms.get_metrics()

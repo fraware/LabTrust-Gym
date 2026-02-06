@@ -102,6 +102,62 @@ pytest -q
 
 Optional extras: `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings).
 
+### PyTorch on AMD or CPU-only (no CUDA)
+
+LabTrust-Gym does not require CUDA. If you use an **AMD** CPU (e.g. Ryzen with integrated Radeon) or any machine without an NVIDIA GPU, use a CPU-only PyTorch build. CUDA is NVIDIA-only.
+
+**Conda users:** If `conda` is not found in your shell, open **Anaconda Prompt** or **Miniconda Prompt** from the Start Menu so the conda base path is in PATH.
+
+#### Conda environment with CPU-only PyTorch (recommended on Windows / AMD)
+
+Create a dedicated conda environment with Python 3.12 and install PyTorch (CPU-only) from the pytorch channel, then install LabTrust-Gym into that environment:
+
+```bash
+conda create -n gym python=3.12 -y
+conda activate gym
+conda install pytorch torchvision torchaudio cpuonly -c pytorch
+```
+
+Then, from the LabTrust-Gym repo root, install the project and extras (pip will use the activated conda env):
+
+```bash
+cd LabTrust-Gym
+pip install -e ".[dev,env,plots]"
+# Optional, for MARL (PPO): pip install -e ".[dev,env,plots,marl]"
+labtrust validate-policy
+```
+
+The conda env includes pip by default, so you do not need `ensurepip`. Use `conda activate gym` whenever you work on LabTrust-Gym with this setup.
+
+#### Pip-only: CPU-only PyTorch
+
+If you prefer a venv or system Python instead of conda:
+
+- **Pip (venv or system):**
+  ```bash
+  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+  ```
+
+#### AMD GPU via DirectML (Windows, optional)
+
+For hardware acceleration on AMD Radeon (or other non-NVIDIA) GPUs on Windows:
+
+```bash
+pip install torch-directml
+```
+
+This is the Windows alternative to CUDA for non-NVIDIA cards. Prefer the CPU-only build above if you do not need GPU acceleration.
+
+#### Verify PyTorch
+
+```python
+import torch
+print(f"PyTorch version: {torch.__version__}")
+print(f"CUDA available? {torch.cuda.is_available()}")  # False is correct for AMD/CPU-only
+```
+
+For MARL (PPO) and related tests, see [MARL baselines](marl_baselines.md).
+
 **Quickstart (paper artifact):** From repo root, run `bash scripts/quickstart_paper_v0.1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows). Runs: install → validate-policy → quick-eval → package-release paper_v0.1 → verify-bundle. See [CONTRACTS](CONTRACTS.md) and [Paper-ready](paper_ready.md).
 
 **UI export:** To produce a UI-ready zip from a run (quick-eval or package-release output): `labtrust ui-export --run <dir> --out ui_bundle.zip`. The bundle contains normalized `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. See [UI data contract](ui_data_contract.md).
@@ -121,3 +177,5 @@ Optional extras: `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings
 | **Path resolution (Windows)** | Spaces in path | Quote paths: `labtrust quick-eval --out-dir "C:\LabTrust runs"`. |
 | **Set-Location / command "fails" (PowerShell)** | Project path contains **special characters** (e.g. **é** in "Matéo") | PowerShell or the runner may mangle Unicode and `cd` to the project dir can fail. **Fix:** Clone or move the repo to a path **without** accented characters (e.g. `C:\LabTrust-Gym`). Then run commands from that directory. Alternatively run from an existing shell already in the repo: `python -m labtrust_gym.cli.main --version`. |
 | **pytest timeout** | Long test (e.g. `test_package_release_determinism`) runs full package-release | Run with a higher per-test timeout, e.g. `pytest -q --timeout=300`, or exclude long tests: `pytest -q --ignore=tests/test_package_release.py`. |
+| **Security suite 0/10 passed** | pettingzoo/gymnasium or pytest missing in the env that runs `labtrust`; on Windows, `pip` may target global Python | Use the copy-paste command from the CLI hint (full path to venv Python). See [Security attack suite](security_attack_suite.md#prerequisites). |
+| **No module named pip** (when running the venv’s `python -m pip`) | The venv was created without pip or pip was removed | Bootstrap pip: `& ".venv\Scripts\python.exe" -m ensurepip --upgrade` (PowerShell; use your venv path). Then run the `pip install` command again. |

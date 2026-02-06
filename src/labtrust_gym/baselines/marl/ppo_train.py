@@ -6,28 +6,28 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
-from labtrust_gym.baselines.marl.sb3_wrapper import LabTrustGymnasiumWrapper, make_task_env
+from labtrust_gym.baselines.marl.sb3_wrapper import make_task_env
 
 
-def _make_reset_wrapper(gym_env: Any, task: Any):
+def _make_reset_wrapper(gym_env: Any, task: Any) -> Any:
     """Wrap gym env so reset(seed) injects initial_state from task."""
     try:
         import gymnasium
     except ImportError:
         raise ImportError('Install with: pip install -e ".[marl]"') from None
 
-    class ResetWrapper(gymnasium.Wrapper):  # type: ignore[misc]
+    class ResetWrapper(gymnasium.Wrapper):  # type: ignore[type-arg]
         def __init__(self, env: Any, task: Any) -> None:
             super().__init__(env)
             self._task = task
 
         def reset(
             self,
-            seed: Optional[int] = None,
-            options: Optional[Dict[str, Any]] = None,
-        ) -> tuple[Any, Dict[str, Any]]:
+            seed: int | None = None,
+            options: dict[str, Any] | None = None,
+        ) -> tuple[Any, dict[str, Any]]:
             options = dict(options or {})
             if seed is not None:
                 options["initial_state"] = self._task.get_initial_state(seed)
@@ -40,10 +40,10 @@ def train_ppo(
     task_name: str = "TaskA",
     timesteps: int = 50_000,
     seed: int = 123,
-    out_dir: Optional[Path] = None,
+    out_dir: Path | None = None,
     log_interval: int = 1000,
     verbose: int = 1,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Train PPO on task with fixed seed. Saves model and eval metrics to out_dir.
     Returns dict with eval metrics and paths.
@@ -52,9 +52,7 @@ def train_ppo(
         from stable_baselines3 import PPO
         from stable_baselines3.common.monitor import Monitor
     except ImportError:
-        raise ImportError(
-            'stable-baselines3 is required for PPO. Install with: pip install -e ".[marl]"'
-        ) from None
+        raise ImportError('stable-baselines3 is required for PPO. Install with: pip install -e ".[marl]"') from None
 
     from labtrust_gym.benchmarks.tasks import get_task
 
@@ -109,7 +107,7 @@ def _eval_policy(
     task_name: str = "TaskA",
     n_episodes: int = 5,
     seed: int = 123,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run deterministic eval episodes and return metrics."""
     try:
         from stable_baselines3 import PPO

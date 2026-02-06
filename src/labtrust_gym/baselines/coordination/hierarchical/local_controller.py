@@ -6,12 +6,11 @@ Deterministic; uses same kernel components as global composed methods.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, cast
 
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import (
     AllocationDecision,
-    RouteDecision,
     ScheduleDecision,
 )
 from labtrust_gym.baselines.coordination.kernel_components import (
@@ -19,13 +18,11 @@ from labtrust_gym.baselines.coordination.kernel_components import (
     TrivialRouter,
 )
 from labtrust_gym.baselines.coordination.obs_utils import (
-    get_queue_by_device,
     get_zone_from_obs,
     log_frozen,
-    queue_has_head,
 )
 
-MacroAssignment = Tuple[str, str, str, str, int, int]
+MacroAssignment = tuple[str, str, str, str, int, int]
 
 
 class LocalController:
@@ -43,18 +40,18 @@ class LocalController:
     def step(
         self,
         region_id: str,
-        region_agent_ids: List[str],
-        region_zone_ids: List[str],
-        region_device_ids: List[str],
-        region_device_zone: Dict[str, str],
-        obs: Dict[str, Any],
-        region_assignments: List[MacroAssignment],
-        policy: Dict[str, Any],
+        region_agent_ids: list[str],
+        region_zone_ids: list[str],
+        region_device_ids: list[str],
+        region_device_zone: dict[str, str],
+        obs: dict[str, Any],
+        region_assignments: list[MacroAssignment],
+        policy: dict[str, Any],
         adjacency: Any,
         t: int,
         seed: int,
         rng: Any,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """
         Allocate region work to region agents (greedy colocation), schedule EDF, route.
         Returns action_dict per agent_id for agents in region only.
@@ -68,13 +65,13 @@ class LocalController:
         zone_ids = region_zone_ids
         device_ids = region_device_ids
         device_zone = region_device_zone
-        assignments: List[Tuple[str, str, str, int]] = []
-        used_work: set = set()
-        worklist: List[Tuple[int, str, str, str]] = []
+        assignments: list[tuple[str, str, str, int]] = []
+        used_work: set[tuple[str, str]] = set()
+        worklist: list[tuple[int, str, str, str]] = []
         for _r, work_id, device_id, zone_id, prio, _dl in region_assignments:
             worklist.append((prio, device_id, work_id, zone_id))
         worklist.sort(key=lambda x: (-x[0], x[1], x[2]))
-        assigned_agents: set = set()
+        assigned_agents: set[str] = set()
         for prio, device_id, work_id, zone_id in worklist:
             if (device_id, work_id) in used_work:
                 continue
@@ -93,7 +90,7 @@ class LocalController:
                 break
 
         allocation = AllocationDecision(assignments=tuple(assignments), explain="local")
-        per_agent: Dict[str, List[Tuple[str, int, int]]] = {}
+        per_agent: dict[str, list[tuple[str, int, int]]] = {}
         for agent_id, work_id, device_id, prio in allocation.assignments:
             deadline = t + 20
             if agent_id not in per_agent:
@@ -101,13 +98,18 @@ class LocalController:
             per_agent[agent_id].append((work_id, deadline, prio))
         for aid in per_agent:
             per_agent[aid].sort(key=lambda x: (x[1], -x[2], x[0]))
-        per_agent_tuple = tuple(
-            (aid, tuple(lst)) for aid, lst in sorted(per_agent.items())
-        )
+        per_agent_tuple = tuple((aid, tuple(lst)) for aid, lst in sorted(per_agent.items()))
         schedule = ScheduleDecision(per_agent=per_agent_tuple, explain="edf")
 
         class LocalCtx:
-            pass
+            agent_ids: list[str]
+            zone_ids: list[str]
+            device_ids: list[str]
+            device_zone: dict[str, str]
+            obs: dict[str, Any]
+            policy: dict[str, Any]
+            t: int
+            rng: Any
 
         ctx = LocalCtx()
         ctx.agent_ids = region_agent_ids
@@ -118,9 +120,9 @@ class LocalController:
         ctx.policy = policy
         ctx.t = t
         ctx.rng = rng
-        route = self._router.route(ctx, allocation, schedule)
+        route = self._router.route(cast(KernelContext, ctx), allocation, schedule)
 
-        out: Dict[str, Dict[str, Any]] = {}
+        out: dict[str, dict[str, Any]] = {}
         for agent_id in region_agent_ids:
             out[agent_id] = {"action_index": ACTION_NOOP}
         for agent_id, action_type, args_tuple in route.per_agent:

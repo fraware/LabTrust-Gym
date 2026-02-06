@@ -224,10 +224,7 @@ def test_engine_capability_override_budget_blocked() -> None:
     assert result.get("blocked_reason_code") == AGENT_OVERRIDE_BUDGET_EXCEEDED
     assert "AGENT_SCOPE_VIOLATION" in (result.get("emits") or [])
     assert result.get("capability_decision") is not None
-    assert (
-        result["capability_decision"].get("reason_code")
-        == AGENT_OVERRIDE_BUDGET_EXCEEDED
-    )
+    assert result["capability_decision"].get("reason_code") == AGENT_OVERRIDE_BUDGET_EXCEEDED
 
 
 def test_llm_release_result_override_repeatedly_blocked_and_logged() -> None:
@@ -283,7 +280,7 @@ def test_llm_release_result_override_repeatedly_blocked_and_logged() -> None:
         "role_id": "ROLE_ANALYTICS",
     }
     idx1, info1, meta1 = agent.act(obs, agent_id="ops_0")
-    action_type1 = (info1.get("action_type") or "NOOP").strip()
+    (info1.get("action_type") or "NOOP").strip()
     # Shield + capability policy are wired: agent uses capability_profile for allow/signing_proxy.
     # Override budget is enforced by engine (test_engine_capability_override_budget_blocked).
     assert "action_type" in info1

@@ -13,7 +13,7 @@ import itertools
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from labtrust_gym.benchmarks.coordination_scale import CoordinationScaleConfig
 from labtrust_gym.benchmarks.runner import run_benchmark
@@ -35,15 +35,15 @@ _DEFAULT_ROLE_MIX = {
 
 
 def _expand_scale_rows(
-    spec: Dict[str, Any],
-) -> List[Tuple[str, Dict[str, Any], CoordinationScaleConfig]]:
+    spec: dict[str, Any],
+) -> list[tuple[str, dict[str, Any], CoordinationScaleConfig]]:
     """
     Expand spec scales into Cartesian product of scale dimensions.
     Returns list of (scale_id, scale_row_dict, CoordinationScaleConfig).
     """
     scales_def = spec.get("scales") or []
     if not scales_def:
-        scale_row = {}
+        scale_row: dict[str, Any] = {}
         scale_config = CoordinationScaleConfig(
             num_agents_total=2,
             role_mix=dict(_DEFAULT_ROLE_MIX),
@@ -78,7 +78,7 @@ def _expand_scale_rows(
         )
         return [("scale_0", {}, scale_config)]
 
-    rows: List[Tuple[str, Dict[str, Any], CoordinationScaleConfig]] = []
+    rows: list[tuple[str, dict[str, Any], CoordinationScaleConfig]] = []
     for idx, combo in enumerate(itertools.product(*value_lists)):
         row = dict(zip(names, combo))
         # Map spec row -> CoordinationScaleConfig
@@ -101,7 +101,7 @@ def _expand_scale_rows(
     return rows
 
 
-def _expand_injections(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _expand_injections(spec: dict[str, Any]) -> list[dict[str, Any]]:
     """Return list of injection config dicts (injection_id, intensity, seed_offset)."""
     injections = spec.get("injections") or []
     out = []
@@ -119,17 +119,15 @@ def _expand_injections(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
-def _cell_seed(
-    seed_base: int, scale_idx: int, method_idx: int, injection_idx: int
-) -> int:
+def _cell_seed(seed_base: int, scale_idx: int, method_idx: int, injection_idx: int) -> int:
     """Deterministic cell seed (stable across runs)."""
     return seed_base + scale_idx * 10000 + method_idx * 100 + injection_idx
 
 
-def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate episode metrics for one cell: throughput, p95_tat, violations, blocks, sec.*, comm.*, coordination.timing, coordination.route (deadlock_avoids)."""
     if not episodes:
-        out: Dict[str, Any] = {
+        out: dict[str, Any] = {
             "perf.throughput": 0.0,
             "perf.p95_tat": None,
             "safety.violations_total": 0,
@@ -155,18 +153,18 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
     violations_total = 0
     blocks_total = 0
     attack_success_sum = 0.0
-    detection_steps: List[Optional[int]] = []
-    containment_steps: List[Optional[int]] = []
+    detection_steps: list[int | None] = []
+    containment_steps: list[int | None] = []
     stealth_success_sum = 0.0
-    time_to_attribution_list: List[Optional[int]] = []
-    blast_radius_list: List[Optional[float]] = []
-    resilience_list: List[Optional[float]] = []
-    msg_counts: List[float] = []
-    p95_latency_ms_list: List[Optional[float]] = []
-    drop_rates: List[Optional[float]] = []
-    partition_events_list: List[Optional[int]] = []
-    stale_rates: List[Optional[float]] = []
-    deadlock_avoids_list: List[Optional[float]] = []
+    time_to_attribution_list: list[int | None] = []
+    blast_radius_list: list[float | None] = []
+    resilience_list: list[float | None] = []
+    msg_counts: list[float] = []
+    p95_latency_ms_list: list[float | None] = []
+    drop_rates: list[float | None] = []
+    partition_events_list: list[int | None] = []
+    stale_rates: list[float | None] = []
+    deadlock_avoids_list: list[float | None] = []
 
     for ep in episodes:
         m = ep.get("metrics") or {}
@@ -214,44 +212,26 @@ def _aggregate_cell_metrics(episodes: List[Dict[str, Any]]) -> Dict[str, Any]:
         "safety.violations_total": violations_total,
         "safety.blocks_total": blocks_total,
         "sec.attack_success_rate": attack_success_sum / n if n else None,
-        "sec.detection_latency_steps": (
-            sum(det_vals) / len(det_vals) if det_vals else None
-        ),
-        "sec.containment_time_steps": (
-            sum(cont_vals) / len(cont_vals) if cont_vals else None
-        ),
+        "sec.detection_latency_steps": (sum(det_vals) / len(det_vals) if det_vals else None),
+        "sec.containment_time_steps": (sum(cont_vals) / len(cont_vals) if cont_vals else None),
         "sec.stealth_success_rate": stealth_success_sum / n if n else None,
-        "sec.time_to_attribution_steps": (
-            sum(attr_vals) / len(attr_vals) if attr_vals else None
-        ),
-        "sec.blast_radius_proxy": (
-            sum(blast_vals) / len(blast_vals) if blast_vals else None
-        ),
-        "robustness.resilience_score": (
-            sum(res_vals) / len(res_vals) if res_vals else None
-        ),
+        "sec.time_to_attribution_steps": (sum(attr_vals) / len(attr_vals) if attr_vals else None),
+        "sec.blast_radius_proxy": (sum(blast_vals) / len(blast_vals) if blast_vals else None),
+        "robustness.resilience_score": (sum(res_vals) / len(res_vals) if res_vals else None),
         "comm.msg_count": sum(msg_counts) / len(msg_counts) if msg_counts else None,
-        "comm.p95_latency_ms": (
-            sum(p95_lat_vals) / len(p95_lat_vals) if p95_lat_vals else None
-        ),
+        "comm.p95_latency_ms": (sum(p95_lat_vals) / len(p95_lat_vals) if p95_lat_vals else None),
         "comm.drop_rate": sum(drop_vals) / len(drop_vals) if drop_vals else None,
-        "comm.partition_events": (
-            sum(partition_vals) if partition_vals else None
-        ),
-        "coordination.stale_action_rate": (
-            sum(stale_vals) / len(stale_vals) if stale_vals else None
-        ),
-        "coordination.deadlock_avoids": (
-            sum(deadlock_vals) / len(deadlock_vals) if deadlock_vals else None
-        ),
+        "comm.partition_events": (sum(partition_vals) if partition_vals else None),
+        "coordination.stale_action_rate": (sum(stale_vals) / len(stale_vals) if stale_vals else None),
+        "coordination.deadlock_avoids": (sum(deadlock_vals) / len(deadlock_vals) if deadlock_vals else None),
     }
     return out
 
 
 def _pareto_dominates(
-    a: Dict[str, Any],
-    b: Dict[str, Any],
-    objectives: List[Tuple[str, str]],
+    a: dict[str, Any],
+    b: dict[str, Any],
+    objectives: list[tuple[str, str]],
 ) -> bool:
     """
     True if a dominates b: for each objective (key, direction), a is no worse;
@@ -276,9 +256,7 @@ def _pareto_dominates(
     return at_least_one_better
 
 
-def _pareto_front(
-    rows: List[Dict[str, Any]], objectives: List[Tuple[str, str]]
-) -> List[Dict[str, Any]]:
+def _pareto_front(rows: list[dict[str, Any]], objectives: list[tuple[str, str]]) -> list[dict[str, Any]]:
     """Return rows that are on the Pareto front (non-dominated)."""
     front = []
     for r in rows:
@@ -294,7 +272,7 @@ def _pareto_front(
     return front
 
 
-def _write_summary_csv(out_path: Path, rows: List[Dict[str, Any]]) -> None:
+def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
     """Write summary_coord.csv with required columns including resilience.component_*."""
     columns = [
         "method_id",
@@ -353,8 +331,8 @@ def _write_summary_csv(out_path: Path, rows: List[Dict[str, Any]]) -> None:
 
 def _write_pareto_md(
     out_path: Path,
-    summary_rows: List[Dict[str, Any]],
-    spec: Dict[str, Any],
+    summary_rows: list[dict[str, Any]],
+    spec: dict[str, Any],
 ) -> None:
     """
     Write pareto.md: per-scale Pareto front (min p95_tat, min violations, max resilience),
@@ -390,9 +368,7 @@ def _write_pareto_md(
                 res = r.get("robustness.resilience_score")
                 p95_s = f"{p95:.1f}" if p95 is not None else "—"
                 res_s = f"{res:.3f}" if res is not None else "—"
-                lines.append(
-                    f"- **{method}** / {inj}: p95_tat={p95_s}, violations={viol}, resilience={res_s}"
-                )
+                lines.append(f"- **{method}** / {inj}: p95_tat={p95_s}, violations={viol}, resilience={res_s}")
         lines.append("")
 
     # Top 3 methods per scale by mean resilience (across injections for that scale)
@@ -400,15 +376,13 @@ def _write_pareto_md(
     lines.append("")
     for scale_id in scale_ids:
         subset = [r for r in summary_rows if r["scale_id"] == scale_id]
-        method_scores_local: Dict[str, List[float]] = {}
+        method_scores_local: dict[str, list[float]] = {}
         for r in subset:
             mid = r.get("method_id", "")
             res = r.get("robustness.resilience_score")
             if res is not None and mid:
                 method_scores_local.setdefault(mid, []).append(res)
-        mean_by_method = {
-            mid: sum(s) / len(s) for mid, s in method_scores_local.items() if s
-        }
+        mean_by_method = {mid: sum(s) / len(s) for mid, s in method_scores_local.items() if s}
         top3 = sorted(
             mean_by_method.items(),
             key=lambda x: -x[1],
@@ -425,7 +399,7 @@ def _write_pareto_md(
     # Component radar text table: one row per method (aggregate across scales/injections), columns perf, safety, security, coordination
     lines.append("## Component radar (mean component scores by method)")
     lines.append("")
-    method_components: Dict[str, List[Dict[str, float]]] = {}
+    method_components: dict[str, list[dict[str, Any]]] = {}
     for r in summary_rows:
         mid = r.get("method_id", "")
         if not mid:
@@ -463,18 +437,18 @@ def _write_pareto_md(
     # Robust winner: argmax mean resilience across injections (with optional constraints)
     lines.append("## Robust winner under risk suite")
     lines.append("")
-    method_scores: Dict[str, List[Optional[float]]] = {}
+    method_scores: dict[str, list[float | None]] = {}
     for r in summary_rows:
         mid = r.get("method_id", "")
         if mid not in method_scores:
             method_scores[mid] = []
         method_scores[mid].append(r.get("robustness.resilience_score"))
-    mean_resilience: Dict[str, float] = {}
+    mean_resilience: dict[str, float] = {}
     for mid, scores in method_scores.items():
         vals = [s for s in scores if s is not None]
         mean_resilience[mid] = sum(vals) / len(vals) if vals else 0.0
     if mean_resilience:
-        winner = max(mean_resilience, key=mean_resilience.get)
+        winner = max(mean_resilience, key=lambda k: mean_resilience.get(k, 0.0))
         lines.append(
             f"Method with highest mean resilience across all cells: **{winner}** "
             f"(mean resilience = {mean_resilience[winner]:.3f})."
@@ -487,7 +461,7 @@ def _write_pareto_md(
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _mean_opt(values: List[Optional[float]]) -> Optional[float]:
+def _mean_opt(values: list[float | None]) -> float | None:
     """Return mean of present values, or None if none."""
     present = [v for v in values if v is not None]
     if not present:
@@ -498,8 +472,8 @@ def _mean_opt(values: List[Optional[float]]) -> Optional[float]:
 def run_coordination_study(
     spec_path: Path,
     out_dir: Path,
-    repo_root: Optional[Path] = None,
-) -> Dict[str, Any]:
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
     """
     Execute coordination study: expand (scale x method x injection), run episodes_per_cell per cell,
     write cells/<cell_id>/results.json, summary/summary_coord.csv, summary/pareto.md.
@@ -523,7 +497,7 @@ def run_coordination_study(
 
     scale_rows = _expand_scale_rows(spec)
     methods_raw = spec.get("methods") or []
-    method_ids: List[str] = []
+    method_ids: list[str] = []
     for m in methods_raw:
         if isinstance(m, str):
             method_ids.append(m)
@@ -537,7 +511,7 @@ def run_coordination_study(
 
     injections = _expand_injections(spec)
     risks = spec.get("risks") or []
-    risk_id_by_injection: Dict[str, str] = {}
+    risk_id_by_injection: dict[str, str] = {}
     for i, inj in enumerate(injections):
         inj_id = inj.get("injection_id", "")
         risk_id_by_injection[inj_id] = risks[i] if i < len(risks) else inj_id
@@ -547,7 +521,7 @@ def run_coordination_study(
     cells_dir.mkdir(parents=True, exist_ok=True)
     summary_dir.mkdir(parents=True, exist_ok=True)
 
-    resilience_policy: Optional[Dict[str, Any]] = None
+    resilience_policy: dict[str, Any] | None = None
     try:
         resilience_policy = load_resilience_scoring_policy(
             repo_root / "policy" / "coordination" / "resilience_scoring.v0.1.yaml"
@@ -566,8 +540,8 @@ def run_coordination_study(
             "components": {},
         }
 
-    cell_ids: List[str] = []
-    summary_rows: List[Dict[str, Any]] = []
+    cell_ids: list[str] = []
+    summary_rows: list[dict[str, Any]] = []
 
     for scale_idx, (scale_id, _scale_row, scale_config) in enumerate(scale_rows):
         for method_idx, method_id in enumerate(method_ids):
@@ -606,9 +580,7 @@ def run_coordination_study(
 
                 agg = _aggregate_cell_metrics(results.get("episodes") or [])
                 components = compute_components(agg, resilience_policy)
-                resilience_score = compute_resilience_score(
-                    components, resilience_policy.get("weights") or {}
-                )
+                resilience_score = compute_resilience_score(components, resilience_policy.get("weights") or {})
                 row = {
                     "method_id": method_id,
                     "scale_id": scale_id,
@@ -618,12 +590,8 @@ def run_coordination_study(
                     "robustness.resilience_score": resilience_score,
                     "resilience.component_perf": components.get("component_perf"),
                     "resilience.component_safety": components.get("component_safety"),
-                    "resilience.component_security": components.get(
-                        "component_security"
-                    ),
-                    "resilience.component_coordination": components.get(
-                        "component_coordination"
-                    ),
+                    "resilience.component_security": components.get("component_security"),
+                    "resilience.component_coordination": components.get("component_coordination"),
                 }
                 summary_rows.append(row)
 
@@ -655,7 +623,5 @@ def run_coordination_study(
     if pareto_dir.exists():
         manifest["pareto_dir"] = str(pareto_dir.resolve())
     manifest_path = out_dir / "manifest_coordination.json"
-    manifest_path.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     return manifest

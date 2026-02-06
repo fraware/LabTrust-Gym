@@ -86,12 +86,12 @@ def test_episode_log_jsonl_determinism() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         log1 = Path(tmp) / "ep1.jsonl"
         log2 = Path(tmp) / "ep2.jsonl"
-        from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
         from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
         from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
         from labtrust_gym.envs.pz_parallel import (
-            DEFAULT_ZONE_IDS,
             DEFAULT_DEVICE_IDS,
+            DEFAULT_ZONE_IDS,
+            LabTrustParallelEnv,
         )
 
         def env_factory(

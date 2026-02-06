@@ -7,8 +7,8 @@ support deterministic hashing for tracing.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -81,7 +81,7 @@ class CoordinationDecision:
     explain_schedule: str = ""
     explain_route: str = ""
 
-    def to_emit_payload(self) -> Dict[str, Any]:
+    def to_emit_payload(self) -> dict[str, Any]:
         """Compact payload for COORD_DECISION emit (no large blobs)."""
         return {
             "method_id": self.method_id,
@@ -91,9 +91,7 @@ class CoordinationDecision:
             "allocation_hash": self.allocation_hash,
             "schedule_hash": self.schedule_hash,
             "route_hash": self.route_hash,
-            "explain_allocation": (self.explain_allocation or self.allocation.explain)[
-                :200
-            ],
+            "explain_allocation": (self.explain_allocation or self.allocation.explain)[:200],
             "explain_schedule": (self.explain_schedule or self.schedule.explain)[:200],
             "explain_route": (self.explain_route or self.route.explain)[:200],
         }

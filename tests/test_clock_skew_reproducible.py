@@ -6,8 +6,6 @@ Reproducibility: get_clock_config(agent_ids) is deterministic given reset(seed).
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.security.risk_injections import make_injector
 
 

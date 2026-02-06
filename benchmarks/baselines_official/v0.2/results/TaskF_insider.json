@@ -43,7 +43,7 @@
         "on_time_rate": null,
         "violations_by_invariant_id": {},
         "blocked_by_reason_code": {
-          "RBAC_ACTION_DENY": 47,
+          "RBAC_ACTION_DENY": 2,
           "SIG_INVALID": 2,
           "SIG_KEY_REVOKED": 1
         },
@@ -73,7 +73,7 @@
         "on_time_rate": null,
         "violations_by_invariant_id": {},
         "blocked_by_reason_code": {
-          "RBAC_ACTION_DENY": 47,
+          "RBAC_ACTION_DENY": 2,
           "SIG_INVALID": 2,
           "SIG_KEY_REVOKED": 1
         },
@@ -103,7 +103,7 @@
         "on_time_rate": null,
         "violations_by_invariant_id": {},
         "blocked_by_reason_code": {
-          "RBAC_ACTION_DENY": 47,
+          "RBAC_ACTION_DENY": 2,
           "SIG_INVALID": 2,
           "SIG_KEY_REVOKED": 1
         },

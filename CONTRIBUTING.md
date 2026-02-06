@@ -9,6 +9,8 @@ pip install -e ".[dev]"
 labtrust --version   # optional: check version + git SHA
 ```
 
+Audit for new user: To test and audit the repo (lint, format, typecheck, tests, benchmarks, quick-eval, coordination, reproduce, docs), see [AUDIT_COMMANDS.md](docs/AUDIT_COMMANDS.md).
+
 ## Code quality
 
 Before opening a PR:

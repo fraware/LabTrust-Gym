@@ -12,12 +12,12 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.engine.rbac import (
-    load_rbac_policy,
+    RBAC_ACTION_DENY,
+    RBAC_DEVICE_DENY,
+    RBAC_ZONE_DENY,
     check,
     get_agent_role,
-    RBAC_ACTION_DENY,
-    RBAC_ZONE_DENY,
-    RBAC_DEVICE_DENY,
+    load_rbac_policy,
 )
 
 
@@ -181,6 +181,7 @@ def test_get_agent_role() -> None:
 def test_gs_rbac_028_reception_release_blocked() -> None:
     """GS-RBAC-028: A_RECEPTION RELEASE_RESULT => BLOCKED RBAC_ACTION_DENY."""
     from labtrust_gym.engine.core_env import CoreEnv
+
     if not Path("policy/rbac/rbac_policy.v0.1.yaml").exists():
         pytest.skip("rbac_policy not found")
     env = CoreEnv()
@@ -209,6 +210,7 @@ def test_gs_rbac_028_reception_release_blocked() -> None:
 def test_gs_rbac_029_runner_override_blocked_with_token() -> None:
     """GS-RBAC-029: A_RUNNER RELEASE_RESULT_OVERRIDE with token => BLOCKED RBAC_ACTION_DENY (token cannot bypass)."""
     from labtrust_gym.engine.core_env import CoreEnv
+
     if not Path("policy/rbac/rbac_policy.v0.1.yaml").exists():
         pytest.skip("rbac_policy not found")
     env = CoreEnv()

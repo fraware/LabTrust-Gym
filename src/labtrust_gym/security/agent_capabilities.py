@@ -9,7 +9,7 @@ Agent capability profiles (B006): scope and rate limits beyond RBAC.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 # Reason codes (must match policy/reason_codes/reason_code_registry.v0.1.yaml)
 AGENT_CAPABILITY_DENY = "AGENT_CAPABILITY_DENY"
@@ -17,7 +17,7 @@ AGENT_RATE_LIMIT = "AGENT_RATE_LIMIT"
 AGENT_OVERRIDE_BUDGET_EXCEEDED = "AGENT_OVERRIDE_BUDGET_EXCEEDED"
 
 
-def load_agent_capabilities(repo_root: Optional[Path] = None) -> Dict[str, Any]:
+def load_agent_capabilities(repo_root: Path | None = None) -> dict[str, Any]:
     """
     Load agent_capabilities.v0.1.yaml. Returns dict with version, profiles, override_action_types.
     If repo_root is None or file missing, returns empty policy (no capability enforcement).
@@ -41,18 +41,16 @@ def load_agent_capabilities(repo_root: Optional[Path] = None) -> Dict[str, Any]:
     return {
         "version": cap.get("version", "0.1"),
         "profiles": dict(profiles) if isinstance(profiles, dict) else {},
-        "override_action_types": (
-            list(override_types) if isinstance(override_types, list) else []
-        ),
+        "override_action_types": (list(override_types) if isinstance(override_types, list) else []),
     }
 
 
 def get_profile_for_agent(
     agent_id: str,
-    role_id: Optional[str],
-    capabilities: Dict[str, Any],
-    rbac_agents: Optional[Dict[str, str]] = None,
-) -> Optional[Dict[str, Any]]:
+    role_id: str | None,
+    capabilities: dict[str, Any],
+    rbac_agents: dict[str, str] | None = None,
+) -> dict[str, Any] | None:
     """
     Return capability profile for agent: agent_id override first, then role_id, else None.
     rbac_agents: optional map agent_id -> role_id to resolve role when role_id not provided.
@@ -74,7 +72,7 @@ def get_profile_for_agent(
     return None
 
 
-def is_override_action(action_type: str, capabilities: Dict[str, Any]) -> bool:
+def is_override_action(action_type: str, capabilities: dict[str, Any]) -> bool:
     """True if action_type consumes override budget."""
     types = capabilities.get("override_action_types") or []
     return action_type in types
@@ -82,13 +80,13 @@ def is_override_action(action_type: str, capabilities: Dict[str, Any]) -> bool:
 
 def check_capability(
     action_type: str,
-    event: Dict[str, Any],
-    profile: Optional[Dict[str, Any]],
-    capabilities: Dict[str, Any],
-    rbac_allowed_actions: Optional[list],
+    event: dict[str, Any],
+    profile: dict[str, Any] | None,
+    capabilities: dict[str, Any],
+    rbac_allowed_actions: list[str] | None,
     action_count: int,
     override_count: int,
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Check action against capability profile. Called after RBAC.
     Returns (allowed, reason_code). reason_code is None if allowed.
@@ -105,20 +103,14 @@ def check_capability(
     if isinstance(allowed_actions, list) and len(allowed_actions) > 0:
         if action_type not in allowed_actions:
             return False, AGENT_CAPABILITY_DENY
-    elif (
-        rbac_allowed_actions is not None
-        and isinstance(rbac_allowed_actions, list)
-        and len(rbac_allowed_actions) > 0
-    ):
+    elif rbac_allowed_actions is not None and isinstance(rbac_allowed_actions, list) and len(rbac_allowed_actions) > 0:
         if action_type not in rbac_allowed_actions:
             return False, AGENT_CAPABILITY_DENY
     max_rate = profile.get("max_action_rate")
-    if isinstance(max_rate, (int, float)) and action_count >= max_rate:
+    if isinstance(max_rate, int | float) and action_count >= max_rate:
         return False, AGENT_RATE_LIMIT
     max_override = profile.get("max_override_tokens")
-    if isinstance(max_override, (int, float)) and is_override_action(
-        action_type, capabilities
-    ):
+    if isinstance(max_override, int | float) and is_override_action(action_type, capabilities):
         if override_count >= max_override:
             return False, AGENT_OVERRIDE_BUDGET_EXCEEDED
     high_risk = profile.get("high_risk_actions") or []
@@ -130,7 +122,7 @@ def check_capability(
     return True, None
 
 
-def get_allowed_tooling(profile: Optional[Dict[str, Any]]) -> Dict[str, bool]:
+def get_allowed_tooling(profile: dict[str, Any] | None) -> dict[str, bool]:
     """Return { llm: bool, signing_proxy: bool } from profile; default both True if no profile."""
     if not profile:
         return {"llm": True, "signing_proxy": True}

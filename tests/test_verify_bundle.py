@@ -1,5 +1,5 @@
 """
-Evidence bundle verification: PASS on untouched bundle; FAIL on tampered file, tampered trace, or missing file.
+Evidence bundle verification: PASS on untouched bundle; FAIL on tamper or missing file.
 """
 
 from __future__ import annotations
@@ -136,9 +136,7 @@ def test_verify_bundle_fail_tampered_file(tmp_path: Path) -> None:
         allow_extra_files=False,
     )
     assert not passed
-    assert any("hash mismatch" in e for e in errors) or any(
-        "manifest" in e.lower() for e in errors
-    )
+    assert any("hash mismatch" in e for e in errors) or any("manifest" in e.lower() for e in errors)
 
 
 def test_verify_bundle_fail_tampered_invariant_trace(tmp_path: Path) -> None:
@@ -188,18 +186,14 @@ def test_verify_bundle_fail_tampered_invariant_trace(tmp_path: Path) -> None:
         else:
             new_files.append(f)
     manifest["files"] = new_files
-    manifest_path.write_text(
-        json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8")
     passed, report, errors = verify_bundle(
         bundle_dir,
         policy_root=root,
         allow_extra_files=False,
     )
     assert not passed
-    assert any("invariant_eval_trace" in e for e in errors) or any(
-        "violation" in e.lower() for e in errors
-    )
+    assert any("invariant_eval_trace" in e for e in errors) or any("violation" in e.lower() for e in errors)
 
 
 def test_verify_bundle_fail_missing_file(tmp_path: Path) -> None:
@@ -335,9 +329,9 @@ def test_verify_bundle_fail_tampered_policy_file(tmp_path: Path) -> None:
             allow_extra_files=False,
         )
         assert not passed
-        assert any(
-            "policy_pack_manifest" in e and "hash mismatch" in e for e in errors
-        ) or any("policy file" in e for e in errors)
+        assert any("policy_pack_manifest" in e and "hash mismatch" in e for e in errors) or any(
+            "policy file" in e for e in errors
+        )
     finally:
         policy_file.write_bytes(original)
 

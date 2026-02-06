@@ -16,15 +16,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from labtrust_gym.policy.loader import (
-    POLICY_FILE_SCHEMA_MAP,
-    BASE_POLICY_PATHS,
     PolicyLoadError,
+    get_partner_overlay_dir,
     load_effective_policy,
     load_json,
     load_policy_file,
     load_yaml,
     validate_against_schema,
-    get_partner_overlay_dir,
 )
 
 
@@ -196,9 +194,7 @@ def validate_all_policy_schemas(root: Path) -> list[str]:
     """Validate all policy files that have schemas. Returns list of error messages."""
     errors: list[str] = []
     for policy_rel_path, schema_name in POLICY_FILES_WITH_SCHEMAS:
-        errors.extend(
-            validate_policy_file_against_schema(root, policy_rel_path, schema_name)
-        )
+        errors.extend(validate_policy_file_against_schema(root, policy_rel_path, schema_name))
     return errors
 
 
@@ -218,9 +214,7 @@ def validate_partner_overlay_files(root: Path, partner_id: str) -> list[str]:
     root = Path(root)
     overlay_dir = get_partner_overlay_dir(root, partner_id)
     if not overlay_dir.is_dir():
-        errors.append(
-            f"{overlay_dir}: partner overlay dir not found for {partner_id!r}"
-        )
+        errors.append(f"{overlay_dir}: partner overlay dir not found for {partner_id!r}")
         return errors
     schemas_dir = root / "policy" / "schemas"
     for rel_file, schema_name in PARTNER_OVERLAY_VALIDATION:
@@ -262,9 +256,7 @@ def _invariant_ids_from_registry(root: Path) -> set[str]:
     return {str(i.get("invariant_id", "")) for i in invs if i.get("invariant_id")}
 
 
-def validate_merged_policy_consistency(
-    root: Path, partner_id: str | None = None
-) -> list[str]:
+def validate_merged_policy_consistency(root: Path, partner_id: str | None = None) -> list[str]:
     """
     Load effective policy (base + overlay if partner_id); check consistency.
     - Enforcement rules: match.invariant_id must be in invariant registry (if set).
@@ -273,9 +265,7 @@ def validate_merged_policy_consistency(
     errors: list[str] = []
     root = Path(root)
     try:
-        effective, fingerprint, _, _ = load_effective_policy(
-            root, partner_id=partner_id
-        )
+        effective, fingerprint, _, _ = load_effective_policy(root, partner_id=partner_id)
     except PolicyLoadError as e:
         errors.append(str(e))
         return errors
@@ -287,9 +277,7 @@ def validate_merged_policy_consistency(
         match = r.get("match") or {}
         inv_id = match.get("invariant_id")
         if inv_id and inv_ids and inv_id not in inv_ids:
-            errors.append(
-                f"enforcement rule {r.get('rule_id', '?')}: invariant_id {inv_id!r} not in registry"
-            )
+            errors.append(f"enforcement rule {r.get('rule_id', '?')}: invariant_id {inv_id!r} not in registry")
     return errors
 
 

@@ -13,7 +13,7 @@ import importlib
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Protocol, Tuple, Union
+from typing import Any, Protocol
 
 
 class LabTrustAgent(Protocol):
@@ -22,34 +22,30 @@ class LabTrustAgent(Protocol):
     def reset(
         self,
         seed: int,
-        policy_summary: Optional[Dict[str, Any]] = None,
-        partner_id: Optional[str] = None,
+        policy_summary: dict[str, Any] | None = None,
+        partner_id: str | None = None,
         timing_mode: str = "explicit",
     ) -> None:
         """Called at the start of each episode. Optional; no-op if not implemented."""
         ...
 
-    def act(
-        self, observation: Dict[str, Any]
-    ) -> Union[int, Tuple[int, Dict[str, Any]]]:
+    def act(self, observation: dict[str, Any]) -> int | tuple[int, dict[str, Any]]:
         """
         Return action (discrete index) or (action, action_info).
         observation is the per-agent obs dict from the env.
         """
         ...
 
-    def explain_last_action(self) -> Optional[Dict[str, Any]]:
+    def explain_last_action(self) -> dict[str, Any] | None:
         """Optional: return dict with action_type, args, etc. for logging. None if not implemented."""
         ...
 
 
 # Pattern: module.path:ClassName or module.path:function_name
-_AGENT_SPEC_PATTERN = re.compile(
-    r"^([a-zA-Z_][a-zA-Z0-9_.]*):([a-zA-Z_][a-zA-Z0-9_]*)$"
-)
+_AGENT_SPEC_PATTERN = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_.]*):([a-zA-Z_][a-zA-Z0-9_]*)$")
 
 
-def load_agent(spec: str, repo_root: Optional[Path] = None) -> Any:
+def load_agent(spec: str, repo_root: Path | None = None) -> Any:
     """
     Load an agent from spec "module:ClassName" or "module:function_name".
 
@@ -67,14 +63,11 @@ def load_agent(spec: str, repo_root: Optional[Path] = None) -> Any:
     """
     spec = (spec or "").strip()
     if not spec:
-        raise ValueError(
-            "Invalid agent spec (empty); use 'module:ClassName' or 'module:function'"
-        )
+        raise ValueError("Invalid agent spec (empty); use 'module:ClassName' or 'module:function'")
     m = _AGENT_SPEC_PATTERN.match(spec)
     if not m:
         raise ValueError(
-            f"Invalid agent spec {spec!r}; expected 'module.path:ClassName' or "
-            "'module.path:function_name'"
+            f"Invalid agent spec {spec!r}; expected 'module.path:ClassName' or 'module.path:function_name'"
         )
     module_path, name = m.group(1), m.group(2)
     try:
@@ -89,13 +82,9 @@ def load_agent(spec: str, repo_root: Optional[Path] = None) -> Any:
             try:
                 mod = importlib.import_module(module_path)
             except ModuleNotFoundError as e2:
-                raise ModuleNotFoundError(
-                    f"Agent module {module_path!r} not found: {e2}"
-                ) from e2
+                raise ModuleNotFoundError(f"Agent module {module_path!r} not found: {e2}") from e2
         else:
-            raise ModuleNotFoundError(
-                f"Agent module {module_path!r} not found: {e}"
-            ) from e
+            raise ModuleNotFoundError(f"Agent module {module_path!r} not found: {e}") from e
     obj = getattr(mod, name, None)
     if obj is None:
         raise AttributeError(f"Module {module_path!r} has no attribute {name!r}")
@@ -103,13 +92,9 @@ def load_agent(spec: str, repo_root: Optional[Path] = None) -> Any:
         try:
             instance = obj()
         except Exception as e:
-            raise TypeError(
-                f"Failed to instantiate/call {module_path!r}:{name!r}: {e}"
-            ) from e
+            raise TypeError(f"Failed to instantiate/call {module_path!r}:{name!r}: {e}") from e
         return instance
-    raise TypeError(
-        f"Agent spec {module_path!r}:{name!r} is not callable (expected class or factory function)"
-    )
+    raise TypeError(f"Agent spec {module_path!r}:{name!r} is not callable (expected class or factory function)")
 
 
 def wrap_agent_for_runner(agent: Any) -> Any:
@@ -121,28 +106,24 @@ def wrap_agent_for_runner(agent: Any) -> Any:
     class Wrapper:
         def __init__(self, inner: Any) -> None:
             self._inner = inner
-            self._last_info: Dict[str, Any] = {}
+            self._last_info: dict[str, Any] = {}
 
         def reset(
             self,
             seed: int,
-            policy_summary: Optional[Dict[str, Any]] = None,
-            partner_id: Optional[str] = None,
+            policy_summary: dict[str, Any] | None = None,
+            partner_id: str | None = None,
             timing_mode: str = "explicit",
         ) -> None:
             fn = getattr(self._inner, "reset", None)
             if callable(fn):
                 fn(seed, policy_summary, partner_id, timing_mode)
 
-        def act(
-            self, observation: Dict[str, Any], agent_id: str = ""
-        ) -> Tuple[int, Dict[str, Any], Dict[str, Any]]:
+        def act(self, observation: dict[str, Any], agent_id: str = "") -> tuple[int, dict[str, Any], dict[str, Any]]:
             out = self._inner.act(observation)
             if isinstance(out, tuple):
                 action_idx = int(out[0])
-                action_info = (
-                    dict(out[1]) if len(out) > 1 and isinstance(out[1], dict) else {}
-                )
+                action_info = dict(out[1]) if len(out) > 1 and isinstance(out[1], dict) else {}
             else:
                 action_idx = int(out)
                 action_info = {}

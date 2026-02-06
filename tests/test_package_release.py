@@ -59,16 +59,12 @@ def test_package_release_determinism() -> None:
         manifest2 = json.loads(m2_path.read_text(encoding="utf-8"))
         files1 = {f["path"]: f["sha256"] for f in (manifest1.get("files") or [])}
         files2 = {f["path"]: f["sha256"] for f in (manifest2.get("files") or [])}
-        assert set(files1.keys()) == set(
-            files2.keys()
-        ), "MANIFEST path list must be identical"
+        assert set(files1.keys()) == set(files2.keys()), "MANIFEST path list must be identical"
         skip_paths = {"plots/", "results.json"}
         for path in files1:
             if any(path.startswith(p) or path == p for p in skip_paths):
                 continue
-            assert (
-                files1[path] == files2[path]
-            ), f"MANIFEST hash for {path} must be identical for same seed_base"
+            assert files1[path] == files2[path], f"MANIFEST hash for {path} must be identical for same seed_base"
 
 
 def test_package_release_produces_expected_files() -> None:
@@ -174,9 +170,7 @@ def test_package_release_paper_v01_cli() -> None:
                 text=True,
                 timeout=180,
             )
-            assert (
-                proc.returncode == 0
-            ), f"CLI must exit 0: stderr={proc.stderr!r} stdout={proc.stdout!r}"
+            assert proc.returncode == 0, f"CLI must exit 0: stderr={proc.stderr!r} stdout={proc.stdout!r}"
         finally:
             if prev is None:
                 os.environ.pop("LABTRUST_PAPER_SMOKE", None)

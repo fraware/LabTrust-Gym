@@ -10,18 +10,17 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.baselines.llm.signing_proxy import (
+    ensure_run_ephemeral_key,
+    generate_ephemeral_keypair,
     load_private_key_from_fixture,
     select_key,
     sign_event_payload,
-    generate_ephemeral_keypair,
-    ensure_run_ephemeral_key,
 )
 from labtrust_gym.engine.signatures import (
     build_signing_payload,
     canonical_payload_bytes,
     verify_signature,
 )
-
 
 FIXTURES_KEYS = Path(__file__).resolve().parent / "fixtures" / "keys"
 
@@ -115,9 +114,7 @@ def test_sign_event_payload_produces_verifiable_signature() -> None:
     prev_hash = "abc"
     partner_id = "P1"
     policy_fingerprint = "fp1"
-    sig = sign_event_payload(
-        action, event_id, t_s, agent_id, prev_hash, partner_id, policy_fingerprint, priv
-    )
+    sig = sign_event_payload(action, event_id, t_s, agent_id, prev_hash, partner_id, policy_fingerprint, priv)
     assert sig is not None
     payload = build_signing_payload(
         event_id,
@@ -151,7 +148,7 @@ def test_generate_ephemeral_keypair() -> None:
 
 
 def test_llm_agent_strict_signatures_attach_signed_by_proxy() -> None:
-    """With strict_signatures and key_registry + get_private_key, mutating action gets key_id/signature and LLM_DECISION has signed_by_proxy, key_id_used."""
+    """Strict_signatures + key_registry: mutating action gets key_id/sig; LLM_DECISION has signed_by_proxy."""
     priv, pub_b64 = generate_ephemeral_keypair()
     key_id = "ed25519:key_test_ops"
     key_registry = {
@@ -175,15 +172,17 @@ def test_llm_agent_strict_signatures_attach_signed_by_proxy() -> None:
         return None
 
     from labtrust_gym.baselines.llm.agent import (
-        LLMAgentWithShield,
         DeterministicConstrainedBackend,
+        LLMAgentWithShield,
     )
     from labtrust_gym.engine.rbac import load_rbac_policy
 
     repo_root = Path(__file__).resolve().parent.parent
     rbac_path = repo_root / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
     rbac_policy = load_rbac_policy(rbac_path)
-    backend = DeterministicConstrainedBackend(seed=42, default_action_type="TICK")
+    backend = DeterministicConstrainedBackend(
+        seed=42, default_action_type="TICK", first_action_type="TICK"
+    )
     pz_to_engine = {"ops_0": "A_RECEPTION"}
     agent = LLMAgentWithShield(
         backend=backend,
@@ -214,9 +213,7 @@ def test_ensure_run_ephemeral_key_returns_merged_registry_and_get_private_key(
     tmp_path: Path,
 ) -> None:
     base = {"version": "0.1", "keys": []}
-    merged, get_pk = ensure_run_ephemeral_key(
-        tmp_path, "A_OPS_0", "ROLE_ANALYTICS", base
-    )
+    merged, get_pk = ensure_run_ephemeral_key(tmp_path, "A_OPS_0", "ROLE_ANALYTICS", base)
     assert "keys" in merged
     assert len(merged["keys"]) >= 1
     run_key = next((k for k in merged["keys"] if k.get("agent_id") == "A_OPS_0"), None)

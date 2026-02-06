@@ -8,7 +8,6 @@ Seeded from scenario so same seed + actions => same outcomes.
 from __future__ import annotations
 
 import random
-from typing import Optional
 
 
 class RNG:
@@ -46,5 +45,6 @@ class RNG:
     def sample_lognormal_s(self, mu: float, sigma: float) -> float:
         """Sample from lognormal(mu, sigma); result in seconds (e.g. MTTR)."""
         import math
+
         z = self._rng.gauss(0.0, 1.0)
         return float(math.exp(mu + sigma * z))

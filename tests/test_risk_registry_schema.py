@@ -14,11 +14,10 @@ import pytest
 from labtrust_gym.policy.loader import (
     PolicyLoadError,
     load_json,
-    load_policy_file,
     validate_against_schema,
 )
-from labtrust_gym.policy.validate import validate_policy_file_against_schema
 from labtrust_gym.policy.risks import RiskRegistry, get_risk, load_risk_registry
+from labtrust_gym.policy.validate import validate_policy_file_against_schema
 
 
 def _repo_root() -> Path:

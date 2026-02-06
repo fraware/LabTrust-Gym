@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
+from datetime import UTC
 from pathlib import Path
+from typing import Any, cast
 
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.policy.validate import validate_policy
@@ -16,8 +19,11 @@ def _get_partner_id(args: argparse.Namespace) -> str | None:
     """Partner ID from --partner or LABTRUST_PARTNER env."""
     partner = getattr(args, "partner", None)
     if partner is not None and partner != "":
-        return partner
-    return os.environ.get("LABTRUST_PARTNER") or None
+        return cast(str, partner)
+    env_val = os.environ.get("LABTRUST_PARTNER")
+    if env_val is None:
+        return None
+    return env_val
 
 
 def _git_sha() -> str | None:
@@ -67,8 +73,8 @@ def main() -> int:
     )
     p_bench.add_argument(
         "--task",
-        required=True,
-        help="TaskA, TaskB, TaskC, TaskD, TaskE, TaskF, TaskG_COORD_SCALE, TaskH_COORD_RISK",
+        default=None,
+        help="TaskA, TaskB, TaskC, TaskD, TaskE, TaskF, TaskG_COORD_SCALE, TaskH_COORD_RISK (omit when using --profile llm_live_eval)",
     )
     p_bench.add_argument("--episodes", type=int, default=10, help="Number of episodes")
     p_bench.add_argument("--seed", type=int, default=123, help="Base seed")
@@ -85,9 +91,15 @@ def main() -> int:
     )
     p_bench.add_argument(
         "--llm-backend",
-        choices=["deterministic", "openai_live", "ollama_live"],
+        choices=["deterministic", "openai_live", "openai_responses", "ollama_live"],
         default=None,
-        help="LLM agent backend: deterministic (seeded, no API), openai_live (OPENAI_API_KEY), or ollama_live (LABTRUST_LOCAL_LLM_*). Default: no LLM (scripted ops).",
+        help="LLM agent backend: deterministic (seeded, no API), openai_live, openai_responses (Responses API + strict schema), or ollama_live. Default: no LLM (scripted ops).",
+    )
+    p_bench.add_argument(
+        "--llm-output-mode",
+        choices=["json_schema", "tool_call"],
+        default="json_schema",
+        help="For openai_responses backend: json_schema (structured output, default) or tool_call (model must call submit_action).",
     )
     p_bench.add_argument(
         "--llm-agents",
@@ -108,6 +120,23 @@ def main() -> int:
         "--use-llm-live-openai",
         action="store_true",
         help="Use live OpenAI backend (same as --llm-backend openai_live; deprecated in favor of --llm-backend)",
+    )
+    p_bench.add_argument(
+        "--pipeline-mode",
+        choices=["deterministic", "llm_offline", "llm_live"],
+        default=None,
+        help="Pipeline mode: deterministic (scripted only), llm_offline (LLM with deterministic backend), llm_live (network LLM; requires --allow-network)",
+    )
+    p_bench.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network for live LLM backends (required for --llm-backend openai_live/ollama_live); also LABTRUST_ALLOW_NETWORK=1",
+    )
+    p_bench.add_argument(
+        "--profile",
+        default=None,
+        choices=["llm_live_eval"],
+        help="Preset: llm_live_eval = TaskD, TaskF, TaskH_COORD_RISK with llm_live + allow-network, writes LLM_TRACE/ (requires --allow-network).",
     )
     p_bench.set_defaults(func=_run_benchmark)
     p_bench_smoke = sub.add_parser(
@@ -290,6 +319,17 @@ def main() -> int:
         action="store_true",
         help="Keep _repro intermediate directory in output",
     )
+    p_package_release.add_argument(
+        "--pipeline-mode",
+        choices=["deterministic", "llm_offline", "llm_live"],
+        default="deterministic",
+        help="Pipeline mode (default: deterministic); CI uses deterministic",
+    )
+    p_package_release.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network (only with --pipeline-mode llm_live); default: disabled",
+    )
     p_package_release.set_defaults(func=_run_package_release)
     p_security_suite = sub.add_parser(
         "run-security-suite",
@@ -297,8 +337,8 @@ def main() -> int:
     )
     p_security_suite.add_argument(
         "--out",
-        required=True,
-        help="Output directory; SECURITY/ will be created under it",
+        default="runs/security_suite",
+        help="Output directory; SECURITY/ will be created under it (default: runs/security_suite)",
     )
     p_security_suite.add_argument(
         "--smoke",
@@ -445,6 +485,17 @@ def main() -> int:
         action="store_true",
         help="Run full security suite (default: smoke-only)",
     )
+    p_official_pack.add_argument(
+        "--pipeline-mode",
+        choices=["deterministic", "llm_offline", "llm_live"],
+        default="deterministic",
+        help="Pipeline mode (default: deterministic); CI uses deterministic",
+    )
+    p_official_pack.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network (only with --pipeline-mode llm_live); default: disabled",
+    )
     p_official_pack.set_defaults(func=_run_official_pack)
     from labtrust_gym.cli.eval_agent import register_parser as register_eval_agent
 
@@ -513,7 +564,39 @@ def main() -> int:
         default="labtrust_runs",
         help="Output directory for run (default: labtrust_runs)",
     )
+    p_quick_eval.add_argument(
+        "--pipeline-mode",
+        choices=["deterministic", "llm_offline", "llm_live"],
+        default="deterministic",
+        help="Pipeline mode (default: deterministic); llm_live requires --allow-network",
+    )
+    p_quick_eval.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network for live LLM (only with --pipeline-mode llm_live); also LABTRUST_ALLOW_NETWORK=1",
+    )
     p_quick_eval.set_defaults(func=_run_quick_eval)
+    p_llm_health = sub.add_parser(
+        "llm-healthcheck",
+        help="One minimal request to live LLM backend; print ok, model_id, latency, usage. Requires --allow-network.",
+    )
+    p_llm_health.add_argument(
+        "--backend",
+        choices=["openai_live", "openai_responses"],
+        default="openai_responses",
+        help="Backend to check (default: openai_responses). openai_live uses legacy Chat Completions; openai_responses uses Responses API with strict schema.",
+    )
+    p_llm_health.add_argument(
+        "--model",
+        default=None,
+        help="Model override (e.g. gpt-4o-mini). Default from LABTRUST_OPENAI_MODEL.",
+    )
+    p_llm_health.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network (required for live check); also LABTRUST_ALLOW_NETWORK=1",
+    )
+    p_llm_health.set_defaults(func=_run_llm_healthcheck)
     p_serve = sub.add_parser(
         "serve",
         help="Start online HTTP API (local-only by default; rate limits and optional API key).",
@@ -563,7 +646,7 @@ def main() -> int:
     p_eval_ppo.add_argument("--out", default=None, help="Output JSON path for metrics")
     p_eval_ppo.set_defaults(func=_run_eval_ppo)
     args = parser.parse_args()
-    return args.func(args)
+    return cast(int, args.func(args))
 
 
 def _run_validate_policy_wrapper(args: argparse.Namespace) -> int:
@@ -586,8 +669,25 @@ def _run_validate_policy(root: Path, partner_id: str | None = None) -> int:
     return 0
 
 
+def _allow_network_from_env() -> bool:
+    """True if LABTRUST_ALLOW_NETWORK is 1, true, or yes."""
+    v = (os.environ.get("LABTRUST_ALLOW_NETWORK") or "").strip().lower()
+    return v in ("1", "true", "yes")
+
+
 def _run_benchmark(args: argparse.Namespace) -> int:
     """Run benchmark and write results.json."""
+    profile = getattr(args, "profile", None)
+    if profile == "llm_live_eval":
+        return _run_benchmark_llm_live_eval(args)
+
+    if not getattr(args, "task", None):
+        print(
+            "run-benchmark requires --task (or use --profile llm_live_eval).",
+            file=sys.stderr,
+        )
+        return 1
+
     from labtrust_gym.benchmarks.runner import run_benchmark as _run
 
     root = get_repo_root()
@@ -597,6 +697,8 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         llm_backend = "openai_live"
     llm_agents_str = getattr(args, "llm_agents", "ops_0") or "ops_0"
     llm_agents = [a.strip() for a in llm_agents_str.split(",") if a.strip()]
+    pipeline_mode = getattr(args, "pipeline_mode", None)
+    allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
     _run(
         task_name=args.task,
         num_episodes=args.episodes,
@@ -607,15 +709,99 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         partner_id=partner_id,
         llm_backend=llm_backend,
         llm_agents=llm_agents,
+        llm_output_mode=getattr(args, "llm_output_mode", "json_schema"),
         timing_mode=getattr(args, "timing", None),
         coord_method=getattr(args, "coord_method", None),
         injection_id=getattr(args, "injection", None),
+        pipeline_mode=pipeline_mode,
+        allow_network=allow_network,
     )
     print(f"Wrote {args.out}", file=sys.stderr)
     if getattr(args, "log", None):
         print(f"Episode log {args.log}", file=sys.stderr)
     if partner_id:
         print(f"Partner {partner_id!r}", file=sys.stderr)
+    return 0
+
+
+def _run_benchmark_llm_live_eval(args: argparse.Namespace) -> int:
+    """Run llm_live_eval profile: TaskD, TaskF, TaskH_COORD_RISK with llm_live, allow-network, LLM_TRACE bundle."""
+    from labtrust_gym.benchmarks.llm_trace import LLMTraceCollector
+    from labtrust_gym.benchmarks.runner import run_benchmark
+
+    allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
+    if not allow_network:
+        print(
+            "llm_live_eval profile requires --allow-network (or LABTRUST_ALLOW_NETWORK=1). Refusing to run.",
+            file=sys.stderr,
+        )
+        return 1
+
+    root = get_repo_root()
+    out_path = Path(args.out)
+    if not out_path.is_absolute():
+        out_path = root / out_path
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    llm_backend = getattr(args, "llm_backend", None) or "openai_responses"
+    if llm_backend not in ("openai_live", "openai_responses"):
+        llm_backend = "openai_responses"
+    llm_agents_str = getattr(args, "llm_agents", "ops_0") or "ops_0"
+    llm_agents = [a.strip() for a in llm_agents_str.split(",") if a.strip()]
+    num_episodes = getattr(args, "episodes", 2)
+    base_seed = getattr(args, "seed", 42)
+    partner_id = _get_partner_id(args)
+
+    tasks_config: list[tuple[str, str | None]] = [
+        ("TaskD", None),
+        ("TaskF", None),
+        ("TaskH_COORD_RISK", "kernel_centralized_edf"),
+    ]
+    collector = LLMTraceCollector()
+
+    for task_name, coord_method in tasks_config:
+        task_out = out_path / f"{task_name}.json"
+        log_path = out_path / "logs" / f"{task_name}.jsonl"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        run_benchmark(
+            task_name=task_name,
+            num_episodes=num_episodes,
+            base_seed=base_seed,
+            out_path=task_out,
+            repo_root=root,
+            log_path=log_path,
+            partner_id=partner_id,
+            llm_backend=llm_backend,
+            llm_agents=llm_agents,
+            pipeline_mode="llm_live",
+            allow_network=True,
+            coord_method=coord_method,
+            llm_trace_collector=collector,
+        )
+        print(f"Wrote {task_out}", file=sys.stderr)
+
+    trace_dir = out_path / "LLM_TRACE"
+    collector.write_to_dir(trace_dir)
+    print(f"LLM trace written to {trace_dir}", file=sys.stderr)
+
+    metadata = {
+        "profile": "llm_live_eval",
+        "pipeline_mode": "llm_live",
+        "llm_backend_id": llm_backend,
+        "allow_network": True,
+        "non_deterministic": True,
+        "tasks": [t[0] for t in tasks_config],
+        "num_episodes": num_episodes,
+        "base_seed": base_seed,
+    }
+    (out_path / "metadata.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    print(
+        f"Metadata (non_deterministic=true) written to {out_path / 'metadata.json'}",
+        file=sys.stderr,
+    )
     return 0
 
 
@@ -628,7 +814,16 @@ def _run_make_plots(args: argparse.Namespace) -> int:
     if not run_dir.is_absolute():
         run_dir = root / run_dir
     make_plots(run_dir)
-    print(f"Figures and data tables written to {run_dir / 'figures'}", file=sys.stderr)
+    fig_dir = run_dir / "figures"
+    print(f"Figures and data tables written to {fig_dir}", file=sys.stderr)
+    print(
+        f"  Read {fig_dir / 'RUN_REPORT.md'} for metric definitions and data summary.",
+        file=sys.stderr,
+    )
+    print(
+        f"  Read {run_dir / 'RUN_SUMMARY.md'} for run context and output layout.",
+        file=sys.stderr,
+    )
     return 0
 
 
@@ -757,6 +952,8 @@ def _run_package_release(args: argparse.Namespace) -> int:
         out_dir = root / out_dir
     seed_base = getattr(args, "seed_base", None)
     include_repro = getattr(args, "keep_repro", False)
+    pipeline_mode = getattr(args, "pipeline_mode", "deterministic") or "deterministic"
+    allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
     try:
         result = run_package_release(
             profile=args.profile,
@@ -764,12 +961,12 @@ def _run_package_release(args: argparse.Namespace) -> int:
             repo_root=root,
             seed_base=seed_base,
             include_repro_dir=include_repro,
+            pipeline_mode=pipeline_mode,
+            allow_network=allow_network,
         )
         print(f"Release artifact written to {result}", file=sys.stderr)
-        print(
-            f"  MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json", file=sys.stderr
-        )
-        print(f"  results.json, plots/, tables/, receipts/, fhir/", file=sys.stderr)
+        print("  MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json", file=sys.stderr)
+        print("  results.json, plots/, tables/, receipts/, fhir/", file=sys.stderr)
         return 0
     except Exception as e:
         print(f"package-release failed: {e}", file=sys.stderr)
@@ -778,8 +975,8 @@ def _run_package_release(args: argparse.Namespace) -> int:
 
 def _run_security_suite(args: argparse.Namespace) -> int:
     """Run security attack suite and emit SECURITY/attack_results.json + packet."""
-    from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
     from labtrust_gym.benchmarks.securitization import emit_securitization_packet
+    from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
 
     root = get_repo_root()
     out_dir = Path(args.out)
@@ -807,6 +1004,33 @@ def _run_security_suite(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         print(f"SECURITY/ written to {out_dir / 'SECURITY'}", file=sys.stderr)
+        if passed == 0 and results:
+            errors = [r.get("error") or "" for r in results]
+            need_env = any("pettingzoo or gymnasium" in e for e in errors)
+            need_pytest = any("No module named pytest" in e for e in errors)
+            if need_env or need_pytest:
+                pkgs = []
+                if need_env:
+                    pkgs.extend(["pettingzoo", "gymnasium"])
+                if need_pytest:
+                    pkgs.append("pytest")
+                exe = sys.executable
+                # PowerShell requires & to invoke a quoted path; Cmd does not
+                ps_cmd = f'& "{exe}" -m pip install {" ".join(pkgs)}'
+                print(
+                    "Hint: install into the same Python that runs labtrust (copy-paste):",
+                    file=sys.stderr,
+                )
+                print(f"  {ps_cmd}", file=sys.stderr)
+                print(
+                    "  (PowerShell: use as-is. Cmd: omit the leading & )",
+                    file=sys.stderr,
+                )
+                ensurepip_cmd = f'& "{exe}" -m ensurepip --upgrade'
+                print(
+                    f"  (If 'No module named pip', run first: {ensurepip_cmd})",
+                    file=sys.stderr,
+                )
         return 0 if passed == len(results) else 1
     except Exception as e:
         print(f"run-security-suite failed: {e}", file=sys.stderr)
@@ -956,7 +1180,7 @@ def _run_determinism_report(args: argparse.Namespace) -> int:
 def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     """Regenerate official baseline results: run Tasks A–F (from registry), write results/, summary.csv, summary.md, metadata.json."""
     import json
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta
 
     from labtrust_gym.benchmarks.baseline_registry import (
         load_official_baseline_registry,
@@ -985,9 +1209,8 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     tasks_in_order, task_to_baseline_id, task_to_suffix = (
         load_official_baseline_registry(root)
     )
-    schema_path = root / "policy" / "schemas" / "results.v0.2.schema.json"
-    if not schema_path.exists():
-        schema_path = None
+    _schema_candidate = root / "policy" / "schemas" / "results.v0.2.schema.json"
+    schema_path: Path | None = _schema_candidate if _schema_candidate.exists() else None
 
     policy_fingerprint = None
     try:
@@ -1041,11 +1264,11 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
 
     # Deterministic timestamp when seed provided (UTC epoch + seed seconds)
     if seed is not None:
-        ts = (
-            datetime(1970, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=seed)
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
     else:
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     baseline_ids_used = list(
         dict.fromkeys(task_to_baseline_id[t] for t in tasks_in_order)
@@ -1084,6 +1307,8 @@ def _run_official_pack(args: argparse.Namespace) -> int:
         out_dir = root / out_dir
     seed_base = getattr(args, "seed_base", 100)
     full_security = getattr(args, "full", False)
+    pipeline_mode = getattr(args, "pipeline_mode", "deterministic") or "deterministic"
+    allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
     smoke = False
     if getattr(args, "no_smoke", False):
         smoke = False
@@ -1102,11 +1327,16 @@ def _run_official_pack(args: argparse.Namespace) -> int:
             seed_base=seed_base,
             smoke=smoke,
             full_security=full_security,
+            pipeline_mode=pipeline_mode,
+            allow_network=allow_network,
         )
         print(f"Official pack written to {result}", file=sys.stderr)
         return 0
     except Exception as e:
+        import traceback
+
         print(f"run-official-pack failed: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return 1
 
 
@@ -1130,6 +1360,47 @@ def _run_bench_smoke(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_llm_healthcheck(args: argparse.Namespace) -> int:
+    """Run one minimal request to live LLM backend; print ok, model_id, latency, usage."""
+    from labtrust_gym.pipeline import set_pipeline_config
+
+    allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
+    if not allow_network:
+        print(
+            "llm-healthcheck requires network. Pass --allow-network or set LABTRUST_ALLOW_NETWORK=1.",
+            file=sys.stderr,
+        )
+        return 1
+    set_pipeline_config(
+        pipeline_mode="llm_live",
+        allow_network=True,
+        llm_backend_id=getattr(args, "backend", "openai_responses"),
+    )
+    backend_name = getattr(args, "backend", "openai_responses")
+    model_override = getattr(args, "model", None)
+    if backend_name == "openai_responses":
+        from labtrust_gym.baselines.llm.backends.openai_responses import (
+            OpenAILiveResponsesBackend,
+        )
+
+        backend = OpenAILiveResponsesBackend(model=model_override)
+    else:
+        from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+
+        backend = OpenAILiveBackend(model=model_override)
+    result = backend.healthcheck()
+    ok = result.get("ok", False)
+    print(f"ok: {ok}", file=sys.stderr)
+    print(f"model_id: {result.get('model_id', 'n/a')}", file=sys.stderr)
+    print(f"latency_ms: {result.get('latency_ms')}", file=sys.stderr)
+    usage = result.get("usage") or {}
+    if usage:
+        print(f"usage: {usage}", file=sys.stderr)
+    if result.get("error"):
+        print(f"error: {result['error']}", file=sys.stderr)
+    return 0 if ok else 1
+
+
 def _run_serve(args: argparse.Namespace) -> int:
     """Start online HTTP server with abuse controls (B004)."""
     from labtrust_gym.online.config import load_online_config
@@ -1151,6 +1422,8 @@ def _run_serve(args: argparse.Namespace) -> int:
             max_inflight=config.max_inflight,
             host=host,
             port=port,
+            auth_mode=config.auth_mode,
+            key_registry=config.key_registry,
         )
     print(
         f"Serving at http://{config.host}:{config.port} (auth_required={config.auth_required})",
@@ -1178,8 +1451,11 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
     logs_dir = run_dir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
 
+    pipeline_mode = getattr(args, "pipeline_mode", "deterministic") or "deterministic"
+    allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
+
     tasks = ["TaskA", "TaskD", "TaskE"]
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     for task in tasks:
         results_path = run_dir / f"{task}.json"
         log_path = logs_dir / f"{task}.jsonl"
@@ -1190,6 +1466,8 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
             out_path=results_path,
             repo_root=root,
             log_path=log_path,
+            pipeline_mode=pipeline_mode,
+            allow_network=allow_network,
         )
         with open(results_path, encoding="utf-8") as f:
             data = json.load(f)

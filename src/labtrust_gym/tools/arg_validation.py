@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, cast
 
 # Reason codes (must exist in policy/reason_codes/reason_code_registry.v0.1.yaml)
 TOOL_ARG_SCHEMA_FAIL = "TOOL_ARG_SCHEMA_FAIL"
@@ -32,7 +32,7 @@ _RANGE_KEYWORDS = frozenset(
 )
 
 
-def load_arg_schema(ref: str, policy_root: Path) -> Dict[str, Any]:
+def load_arg_schema(ref: str, policy_root: Path) -> dict[str, Any]:
     """
     Load the argument schema for a tool from policy.
 
@@ -46,7 +46,7 @@ def load_arg_schema(ref: str, policy_root: Path) -> Dict[str, Any]:
     if not path.is_file():
         raise FileNotFoundError(f"arg schema not found: {path}")
     text = path.read_text(encoding="utf-8")
-    return json.loads(text)
+    return cast(dict[str, Any], json.loads(text))
 
 
 def _is_range_error(validation_error: Any) -> bool:
@@ -71,9 +71,9 @@ def _collect_range_errors(error: Any) -> bool:
 def validate_tool_args(
     tool_id: str,
     args: Any,
-    registry: Dict[str, Any],
-    policy_root: Optional[Path],
-) -> Tuple[bool, Optional[str], Optional[str]]:
+    registry: dict[str, Any],
+    policy_root: Path | None,
+) -> tuple[bool, str | None, str | None]:
     """
     Validate tool call arguments against the tool's arg_schema_ref.
 

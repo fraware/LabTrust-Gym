@@ -19,12 +19,12 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from labtrust_gym.benchmarks.runner import run_benchmark
 
 
-def _git_commit_hash(cwd: Optional[Path] = None) -> Optional[str]:
+def _git_commit_hash(cwd: Path | None = None) -> str | None:
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -40,8 +40,8 @@ def _git_commit_hash(cwd: Optional[Path] = None) -> Optional[str]:
     return None
 
 
-def _policy_versions(root: Path) -> Dict[str, str]:
-    versions: Dict[str, str] = {}
+def _policy_versions(root: Path) -> dict[str, str]:
+    versions: dict[str, str] = {}
     emits_path = root / "policy" / "emits" / "emits_vocab.v0.1.yaml"
     if emits_path.exists():
         try:
@@ -60,7 +60,7 @@ def _python_version() -> str:
     return f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
 
-def _deps_snapshot() -> Optional[Dict[str, str]]:
+def _deps_snapshot() -> dict[str, str] | None:
     """Return pip freeze or None if unavailable."""
     try:
         out = subprocess.run(
@@ -78,7 +78,7 @@ def _deps_snapshot() -> Optional[Dict[str, str]]:
     return None
 
 
-def _expand_ablations(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _expand_ablations(spec: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Expand ablations into Cartesian product of conditions.
     Each condition is a dict with keys from ablations and single values.
@@ -88,16 +88,14 @@ def _expand_ablations(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
     if not ablations:
         return [{}]
     keys = sorted(ablations.keys())
-    value_lists = [
-        ablations[k] if isinstance(ablations[k], list) else [ablations[k]] for k in keys
-    ]
+    value_lists = [ablations[k] if isinstance(ablations[k], list) else [ablations[k]] for k in keys]
     conditions = []
     for combo in itertools.product(*value_lists):
         conditions.append(dict(zip(keys, combo)))
     return conditions
 
 
-def _condition_label(condition: Dict[str, Any], index: int) -> str:
+def _condition_label(condition: dict[str, Any], index: int) -> str:
     """Build a stable label from condition dict (e.g. trust_on_rbac_coarse_dual_on)."""
     parts = []
     for k in sorted(condition.keys()):
@@ -110,9 +108,9 @@ def _condition_label(condition: Dict[str, Any], index: int) -> str:
 
 
 def _condition_labels_for_conditions(
-    conditions: List[Dict[str, Any]],
-    spec_labels: Optional[List[str]] = None,
-) -> List[str]:
+    conditions: list[dict[str, Any]],
+    spec_labels: list[str] | None = None,
+) -> list[str]:
     """Return one label per condition: spec condition_labels if length matches, else derived."""
     n = len(conditions)
     if spec_labels is not None and len(spec_labels) == n:
@@ -130,17 +128,13 @@ def _condition_seed(seed_base: int, condition_index: int) -> int:
 
 
 def _initial_state_overrides(
-    spec: Dict[str, Any],
-    condition: Dict[str, Any],
-    timing_override: Optional[str] = None,
-) -> Dict[str, Any]:
+    spec: dict[str, Any],
+    condition: dict[str, Any],
+    timing_override: str | None = None,
+) -> dict[str, Any]:
     """Build initial_state overrides from spec (timing_mode) and condition."""
-    overrides: Dict[str, Any] = {}
-    timing = (
-        timing_override
-        if timing_override is not None
-        else spec.get("timing_mode", "explicit")
-    )
+    overrides: dict[str, Any] = {}
+    timing = timing_override if timing_override is not None else spec.get("timing_mode", "explicit")
     overrides["timing_mode"] = timing
     for k, v in condition.items():
         overrides[f"ablation_{k}"] = v
@@ -150,7 +144,7 @@ def _initial_state_overrides(
     return overrides
 
 
-def _hash_results_for_determinism(results: Dict[str, Any]) -> str:
+def _hash_results_for_determinism(results: dict[str, Any]) -> str:
     """Canonical hash of results dict for determinism checks."""
     payload = json.dumps(results, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
@@ -159,10 +153,10 @@ def _hash_results_for_determinism(results: Dict[str, Any]) -> str:
 def run_study(
     spec_path: Path,
     out_dir: Path,
-    repo_root: Optional[Path] = None,
-    partner_id: Optional[str] = None,
-    timing_mode: Optional[str] = None,
-) -> Dict[str, Any]:
+    repo_root: Path | None = None,
+    partner_id: str | None = None,
+    timing_mode: str | None = None,
+) -> dict[str, Any]:
     """
     Load study spec, expand conditions, run benchmark per condition,
     write artifact dir. Returns summary dict with condition_ids, condition_labels, result_hashes.
@@ -173,6 +167,7 @@ def run_study(
     timing_mode: optional CLI override for spec timing_mode ("explicit" | "simulated").
     """
     import os
+
     import yaml
 
     repo_root = repo_root or Path.cwd()
@@ -202,8 +197,8 @@ def run_study(
         conditions,
         spec.get("condition_labels"),
     )
-    condition_ids: List[str] = []
-    result_hashes: List[str] = []
+    condition_ids: list[str] = []
+    result_hashes: list[str] = []
 
     (out_dir / "results").mkdir(exist_ok=True)
     (out_dir / "logs").mkdir(exist_ok=True)
@@ -214,9 +209,7 @@ def run_study(
             cid = _condition_id(idx)
             condition_ids.append(cid)
             seed = _condition_seed(seed_base, idx)
-            overrides = _initial_state_overrides(
-                spec, condition, timing_override=timing_mode
-            )
+            overrides = _initial_state_overrides(spec, condition, timing_override=timing_mode)
             record = {
                 "condition_id": cid,
                 "condition_label": condition_labels[idx],
@@ -252,11 +245,7 @@ def run_study(
 
     git_hash = _git_commit_hash(repo_root)
     policy_versions = _policy_versions(repo_root)
-    first_results_path = (
-        out_dir / "results" / condition_ids[0] / "results.json"
-        if condition_ids
-        else None
-    )
+    first_results_path = out_dir / "results" / condition_ids[0] / "results.json" if condition_ids else None
     manifest_partner_id = study_partner_id
     manifest_fingerprint = None
     if first_results_path and first_results_path.exists():
@@ -293,7 +282,7 @@ def run_study(
     return manifest
 
 
-def main(spec_path: Path, out_dir: Path, repo_root: Optional[Path] = None) -> int:
+def main(spec_path: Path, out_dir: Path, repo_root: Path | None = None) -> int:
     """CLI entry: run study and write artifact dir."""
     run_study(spec_path, out_dir, repo_root)
     print(f"Study written to {out_dir}", file=sys.stderr)

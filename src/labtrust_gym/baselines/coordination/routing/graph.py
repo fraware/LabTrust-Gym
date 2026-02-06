@@ -5,7 +5,7 @@ Restricted edges (via doors requiring token) are marked for INV-ROUTE-002.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from labtrust_gym.engine.zones import (
     build_adjacency_set,
@@ -29,13 +29,13 @@ class RoutingGraph:
 
     def __init__(
         self,
-        nodes: Set[str],
-        edges: Set[Tuple[str, str]],
-        restricted_edges: Optional[Set[Tuple[str, str]]] = None,
-        capacity: Optional[Dict[str, int]] = None,
+        nodes: set[str],
+        edges: set[tuple[str, str]],
+        restricted_edges: set[tuple[str, str]] | None = None,
+        capacity: dict[str, int] | None = None,
     ) -> None:
         self._nodes = set(nodes)
-        self._neighbors: Dict[str, List[str]] = {}
+        self._neighbors: dict[str, list[str]] = {}
         for a, b in edges:
             if a in self._nodes and b in self._nodes:
                 self._neighbors.setdefault(a, []).append(b)
@@ -51,10 +51,10 @@ class RoutingGraph:
             if n not in self._capacity:
                 self._capacity[n] = 1
 
-    def nodes(self) -> Set[str]:
+    def nodes(self) -> set[str]:
         return set(self._nodes)
 
-    def neighbors(self, node: str) -> List[str]:
+    def neighbors(self, node: str) -> list[str]:
         return list(self._neighbors.get(node, []))
 
     def is_restricted(self, from_node: str, to_node: str) -> bool:
@@ -67,12 +67,12 @@ class RoutingGraph:
         return self._capacity.get(node, 1)
 
     @property
-    def restricted_edges_set(self) -> Set[Tuple[str, str]]:
+    def restricted_edges_set(self) -> set[tuple[str, str]]:
         """Set of (from, to) edges that require token (for shield validation)."""
         return set(self._restricted_edges)
 
 
-def build_routing_graph(layout: Dict[str, Any]) -> RoutingGraph:
+def build_routing_graph(layout: dict[str, Any]) -> RoutingGraph:
     """
     Build RoutingGraph from zone_layout policy dict (zones, doors, graph_edges).
     Zones from layout["zones"]; edges from graph_edges; restricted edges from
@@ -83,14 +83,14 @@ def build_routing_graph(layout: Dict[str, Any]) -> RoutingGraph:
         raise ValueError("layout is empty")
     inner = layout.get("zone_layout_policy") or layout
     zones_list = inner.get("zones") or []
-    nodes: Set[str] = set()
+    nodes: set[str] = set()
     for z in zones_list:
         if isinstance(z, dict) and z.get("zone_id"):
             nodes.add(str(z["zone_id"]))
     graph_edges = inner.get("graph_edges") or []
     doors_list = inner.get("doors") or []
     doors_map = build_doors_map(doors_list)
-    edge_to_door: Dict[Tuple[str, str], str] = {}
+    edge_to_door: dict[tuple[str, str], str] = {}
     for e in graph_edges:
         f, t = e.get("from"), e.get("to")
         if f and t:
@@ -99,7 +99,7 @@ def build_routing_graph(layout: Dict[str, Any]) -> RoutingGraph:
                 edge_to_door[(str(f), str(t))] = str(via)
                 edge_to_door[(str(t), str(f))] = str(via)
     adj = build_adjacency_set(graph_edges)
-    restricted_edges: Set[Tuple[str, str]] = set()
+    restricted_edges: set[tuple[str, str]] = set()
     for (a, b), door_id in edge_to_door.items():
         d = doors_map.get(door_id)
         if d and (d.get("restricted") or d.get("requires_token")):

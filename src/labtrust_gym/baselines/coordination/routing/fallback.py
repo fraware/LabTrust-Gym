@@ -5,8 +5,6 @@ Token-based corridor reservation can be added later; for now wait + aging.
 
 from __future__ import annotations
 
-from typing import Any, Dict
-
 
 def safe_wait_policy() -> str:
     """
@@ -17,7 +15,7 @@ def safe_wait_policy() -> str:
 
 def priority_aging(
     agent_id: str,
-    wait_steps_by_agent: Dict[str, int],
+    wait_steps_by_agent: dict[str, int],
     max_boost: int = 100,
 ) -> int:
     """

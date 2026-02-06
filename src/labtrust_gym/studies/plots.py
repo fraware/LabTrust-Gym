@@ -9,7 +9,7 @@ import csv
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Matplotlib optional; use Agg for non-interactive
 try:
@@ -25,17 +25,17 @@ except ImportError:
 
 def _load_study_results(
     out_dir: Path,
-) -> Tuple[List[str], List[str], List[Dict[str, Any]]]:
+) -> tuple[list[str], list[str], list[dict[str, Any]]]:
     """Load condition_ids, condition_labels from manifest and results/cond_*/results.json."""
     manifest_path = out_dir / "manifest.json"
     if not manifest_path.exists():
         raise FileNotFoundError(f"manifest.json not found in {out_dir}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     condition_ids = manifest.get("condition_ids") or []
-    condition_labels: List[str] = manifest.get("condition_labels") or []
+    condition_labels: list[str] = manifest.get("condition_labels") or []
     if len(condition_labels) != len(condition_ids):
         condition_labels = list(condition_ids)
-    results_list: List[Dict[str, Any]] = []
+    results_list: list[dict[str, Any]] = []
     for cid in condition_ids:
         res_path = out_dir / "results" / cid / "results.json"
         if not res_path.exists():
@@ -45,11 +45,11 @@ def _load_study_results(
 
 
 def _aggregate_per_condition(
-    condition_ids: List[str],
-    results_list: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, Any]]:
+    condition_ids: list[str],
+    results_list: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
     """Build per-condition aggregates: throughput, p95_tat, violations, trust_cost."""
-    agg: Dict[str, Dict[str, Any]] = {}
+    agg: dict[str, dict[str, Any]] = {}
     for cid, results in zip(condition_ids, results_list):
         episodes = results.get("episodes") or []
         if not episodes:
@@ -63,13 +63,13 @@ def _aggregate_per_condition(
                 "blocked_by_reason_code": {},
             }
             continue
-        throughputs: List[int] = []
-        violations_totals: List[int] = []
-        p95_list: List[Optional[float]] = []
-        trust_costs: List[int] = []
-        critical_rates: List[Optional[float]] = []
-        viol_by_inv: Dict[str, int] = defaultdict(int)
-        blocked_by_rc: Dict[str, int] = defaultdict(int)
+        throughputs: list[int] = []
+        violations_totals: list[int] = []
+        p95_list: list[float | None] = []
+        trust_costs: list[int] = []
+        critical_rates: list[float | None] = []
+        viol_by_inv: dict[str, int] = defaultdict(int)
+        blocked_by_rc: dict[str, int] = defaultdict(int)
 
         for ep in episodes:
             m = ep.get("metrics") or {}
@@ -105,11 +105,11 @@ def _aggregate_per_condition(
 
 
 def _build_global_aggregates(
-    agg_per_cond: Dict[str, Dict[str, Any]],
-) -> Dict[str, Any]:
+    agg_per_cond: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     """Global: violations_by_invariant_id (sum), blocked_by_reason_code (sum), top-10 blocked."""
-    violations_by_inv: Dict[str, int] = defaultdict(int)
-    blocked_by_rc: Dict[str, int] = defaultdict(int)
+    violations_by_inv: dict[str, int] = defaultdict(int)
+    blocked_by_rc: dict[str, int] = defaultdict(int)
     for cond in agg_per_cond.values():
         for k, v in (cond.get("violations_by_invariant_id") or {}).items():
             violations_by_inv[k] += v
@@ -125,9 +125,9 @@ def _build_global_aggregates(
 
 def write_data_tables(
     out_dir: Path,
-    condition_ids: List[str],
-    agg_per_cond: Dict[str, Dict[str, Any]],
-    global_agg: Dict[str, Any],
+    condition_ids: list[str],
+    agg_per_cond: dict[str, dict[str, Any]],
+    global_agg: dict[str, Any],
 ) -> Path:
     """Write CSV tables to out_dir/figures/data_tables/. Returns data_tables dir."""
     tables_dir = out_dir / "figures" / "data_tables"
@@ -200,9 +200,9 @@ def write_data_tables(
 
 def write_summary_table(
     out_dir: Path,
-    condition_ids: List[str],
-    condition_labels: List[str],
-    agg_per_cond: Dict[str, Dict[str, Any]],
+    condition_ids: list[str],
+    condition_labels: list[str],
+    agg_per_cond: dict[str, dict[str, Any]],
 ) -> Path:
     """Write summary.csv and paper_table.md for paper-ready tables. Returns TABLES dir."""
     tables_dir = out_dir / "figures" / "data_tables"
@@ -258,11 +258,17 @@ def write_summary_table(
     return tables_dir
 
 
+def _run_context_subtitle(n_conditions: int, n_episodes: int, task: str) -> str:
+    """Build a one-line run context for plot subtitles and reports."""
+    return f"{task}: {n_conditions} conditions, {n_episodes} episode(s) per condition"
+
+
 def _plot_throughput_vs_violations(
-    condition_ids: List[str],
-    agg_per_cond: Dict[str, Dict[str, Any]],
+    condition_ids: list[str],
+    agg_per_cond: dict[str, dict[str, Any]],
     fig_dir: Path,
-    condition_labels: Optional[List[str]] = None,
+    condition_labels: list[str] | None = None,
+    subtitle: str | None = None,
 ) -> None:
     xs = [agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids]
     ys = [agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids]
@@ -277,7 +283,19 @@ def _plot_throughput_vs_violations(
         plt.annotate(lab, (xs[i], ys[i]), fontsize=8, alpha=0.8)
     plt.xlabel("Violations (total)")
     plt.ylabel("Throughput (mean)")
-    plt.title("Pareto: Throughput vs violations")
+    title = "Pareto: Throughput vs violations"
+    if subtitle:
+        title += f"\n{subtitle}"
+    plt.title(title, fontsize=10)
+    if all(y == 0 for y in ys) and all(x == 0 for x in xs):
+        plt.figtext(
+            0.5,
+            0.02,
+            "No variation: all points at (0,0). No releases recorded in this run.",
+            ha="center",
+            fontsize=7,
+            style="italic",
+        )
     plt.tight_layout()
     plt.savefig(fig_dir / "throughput_vs_violations.png", dpi=150)
     plt.savefig(fig_dir / "throughput_vs_violations.svg")
@@ -285,10 +303,11 @@ def _plot_throughput_vs_violations(
 
 
 def _plot_trust_cost_vs_p95_tat(
-    condition_ids: List[str],
-    agg_per_cond: Dict[str, Dict[str, Any]],
+    condition_ids: list[str],
+    agg_per_cond: dict[str, dict[str, Any]],
     fig_dir: Path,
-    condition_labels: Optional[List[str]] = None,
+    condition_labels: list[str] | None = None,
+    subtitle: str | None = None,
 ) -> None:
     xs = []
     ys = []
@@ -312,7 +331,19 @@ def _plot_trust_cost_vs_p95_tat(
         plt.annotate(lab, (xs[i], ys[i]), fontsize=8, alpha=0.8)
     plt.xlabel("p95 TAT (s)")
     plt.ylabel("Trust cost (tokens consumed + minted, mean)")
-    plt.title("Pareto: Trust cost vs p95 TAT")
+    title = "Pareto: Trust cost vs p95 TAT"
+    if subtitle:
+        title += f"\n{subtitle}"
+    plt.title(title, fontsize=10)
+    if all(y == 0 for y in ys):
+        plt.figtext(
+            0.5,
+            0.02,
+            "No trust cost or p95 TAT recorded (no completed runs).",
+            ha="center",
+            fontsize=7,
+            style="italic",
+        )
     plt.tight_layout()
     plt.savefig(fig_dir / "trust_cost_vs_p95_tat.png", dpi=150)
     plt.savefig(fig_dir / "trust_cost_vs_p95_tat.svg")
@@ -320,8 +351,9 @@ def _plot_trust_cost_vs_p95_tat(
 
 
 def _plot_violations_by_invariant_id(
-    global_agg: Dict[str, Any],
+    global_agg: dict[str, Any],
     fig_dir: Path,
+    subtitle: str | None = None,
 ) -> None:
     vbi = global_agg.get("violations_by_invariant_id") or {}
     inv_ids = sorted(vbi.keys())
@@ -333,7 +365,19 @@ def _plot_violations_by_invariant_id(
     plt.bar(range(len(inv_ids)), counts, tick_label=inv_ids)
     plt.xticks(rotation=45, ha="right")
     plt.ylabel("Count")
-    plt.title("Violations by invariant_id")
+    title = "Violations by invariant_id"
+    if subtitle:
+        title += f"\n{subtitle}"
+    plt.title(title, fontsize=10)
+    if not counts or all(c == 0 for c in counts):
+        plt.figtext(
+            0.5,
+            0.02,
+            "No invariant violations recorded in this run.",
+            ha="center",
+            fontsize=7,
+            style="italic",
+        )
     plt.tight_layout()
     plt.savefig(fig_dir / "violations_by_invariant_id.png", dpi=150)
     plt.savefig(fig_dir / "violations_by_invariant_id.svg")
@@ -341,8 +385,9 @@ def _plot_violations_by_invariant_id(
 
 
 def _plot_blocked_top10(
-    global_agg: Dict[str, Any],
+    global_agg: dict[str, Any],
     fig_dir: Path,
+    subtitle: str | None = None,
 ) -> None:
     top10 = global_agg.get("blocked_top10") or []
     labels = [x[0] for x in top10]
@@ -354,7 +399,19 @@ def _plot_blocked_top10(
     plt.bar(range(len(labels)), counts, tick_label=labels)
     plt.xticks(rotation=45, ha="right")
     plt.ylabel("Count")
-    plt.title("Blocked by reason_code (top 10)")
+    title = "Blocked by reason_code (top 10)"
+    if subtitle:
+        title += f"\n{subtitle}"
+    plt.title(title, fontsize=10)
+    if not counts or all(c == 0 for c in counts):
+        plt.figtext(
+            0.5,
+            0.02,
+            "No blocked actions recorded.",
+            ha="center",
+            fontsize=7,
+            style="italic",
+        )
     plt.tight_layout()
     plt.savefig(fig_dir / "blocked_by_reason_code_top10.png", dpi=150)
     plt.savefig(fig_dir / "blocked_by_reason_code_top10.svg")
@@ -362,9 +419,10 @@ def _plot_blocked_top10(
 
 
 def _plot_critical_compliance_by_condition(
-    condition_ids: List[str],
-    agg_per_cond: Dict[str, Dict[str, Any]],
+    condition_ids: list[str],
+    agg_per_cond: dict[str, dict[str, Any]],
     fig_dir: Path,
+    subtitle: str | None = None,
 ) -> None:
     vals = []
     for cid in condition_ids:
@@ -375,19 +433,31 @@ def _plot_critical_compliance_by_condition(
     plt.bar(range(len(condition_ids)), vals, tick_label=condition_ids)
     plt.xticks(rotation=45, ha="right")
     plt.ylabel("Critical compliance rate")
-    plt.title("Critical compliance rate by condition")
+    title = "Critical compliance rate by condition"
+    if subtitle:
+        title += f"\n{subtitle}"
+    plt.title(title, fontsize=10)
+    if all(v == 0.0 for v in vals):
+        plt.figtext(
+            0.5,
+            0.02,
+            "No critical communication in this run or rate not computed.",
+            ha="center",
+            fontsize=7,
+            style="italic",
+        )
     plt.tight_layout()
     plt.savefig(fig_dir / "critical_compliance_by_condition.png", dpi=150)
     plt.savefig(fig_dir / "critical_compliance_by_condition.svg")
     plt.close()
 
 
-def _load_coordination_summary(out_dir: Path) -> Optional[List[Dict[str, Any]]]:
+def _load_coordination_summary(out_dir: Path) -> list[dict[str, Any]] | None:
     """Load summary_coord.csv if present (coordination study). Returns list of row dicts or None."""
     csv_path = out_dir / "summary" / "summary_coord.csv"
     if not csv_path.exists():
         return None
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     with csv_path.open("r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for r in reader:
@@ -421,11 +491,11 @@ def _load_coordination_summary(out_dir: Path) -> Optional[List[Dict[str, Any]]]:
     return rows if rows else None
 
 
-def _plot_resilience_vs_p95_tat(rows: List[Dict[str, Any]], fig_dir: Path) -> None:
+def _plot_resilience_vs_p95_tat(rows: list[dict[str, Any]], fig_dir: Path) -> None:
     """Scatter: resilience_score vs p95_tat (matplotlib default colors)."""
-    xs: List[float] = []
-    ys: List[float] = []
-    labels: List[str] = []
+    xs: list[float] = []
+    ys: list[float] = []
+    labels: list[str] = []
     for r in rows:
         p95 = r.get("perf.p95_tat")
         res = r.get("robustness.resilience_score")
@@ -448,11 +518,11 @@ def _plot_resilience_vs_p95_tat(rows: List[Dict[str, Any]], fig_dir: Path) -> No
     plt.close()
 
 
-def _plot_attack_success_rate_bar(rows: List[Dict[str, Any]], fig_dir: Path) -> None:
+def _plot_attack_success_rate_bar(rows: list[dict[str, Any]], fig_dir: Path) -> None:
     """Bar: attack_success_rate by method and injection (matplotlib default colors)."""
     # Build (method_id, injection_id) -> rate
-    keys: List[Tuple[str, str]] = []
-    rates: List[float] = []
+    keys: list[tuple[str, str]] = []
+    rates: list[float] = []
     seen = set()
     for r in rows:
         mid = r.get("method_id", "")
@@ -482,6 +552,133 @@ def _plot_attack_success_rate_bar(rows: List[Dict[str, Any]], fig_dir: Path) -> 
     plt.close()
 
 
+def _write_run_report(
+    out_dir: Path,
+    fig_dir: Path,
+    manifest: dict[str, Any],
+    condition_ids: list[str],
+    results_list: list[dict[str, Any]],
+    agg_per_cond: dict[str, dict[str, Any]],
+    global_agg: dict[str, Any],
+) -> None:
+    """Write figures/RUN_REPORT.md explaining the run, metrics, and how to interpret plots."""
+    task = manifest.get("task", "unknown")
+    episodes = int(manifest.get("episodes", 0))
+    n_conditions = len(condition_ids)
+    total_episodes = sum(len(r.get("episodes") or []) for r in results_list)
+
+    throughputs = [
+        agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids
+    ]
+    violations_totals = [
+        agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids
+    ]
+    all_zero_throughput = all(t == 0 for t in throughputs)
+    all_zero_violations = all(v == 0 for v in violations_totals)
+
+    lines = [
+        "# Run report: figures and data tables",
+        "",
+        "## Run context",
+        f"- **Task**: {task}",
+        f"- **Conditions**: {n_conditions} ({', '.join(condition_ids)})",
+        f"- **Episodes per condition**: {episodes}",
+        f"- **Total episodes**: {total_episodes}",
+        f"- **Output directory**: `{out_dir.resolve()}`",
+        "",
+        "## Metric definitions",
+        "- **throughput_mean**: Mean number of specimens released (RELEASE_RESULT) per episode. Higher is better.",
+        "- **violations_total**: Sum of invariant violations across episodes (by invariant_id). Lower is better.",
+        "- **p95_tat_mean**: Mean 95th percentile turnaround time (accept to release) in seconds. Lower is better when comparing conditions.",
+        "- **trust_cost_mean**: Mean (tokens_consumed + tokens_minted) per episode. Proxy for trust/override usage.",
+        "- **critical_compliance_mean**: Fraction of critical results with required notify/ack. Higher is better.",
+        "- **blocked_by_reason_code**: Count of actions blocked by policy (e.g. RBAC, QC_FAIL_ACTIVE).",
+        "",
+        "## Figures",
+        "- `throughput_vs_violations.png` / `.svg`: Pareto view; prefer high throughput, low violations.",
+        "- `trust_cost_vs_p95_tat.png` / `.svg`: Trust cost vs turnaround; trade-off by condition.",
+        "- `violations_by_invariant_id.png` / `.svg`: Which invariants were violated (aggregate).",
+        "- `blocked_by_reason_code_top10.png` / `.svg`: Top reason codes for blocked actions.",
+        "- `critical_compliance_by_condition.png` / `.svg`: Critical communication compliance per condition.",
+        "",
+        "## Data tables (figures/data_tables/)",
+        "- `summary.csv`, `paper_table.md`: Per-condition aggregates (paper-ready).",
+        "- `throughput_vs_violations.csv`, `trust_cost_vs_p95_tat.csv`: Underlying data for scatter plots.",
+        "- `violations_by_invariant_id.csv`, `blocked_by_reason_code_top10.csv`: Underlying data for bar charts.",
+        "",
+        "## Data summary",
+    ]
+    if all_zero_throughput:
+        lines.extend(
+            [
+                "- **Throughput**: All conditions had 0 releases. No RELEASE_RESULT was recorded in any episode.",
+                "  This usually means: (1) scripted baseline did not complete any run (e.g. reagent stockout, zone violations),",
+                "  or (2) episodes were too short, or (3) specimens were not accepted/queued. Check `policy_root` and",
+                "  `reagent_initial_stock` in initial_state, and that specimens start as accepted for study tasks.",
+                "",
+            ]
+        )
+    else:
+        lines.append(
+            f"- **Throughput**: Min={min(throughputs):.2f}, Max={max(throughputs):.2f} (mean per condition)."
+        )
+        lines.append("")
+    if all_zero_violations:
+        lines.append("- **Violations**: No invariant violations recorded.")
+    else:
+        total_v = sum(violations_totals)
+        lines.append(
+            f"- **Violations**: Total={total_v} across conditions; see violations_by_invariant_id for breakdown."
+        )
+    lines.append("")
+
+    report_path = fig_dir / "RUN_REPORT.md"
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_run_summary(out_dir: Path, manifest: dict[str, Any]) -> None:
+    """Write out_dir/RUN_SUMMARY.md: what was run, where results and figures live, and next steps."""
+    task = manifest.get("task", "unknown")
+    episodes = int(manifest.get("episodes", 0))
+    condition_ids = manifest.get("condition_ids") or []
+    spec_path = manifest.get("study_spec_path", "")
+    git_hash = manifest.get("git_commit_hash", "")
+
+    lines = [
+        "# Run summary",
+        "",
+        "## What was run",
+        f"- **Task**: {task}",
+        f"- **Episodes per condition**: {episodes}",
+        f"- **Conditions**: {len(condition_ids)}",
+    ]
+    if spec_path:
+        lines.append(f"- **Study spec**: `{spec_path}`")
+    if git_hash:
+        lines.append(f"- **Git commit**: `{git_hash}`")
+    lines.extend(
+        [
+            "",
+            "## Output layout",
+            "| Path | Description |",
+            "|------|-------------|",
+            "| `manifest.json` | Run metadata, condition_ids, seeds, git hash |",
+            "| `results/<cond_id>/results.json` | Per-condition benchmark results (episodes, metrics) |",
+            "| `logs/<cond_id>/episodes.jsonl` | Episode logs when logging enabled |",
+            "| `figures/` | PNG/SVG plots and `figures/data_tables/` (CSV, paper_table.md) |",
+            "| `figures/RUN_REPORT.md` | Metric definitions and how to interpret the figures |",
+            "",
+            "## Next steps",
+            "1. Inspect `figures/RUN_REPORT.md` for metric definitions and data summary.",
+            "2. Open `figures/data_tables/summary.csv` or `paper_table.md` for per-condition aggregates.",
+            '3. If all throughputs are zero, see the "Data summary" section in `figures/RUN_REPORT.md` for troubleshooting.',
+            "",
+        ]
+    )
+    summary_path = out_dir / "RUN_SUMMARY.md"
+    summary_path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def make_plots(out_dir: Path) -> Path:
     """
     Read study out_dir, write data tables (CSV), summary table (summary.csv + paper_table.md),
@@ -496,6 +693,11 @@ def make_plots(out_dir: Path) -> Path:
     out_dir = Path(out_dir)
     fig_dir = out_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest: dict[str, Any] = {}
+    manifest_path = out_dir / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     coord_rows = _load_coordination_summary(out_dir)
     if coord_rows is not None:
@@ -518,24 +720,52 @@ def make_plots(out_dir: Path) -> Path:
     write_data_tables(out_dir, condition_ids, agg_per_cond, global_agg)
     write_summary_table(out_dir, condition_ids, condition_labels, agg_per_cond)
 
+    task = manifest.get("task", "unknown")
+    episodes = int(manifest.get("episodes", 0))
+    subtitle = _run_context_subtitle(len(condition_ids), episodes, task)
+
     _plot_throughput_vs_violations(
-        condition_ids, agg_per_cond, fig_dir, condition_labels=condition_labels
+        condition_ids,
+        agg_per_cond,
+        fig_dir,
+        condition_labels=condition_labels,
+        subtitle=subtitle,
     )
     _plot_trust_cost_vs_p95_tat(
-        condition_ids, agg_per_cond, fig_dir, condition_labels=condition_labels
+        condition_ids,
+        agg_per_cond,
+        fig_dir,
+        condition_labels=condition_labels,
+        subtitle=subtitle,
     )
-    _plot_violations_by_invariant_id(global_agg, fig_dir)
-    _plot_blocked_top10(global_agg, fig_dir)
-    _plot_critical_compliance_by_condition(condition_ids, agg_per_cond, fig_dir)
+    _plot_violations_by_invariant_id(global_agg, fig_dir, subtitle=subtitle)
+    _plot_blocked_top10(global_agg, fig_dir, subtitle=subtitle)
+    _plot_critical_compliance_by_condition(
+        condition_ids,
+        agg_per_cond,
+        fig_dir,
+        subtitle=subtitle,
+    )
 
     if coord_rows is not None:
         _plot_resilience_vs_p95_tat(coord_rows, fig_dir)
         _plot_attack_success_rate_bar(coord_rows, fig_dir)
 
+    _write_run_report(
+        out_dir,
+        fig_dir,
+        manifest,
+        condition_ids,
+        results_list,
+        agg_per_cond,
+        global_agg,
+    )
+    _write_run_summary(out_dir, manifest)
+
     return fig_dir
 
 
-def get_data_table_paths(out_dir: Path) -> List[Path]:
+def get_data_table_paths(out_dir: Path) -> list[Path]:
     """Return expected CSV and table paths in figures/data_tables/ (paper-ready)."""
     base = out_dir / "figures" / "data_tables"
     return [

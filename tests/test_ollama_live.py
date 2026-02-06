@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -71,9 +70,7 @@ def test_ollama_backend_supports_structured_outputs_false() -> None:
 
 def test_ollama_backend_generate_returns_noop_json_on_connection_error() -> None:
     """generate() returns NOOP JSON string when request fails (no network)."""
-    with patch.dict(
-        os.environ, {"LABTRUST_LOCAL_LLM_URL": "http://localhost:11434"}, clear=False
-    ):
+    with patch.dict(os.environ, {"LABTRUST_LOCAL_LLM_URL": "http://localhost:11434"}, clear=False):
         backend = OllamaLiveBackend()
     with patch("urllib.request.urlopen") as mock_urlopen:
         mock_urlopen.side_effect = OSError("Connection refused")

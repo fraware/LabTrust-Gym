@@ -9,17 +9,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TextIO
+from typing import Any, TextIO
 
 
 def build_log_entry(
-    event: Dict[str, Any],
-    result: Dict[str, Any],
-    partner_id: Optional[str] = None,
-    policy_fingerprint: Optional[str] = None,
-    tool_registry_fingerprint: Optional[str] = None,
-    rbac_policy_fingerprint: Optional[str] = None,
-) -> Dict[str, Any]:
+    event: dict[str, Any],
+    result: dict[str, Any],
+    partner_id: str | None = None,
+    policy_fingerprint: str | None = None,
+    tool_registry_fingerprint: str | None = None,
+    rbac_policy_fingerprint: str | None = None,
+) -> dict[str, Any]:
     """
     Build one JSONL log entry from event and engine step result.
 
@@ -38,8 +38,8 @@ def build_log_entry(
     if blocked_reason_code is not None:
         blocked_reason_code = str(blocked_reason_code)
 
-    emits: List[str] = list(result.get("emits") or [])
-    violations: List[Dict[str, Any]] = []
+    emits: list[str] = list(result.get("emits") or [])
+    violations: list[dict[str, Any]] = []
     for v in result.get("violations") or []:
         violations.append(
             {
@@ -48,12 +48,12 @@ def build_log_entry(
                 "reason_code": v.get("reason_code"),
             }
         )
-    token_consumed: List[str] = list(result.get("token_consumed") or [])
+    token_consumed: list[str] = list(result.get("token_consumed") or [])
 
     hashchain = result.get("hashchain") or {}
     hashchain_head = hashchain.get("head_hash")
 
-    entry: Dict[str, Any] = {
+    entry: dict[str, Any] = {
         "t_s": t_s,
         "agent_id": agent_id,
         "action_type": action_type,
@@ -119,7 +119,7 @@ def build_log_entry(
     return entry
 
 
-def write_log_line(stream: TextIO, entry: Dict[str, Any]) -> None:
+def write_log_line(stream: TextIO, entry: dict[str, Any]) -> None:
     """
     Write one JSONL line (deterministic: sort_keys=True).
 
@@ -141,24 +141,24 @@ class EpisodeLogger:
 
     def __init__(
         self,
-        path: Optional[Path] = None,
-        partner_id: Optional[str] = None,
-        policy_fingerprint: Optional[str] = None,
-        tool_registry_fingerprint: Optional[str] = None,
+        path: Path | None = None,
+        partner_id: str | None = None,
+        policy_fingerprint: str | None = None,
+        tool_registry_fingerprint: str | None = None,
     ) -> None:
         self._path = Path(path) if path else None
-        self._stream: Optional[TextIO] = None
+        self._stream: TextIO | None = None
         self._partner_id = partner_id
         self._policy_fingerprint = policy_fingerprint
         self._tool_registry_fingerprint = tool_registry_fingerprint
-        self._rbac_policy_fingerprint: Optional[str] = None
+        self._rbac_policy_fingerprint: str | None = None
 
     def set_episode_meta(
         self,
-        partner_id: Optional[str] = None,
-        policy_fingerprint: Optional[str] = None,
-        tool_registry_fingerprint: Optional[str] = None,
-        rbac_policy_fingerprint: Optional[str] = None,
+        partner_id: str | None = None,
+        policy_fingerprint: str | None = None,
+        tool_registry_fingerprint: str | None = None,
+        rbac_policy_fingerprint: str | None = None,
     ) -> None:
         """Set partner_id, policy_fingerprint, tool_registry_fingerprint for this episode (e.g. at reset)."""
         if partner_id is not None:
@@ -172,8 +172,8 @@ class EpisodeLogger:
 
     def log_step(
         self,
-        event: Dict[str, Any],
-        result: Dict[str, Any],
+        event: dict[str, Any],
+        result: dict[str, Any],
     ) -> None:
         """Append one step (event + result) as a JSONL line."""
         if self._path is None:

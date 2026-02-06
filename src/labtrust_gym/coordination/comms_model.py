@@ -8,8 +8,8 @@ Perfect mode: no delay/drop/reorder/duplicate (nominal baseline).
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 from labtrust_gym.coordination.blackboard import BlackboardEvent
 from labtrust_gym.coordination.network import NetworkModel
@@ -34,7 +34,7 @@ class CommsConfig:
     drop_rate: float = 0.0
     reorder_window: int = 0
     duplicate_rate: float = 0.0
-    network_policy: Optional[Dict[str, Any]] = None
+    network_policy: dict[str, Any] | None = None
 
 
 @dataclass
@@ -67,21 +67,21 @@ class CommsModel:
 
     def __init__(
         self,
-        agent_ids: List[str],
-        config: Optional[CommsConfig] = None,
+        agent_ids: list[str],
+        config: CommsConfig | None = None,
         seed: int = 0,
     ) -> None:
         self._config = config or CommsConfig()
         self._rng = random.Random(seed)
         self._agent_ids = sorted(agent_ids)
-        self._pending_by_agent: Dict[str, List[Tuple[BlackboardEvent, int, float]]] = {
+        self._pending_by_agent: dict[str, list[tuple[BlackboardEvent, int, float]]] = {
             aid: [] for aid in self._agent_ids
         }
         self._msg_count = 0
-        self._delivered_latencies_ms: List[float] = []
+        self._delivered_latencies_ms: list[float] = []
         self._dropped_count = 0
         np = getattr(self._config, "network_policy", None)
-        self._network_model: Optional[NetworkModel] = (
+        self._network_model: NetworkModel | None = (
             NetworkModel(
                 agent_ids=self._agent_ids,
                 policy=np,
@@ -104,9 +104,9 @@ class CommsModel:
 
     def apply(
         self,
-        log_events: List[BlackboardEvent],
+        log_events: list[BlackboardEvent],
         now_t: int,
-    ) -> Dict[str, List[BlackboardEvent]]:
+    ) -> dict[str, list[BlackboardEvent]]:
         """
         Process new log events and current step; return deliveries per agent:
         { agent_id: [events to apply this step] }.
@@ -117,9 +117,7 @@ class CommsModel:
         if self._network_model is not None:
             return self._network_model.apply(log_events, now_t)
 
-        deliveries: Dict[str, List[BlackboardEvent]] = {
-            aid: [] for aid in self._agent_ids
-        }
+        deliveries: dict[str, list[BlackboardEvent]] = {aid: [] for aid in self._agent_ids}
         if not log_events:
             self._flush_pending(now_t, deliveries)
             return deliveries
@@ -146,9 +144,7 @@ class CommsModel:
                 delivery_step = now_t + int(delay_ms // 10)
                 self._pending_by_agent[aid].append((ev, delivery_step, delay_ms))
                 if self._rng.random() < cfg.duplicate_rate:
-                    self._pending_by_agent[aid].append(
-                        (ev, delivery_step + 1, delay_ms + 10.0)
-                    )
+                    self._pending_by_agent[aid].append((ev, delivery_step + 1, delay_ms + 10.0))
 
         self._flush_pending(now_t, deliveries)
         return deliveries
@@ -156,16 +152,14 @@ class CommsModel:
     def _flush_pending(
         self,
         now_t: int,
-        deliveries: Dict[str, List[BlackboardEvent]],
+        deliveries: dict[str, list[BlackboardEvent]],
     ) -> None:
         """Move pending events that are due at now_t into deliveries; apply reorder_window."""
         cfg = self._config
         for aid in self._agent_ids:
             pending = self._pending_by_agent[aid]
             due = [(ev, step, lat) for ev, step, lat in pending if step <= now_t]
-            self._pending_by_agent[aid] = [
-                (ev, step, lat) for ev, step, lat in pending if step > now_t
-            ]
+            self._pending_by_agent[aid] = [(ev, step, lat) for ev, step, lat in pending if step > now_t]
             if not due:
                 continue
             events_with_lat = sorted(due, key=lambda x: (x[1], x[0].id))
@@ -178,9 +172,9 @@ class CommsModel:
 
     def _reorder(
         self,
-        events_with_lat: List[Tuple[BlackboardEvent, int, float]],
+        events_with_lat: list[tuple[BlackboardEvent, int, float]],
         window: int,
-    ) -> List[Tuple[BlackboardEvent, int, float]]:
+    ) -> list[tuple[BlackboardEvent, int, float]]:
         """Within window, randomly reorder (deterministic with self._rng)."""
         if window <= 0 or len(events_with_lat) <= 1:
             return events_with_lat
@@ -188,7 +182,7 @@ class CommsModel:
         self._rng.shuffle(out)
         return out
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Return comm metrics for results: msg_count, p95_latency_ms, drop_rate, partition_events (if network)."""
         if self._network_model is not None:
             return self._network_model.get_metrics()

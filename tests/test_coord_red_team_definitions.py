@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from labtrust_gym.baselines.adversary_coord import (
     RedTeamStrategy,
+    evaluate_episode_outcome,
     get_definitions_for_strategy,
     get_injection_id_for_strategy,
-    evaluate_episode_outcome,
 )
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.policy.loader import load_yaml
@@ -27,18 +27,9 @@ def test_red_team_definitions_consistent() -> None:
 
 def test_strategy_to_injection_id_mapping() -> None:
     """Strategy maps to injection_id; identity/replay map to INJ-ID-SPOOF-001, INJ-REPLAY-001."""
-    assert (
-        get_injection_id_for_strategy(RedTeamStrategy.IDENTITY_ROTATION)
-        == "INJ-ID-SPOOF-001"
-    )
-    assert (
-        get_injection_id_for_strategy(RedTeamStrategy.REPLAY_ATTEMPTS)
-        == "INJ-REPLAY-001"
-    )
-    assert (
-        get_injection_id_for_strategy(RedTeamStrategy.COLLUSION)
-        == "INJ-COLLUSION-001"
-    )
+    assert get_injection_id_for_strategy(RedTeamStrategy.IDENTITY_ROTATION) == "INJ-ID-SPOOF-001"
+    assert get_injection_id_for_strategy(RedTeamStrategy.REPLAY_ATTEMPTS) == "INJ-REPLAY-001"
+    assert get_injection_id_for_strategy(RedTeamStrategy.COLLUSION) == "INJ-COLLUSION-001"
     for strategy in RedTeamStrategy:
         iid = get_injection_id_for_strategy(strategy)
         assert iid, f"Strategy {strategy} must map to an injection_id"
@@ -113,9 +104,7 @@ def test_red_team_injection_ids_in_registry() -> None:
 
     for strategy in RedTeamStrategy:
         iid = get_injection_id_for_strategy(strategy)
-        assert iid in INJECTION_REGISTRY, (
-            f"{iid} for {strategy} must be in INJECTION_REGISTRY"
-        )
+        assert iid in INJECTION_REGISTRY, f"{iid} for {strategy} must be in INJECTION_REGISTRY"
 
 
 def test_coordination_study_aggregate_includes_red_team_metrics() -> None:

@@ -47,7 +47,27 @@ labtrust reproduce --profile minimal
 
 Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings).
 
-**LLMs:** Benchmarks and tests use **deterministic, offline** LLM backends by default (no API keys or `.env`). Optional **live LLM** mode: `--llm-backend openai_live` (requires `OPENAI_API_KEY`) or `--llm-backend ollama_live` (local Ollama; `LABTRUST_LOCAL_LLM_*` env vars). Live backends are non-deterministic and may incur cost. See [docs/installation.md](docs/installation.md#configuration-no-env-file-required), [docs/llm_baselines.md](docs/llm_baselines.md), and [docs/llm_live.md](docs/llm_live.md).
+## Pipelines
+
+Benchmarks run in one of three pipeline modes. Defaults are **offline** (no network, no API cost).
+
+| Mode | Network | Agents | Use case |
+|------|---------|--------|----------|
+| **deterministic** | No | Scripted only | CI, regression, reproduce, paper artifact (default) |
+| **llm_offline** | No | LLM interface, deterministic backend only | Offline LLM evaluation, no API calls |
+| **llm_live** | Yes (opt-in) | Live OpenAI/Ollama | Interactive or cost-accepting runs; requires `--allow-network` |
+
+Set mode with `--pipeline-mode`; for live LLM also pass `--allow-network` or `LABTRUST_ALLOW_NETWORK=1`. See [docs/llm_live.md](docs/llm_live.md) and [docs/installation.md](docs/installation.md#configuration-no-env-file-required).
+
+### Why you saw no OpenAI calls
+
+Runs are **offline by default**. If you expected OpenAI (or another live LLM) to be called and saw none:
+
+- **quick-eval**, **run-benchmark**, **reproduce**, and **package-release** use `pipeline_mode=deterministic` unless you pass `--pipeline-mode llm_live` and `--allow-network`.
+- No `.env` or `OPENAI_API_KEY` is read for making calls unless the pipeline is **llm_live** and network is allowed.
+- To run with a live LLM: `--pipeline-mode llm_live --allow-network --llm-backend openai_live` (or `ollama_live`). The CLI will print a red warning: **WILL MAKE NETWORK CALLS / MAY INCUR COST**.
+
+Every run records which pipeline was used: **results.json** (and UI export **index.json**) include `pipeline_mode`, `llm_backend_id`, `llm_model_id`, and `allow_network` so a reviewer can tell at a glance whether a run was live-LLM or deterministic.
 
 ## Quick eval
 

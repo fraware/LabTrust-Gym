@@ -9,10 +9,8 @@ Robust JSON parsing for LLM responses when provider does not enforce schema.
 
 from __future__ import annotations
 
-from typing import Optional
 
-
-def extract_first_json_object(raw: str) -> Optional[str]:
+def extract_first_json_object(raw: str) -> str | None:
     """
     Extract the first top-level JSON object from raw text.
 
@@ -34,7 +32,7 @@ def extract_first_json_object(raw: str) -> Optional[str]:
     depth = 0
     in_string = False
     escape = False
-    quote_char: Optional[str] = None
+    quote_char: str | None = None
     i = start
     while i < len(text):
         c = text[i]
