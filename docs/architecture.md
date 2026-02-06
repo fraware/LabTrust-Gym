@@ -1,5 +1,7 @@
 # Architecture
 
+High-level pipeline and HSL lab topology are in [Architecture diagrams](diagrams.md) (Mermaid flowcharts).
+
 LabTrust-Gym is structured as:
 
 - **Core simulator (`engine/`)** — `core_env` (reset, step, query), audit log (hash chain, forensic freeze), zones (graph, doors, device placement), specimens (acceptance, hold/reject), QC (result gating), critical (notify/ack), queueing (per-device queues), devices (state machine, service times when `timing_mode: simulated`), clock, RNG (deterministic), **signatures** (Ed25519 verification; key registry with lifecycle: status ACTIVE/REVOKED/EXPIRED, not_before_ts_s/not_after_ts_s; SIG_KEY_REVOKED, SIG_KEY_EXPIRED, SIG_KEY_NOT_YET_VALID; agent_id binding), **runtime control** (UPDATE_ROSTER, INJECT_SPECIMEN: always require SYSTEM + R_SYSTEM_CONTROL key and signature; control_decision in step output and episode log), **transport** (multi-site consignments; sites_policy routes and temp drift), **invariants_runtime** (registry-driven checks post-step), **enforcement** (policy-driven throttle/kill_switch/freeze_zone/forensic_freeze). BLOCKED steps do not mutate world state except audit logging; hash chain break triggers forensic freeze.
