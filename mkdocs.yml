@@ -18,6 +18,7 @@ nav:
   - Installation: installation.md
   - Repository structure: repository_structure.md
   - Architecture: architecture.md
+  - Architecture diagrams: diagrams.md
   - Policy pack and schemas: policy_pack.md
   - Coordination policy (risk and method registry): coordination_policy.md
   - Coordination methods (baselines at scale): coordination_methods.md
@@ -61,6 +62,7 @@ nav:
   - Testing strategy (fuzz and metamorphic): testing_strategy.md
   - Improvements before online: IMPROVEMENTS_BEFORE_ONLINE.md
   - CI: ci.md
+  - Progress update (3-min): progress_update.md
   - STATUS: STATUS.md
   - API Reference: api/index.md
 
