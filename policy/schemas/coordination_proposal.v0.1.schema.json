@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.coordination_proposal.v0.1",
+  "title": "Coordination Proposal v0.1",
+  "description": "Typed contract for LLM-based coordination methods: proposal_id, step_id, per_agent actions, comms, optional market, meta for audit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["proposal_id", "step_id", "method_id", "per_agent", "comms", "meta"],
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "description": "Unique id (uuid or deterministic hash) for this proposal"
+    },
+    "step_id": {
+      "type": "integer",
+      "description": "Simulation step index (0-based)"
+    },
+    "method_id": {
+      "type": "string",
+      "description": "Coordination method identifier (e.g. llm_constrained)"
+    },
+    "horizon_steps": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Planning horizon in steps"
+    },
+    "per_agent": {
+      "type": "array",
+      "description": "Per-agent actions proposed by the LLM",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agent_id", "action_type", "args", "reason_code"],
+        "properties": {
+          "agent_id": { "type": "string" },
+          "action_type": { "type": "string" },
+          "args": { "type": "object", "description": "Action arguments (object)" },
+          "reason_code": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "token_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "comms": {
+      "type": "array",
+      "description": "Proposed messages between agents",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from_agent_id", "channel", "payload_typed", "intent", "ttl_steps"],
+        "properties": {
+          "from_agent_id": { "type": "string" },
+          "to_agent_id": { "type": "string" },
+          "broadcast": { "type": "boolean" },
+          "channel": { "type": "string" },
+          "payload_typed": { "type": "object" },
+          "intent": { "type": "string" },
+          "ttl_steps": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "market": {
+      "type": "array",
+      "description": "Optional market bids (e.g. auction)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agent_id"],
+        "properties": {
+          "agent_id": { "type": "string" },
+          "bid": {},
+          "bundle": {},
+          "constraints": { "type": "object" }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "description": "Audit: prompt_fingerprint, policy_fingerprint, backend_id, model_id, latency_ms, tokens",
+      "properties": {
+        "prompt_fingerprint": { "type": "string" },
+        "policy_fingerprint": { "type": "string" },
+        "backend_id": { "type": "string" },
+        "model_id": { "type": "string" },
+        "latency_ms": { "type": "number" },
+        "tokens_in": { "type": "integer" },
+        "tokens_out": { "type": "integer" }
+      }
+    }
+  }
+}

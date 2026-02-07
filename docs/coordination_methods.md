@@ -163,7 +163,15 @@ Reuses the existing `baselines/llm/agent.py` (LLMAgentWithShield) as a Coordinat
 
 ## Registry and factory
 
-- **Registry**: `policy/coordination/coordination_methods.v0.1.yaml` lists `method_id`, name, coordination_class, scaling_knobs, known_weaknesses (risk_id), required_controls, compatible_injections, default_params. Includes kernel-composed methods (e.g. kernel_centralized_edf, kernel_whca, kernel_auction_edf, kernel_auction_whca) and hierarchical_hub_local; **kernel_auction_whca_shielded** is the auction+WHCA method wrapped by the Simplex shield (see assurance/simplex.py).
+### 7b. llm_repair_over_kernel_whca (repair-over-kernel)
+
+Base plan is produced by a deterministic kernel method (default: **kernel_whca**). The LLM is used only as a repairer/sanitizer when: (1) the shield rejects the kernel action set, (2) a security detector flags comms poisoning, inconsistent view, or spoofed identity, or (3) plan staleness exceeds policy limit (e.g. coordination.timing.p95_view_age_ms). Flow: kernel plan -> shield validate -> if blocked or flagged -> build deterministic repair input (scale_config snapshot, last accepted plan summary, blocked actions with reason codes, constraint summary, red-team flags) -> call LLM repair backend -> re-shield repaired plan -> execute or fallback to NOOP.
+
+**Repair input** is canonicalized (stable key order, no timestamps) so that same logical input yields same JSON and same hash; determinism in llm_offline is preserved via a deterministic repair backend (seed + repair_input_hash). **Metrics**: optional `coordination.llm_repair` block in results v0.2: `repair_call_count`, `repair_success_rate`, `repair_fallback_noop_count`, `mean_repair_latency_ms` (null offline), `total_repair_tokens` (0 offline). Required controls: signed_actions, message_auth, shield_execute, repair_loop. Compatible injections: INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-LLM-PROMPT-INJECT-COORD-001. TaskH with INJ-COMMS-POISON-001 or INJ-ID-SPOOF-001 runs produce sec metrics and nonzero repair calls when the runner sets repair triggers. Run: `labtrust run-benchmark --task TaskH_COORD_RISK --coord-method llm_repair_over_kernel_whca --injection INJ-COMMS-POISON-001 --episodes 1 --seed 42 --out results.json`.
+
+---
+
+- **Registry**: `policy/coordination/coordination_methods.v0.1.yaml` lists `method_id`, name, coordination_class, scaling_knobs, known_weaknesses (risk_id), required_controls, compatible_injections, default_params. Includes kernel-composed methods (e.g. kernel_centralized_edf, kernel_whca, kernel_auction_edf, kernel_auction_whca) and hierarchical_hub_local; **kernel_auction_whca_shielded** is the auction+WHCA method wrapped by the Simplex shield (see assurance/simplex.py); **llm_repair_over_kernel_whca** is repair-over-kernel (see above).
 - **Factory**: `make_coordination_method(method_id, policy, repo_root=None, scale_config=None, **kwargs)` loads default_params from the registry and instantiates the corresponding method. For `llm_constrained`, `llm_agent` must be passed; for `marl_ppo`, a trained model path can be passed when SB3 is available.
 
 ## Usage

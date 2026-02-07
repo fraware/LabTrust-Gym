@@ -1,0 +1,7 @@
+{
+  "version": "0.1",
+  "results": [
+    {"attack_id": "SEC-PI-001", "passed": true, "risk_id": "R-CAP-001"}
+  ],
+  "summary": {"total": 1, "passed": 1, "failed": 0}
+}

@@ -34,6 +34,9 @@ nav:
     - Frozen contracts: frozen_contracts.md
     - Public contract freeze (v0.1.0): CONTRACTS.md
     - UI data contract: ui_data_contract.md
+    - Risk register (bundle, generate, review): risk_register.md
+    - Risk register contract (v0.1): risk_register_contract.v0.1.md
+    - Risk register viewer: risk_register_viewer.md
   - PettingZoo API: pettingzoo_api.md
   - Benchmarks, studies, plots:
     - Benchmarks: benchmarks.md

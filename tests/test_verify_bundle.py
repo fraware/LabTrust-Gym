@@ -8,11 +8,12 @@ import json
 from pathlib import Path
 
 from labtrust_gym.export.receipts import (
+    PROMPT_FINGERPRINT_INPUTS_FILENAME,
     build_receipts_from_log,
     load_episode_log,
     write_evidence_bundle,
 )
-from labtrust_gym.export.verify import verify_bundle
+from labtrust_gym.export.verify import verify_bundle, verify_bundle_structured
 
 
 def _repo_root() -> Path:
@@ -69,6 +70,19 @@ def test_verify_bundle_pass_untouched(tmp_path: Path) -> None:
     assert passed, f"expected PASS: {report}\n{errors}"
     assert "PASS" in report
     assert len(errors) == 0
+
+    # Structured summary surfaces what was verified for reviewers
+    summary = verify_bundle_structured(bundle_dir, policy_root=root, allow_extra_files=False)
+    assert "manifest_valid" in summary
+    assert "schema_valid" in summary
+    assert "hashchain_valid" in summary
+    assert "invariant_trace_valid" in summary
+    assert "policy_fingerprints" in summary
+    assert summary["manifest_valid"] is True
+    assert summary["schema_valid"] is True
+    assert summary["hashchain_valid"] is True
+    assert "errors" in summary
+    assert len(summary["errors"]) == 0
 
 
 def test_verify_bundle_pass_with_llm_decision_entries(tmp_path: Path) -> None:
@@ -334,6 +348,82 @@ def test_verify_bundle_fail_tampered_policy_file(tmp_path: Path) -> None:
         )
     finally:
         policy_file.write_bytes(original)
+
+
+def test_verify_bundle_prompt_sha256_pass(tmp_path: Path) -> None:
+    """When manifest has prompt_sha256 and bundle has prompt_fingerprint_inputs, verify recomputes and PASSes if match."""
+    from labtrust_gym.baselines.coordination.prompt_fingerprint import (
+        compute_prompt_fingerprints,
+    )
+
+    root = _repo_root()
+    state = {"step": 0, "per_agent": [], "per_device": [], "per_specimen": [], "comms_stats": {"msg_count": 0, "drop_rate": 0.0}}
+    pf = compute_prompt_fingerprints(
+        "llm_central_planner",
+        state,
+        ["NOOP", "TICK"],
+        repo_root=root,
+        include_inputs_for_verify=True,
+    )
+    inputs = pf["prompt_fingerprint_inputs"]
+    log_path = _tiny_episode_log(tmp_path)
+    entries = load_episode_log(log_path)
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp",
+        prompt_template_id=pf["prompt_template_id"],
+        prompt_sha256=pf["prompt_sha256"],
+        allowed_actions_payload_sha256=pf["allowed_actions_payload_sha256"],
+        coordination_policy_fingerprint=pf["coordination_policy_fingerprint"],
+        prompt_fingerprint_inputs=inputs,
+    )
+    assert (bundle_dir / PROMPT_FINGERPRINT_INPUTS_FILENAME).exists()
+    manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest.get("prompt_sha256") == pf["prompt_sha256"]
+    passed, report, errors = verify_bundle(bundle_dir, policy_root=root, allow_extra_files=True)
+    assert passed, f"expected PASS when prompt_sha256 matches recomputed: {report}\n{errors}"
+
+
+def test_verify_bundle_prompt_sha256_fail_when_tampered(tmp_path: Path) -> None:
+    """When manifest has prompt_sha256 but inputs would recompute to a different hash, verify FAILs."""
+    from labtrust_gym.baselines.coordination.prompt_fingerprint import (
+        compute_prompt_fingerprints,
+    )
+
+    root = _repo_root()
+    state = {"step": 0, "per_agent": [], "per_device": [], "per_specimen": [], "comms_stats": {"msg_count": 0, "drop_rate": 0.0}}
+    pf = compute_prompt_fingerprints(
+        "llm_central_planner",
+        state,
+        ["NOOP", "TICK"],
+        repo_root=root,
+        include_inputs_for_verify=True,
+    )
+    inputs = pf["prompt_fingerprint_inputs"]
+    log_path = _tiny_episode_log(tmp_path)
+    entries = load_episode_log(log_path)
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp",
+        prompt_template_id=pf["prompt_template_id"],
+        prompt_sha256="0" * 64,
+        allowed_actions_payload_sha256=pf["allowed_actions_payload_sha256"],
+        coordination_policy_fingerprint=pf["coordination_policy_fingerprint"],
+        prompt_fingerprint_inputs=inputs,
+    )
+    passed, report, errors = verify_bundle(bundle_dir, policy_root=root, allow_extra_files=True)
+    assert not passed
+    assert any("prompt_sha256" in e for e in errors)
 
 
 def test_policy_root_hash_changes_with_partner_overlay() -> None:

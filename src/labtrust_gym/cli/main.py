@@ -93,7 +93,12 @@ def main() -> int:
         "--llm-backend",
         choices=["deterministic", "openai_live", "openai_responses", "ollama_live"],
         default=None,
-        help="LLM agent backend: deterministic (seeded, no API), openai_live, openai_responses (Responses API + strict schema), or ollama_live. Default: no LLM (scripted ops).",
+        help="LLM agent/coordination backend: deterministic (seeded, no API), openai_live, openai_responses, or ollama_live. Default: no LLM (scripted / deterministic).",
+    )
+    p_bench.add_argument(
+        "--llm-model",
+        default=None,
+        help="Optional LLM model when using --llm-backend openai_live (e.g. gpt-4o). Overrides LABTRUST_OPENAI_MODEL.",
     )
     p_bench.add_argument(
         "--llm-output-mode",
@@ -190,7 +195,34 @@ def main() -> int:
         required=True,
         help="Output directory (e.g. runs/coord_20250101)",
     )
+    p_coord_study.add_argument(
+        "--llm-backend",
+        choices=["deterministic", "openai_live", "ollama_live"],
+        default=None,
+        help="Include LLM coordination methods: deterministic, openai_live, or ollama_live. Omit to run only non-LLM methods.",
+    )
+    p_coord_study.add_argument(
+        "--llm-model",
+        default=None,
+        help="Optional LLM model when using --llm-backend openai_live (e.g. gpt-4o).",
+    )
     p_coord_study.set_defaults(func=_run_coordination_study)
+    p_coord_security_pack = sub.add_parser(
+        "run-coordination-security-pack",
+        help="Run internal coordination security regression pack: fixed scale x method x injection matrix, deterministic, 1 ep/cell. Writes pack_results/, pack_summary.csv, pack_gate.md.",
+    )
+    p_coord_security_pack.add_argument(
+        "--out",
+        required=True,
+        help="Output directory (e.g. runs/coord_security_pack)",
+    )
+    p_coord_security_pack.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Base seed for deterministic runs (default: 42).",
+    )
+    p_coord_security_pack.set_defaults(func=_run_coordination_security_pack)
     p_plots = sub.add_parser(
         "make-plots",
         help="Generate figures and data tables from a study run (out_dir/figures/)",
@@ -271,6 +303,72 @@ def main() -> int:
         help="Output path for ui_bundle.zip",
     )
     p_ui_export.set_defaults(func=_run_ui_export)
+    p_risk_bundle = sub.add_parser(
+        "build-risk-register-bundle",
+        help="Build RiskRegisterBundle.v0.1 JSON (risk register + evidence links) from policy and optional run dirs",
+    )
+    p_risk_bundle.add_argument(
+        "--out",
+        required=True,
+        help="Output path for risk_register_bundle.v0.1.json",
+    )
+    p_risk_bundle.add_argument(
+        "--run",
+        action="append",
+        default=[],
+        dest="run_dirs",
+        help="Run directory(ies) containing SECURITY/, summary/, PARETO/ (can be repeated)",
+    )
+    p_risk_bundle.add_argument(
+        "--include-generated-at",
+        action="store_true",
+        help="Include generated_at timestamp (omitting keeps bundle fully deterministic)",
+    )
+    p_risk_bundle.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Skip schema validation before writing",
+    )
+    p_risk_bundle.set_defaults(func=_run_build_risk_register_bundle)
+    p_export_risk = sub.add_parser(
+        "export-risk-register",
+        help="Export RiskRegisterBundle.v0.1 into a directory (and optionally inject into run dirs for UI)",
+    )
+    p_export_risk.add_argument(
+        "--out",
+        required=True,
+        help="Output directory; bundle written as <out>/RISK_REGISTER_BUNDLE.v0.1.json",
+    )
+    p_export_risk.add_argument(
+        "--runs",
+        action="append",
+        default=[],
+        dest="run_specs",
+        metavar="DIR_OR_GLOB",
+        help="Run directory or glob (e.g. ui_fixtures, labtrust_runs/*); can be repeated",
+    )
+    p_export_risk.add_argument(
+        "--include-official-pack",
+        default=None,
+        metavar="DIR",
+        help="Add this directory (e.g. output of run-official-pack) to evidence run dirs",
+    )
+    p_export_risk.add_argument(
+        "--inject-ui-export",
+        action="store_true",
+        help="Also write the bundle into each run dir so the UI can load it from there",
+    )
+    p_export_risk.add_argument(
+        "--include-generated-at",
+        action="store_true",
+        help="Include generated_at timestamp (omitting keeps bundle deterministic)",
+    )
+    p_export_risk.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Skip schema validation before writing",
+    )
+    p_export_risk.set_defaults(func=_run_export_risk_register)
     p_repro = sub.add_parser(
         "reproduce",
         help="Reproduce minimal results and figures (study sweep + plots)",
@@ -695,6 +793,12 @@ def _run_benchmark(args: argparse.Namespace) -> int:
     llm_backend = getattr(args, "llm_backend", None)
     if getattr(args, "use_llm_live_openai", False):
         llm_backend = "openai_live"
+    if llm_backend == "openai_live" and not os.environ.get("OPENAI_API_KEY"):
+        print(
+            "OPENAI_API_KEY is required for --llm-backend openai_live. Reason code: OPENAI_API_KEY_MISSING",
+            file=sys.stderr,
+        )
+        return 1
     llm_agents_str = getattr(args, "llm_agents", "ops_0") or "ops_0"
     llm_agents = [a.strip() for a in llm_agents_str.split(",") if a.strip()]
     pipeline_mode = getattr(args, "pipeline_mode", None)
@@ -710,6 +814,7 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         llm_backend=llm_backend,
         llm_agents=llm_agents,
         llm_output_mode=getattr(args, "llm_output_mode", "json_schema"),
+        llm_model=getattr(args, "llm_model", None),
         timing_mode=getattr(args, "timing", None),
         coord_method=getattr(args, "coord_method", None),
         injection_id=getattr(args, "injection", None),
@@ -900,6 +1005,66 @@ def _run_ui_export(args: argparse.Namespace) -> int:
         return 0
     except (ValueError, FileNotFoundError) as e:
         print(f"ui-export failed: {e}", file=sys.stderr)
+        return 1
+
+
+def _run_build_risk_register_bundle(args: argparse.Namespace) -> int:
+    """Build RiskRegisterBundle.v0.1 from policy and optional run dirs."""
+    from labtrust_gym.export.risk_register_bundle import write_risk_register_bundle
+
+    root = get_repo_root()
+    out_path = Path(args.out)
+    if not out_path.is_absolute():
+        out_path = root / out_path
+    run_dirs = [Path(r) if Path(r).is_absolute() else root / r for r in (args.run_dirs or [])]
+    try:
+        write_risk_register_bundle(
+            repo_root=root,
+            out_path=out_path,
+            run_dirs=run_dirs,
+            include_generated_at=getattr(args, "include_generated_at", False),
+            include_git_hash=True,
+            validate=not getattr(args, "no_validate", False),
+        )
+        print(f"Risk register bundle written to {out_path}", file=sys.stderr)
+        return 0
+    except (ValueError, FileNotFoundError) as e:
+        print(f"build-risk-register-bundle failed: {e}", file=sys.stderr)
+        return 1
+
+
+def _run_export_risk_register(args: argparse.Namespace) -> int:
+    """Export RiskRegisterBundle.v0.1 into --out dir; optional --runs and --include-official-pack."""
+    from labtrust_gym.export.risk_register_bundle import (
+        RISK_REGISTER_BUNDLE_FILENAME,
+        export_risk_register,
+    )
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    run_specs = getattr(args, "run_specs", None) or []
+    include_official_pack = getattr(args, "include_official_pack", None)
+    if include_official_pack is not None:
+        include_official_pack = Path(include_official_pack)
+        if not include_official_pack.is_absolute():
+            include_official_pack = root / include_official_pack
+    try:
+        out_path = export_risk_register(
+            repo_root=root,
+            out_dir=out_dir,
+            run_specs=run_specs,
+            include_official_pack_dir=include_official_pack,
+            include_generated_at=getattr(args, "include_generated_at", False),
+            include_git_hash=True,
+            validate=not getattr(args, "no_validate", False),
+            inject_ui_export=getattr(args, "inject_ui_export", False),
+        )
+        print(f"{RISK_REGISTER_BUNDLE_FILENAME} written to {out_path}", file=sys.stderr)
+        return 0
+    except (ValueError, FileNotFoundError) as e:
+        print(f"export-risk-register failed: {e}", file=sys.stderr)
         return 1
 
 
@@ -1124,8 +1289,32 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
         out_dir = root / out_dir
-    run_coordination_study(spec_path, out_dir, repo_root=root)
+    llm_backend = getattr(args, "llm_backend", None)
+    llm_model = getattr(args, "llm_model", None)
+    if llm_backend == "openai_live" and not os.environ.get("OPENAI_API_KEY"):
+        print(
+            "OPENAI_API_KEY is required for --llm-backend openai_live. Reason code: OPENAI_API_KEY_MISSING",
+            file=sys.stderr,
+        )
+        return 1
+    run_coordination_study(
+        spec_path, out_dir, repo_root=root, llm_backend=llm_backend, llm_model=llm_model
+    )
     print(f"Coordination study written to {out_dir}", file=sys.stderr)
+    return 0
+
+
+def _run_coordination_security_pack(args: argparse.Namespace) -> int:
+    """Run coordination security pack; write pack_results/, pack_summary.csv, pack_gate.md."""
+    from labtrust_gym.studies.coordination_security_pack import run_coordination_security_pack
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    seed_base = getattr(args, "seed", 42)
+    run_coordination_security_pack(out_dir=out_dir, repo_root=root, seed_base=seed_base)
+    print(f"Coordination security pack written to {out_dir}", file=sys.stderr)
     return 0
 
 

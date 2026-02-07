@@ -6,6 +6,28 @@ Deterministic generation of large lab scenarios (many agents, specimens, devices
 
 Compare coordination methods at scale by producing reproducible `initial_state` and policy overlays from a compact **scale config**. Same `(seed_base, scale_config, partner_id)` yields identical generated state across runs.
 
+## Named scale presets
+
+**`policy/coordination/scale_configs.v0.1.yaml`** defines named presets that can be referenced by id in study specs or loaded via **`load_scale_config_by_id(repo_root, config_id)`**.
+
+| Preset id | Description |
+|-----------|-------------|
+| **small_smoke** | Fast unit/smoke: 4 agents, 2 CHEM + 1 CENTRIFUGE, 1 site, 50 steps, explicit timing. |
+| **corridor_heavy** | High contention: 200 agents, 2 sites, narrow corridors; 150 steps, explicit. |
+| **medium_stress_signed_bus** | Medium stress for signed message bus and coordination identity: 75 agents, 8–12 devices (6 CHEM, 3 CENTRIFUGE, 1 ALIQUOTER), 2 sites; arrival rate 3.5 specimens/min tuned so queues form without saturation; 300 steps; timing_mode **simulated** when supported (otherwise explicit; see limitation below). |
+
+To use a named preset in a coordination study spec, add a scale dimension **`scale_preset`** with values listing preset ids:
+
+```yaml
+scales:
+  - name: scale_preset
+    values: ["small_smoke", "medium_stress_signed_bus"]
+```
+
+The study runner loads each preset from the YAML and uses it as the scale config for that row. TaskG and TaskH consume the same **CoordinationScaleConfig** (via `scale_config_override` when running from the study, or from the task default when running standalone).
+
+**Timing mode**: `medium_stress_signed_bus` sets `timing_mode: "simulated"`. If the task or runner does not yet support simulated timing for coordination scale, it may fall back to explicit step-derived timing; behavior is documented in the task and runner. Explicit mode still yields deterministic, comparable runs.
+
 ## Scale config
 
 **`CoordinationScaleConfig`** (in `src/labtrust_gym/benchmarks/coordination_scale.py`):

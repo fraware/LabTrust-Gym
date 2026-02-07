@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.risk_register_bundle.v0.1",
+  "title": "RiskRegisterBundle v0.1",
+  "description": "Single JSON artifact for rendering the full risk register and evidence links without parsing scattered YAMLs at runtime. Buildable from repo policy + run outputs; deterministic when policy and input run dirs are fixed.",
+  "type": "object",
+  "required": ["bundle_version", "risks", "controls", "evidence"],
+  "additionalProperties": true,
+  "properties": {
+    "bundle_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when bundle was built. Omit for maximum determinism."
+    },
+    "git_commit_hash": {
+      "type": "string",
+      "description": "Git commit SHA of repo at build time (provenance)."
+    },
+    "policy_fingerprints": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Keys e.g. tool_registry, rbac_policy, coordination_policy, memory_policy, risk_registry; values are fingerprint strings."
+    },
+    "risks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/risk_entry" },
+      "minItems": 1
+    },
+    "controls": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/control_entry" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence_entry" }
+    },
+    "links": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/link_entry" }
+    },
+    "reproduce": {
+      "type": "array",
+      "description": "Deterministic reproduction commands per evidence; UI renders these without hardcoding.",
+      "items": { "$ref": "#/$defs/reproduce_entry" }
+    }
+  },
+  "$defs": {
+    "risk_entry": {
+      "type": "object",
+      "required": ["risk_id", "name", "risk_domain", "applies_to", "claimed_controls", "evidence_refs", "coverage_status"],
+      "additionalProperties": true,
+      "properties": {
+        "risk_id": { "type": "string" },
+        "name": { "type": "string" },
+        "risk_domain": {
+          "type": "string",
+          "enum": ["tool", "flow", "system", "comms", "identity", "data", "capability", "operational"]
+        },
+        "applies_to": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["engine", "online", "coordination", "llm_offline", "llm_live"] }
+        },
+        "claimed_controls": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "coverage_status": {
+          "type": "string",
+          "enum": ["covered", "partially_covered", "uncovered", "not_applicable"]
+        },
+        "description": { "type": "string" },
+        "typical_failure_mode": { "type": "string" },
+        "mitigation_options": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "suggested_injections": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "primary_metrics": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "severity_hint": { "type": "string" },
+        "complexity_hint": { "type": "string" }
+      }
+    },
+    "control_entry": {
+      "type": "object",
+      "required": ["control_id", "name"],
+      "additionalProperties": true,
+      "properties": {
+        "control_id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "source": {
+          "type": "string",
+          "enum": ["security_suite", "safety_case"]
+        }
+      }
+    },
+    "evidence_entry": {
+      "type": "object",
+      "required": ["evidence_id", "type"],
+      "additionalProperties": true,
+      "properties": {
+        "evidence_id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["security_suite", "coordination_study", "official_pack", "safety_case", "bundle_verification", "other"]
+        },
+        "path": { "type": "string", "description": "Repo-relative or run-relative path; empty or omitted for status=missing stubs." },
+        "label": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["present", "missing"],
+          "description": "present when evidence exists; missing for explicit stub when no evidence in scanned runs."
+        },
+        "expected_sources": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "For status=missing: e.g. security suite smoke, coordination study required_bench."
+        },
+        "risk_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Risk IDs this evidence applies to."
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "sha256": { "type": "string" }
+            }
+          },
+          "description": "Paths and optional sha256 (from MANIFEST when known)."
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Type-specific summary (e.g. total, passed for attack_results; coord metrics sec.*, robustness.*, perf.*, safety.*)."
+        },
+        "verification_summary": {
+          "type": "object",
+          "description": "When run dir contains EvidenceBundle: manifest_valid, schema_valid, hashchain_valid, invariant_trace_valid, policy_fingerprints (rbac, coordination_identity, memory, tool_registry).",
+          "properties": {
+            "manifest_valid": { "type": "boolean" },
+            "schema_valid": { "type": "boolean" },
+            "hashchain_valid": { "type": "boolean" },
+            "invariant_trace_valid": { "type": "boolean" },
+            "policy_fingerprints": {
+              "type": "object",
+              "properties": {
+                "rbac": { "type": "boolean" },
+                "coordination_identity": { "type": "boolean" },
+                "memory": { "type": "boolean" },
+                "tool_registry": { "type": "boolean" }
+              }
+            },
+            "errors": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "reason_code_distribution": {
+          "type": "object",
+          "additionalProperties": { "type": "number" },
+          "description": "For security evidence: top reason codes (blocked_reason_code) counts per attack/risk; why blocked."
+        }
+      }
+    },
+    "link_entry": {
+      "type": "object",
+      "required": ["href", "label", "type"],
+      "properties": {
+        "link_id": { "type": "string" },
+        "href": { "type": "string" },
+        "label": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["repo_local", "run_local"]
+        }
+      }
+    },
+    "reproduce_entry": {
+      "type": "object",
+      "required": ["evidence_id", "commands"],
+      "additionalProperties": true,
+      "properties": {
+        "evidence_id": { "type": "string", "description": "Links to evidence[].evidence_id." },
+        "label": { "type": "string", "description": "Short label for UI (e.g. Security suite, Coordination study)." },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Deterministic CLI commands to reproduce this evidence (e.g. labtrust run-security-suite --out <dir>)."
+        }
+      }
+    }
+  }
+}

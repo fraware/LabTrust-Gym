@@ -125,7 +125,7 @@ risk_registry:
       description: "Multiple agents coordinate to circumvent policy or achieve unauthorized outcomes."
       typical_failure_mode: "Agents share tokens or bypass dual-approval; coordinated spoofing."
       mitigation_options: ["Independent verification", "Non-collusion assumptions", "Audit correlation"]
-      suggested_injections: ["inj_collusion_handoff", "INJ-COLLUSION-001"]
+      suggested_injections: ["inj_collusion_handoff", "INJ-COLLUSION-001", "INJ-COORD-BID-SHILL-001"]
       primary_metrics: ["sec.attack_success_rate", "safety.violations_total"]
       severity_hint: high
       complexity_hint: high
@@ -136,7 +136,7 @@ risk_registry:
       description: "Agent or channel pretends to be another agent or role to gain privileges."
       typical_failure_mode: "Forged agent_id; key misuse; replay of another agent's actions."
       mitigation_options: ["Signed actions", "Key binding to agent_id", "Replay protection"]
-      suggested_injections: ["inj_impersonation", "inj_replay", "INJ-ID-SPOOF-001"]
+      suggested_injections: ["inj_impersonation", "inj_replay", "INJ-ID-SPOOF-001", "INJ-COORD-PLAN-REPLAY-001"]
       primary_metrics: ["sec.attack_success_rate", "sec.detection_latency_steps"]
       severity_hint: high
       complexity_hint: medium
@@ -158,7 +158,7 @@ risk_registry:
       description: "Adversarial prompts or inputs cause LLM or policy to bypass safety constraints."
       typical_failure_mode: "Ignore instructions; role-play override; prompt injection to skip checks."
       mitigation_options: ["Adversarial detection", "Constrained decoding", "Human-in-the-loop"]
-      suggested_injections: ["inj_jailbreak", "inj_prompt_injection"]
+      suggested_injections: ["inj_jailbreak", "inj_prompt_injection", "INJ-COORD-PROMPT-INJECT-001"]
       primary_metrics: ["sec.attack_success_rate", "sec.detection_latency_steps", "safety.override_count"]
       severity_hint: high
       complexity_hint: high

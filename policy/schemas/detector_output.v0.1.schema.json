@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.detector_output.v0.1",
+  "title": "Detector output v0.1",
+  "description": "LLM detector output: detection result and optional enforcement recommendation. Recommendations are validated against policy before application.",
+  "type": "object",
+  "required": ["detect", "recommend"],
+  "additionalProperties": false,
+  "properties": {
+    "detect": {
+      "type": "object",
+      "required": ["is_attack_suspected"],
+      "additionalProperties": false,
+      "properties": {
+        "is_attack_suspected": { "type": "boolean" },
+        "suspected_risk_id": { "type": "string" },
+        "suspect_agent_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "recommend": {
+      "type": "object",
+      "required": ["enforcement_action"],
+      "additionalProperties": false,
+      "properties": {
+        "enforcement_action": {
+          "type": "string",
+          "enum": ["throttle", "freeze_zone", "kill_switch", "none"]
+        },
+        "scope": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "rationale_short": { "type": "string" }
+      }
+    }
+  }
+}

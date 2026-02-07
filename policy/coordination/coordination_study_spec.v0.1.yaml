@@ -23,6 +23,11 @@ methods:
   - centralized_planner
   - hierarchical_hub_rr
   - llm_constrained
+  # LLM coordination methods (use with --llm-backend=deterministic or live)
+  - llm_central_planner
+  - llm_hierarchical_allocator
+  - llm_auction_bidder
+  - llm_gossip_summarizer
 
 risks:
   - R-TOOL-001

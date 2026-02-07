@@ -1,0 +1,153 @@
+# Security coverage map v0.1: maps every risk from risk_registry.v0.1.yaml to
+# (a) coordination injections (policy/coordination/injections.v0.2.yaml),
+# (b) security attack suite cases (policy/golden/security_attack_suite.v0.1.yaml),
+# or (c) explicit non-applicable with justification.
+# CI test test_security_coverage_gate.py fails when any risk is uncovered or refs are invalid.
+
+version: "0.1"
+description: "Every risk must have coverage (covered_by) or be explicitly non_applicable with notes."
+
+entries:
+  - risk_id: "R-TOOL-001"
+    category: tool
+    applies_to: [tools]
+    non_applicable: true
+    notes: "Tool selection errors are single-agent workflow; no coordination injection or security attack suite case. Covered by benchmark/golden flows."
+
+  - risk_id: "R-TOOL-002"
+    category: tool
+    applies_to: [tools]
+    non_applicable: true
+    notes: "Tool execution failure (device/queue) exercised in failure_models and benchmarks; not in coordination injections v0.2 or security attack suite."
+
+  - risk_id: "R-TOOL-003"
+    category: tool
+    applies_to: [tools]
+    non_applicable: true
+    notes: "Unverified tool risk mitigated by shield layer and invariant checks; no dedicated coordination injection or attack suite case."
+
+  - risk_id: "R-TOOL-004"
+    category: tool
+    applies_to: [tools]
+    non_applicable: true
+    notes: "Tool misuse (wrong context) covered by schema validation and golden scenarios; no coordination injection in v0.2."
+
+  - risk_id: "R-TOOL-005"
+    category: tool
+    applies_to: [tools]
+    non_applicable: true
+    notes: "Misparameterization covered by allowlist and test_llm_misparam_rejected; not in coordination injection set."
+
+  - risk_id: "R-FLOW-001"
+    category: flow
+    applies_to: [tools]
+    non_applicable: true
+    notes: "Action inefficiency is performance/benchmark concern; not a coordination or security attack suite target."
+
+  - risk_id: "R-FLOW-002"
+    category: flow
+    applies_to: [tools]
+    non_applicable: true
+    notes: "Action progress (deadlock/livelock) exercised in benchmarks and fallback policies; no coordination injection in v0.2."
+
+  - risk_id: "R-TOOL-006"
+    category: tool
+    applies_to: [tools]
+    covered_by:
+      - type: injection
+        ref: "INJ-LLM-TOOL-ESCALATION-001"
+      - type: attack_suite
+        ref: "SEC-TOOL-001"
+    notes: "Tool vulnerability exploitation; tool escalation injection and attack suite."
+
+  - risk_id: "R-DATA-001"
+    category: data
+    applies_to: [coordination, identity]
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-OBS-001"
+    notes: "Untrusted data exchange; covered by observability and receipt verification."
+
+  - risk_id: "R-SYS-001"
+    category: system
+    applies_to: [coordination]
+    covered_by:
+      - type: injection
+        ref: "INJ-COMMS-FLOOD-LLM-001"
+    notes: "Agent DoS (flood/rate spike); comms flood injection; rate limits and backpressure are controls."
+
+  - risk_id: "R-SYS-002"
+    category: system
+    applies_to: [coordination]
+    covered_by:
+      - type: injection
+        ref: "INJ-COLLUSION-001"
+      - type: injection
+        ref: "INJ-BID-SPOOF-001"
+      - type: injection
+        ref: "INJ-COLLUSION-MARKET-001"
+      - type: attack_suite
+        ref: "SEC-COORD-RT-002"
+    notes: "Agent collusion; coordination injections and red-team attack suite."
+
+  - risk_id: "R-COMMS-001"
+    category: comms
+    applies_to: [coordination, identity]
+    covered_by:
+      - type: injection
+        ref: "INJ-ID-SPOOF-001"
+      - type: injection
+        ref: "INJ-REPLAY-001"
+      - type: injection
+        ref: "INJ-ID-REPLAY-COORD-001"
+      - type: attack_suite
+        ref: "SEC-COORD-001"
+      - type: attack_suite
+        ref: "SEC-COORD-RT-001"
+    notes: "Identity spoofing and replay; coordination injections and identity bus tests."
+
+  - risk_id: "R-COMMS-002"
+    category: comms
+    applies_to: [coordination]
+    covered_by:
+      - type: injection
+        ref: "INJ-COMMS-POISON-001"
+    notes: "Communication poisoning; coordination stealthy poisoning injection."
+
+  - risk_id: "R-CAP-001"
+    category: capability
+    applies_to: [llm]
+    covered_by:
+      - type: injection
+        ref: "INJ-LLM-PROMPT-INJECT-COORD-001"
+      - type: attack_suite
+        ref: "SEC-PI-001"
+      - type: attack_suite
+        ref: "SEC-PI-002"
+      - type: attack_suite
+        ref: "SEC-PI-003"
+      - type: attack_suite
+        ref: "SEC-PI-004"
+      - type: attack_suite
+        ref: "SEC-PI-005"
+    notes: "Jailbreak and prompt injection; coord prompt inject injection and attack suite."
+
+  - risk_id: "R-DATA-002"
+    category: data
+    applies_to: [coordination, memory]
+    covered_by:
+      - type: injection
+        ref: "INJ-SLOW-POISON-001"
+    notes: "Data poisoning (train/run-time); slow-roll poisoning injection."
+
+  - risk_id: "R-DATA-003"
+    category: data
+    applies_to: [memory, coordination]
+    covered_by:
+      - type: injection
+        ref: "INJ-MEMORY-POISON-001"
+      - type: injection
+        ref: "INJ-MEMORY-POISON-COORD-001"
+      - type: attack_suite
+        ref: "SEC-MEM-001"
+    notes: "Memory poisoning; coordination delayed-trigger and coord memory injections."

@@ -393,6 +393,55 @@ def _check_coordination_policy_fingerprint(
     return errors
 
 
+def _check_prompt_sha256(
+    bundle_dir: Path,
+    manifest: dict[str, Any],
+) -> list[str]:
+    """
+    When manifest has prompt_sha256: load prompt_fingerprint_inputs.v0.1.json from bundle,
+    recompute prompt_sha256 from frozen template + rendered payload, verify match.
+    """
+    from labtrust_gym.export.receipts import PROMPT_FINGERPRINT_INPUTS_FILENAME
+
+    errors: list[str] = []
+    expected = manifest.get("prompt_sha256")
+    if not expected or not isinstance(expected, str):
+        return errors
+    inputs_path = bundle_dir / PROMPT_FINGERPRINT_INPUTS_FILENAME
+    if not inputs_path.exists():
+        errors.append(
+            "manifest: prompt_sha256 present but "
+            f"{PROMPT_FINGERPRINT_INPUTS_FILENAME} missing (required to recompute and verify)"
+        )
+        return errors
+    try:
+        inputs_data = _load_json_file(inputs_path)
+        from labtrust_gym.baselines.coordination.prompt_fingerprint import (
+            recompute_prompt_sha256_from_inputs,
+        )
+
+        template_id = manifest.get("prompt_template_id") or inputs_data.get("prompt_template_id")
+        state_slice = inputs_data.get("state_digest_slice") or {}
+        payload_canonical = inputs_data.get("allowed_actions_payload_canonical") or ""
+        policy_slice = inputs_data.get("policy_slice")
+        if not template_id:
+            errors.append("prompt_sha256 check: prompt_template_id missing in manifest and inputs")
+            return errors
+        actual = recompute_prompt_sha256_from_inputs(
+            template_id,
+            state_slice,
+            payload_canonical,
+            policy_slice,
+        )
+        if actual != expected:
+            errors.append(
+                f"manifest: prompt_sha256 mismatch: expected {expected[:16]}..., recomputed {actual[:16]}..."
+            )
+    except Exception as e:
+        errors.append(f"prompt_sha256 check: {e}")
+    return errors
+
+
 def _check_memory_policy_fingerprint(
     manifest: dict[str, Any],
     policy_root: Path,
@@ -502,6 +551,7 @@ def verify_bundle(
     errors.extend(_check_rbac_policy_fingerprint(manifest, policy_root))
     errors.extend(_check_coordination_policy_fingerprint(manifest, policy_root))
     errors.extend(_check_memory_policy_fingerprint(manifest, policy_root))
+    errors.extend(_check_prompt_sha256(bundle_dir, manifest))
 
     passed = len(errors) == 0
     count_manifest = len(manifest.get("files", []))
@@ -522,3 +572,81 @@ def verify_bundle(
         report_lines.append(f"  Total errors: {len(errors)}")
     report = "\n".join(report_lines)
     return passed, report, errors
+
+
+def verify_bundle_structured(
+    bundle_dir: Path,
+    policy_root: Path | None = None,
+    allow_extra_files: bool = False,
+) -> dict[str, Any]:
+    """
+    Run EvidenceBundle verification and return a structured summary for reviewers.
+    Surfaces: manifest hash validity, schema validity, hashchain proof valid,
+    invariant trace present/valid, policy fingerprints match (rbac, coordination_identity,
+    memory, tool_registry). Used by risk register bundle to show "what was verified".
+    """
+    bundle_dir = Path(bundle_dir)
+    policy_root = policy_root or Path.cwd()
+    summary: dict[str, Any] = {
+        "manifest_valid": False,
+        "schema_valid": False,
+        "hashchain_valid": False,
+        "invariant_trace_valid": False,
+        "policy_fingerprints": {
+            "rbac": False,
+            "coordination_identity": False,
+            "memory": False,
+            "tool_registry": False,
+        },
+        "errors": [],
+    }
+    manifest_path = bundle_dir / "manifest.json"
+    if not manifest_path.exists():
+        summary["errors"] = ["manifest.json: missing"]
+        return summary
+    try:
+        manifest = _load_json_file(manifest_path)
+    except PolicyLoadError as e:
+        summary["errors"] = [str(e)]
+        return summary
+
+    def _run(check_fn: Any, *args: Any) -> list[str]:
+        try:
+            return list(check_fn(*args))
+        except Exception as e:
+            return [f"check failed: {e}"]
+
+    e_manifest = _run(_check_manifest_integrity, bundle_dir, manifest, allow_extra_files)
+    e_schema = _run(_check_schemas, bundle_dir, manifest, policy_root)
+    e_fhir = _run(_check_fhir_if_present, bundle_dir)
+    e_hashchain = _run(_check_hashchain_proof, bundle_dir)
+    e_invariant = _run(_check_invariant_trace, bundle_dir)
+    e_policy_root = _run(_check_policy_manifest_and_root_hash, bundle_dir, manifest, policy_root)
+    e_tool = _run(_check_tool_registry_fingerprint, manifest, policy_root)
+    e_rbac = _run(_check_rbac_policy_fingerprint, manifest, policy_root)
+    e_coord = _run(_check_coordination_policy_fingerprint, manifest, policy_root)
+    e_memory = _run(_check_memory_policy_fingerprint, manifest, policy_root)
+    e_prompt = _run(_check_prompt_sha256, bundle_dir, manifest)
+
+    summary["manifest_valid"] = len(e_manifest) == 0
+    summary["schema_valid"] = len(e_schema) == 0 and len(e_fhir) == 0
+    summary["hashchain_valid"] = len(e_hashchain) == 0
+    summary["invariant_trace_valid"] = len(e_invariant) == 0
+    summary["policy_fingerprints"]["tool_registry"] = len(e_tool) == 0
+    summary["policy_fingerprints"]["rbac"] = len(e_rbac) == 0
+    summary["policy_fingerprints"]["coordination_identity"] = len(e_coord) == 0
+    summary["policy_fingerprints"]["memory"] = len(e_memory) == 0
+    all_errors: list[str] = []
+    all_errors.extend(e_manifest)
+    all_errors.extend(e_schema)
+    all_errors.extend(e_fhir)
+    all_errors.extend(e_hashchain)
+    all_errors.extend(e_invariant)
+    all_errors.extend(e_policy_root)
+    all_errors.extend(e_tool)
+    all_errors.extend(e_rbac)
+    all_errors.extend(e_coord)
+    all_errors.extend(e_memory)
+    all_errors.extend(e_prompt)
+    summary["errors"] = all_errors
+    return summary

@@ -16,6 +16,15 @@ from typing import Any, cast
 
 from labtrust_gym.benchmarks.metrics import compute_episode_metrics
 from labtrust_gym.benchmarks.tasks import BenchmarkTask, get_task
+from labtrust_gym.baselines.coordination.llm_executor import (
+    _proposal_hash,
+    shield_outcome_hash_from_step_results,
+)
+from labtrust_gym.logging.episode_log import (
+    EpisodeLogger,
+    build_llm_coord_audit_digest_entry,
+    build_llm_coord_proposal_entry,
+)
 
 
 def _git_commit_hash(cwd: Path | None = None) -> str | None:
@@ -33,6 +42,92 @@ def _git_commit_hash(cwd: Path | None = None) -> str | None:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     return None
+
+
+def _normalize_llm_economics(
+    raw_llm: dict[str, Any] | None,
+    raw_llm_repair: dict[str, Any] | None,
+    steps: int,
+) -> dict[str, Any]:
+    """
+    Build results.v0.2 canonical coordination.llm block: call_count, total_tokens,
+    tokens_per_step, mean_latency_ms, p95_latency_ms, error_rate, invalid_output_rate,
+    estimated_cost_usd. Fills 0 / null for missing or deterministic.
+    """
+    raw = raw_llm or {}
+    repair = raw_llm_repair or {}
+    steps = max(1, steps)
+
+    calls_main = (
+        raw.get("call_count")
+        if raw.get("call_count") is not None
+        else int(raw.get("proposal_total_count") or 0)
+    )
+    calls_repair = int(repair.get("repair_call_count") or 0)
+    call_count = calls_main + calls_repair
+
+    tokens_in = int(raw.get("tokens_in") or 0)
+    tokens_out = int(raw.get("tokens_out") or 0)
+    tokens_repair = int(repair.get("total_repair_tokens") or 0)
+    total_tokens = tokens_in + tokens_out + tokens_repair
+    tokens_per_step = round((total_tokens / steps), 4) if total_tokens else 0.0
+
+    lat_list = raw.get("latency_ms_list") or []
+    if repair.get("mean_repair_latency_ms") is not None and calls_repair:
+        lat_list = list(lat_list) + [
+            repair["mean_repair_latency_ms"],
+        ] * max(0, calls_repair - 1)
+    mean_latency_ms: float | None = raw.get("latency_ms")
+    if mean_latency_ms is None and repair.get("mean_repair_latency_ms") is not None:
+        mean_latency_ms = repair.get("mean_repair_latency_ms")
+    if mean_latency_ms is None and lat_list:
+        valid = [float(x) for x in lat_list if x is not None]
+        mean_latency_ms = round(sum(valid) / len(valid), 2) if valid else None
+    p95_latency_ms: float | None = None
+    if lat_list:
+        valid = sorted(float(x) for x in lat_list if x is not None)
+        if valid:
+            k = (len(valid) - 1) * 0.95
+            lo = int(k)
+            hi = min(lo + 1, len(valid) - 1)
+            p95_latency_ms = round(
+                valid[lo] + (k - lo) * (valid[hi] - valid[lo]), 2
+            )
+
+    invalid_main = 0
+    if calls_main and raw.get("proposal_total_count"):
+        valid_count = int(raw.get("proposal_valid_count") or 0)
+        invalid_main = max(0, int(raw.get("proposal_total_count") or 0) - valid_count)
+    invalid_repair = int(repair.get("repair_fallback_noop_count") or 0)
+    total_calls = call_count or 1
+    invalid_output_rate = round(
+        (invalid_main + invalid_repair) / total_calls, 4
+    )
+
+    cost = raw.get("estimated_cost_usd")
+    if cost is None:
+        cost = repair.get("estimated_cost_usd")
+    if cost is not None:
+        try:
+            cost = float(cost)
+        except (TypeError, ValueError):
+            cost = None
+
+    out = {
+        "call_count": call_count,
+        "total_tokens": total_tokens,
+        "tokens_per_step": tokens_per_step,
+        "mean_latency_ms": mean_latency_ms,
+        "p95_latency_ms": p95_latency_ms,
+        "error_rate": float(raw.get("error_rate") or 0.0),
+        "invalid_output_rate": invalid_output_rate,
+        "estimated_cost_usd": cost,
+    }
+    if repair.get("fault_injected_rate") is not None:
+        out["fault_injected_rate"] = repair["fault_injected_rate"]
+    if repair.get("fallback_rate") is not None:
+        out["fallback_rate"] = repair["fallback_rate"]
+    return out
 
 
 def _policy_versions(root: Path) -> dict[str, str]:
@@ -70,6 +165,7 @@ def run_episode(
     coord_method: Any | None = None,
     risk_injector: Any | None = None,
     comms_config: Any | None = None,
+    episode_id: int = 0,
 ) -> tuple[dict[str, Any], list[list[dict[str, Any]]]]:
     """
     Run one episode. Returns (metrics_dict, step_results_per_step).
@@ -126,9 +222,12 @@ def run_episode(
     t_s_list: list[int] = []
     dt_s = getattr(env, "_dt_s", 10)
     coord_decisions_path: Path | None = None
+    episode_logger_llm: EpisodeLogger | None = None
+    llm_audit_steps: list[dict[str, Any]] = []
     if coord_method is not None and log_path is not None:
         coord_decisions_path = log_path.parent / "coord_decisions.jsonl"
         coord_decisions_path.write_text("", encoding="utf-8")
+        episode_logger_llm = EpisodeLogger(path=log_path)
     timing_mode = str(initial_state.get("timing_mode", "explicit")).strip().lower()
     if timing_mode not in ("explicit", "simulated"):
         timing_mode = "explicit"
@@ -193,7 +292,151 @@ def run_episode(
                     blackboard_harness=blackboard_harness,
                 )
                 actions_dict, coord_decision = coord_method.step(context)
+            elif getattr(coord_method, "_max_repairs", 0) > 0 and getattr(
+                coord_method, "_backend", None
+            ) is not None and callable(
+                getattr(
+                    getattr(coord_method, "_backend", None),
+                    "generate_proposal",
+                    None,
+                )
+            ):
+                from labtrust_gym.baselines.coordination.llm_contract import (
+                    validate_proposal,
+                )
+                from labtrust_gym.baselines.coordination.llm_executor import (
+                    execute_proposal_shield_only,
+                    get_actions_from_proposal,
+                    run_proposal_with_repair,
+                )
+                from labtrust_gym.baselines.coordination.state_digest import (
+                    build_state_digest,
+                )
+                from labtrust_gym.baselines.llm.shield import apply_shield
+
+                rbac_policy = getattr(coord_method, "_rbac_policy", None) or {}
+                policy_summary_repair = getattr(
+                    coord_method, "_policy_summary", None
+                ) or effective_policy or {}
+                allowed_repair = getattr(
+                    coord_method, "_allowed_actions", None
+                ) or ["NOOP", "TICK"]
+                backend_repair = getattr(coord_method, "_backend", None)
+
+                def _propose_fn(
+                    obs: dict[str, Any],
+                    infos: dict[str, dict[str, Any]],
+                    t: int,
+                    repair_request: dict[str, Any] | None = None,
+                ) -> dict[str, Any] | None:
+                    digest = build_state_digest(
+                        obs, infos, t, policy_summary_repair
+                    )
+                    if getattr(coord_method, "_prompt_fingerprints", None) is None:
+                        try:
+                            from labtrust_gym.baselines.coordination.prompt_fingerprint import (
+                                compute_prompt_fingerprints,
+                            )
+
+                            coord_method._prompt_fingerprints = compute_prompt_fingerprints(
+                                method_id=coord_method.method_id,
+                                state_digest=digest,
+                                allowed_actions=allowed_repair,
+                                policy=policy_summary_repair,
+                                repo_root=None,
+                            )
+                        except Exception:
+                            coord_method._prompt_fingerprints = {}
+                    gen = getattr(backend_repair, "generate_proposal", None)
+                    if not callable(gen):
+                        return None
+                    out = gen(
+                        digest,
+                        allowed_repair,
+                        step_id=t,
+                        method_id=coord_method.method_id,
+                    )
+                    if isinstance(out, tuple):
+                        proposal, meta = out[0], out[1]
+                    else:
+                        proposal = out
+                        meta = {}
+                    coord_method._last_proposal = proposal
+                    coord_method._last_meta = meta
+                    coord_method._proposal_total_count += 1
+                    lat = meta.get("latency_ms")
+                    if lat is not None and isinstance(lat, (int, float)):
+                        coord_method._latency_ms_list.append(float(lat))
+                    return proposal
+
+                def _validate_fn(proposal: dict[str, Any]) -> tuple[bool, list[str]]:
+                    valid, errors = validate_proposal(
+                        proposal,
+                        allowed_actions=allowed_repair,
+                        strict_reason_codes=False,
+                    )
+                    return valid, errors
+
+                def _log_attempt_fn(record: dict[str, Any]) -> None:
+                    if episode_logger_llm is not None and record.get(
+                        "log_type"
+                    ) == "LLM_COORD_PROPOSAL_ATTEMPT":
+                        episode_logger_llm.log_llm_coord_proposal(record)
+
+                final_proposal, report, _attempt_count = run_proposal_with_repair(
+                    _propose_fn,
+                    env,
+                    apply_shield,
+                    rbac_policy,
+                    policy_summary_repair,
+                    obs_for_step,
+                    infos,
+                    step_t,
+                    validate_fn=_validate_fn,
+                    capability_profile=None,
+                    max_repairs=coord_method._max_repairs,
+                    blocked_threshold=coord_method._blocked_threshold,
+                    log_attempt_fn=_log_attempt_fn if episode_logger_llm else None,
+                    execute_fn=execute_proposal_shield_only,
+                )
+                if final_proposal is None or report is None:
+                    actions_dict = {
+                        a: {"action_index": 0}
+                        for a in env.agents
+                    }
+                else:
+                    actions_repair, action_infos_repair = get_actions_from_proposal(
+                        env,
+                        final_proposal,
+                        apply_shield,
+                        rbac_policy,
+                        policy_summary_repair,
+                        None,
+                    )
+                    actions_dict = {
+                        aid: {
+                            "action_index": actions_repair[aid],
+                            **(action_infos_repair.get(aid) or {}),
+                        }
+                        for aid in env.agents
+                    }
             else:
+                inj_id = (
+                    getattr(risk_injector, "injection_id", None)
+                    if risk_injector is not None
+                    else None
+                )
+                if (
+                    getattr(coord_method, "method_id", None)
+                    == "llm_repair_over_kernel_whca"
+                    and inj_id in ("INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001")
+                ):
+                    infos = dict(infos) if isinstance(infos, dict) else {}
+                    infos["_coord_repair_triggers"] = (
+                        ["comms_poison"]
+                        if inj_id == "INJ-COMMS-POISON-001"
+                        else ["id_spoof"]
+                    )
                 actions_dict = coord_method.propose_actions(obs_for_step, infos, step_t)
             if risk_injector is not None:
                 actions_dict, audit_actions = risk_injector.mutate_actions(actions_dict)
@@ -257,12 +500,13 @@ def run_episode(
             if first_agent
             else []
         )
-        if risk_injector is not None:
-            step_results.extend(audit_actions)
-            if audit_obs is not None:
-                step_results.append(audit_obs)
-            extra = risk_injector.observe_step(step_results)
-            step_results.extend(extra)
+        agent_list_step = list(env.agents)
+        shield_outcome_hash_this_step = ""
+        if coord_method is not None and agent_list_step:
+            shield_outcome_hash_this_step = shield_outcome_hash_from_step_results(
+                step_results[: len(agent_list_step)],
+                agent_list_step,
+            )
         if coord_decision is not None:
             step_results.append(
                 {
@@ -274,6 +518,15 @@ def run_episode(
             shield_emits = getattr(coord_method, "last_shield_emits", None)
             if shield_emits:
                 step_results.extend(shield_emits)
+            detector_emits = getattr(coord_method, "last_detector_emits", None)
+            if detector_emits:
+                step_results.extend(detector_emits)
+        if risk_injector is not None:
+            step_results.extend(audit_actions)
+            if audit_obs is not None:
+                step_results.append(audit_obs)
+            extra = risk_injector.observe_step(step_results)
+            step_results.extend(extra)
         for payload in stale_emit_payloads_this_step:
             step_results.append(
                 {
@@ -318,6 +571,29 @@ def run_episode(
                     )
             with coord_decisions_path.open("a", encoding="utf-8") as f:
                 f.write(serialize_contract_record(contract_record))
+        if episode_logger_llm is not None:
+            last_proposal = getattr(coord_method, "_last_proposal", None)
+            last_meta = getattr(coord_method, "_last_meta", None)
+            if last_proposal is not None and last_meta is not None:
+                prop_hash = _proposal_hash(last_proposal)
+                shield_hash = (
+                    shield_outcome_hash_this_step
+                    or getattr(coord_method, "last_shield_outcome_hash", None)
+                    or ""
+                )
+                record = build_llm_coord_proposal_entry(
+                    proposal_id=last_proposal.get("proposal_id", ""),
+                    step_id=step_t,
+                    canonical_proposal_hash=prop_hash,
+                    meta=last_meta,
+                    shield_outcome_hash=(shield_hash if shield_hash else None),
+                )
+                episode_logger_llm.log_llm_coord_proposal(record)
+                llm_audit_steps.append({
+                    "step_id": step_t,
+                    "proposal_hash": prop_hash,
+                    "shield_outcome_hash": shield_hash,
+                })
         step_results_per_step.append(step_results)
         if coord_method is not None and hasattr(coord_method, "on_step_result"):
             coord_method.on_step_result(step_results)
@@ -369,6 +645,13 @@ def run_episode(
     )
     if comm_metrics is not None:
         metrics["coordination"] = {"comm": comm_metrics}
+    if coord_method is not None:
+        method_comm = getattr(coord_method, "get_comm_metrics", lambda: None)()
+        if method_comm:
+            metrics.setdefault("coordination", {})["comm"] = {
+                **(metrics.get("coordination", {}).get("comm") or {}),
+                **method_comm,
+            }
     if blackboard_harness is not None:
         from labtrust_gym.coordination.coordination_monitor import timing_metrics
 
@@ -393,6 +676,64 @@ def run_episode(
         )()
         if hierarchy_metrics is not None:
             metrics.setdefault("coordination", {})["hierarchy"] = hierarchy_metrics
+        llm_metrics = getattr(coord_method, "get_llm_metrics", lambda: None)()
+        llm_repair_metrics = getattr(
+            coord_method, "get_llm_repair_metrics", lambda: None
+        )()
+        if llm_repair_metrics is not None:
+            metrics.setdefault("coordination", {})["llm_repair"] = llm_repair_metrics
+        if llm_metrics is not None or llm_repair_metrics is not None:
+            steps_count = metrics.get("steps", 1)
+            metrics.setdefault("coordination", {})["llm"] = _normalize_llm_economics(
+                llm_metrics, llm_repair_metrics, steps_count
+            )
+        auction_metrics = getattr(
+            coord_method, "get_auction_metrics", lambda: None
+        )()
+        if auction_metrics is not None:
+            metrics.setdefault("coordination", {})["auction"] = auction_metrics
+        detection_events = getattr(
+            coord_method, "get_detection_events", lambda: []
+        )()
+        drop_reasons = getattr(
+            coord_method, "get_drop_reasons", lambda: []
+        )()
+        if detection_events or drop_reasons:
+            metrics.setdefault("coordination", {})["gossip_comms"] = {
+                "detection_events": detection_events,
+                "drop_reasons": drop_reasons,
+            }
+        detector_metrics = getattr(coord_method, "get_detector_metrics", lambda: None)()
+        if detector_metrics is not None:
+            dm = detector_metrics
+            if "sec" not in metrics:
+                metrics["sec"] = {}
+            metrics["sec"]["detector_recommendation_rate"] = dm.get(
+                "detector_recommendation_rate"
+            )
+            metrics["sec"]["detector_invalid_recommendation_rate"] = dm.get(
+                "detector_invalid_recommendation_rate"
+            )
+            suspected_steps = dm.get("detector_suspected_at_steps") or []
+            first_app = (injection_metrics or {}).get("first_application_step")
+            if injection_id and first_app is not None:
+                metrics["sec"]["detector_true_positive_proxy"] = (
+                    1.0 if any(s >= first_app for s in suspected_steps) else 0.0
+                )
+            else:
+                metrics["sec"]["detector_true_positive_proxy"] = 0.0
+            if not injection_id and suspected_steps:
+                metrics["sec"]["detector_false_positive_proxy"] = 1.0
+            else:
+                metrics["sec"]["detector_false_positive_proxy"] = 0.0
+    if episode_logger_llm is not None:
+        if llm_audit_steps:
+            digest_record = build_llm_coord_audit_digest_entry(
+                episode_id=episode_id,
+                steps=llm_audit_steps,
+            )
+            episode_logger_llm.log_llm_coord_proposal(digest_record)
+        episode_logger_llm.close()
     return metrics, step_results_per_step
 
 
@@ -433,6 +774,7 @@ def run_benchmark(
     pipeline_mode: str | None = None,
     allow_network: bool | None = None,
     llm_trace_collector: Any | None = None,
+    llm_model: str | None = None,
 ) -> dict[str, Any]:
     """
     Run N episodes for the task, write results.json.
@@ -441,7 +783,8 @@ def run_benchmark(
     log_path: optional JSONL path for episode step log (truncated at start).
     initial_state_overrides: optional dict merged into each episode initial_state (e.g. timing_mode).
     partner_id: optional partner overlay ID; effective_policy and policy_fingerprint injected into initial_state.
-    llm_backend: optional "deterministic" | "openai_live" | "openai_responses" | "ollama_live" to use LLM for agents in llm_agents; None = scripted.
+    llm_backend: optional "deterministic" | "openai_live" | "openai_responses" | "ollama_live" to use LLM for agents or coordination; None = scripted / deterministic.
+    llm_model: optional model id when using openai_live (e.g. gpt-4o); overrides LABTRUST_OPENAI_MODEL.
     llm_agents: agent IDs that use LLM (e.g. ["ops_0"] or ["ops_0", "runner_0"]). Default ["ops_0"] when llm_backend set.
     llm_output_mode: for openai_responses backend, "json_schema" (default) or "tool_call".
     timing_mode: optional "explicit" | "simulated"; overrides task default and initial_state_overrides.
@@ -696,6 +1039,231 @@ def run_benchmark(
                 scale_config=scale_config_dict,
                 llm_agent=llm_agent,
                 pz_to_engine=pz_to_engine_scale,
+            )
+        elif coord_method == "llm_central_planner":
+            scale_agents = (scale_probe_state or {}).get("agents") or []
+            pz_to_engine_central = {
+                f"worker_{i}": scale_agents[i]["agent_id"]
+                for i in range(len(scale_agents))
+                if i < len(scale_agents)
+            }
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            policy_for_coord = (policy_for_coord or {}).copy()
+            policy_for_coord.setdefault("pz_to_engine", pz_to_engine_central)
+            proposal_backend = None
+            if llm_backend == "openai_live":
+                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
+                    OpenAICoordinationProposalBackend,
+                    require_openai_api_key,
+                )
+                api_key = require_openai_api_key()
+                proposal_backend = OpenAICoordinationProposalBackend(
+                    api_key=api_key,
+                    model=llm_model,
+                    repo_root=repo_root,
+                )
+                llm_backend_ref = proposal_backend
+            elif llm_backend == "ollama_live":
+                from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
+                    OllamaCoordinationProposalBackend,
+                )
+                proposal_backend = OllamaCoordinationProposalBackend()
+                llm_backend_ref = proposal_backend
+            if proposal_backend is None and repo_root is not None:
+                from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
+                    DeterministicProposalBackend,
+                )
+                seed = int(scale_config_dict.get("seed", base_seed))
+                proposal_backend = DeterministicProposalBackend(
+                    seed=seed,
+                    default_action_type="NOOP",
+                )
+            if proposal_backend is None:
+                raise ValueError(
+                    "llm_central_planner requires proposal_backend= or repo_root "
+                    "for deterministic backend"
+                )
+            coord_method_instance = make_coordination_method(
+                coord_method,
+                policy_for_coord,
+                repo_root=repo_root,
+                scale_config=scale_config_dict,
+                pz_to_engine=pz_to_engine_central,
+                proposal_backend=proposal_backend,
+            )
+        elif coord_method == "llm_hierarchical_allocator":
+            scale_agents = (scale_probe_state or {}).get("agents") or []
+            pz_to_engine_hier = {
+                f"worker_{i}": scale_agents[i]["agent_id"]
+                for i in range(len(scale_agents))
+                if i < len(scale_agents)
+            }
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            policy_for_coord = (policy_for_coord or {}).copy()
+            policy_for_coord.setdefault("pz_to_engine", pz_to_engine_hier)
+            allocator_backend = None
+            if llm_backend == "openai_live":
+                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
+                    OpenAICoordinationProposalBackend,
+                    require_openai_api_key,
+                )
+                api_key = require_openai_api_key()
+                allocator_backend = OpenAICoordinationProposalBackend(
+                    api_key=api_key,
+                    model=llm_model,
+                    repo_root=repo_root,
+                )
+                llm_backend_ref = allocator_backend
+            elif llm_backend == "ollama_live":
+                from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
+                    OllamaCoordinationProposalBackend,
+                )
+                allocator_backend = OllamaCoordinationProposalBackend()
+                llm_backend_ref = allocator_backend
+            if allocator_backend is None and repo_root is not None:
+                from labtrust_gym.baselines.coordination.methods.llm_hierarchical_allocator import (
+                    DeterministicAssignmentsBackend,
+                )
+                seed = int(scale_config_dict.get("seed", base_seed))
+                allocator_backend = DeterministicAssignmentsBackend(seed=seed)
+            if allocator_backend is None:
+                raise ValueError(
+                    "llm_hierarchical_allocator requires allocator_backend= or repo_root "
+                    "for deterministic backend"
+                )
+            coord_method_instance = make_coordination_method(
+                coord_method,
+                policy_for_coord,
+                repo_root=repo_root,
+                scale_config=scale_config_dict,
+                pz_to_engine=pz_to_engine_hier,
+                allocator_backend=allocator_backend,
+            )
+        elif coord_method == "llm_auction_bidder":
+            scale_agents = (scale_probe_state or {}).get("agents") or []
+            pz_to_engine_auc = {
+                f"worker_{i}": scale_agents[i]["agent_id"]
+                for i in range(len(scale_agents))
+                if i < len(scale_agents)
+            }
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            if task_name == "TaskH_COORD_RISK" and injection_id:
+                scale_config_dict["injection_id"] = injection_id
+            policy_for_coord = (policy_for_coord or {}).copy()
+            policy_for_coord.setdefault("pz_to_engine", pz_to_engine_auc)
+            bid_backend = None
+            if llm_backend == "openai_live":
+                from labtrust_gym.baselines.llm.backends.openai_bid_backend import (
+                    OpenAIBidBackend,
+                )
+                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
+                    require_openai_api_key,
+                )
+                api_key = require_openai_api_key()
+                bid_backend = OpenAIBidBackend(
+                    api_key=api_key,
+                    model=llm_model,
+                    repo_root=repo_root,
+                )
+                llm_backend_ref = bid_backend
+            elif llm_backend == "ollama_live":
+                from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
+                    OllamaBidBackend,
+                )
+                bid_backend = OllamaBidBackend()
+                llm_backend_ref = bid_backend
+            if bid_backend is None and repo_root is not None:
+                from labtrust_gym.baselines.coordination.methods.llm_auction_bidder import (
+                    DeterministicBidBackend,
+                )
+                seed = int(scale_config_dict.get("seed", base_seed))
+                bid_backend = DeterministicBidBackend(seed=seed)
+            if bid_backend is None:
+                raise ValueError(
+                    "llm_auction_bidder requires bid_backend= or repo_root "
+                    "for deterministic backend"
+                )
+            coord_method_instance = make_coordination_method(
+                coord_method,
+                policy_for_coord,
+                repo_root=repo_root,
+                scale_config=scale_config_dict,
+                bid_backend=bid_backend,
+            )
+        elif coord_method == "llm_gossip_summarizer":
+            scale_agents = (scale_probe_state or {}).get("agents") or []
+            pz_to_engine_gossip = {
+                f"worker_{i}": scale_agents[i]["agent_id"]
+                for i in range(len(scale_agents))
+                if i < len(scale_agents)
+            }
+            if not pz_to_engine_gossip:
+                pz_to_engine_gossip = {"worker_0": "ops_0", "worker_1": "runner_0"}
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            if task_name == "TaskH_COORD_RISK" and injection_id:
+                scale_config_dict["injection_id"] = injection_id
+            policy_for_coord = (policy_for_coord or {}).copy()
+            policy_for_coord.setdefault("pz_to_engine", pz_to_engine_gossip)
+            coord_method_instance = make_coordination_method(
+                coord_method,
+                policy_for_coord,
+                repo_root=repo_root,
+                scale_config=scale_config_dict,
+                pz_to_engine=pz_to_engine_gossip,
+            )
+        elif coord_method == "llm_local_decider_signed_bus":
+            scale_agents = (scale_probe_state or {}).get("agents") or []
+            pz_to_engine_local = {
+                f"worker_{i}": scale_agents[i]["agent_id"]
+                for i in range(len(scale_agents))
+                if i < len(scale_agents)
+            }
+            if not pz_to_engine_local:
+                pz_to_engine_local = {"worker_0": "ops_0", "worker_1": "runner_0"}
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            if task_name == "TaskH_COORD_RISK" and injection_id:
+                scale_config_dict["injection_id"] = injection_id
+            policy_for_coord = (policy_for_coord or {}).copy()
+            policy_for_coord.setdefault("pz_to_engine", pz_to_engine_local)
+            coord_method_instance = make_coordination_method(
+                coord_method,
+                policy_for_coord,
+                repo_root=repo_root,
+                scale_config=scale_config_dict,
+                pz_to_engine=pz_to_engine_local,
+            )
+        elif coord_method == "llm_repair_over_kernel_whca":
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            if task_name == "TaskH_COORD_RISK" and injection_id:
+                scale_config_dict["injection_id"] = injection_id
+            if pipeline_mode == "llm_offline" and repo_root is not None:
+                from labtrust_gym.baselines.llm.fault_model import (
+                    load_llm_fault_model,
+                )
+
+                fault_model_config = load_llm_fault_model(repo_root)
+                if fault_model_config:
+                    scale_config_dict["fault_model_config"] = fault_model_config
+            coord_method_instance = make_coordination_method(
+                coord_method,
+                policy_for_coord,
+                repo_root=repo_root,
+                scale_config=scale_config_dict,
+            )
+        elif coord_method == "llm_detector_throttle_advisor":
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            coord_method_instance = make_coordination_method(
+                coord_method,
+                policy_for_coord,
+                repo_root=repo_root,
+                scale_config=scale_config_dict,
             )
         else:
             coord_method_instance = make_coordination_method(
@@ -992,7 +1560,7 @@ def run_benchmark(
     use_fresh_agents_per_episode = task_name in ("TaskD", "TaskD_AdversarialDisruption")
     use_fresh_agents_taskf = task_name in ("TaskF", "TaskF_InsiderAndKeyMisuse")
 
-    for ep_seed in seeds:
+    for ep_idx, ep_seed in enumerate(seeds):
         agents_map = scripted_agents_map
         if use_fresh_agents_per_episode and scripted_agents_map is not None:
             from labtrust_gym.baselines.adversary import AdversaryAgent
@@ -1047,6 +1615,7 @@ def run_benchmark(
             coord_method=coord_method_instance,
             risk_injector=risk_injector_instance,
             comms_config=comms_cfg,
+            episode_id=ep_idx,
         )
         episodes_metrics.append({"seed": ep_seed, "metrics": metrics})
 
@@ -1164,6 +1733,25 @@ def run_benchmark(
             results["metadata"]["prompt_fingerprint"] = pf
         if "llm_model_id" in results["metadata"]:
             results["llm_model_id"] = results["metadata"]["llm_model_id"]
+    if coord_method_instance is not None:
+        pf_coord = getattr(coord_method_instance, "_prompt_fingerprints", None)
+        if isinstance(pf_coord, dict) and pf_coord:
+            if results.get("metadata") is None:
+                results["metadata"] = {}
+            results["metadata"]["prompt_template_id"] = pf_coord.get("prompt_template_id")
+            results["metadata"]["prompt_sha256"] = pf_coord.get("prompt_sha256")
+            results["metadata"]["allowed_actions_payload_sha256"] = pf_coord.get(
+                "allowed_actions_payload_sha256"
+            )
+            results["metadata"]["coordination_policy_fingerprint"] = pf_coord.get(
+                "coordination_policy_fingerprint"
+            )
+            inputs_for_verify = pf_coord.get("prompt_fingerprint_inputs")
+            if isinstance(inputs_for_verify, dict):
+                out_path_resolved = Path(out_path)
+                inputs_path = out_path_resolved.parent / "prompt_fingerprint_inputs.v0.1.json"
+                with inputs_path.open("w", encoding="utf-8") as f:
+                    json.dump(inputs_for_verify, f, indent=2, sort_keys=True)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)

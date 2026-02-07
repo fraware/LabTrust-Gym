@@ -1,0 +1,943 @@
+{
+  "bundle_version": "0.1",
+  "controls": [
+    {
+      "control_id": "CTRL-COORD-IDENTITY",
+      "description": "Signed messages, nonce tracking, epoch binding.",
+      "name": "Signed coordination and replay protection",
+      "source": "security_suite"
+    },
+    {
+      "control_id": "CTRL-LLM-SHIELD",
+      "description": "RBAC + schema-constrained action_type; prompt-injection resistance.",
+      "name": "LLM shield and constrained decoding",
+      "source": "security_suite"
+    },
+    {
+      "control_id": "CTRL-MEMORY",
+      "description": "Authenticated writes, schema, TTL, poison/override filtering on retrieval.",
+      "name": "Memory hardening and poison filtering",
+      "source": "security_suite"
+    },
+    {
+      "control_id": "CTRL-OBSERVABILITY",
+      "description": "Episode log, hashchain, invariant trace, receipt export.",
+      "name": "Observability and forensic freeze",
+      "source": "security_suite"
+    },
+    {
+      "control_id": "CTRL-RBAC",
+      "description": "Tool and action gating by role; token enforcement.",
+      "name": "Role-based access control",
+      "source": "security_suite"
+    },
+    {
+      "control_id": "CTRL-TOOL-SANDBOX",
+      "description": "Byte/record caps, egress allowlist, data classification.",
+      "name": "Tool sandbox and egress limits",
+      "source": "security_suite"
+    },
+    {
+      "control_id": "Golden runner validates contract",
+      "name": "Golden runner validates contract",
+      "source": "safety_case"
+    },
+    {
+      "control_id": "No ambient randomness in step",
+      "name": "No ambient randomness in step",
+      "source": "safety_case"
+    },
+    {
+      "control_id": "Runner output schema enforcement",
+      "name": "Runner output schema enforcement",
+      "source": "safety_case"
+    },
+    {
+      "control_id": "Single RNG wrapper seeded per episode",
+      "name": "Single RNG wrapper seeded per episode",
+      "source": "safety_case"
+    },
+    {
+      "control_id": "failure_models.v0.1 maintenance_schedule",
+      "name": "failure_models.v0.1 maintenance_schedule",
+      "source": "safety_case"
+    },
+    {
+      "control_id": "package-release paper_v0.1 pipeline",
+      "name": "package-release paper_v0.1 pipeline",
+      "source": "safety_case"
+    },
+    {
+      "control_id": "reagent_policy.v0.1 panel_requirements",
+      "name": "reagent_policy.v0.1 panel_requirements",
+      "source": "safety_case"
+    },
+    {
+      "control_id": "validate-policy before release",
+      "name": "validate-policy before release",
+      "source": "safety_case"
+    }
+  ],
+  "evidence": [
+    {
+      "artifacts": [
+        {
+          "path": "SECURITY/attack_results.json"
+        }
+      ],
+      "evidence_id": "ev-security-0",
+      "label": "Security attack results",
+      "path": "SECURITY/attack_results.json",
+      "status": "present",
+      "summary": {
+        "failed": 0,
+        "passed": 1,
+        "total": 1
+      },
+      "type": "security_suite"
+    },
+    {
+      "evidence_id": "ev-missing-R-COMMS-001",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-COMMS-001",
+      "path": "",
+      "risk_ids": [
+        "R-COMMS-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-COMMS-002",
+      "expected_sources": [
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-COMMS-002",
+      "path": "",
+      "risk_ids": [
+        "R-COMMS-002"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-DATA-001",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-DATA-001",
+      "path": "",
+      "risk_ids": [
+        "R-DATA-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-DATA-002",
+      "expected_sources": [
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-DATA-002",
+      "path": "",
+      "risk_ids": [
+        "R-DATA-002"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-DATA-003",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-DATA-003",
+      "path": "",
+      "risk_ids": [
+        "R-DATA-003"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-FLOW-001",
+      "expected_sources": [
+        "policy or run evidence"
+      ],
+      "label": "Evidence missing for R-FLOW-001",
+      "path": "",
+      "risk_ids": [
+        "R-FLOW-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-FLOW-002",
+      "expected_sources": [
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-FLOW-002",
+      "path": "",
+      "risk_ids": [
+        "R-FLOW-002"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-SYS-001",
+      "expected_sources": [
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-SYS-001",
+      "path": "",
+      "risk_ids": [
+        "R-SYS-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-SYS-002",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-SYS-002",
+      "path": "",
+      "risk_ids": [
+        "R-SYS-002"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-001",
+      "expected_sources": [
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-TOOL-001",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-002",
+      "expected_sources": [
+        "policy or run evidence"
+      ],
+      "label": "Evidence missing for R-TOOL-002",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-002"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-003",
+      "expected_sources": [
+        "policy or run evidence"
+      ],
+      "label": "Evidence missing for R-TOOL-003",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-003"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-004",
+      "expected_sources": [
+        "policy or run evidence"
+      ],
+      "label": "Evidence missing for R-TOOL-004",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-004"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-005",
+      "expected_sources": [
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-TOOL-005",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-005"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-006",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence missing for R-TOOL-006",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-006"
+      ],
+      "status": "missing",
+      "type": "other"
+    }
+  ],
+  "git_commit_hash": "ee67b53e9324e82f47c0d9a5c118317d9cb774dc",
+  "links": [
+    {
+      "href": "policy/risks/risk_registry.v0.1.yaml",
+      "label": "Risk registry",
+      "type": "repo_local"
+    },
+    {
+      "href": "policy/coordination/method_risk_matrix.v0.1.yaml",
+      "label": "Method-risk matrix",
+      "type": "repo_local"
+    },
+    {
+      "href": "policy/golden/security_attack_suite.v0.1.yaml",
+      "label": "Security attack suite",
+      "type": "repo_local"
+    },
+    {
+      "href": "policy/safety_case/claims.v0.1.yaml",
+      "label": "Safety case claims",
+      "type": "repo_local"
+    },
+    {
+      "href": "docs/risk_register_contract.v0.1.md",
+      "label": "Risk register contract",
+      "type": "repo_local"
+    },
+    {
+      "href": "ui_fixtures/SECURITY/attack_results.json",
+      "label": "Attack results",
+      "type": "run_local"
+    }
+  ],
+  "policy_fingerprints": {
+    "method_risk_matrix": "e444278edb226cbb0a5bd8bb56e321103ad010134947a1854804ff0c8865b82b",
+    "risk_registry": "dbb71ecd9ec0e5594bc2474ad91b46ddb3472ed226712db49a596e1a40de7988",
+    "safety_case_claims": "090f654eb1043ccd3d25ba6e7b0cf8f1210abc716d7757a2d62a3f2699632ec8",
+    "security_attack_suite": "968536f954ebc407a4fd63c447dd3ca32877fa5f8deb4be9e9fe88435a6563fc"
+  },
+  "reproduce": [
+    {
+      "commands": [
+        "labtrust run-security-suite --out <output_dir> --seed 42"
+      ],
+      "evidence_id": "ev-security-0",
+      "label": "Security suite"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-COMMS-001",
+      "label": "Evidence missing for R-COMMS-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-COMMS-002",
+      "label": "Evidence missing for R-COMMS-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-DATA-001",
+      "label": "Evidence missing for R-DATA-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-DATA-002",
+      "label": "Evidence missing for R-DATA-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-DATA-003",
+      "label": "Evidence missing for R-DATA-003"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-FLOW-001",
+      "label": "Evidence missing for R-FLOW-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-FLOW-002",
+      "label": "Evidence missing for R-FLOW-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-SYS-001",
+      "label": "Evidence missing for R-SYS-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-SYS-002",
+      "label": "Evidence missing for R-SYS-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-001",
+      "label": "Evidence missing for R-TOOL-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-002",
+      "label": "Evidence missing for R-TOOL-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-003",
+      "label": "Evidence missing for R-TOOL-003"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-004",
+      "label": "Evidence missing for R-TOOL-004"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-005",
+      "label": "Evidence missing for R-TOOL-005"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-006",
+      "label": "Evidence missing for R-TOOL-006"
+    }
+  ],
+  "risks": [
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [
+        "CTRL-LLM-SHIELD"
+      ],
+      "complexity_hint": "high",
+      "coverage_status": "partially_covered",
+      "description": "Adversarial prompts or inputs cause LLM or policy to bypass safety constraints.",
+      "evidence_refs": [
+        "ev-security-0"
+      ],
+      "mitigation_options": [
+        "Adversarial detection",
+        "Constrained decoding",
+        "Human-in-the-loop"
+      ],
+      "name": "Jailbreak attacks",
+      "primary_metrics": [
+        "sec.attack_success_rate",
+        "sec.detection_latency_steps",
+        "safety.override_count"
+      ],
+      "risk_domain": "capability",
+      "risk_id": "R-CAP-001",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_jailbreak",
+        "inj_prompt_injection",
+        "INJ-COORD-PROMPT-INJECT-001"
+      ],
+      "typical_failure_mode": "Ignore instructions; role-play override; prompt injection to skip checks."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [
+        "CTRL-COORD-IDENTITY"
+      ],
+      "complexity_hint": "medium",
+      "coverage_status": "partially_covered",
+      "description": "Agent or channel pretends to be another agent or role to gain privileges.",
+      "evidence_refs": [
+        "ev-missing-R-COMMS-001"
+      ],
+      "mitigation_options": [
+        "Signed actions",
+        "Key binding to agent_id",
+        "Replay protection"
+      ],
+      "name": "Identity spoofing (agent impersonation)",
+      "primary_metrics": [
+        "sec.attack_success_rate",
+        "sec.detection_latency_steps"
+      ],
+      "risk_domain": "comms",
+      "risk_id": "R-COMMS-001",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_impersonation",
+        "inj_replay",
+        "INJ-ID-SPOOF-001",
+        "INJ-COORD-PLAN-REPLAY-001"
+      ],
+      "typical_failure_mode": "Forged agent_id; key misuse; replay of another agent's actions."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "high",
+      "coverage_status": "partially_covered",
+      "description": "Messages between agents or from environment are altered to mislead or trigger failures.",
+      "evidence_refs": [
+        "ev-missing-R-COMMS-002"
+      ],
+      "mitigation_options": [
+        "Message authentication",
+        "Integrity hashes",
+        "Secure channels"
+      ],
+      "name": "Agent communication poisoning",
+      "primary_metrics": [
+        "sec.attack_success_rate",
+        "comm.drop_rate",
+        "safety.violations_total"
+      ],
+      "risk_domain": "comms",
+      "risk_id": "R-COMMS-002",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_msg_poison",
+        "inj_obs_tamper",
+        "INJ-COMMS-POISON-001"
+      ],
+      "typical_failure_mode": "Man-in-the-middle; observation tampering; malicious broadcast."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [
+        "CTRL-OBSERVABILITY"
+      ],
+      "complexity_hint": "medium",
+      "coverage_status": "partially_covered",
+      "description": "Data from untrusted source (external API, other agent) used without validation.",
+      "evidence_refs": [
+        "ev-missing-R-DATA-001"
+      ],
+      "mitigation_options": [
+        "Message auth",
+        "Schema validation",
+        "Integrity checks"
+      ],
+      "name": "Untrusted Data Exchange Risk",
+      "primary_metrics": [
+        "sec.attack_success_rate",
+        "safety.violations_total"
+      ],
+      "risk_domain": "data",
+      "risk_id": "R-DATA-001",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_untrusted_payload"
+      ],
+      "typical_failure_mode": "Poisoned observation; spoofed message; cross-agent data tampering."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "high",
+      "coverage_status": "uncovered",
+      "description": "Training or runtime data is corrupted to degrade model or decision quality.",
+      "evidence_refs": [
+        "ev-missing-R-DATA-002"
+      ],
+      "mitigation_options": [
+        "Data validation",
+        "Outlier detection",
+        "Diverse data sources"
+      ],
+      "name": "Data poisoning (train/run-time)",
+      "primary_metrics": [
+        "robustness.regret_vs_nominal",
+        "safety.violations_total"
+      ],
+      "risk_domain": "data",
+      "risk_id": "R-DATA-002",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_poison_obs",
+        "inj_poison_reward"
+      ],
+      "typical_failure_mode": "Poisoned examples; corrupted observations; biased feedback."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [
+        "CTRL-MEMORY"
+      ],
+      "complexity_hint": "high",
+      "coverage_status": "partially_covered",
+      "description": "Long-horizon or episodic state is corrupted to cause downstream wrong decisions.",
+      "evidence_refs": [
+        "ev-missing-R-DATA-003"
+      ],
+      "mitigation_options": [
+        "State integrity checks",
+        "Hash chain",
+        "Periodic reconciliation"
+      ],
+      "name": "Memory poisoning (long-horizon state)",
+      "primary_metrics": [
+        "safety.violations_total",
+        "robustness.resilience_score",
+        "sec.detection_latency_steps"
+      ],
+      "risk_domain": "data",
+      "risk_id": "R-DATA-003",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_memory_tamper",
+        "INJ-MEMORY-POISON-001"
+      ],
+      "typical_failure_mode": "Stale or forged state; history tampering; wrong specimen state."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "medium",
+      "coverage_status": "not_applicable",
+      "description": "Agent achieves goal but with unnecessary steps, delays, or resource use.",
+      "evidence_refs": [
+        "ev-missing-R-FLOW-001"
+      ],
+      "mitigation_options": [
+        "Reward shaping",
+        "Makespan objectives",
+        "Operator guidance"
+      ],
+      "name": "Action Inefficiency Risk",
+      "primary_metrics": [
+        "perf.makespan",
+        "perf.mean_tat",
+        "cost.total_tokens"
+      ],
+      "risk_domain": "flow",
+      "risk_id": "R-FLOW-001",
+      "severity_hint": "low",
+      "suggested_injections": [
+        "inj_delayed_observation"
+      ],
+      "typical_failure_mode": "Excessive moves; redundant checks; suboptimal batching."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "high",
+      "coverage_status": "partially_covered",
+      "description": "Agent fails to make progress toward goal (deadlock, livelock, or repeated failures).",
+      "evidence_refs": [
+        "ev-missing-R-FLOW-002"
+      ],
+      "mitigation_options": [
+        "Progress metrics",
+        "Timeouts",
+        "Fallback policies"
+      ],
+      "name": "Action Progress Risk",
+      "primary_metrics": [
+        "perf.throughput",
+        "perf.makespan",
+        "robustness.regret_vs_nominal"
+      ],
+      "risk_domain": "flow",
+      "risk_id": "R-FLOW-002",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_stuck_state"
+      ],
+      "typical_failure_mode": "No forward progress; same action retried; wrong branch chosen."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "medium",
+      "coverage_status": "partially_covered",
+      "description": "Agent or adversary causes service degradation or unavailability (resource exhaustion, spam).",
+      "evidence_refs": [
+        "ev-missing-R-SYS-001"
+      ],
+      "mitigation_options": [
+        "Rate limit",
+        "Quotas",
+        "Kill switch",
+        "Backpressure"
+      ],
+      "name": "Agent denial of service",
+      "primary_metrics": [
+        "perf.throughput",
+        "comm.drop_rate",
+        "sec.containment_time_steps"
+      ],
+      "risk_domain": "system",
+      "risk_id": "R-SYS-001",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_dos_flood",
+        "inj_rate_spike",
+        "INJ-DOS-PLANNER-001"
+      ],
+      "typical_failure_mode": "Flood of actions; excessive API calls; queue flooding."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [
+        "CTRL-COORD-IDENTITY"
+      ],
+      "complexity_hint": "high",
+      "coverage_status": "partially_covered",
+      "description": "Multiple agents coordinate to circumvent policy or achieve unauthorized outcomes.",
+      "evidence_refs": [
+        "ev-missing-R-SYS-002"
+      ],
+      "mitigation_options": [
+        "Independent verification",
+        "Non-collusion assumptions",
+        "Audit correlation"
+      ],
+      "name": "Agent collusion (multi-agent)",
+      "primary_metrics": [
+        "sec.attack_success_rate",
+        "safety.violations_total"
+      ],
+      "risk_domain": "system",
+      "risk_id": "R-SYS-002",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_collusion_handoff",
+        "INJ-COLLUSION-001",
+        "INJ-COORD-BID-SHILL-001"
+      ],
+      "typical_failure_mode": "Agents share tokens or bypass dual-approval; coordinated spoofing."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "low",
+      "coverage_status": "partially_covered",
+      "description": "Agent selects wrong tool or action type for the current state; leads to wasted steps or incorrect workflow.",
+      "evidence_refs": [
+        "ev-missing-R-TOOL-001"
+      ],
+      "mitigation_options": [
+        "Structured output schema",
+        "Few-shot examples",
+        "State summarization"
+      ],
+      "name": "Tool Selection Errors",
+      "primary_metrics": [
+        "perf.throughput",
+        "safety.violations_total"
+      ],
+      "risk_domain": "tool",
+      "risk_id": "R-TOOL-001",
+      "severity_hint": "medium",
+      "suggested_injections": [
+        "inj_tool_selection_noise"
+      ],
+      "typical_failure_mode": "Wrong action_type chosen; e.g. QUEUE_RUN instead of START_RUN, or wrong device_id."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "low",
+      "coverage_status": "not_applicable",
+      "description": "Tool or device action fails at execution (e.g. device busy, queue empty, hardware error).",
+      "evidence_refs": [
+        "ev-missing-R-TOOL-002"
+      ],
+      "mitigation_options": [
+        "Retry with backoff",
+        "Fallback actions",
+        "Queue head validation"
+      ],
+      "name": "Tool Execution Failure",
+      "primary_metrics": [
+        "perf.throughput",
+        "safety.blocks_total",
+        "robustness.resilience_score"
+      ],
+      "risk_domain": "tool",
+      "risk_id": "R-TOOL-002",
+      "severity_hint": "medium",
+      "suggested_injections": [
+        "inj_device_fail",
+        "inj_queue_empty"
+      ],
+      "typical_failure_mode": "START_RUN on empty queue; device not colocated; transient failure."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "medium",
+      "coverage_status": "not_applicable",
+      "description": "Tool or action executed without verification that preconditions or policy constraints hold.",
+      "evidence_refs": [
+        "ev-missing-R-TOOL-003"
+      ],
+      "mitigation_options": [
+        "Pre-action validation",
+        "Signed actions",
+        "Shield layer"
+      ],
+      "name": "Unverified Tool Risk",
+      "primary_metrics": [
+        "safety.violations_total",
+        "safety.blocks_total"
+      ],
+      "risk_domain": "tool",
+      "risk_id": "R-TOOL-003",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_skip_verification"
+      ],
+      "typical_failure_mode": "Action accepted despite invariant violation; missing RBAC or zone check."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "medium",
+      "coverage_status": "not_applicable",
+      "description": "Tool used in correct type but wrong context (wrong specimen, wrong device, wrong order).",
+      "evidence_refs": [
+        "ev-missing-R-TOOL-004"
+      ],
+      "mitigation_options": [
+        "Strict schema validation",
+        "Citation to policy",
+        "Dual approval for high-risk"
+      ],
+      "name": "Tool Misuse Risk",
+      "primary_metrics": [
+        "safety.violations_total",
+        "perf.mean_tat"
+      ],
+      "risk_domain": "tool",
+      "risk_id": "R-TOOL-004",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_args_swap",
+        "inj_specimen_swap"
+      ],
+      "typical_failure_mode": "Correct action_type with wrong args; cross-specimen mix-up; order violation."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [],
+      "complexity_hint": "low",
+      "coverage_status": "partially_covered",
+      "description": "Structured call has wrong or out-of-range parameters (e.g. wrong device_id, invalid zone).",
+      "evidence_refs": [
+        "ev-missing-R-TOOL-005"
+      ],
+      "mitigation_options": [
+        "Entity resolution",
+        "Allowlist validation",
+        "Structured output + validation"
+      ],
+      "name": "Function Call Misparameterization",
+      "primary_metrics": [
+        "safety.blocks_total",
+        "perf.throughput"
+      ],
+      "risk_domain": "tool",
+      "risk_id": "R-TOOL-005",
+      "severity_hint": "medium",
+      "suggested_injections": [
+        "inj_misparam_device",
+        "inj_misparam_zone"
+      ],
+      "typical_failure_mode": "LLM or planner outputs valid schema but invalid refs; typo in id."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [
+        "CTRL-TOOL-SANDBOX"
+      ],
+      "complexity_hint": "high",
+      "coverage_status": "partially_covered",
+      "description": "Adversary exploits tool or API contract (injection, overflow, privilege escalation).",
+      "evidence_refs": [
+        "ev-missing-R-TOOL-006"
+      ],
+      "mitigation_options": [
+        "Input sanitization",
+        "Rate limits",
+        "Least privilege"
+      ],
+      "name": "Tool Vulnerability Exploitation Risk",
+      "primary_metrics": [
+        "sec.attack_success_rate",
+        "sec.detection_latency_steps",
+        "sec.containment_time_steps"
+      ],
+      "risk_domain": "tool",
+      "risk_id": "R-TOOL-006",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "inj_tool_injection",
+        "inj_privilege_probe"
+      ],
+      "typical_failure_mode": "Malicious input to tool; abuse of optional parameters; bypass of checks."
+    }
+  ]
+}

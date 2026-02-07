@@ -141,3 +141,44 @@ def verify_message(
         return False, sender_id, COORD_SIGNATURE_INVALID
     except Exception:
         return False, sender_id, COORD_SIGNATURE_INVALID
+
+
+def verify_message_find_signer(
+    envelope: dict[str, Any],
+    key_store: dict[str, tuple[Any, str]],
+) -> tuple[bool, str | None]:
+    """
+    Try verifying with each key in key_store. Returns (ok, actual_sender_id).
+    Used to detect spoof: envelope claims sender_id A but signature verifies
+    with key B -> actual_sender_id is B.
+    """
+    sig_b64 = envelope.get(KEY_SIGNATURE)
+    if not sig_b64:
+        return False, None
+    envelope_without_sig = {k: v for k, v in envelope.items() if k != KEY_SIGNATURE}
+    payload_bytes = _canonical_payload(envelope_without_sig)
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    except ImportError:
+        return False, None
+    try:
+        sig_raw = base64.b64decode(sig_b64, validate=True)
+    except Exception:
+        return False, None
+    if len(sig_raw) != 64:
+        return False, None
+    for aid, (_, pub_b64) in key_store.items():
+        try:
+            pub_raw = base64.b64decode(pub_b64, validate=True)
+        except Exception:
+            continue
+        if len(pub_raw) != 32:
+            continue
+        try:
+            pub_key = Ed25519PublicKey.from_public_bytes(pub_raw)
+            pub_key.verify(sig_raw, payload_bytes)
+            return True, aid
+        except (InvalidSignature, Exception):
+            continue
+    return False, None

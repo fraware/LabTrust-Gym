@@ -36,3 +36,22 @@ scale_configs:
       specimens_per_min: 1.0
       horizon_steps: 50
       timing_mode: "explicit"
+
+    - id: "medium_stress_signed_bus"
+      name: "Medium stress (signed bus / identity)"
+      description: "50-100 agents, 8-12 devices, 2 sites; arrival rate tuned so queues form without saturation. For signed message bus and coordination identity evaluation."
+      num_agents_total: 75
+      role_mix:
+        ROLE_RUNNER: 0.5
+        ROLE_ANALYTICS: 0.25
+        ROLE_RECEPTION: 0.15
+        ROLE_QC: 0.05
+        ROLE_SUPERVISOR: 0.05
+      num_devices_per_type:
+        CHEM_ANALYZER: 6
+        CENTRIFUGE_BANK: 3
+        ALIQUOTER: 1
+      num_sites: 2
+      specimens_per_min: 3.5
+      horizon_steps: 300
+      timing_mode: "simulated"

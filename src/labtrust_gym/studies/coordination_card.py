@@ -130,6 +130,130 @@ def write_coordination_card(
     out_path.write_text(content, encoding="utf-8")
 
 
+# LLM coordination method_ids (coordination_class: llm in coordination_methods.v0.1.yaml)
+LLM_COORDINATION_METHOD_IDS = [
+    "llm_constrained",
+    "llm_central_planner",
+    "llm_hierarchical_allocator",
+    "llm_auction_bidder",
+    "llm_gossip_summarizer",
+]
+
+# Backends for LLM coordination (CLI --llm-backend)
+LLM_BACKEND_IDS = ["deterministic", "openai_live", "ollama_live"]
+
+
+def _load_yaml_safe(path: Path) -> dict[str, Any]:
+    """Load YAML file; return empty dict if missing or invalid."""
+    if not path.is_file():
+        return {}
+    try:
+        import yaml
+        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+
+
+def render_coordination_llm_card(
+    repo_root: Path,
+    policy_subdir: str = "policy/coordination",
+) -> str:
+    """
+    Render COORDINATION_LLM_CARD.md: LLM methods, backends, policy fingerprint,
+    injection coverage for LLM-relevant risks, and known limitations.
+    """
+    root = Path(repo_root).resolve()
+    coord_dir = root / Path(*policy_subdir.split("/"))
+    fingerprint = coordination_policy_fingerprint(root, policy_subdir)
+
+    methods_reg = _load_yaml_safe(coord_dir / "coordination_methods.v0.1.yaml")
+    injections_cfg = _load_yaml_safe(coord_dir / "injections.v0.2.yaml")
+    matrix_cfg = _load_yaml_safe(coord_dir / "method_risk_matrix.v0.1.yaml")
+
+    method_rows: list[dict[str, Any]] = []
+    for m in (methods_reg.get("coordination_methods") or {}).get("methods") or []:
+        if m.get("method_id") in LLM_COORDINATION_METHOD_IDS:
+            method_rows.append(m)
+
+    injection_ids: list[str] = []
+    for inj in (injections_cfg.get("injections") or []):
+        iid = inj.get("injection_id")
+        if iid:
+            injection_ids.append(str(iid))
+
+    llm_risk_cells: list[dict[str, Any]] = []
+    for c in (matrix_cfg.get("method_risk_matrix") or {}).get("cells") or []:
+        if c.get("method_id") in LLM_COORDINATION_METHOD_IDS:
+            llm_risk_cells.append(c)
+
+    lines = [
+        "# Coordination LLM Card (LLM-based methods)",
+        "",
+        "This card lists LLM-based coordination methods, supported backends, policy fingerprint, injection coverage for security evaluation, and known limitations. For the full coordination protocol see docs/llm_coordination_protocol.md in the repository.",
+        "",
+        "## LLM coordination methods",
+        "",
+        "| method_id | name | known_weaknesses | required_controls |",
+        "|-----------|------|------------------|-------------------|",
+    ]
+    for m in method_rows:
+        mid = m.get("method_id", "")
+        name = (m.get("name") or "").replace("|", "\\|")
+        weaknesses = ", ".join(m.get("known_weaknesses") or [])
+        controls = ", ".join(m.get("required_controls") or [])
+        lines.append(f"| {mid} | {name} | {weaknesses} | {controls} |")
+
+    lines.extend([
+        "",
+        "## Backends",
+        "",
+        "| backend_id | description |",
+        "|------------|-------------|",
+        "| deterministic | Seeded proposal backend; no network; reproducible. |",
+        "| openai_live | Live OpenAI (CoordinationProposal or market bids); used by llm_central_planner, llm_hierarchical_allocator, llm_auction_bidder; requires OPENAI_API_KEY. |",
+        "| ollama_live | Live Ollama (CoordinationProposal or market bids); same methods as openai_live when configured (LABTRUST_LOCAL_LLM_URL, LABTRUST_LOCAL_LLM_MODEL). |",
+        "",
+        "Default for `run-coordination-study` and `run-benchmark` when using LLM methods: **deterministic**. No API calls unless `--llm-backend openai_live` (or ollama_live) is passed.",
+        "",
+        "## Policy fingerprint",
+        "",
+        f"Same as coordination policy: **SHA-256** `{fingerprint}` (see COORDINATION_CARD.md for per-file hashes).",
+        "",
+        "## Injection coverage (security evaluation)",
+        "",
+        "TaskH injections used for security evaluation (from injections.v0.2.yaml):",
+        "",
+    ])
+    for iid in sorted(injection_ids):
+        lines.append(f"- {iid}")
+    lines.extend([
+        "",
+        "LLM-relevant injections include: INJ-LLM-PROMPT-INJECT-COORD-001, INJ-LLM-TOOL-ESCALATION-001, INJ-COMMS-FLOOD-LLM-001, INJ-ID-REPLAY-COORD-001, INJ-COLLUSION-MARKET-001, INJ-MEMORY-POISON-COORD-001, INJ-ID-SPOOF-001, INJ-COMMS-POISON-001, INJ-BID-SPOOF-001, INJ-COLLUSION-001, and others as defined in the spec.",
+        "",
+        "Method-risk matrix (required_bench / coverage) for LLM methods is in policy/coordination/method_risk_matrix.v0.1.yaml. Run with `--llm-backend deterministic` to satisfy coverage gates without network.",
+        "",
+        "## Known limitations",
+        "",
+        "- **Deterministic backend**: Proposals are seeded NOOP or trivial; not representative of live LLM quality. Use for reproducibility and coverage only.",
+        "- **Live backends**: Require API key (openai_live) or local service (ollama_live); cost and latency vary; results non-deterministic.",
+        "- **Shield and repair**: LLM proposals are passed through RBAC/signature shield; blocked actions trigger repair loop. Repair caps (max_repairs, blocked_threshold) are configurable via scale_config. Security metrics (attack_success_rate, detection, containment) depend on injection and harness.",
+        "- **Injection set**: Only configured injections in the study spec are applied; no black-box adversary search.",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def write_coordination_llm_card(
+    out_path: Path,
+    repo_root: Path,
+) -> None:
+    """Write COORDINATION_LLM_CARD.md to out_path (e.g. package-release output)."""
+    content = render_coordination_llm_card(Path(repo_root))
+    out_path = Path(out_path).resolve()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(content, encoding="utf-8")
+
+
 def copy_frozen_coordination_policy(
     repo_root: Path,
     dest_dir: Path,

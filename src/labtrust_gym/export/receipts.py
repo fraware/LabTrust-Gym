@@ -488,6 +488,9 @@ def _sha256_string(s: str) -> str:
 POLICY_PACK_MANIFEST_FILENAME = "policy_pack_manifest.v0.1.json"
 
 
+PROMPT_FINGERPRINT_INPUTS_FILENAME = "prompt_fingerprint_inputs.v0.1.json"
+
+
 def write_evidence_bundle(
     out_dir: Path,
     receipts: list[dict[str, Any]],
@@ -498,6 +501,11 @@ def write_evidence_bundle(
     policy_root: Path | None = None,
     tool_registry_fingerprint: str | None = None,
     rbac_policy_fingerprint: str | None = None,
+    prompt_template_id: str | None = None,
+    prompt_sha256: str | None = None,
+    allowed_actions_payload_sha256: str | None = None,
+    coordination_policy_fingerprint: str | None = None,
+    prompt_fingerprint_inputs: dict[str, Any] | None = None,
 ) -> Path:
     """
     Write EvidenceBundle.v0.1/ under out_dir.
@@ -505,6 +513,8 @@ def write_evidence_bundle(
     enforcement_actions.jsonl, hashchain_proof.json, optional policy_pack_manifest.v0.1.json, manifest.
     When policy_root and partner_id are set, writes policy_pack_manifest and sets policy_root_hash
     on manifest and each receipt.
+    Optional coordination prompt fingerprinting: when prompt_sha256 etc. are set, adds them to manifest;
+    when prompt_fingerprint_inputs is set, writes prompt_fingerprint_inputs.v0.1.json for verify-bundle.
     Returns path to bundle directory.
     """
     bundle_dir = out_dir / EVIDENCE_BUNDLE_DIR
@@ -575,6 +585,11 @@ def write_evidence_bundle(
     proof_path.write_text(_canonical_json(hc) + "\n", encoding="utf-8")
     written_files.append("hashchain_proof.json")
 
+    if prompt_fingerprint_inputs is not None and isinstance(prompt_fingerprint_inputs, dict):
+        inp_path = bundle_dir / PROMPT_FINGERPRINT_INPUTS_FILENAME
+        inp_path.write_text(_canonical_json(prompt_fingerprint_inputs) + "\n", encoding="utf-8")
+        written_files.append(PROMPT_FINGERPRINT_INPUTS_FILENAME)
+
     # manifest: policy_fingerprint (combined with tool_registry + rbac when present), optional fingerprints
     effective_policy_fp = combined_policy_fingerprint(
         policy_fingerprint or "",
@@ -592,6 +607,14 @@ def write_evidence_bundle(
         manifest["tool_registry_fingerprint"] = tool_registry_fingerprint
     if rbac_policy_fingerprint is not None:
         manifest["rbac_policy_fingerprint"] = rbac_policy_fingerprint
+    if prompt_template_id is not None:
+        manifest["prompt_template_id"] = prompt_template_id
+    if prompt_sha256 is not None:
+        manifest["prompt_sha256"] = prompt_sha256
+    if allowed_actions_payload_sha256 is not None:
+        manifest["allowed_actions_payload_sha256"] = allowed_actions_payload_sha256
+    if coordination_policy_fingerprint is not None:
+        manifest["coordination_policy_fingerprint"] = coordination_policy_fingerprint
     if sign_bundle:
         manifest["signature"] = {"algorithm": "stub", "value": ""}
     else:
@@ -666,6 +689,27 @@ def export_receipts(
     pid = partner_id or (entries[0].get("partner_id") if entries else None)
     tr_fp = tool_registry_fingerprint or (entries[0].get("tool_registry_fingerprint") if entries else None)
     rbac_fp = rbac_policy_fingerprint or (entries[0].get("rbac_policy_fingerprint") if entries else None)
+
+    run_dir = run_path.parent if run_path.is_file() else Path(run_path)
+    coord_meta: dict[str, Any] = {}
+    results_path = run_dir / "results.json"
+    if results_path.is_file():
+        try:
+            results_data = json.loads(results_path.read_text(encoding="utf-8"))
+            meta = results_data.get("metadata") or {}
+            for key in ("prompt_template_id", "prompt_sha256", "allowed_actions_payload_sha256", "coordination_policy_fingerprint"):
+                if meta.get(key) is not None:
+                    coord_meta[key] = meta[key]
+        except Exception:
+            pass
+    inputs_path = run_dir / PROMPT_FINGERPRINT_INPUTS_FILENAME
+    prompt_inputs: dict[str, Any] | None = None
+    if inputs_path.is_file():
+        try:
+            prompt_inputs = json.loads(inputs_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
     return write_evidence_bundle(
         out_dir,
         receipts,
@@ -675,4 +719,9 @@ def export_receipts(
         policy_root=policy_root,
         tool_registry_fingerprint=tr_fp,
         rbac_policy_fingerprint=rbac_fp,
+        prompt_template_id=coord_meta.get("prompt_template_id"),
+        prompt_sha256=coord_meta.get("prompt_sha256"),
+        allowed_actions_payload_sha256=coord_meta.get("allowed_actions_payload_sha256"),
+        coordination_policy_fingerprint=coord_meta.get("coordination_policy_fingerprint"),
+        prompt_fingerprint_inputs=prompt_inputs,
     )

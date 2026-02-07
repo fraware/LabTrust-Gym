@@ -21,6 +21,15 @@ DEFAULT_OBJECTIVES: list[tuple[str, str]] = [
     ("security_success", "max"),
 ]
 
+# Cost-aware front: same as default plus minimize cost.total_tokens (and optionally cost.estimated_cost_usd).
+COST_AWARE_OBJECTIVES: list[tuple[str, str]] = [
+    ("perf.throughput", "max"),
+    ("perf.p95_tat", "min"),
+    ("safety.violations_total", "min"),
+    ("security_success", "max"),
+    ("cost.total_tokens", "min"),
+]
+
 
 def _objective_value(row: dict[str, Any], key: str) -> float | None:
     """Resolve objective value; security_success = 1 - sec.attack_success_rate."""
@@ -229,9 +238,11 @@ def write_pareto_md(
     out_path: Path,
     data: dict[str, Any],
     summary_rows: list[dict[str, Any]],
+    cost_data: dict[str, Any] | None = None,
 ) -> None:
     """
     Write pareto.md: interpretation guide, fronts per scale, per-method CIs.
+    If cost_data is provided, append a "Cost-aware Pareto front" section.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -262,6 +273,36 @@ def write_pareto_md(
                 f"violations={viol}, security_success={sec_s}"
             )
         lines.append("")
+
+    if cost_data:
+        lines.append("## Cost-aware Pareto front")
+        lines.append("")
+        lines.append(
+            "Objectives: same as above plus cost.total_tokens (min). "
+            "Separate section so the main front is unchanged."
+        )
+        lines.append("")
+        cost_fronts = cost_data.get("fronts_per_scale") or {}
+        for scale_id in sorted(cost_fronts.keys()):
+            lines.append(f"### {scale_id} (cost-aware)")
+            lines.append("")
+            for row in cost_fronts[scale_id]:
+                method = row.get("method_id", "")
+                inj = row.get("injection_id", "")
+                thr = row.get("perf.throughput")
+                p95 = row.get("perf.p95_tat")
+                viol = row.get("safety.violations_total")
+                sec = row.get("security_success")
+                cost_tok = row.get("cost.total_tokens")
+                thr_s = f"{thr:.2f}" if thr is not None else "—"
+                p95_s = f"{p95:.1f}" if p95 is not None else "—"
+                sec_s = f"{sec:.2f}" if sec is not None else "—"
+                cost_s = f"{int(cost_tok)}" if cost_tok is not None else "—"
+                lines.append(
+                    f"- **{method}** / {inj}: throughput={thr_s}, p95_tat={p95_s}, "
+                    f"violations={viol}, security_success={sec_s}, cost.total_tokens={cost_s}"
+                )
+            lines.append("")
 
     lines.append("## Per-method 95% bootstrap CI")
     lines.append("")
@@ -361,16 +402,20 @@ def write_pareto_artifacts(
 ) -> None:
     """
     Write PARETO/pareto.json, PARETO/pareto.md, PARETO/frontier.svg.
+    Also writes PARETO/pareto_cost.json and adds a Cost-aware Pareto front section to pareto.md.
     Deterministic given summary_rows and seed.
     """
     pareto_dir = Path(pareto_dir)
-    data = build_pareto_artifact(summary_rows, seed, objectives)
+    obj = objectives or DEFAULT_OBJECTIVES
+    data = build_pareto_artifact(summary_rows, seed, obj)
     write_pareto_json(pareto_dir / "pareto.json", data)
-    write_pareto_md(pareto_dir / "pareto.md", data, summary_rows)
-    fronts = compute_nondominated_per_scale(summary_rows, objectives)
+    cost_data = build_pareto_artifact(summary_rows, seed, COST_AWARE_OBJECTIVES)
+    write_pareto_json(pareto_dir / "pareto_cost.json", cost_data)
+    write_pareto_md(pareto_dir / "pareto.md", data, summary_rows, cost_data=cost_data)
+    fronts = compute_nondominated_per_scale(summary_rows, obj)
     write_frontier_svg(
         pareto_dir / "frontier.svg",
         summary_rows,
         fronts,
-        objectives,
+        obj,
     )

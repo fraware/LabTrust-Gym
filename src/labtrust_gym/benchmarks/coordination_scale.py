@@ -297,6 +297,49 @@ def _build_equipment_registry(
     }
 
 
+SCALE_CONFIGS_FILENAME = "scale_configs.v0.1.yaml"
+SCALE_CONFIGS_SUBDIR = "policy/coordination"
+
+
+def load_scale_config_by_id(
+    repo_root: Path,
+    config_id: str,
+) -> CoordinationScaleConfig:
+    """
+    Load a named scale config from policy/coordination/scale_configs.v0.1.yaml by id.
+    Raises KeyError if config_id is not found; ValueError if role_mix or structure is invalid.
+    """
+    path = Path(repo_root) / SCALE_CONFIGS_SUBDIR / SCALE_CONFIGS_FILENAME
+    if not path.is_file():
+        raise FileNotFoundError(f"Scale configs not found: {path}")
+    data = load_yaml(path)
+    root = data.get("scale_configs") or data
+    configs = root.get("configs") if isinstance(root, dict) else []
+    if not isinstance(configs, list):
+        raise ValueError("scale_configs.configs must be a list")
+    for c in configs:
+        if not isinstance(c, dict):
+            continue
+        if c.get("id") == config_id:
+            role_mix = c.get("role_mix")
+            if not role_mix or not isinstance(role_mix, dict):
+                raise ValueError(f"scale config {config_id}: role_mix required and must be a dict")
+            num_devices_per_type = c.get("num_devices_per_type")
+            if not num_devices_per_type or not isinstance(num_devices_per_type, dict):
+                raise ValueError(f"scale config {config_id}: num_devices_per_type required and must be a dict")
+            return CoordinationScaleConfig(
+                num_agents_total=int(c.get("num_agents_total", 2)),
+                role_mix={k: float(v) for k, v in role_mix.items()},
+                num_devices_per_type={k: int(v) for k, v in num_devices_per_type.items()},
+                num_sites=int(c.get("num_sites", 1)),
+                specimens_per_min=float(c.get("specimens_per_min", 1.0)),
+                horizon_steps=int(c.get("horizon_steps", 200)),
+                timing_mode=str(c.get("timing_mode", "explicit")),
+                partner_id=c.get("partner_id"),
+            )
+    raise KeyError(f"Scale config id {config_id!r} not found in {path}")
+
+
 def _sanitize_scale_config(scale: CoordinationScaleConfig) -> dict[str, Any]:
     """Return a JSON-serializable, sanitized copy for emit/log (no Path, stable)."""
     return {

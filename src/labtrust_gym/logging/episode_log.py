@@ -130,6 +130,88 @@ def write_log_line(stream: TextIO, entry: dict[str, Any]) -> None:
     stream.flush()
 
 
+def build_llm_coord_proposal_entry(
+    proposal_id: str,
+    step_id: int,
+    canonical_proposal_hash: str,
+    meta: dict[str, Any],
+    shield_outcomes: dict[str, Any] | None = None,
+    shield_outcome_hash: str | None = None,
+) -> dict[str, Any]:
+    """
+    Build one JSONL log entry for type LLM_COORD_PROPOSAL.
+
+    Includes proposal_id, step_id, canonical proposal hash, meta (backend_id,
+    model_id, latency_ms, tokens_in, tokens_out, prompt_fingerprint,
+    policy_fingerprint), and optional shield_outcomes (blocked reason codes,
+    invariant violations) and shield_outcome_hash for audit digest.
+    """
+    entry: dict[str, Any] = {
+        "log_type": "LLM_COORD_PROPOSAL",
+        "proposal_id": str(proposal_id),
+        "step_id": int(step_id),
+        "canonical_proposal_hash": str(canonical_proposal_hash),
+        "meta": dict(meta) if isinstance(meta, dict) else {},
+    }
+    if shield_outcomes is not None and isinstance(shield_outcomes, dict):
+        entry["shield_outcomes"] = shield_outcomes
+    if shield_outcome_hash is not None and shield_outcome_hash != "":
+        entry["shield_outcome_hash"] = str(shield_outcome_hash)
+    return entry
+
+
+def build_llm_coord_audit_digest_entry(
+    episode_id: int,
+    steps: list[dict[str, Any]],
+    audit_digest_version: str = "0.1",
+) -> dict[str, Any]:
+    """
+    Build one JSONL log entry for type LLM_COORD_AUDIT_DIGEST.
+
+    steps: list of {"step_id": int, "proposal_hash": str, "shield_outcome_hash": str}.
+    Written once per episode for deterministic verification (same seed -> same hashes).
+    """
+    return {
+        "log_type": "LLM_COORD_AUDIT_DIGEST",
+        "audit_digest_version": str(audit_digest_version),
+        "episode_id": int(episode_id),
+        "steps": list(steps),
+    }
+
+
+def build_llm_coord_proposal_attempt_entry(
+    attempt_index: int,
+    proposal_id: str,
+    step_id: int,
+    proposal_hash: str,
+    repair_request_hash: str,
+    shield_outcome_hash: str,
+    validation_failed: bool = False,
+    failed_validation_fields: list[str] | None = None,
+    blocked_count: int | None = None,
+) -> dict[str, Any]:
+    """
+    Build one JSONL log entry for type LLM_COORD_PROPOSAL_ATTEMPT.
+
+    Used by repair loop to log each attempt (attempt_index, hashes, outcome).
+    """
+    entry: dict[str, Any] = {
+        "log_type": "LLM_COORD_PROPOSAL_ATTEMPT",
+        "attempt_index": attempt_index,
+        "proposal_id": str(proposal_id),
+        "step_id": int(step_id),
+        "proposal_hash": str(proposal_hash),
+        "repair_request_hash": str(repair_request_hash),
+        "shield_outcome_hash": str(shield_outcome_hash),
+        "validation_failed": bool(validation_failed),
+    }
+    if failed_validation_fields is not None:
+        entry["failed_validation_fields"] = list(failed_validation_fields)
+    if blocked_count is not None:
+        entry["blocked_count"] = int(blocked_count)
+    return entry
+
+
 class EpisodeLogger:
     """
     Writes episode step results to a JSONL file.
@@ -189,6 +271,20 @@ class EpisodeLogger:
             rbac_policy_fingerprint=getattr(self, "_rbac_policy_fingerprint", None),
         )
         write_log_line(self._stream, entry)
+
+    def log_llm_coord_proposal(self, record: dict[str, Any]) -> None:
+        """
+        Append one LLM_COORD_PROPOSAL line to the episode log.
+
+        record must contain at least proposal_id, step_id,
+        canonical_proposal_hash, meta; optional shield_outcomes.
+        Use build_llm_coord_proposal_entry to build the record.
+        """
+        if self._path is None:
+            return
+        if self._stream is None:
+            self._stream = open(self._path, "a", encoding="utf-8")
+        write_log_line(self._stream, record)
 
     def close(self) -> None:
         """Close the log file if open."""

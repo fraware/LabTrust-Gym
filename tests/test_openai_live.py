@@ -97,11 +97,19 @@ def test_openai_backend_available_when_key_set() -> None:
 
 
 def test_propose_action_returns_noop_when_no_key() -> None:
-    """propose_action returns NOOP and sets error when no API key."""
-    with patch.dict(os.environ, {}, clear=False):
-        os.environ.pop("OPENAI_API_KEY", None)
-        backend = OpenAILiveBackend()
-    ctx = {
+    """propose_action returns NOOP and sets error when no API key (pipeline allows network)."""
+    from labtrust_gym.pipeline import set_pipeline_config
+
+    set_pipeline_config(
+        pipeline_mode="llm_live",
+        allow_network=True,
+        llm_backend_id=BACKEND_ID,
+    )
+    try:
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("OPENAI_API_KEY", None)
+            backend = OpenAILiveBackend()
+        ctx = {
         "partner_id": "",
         "now_ts_s": 0,
         "timing_mode": "explicit",
@@ -111,63 +119,93 @@ def test_propose_action_returns_noop_when_no_key() -> None:
         "recent_violations": [],
         "enforcement_state": {},
     }
-    out = backend.propose_action(ctx)
-    assert out.get("action_type") == "NOOP"
-    assert out.get("args") == {}
-    assert backend.last_error_code == LLM_PROVIDER_ERROR
-    assert backend.last_metrics.get("backend_id") == BACKEND_ID
+        out = backend.propose_action(ctx)
+        assert out.get("action_type") == "NOOP"
+        assert out.get("args") == {}
+        assert backend.last_error_code == LLM_PROVIDER_ERROR
+        assert backend.last_metrics.get("backend_id") == BACKEND_ID
+    finally:
+        set_pipeline_config(
+            pipeline_mode="deterministic",
+            allow_network=False,
+            llm_backend_id=None,
+        )
 
 
 def test_generate_returns_noop_json_when_no_key() -> None:
-    """generate returns NOOP JSON string when no API key (LLMBackend protocol)."""
-    with patch.dict(os.environ, {}, clear=False):
-        os.environ.pop("OPENAI_API_KEY", None)
-        backend = OpenAILiveBackend()
-    messages = [
-        {"role": "system", "content": "You are a lab agent."},
-        {"role": "user", "content": "{}"},
-    ]
-    raw = backend.generate(messages)
-    parsed = json.loads(raw)
-    assert parsed.get("action_type") == "NOOP"
-    assert backend.last_error_code == LLM_PROVIDER_ERROR
+    """generate returns NOOP JSON string when no API key (pipeline allows network)."""
+    from labtrust_gym.pipeline import set_pipeline_config
+
+    set_pipeline_config(
+        pipeline_mode="llm_live",
+        allow_network=True,
+        llm_backend_id=BACKEND_ID,
+    )
+    try:
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("OPENAI_API_KEY", None)
+            backend = OpenAILiveBackend()
+        messages = [
+            {"role": "system", "content": "You are a lab agent."},
+            {"role": "user", "content": "{}"},
+        ]
+        raw = backend.generate(messages)
+        parsed = json.loads(raw)
+        assert parsed.get("action_type") == "NOOP"
+        assert backend.last_error_code == LLM_PROVIDER_ERROR
+    finally:
+        set_pipeline_config(
+            pipeline_mode="deterministic",
+            allow_network=False,
+            llm_backend_id=None,
+        )
 
 
 def test_llm_decision_event_shape_live_backend_no_network() -> None:
-    """LLM_DECISION event shape is correct when using OpenAILiveBackend (no key, no network)."""
-    with patch.dict(os.environ, {}, clear=False):
-        os.environ.pop("OPENAI_API_KEY", None)
-        backend = OpenAILiveBackend()
-    from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
+    """LLM_DECISION event shape when OpenAILiveBackend used with no key (pipeline allows network)."""
+    from labtrust_gym.pipeline import set_pipeline_config
 
-    rbac = {"roles": [{"role_id": "ops", "allowed_actions": ["NOOP", "TICK"]}]}
-    agent = LLMAgentWithShield(
-        backend=backend,
-        rbac_policy=rbac,
-        pz_to_engine={"ops_0": "ops_0"},
-        use_action_proposal_schema=True,
+    set_pipeline_config(
+        pipeline_mode="llm_live",
+        allow_network=True,
+        llm_backend_id=BACKEND_ID,
     )
-    obs = {"t_s": 0}
-    _, _, meta = agent.act(obs, agent_id="ops_0")
-    llm = meta.get("_llm_decision")
-    assert llm is not None
-    assert llm.get("backend_id") == BACKEND_ID
-    assert isinstance(llm.get("model_id"), str)
-    assert len(llm.get("prompt_sha256", "")) == 64
-    assert len(llm.get("response_sha256", "")) == 64
-    assert "action_proposal" in llm and isinstance(llm["action_proposal"], dict)
-    # error_code is nullable: backend error (LLM_PROVIDER_ERROR) or decoder reason
-    assert "error_code" in llm
-    assert llm.get("error_code") is None or isinstance(llm["error_code"], str)
-    # used_structured_outputs: OpenAILiveBackend uses strict schema (best quality)
-    assert llm.get("used_structured_outputs") is True
-    # prompt registry fingerprinting
-    assert "prompt_id" in llm and isinstance(llm["prompt_id"], str)
-    assert "prompt_version" in llm and isinstance(llm["prompt_version"], str)
-    assert "prompt_fingerprint" in llm and len(llm.get("prompt_fingerprint", "")) == 64
-    # one-shot repair audit
-    assert "repair_attempted" in llm and isinstance(llm["repair_attempted"], bool)
-    assert "repair_succeeded" in llm and isinstance(llm["repair_succeeded"], bool)
+    try:
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("OPENAI_API_KEY", None)
+            backend = OpenAILiveBackend()
+        from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
+
+        rbac = {"roles": [{"role_id": "ops", "allowed_actions": ["NOOP", "TICK"]}]}
+        agent = LLMAgentWithShield(
+            backend=backend,
+            rbac_policy=rbac,
+            pz_to_engine={"ops_0": "ops_0"},
+            use_action_proposal_schema=True,
+        )
+        obs = {"t_s": 0}
+        _, _, meta = agent.act(obs, agent_id="ops_0")
+        llm = meta.get("_llm_decision")
+        assert llm is not None
+        assert llm.get("backend_id") == BACKEND_ID
+        assert isinstance(llm.get("model_id"), str)
+        assert len(llm.get("prompt_sha256", "")) == 64
+        assert len(llm.get("response_sha256", "")) == 64
+        assert "action_proposal" in llm and isinstance(llm["action_proposal"], dict)
+        assert "error_code" in llm
+        assert llm.get("error_code") is None or isinstance(llm["error_code"], str)
+        assert llm.get("used_structured_outputs") is True
+        assert "prompt_id" in llm and isinstance(llm["prompt_id"], str)
+        assert "prompt_version" in llm and isinstance(llm["prompt_version"], str)
+        assert "prompt_fingerprint" in llm and len(llm.get("prompt_fingerprint", "")) == 64
+        assert "repair_attempted" in llm and isinstance(llm["repair_attempted"], bool)
+        assert "repair_succeeded" in llm and isinstance(llm["repair_succeeded"], bool)
+    finally:
+        set_pipeline_config(
+            pipeline_mode="deterministic",
+            allow_network=False,
+            llm_backend_id=None,
+        )
 
 
 @pytest.mark.skipif(

@@ -367,6 +367,7 @@ def run_package_release_paper(
 - `TRANSPARENCY_LOG/`: log.json (append-only episode digests), root.txt (Merkle root), proofs/<episode_id>.json (inclusion proofs).
 - `SAFETY_CASE/`: safety_case.json, safety_case.md (claim -> control -> test -> artifact -> command).
 - `COORDINATION_CARD.md`: coordination benchmark card (TaskG/TaskH; scenario generation, scale configs, methods, injections, metrics, determinism, limitations, policy fingerprint).
+- `COORDINATION_LLM_CARD.md`: LLM coordination card (LLM methods, backends, policy fingerprint, injection coverage, known limitations).
 - `_coordination_policy/`: frozen copy of policy/coordination/ files used for the card; manifest.json contains coordination_policy_fingerprint and per-file sha256.
 
 ## Official Benchmark Pack (v0.1)
@@ -409,9 +410,11 @@ The **Official Benchmark Pack** is defined in `policy/official/benchmark_pack.v0
     from labtrust_gym.studies.coordination_card import (
         copy_frozen_coordination_policy,
         write_coordination_card,
+        write_coordination_llm_card,
     )
 
     write_coordination_card(out_dir / "COORDINATION_CARD.md", Path(repo_root))
+    write_coordination_llm_card(out_dir / "COORDINATION_LLM_CARD.md", Path(repo_root))
     coord_policy_dir = out_dir / "_coordination_policy"
     copy_frozen_coordination_policy(Path(repo_root), coord_policy_dir)
 

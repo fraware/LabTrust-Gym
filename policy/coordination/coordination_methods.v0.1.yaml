@@ -116,3 +116,73 @@ coordination_methods:
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
       compatible_injections: ["inj_prompt_injection", "inj_jailbreak", "inj_misparam_device"]
       default_params: {}
+
+    - method_id: "llm_central_planner"
+      name: "LLM central planner (global state digest -> CoordinationProposal)"
+      coordination_class: llm
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_prompt_injection", "inj_jailbreak", "inj_misparam_device"]
+      default_params: {}
+
+    - method_id: "llm_hierarchical_allocator"
+      name: "LLM hierarchical allocator (assignments -> local controller greedy/EDF/WHCA)"
+      coordination_class: llm
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001", "R-COMMS-002"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_prompt_injection", "inj_msg_poison", "inj_misparam_device"]
+      default_params:
+        local_strategy: "edf"
+        use_whca: false
+        whca_horizon: 10
+
+    - method_id: "llm_auction_bidder"
+      name: "LLM auction bidder (typed bids -> deterministic auction -> dispatcher)"
+      coordination_class: llm
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-DATA-001", "R-COMMS-002", "R-TOOL-006"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit", "bid_validation"]
+      compatible_injections: ["INJ-COLLUSION-001", "INJ-BID-SPOOF-001", "INJ-COMMS-POISON-001", "INJ-COORD-BID-SHILL-001"]
+      default_params: {}
+
+    - method_id: "llm_gossip_summarizer"
+      name: "LLM gossip summarizer (signed typed messages, deterministic consensus)"
+      coordination_class: llm
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-SYS-002"]
+      required_controls: ["signed_actions", "RBAC", "message_auth", "replay_protection"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001"]
+      default_params: {}
+
+    - method_id: "llm_repair_over_kernel_whca"
+      name: "LLM repair over kernel WHCA (kernel plan, shield-only execute; LLM repair on block/flag/stale)"
+      coordination_class: llm
+      scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-CAP-001", "R-SYS-002"]
+      required_controls: ["signed_actions", "message_auth", "shield_execute", "repair_loop"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001", "INJ-LLM-PROMPT-INJECT-COORD-001", "INJ-COORD-PROMPT-INJECT-001"]
+      default_params:
+        kernel_method: "kernel_whca"
+        whca_horizon: 15
+        max_view_age_ms: 500.0
+
+    - method_id: "llm_local_decider_signed_bus"
+      name: "LLM local decider over signed bus (per-agent ActionProposal, deterministic reconciler, shield)"
+      coordination_class: llm
+      scaling_knobs: ["num_agents", "num_devices", "num_sites", "arrival_rate"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-SYS-002"]
+      required_controls: ["signed_actions", "message_auth", "replay_protection"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001", "INJ-ID-REPLAY-COORD-001", "INJ-COORD-PLAN-REPLAY-001"]
+      default_params: {}
+
+    - method_id: "llm_detector_throttle_advisor"
+      name: "LLM detector throttle advisor (wrapper over kernel_auction_whca_shielded; detect + policy-validated containment)"
+      coordination_class: llm
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-SYS-002"]
+      required_controls: ["signed_actions", "RBAC", "detector_advisor", "enforcement_policy"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001"]
+      default_params:
+        detector_latency_bound_steps: 5
