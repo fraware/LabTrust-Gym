@@ -1,0 +1,392 @@
+"""
+Market-based coordinator: LLM produces typed bids only (value, units, constraints);
+deterministic auction clears assignments; deterministic dispatcher produces actions.
+Strict bid validation. Metrics: bid_skew, gini_work_distribution,
+collusion_suspected_proxy. Evaluated under collusion and comms poison injection.
+"""
+
+from __future__ import annotations
+
+import random
+from typing import Any, Callable
+
+from labtrust_gym.baselines.coordination.interface import (
+    ACTION_MOVE,
+    ACTION_NOOP,
+    ACTION_START_RUN,
+    CoordinationMethod,
+)
+from labtrust_gym.baselines.coordination.market.auction import (
+    TypedBid,
+    WorkItem,
+    clear_auction,
+    validate_bid,
+)
+from labtrust_gym.baselines.coordination.obs_utils import (
+    extract_zone_and_device_ids,
+    get_queue_by_device,
+    get_zone_from_obs,
+    log_frozen,
+    queue_has_head,
+)
+from labtrust_gym.baselines.coordination.state_digest import build_state_digest
+from labtrust_gym.engine.zones import build_adjacency_set
+
+
+def _bfs_next_zone(
+    start: str,
+    goal: str,
+    adjacency: set[tuple[str, str]],
+) -> str | None:
+    """Next zone from start toward goal. Deterministic."""
+    if start == goal:
+        return None
+    seen: set[str] = {start}
+    queue: list[tuple[str, list[str]]] = [(start, [])]
+    while queue:
+        node, path = queue.pop(0)
+        neighbors = sorted([b for (a, b) in adjacency if a == node and b not in seen])
+        for n in neighbors:
+            seen.add(n)
+            new_path = path + [n]
+            if n == goal:
+                return new_path[0] if new_path else None
+            queue.append((n, new_path))
+    return None
+
+
+def _build_work_items(
+    obs: dict[str, Any],
+    device_ids: list[str],
+    device_zone: dict[str, str],
+) -> list[WorkItem]:
+    """Build work items from obs (queue_by_device with queue_head)."""
+    items: list[WorkItem] = []
+    seen: set[tuple[str, str]] = set()
+    sample = next(iter(obs.values())) if obs else {}
+    if not isinstance(sample, dict):
+        return items
+    qbd = get_queue_by_device(sample)
+    for idx, dev_id in enumerate(device_ids):
+        if idx >= len(qbd):
+            continue
+        if not queue_has_head(sample, idx):
+            continue
+        d = qbd[idx] if isinstance(qbd[idx], dict) else {}
+        work_id = str(d.get("queue_head") or "W")
+        zone_id = device_zone.get(dev_id, "")
+        if (dev_id, work_id) in seen:
+            continue
+        seen.add((dev_id, work_id))
+        prio = 2 if "STAT" in work_id.upper() else (
+            1 if "URGENT" in work_id.upper() else 0
+        )
+        items.append(
+            WorkItem(
+                work_id=work_id,
+                device_id=dev_id,
+                zone_id=zone_id,
+                priority=prio,
+            )
+        )
+    return items
+
+
+def _proposal_market_to_typed_bids(
+    market: list[dict[str, Any]],
+    agent_ids: set[str],
+) -> tuple[list[TypedBid], list[str]]:
+    """
+    Parse proposal market[] into TypedBid list. Strict validation.
+    Returns (valid_bids, list of validation errors).
+    """
+    bids: list[TypedBid] = []
+    errors: list[str] = []
+    for i, m in enumerate(market or []):
+        if not isinstance(m, dict):
+            errors.append(f"market[{i}] not object")
+            continue
+        agent_id = m.get("agent_id")
+        if not agent_id or agent_id not in agent_ids:
+            errors.append(f"market[{i}] invalid or unknown agent_id")
+            continue
+        bundle = m.get("bundle")
+        if isinstance(bundle, dict):
+            dev = bundle.get("device_id") or bundle.get("device")
+            work = bundle.get("work_id") or bundle.get("work")
+            bundle_id = f"{dev}:{work}" if dev and work else ""
+        else:
+            bundle_id = str(bundle or "").strip()
+        if not bundle_id:
+            errors.append(f"market[{i}] missing bundle or bundle_id")
+            continue
+        raw_value = m.get("bid")
+        if isinstance(raw_value, dict):
+            value = raw_value.get("value", raw_value.get("cost", 0.0))
+            units = raw_value.get("units", "cost")
+        else:
+            value = raw_value
+            units = m.get("units", "cost")
+        constraints = m.get("constraints")
+        if not isinstance(constraints, dict):
+            constraints = {}
+        ok, err = validate_bid(value, units, constraints=constraints)
+        if not ok:
+            errors.append(f"market[{i}] {err}")
+            continue
+        bids.append(
+            TypedBid(
+                agent_id=str(agent_id),
+                bundle_id=bundle_id,
+                value=float(value),
+                units=str(units).strip().lower(),
+                constraints=dict(constraints),
+            )
+        )
+    return bids, errors
+
+
+def _assignments_to_actions(
+    assignments: list[tuple[str, str, str, int]],
+    obs: dict[str, Any],
+    agent_ids: list[str],
+    zone_ids: list[str],
+    device_ids: list[str],
+    device_zone: dict[str, str],
+    policy: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Deterministic dispatcher: assignments -> action_dict (MOVE / START_RUN / NOOP)."""
+    out: dict[str, dict[str, Any]] = {
+        a: {"action_index": ACTION_NOOP, "action_type": "NOOP"}
+        for a in agent_ids
+    }
+    layout = (policy or {}).get("zone_layout") or {}
+    adjacency = build_adjacency_set(layout.get("graph_edges") or [])
+    assign_by_agent: dict[str, tuple[str, str, str]] = {}
+    for agent_id, work_id, device_id, _ in assignments:
+        assign_by_agent[agent_id] = (
+            work_id,
+            device_id,
+            device_zone.get(device_id, ""),
+        )
+
+    for agent_id in agent_ids:
+        o = obs.get(agent_id) or {}
+        if log_frozen(o):
+            continue
+        my_zone = get_zone_from_obs(o, zone_ids) or o.get("zone_id") or ""
+        if agent_id not in assign_by_agent:
+            goal = zone_ids[0] if zone_ids else my_zone
+            qbd = get_queue_by_device(o)
+            for idx, dev_id in enumerate(device_ids):
+                if idx < len(qbd) and (qbd[idx].get("queue_len") or 0) > 0:
+                    goal = device_zone.get(dev_id, goal)
+                    break
+            if my_zone != goal:
+                next_z = _bfs_next_zone(my_zone, goal, adjacency)
+                if next_z:
+                    out[agent_id] = {
+                        "action_index": ACTION_MOVE,
+                        "action_type": "MOVE",
+                        "args": {"from_zone": my_zone, "to_zone": next_z},
+                    }
+            continue
+        work_id, device_id, task_zone = assign_by_agent[agent_id]
+        if my_zone == task_zone:
+            out[agent_id] = {
+                "action_index": ACTION_START_RUN,
+                "action_type": "START_RUN",
+                "args": {"device_id": device_id, "work_id": work_id},
+            }
+        else:
+            next_z = _bfs_next_zone(my_zone, task_zone, adjacency)
+            if next_z:
+                out[agent_id] = {
+                    "action_index": ACTION_MOVE,
+                    "action_type": "MOVE",
+                    "args": {"from_zone": my_zone, "to_zone": next_z},
+                }
+    return out
+
+
+class DeterministicBidBackend:
+    """
+    Deterministic backend that returns CoordinationProposal with market[] bids
+    derived from state (cost = distance proxy + priority). No LLM; for testing
+    and deterministic benchmarking.
+    """
+
+    def __init__(self, seed: int = 0) -> None:
+        self._seed = seed
+
+    def reset(self, seed: int) -> None:
+        self._seed = seed
+
+    def generate_proposal(
+        self,
+        state_digest: dict[str, Any],
+        step_id: int,
+        method_id: str,
+    ) -> dict[str, Any]:
+        """Proposal with market[] bids; bid value = priority bonus - distance proxy."""
+        per_agent = state_digest.get("per_agent") or []
+        per_device = state_digest.get("per_device") or []
+        device_zone = state_digest.get("device_zone") or {}
+        market: list[dict[str, Any]] = []
+        for p in per_agent:
+            if not isinstance(p, dict):
+                continue
+            agent_id = p.get("agent_id")
+            zone = p.get("zone") or ""
+            for d in per_device:
+                if not isinstance(d, dict):
+                    continue
+                dev_id = d.get("device_id") or ""
+                queue_head = str(d.get("queue_head") or "").strip()
+                if not dev_id or not queue_head:
+                    continue
+                z = device_zone.get(dev_id, "")
+                prio = 2 if "STAT" in queue_head.upper() else (
+                    1 if "URGENT" in queue_head.upper() else 0
+                )
+                value = max(0.0, 10.0 - prio * 3.0)
+                market.append({
+                    "agent_id": agent_id,
+                    "bid": value,
+                    "bundle": {"device_id": dev_id, "work_id": queue_head},
+                    "units": "cost",
+                    "constraints": {},
+                })
+        return {
+            "proposal_id": f"auction-det-{self._seed}-{step_id}",
+            "step_id": step_id,
+            "method_id": method_id,
+            "horizon_steps": 1,
+            "per_agent": [],
+            "comms": [],
+            "market": market,
+            "meta": {"backend_id": "deterministic_bid", "model_id": "n/a"},
+        }
+
+
+class LLMAuctionBidder(CoordinationMethod):
+    """
+    LLM produces typed bids only (market[] in CoordinationProposal). Deterministic
+    auction clears; dispatcher produces actions. Strict bid validation. Metrics:
+    bid_skew, gini_work_distribution, collusion_suspected_proxy.
+    """
+
+    def __init__(
+        self,
+        bid_backend: Any,
+        rbac_policy: dict[str, Any],
+        *,
+        policy_summary: dict[str, Any] | None = None,
+    ) -> None:
+        self._backend = bid_backend
+        self._rbac_policy = rbac_policy
+        self._policy_summary = policy_summary or {}
+        self._seed = 0
+        self._scale_config: dict[str, Any] = {}
+        self._last_metrics: dict[str, Any] = {}
+        self._last_validation_errors: list[str] = []
+        self._last_proposal: dict[str, Any] | None = None
+        self._last_meta: dict[str, Any] | None = None
+
+    @property
+    def method_id(self) -> str:
+        return "llm_auction_bidder"
+
+    def reset(
+        self,
+        seed: int,
+        policy: dict[str, Any],
+        scale_config: dict[str, Any],
+    ) -> None:
+        self._policy_summary = (policy or {}).get("policy_summary") or policy or {}
+        self._scale_config = scale_config or {}
+        self._seed = seed
+        reset_fn = getattr(self._backend, "reset", None)
+        if callable(reset_fn):
+            reset_fn(seed)
+
+    def propose_actions(
+        self,
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
+        t: int,
+    ) -> dict[str, dict[str, Any]]:
+        agent_ids = sorted(obs.keys())
+        policy = self._policy_summary
+        obs_sample = next(iter(obs.values())) if obs else None
+        zone_ids, device_ids, device_zone = extract_zone_and_device_ids(
+            policy, obs_sample=obs_sample
+        )
+        if not zone_ids and obs:
+            zone_ids = ["Z_SORTING_LANES"]
+        out = {a: {"action_index": ACTION_NOOP, "action_type": "NOOP"} for a in agent_ids}
+
+        work_items = _build_work_items(obs, device_ids, device_zone)
+        gen = getattr(self._backend, "generate_proposal", None)
+        if not callable(gen):
+            self._last_metrics = {}
+            return out
+        digest = build_state_digest(obs, infos or {}, t, policy)
+        digest["device_zone"] = device_zone
+        raw = gen(
+            state_digest=digest,
+            step_id=t,
+            method_id=self.method_id,
+        )
+        if isinstance(raw, tuple):
+            proposal, meta = raw[0], raw[1]
+        else:
+            proposal = raw
+            meta = proposal.get("meta") or {}
+        self._last_proposal = proposal
+        self._last_meta = meta
+        market = proposal.get("market") or []
+        typed_bids, val_errors = _proposal_market_to_typed_bids(
+            market, set(agent_ids)
+        )
+        self._last_validation_errors = list(val_errors)
+        rng = random.Random(self._seed + t)
+        assignments, bids_used, metrics = clear_auction(
+            work_items,
+            typed_bids,
+            rng,
+            max_assignments=max(len(agent_ids) * 2, 1),
+        )
+        self._last_metrics = dict(metrics)
+        if self._scale_config.get("injection_id") in (
+            "INJ-COLLUSION-001",
+            "INJ-BID-SPOOF-001",
+        ):
+            self._last_metrics["injection_active"] = True
+        return _assignments_to_actions(
+            assignments,
+            obs,
+            agent_ids,
+            zone_ids,
+            device_ids,
+            device_zone,
+            policy,
+        )
+
+    def get_auction_metrics(self) -> dict[str, Any]:
+        """bid_skew, gini_work_distribution, collusion_suspected_proxy, validation_errors."""
+        m = dict(self._last_metrics)
+        m["validation_errors"] = list(self._last_validation_errors)
+        return m
+
+    def get_llm_metrics(self) -> dict[str, Any]:
+        """Return metrics for coordination+LLM: tokens, latency, backend_id, model_id, estimated_cost_usd."""
+        meta = self._last_meta or {}
+        return {
+            "tokens_in": meta.get("tokens_in", 0),
+            "tokens_out": meta.get("tokens_out", 0),
+            "latency_ms": meta.get("latency_ms"),
+            "estimated_cost_usd": meta.get("estimated_cost_usd"),
+            "backend_id": meta.get("backend_id"),
+            "model_id": meta.get("model_id"),
+        }

@@ -61,7 +61,24 @@ Summary outputs (from `labtrust summarize-results --in <paths> --out <dir> --bas
 
 Schema compatibility: every v0.2 top-level field and every v0.2 episode.metrics field exists in v0.3 with compatible types; v0.3 may add optional fields. Enforced by `tests/test_metrics_contract.py`.
 
+## Coordination LLM economics (results.v0.2)
+
+For LLM-based coordination methods (planner, allocator, bidder, repairer, local-decider), each episode may include an optional **coordination.llm** block with consistent economics fields. When the method is non-LLM or no LLM was invoked, this block is absent; aggregation fills 0 or null for summary outputs.
+
+| Field | Type | Meaning |
+|-------|------|--------|
+| **llm.call_count** | integer | Number of LLM calls in the episode (0 for deterministic unless simulated). |
+| **llm.total_tokens** | integer | Total input + output tokens (0 for deterministic unless simulated). |
+| **llm.tokens_per_step** | float | total_tokens / steps. |
+| **llm.mean_latency_ms** | float or null | Mean latency per call in ms; null for offline/deterministic. |
+| **llm.p95_latency_ms** | float or null | 95th percentile latency per call; null for offline. |
+| **llm.error_rate** | float | Fraction of calls that failed (e.g. API errors). |
+| **llm.invalid_output_rate** | float | Schema violations or parse fallbacks per call (invalid outputs / call_count). |
+| **llm.estimated_cost_usd** | float or null | Estimated cost in USD when model pricing exists; null otherwise. |
+
+Aggregation (e.g. coordination study summary): **cost.total_tokens** is the sum of episode `llm.total_tokens`; **cost.estimated_cost_usd** is the sum of episode `llm.estimated_cost_usd`; **llm.error_rate** and **llm.invalid_output_rate** are means over episodes. For cells with no coordination.llm in any episode, these summary fields are 0 or null.
+
 ## Schema versions
 
-- **results.v0.2**: Normative results JSON (task, seeds, episodes with metrics). No change to existing fields or semantics.
+- **results.v0.2**: Normative results JSON (task, seeds, episodes with metrics). No change to existing fields or semantics. Optional **coordination.llm** per episode as above.
 - **results.v0.3**: Extends v0.2; same required fields; adds optional metrics (quantiles, ci_*, device_utilization, device_queue_length_*). Results JSON may be emitted as v0.2 (current) or v0.3 (when paper-grade fields are populated).

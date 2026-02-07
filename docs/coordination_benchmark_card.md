@@ -67,3 +67,5 @@ The coordination policy fingerprint is the SHA-256 (hex) of the concatenation of
 ```
 COORDINATION_POLICY_FINGERPRINT_PLACEHOLDER
 ```
+
+**See also:** [LLM Coordination Protocol](llm_coordination_protocol.md) (pipeline modes, typed proposal schema, shield/repair, security evaluation, reporting). Package-release paper_v0.1 also emits **COORDINATION_LLM_CARD.md** (LLM methods, backends, injection coverage, limitations).

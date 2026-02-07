@@ -4,20 +4,39 @@ writes per-cell results, aggregated summary CSV, and Pareto front report.
 
 Reuses study_runner patterns and benchmarks.runner.run_benchmark with scale_config_override.
 Output: <out>/cells/<cell_id>/results.json, <out>/summary/summary_coord.csv, <out>/summary/pareto.md.
+
+Supports LLM coordination methods via --llm-backend (deterministic | live) and --llm-model.
+When llm_backend is not set, only non-LLM methods from the spec are run (backward compatible).
 """
 
 from __future__ import annotations
 
 import csv
+import hashlib
 import itertools
 import json
 import os
 from pathlib import Path
 from typing import Any
 
+# Method IDs that use LLM; only included in the study when --llm-backend is set.
+LLM_METHOD_IDS = frozenset({
+    "llm_central_planner",
+    "llm_hierarchical_allocator",
+    "llm_auction_bidder",
+    "llm_gossip_summarizer",
+    "llm_local_decider_signed_bus",
+    "llm_repair_over_kernel_whca",
+})
+
 from labtrust_gym.benchmarks.coordination_scale import CoordinationScaleConfig
 from labtrust_gym.benchmarks.runner import run_benchmark
-from labtrust_gym.policy.coordination import load_coordination_study_spec
+from labtrust_gym.policy.coordination import (
+    get_required_bench_cells,
+    load_coordination_study_spec,
+    load_method_risk_matrix,
+    load_risk_to_injection_map,
+)
 from labtrust_gym.studies.resilience_scoring import (
     compute_components,
     compute_resilience_score,
@@ -36,12 +55,18 @@ _DEFAULT_ROLE_MIX = {
 
 def _expand_scale_rows(
     spec: dict[str, Any],
+    repo_root: Path | None = None,
 ) -> list[tuple[str, dict[str, Any], CoordinationScaleConfig]]:
     """
     Expand spec scales into Cartesian product of scale dimensions.
     Returns list of (scale_id, scale_row_dict, CoordinationScaleConfig).
+    When a scale dimension is "scale_preset", loads CoordinationScaleConfig by id from
+    policy/coordination/scale_configs.v0.1.yaml (repo_root required).
     """
+    from labtrust_gym.benchmarks.coordination_scale import load_scale_config_by_id
+
     scales_def = spec.get("scales") or []
+    root = Path(repo_root) if repo_root else Path.cwd()
     if not scales_def:
         scale_row: dict[str, Any] = {}
         scale_config = CoordinationScaleConfig(
@@ -78,24 +103,38 @@ def _expand_scale_rows(
         )
         return [("scale_0", {}, scale_config)]
 
+    use_named_preset = "scale_preset" in names
     rows: list[tuple[str, dict[str, Any], CoordinationScaleConfig]] = []
     for idx, combo in enumerate(itertools.product(*value_lists)):
         row = dict(zip(names, combo))
-        # Map spec row -> CoordinationScaleConfig
-        num_agents = int(row.get("num_agents", 2))
-        num_sites = int(row.get("num_sites", 1))
-        num_devices = int(row.get("num_devices", 2))
-        arrival_rate = float(row.get("arrival_rate", 1.0))
-        horizon_steps = int(row.get("horizon_steps", 200))
-        scale_config = CoordinationScaleConfig(
-            num_agents_total=num_agents,
-            role_mix=dict(_DEFAULT_ROLE_MIX),
-            num_devices_per_type={"CHEM_ANALYZER": num_devices, "CENTRIFUGE_BANK": 1},
-            num_sites=num_sites,
-            specimens_per_min=arrival_rate,
-            horizon_steps=horizon_steps,
-            timing_mode="explicit",
-        )
+        if use_named_preset and row.get("scale_preset"):
+            try:
+                scale_config = load_scale_config_by_id(root, str(row["scale_preset"]))
+            except (KeyError, FileNotFoundError, ValueError):
+                scale_config = CoordinationScaleConfig(
+                    num_agents_total=2,
+                    role_mix=dict(_DEFAULT_ROLE_MIX),
+                    num_devices_per_type={"CHEM_ANALYZER": 2, "CENTRIFUGE_BANK": 1},
+                    num_sites=1,
+                    specimens_per_min=1.0,
+                    horizon_steps=200,
+                    timing_mode="explicit",
+                )
+        else:
+            num_agents = int(row.get("num_agents", 2))
+            num_sites = int(row.get("num_sites", 1))
+            num_devices = int(row.get("num_devices", 2))
+            arrival_rate = float(row.get("arrival_rate", 1.0))
+            horizon_steps = int(row.get("horizon_steps", 200))
+            scale_config = CoordinationScaleConfig(
+                num_agents_total=num_agents,
+                role_mix=dict(_DEFAULT_ROLE_MIX),
+                num_devices_per_type={"CHEM_ANALYZER": num_devices, "CENTRIFUGE_BANK": 1},
+                num_sites=num_sites,
+                specimens_per_min=arrival_rate,
+                horizon_steps=horizon_steps,
+                timing_mode="explicit",
+            )
         scale_id = "scale_" + "_".join(f"{k}_{v}" for k, v in sorted(row.items()))
         rows.append((scale_id, row, scale_config))
     return rows
@@ -119,33 +158,140 @@ def _expand_injections(spec: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def _coverage_preflight(
+    spec: dict[str, Any],
+    repo_root: Path,
+    summary_dir: Path,
+    injections: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    For every required_bench risk_id, ensure at least one spec injection covers it (or risk is waived).
+    Returns list of missing coverage items; writes summary/coverage_missing.json when non-empty.
+    When LABTRUST_STRICT_COVERAGE=1 and missing non-empty, raises SystemExit(1).
+    """
+    matrix_path = repo_root / "policy" / "coordination" / "method_risk_matrix.v0.1.yaml"
+    map_path = repo_root / "policy" / "coordination" / "risk_to_injection_map.v0.1.yaml"
+    registry_path = repo_root / "policy" / "risks" / "risk_registry.v0.1.yaml"
+    if not matrix_path.is_file():
+        return []
+    matrix = load_method_risk_matrix(matrix_path)
+    required_cells = get_required_bench_cells(matrix)
+    required_risk_ids: set[str] = set()
+    for c in required_cells:
+        if isinstance(c, dict):
+            rid = (c.get("risk_id") or "").strip()
+            if rid:
+                required_risk_ids.add(rid)
+
+    risk_to_injection_ids: dict[str, list[str]] = load_risk_to_injection_map(map_path)
+    try:
+        from labtrust_gym.policy.risks import load_risk_registry
+
+        registry = load_risk_registry(registry_path)
+        for rid in required_risk_ids:
+            if rid not in risk_to_injection_ids and registry.risks.get(rid):
+                suggested = registry.risks[rid].get("suggested_injections")
+                if isinstance(suggested, list):
+                    risk_to_injection_ids.setdefault(rid, [str(x) for x in suggested if x])
+    except Exception:
+        pass
+
+    spec_injection_ids: set[str] = set()
+    for inj in injections:
+        iid = (inj.get("injection_id") or "").strip()
+        if iid:
+            spec_injection_ids.add(iid)
+
+    waived: set[str] = set()
+    for w in spec.get("waived_risks") or []:
+        if isinstance(w, dict) and w.get("risk_id"):
+            waived.add(str(w["risk_id"]).strip())
+
+    missing: list[dict[str, Any]] = []
+    for risk_id in sorted(required_risk_ids):
+        if risk_id in waived:
+            continue
+        covering = risk_to_injection_ids.get(risk_id) or []
+        if not covering:
+            missing.append(
+                {
+                    "risk_id": risk_id,
+                    "covering_injection_ids": [],
+                    "message": "No mapping for risk_id (add to risk_to_injection_map or risk_registry.suggested_injections).",
+                }
+            )
+            continue
+        overlap = [x for x in covering if x in spec_injection_ids]
+        if not overlap:
+            missing.append(
+                {
+                    "risk_id": risk_id,
+                    "covering_injection_ids": covering,
+                    "message": f"Study spec has no injection covering this risk. Add one of: {covering[:5]}{'...' if len(covering) > 5 else ''}",
+                }
+            )
+
+    if missing:
+        summary_dir.mkdir(parents=True, exist_ok=True)
+        out_path = summary_dir / "coverage_missing.json"
+        payload = {
+            "missing": missing,
+            "required_risk_ids": sorted(required_risk_ids),
+            "spec_injection_ids": sorted(spec_injection_ids),
+        }
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+        if os.environ.get("LABTRUST_STRICT_COVERAGE", "").strip() in ("1", "true", "yes"):
+            msg = (
+                f"Coverage integrity gate failed: {len(missing)} required risk(s) have no covering injection in the study spec. "
+                f"Missing: {[m['risk_id'] for m in missing]}. See {out_path}. "
+                "Add injections or waived_risks in the spec, or set LABTRUST_STRICT_COVERAGE=0 to warn only."
+            )
+            raise SystemExit(1)
+    return missing
+
+
 def _cell_seed(seed_base: int, scale_idx: int, method_idx: int, injection_idx: int) -> int:
     """Deterministic cell seed (stable across runs)."""
     return seed_base + scale_idx * 10000 + method_idx * 100 + injection_idx
 
 
+def _empty_cell_metrics() -> dict[str, Any]:
+    """Return empty cell metrics dict (all keys, None/0 where appropriate)."""
+    return {
+        "perf.throughput": 0.0,
+        "perf.p95_tat": None,
+        "safety.violations_total": 0,
+        "safety.blocks_total": 0,
+        "sec.attack_success_rate": None,
+        "sec.detection_latency_steps": None,
+        "sec.containment_time_steps": None,
+        "sec.stealth_success_rate": None,
+        "sec.time_to_attribution_steps": None,
+        "sec.blast_radius_proxy": None,
+        "robustness.resilience_score": None,
+        "comm.msg_count": None,
+        "comm.p95_latency_ms": None,
+        "comm.drop_rate": None,
+        "comm.partition_events": None,
+        "coordination.stale_action_rate": None,
+        "coordination.deadlock_avoids": None,
+        "proposal_valid_rate": None,
+        "blocked_rate": None,
+        "repair_rate": None,
+        "tokens_per_step": None,
+        "p95_llm_latency_ms": None,
+        "cost.total_tokens": 0,
+        "cost.estimated_cost_usd": None,
+        "llm.error_rate": 0.0,
+        "llm.invalid_output_rate": None,
+    }
+
+
 def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
-    """Aggregate episode metrics for one cell: throughput, p95_tat, violations, blocks, sec.*, comm.*, coordination.timing, coordination.route (deadlock_avoids)."""
+    """Aggregate episode metrics for one cell: throughput, p95_tat, violations, blocks, sec.*, comm.*, coordination.timing, coordination.route (deadlock_avoids), and when present coordination.llm (proposal_valid_rate, blocked_rate, repair_rate, tokens_per_step, p95_llm_latency_ms)."""
     if not episodes:
-        out: dict[str, Any] = {
-            "perf.throughput": 0.0,
-            "perf.p95_tat": None,
-            "safety.violations_total": 0,
-            "safety.blocks_total": 0,
-            "sec.attack_success_rate": None,
-            "sec.detection_latency_steps": None,
-            "sec.containment_time_steps": None,
-            "sec.stealth_success_rate": None,
-            "sec.time_to_attribution_steps": None,
-            "sec.blast_radius_proxy": None,
-            "robustness.resilience_score": None,
-            "comm.msg_count": None,
-            "comm.p95_latency_ms": None,
-            "comm.drop_rate": None,
-            "comm.partition_events": None,
-            "coordination.stale_action_rate": None,
-            "coordination.deadlock_avoids": None,
-        }
+        out = _empty_cell_metrics()
         return out
     n = len(episodes)
     throughputs = []
@@ -165,6 +311,15 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
     partition_events_list: list[int | None] = []
     stale_rates: list[float | None] = []
     deadlock_avoids_list: list[float | None] = []
+    proposal_valid_rates: list[float] = []
+    blocked_rates: list[float] = []
+    repair_rates: list[float] = []
+    tokens_per_step_list: list[float | None] = []
+    llm_latency_ms_list: list[float | None] = []
+    cost_total_tokens_list: list[int] = []
+    cost_estimated_usd_list: list[float | None] = []
+    llm_error_rates: list[float] = []
+    llm_invalid_output_rates: list[float] = []
 
     for ep in episodes:
         m = ep.get("metrics") or {}
@@ -193,6 +348,39 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         stale_rates.append(timing.get("stale_action_rate"))
         route = coord.get("route") or {}
         deadlock_avoids_list.append(route.get("deadlock_avoids"))
+        llm = coord.get("llm") or {}
+        if llm.get("proposal_validity_rate") is not None:
+            proposal_valid_rates.append(float(llm["proposal_validity_rate"]))
+        if llm.get("blocked_rate") is not None:
+            blocked_rates.append(float(llm["blocked_rate"]))
+        if llm.get("repair_rate") is not None:
+            repair_rates.append(float(llm["repair_rate"]))
+        llm_repair = coord.get("llm_repair") or {}
+        if llm_repair.get("repair_success_rate") is not None:
+            repair_rates.append(float(llm_repair["repair_success_rate"]))
+        if llm.get("tokens_per_step") is not None:
+            tokens_per_step_list.append(float(llm["tokens_per_step"]))
+        elif llm.get("tokens_in") is not None or llm.get("tokens_out") is not None:
+            ti = int(llm.get("tokens_in") or 0)
+            to = int(llm.get("tokens_out") or 0)
+            steps = max(1, m.get("steps") or ep.get("steps") or 1)
+            tokens_per_step_list.append((ti + to) / steps)
+        if llm.get("latency_ms_list"):
+            for v in llm["latency_ms_list"]:
+                if v is not None:
+                    llm_latency_ms_list.append(float(v))
+        elif llm.get("latency_ms") is not None:
+            llm_latency_ms_list.append(float(llm["latency_ms"]))
+        cost_total_tokens_list.append(int(llm.get("total_tokens") or 0))
+        if llm.get("estimated_cost_usd") is not None:
+            try:
+                cost_estimated_usd_list.append(float(llm["estimated_cost_usd"]))
+            except (TypeError, ValueError):
+                pass
+        if llm.get("error_rate") is not None:
+            llm_error_rates.append(float(llm["error_rate"]))
+        if llm.get("invalid_output_rate") is not None:
+            llm_invalid_output_rates.append(float(llm["invalid_output_rate"]))
 
     p95_vals = [x for x in p95_list if x is not None]
     det_vals = [x for x in detection_steps if x is not None]
@@ -205,6 +393,17 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
     partition_vals = [x for x in partition_events_list if x is not None]
     stale_vals = [x for x in stale_rates if x is not None]
     deadlock_vals = [x for x in deadlock_avoids_list if x is not None]
+    tok_vals = [x for x in tokens_per_step_list if x is not None]
+    llm_lat_vals = [x for x in llm_latency_ms_list if x is not None]
+
+    def _p95(vals: list[float]) -> float | None:
+        if not vals:
+            return None
+        s = sorted(vals)
+        k = (len(s) - 1) * 0.95
+        lo = int(k)
+        hi = min(lo + 1, len(s) - 1)
+        return s[lo] + (k - lo) * (s[hi] - s[lo])
 
     out = {
         "perf.throughput": sum(throughputs) / n if n else 0.0,
@@ -224,8 +423,74 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         "comm.partition_events": (sum(partition_vals) if partition_vals else None),
         "coordination.stale_action_rate": (sum(stale_vals) / len(stale_vals) if stale_vals else None),
         "coordination.deadlock_avoids": (sum(deadlock_vals) / len(deadlock_vals) if deadlock_vals else None),
+        "proposal_valid_rate": (sum(proposal_valid_rates) / len(proposal_valid_rates) if proposal_valid_rates else None),
+        "blocked_rate": (sum(blocked_rates) / len(blocked_rates) if blocked_rates else None),
+        "repair_rate": (sum(repair_rates) / len(repair_rates) if repair_rates else None),
+        "tokens_per_step": (sum(tok_vals) / len(tok_vals) if tok_vals else None),
+        "p95_llm_latency_ms": _p95(llm_lat_vals),
+        "cost.total_tokens": sum(cost_total_tokens_list),
+        "cost.estimated_cost_usd": (
+            sum(cost_estimated_usd_list) if cost_estimated_usd_list else None
+        ),
+        "llm.error_rate": (
+            sum(llm_error_rates) / len(llm_error_rates)
+            if llm_error_rates
+            else 0.0
+        ),
+        "llm.invalid_output_rate": (
+            sum(llm_invalid_output_rates) / len(llm_invalid_output_rates)
+            if llm_invalid_output_rates
+            else None
+        ),
     }
     return out
+
+
+def _canonical_results_fingerprint(results: dict[str, Any]) -> str:
+    """Stable fingerprint for determinism: seeds, episode count, throughputs, violations."""
+    episodes = results.get("episodes") or []
+    parts = [
+        json.dumps(results.get("seeds") or [], sort_keys=True),
+        str(len(episodes)),
+    ]
+    for ep in episodes:
+        m = ep.get("metrics") or {}
+        parts.append(str(m.get("throughput", 0)))
+        vbi = m.get("violations_by_invariant_id") or {}
+        parts.append(str(sum(vbi.values()) if isinstance(vbi, dict) else 0))
+    payload = "\n".join(parts)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _enrich_cell_results_with_llm_metadata(
+    results: dict[str, Any],
+    method_id: str,
+    llm_backend: str | None,
+    llm_model: str | None,
+    agg: dict[str, Any],
+    enforce_determinism: bool,
+) -> None:
+    """Mutate results: set metadata.llm_* from params and aggregated metrics; add results_hash when deterministic."""
+    if method_id not in LLM_METHOD_IDS:
+        return
+    meta = results.get("metadata")
+    if meta is None:
+        results["metadata"] = meta = {}
+    meta["llm_backend"] = llm_backend or "deterministic"
+    meta["llm_model"] = llm_model
+    meta["llm_method_id"] = method_id
+    if agg.get("proposal_valid_rate") is not None:
+        meta["llm_proposal_valid_rate"] = agg["proposal_valid_rate"]
+    if agg.get("blocked_rate") is not None:
+        meta["llm_blocked_rate"] = agg["blocked_rate"]
+    if agg.get("repair_rate") is not None:
+        meta["llm_repair_rate"] = agg["repair_rate"]
+    if agg.get("tokens_per_step") is not None:
+        meta["llm_tokens_per_step"] = agg["tokens_per_step"]
+    if agg.get("p95_llm_latency_ms") is not None:
+        meta["llm_p95_latency_ms"] = agg["p95_llm_latency_ms"]
+    if enforce_determinism:
+        results["metadata"]["results_hash"] = _canonical_results_fingerprint(results)
 
 
 def _pareto_dominates(
@@ -273,7 +538,7 @@ def _pareto_front(rows: list[dict[str, Any]], objectives: list[tuple[str, str]])
 
 
 def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
-    """Write summary_coord.csv with required columns including resilience.component_*."""
+    """Write summary_coord.csv with required columns including resilience.component_* and optional LLM columns."""
     columns = [
         "method_id",
         "scale_id",
@@ -298,6 +563,15 @@ def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
         "comm.p95_latency_ms",
         "comm.drop_rate",
         "comm.partition_events",
+        "proposal_valid_rate",
+        "blocked_rate",
+        "repair_rate",
+        "tokens_per_step",
+        "p95_llm_latency_ms",
+        "cost.total_tokens",
+        "cost.estimated_cost_usd",
+        "llm.error_rate",
+        "llm.invalid_output_rate",
     ]
     optional_empty = [
         "perf.p95_tat",
@@ -316,6 +590,15 @@ def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
         "comm.p95_latency_ms",
         "comm.drop_rate",
         "comm.partition_events",
+        "proposal_valid_rate",
+        "blocked_rate",
+        "repair_rate",
+        "tokens_per_step",
+        "p95_llm_latency_ms",
+        "cost.total_tokens",
+        "cost.estimated_cost_usd",
+        "llm.error_rate",
+        "llm.invalid_output_rate",
     ]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as f:
@@ -473,11 +756,17 @@ def run_coordination_study(
     spec_path: Path,
     out_dir: Path,
     repo_root: Path | None = None,
+    llm_backend: str | None = None,
+    llm_model: str | None = None,
 ) -> dict[str, Any]:
     """
     Execute coordination study: expand (scale x method x injection), run episodes_per_cell per cell,
     write cells/<cell_id>/results.json, summary/summary_coord.csv, summary/pareto.md.
     Returns manifest-like dict with cell_ids, study_id, seed_base.
+
+    llm_backend: optional "deterministic" | "live". When None, only non-LLM methods from the spec
+    are run (backward compatible). When set, all spec methods including LLM methods are run.
+    llm_model: optional model id when using live backend (e.g. gpt-4o).
     """
     repo_root = repo_root or Path.cwd()
     out_dir = Path(out_dir)
@@ -495,17 +784,24 @@ def run_coordination_study(
     if smoke:
         episodes_per_cell = min(episodes_per_cell, 1)
 
-    scale_rows = _expand_scale_rows(spec)
+    scale_rows = _expand_scale_rows(spec, repo_root)
     methods_raw = spec.get("methods") or []
-    method_ids: list[str] = []
+    method_ids_raw: list[str] = []
     for m in methods_raw:
         if isinstance(m, str):
-            method_ids.append(m)
+            method_ids_raw.append(m)
         elif isinstance(m, dict):
-            method_ids.append(m.get("method_id") or m.get("method") or "")
+            method_ids_raw.append(m.get("method_id") or m.get("method") or "")
         else:
-            method_ids.append(str(m))
-    method_ids = [x for x in method_ids if x]
+            method_ids_raw.append(str(m))
+    method_ids_raw = [x for x in method_ids_raw if x]
+    if not method_ids_raw:
+        method_ids_raw = ["centralized_planner"]
+    # When llm_backend is not set, exclude LLM methods so existing behavior is unchanged.
+    if llm_backend is None or llm_backend == "":
+        method_ids = [m for m in method_ids_raw if m not in LLM_METHOD_IDS]
+    else:
+        method_ids = list(method_ids_raw)
     if not method_ids:
         method_ids = ["centralized_planner"]
 
@@ -520,6 +816,8 @@ def run_coordination_study(
     summary_dir = out_dir / "summary"
     cells_dir.mkdir(parents=True, exist_ok=True)
     summary_dir.mkdir(parents=True, exist_ok=True)
+
+    _coverage_preflight(spec, repo_root, summary_dir, injections)
 
     resilience_policy: dict[str, Any] | None = None
     try:
@@ -566,6 +864,8 @@ def run_coordination_study(
                     coord_method=method_id,
                     injection_id=injection_id,
                     scale_config_override=scale_config,
+                    llm_backend=llm_backend,
+                    llm_model=llm_model,
                 )
 
                 results = json.loads(results_path.read_text(encoding="utf-8"))
@@ -575,10 +875,18 @@ def run_coordination_study(
                     "risk_id": risk_id_by_injection.get(injection_id, injection_id),
                     "injection_id": injection_id,
                 }
+                agg = _aggregate_cell_metrics(results.get("episodes") or [])
+                _enrich_cell_results_with_llm_metadata(
+                    results,
+                    method_id=method_id,
+                    llm_backend=llm_backend,
+                    llm_model=llm_model,
+                    agg=agg,
+                    enforce_determinism=(llm_backend == "deterministic"),
+                )
                 with results_path.open("w", encoding="utf-8") as f:
                     json.dump(results, f, indent=2)
 
-                agg = _aggregate_cell_metrics(results.get("episodes") or [])
                 components = compute_components(agg, resilience_policy)
                 resilience_score = compute_resilience_score(components, resilience_policy.get("weights") or {})
                 row = {

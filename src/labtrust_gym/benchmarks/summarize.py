@@ -134,6 +134,59 @@ def _aggregate_episodes(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             out[f"comm_{ck}_mean"] = None
             out[f"comm_{ck}_std"] = None
+    # LLM coordination metrics (when present)
+    llm_proposal_vals: list[float] = []
+    llm_blocked_vals: list[float] = []
+    llm_repair_vals: list[float] = []
+    llm_tokens_per_step_vals: list[float] = []
+    llm_latency_ms_vals: list[float] = []
+    for ep in episodes:
+        llm = ((ep.get("metrics") or {}).get("coordination") or {}).get("llm") or {}
+        v = llm.get("proposal_validity_rate")
+        if v is not None:
+            llm_proposal_vals.append(float(v))
+        v = llm.get("blocked_rate")
+        if v is not None:
+            llm_blocked_vals.append(float(v))
+        v = llm.get("repair_rate")
+        if v is not None:
+            llm_repair_vals.append(float(v))
+        v = llm.get("tokens_per_step")
+        if v is not None:
+            llm_tokens_per_step_vals.append(float(v))
+        v = llm.get("latency_ms")
+        if v is not None:
+            llm_latency_ms_vals.append(float(v))
+    if llm_proposal_vals:
+        out["proposal_valid_rate_mean"] = statistics.mean(llm_proposal_vals)
+        out["proposal_valid_rate_std"] = (
+            statistics.stdev(llm_proposal_vals) if len(llm_proposal_vals) > 1 else 0.0
+        )
+    if llm_blocked_vals:
+        out["blocked_rate_mean"] = statistics.mean(llm_blocked_vals)
+        out["blocked_rate_std"] = (
+            statistics.stdev(llm_blocked_vals) if len(llm_blocked_vals) > 1 else 0.0
+        )
+    if llm_repair_vals:
+        out["repair_rate_mean"] = statistics.mean(llm_repair_vals)
+        out["repair_rate_std"] = (
+            statistics.stdev(llm_repair_vals) if len(llm_repair_vals) > 1 else 0.0
+        )
+    if llm_tokens_per_step_vals:
+        out["tokens_per_step_mean"] = statistics.mean(llm_tokens_per_step_vals)
+        out["tokens_per_step_std"] = (
+            statistics.stdev(llm_tokens_per_step_vals)
+            if len(llm_tokens_per_step_vals) > 1
+            else 0.0
+        )
+    if llm_latency_ms_vals:
+        sorted_lat = sorted(llm_latency_ms_vals)
+        k = (len(sorted_lat) - 1) * 0.95
+        lo = int(k)
+        hi = min(lo + 1, len(sorted_lat) - 1)
+        out["p95_llm_latency_ms"] = sorted_lat[lo] + (k - lo) * (
+            sorted_lat[hi] - sorted_lat[lo]
+        )
     return out
 
 
@@ -419,27 +472,32 @@ def _load_raw_results_with_metadata(in_paths: list[Path]) -> list[dict[str, Any]
 def _build_llm_economics_rows(
     raw_results: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Build one row per result that has metadata.llm_backend_id (for llm_economics table)."""
+    """Build one row per result that has metadata.llm_backend_id or metadata.llm_backend (for llm_economics table)."""
     rows: list[dict[str, Any]] = []
     for data in raw_results:
         meta = data.get("metadata") or {}
-        if not meta.get("llm_backend_id"):
+        if not meta.get("llm_backend_id") and not meta.get("llm_backend"):
             continue
-        rows.append(
-            {
-                "task": data.get("task", ""),
-                "agent_baseline_id": data.get("agent_baseline_id", ""),
-                "llm_backend_id": meta.get("llm_backend_id"),
-                "llm_model_id": meta.get("llm_model_id"),
-                "total_tokens": meta.get("total_tokens"),
-                "tokens_per_step": meta.get("tokens_per_step"),
-                "estimated_cost_usd": meta.get("estimated_cost_usd"),
-                "mean_llm_latency_ms": meta.get("mean_llm_latency_ms"),
-                "p50_llm_latency_ms": meta.get("p50_llm_latency_ms"),
-                "p95_llm_latency_ms": meta.get("p95_llm_latency_ms"),
-                "llm_error_rate": meta.get("llm_error_rate"),
-            }
-        )
+        row: dict[str, Any] = {
+            "task": data.get("task", ""),
+            "agent_baseline_id": data.get("agent_baseline_id", ""),
+            "llm_backend_id": meta.get("llm_backend_id") or meta.get("llm_backend"),
+            "llm_model_id": meta.get("llm_model_id") or meta.get("llm_model"),
+            "total_tokens": meta.get("total_tokens"),
+            "tokens_per_step": meta.get("tokens_per_step") or meta.get("llm_tokens_per_step"),
+            "estimated_cost_usd": meta.get("estimated_cost_usd"),
+            "mean_llm_latency_ms": meta.get("mean_llm_latency_ms"),
+            "p50_llm_latency_ms": meta.get("p50_llm_latency_ms"),
+            "p95_llm_latency_ms": meta.get("p95_llm_latency_ms") or meta.get("llm_p95_latency_ms"),
+            "llm_error_rate": meta.get("llm_error_rate"),
+        }
+        if meta.get("llm_proposal_valid_rate") is not None:
+            row["proposal_valid_rate"] = meta["llm_proposal_valid_rate"]
+        if meta.get("llm_blocked_rate") is not None:
+            row["blocked_rate"] = meta["llm_blocked_rate"]
+        if meta.get("llm_repair_rate") is not None:
+            row["repair_rate"] = meta["llm_repair_rate"]
+        rows.append(row)
     return rows
 
 

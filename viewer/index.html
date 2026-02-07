@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Risk Register Viewer</title>
+  <style>
+    :root { --bg: #0f0f12; --fg: #e4e4e7; --muted: #71717a; --accent: #a78bfa; --border: #27272a; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 1rem; line-height: 1.5; }
+    h1 { font-size: 1.25rem; margin: 0 0 1rem 0; }
+    h2 { font-size: 1.1rem; margin: 1rem 0 0.5rem 0; }
+    h3, h4 { font-size: 1rem; margin: 0.75rem 0 0.35rem 0; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .loader { margin: 1rem 0; padding: 1rem; background: var(--border); border-radius: 6px; }
+    .loader label { display: inline-block; margin-right: 0.5rem; }
+    .loader input[type="file"], .loader input[type="text"] { margin-right: 0.5rem; }
+    .loader button { padding: 0.35rem 0.75rem; background: var(--accent); color: var(--bg); border: none; border-radius: 4px; cursor: pointer; }
+    .loader button:hover { opacity: 0.9; }
+    #filters { margin: 0.75rem 0; padding: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    #filters label { display: inline-flex; align-items: center; gap: 0.25rem; }
+    #filters select { padding: 0.25rem; background: var(--border); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; }
+    #search { width: 100%; max-width: 24rem; padding: 0.5rem; background: var(--border); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 0.5rem; }
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; margin-top: 1rem; }
+    @media (max-width: 640px) { .layout { grid-template-columns: 1fr; } }
+    .risk-list { list-style: none; padding: 0; margin: 0; }
+    .risk-list li { margin: 0; border-bottom: 1px solid var(--border); }
+    .risk-list a { display: block; padding: 0.5rem; }
+    .risk-list li.selected a { background: var(--border); }
+    .risk-detail { padding: 0 0 2rem 0; }
+    .risk-detail section { margin-bottom: 1rem; }
+    .risk-detail pre.commands { background: var(--border); padding: 0.75rem; border-radius: 4px; overflow-x: auto; font-size: 0.875rem; white-space: pre-wrap; }
+    .status-missing { color: #f87171; }
+    .status-present { color: #4ade80; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    #error { color: #f87171; margin-top: 0.5rem; }
+    .evidence-block { margin-bottom: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .evidence-block h4 { margin: 0 0 0.35rem 0; font-size: 1rem; }
+    .verification-summary { font-size: 0.9rem; margin: 0.25rem 0; }
+    table.coord-metrics { font-size: 0.8rem; border-collapse: collapse; margin: 0.25rem 0; }
+    table.coord-metrics th, table.coord-metrics td { border: 1px solid var(--border); padding: 0.2rem 0.4rem; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Risk Register Viewer</h1>
+  <p class="muted">Load a RiskRegisterBundle.v0.1 dataset (local file, zip, or URL). Offline-first: choose a file to start.</p>
+
+  <div class="loader">
+    <label>Dataset:</label>
+    <input type="file" id="file" accept=".json,.zip,application/zip,application/json">
+    <span class="muted">or</span>
+    <input type="text" id="url" placeholder="URL to bundle JSON (optional)" size="40">
+    <button type="button" id="load-btn">Load</button>
+    <div id="error"></div>
+  </div>
+
+  <div id="view" style="display: none;">
+    <input type="search" id="search" placeholder="Search risk_id, title, description, controls, evidence…" aria-label="Search">
+    <div id="filters"></div>
+    <div class="layout">
+      <div id="risk-list"></div>
+      <div id="risk-detail"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="load_bundle.js"></script>
+  <script src="app.js"></script>
+  <script>
+    (function () {
+      var fileEl = document.getElementById('file');
+      var urlEl = document.getElementById('url');
+      var loadBtn = document.getElementById('load-btn');
+      var errorEl = document.getElementById('error');
+      var viewEl = document.getElementById('view');
+
+      function showError(msg) {
+        errorEl.textContent = msg || '';
+      }
+
+      function load(source) {
+        showError('');
+        window.loadRiskRegisterBundle(source)
+          .then(function (bundle) {
+            viewEl.style.display = 'block';
+            if (window.initRiskRegisterViewerHash) window.initRiskRegisterViewerHash();
+            window.runRiskRegisterViewer(bundle);
+          })
+          .catch(function (err) {
+            showError('Load failed: ' + (err && err.message ? err.message : String(err)));
+          });
+      }
+
+      loadBtn.addEventListener('click', function () {
+        var url = (urlEl.value || '').trim();
+        if (url) {
+          load(url);
+          return;
+        }
+        var file = fileEl.files[0];
+        if (file) {
+          load(file);
+          return;
+        }
+        showError('Choose a file or enter a URL.');
+      });
+
+      fileEl.addEventListener('change', function () {
+        if (fileEl.files[0]) urlEl.value = '';
+      });
+      urlEl.addEventListener('input', function () {
+        if (urlEl.value.trim()) fileEl.value = '';
+      });
+
+      window.currentBundle = null;
+      window.addEventListener('hashchange', function () {
+        if (window.initRiskRegisterViewerHash) window.initRiskRegisterViewerHash();
+        if (window.runRiskRegisterViewer && window.currentBundle) window.runRiskRegisterViewer(window.currentBundle);
+      });
+    })();
+  </script>
+</body>
+</html>

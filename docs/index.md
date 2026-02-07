@@ -45,11 +45,12 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `--version` / `-V` | Print version and git SHA |
 | `validate-policy` | Validate all policy files against JSON schemas |
 | `quick-eval` | 1 episode each of TaskA, TaskD, TaskE; markdown summary and logs under `./labtrust_runs/` |
-| `run-benchmark` | Run TaskA–TaskF or TaskG_COORD_SCALE / TaskH_COORD_RISK; write results.json. For TaskG/TaskH use `--coord-method`, for TaskH add `--injection`. Optional `--llm-backend` and `--llm-agents` (see [Live LLM](llm_live.md)) |
+| `run-benchmark` | Run TaskA–TaskF or TaskG_COORD_SCALE / TaskH_COORD_RISK; write results.json. For TaskG/TaskH use `--coord-method`, for TaskH add `--injection`. Optional `--llm-backend` (deterministic | openai_live | ollama_live), `--llm-model`, `--llm-agents` (see [Live LLM](llm_live.md)) |
 | `eval-agent` | Run benchmark with external agent (module:Class or module:function); write results.json (v0.2) |
 | `bench-smoke` | 1 episode per task (TaskA, TaskB, TaskC) |
 | `run-study` | Run study from spec (ablations → conditions) |
-| `run-coordination-study` | Run coordination study (scale × method × injection); cells, summary_coord.csv, pareto.md ([Coordination studies](coordination_studies.md)) |
+| `run-coordination-study` | Run coordination study (scale × method × injection); cells, summary_coord.csv, pareto.md. Use `--llm-backend deterministic` for offline runs; `--llm-backend openai_live` or `--llm-backend ollama_live` for live backends (openai_live requires OPENAI_API_KEY). External reviewer: `run_external_reviewer_checks.sh` (coverage gate, COORDINATION_LLM_CARD); `run_external_reviewer_risk_register_checks.sh` for risk register (security/coord smoke, export-risk-register, schema + crosswalk). Set LABTRUST_STRICT_COVERAGE=1 to fail on missing coverage. See [Coordination studies](coordination_studies.md), [Risk register](risk_register.md), [LLM Coordination Protocol](llm_coordination_protocol.md). |
+| `run-coordination-security-pack` | Run internal coordination security regression pack: fixed scale × method × injection matrix (deterministic, 1 ep/cell). Writes pack_results/, pack_summary.csv, pack_gate.md. See [Security attack suite](security_attack_suite.md#coordination-security-pack-internal-regression). |
 | `make-plots` | Generate figures and data tables from a study run; for coordination runs adds resilience vs p95_tat and attack_success_rate bar |
 | `reproduce --profile minimal \| full` | Reproduce minimal results + figures (TaskA & TaskC sweep + plots) |
 | `export-receipts --run \<log\> --out \<dir\>` | Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log |
@@ -59,7 +60,9 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `safety-case --out \<dir\>` | Generate safety case (claim to control, test, artifact, command) to SAFETY_CASE/safety_case.json and .md ([Implementation verification](implementation_verification.md)) |
 | `run-official-pack --out \<dir\> [--seed-base N]` | Run Official Benchmark Pack v0.1; single output dir with baselines, SECURITY/, SAFETY_CASE/, transparency log ([Official benchmark pack](official_benchmark_pack.md)) |
 | `ui-export --run \<dir\> --out \<zip\>` | Export UI-ready zip (index, events, receipts_index, reason_codes) from run dir; see [UI data contract](ui_data_contract.md) |
-| `package-release --profile minimal \| full \| paper_v0.1 --out \<dir\>` | Release candidate: minimal/full = reproduce + receipts + FHIR + plots; paper_v0.1 = baselines + TaskF study + FIGURES/TABLES + receipts + SECURITY/ ([paper_ready](paper_ready.md)) |
+| `export-risk-register --out \<dir\> [--runs \<dir_or_glob\> ...]` | Export RiskRegisterBundle.v0.1 into \<dir\>/RISK_REGISTER_BUNDLE.v0.1.json. Evidence from SECURITY/, summary/, PARETO/, SAFETY_CASE/, MANIFEST in run dirs. CI runs contract gate (schema, snapshot, crosswalk, coverage). Optional `--include-official-pack \<dir\>`, `--inject-ui-export`. See [Risk register](risk_register.md), [Risk register contract](risk_register_contract.v0.1.md). |
+| `build-risk-register-bundle --out \<path\> [--run \<dir\> ...]` | Build same bundle to an explicit file path (alternative to export-risk-register). |
+| `package-release --profile minimal \| full \| paper_v0.1 --out \<dir\>` | Release candidate: minimal/full = reproduce + receipts + FHIR + plots; paper_v0.1 = baselines + TaskF study + FIGURES/TABLES + receipts + SECURITY/ + COORDINATION_CARD.md + COORDINATION_LLM_CARD.md ([paper_ready](paper_ready.md)) |
 | `generate-official-baselines --out \<dir\>` | Run Tasks A–F with official baselines; write results/, summary, metadata (--episodes, --seed, --force) |
 | `summarize-results --in \<paths\> --out \<dir\>` | Aggregate results.json; write summary_v0.2.csv (CI-stable), summary_v0.3.csv (paper-grade), summary.csv + summary.md |
 | `determinism-report` | Run benchmark twice; produce determinism_report.md/.json; assert v0.2 metrics and log hash identical |
@@ -71,10 +74,10 @@ See [Repository structure](repository_structure.md) for the full directory layou
 
 | Path | Description |
 |------|-------------|
-| `policy/` | Versioned YAML/JSON: schemas, emits, invariants (v1.0), tokens, reason_codes, zones, sites, catalogue, stability, equipment, critical, enforcement, studies, **risks** (risk_registry), **coordination** (methods, method_risk_matrix, coordination_study_spec, injections.v0.2), **safety_case** (claims.v0.1), **official** (benchmark_pack.v0.1), llm, golden, partners. Validated by `labtrust validate-policy`. |
-| `src/labtrust_gym/` | Package: config, engine/, coordination/ (identity, bus), memory/ (validators, store), tools/ (registry, sandbox), envs/ (PettingZoo), baselines/ (scripted, adversary, llm, coordination, adversary_coord, marl), benchmarks/ (tasks TaskA–TaskH, runner, coordination_scale, metrics, summarize, security_runner, securitization, official_pack), policy/, security/ (safety_case, risk_injections, …), studies/ (study_runner, coordination_study_runner, plots, reproduce, package_release), export/, online/, runner/, logging/, cli/. |
-| `tests/` | Pytest: golden suite, policy validation, benchmarks, **coordination** (scale, methods, study, policy), **risk_injections**, studies, export, online, etc. |
-| `docs/` | MkDocs source: architecture, benchmarks, coordination (methods, scale, studies, policy, checklist), contracts, installation, repository_structure, STATUS. |
+| `policy/` | Versioned YAML/JSON: schemas, emits, invariants (v1.0), tokens, reason_codes, zones, sites, catalogue, stability, equipment, critical, enforcement, studies, **risks** (risk_registry), **coordination** (methods, method_risk_matrix, coordination_study_spec, scale_configs, injections.v0.2, coordination_security_pack_gate), **safety_case** (claims.v0.1), **official** (benchmark_pack.v0.1), **llm** (llm_fault_model.v0.1, defaults, prompt_registry), golden, partners. Validated by `labtrust validate-policy`. |
+| `src/labtrust_gym/` | Package: config, engine/, coordination/ (identity, bus), memory/ (validators, store), tools/ (registry, sandbox), envs/ (PettingZoo), baselines/ (scripted, adversary, llm (fault_model for llm_offline), coordination, adversary_coord, marl), benchmarks/ (tasks TaskA–TaskH, runner, coordination_scale, metrics, summarize, security_runner, securitization, official_pack), policy/, security/ (safety_case, risk_injections, …), studies/ (study_runner, coordination_study_runner, coordination_security_pack, plots, reproduce, package_release), export/, online/, runner/, logging/, cli/. |
+| `tests/` | Pytest: golden suite, policy validation, benchmarks, **coordination** (scale, methods, study, policy), **risk_injections**, **risk register** (bundle, contract gate: schema, snapshot, crosswalk, coverage), studies, export, online, etc. |
+| `docs/` | MkDocs source: architecture, benchmarks, coordination (methods, scale, studies, policy, checklist), contracts, **risk_register** (bundle, generate, review), installation, repository_structure, STATUS. |
 
 ## What's frozen
 
@@ -87,9 +90,12 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 - [Policy pack and schemas](policy_pack.md)
 - [Frozen contracts](frozen_contracts.md) · [Public contract freeze (v0.1.0)](CONTRACTS.md)
 - [UI data contract](ui_data_contract.md) — ui-export bundle format; UI consumes ui-export output, not raw logs
+- [Risk register](risk_register.md) — Bundle overview; generate from fixtures, paper release, or official pack; review coverage and external reviewer script
+- [Risk register contract](risk_register_contract.v0.1.md) — RiskRegisterBundle.v0.1 format; build with `export-risk-register` or `build-risk-register-bundle`
+- [Risk register viewer](risk_register_viewer.md) — Dataset-driven viewer (loader: local file, zip, URL); search, filters, risk detail, reproduce commands
 - [Invariants and enforcement](invariants_registry.md) · [Enforcement](enforcement.md)
 - [PettingZoo API](pettingzoo_api.md)
-- [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Coordination benchmark card](coordination_benchmark_card.md) (TaskG/TaskH; scenario generation, metrics, determinism, limitations) · [Official benchmark pack](official_benchmark_pack.md) (v0.1) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md)
+- [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Coordination benchmark card](coordination_benchmark_card.md) (TaskG/TaskH) · [LLM Coordination Protocol](llm_coordination_protocol.md) (pipeline modes, proposal schema, shield/repair, security evaluation, reporting) · [Official benchmark pack](official_benchmark_pack.md) (v0.1) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md)
 - [FHIR R4 export](fhir_export.md) · [Evidence verification](evidence_verification.md) · [Security attack suite and securitization packet](security_attack_suite.md) · [Implementation verification](implementation_verification.md) (safety case, controls, artifacts)
 - [MARL baselines](marl_baselines.md) · [LLM baselines](llm_baselines.md) · [Live LLM benchmark mode](llm_live.md)
 - [Security controls for online mode](security_online.md) · [Deployment hardening](deployment_hardening.md) (B008) · [Output controls](output_controls.md) (B009)

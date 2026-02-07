@@ -19,10 +19,16 @@ on:
         required: false
         default: false
         type: boolean
+      run_external_reviewer_checks:
+        description: "Run external reviewer checks (coordination study + summary + COORDINATION_LLM_CARD)"
+        required: false
+        default: false
+        type: boolean
 
 env:
   LABTRUST_BENCH_SMOKE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_bench_smoke == 'true')) && '1' || '0' }}
   LABTRUST_COORDINATION_SMOKE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_coordination_smoke == 'true')) && '1' || '0' }}
+  LABTRUST_EXTERNAL_REVIEWER_CHECKS: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_external_reviewer_checks == 'true')) && '1' || '0' }}
 
 jobs:
   lint-format:
@@ -77,6 +83,20 @@ jobs:
       - name: Validate policy
         run: labtrust validate-policy
 
+  risk-register-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Generate bundle from fixtures
+        run: labtrust export-risk-register --out ./risk_register_out --runs ui_fixtures
+      - name: Risk register contract gate (schema, snapshot, crosswalk, coverage)
+        run: pytest tests/test_risk_register_contract_gate.py -v
+
   bench-smoke:
     runs-on: ubuntu-latest
     if: env.LABTRUST_BENCH_SMOKE == '1'
@@ -128,6 +148,20 @@ jobs:
         run: |
           labtrust run-benchmark --task TaskH_COORD_RISK --episodes 1 --seed 42 \
             --coord-method market_auction --injection INJ-COLLUSION-001 --out ./taskh_smoke.json
+
+  external-reviewer-checks:
+    runs-on: ubuntu-latest
+    if: env.LABTRUST_EXTERNAL_REVIEWER_CHECKS == '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: External reviewer checks (coordination study + summary + COORDINATION_LLM_CARD)
+        run: |
+          bash scripts/run_external_reviewer_checks.sh ./external_reviewer_out tests/fixtures/coordination_study_llm_smoke_spec.yaml
 
   quick-eval:
     runs-on: ubuntu-latest

@@ -81,6 +81,7 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 - **Red-team metrics** (TaskH): In addition to `sec.attack_success_rate`, `sec.detection_latency_steps`, `sec.containment_time_steps`, the coordination study reports **sec.stealth_success_rate** (attacks that succeeded without detection), **sec.time_to_attribution_steps** (steps until attacker attribution), **sec.blast_radius_proxy** (scope of impact). See [Security attack suite](security_attack_suite.md) for red-team definitions.
 - **CLI**: `labtrust run-benchmark --task TaskH_COORD_RISK --coord-method <method_id> --injection <injection_id> --episodes 1 --seed 42 --out results.json`.
 - **Study**: `labtrust run-coordination-study --spec policy/coordination/coordination_study_spec.v0.1.yaml --out <dir>` produces per-cell results, summary_coord.csv, and pareto.md. See [Coordination studies](coordination_studies.md).
+- **Coordination security pack** (internal regression): `labtrust run-coordination-security-pack --out <dir>` runs a fixed scale × method × injection matrix (deterministic, 1 ep/cell), writes pack_results/, pack_summary.csv, pack_gate.md. See [Security attack suite](security_attack_suite.md#coordination-security-pack-internal-regression).
 
 ### TaskI_DeviceOutageSurge (TaskI) — experimental
 
@@ -159,7 +160,7 @@ labtrust run-benchmark --task TaskA --episodes 50 --seed 123 --out results.json
 - `--seed`: Base seed (default 123).
 - `--out`: Output JSON path (default results.json).
 - `--log`: Optional JSONL path for episode step log.
-- `--llm-backend`: Optional `deterministic` or `openai_live` to run with LLM agent (default: scripted agents). See [Live LLM benchmark mode](llm_live.md).
+- `--llm-backend`: Optional `deterministic`, `openai_live`, or `ollama_live` to run with LLM agent or coordination (default: scripted agents). For TaskG/TaskH with LLM coordination methods, `ollama_live` uses local Ollama for proposals/bids. See [Live LLM benchmark mode](llm_live.md) and [LLM Coordination Protocol](llm_coordination_protocol.md).
 
 ## Timing mode
 

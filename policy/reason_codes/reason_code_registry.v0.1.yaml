@@ -597,6 +597,13 @@ reason_code_registry:
       triggers: ["LLM_ACTION_DECODE"]
       default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
 
+    - code: "RC_LLM_FAULT_INJECTED"
+      namespace: "LLM"
+      severity: "P3_WARN"
+      description: "Deterministic LLM fault model (llm_offline) injected a simulated failure (e.g. high_latency, inconsistent_plan); fallback to NOOP applied."
+      triggers: ["LLM_FAULT_MODEL"]
+      default_actions: ["LOG_ONLY"]
+
     # -----------------------------
     # Adversarial input detection (defensive monitoring)
     # -----------------------------
@@ -698,6 +705,20 @@ reason_code_registry:
       severity: "P2_HOLD_REVIEW"
       description: "Security injection contained (block or throttle applied)."
       triggers: ["SECURITY_INJECTION_CONTAINED"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "SEC_INJ_LLM_DETECTOR_CONTAINMENT"
+      namespace: "SEC_INJ"
+      severity: "P2_HOLD_REVIEW"
+      description: "LLM detector recommended containment (throttle/freeze_zone/kill_switch); applied after policy validation."
+      triggers: ["LLM_DETECTOR_DECISION", "SECURITY_INJECTION_CONTAINED"]
+      default_actions: ["LOG_ONLY"]
+
+    - code: "SEC_INJ_LLM_DETECTOR_INVALID"
+      namespace: "SEC_INJ"
+      severity: "P3_WARN"
+      description: "LLM detector recommendation rejected (not in policy-allowed enforcement enum)."
+      triggers: ["LLM_DETECTOR_DECISION"]
       default_actions: ["LOG_ONLY"]
 
     # -----------------------------

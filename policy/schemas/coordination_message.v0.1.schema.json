@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.coordination_message.v0.1",
+  "title": "Coordination Message Payload v0.1",
+  "description": "Typed payload for signed gossip/summary messages. Typed fields only; no unknown keys. Used with SignedMessageBus (epoch, nonce, replay protection).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["agent_id", "step_id", "zone_id"],
+  "properties": {
+    "agent_id": { "type": "string", "maxLength": 64 },
+    "step_id": { "type": "integer", "minimum": 0 },
+    "zone_id": { "type": "string", "maxLength": 64 },
+    "queue_summary": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "device_id": { "type": "string", "maxLength": 32 },
+          "queue_len": { "type": "integer", "minimum": 0, "maximum": 1024 },
+          "queue_head": { "type": "string", "maxLength": 64 }
+        }
+      }
+    },
+    "task": { "type": "string", "enum": ["active", "frozen"], "default": "active" }
+  }
+}

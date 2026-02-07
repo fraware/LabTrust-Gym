@@ -93,3 +93,34 @@ def get_required_bench_cells(matrix: dict[str, Any]) -> list[dict[str, Any]]:
     """
     cells = matrix.get("cells") or []
     return [c for c in cells if isinstance(c, dict) and c.get("required_bench") is True]
+
+
+def load_risk_to_injection_map(path: Path | str | None = None) -> dict[str, list[str]]:
+    """
+    Load risk_to_injection_map from YAML. Returns dict risk_id -> list of injection_ids.
+    Path optional; when None, returns {}. Used by coverage preflight; fallback is risk_registry.
+    """
+    if path is None:
+        return {}
+    p = Path(path)
+    if not p.is_absolute():
+        p = Path.cwd() / p
+    if not p.is_file():
+        return {}
+    data = load_yaml(p)
+    mappings = data.get("mappings")
+    if not isinstance(mappings, list):
+        return {}
+    out: dict[str, list[str]] = {}
+    for entry in mappings:
+        if not isinstance(entry, dict):
+            continue
+        risk_id = entry.get("risk_id")
+        ids_raw = entry.get("injection_ids")
+        if risk_id and isinstance(risk_id, str):
+            out[risk_id] = (
+                [str(x) for x in ids_raw if x]
+                if isinstance(ids_raw, list)
+                else ([str(ids_raw)] if ids_raw else [])
+            )
+    return out

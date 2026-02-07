@@ -91,6 +91,81 @@ method_risk_matrix:
       coverage: "partially_covered"
       rationale: "Untrusted context in prompt; validation and citation help."
       required_bench: true
+    - method_id: "llm_central_planner"
+      risk_id: "R-TOOL-001"
+      coverage: "partially_covered"
+      rationale: "Schema constrains action types; selection errors still possible."
+      required_bench: true
+    - method_id: "llm_central_planner"
+      risk_id: "R-TOOL-005"
+      coverage: "partially_covered"
+      rationale: "Misparameterization possible; validation and shield help."
+      required_bench: true
+    - method_id: "llm_central_planner"
+      risk_id: "R-CAP-001"
+      coverage: "partially_covered"
+      rationale: "Jailbreak and prompt injection are primary threats."
+      required_bench: true
+    - method_id: "llm_central_planner"
+      risk_id: "R-DATA-001"
+      coverage: "partially_covered"
+      rationale: "State digest is bounded; untrusted context in prompt."
+      required_bench: true
+    - method_id: "llm_hierarchical_allocator"
+      risk_id: "R-TOOL-001"
+      coverage: "partially_covered"
+      rationale: "LLM issues SET_INTENT only; local controller produces concrete actions; shield blocks unsafe actions."
+      required_bench: true
+    - method_id: "llm_hierarchical_allocator"
+      risk_id: "R-TOOL-005"
+      coverage: "partially_covered"
+      rationale: "Assignments are high-level; misparameterization in local controller or digest."
+      required_bench: true
+    - method_id: "llm_hierarchical_allocator"
+      risk_id: "R-CAP-001"
+      coverage: "partially_covered"
+      rationale: "Jailbreak and prompt injection affect assignment layer; concrete actions still shielded."
+      required_bench: true
+    - method_id: "llm_hierarchical_allocator"
+      risk_id: "R-DATA-001"
+      coverage: "partially_covered"
+      rationale: "State digest is bounded; assignments wrapped in CoordinationProposal."
+      required_bench: true
+    - method_id: "llm_hierarchical_allocator"
+      risk_id: "R-COMMS-002"
+      coverage: "partially_covered"
+      rationale: "Resilience under comms poison comparable to deterministic hierarchical baselines."
+      required_bench: false
+    - method_id: "llm_auction_bidder"
+      risk_id: "R-DATA-001"
+      coverage: "partially_covered"
+      rationale: "Strict bid validation (ranges, units, no NaN); collusion_suspected_proxy metric."
+      required_bench: true
+    - method_id: "llm_auction_bidder"
+      risk_id: "R-COMMS-002"
+      coverage: "partially_covered"
+      rationale: "Evaluated under comms poison; degradation and detection metrics recorded."
+      required_bench: true
+    - method_id: "llm_auction_bidder"
+      risk_id: "R-TOOL-006"
+      coverage: "partially_covered"
+      rationale: "Typed bids only; auction and dispatcher deterministic; bid validation blocks bad input."
+      required_bench: false
+    - method_id: "llm_gossip_summarizer"
+      risk_id: "R-COMMS-002"
+      coverage: "partially_covered"
+      rationale: "Benchmark under INJ-COMMS-POISON-001; detection events and reason-coded drops logged."
+      required_bench: true
+    - method_id: "llm_gossip_summarizer"
+      risk_id: "R-DATA-001"
+      coverage: "partially_covered"
+      rationale: "Max message size, typed schema, poison heuristics; validator rejects unknown fields."
+      required_bench: false
+    - method_id: "llm_gossip_summarizer"
+      risk_id: "R-SYS-002"
+      coverage: "partially_covered"
+      rationale: "Benchmark under INJ-ID-SPOOF-001; SignedMessageBus rejects invalid signatures."
+      required_bench: true
     - method_id: "kernel_auction_edf"
       risk_id: "R-FLOW-002"
       coverage: "partially_covered"
@@ -121,3 +196,58 @@ method_risk_matrix:
       coverage: "partially_covered"
       rationale: "Locals operate on local views; hub on global; reduced comm vs centralized at scale when comms model active."
       required_bench: false
+    - method_id: "llm_repair_over_kernel_whca"
+      risk_id: "R-COMMS-002"
+      coverage: "partially_covered"
+      rationale: "Repair loop triggered on comms poison / inconsistent view; evaluated under INJ-COMMS-POISON-001."
+      required_bench: true
+    - method_id: "llm_repair_over_kernel_whca"
+      risk_id: "R-DATA-001"
+      coverage: "partially_covered"
+      rationale: "Repair input is bounded and canonicalized; untrusted context in repair prompt."
+      required_bench: false
+    - method_id: "llm_repair_over_kernel_whca"
+      risk_id: "R-CAP-001"
+      coverage: "partially_covered"
+      rationale: "Prompt injection in coordination channel (INJ-LLM-PROMPT-INJECT-COORD-001); repair output re-shielded."
+      required_bench: true
+    - method_id: "llm_repair_over_kernel_whca"
+      risk_id: "R-SYS-002"
+      coverage: "partially_covered"
+      rationale: "Identity spoof triggers repair; benchmark under INJ-ID-SPOOF-001; shield blocks invalid actions."
+      required_bench: true
+    - method_id: "llm_local_decider_signed_bus"
+      risk_id: "R-COMMS-002"
+      coverage: "partially_covered"
+      rationale: "Signed bus + signature verification; benchmark under INJ-COMMS-POISON-001."
+      required_bench: true
+    - method_id: "llm_local_decider_signed_bus"
+      risk_id: "R-SYS-002"
+      coverage: "partially_covered"
+      rationale: "Identity spoof rejected by bus; benchmark under INJ-ID-SPOOF-001 with strict signatures."
+      required_bench: true
+    - method_id: "llm_detector_throttle_advisor"
+      risk_id: "R-COMMS-002"
+      coverage: "partially_covered"
+      rationale: "Defensive control benchmark: detector flags comms poison within bounded latency; containment reduces blast_radius_proxy vs baseline."
+      required_bench: true
+    - method_id: "llm_local_decider_signed_bus"
+      risk_id: "R-DATA-001"
+      coverage: "partially_covered"
+      rationale: "Bounded local view and ActionProposal schema; collusion risk unless control added."
+      required_bench: false
+    - method_id: "llm_repair_over_kernel_whca"
+      risk_id: "R-CAP-001"
+      coverage: "partially_covered"
+      rationale: "Coord prompt injection (INJ-COORD-PROMPT-INJECT-001); repair output re-shielded; shield blocks forbidden actions."
+      required_bench: true
+    - method_id: "llm_local_decider_signed_bus"
+      risk_id: "R-COMMS-001"
+      coverage: "partially_covered"
+      rationale: "Plan replay (INJ-COORD-PLAN-REPLAY-001) blocked by replay/epoch binding when enabled."
+      required_bench: true
+    - method_id: "llm_auction_bidder"
+      risk_id: "R-SYS-002"
+      coverage: "partially_covered"
+      rationale: "Bid shilling (INJ-COORD-BID-SHILL-001); collusion proxy and bid caps mitigate."
+      required_bench: true

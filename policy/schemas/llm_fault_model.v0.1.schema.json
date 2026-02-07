@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.llm_fault_model.v0.1",
+  "title": "LLM fault model v0.1",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "enabled": { "type": "boolean", "default": false },
+    "seed_offset": { "type": "integer", "minimum": 0 },
+    "faults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fault_id", "reason_code"],
+        "additionalProperties": true,
+        "properties": {
+          "fault_id": {
+            "type": "string",
+            "enum": ["invalid_output", "empty_output", "high_latency", "inconsistent_plan"]
+          },
+          "description": { "type": "string" },
+          "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+          "reason_code": { "type": "string" },
+          "simulated_latency_ms": { "type": "number", "minimum": 0 },
+          "step_intervals": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

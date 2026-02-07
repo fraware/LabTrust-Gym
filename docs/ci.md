@@ -10,6 +10,7 @@ CI runs on every push/PR to `main` and keeps the default pipeline **fast**. All 
 | **typecheck**   | Mypy on `src/`                 | `mypy src/`                |
 | **test**        | Pytest (fast suite)            | `pytest -q`                |
 | **policy-validate** | Policy YAML/JSON vs schemas | `labtrust validate-policy` |
+| **risk-register-gate** | Risk register contract (schema, snapshot, crosswalk, coverage) | `labtrust export-risk-register --out ./risk_register_out --runs ui_fixtures` then `pytest tests/test_risk_register_contract_gate.py -v` |
 | **quick-eval**  | 1 episode TaskA, TaskD, TaskE   | `pip install -e ".[env,plots]"` then `labtrust quick-eval --seed 42 --out-dir ./labtrust_runs` |
 | **baseline-regression** | Compare to canonical frozen v0.2 (exact metrics) | `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`; non-skipping when `benchmarks/baselines_official/v0.2/results/*.json` exist |
 | **docs**        | Build MkDocs site              | `pip install -e ".[docs]"` then `mkdocs build --strict` |
@@ -41,6 +42,18 @@ When **LABTRUST_COORDINATION_SMOKE=1**, an extra job **coordination-smoke** runs
 - Runs `labtrust run-benchmark --task TaskH_COORD_RISK --episodes 1 --seed 42 --coord-method market_auction --injection INJ-COLLUSION-001 --out ./taskh_smoke.json`.
 
 **When it runs:** Nightly schedule or manual "Run workflow" with **Run coordination smoke** enabled. No secrets required. Normal push/PR do not set `LABTRUST_COORDINATION_SMOKE`, so the job is skipped.
+
+## Optional: external reviewer checks
+
+When **LABTRUST_EXTERNAL_REVIEWER_CHECKS=1**, an extra job **external-reviewer-checks** runs:
+
+- Installs `.[dev,env]`.
+- Runs `scripts/run_external_reviewer_checks.sh ./external_reviewer_out tests/fixtures/coordination_study_llm_smoke_spec.yaml`: coordination study (deterministic), validates `summary/summary_coord.csv` and required columns, **coverage gate** (every required_bench (method_id, risk_id) from the method-risk matrix has at least one row in the summary), optionally verify-bundle, ensures or generates `COORDINATION_LLM_CARD.md`.
+- **Coverage gate**: By default missing (method_id, risk_id) cells are reported and the script continues (exit 0). Set **LABTRUST_STRICT_COVERAGE=1** to exit 1 when any required_bench cell is missing.
+
+**When it runs:** Nightly schedule or manual "Run workflow" with **Run external reviewer checks** enabled. No network, no secrets. To run the same locally with the full spec: `bash scripts/run_external_reviewer_checks.sh <out_dir> policy/coordination/coordination_study_spec.v0.1.yaml`.
+
+**Windows:** The script may fail with CRLF line endings (e.g. `set -eu` parsed incorrectly). Use WSL or ensure shell scripts use LF (`.gitattributes` sets `*.sh text eol=lf` on checkout).
 
 ## Baseline regression guard
 
@@ -105,7 +118,7 @@ A separate workflow **`.github/workflows/package-release-nightly.yml`** runs **p
 
 ## Summary
 
-- **Default CI:** lint, typecheck, test (includes golden), policy-validate, **baseline-regression** (compares against canonical v0.2; non-skipping when v0.2 exists), **quick-eval** (TaskA, TaskD, TaskE), docs (MkDocs build). No benchmark smoke, no package-release.
+- **Default CI:** lint, typecheck, test (includes golden), policy-validate, **risk-register-gate** (generate bundle from ui_fixtures, schema + contract gate tests: snapshot, crosswalk, coverage), **baseline-regression** (compares against canonical v0.2; non-skipping when v0.2 exists), **quick-eval** (TaskA, TaskD, TaskE), docs (MkDocs build). No benchmark smoke, no package-release.
 - **Baseline regression:** Job runs `pytest tests/test_official_baselines_regression.py` with `LABTRUST_CHECK_BASELINES=1`. Test uses **benchmarks/baselines_official/v0.2/** only; runs (does not skip) when v0.2/results/*.json exist. To update baselines, run `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` (matches regression params) and commit the results.
 - **Nightly / manual:** same plus bench-smoke (1 episode per task) when `LABTRUST_BENCH_SMOKE=1`; **coordination-smoke** (validate-policy, coordination tests, TaskG + TaskH one episode) when `LABTRUST_COORDINATION_SMOKE=1`; **package-release** artifact when workflow `package-release-nightly` runs.
 - Golden suite must remain green on every run. Documentation site is built on every PR; deploy to GitHub Pages via `.github/workflows/docs.yml` on push to `main`.

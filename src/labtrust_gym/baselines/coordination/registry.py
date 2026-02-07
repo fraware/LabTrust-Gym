@@ -29,6 +29,29 @@ from labtrust_gym.baselines.coordination.methods.gossip_consensus import (
 from labtrust_gym.baselines.coordination.methods.hierarchical_hub_rr import (
     HierarchicalHubRR,
 )
+from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
+    DeterministicProposalBackend,
+    LLMCentralPlanner,
+)
+from labtrust_gym.baselines.coordination.methods.llm_hierarchical_allocator import (
+    DeterministicAssignmentsBackend,
+    LLMHierarchicalAllocator,
+)
+from labtrust_gym.baselines.coordination.methods.llm_auction_bidder import (
+    DeterministicBidBackend,
+    LLMAuctionBidder,
+)
+from labtrust_gym.baselines.coordination.methods.llm_gossip_summarizer import (
+    LLMGossipSummarizer,
+)
+from labtrust_gym.baselines.coordination.methods.llm_local_decider_signed_bus import (
+    DeterministicLocalProposalBackend,
+    LLMLocalDeciderSignedBus,
+)
+from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca import (
+    DeterministicRepairBackend,
+    LLMRepairOverKernelWHCA,
+)
 from labtrust_gym.baselines.coordination.methods.llm_constrained import (
     LLMConstrained,
 )
@@ -87,6 +110,7 @@ def make_coordination_method(
     model_path: str | None = None,
     llm_agent: Any | None = None,
     pz_to_engine: dict[str, str] | None = None,
+    proposal_backend: Any | None = None,
     **kwargs: Any,
 ) -> CoordinationMethod:
     """
@@ -124,6 +148,210 @@ def make_coordination_method(
         params["llm_agent"] = llm_agent
     if pz_to_engine is not None:
         params["pz_to_engine"] = pz_to_engine
+    if proposal_backend is not None:
+        params["proposal_backend"] = proposal_backend
+
+    if method_id == "llm_central_planner":
+        from labtrust_gym.engine.rbac import get_allowed_actions
+        from labtrust_gym.engine.rbac import load_rbac_policy as load_rbac
+
+        backend = params.get("proposal_backend")
+        if backend is None and repo_root is not None:
+            seed = int((scale_config or {}).get("seed", 0))
+            backend = DeterministicProposalBackend(
+                seed=seed,
+                default_action_type="NOOP",
+            )
+        if backend is None:
+            raise ValueError(
+                "llm_central_planner requires proposal_backend= or repo_root "
+                "for deterministic backend"
+            )
+        rbac_path = (
+            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            if repo_root
+            else None
+        )
+        rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
+        pz_to_engine_map = params.get("pz_to_engine") or {}
+        first_engine = (
+            next(iter(pz_to_engine_map.values()), None)
+            if pz_to_engine_map
+            else None
+        )
+        allowed = (
+            get_allowed_actions(first_engine, rbac_policy)
+            if first_engine
+            else ["NOOP", "TICK", "QUEUE_RUN", "MOVE", "OPEN_DOOR", "START_RUN"]
+        )
+        sc = scale_config or {}
+        max_repairs = int(sc.get("max_repairs", 1))
+        blocked_threshold = int(sc.get("blocked_threshold", 0))
+        return cast(
+            CoordinationMethod,
+            LLMCentralPlanner(
+                proposal_backend=backend,
+                rbac_policy=rbac_policy,
+                allowed_actions=allowed,
+                policy_summary=params.get("policy_summary") or policy,
+                get_allowed_actions_fn=(
+                    lambda aid: get_allowed_actions(aid, rbac_policy)
+                ),
+                max_repairs=max_repairs,
+                blocked_threshold=blocked_threshold,
+            ),
+        )
+
+    if method_id == "llm_hierarchical_allocator":
+        from labtrust_gym.engine.rbac import get_allowed_actions
+        from labtrust_gym.engine.rbac import load_rbac_policy as load_rbac
+
+        backend = params.get("allocator_backend")
+        if backend is None and repo_root is not None:
+            seed = int((scale_config or {}).get("seed", 0))
+            backend = DeterministicAssignmentsBackend(seed=seed)
+        if backend is None:
+            raise ValueError(
+                "llm_hierarchical_allocator requires allocator_backend= or repo_root "
+                "for deterministic backend"
+            )
+        rbac_path = (
+            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            if repo_root
+            else None
+        )
+        rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
+        pz_to_engine_map = params.get("pz_to_engine") or {}
+        first_engine = (
+            next(iter(pz_to_engine_map.values()), None)
+            if pz_to_engine_map
+            else None
+        )
+        allowed = (
+            get_allowed_actions(first_engine, rbac_policy)
+            if first_engine
+            else ["NOOP", "TICK", "QUEUE_RUN", "MOVE", "OPEN_DOOR", "START_RUN"]
+        )
+        local_strategy = (params.get("local_strategy") or "edf").lower()
+        if local_strategy not in ("greedy", "edf", "whca"):
+            local_strategy = "edf"
+        return cast(
+            CoordinationMethod,
+            LLMHierarchicalAllocator(
+                allocator_backend=backend,
+                rbac_policy=rbac_policy,
+                allowed_actions=allowed,
+                policy_summary=params.get("policy_summary") or policy,
+                get_allowed_actions_fn=(
+                    lambda aid: get_allowed_actions(aid, rbac_policy)
+                ),
+                local_strategy=local_strategy,
+                use_whca=bool(params.get("use_whca", False)),
+                whca_horizon=int(params.get("whca_horizon", 10)),
+            ),
+        )
+
+    if method_id == "llm_auction_bidder":
+        from labtrust_gym.engine.rbac import load_rbac_policy as load_rbac
+
+        backend = params.get("bid_backend")
+        if backend is None and repo_root is not None:
+            seed = int((scale_config or {}).get("seed", 0))
+            backend = DeterministicBidBackend(seed=seed)
+        if backend is None:
+            raise ValueError(
+                "llm_auction_bidder requires bid_backend= or repo_root "
+                "for deterministic backend"
+            )
+        rbac_path = (
+            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            if repo_root
+            else None
+        )
+        rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
+        return cast(
+            CoordinationMethod,
+            LLMAuctionBidder(
+                bid_backend=backend,
+                rbac_policy=rbac_policy,
+                policy_summary=params.get("policy_summary") or policy,
+            ),
+        )
+
+    if method_id == "llm_gossip_summarizer":
+        from labtrust_gym.coordination.identity import build_key_store
+
+        pz_map = params.get("pz_to_engine") or {}
+        agent_ids = sorted(set(pz_map.values())) if pz_map else ["ops_0", "runner_0"]
+        seed = int((scale_config or {}).get("seed", 0))
+        key_store = build_key_store(agent_ids, seed)
+        if not key_store:
+            raise ValueError(
+                "llm_gossip_summarizer requires cryptography and non-empty "
+                "pz_to_engine for key_store"
+            )
+        identity_policy = {
+            "allowed_message_types": ["gossip_summary"],
+        }
+        return cast(
+            CoordinationMethod,
+            LLMGossipSummarizer(
+                key_store=key_store,
+                repo_root=repo_root,
+                identity_policy=identity_policy,
+            ),
+        )
+    if method_id == "llm_local_decider_signed_bus":
+        from labtrust_gym.coordination.identity import build_key_store
+        from labtrust_gym.engine.rbac import get_allowed_actions
+        from labtrust_gym.engine.rbac import load_rbac_policy as load_rbac
+
+        pz_map = params.get("pz_to_engine") or {}
+        agent_ids = sorted(set(pz_map.values())) if pz_map else []
+        if not agent_ids and scale_config:
+            scale_agents = (scale_config or {}).get("agents")
+            if isinstance(scale_agents, list):
+                agent_ids = [
+                    a.get("agent_id") for a in scale_agents
+                    if isinstance(a, dict) and a.get("agent_id")
+                ]
+        if not agent_ids:
+            agent_ids = ["ops_0", "runner_0"]
+        seed = int((scale_config or {}).get("seed", 0))
+        key_store = build_key_store(agent_ids, seed)
+        if not key_store:
+            raise ValueError(
+                "llm_local_decider_signed_bus requires cryptography and "
+                "non-empty agent set for key_store"
+            )
+        backend = params.get("proposal_backend")
+        if backend is None:
+            backend = DeterministicLocalProposalBackend(seed=seed)
+        rbac_path = (
+            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            if repo_root
+            else None
+        )
+        rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
+        first_engine = (
+            next(iter(pz_map.values()), agent_ids[0])
+            if pz_map
+            else agent_ids[0]
+        )
+        allowed = (
+            get_allowed_actions(first_engine, rbac_policy)
+            if rbac_policy
+            else ["NOOP", "TICK", "MOVE", "START_RUN", "QUEUE_RUN", "OPEN_DOOR"]
+        )
+        return cast(
+            CoordinationMethod,
+            LLMLocalDeciderSignedBus(
+                key_store=key_store,
+                proposal_backend=backend,
+                identity_policy={"allowed_message_types": ["action_proposal"]},
+                allowed_actions=allowed,
+            ),
+        )
 
     if method_id == "marl_ppo":
         inst = _get_marl_ppo_if_available(model_path=params.get("model_path"))
@@ -147,13 +375,21 @@ def make_coordination_method(
         "kernel_auction_edf",
         "kernel_auction_whca",
         "kernel_auction_whca_shielded",
+        "llm_central_planner",
+        "llm_hierarchical_allocator",
+        "llm_auction_bidder",
+        "llm_gossip_summarizer",
+        "llm_local_decider_signed_bus",
+        "llm_repair_over_kernel_whca",
+        "llm_detector_throttle_advisor",
+        "marl_ppo",
     ):
         raise ValueError(
             f"Unknown coordination method_id: {method_id}. "
-            f"Known: {list(_METHOD_CLASSES.keys())}, kernel_centralized_edf, "
-            f"kernel_whca, kernel_scheduler_or, kernel_scheduler_or_whca, "
-            f"kernel_auction_edf, kernel_auction_whca, "
-            f"kernel_auction_whca_shielded, marl_ppo"
+            f"Known: {list(_METHOD_CLASSES.keys())}, llm_central_planner, "
+            f"llm_hierarchical_allocator, llm_auction_bidder, llm_gossip_summarizer, "
+            f"llm_local_decider_signed_bus, llm_repair_over_kernel_whca, "
+            f"llm_detector_throttle_advisor, kernel_*, marl_ppo"
         )
     if method_id == "kernel_centralized_edf":
         alloc: CentralizedAllocator | AuctionAllocator = CentralizedAllocator(
@@ -219,6 +455,80 @@ def make_coordination_method(
         )
         advanced = compose_kernel(alloc, sched, router, "kernel_auction_whca")
         return cast(CoordinationMethod, wrap_with_simplex_shield(advanced, None))
+    if method_id == "llm_repair_over_kernel_whca":
+        from labtrust_gym.engine.rbac import get_allowed_actions
+        from labtrust_gym.engine.rbac import load_rbac_policy as load_rbac
+
+        seed = int((scale_config or {}).get("seed", 0))
+        whca_horizon = int(params.get("whca_horizon", 15))
+        alloc = CentralizedAllocator(
+            compute_budget=params.get("compute_budget"),
+        )
+        sched = EDFScheduler()
+        router = WHCARouter(horizon=whca_horizon)
+        kernel = compose_kernel(alloc, sched, router, "kernel_whca")
+        repair_backend = params.get("repair_backend")
+        if repair_backend is None:
+            repair_backend = DeterministicRepairBackend(seed=seed)
+        fault_model_config = (scale_config or {}).get("fault_model_config")
+        if fault_model_config and fault_model_config.get("enabled"):
+            from labtrust_gym.baselines.llm.fault_model import (
+                LLMFaultModelRepairWrapper,
+            )
+
+            repair_backend = LLMFaultModelRepairWrapper(
+                repair_backend, fault_model_config, seed=seed
+            )
+        rbac_path = (
+            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            if repo_root
+            else None
+        )
+        rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
+        pz_to_engine_map = params.get("pz_to_engine") or {}
+        first_engine = (
+            next(iter(pz_to_engine_map.values()), None)
+            if pz_to_engine_map
+            else None
+        )
+        allowed = (
+            get_allowed_actions(first_engine, rbac_policy)
+            if first_engine
+            else ["NOOP", "TICK", "QUEUE_RUN", "MOVE", "OPEN_DOOR", "START_RUN"]
+        )
+        return cast(
+            CoordinationMethod,
+            LLMRepairOverKernelWHCA(
+                kernel=kernel,
+                repair_backend=repair_backend,
+                allowed_actions=allowed,
+            ),
+        )
+    if method_id == "llm_detector_throttle_advisor":
+        from labtrust_gym.baselines.coordination.assurance import (
+            DeterministicDetectorBackend,
+            wrap_with_detector_advisor,
+            wrap_with_simplex_shield,
+        )
+
+        seed = int((scale_config or {}).get("seed", 0))
+        alloc = AuctionAllocator(
+            max_bids=params.get("compute_budget") or params.get("max_bids"),
+        )
+        sched = EDFScheduler()
+        router = WHCARouter(
+            horizon=params.get("whca_horizon", 15),
+        )
+        advanced = compose_kernel(alloc, sched, router, "kernel_auction_whca")
+        shielded = wrap_with_simplex_shield(advanced, None)
+        detector_backend = DeterministicDetectorBackend(
+            seed=seed,
+            latency_bound_steps=int(params.get("detector_latency_bound_steps", 5)),
+        )
+        return cast(
+            CoordinationMethod,
+            wrap_with_detector_advisor(shielded, detector_backend),
+        )
     if cls is None:
         raise ValueError(f"Unknown method_id: {method_id}")
     if method_id == "centralized_planner":

@@ -68,7 +68,7 @@ Each cell has:
 - **rationale** (optional): Short string.
 - **required_bench** (optional, bool): If true, this (method, risk) must be benchmarked in coordination studies.
 
-**API:** `load_method_risk_matrix(path)` returns a dict with `matrix_id`, `version`, and `cells`. `get_required_bench_cells(matrix)` returns the list of cells where `required_bench` is true.
+**API:** `load_method_risk_matrix(path)` returns a dict with `matrix_id`, `version`, and `cells`. `get_required_bench_cells(matrix)` returns the list of cells where `required_bench` is true. The external reviewer script and **coverage gate** (`labtrust_gym.studies.coverage_gate.check_summary_coverage`) ensure every required_bench (method_id, risk_id) has at least one row in `summary_coord.csv`; set `LABTRUST_STRICT_COVERAGE=1` to exit with failure when any required cell is missing.
 
 ## Coordination study spec
 

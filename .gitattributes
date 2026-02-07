@@ -1,0 +1,2 @@
+# Shell scripts: force LF on checkout so they run on Windows (e.g. WSL) and Unix
+*.sh text eol=lf
