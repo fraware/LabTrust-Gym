@@ -119,7 +119,7 @@ def run_determinism_report(
     Returns (passed, report_dict, markdown_text).
     Asserts: episode log sha256 identical; results canonical sha256 identical;
     v0.2 metrics canonical identical; receipts bundle root hash identical (when export succeeds).
-    For TaskG_COORD_SCALE / TaskH_COORD_RISK, coord_method is required (or defaulted to kernel_centralized_edf).
+    For coord_scale / coord_risk, coord_method is required (or defaulted to kernel_centralized_edf).
     """
     if repo_root is None:
         from labtrust_gym.config import get_repo_root
@@ -129,7 +129,7 @@ def run_determinism_report(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    if task_name in ("TaskG_COORD_SCALE", "TaskH_COORD_RISK") and coord_method is None:
+    if task_name in ("coord_scale", "coord_risk") and coord_method is None:
         coord_method = "kernel_centralized_edf"
 
     errors: list[str] = []

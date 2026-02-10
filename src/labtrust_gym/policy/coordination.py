@@ -20,7 +20,8 @@ from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 def load_coordination_methods(path: Path | str) -> dict[str, dict[str, Any]]:
     """
     Load coordination method registry from YAML.
-    Returns dict method_id -> method entry. Path may be relative to cwd or absolute.
+    Returns dict method_id -> method entry.
+    Path may be relative to cwd or absolute.
     """
     p = Path(path)
     if not p.is_absolute():
@@ -28,12 +29,12 @@ def load_coordination_methods(path: Path | str) -> dict[str, dict[str, Any]]:
     data = load_yaml(p)
     root = data.get("coordination_methods")
     if root is None:
-        raise PolicyLoadError(p, "missing top-level key 'coordination_methods'")
+        raise PolicyLoadError(p, "missing top-level 'coordination_methods'")
     raw_list = root.get("methods")
     if not isinstance(raw_list, list):
         raise PolicyLoadError(
             p,
-            f"coordination_methods.methods must be a list, got {type(raw_list).__name__}",
+            f"coordination_methods.methods must be list, got {type(raw_list).__name__}",
         )
     out: dict[str, dict[str, Any]] = {}
     for entry in raw_list:
@@ -43,6 +44,27 @@ def load_coordination_methods(path: Path | str) -> dict[str, dict[str, Any]]:
         if method_id and isinstance(method_id, str):
             out[method_id] = dict(entry)
     return out
+
+
+def resolve_method_variant(
+    method_id: str,
+    methods_registry: dict[str, dict[str, Any]],
+) -> tuple[str, str | None]:
+    """
+    Resolve a method_id to its base method and optional defense profile.
+    If the entry has base_method, returns (base_method_id, defense_profile).
+    Otherwise returns (method_id, None).
+    """
+    entry = methods_registry.get(method_id) if methods_registry else None
+    if not entry:
+        return (method_id, None)
+    base = entry.get("base_method")
+    if not base or not isinstance(base, str):
+        return (method_id, None)
+    profile = entry.get("defense_profile")
+    if profile is not None and not isinstance(profile, str):
+        profile = None
+    return (base, profile)
 
 
 def load_method_risk_matrix(path: Path | str) -> dict[str, Any]:
@@ -56,12 +78,12 @@ def load_method_risk_matrix(path: Path | str) -> dict[str, Any]:
     data = load_yaml(p)
     root = data.get("method_risk_matrix")
     if root is None:
-        raise PolicyLoadError(p, "missing top-level key 'method_risk_matrix'")
+        raise PolicyLoadError(p, "missing top-level 'method_risk_matrix'")
     cells = root.get("cells")
     if not isinstance(cells, list):
         raise PolicyLoadError(
             p,
-            f"method_risk_matrix.cells must be a list, got {type(cells).__name__}",
+            f"method_risk_matrix.cells must be list, got {type(cells).__name__}",
         )
     return {
         "matrix_id": str(root.get("matrix_id", "")),
@@ -123,4 +145,37 @@ def load_risk_to_injection_map(path: Path | str | None = None) -> dict[str, list
                 if isinstance(ids_raw, list)
                 else ([str(ids_raw)] if ids_raw else [])
             )
+    return out
+
+
+def injection_id_to_risk_id_map(
+    map_path: Path | str | None = None,
+) -> dict[str, str]:
+    """
+    Build injection_id -> risk_id from risk_to_injection map (first risk that lists
+    the injection). Used when a single risk_id per row is needed (backward compat).
+    """
+    risk_to_inj = load_risk_to_injection_map(map_path)
+    out: dict[str, str] = {}
+    for risk_id, injection_ids in risk_to_inj.items():
+        for iid in injection_ids:
+            if iid and iid not in out:
+                out[iid] = risk_id
+    return out
+
+
+def injection_id_to_risk_ids_map(
+    map_path: Path | str | None = None,
+) -> dict[str, list[str]]:
+    """
+    Build injection_id -> list of risk_ids that this injection covers (from
+    risk_to_injection map). Used by study runner so one cell can produce
+    multiple summary rows (one per risk_id) for coverage gate.
+    """
+    risk_to_inj = load_risk_to_injection_map(map_path)
+    out: dict[str, list[str]] = {}
+    for risk_id, injection_ids in risk_to_inj.items():
+        for iid in injection_ids:
+            if iid:
+                out.setdefault(iid, []).append(risk_id)
     return out

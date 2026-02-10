@@ -1,0 +1,80 @@
+# Coordination security pack matrix config v0.1.
+# Default (fixed): small matrix for CI/nightly. Override via CLI --methods-from / --injections-from
+# or use "full" / "policy" to run all methods or all implemented injections.
+
+version: "0.1"
+description: "Method, scale, and injection lists for coordination security pack; default = fixed (backward compatible)."
+
+# Default fixed matrix (same as previous hardcoded PACK_*)
+# full: canonical list of coordination methods to security-stress (all from coordination_methods.v0.1 minus exclusions).
+# Exclusions: marl_ppo (no checkpoint in repo), group_evolving_study (study-only placeholder).
+method_ids:
+  default:
+    - kernel_auction_whca_shielded
+    - llm_repair_over_kernel_whca
+    - llm_local_decider_signed_bus
+  full:
+    - centralized_planner
+    - gossip_consensus
+    - group_evolving_experience_sharing
+    - hierarchical_hub_local
+    - hierarchical_hub_rr
+    - kernel_centralized_edf
+    - kernel_scheduler_or
+    - kernel_scheduler_or_whca
+    - kernel_whca
+    - llm_auction_bidder
+    - llm_auction_bidder_shielded
+    - llm_auction_bidder_with_safe_fallback
+    - llm_central_planner
+    - llm_central_planner_shielded
+    - llm_central_planner_with_safe_fallback
+    - llm_constrained
+    - llm_detector_throttle_advisor
+    - llm_gossip_summarizer
+    - llm_hierarchical_allocator
+    - llm_hierarchical_allocator_shielded
+    - llm_hierarchical_allocator_with_safe_fallback
+    - llm_local_decider_signed_bus
+    - llm_repair_over_kernel_whca
+    - market_auction
+    - ripple_effect
+    - swarm_reactive
+
+scale_ids:
+  default:
+    - small_smoke
+    - medium_stress_signed_bus
+
+# Matrix presets: single flag runs a tailored matrix (scale_ids + method_ids + injection_ids).
+# hospital_lab: lab-suited scales, kernel + shielded LLM methods, critical injections.
+matrix_presets:
+  hospital_lab:
+    scale_ids:
+      - small_smoke
+      - medium_stress_signed_bus
+    method_ids:
+      - kernel_auction_whca_shielded
+      - llm_repair_over_kernel_whca
+      - llm_local_decider_signed_bus
+      - llm_detector_throttle_advisor
+    injection_ids:
+      - none
+      - INJ-ID-SPOOF-001
+      - INJ-COMMS-POISON-001
+      - INJ-COORD-PROMPT-INJECT-001
+
+# Injection list "default" = fixed set; "critical" = short high-signal subset; "policy" = all from injections.v0.2 that exist in INJECTION_REGISTRY (loaded at runtime).
+injection_ids:
+  default:
+    - none
+    - INJ-ID-SPOOF-001
+    - INJ-COMMS-POISON-001
+    - INJ-COORD-PROMPT-INJECT-001
+    - INJ-CONSENSUS-POISON-001
+    - INJ-TIMING-QUEUE-001
+  critical:
+    - none
+    - INJ-ID-SPOOF-001
+    - INJ-COMMS-POISON-001
+    - INJ-COORD-PROMPT-INJECT-001

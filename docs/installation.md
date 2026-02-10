@@ -38,7 +38,34 @@ Optional env vars (all have defaults or CLI overrides):
 | `LABTRUST_LOCAL_LLM_MODEL` | Model name for local LLM (e.g. `llama3.2`). Used when `--llm-backend ollama_live`. |
 | `LABTRUST_LOCAL_LLM_TIMEOUT` | Request timeout in seconds for local LLM. Default: 60. |
 
-If you want to use a `.env` file (e.g. for local overrides), load it yourself before running (e.g. `python-dotenv` in a wrapper script, or `export $(grep -v '^#' .env | xargs)` in bash before `labtrust`).
+### Loading a .env file (optional)
+
+The code **does not load `.env` automatically**. If you use a `.env` file for API keys or other overrides, you must load it yourself **before** running any command; otherwise you may see "provider X doesn't work" when the cause is missing env injection.
+
+**macOS / Linux (bash/zsh):**
+
+```bash
+set -a
+source .env
+set +a
+```
+
+**Windows (PowerShell):**
+
+```powershell
+Get-Content .env | ForEach-Object {
+  if ($_ -match '^\s*#') { return }
+  if ($_ -match '^\s*$') { return }
+  $k,$v = $_ -split '=',2
+  [System.Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim().Trim('"'), "Process")
+}
+```
+
+**Sanity check (any OS):**
+
+```bash
+python -c "import os; print('OPENAI', bool(os.getenv('OPENAI_API_KEY'))); print('ANTHROPIC', bool(os.getenv('ANTHROPIC_API_KEY')))"
+```
 
 ### LLMs: no API keys required by default
 
@@ -47,11 +74,11 @@ The **LLM baselines** (benchmarks, tests, quick-eval) do **not** call any extern
 - **DeterministicConstrainedBackend** — Official LLM baseline: chooses from allowed actions with a **seeded RNG**; no network, no API key.
 - **MockDeterministicBackend** / **MockDeterministicBackendV2** — Canned JSON responses for tests; no API.
 
-So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. To run benchmarks with a **live** LLM: use `labtrust run-benchmark --llm-backend openai_live` (requires `OPENAI_API_KEY`; incurs API cost) or `--llm-backend ollama_live` (local Ollama; set `LABTRUST_LOCAL_LLM_URL`, `LABTRUST_LOCAL_LLM_MODEL`, optionally `LABTRUST_LOCAL_LLM_TIMEOUT`). Live runs are non-deterministic. See [LLM baselines](llm_baselines.md) and [Live LLM benchmark mode](llm_live.md).
+So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. To run benchmarks with a **live** LLM: use `labtrust run-benchmark --llm-backend openai_live` or `openai_responses` (requires `OPENAI_API_KEY`; install `.[llm_openai]`), `--llm-backend anthropic_live` (requires `ANTHROPIC_API_KEY`; install `.[llm_anthropic]`), or `--llm-backend ollama_live` (local Ollama; set `LABTRUST_LOCAL_LLM_URL`, `LABTRUST_LOCAL_LLM_MODEL`, optionally `LABTRUST_LOCAL_LLM_TIMEOUT`). Live runs are non-deterministic. See [LLM baselines](llm_baselines.md) and [Live LLM benchmark mode](llm_live.md).
 
 ## Quick eval
 
-After installing with `[env,plots]`, run a minimal sanity check (1 episode each of TaskA, TaskD, TaskE with scripted baselines):
+After installing with `[env,plots]`, run a minimal sanity check (1 episode each of throughput_sla, adversarial_disruption, multi_site_stat with scripted baselines):
 
 ```bash
 labtrust quick-eval
@@ -59,7 +86,7 @@ labtrust quick-eval
 
 This:
 
-1. Runs 1 episode of **TaskA** (scripted ops + runners), **TaskD** (with adversary), and **TaskE** (throughput baseline).
+1. Runs 1 episode of **throughput_sla** (scripted ops + runners), **adversarial_disruption** (with adversary), and **multi_site_stat** (throughput baseline).
 2. Writes results and episode logs under `./labtrust_runs/quick_eval_<timestamp>/`.
 3. Prints a markdown summary to stdout (throughput, violation count, blocked count per task).
 
@@ -75,13 +102,13 @@ Example output:
 
 Run: 20250115_120000
 Seed: 42
-Tasks: TaskA, TaskD, TaskE
+Tasks: throughput_sla, adversarial_disruption, multi_site_stat
 
 | Task | Throughput | Violations | Blocked |
 |------|------------|------------|--------|
-| TaskA | 2 | 0 | 0 |
-| TaskD | 1 | 0 | 0 |
-| TaskE | 1 | 0 | 0 |
+| throughput_sla | 2 | 0 | 0 |
+| adversarial_disruption | 1 | 0 | 0 |
+| multi_site_stat | 1 | 0 | 0 |
 
 Logs: `labtrust_runs/quick_eval_20250115_120000/logs`
 ```
@@ -158,7 +185,7 @@ print(f"CUDA available? {torch.cuda.is_available()}")  # False is correct for AM
 
 For MARL (PPO) and related tests, see [MARL baselines](marl_baselines.md).
 
-**Quickstart (paper artifact):** From repo root, run `bash scripts/quickstart_paper_v0.1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows). Runs: install → validate-policy → quick-eval → package-release paper_v0.1 → verify-bundle. See [CONTRACTS](CONTRACTS.md) and [Paper-ready](paper_ready.md).
+**Quickstart (paper artifact):** From repo root, run `bash scripts/quickstart_paper_v0.1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows). Runs: install → validate-policy → quick-eval → package-release paper_v0.1 → verify-bundle. See [Frozen contracts](frozen_contracts.md) and [Paper-ready](paper_ready.md).
 
 **UI export:** To produce a UI-ready zip from a run (quick-eval or package-release output): `labtrust ui-export --run <dir> --out ui_bundle.zip`. The bundle contains normalized `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. See [UI data contract](ui_data_contract.md).
 
@@ -170,7 +197,7 @@ For MARL (PPO) and related tests, see [MARL baselines](marl_baselines.md).
 | **labtrust: command not found** | Package not on PATH or not installed | Use `python -m labtrust_gym.cli.main` or reinstall with `pip install -e .` |
 | **Policy file not found** | Policy path not resolved | Set `LABTRUST_POLICY_DIR` to repo `policy/` when developing; from wheel, policy is bundled. |
 | **Schema validation failed** | Policy YAML/JSON doesn't match schema | Run `labtrust validate-policy`; fix reported files. For partner: `labtrust validate-policy --partner hsl_like`. |
-| **Schema mismatch (results/receipt/UI bundle)** | Results or receipt schema version changed | Use schema version in file (`schema_version` / `ui_bundle_version`); UI and tools should ignore unknown optional fields (extensible-only policy). See [CONTRACTS](CONTRACTS.md) and [UI data contract](ui_data_contract.md). |
+| **Schema mismatch (results/receipt/UI bundle)** | Results or receipt schema version changed | Use schema version in file (`schema_version` / `ui_bundle_version`); UI and tools should ignore unknown optional fields (extensible-only policy). See [Frozen contracts](frozen_contracts.md) and [UI data contract](ui_data_contract.md). |
 | **quick-eval / run-benchmark fails** | Missing env or plots | Install with `[env,plots]`: `pip install labtrust-gym[env,plots]`. |
 | **MARL / train-ppo fails** | Missing `[marl]` | `pip install -e ".[marl]"` (Stable-Baselines3). |
 | **MkDocs build fails** | Missing `[docs]` | `pip install -e ".[docs]"`. |

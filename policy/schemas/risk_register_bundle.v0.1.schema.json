@@ -116,7 +116,7 @@
         "evidence_id": { "type": "string" },
         "type": {
           "type": "string",
-          "enum": ["security_suite", "coordination_study", "official_pack", "safety_case", "bundle_verification", "other"]
+          "enum": ["security_suite", "coordination_study", "coordination_pack", "official_pack", "safety_case", "bundle_verification", "other"]
         },
         "path": { "type": "string", "description": "Repo-relative or run-relative path; empty or omitted for status=missing stubs." },
         "label": { "type": "string" },

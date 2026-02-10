@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coordination_decision.v0.1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind",
+    "generated_at",
+    "run_dir",
+    "policy_id",
+    "verdict",
+    "scale_decisions",
+    "risk_register_linkage"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.1" },
+    "kind": { "type": "string", "const": "coordination_decision" },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "run_dir": { "type": "string", "minLength": 1 },
+    "policy_id": { "type": "string", "minLength": 1 },
+    "policy_path": { "type": "string" },
+    "summary_source": { "type": "string" },
+    "verdict": {
+      "type": "string",
+      "enum": ["admissible", "no_admissible_method", "security_gate_failed"]
+    },
+    "scale_decisions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scale_decision" }
+    },
+    "security_gate_failed": {
+      "description": "Present when verdict is security_gate_failed (one or more pack cells failed the gate).",
+      "type": "object",
+      "properties": {
+        "failed_cells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scale_id": { "type": "string" },
+              "method_id": { "type": "string" },
+              "injection_id": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "no_admissible_method": {
+      "description": "Present when verdict is no_admissible_method.",
+      "type": "object",
+      "properties": {
+        "violated_constraints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/violated_constraint" }
+        },
+        "recommended_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "risk_register_linkage": {
+      "type": "object",
+      "required": [
+        "chosen_method_evidence",
+        "rejected_others_rationale",
+        "residual_risk_statement"
+      ],
+      "properties": {
+        "chosen_method_evidence": { "type": "string" },
+        "rejected_others_rationale": { "type": "string" },
+        "residual_risk_statement": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "scale_decision": {
+      "type": "object",
+      "required": ["scale_id", "admissible_methods", "disqualified"],
+      "properties": {
+        "scale_id": { "type": "string" },
+        "chosen_method_id": { "type": ["string", "null"] },
+        "overall_score": { "type": ["number", "null"] },
+        "rank": { "type": ["integer", "null"], "minimum": 1 },
+        "admissible_methods": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/candidate" }
+        },
+        "disqualified": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/disqualified_method" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["method_id"],
+      "properties": {
+        "method_id": { "type": "string" },
+        "overall_score": { "type": ["number", "null"] },
+        "rank": { "type": ["integer", "null"], "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "disqualified_method": {
+      "type": "object",
+      "required": ["method_id", "violated_constraints"],
+      "properties": {
+        "method_id": { "type": "string" },
+        "reason": { "type": "string" },
+        "violated_constraints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/violated_constraint" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "violated_constraint": {
+      "type": "object",
+      "required": ["constraint_id", "metric_key", "threshold", "actual"],
+      "properties": {
+        "constraint_id": { "type": "string" },
+        "metric_key": { "type": "string" },
+        "threshold": { "type": "number" },
+        "actual": { "type": ["number", "null"] },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

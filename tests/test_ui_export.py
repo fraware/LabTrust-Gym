@@ -25,21 +25,21 @@ def _repo_root() -> Path:
 
 
 def _quick_eval_fixture_dir(tmp_path: Path) -> Path:
-    """Create a minimal quick_eval layout: TaskA.json + logs/TaskA.jsonl."""
+    """Create a minimal quick_eval layout: throughput_sla.json + logs/throughput_sla.jsonl."""
     run_dir = tmp_path / "quick_eval_fixture"
     run_dir.mkdir(parents=True)
     logs_dir = run_dir / "logs"
     logs_dir.mkdir(parents=True)
-    # Copy or create TaskA.json (results.v0.2 shape)
+    # Copy or create throughput_sla.json (results.v0.2 shape)
     results_src = _repo_root() / "ui_fixtures" / "results_v0.2.json"
     if results_src.exists():
-        (run_dir / "TaskA.json").write_text(results_src.read_text(encoding="utf-8"), encoding="utf-8")
+        (run_dir / "throughput_sla.json").write_text(results_src.read_text(encoding="utf-8"), encoding="utf-8")
     else:
-        (run_dir / "TaskA.json").write_text(
+        (run_dir / "throughput_sla.json").write_text(
             json.dumps(
                 {
                     "schema_version": "0.2",
-                    "task": "TaskA",
+                    "task": "throughput_sla",
                     "num_episodes": 1,
                     "episodes": [{"seed": 42, "metrics": {"throughput": 2}}],
                 },
@@ -49,7 +49,7 @@ def _quick_eval_fixture_dir(tmp_path: Path) -> Path:
         )
     log_src = _repo_root() / "ui_fixtures" / "episode_log.jsonl"
     if log_src.exists():
-        (logs_dir / "TaskA.jsonl").write_text(log_src.read_text(encoding="utf-8"), encoding="utf-8")
+        (logs_dir / "throughput_sla.jsonl").write_text(log_src.read_text(encoding="utf-8"), encoding="utf-8")
     else:
         line = json.dumps(
             {
@@ -64,12 +64,12 @@ def _quick_eval_fixture_dir(tmp_path: Path) -> Path:
                 "event_id": "ev_0",
             }
         )
-        (logs_dir / "TaskA.jsonl").write_text(line + "\n", encoding="utf-8")
+        (logs_dir / "throughput_sla.jsonl").write_text(line + "\n", encoding="utf-8")
     return run_dir
 
 
 def test_detect_run_type_quick_eval(tmp_path: Path) -> None:
-    """quick_eval layout (TaskA.json + logs/) is detected."""
+    """quick_eval layout (throughput_sla.json + logs/) is detected."""
     run_dir = _quick_eval_fixture_dir(tmp_path)
     assert _detect_run_type(run_dir) == "quick_eval"
 
@@ -99,10 +99,10 @@ def test_normalize_event() -> None:
         "t_s": 10,
         "event_id": "ev_0",
     }
-    out = _normalize_event(raw, task="TaskA", episode_index=0)
-    assert out["task"] == "TaskA"
+    out = _normalize_event(raw, task="throughput_sla", episode_index=0)
+    assert out["task"] == "throughput_sla"
     assert out["episode_index"] == 0
-    assert out["episode_key"] == "TaskA_0"
+    assert out["episode_key"] == "throughput_sla_0"
     assert out["action_type"] == "CREATE_ACCESSION"
     assert out["status"] == "ACCEPTED"
     assert out["t_s"] == 10
@@ -124,7 +124,7 @@ def test_export_ui_bundle_quick_eval(tmp_path: Path) -> None:
         index = json.loads(zf.read("index.json"))
         assert index["ui_bundle_version"] == UI_BUNDLE_VERSION
         assert index["run_type"] == "quick_eval"
-        assert "TaskA" in index["tasks"]
+        assert "throughput_sla" in index["tasks"]
         assert len(index["episodes"]) >= 1
         events = json.loads(zf.read("events.json"))
         assert isinstance(events, list)

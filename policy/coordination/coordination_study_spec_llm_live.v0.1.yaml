@@ -1,0 +1,53 @@
+# LLM-only coordination study spec: run with --llm-backend openai_live, ollama_live, or anthropic_live.
+# Lists only coordination methods that use LLM; for "all coordination methods as LLM and live" workflow.
+# Use: labtrust run-coordination-study --spec policy/coordination/coordination_study_spec_llm_live.v0.1.yaml --out <dir> --llm-backend openai_live
+# Set LABTRUST_ALLOW_NETWORK=1 or --allow-network and provide API keys in .env as needed.
+
+study_id: "coordination_llm_live_v0.1"
+version: "0.1"
+seed_base: 42
+episodes_per_cell: 2
+
+scales:
+  - name: num_agents
+    values: [2, 4]
+  - name: num_sites
+    values: [1]
+  - name: num_devices
+    values: [2, 4]
+  - name: arrival_rate
+    values: [1.0]
+  - name: horizon_steps
+    values: [100]
+
+methods:
+  - llm_constrained
+  - llm_central_planner
+  - llm_hierarchical_allocator
+  - llm_auction_bidder
+  - llm_central_planner_shielded
+  - llm_hierarchical_allocator_shielded
+  - llm_auction_bidder_shielded
+  - llm_central_planner_with_safe_fallback
+  - llm_hierarchical_allocator_with_safe_fallback
+  - llm_auction_bidder_with_safe_fallback
+  - llm_gossip_summarizer
+  - llm_local_decider_signed_bus
+  - llm_repair_over_kernel_whca
+  - llm_detector_throttle_advisor
+
+risks:
+  - R-CAP-001
+  - R-TOOL-001
+  - R-SYS-001
+
+injections:
+  - injection_id: INJ-COMMS-POISON-001
+    intensity: 0.2
+    seed_offset: 300
+  - injection_id: INJ-COORD-PROMPT-INJECT-001
+    intensity: 1
+    seed_offset: 400
+  - injection_id: INJ-ID-SPOOF-001
+    intensity: 0.5
+    seed_offset: 401

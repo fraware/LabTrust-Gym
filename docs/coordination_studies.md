@@ -6,7 +6,7 @@ This document describes how to run the policy-driven coordination study and how 
 
 ## Overview
 
-The coordination study runner executes a deterministic experiment matrix: for each cell **(scale x method x injection)** it runs a fixed number of episodes (TaskH_COORD_RISK), writes per-cell results in the existing results v0.2 format (with optional `coordination` and `security` blocks), then aggregates a summary CSV and a Pareto front report. A separate **internal regression pack** (fixed matrix, 1 ep/cell, gate thresholds) is run with `labtrust run-coordination-security-pack --out <dir>`; see [Security attack suite – Coordination security pack](security_attack_suite.md#coordination-security-pack-internal-regression).
+The coordination study runner executes a deterministic experiment matrix: for each cell **(scale x method x injection)** it runs a fixed number of episodes (coord_risk), writes per-cell results in the existing results v0.2 format (with optional `coordination` and `security` blocks), then aggregates a summary CSV and a Pareto front report. A separate **internal regression pack** (fixed matrix, 1 ep/cell, gate thresholds) is run with `labtrust run-coordination-security-pack --out <dir>`; see [Security attack suite – Coordination security pack](security_attack_suite.md#coordination-security-pack-internal-regression). For **hospital lab**: run the pack (optionally with `--matrix-preset hospital_lab`), then `labtrust build-lab-coordination-report --pack-dir <dir>` to get SOTA leaderboard, coordination decision, and `LAB_COORDINATION_REPORT.md`; see [Lab coordination report](lab_coordination_report.md).
 
 ## Running a study
 
@@ -30,10 +30,27 @@ labtrust run-coordination-study --spec policy/coordination/coordination_study_sp
 
 With **`LABTRUST_REPRO_SMOKE=1`** in the environment, episodes per cell are capped to 1 for fast smoke runs. The study spec may include both **INJ-*** injection IDs (full injectors) and **legacy** IDs (e.g. `inj_tool_selection_noise`); legacy IDs use a passthrough NoOpInjector so all cells run without error.
 
+### LLM-only with live backends
+
+To run all coordination methods as **LLM-based, multi-agent, with live backends** (OpenAI, Ollama, or Anthropic), use the dedicated LLM-only spec and set `--llm-backend`:
+
+```bash
+labtrust run-coordination-study --spec policy/coordination/coordination_study_spec_llm_live.v0.1.yaml --out <dir> --llm-backend openai_live
+```
+
+Or with Ollama or Anthropic:
+
+```bash
+labtrust run-coordination-study --spec policy/coordination/coordination_study_spec_llm_live.v0.1.yaml --out <dir> --llm-backend ollama_live
+labtrust run-coordination-study --spec policy/coordination/coordination_study_spec_llm_live.v0.1.yaml --out <dir> --llm-backend anthropic_live
+```
+
+Use `--allow-network` or set `LABTRUST_ALLOW_NETWORK=1` and provide the appropriate API keys (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) in the environment or `.env`. Token usage and latency depend on the live backend; scale configs (e.g. `small_smoke`, `medium_stress_signed_bus`) are the same as for deterministic runs. See [Coordination methods audit](coordination_methods_audit.md) for which methods support live backends.
+
 **LLM coordination protocol–targeted injections** (`policy/coordination/injections.v0.2.yaml`): `INJ-COORD-PROMPT-INJECT-001` (malicious instruction in coordination context; success = shield blocks or disallowed action), `INJ-COORD-PLAN-REPLAY-001` (replay of signed plan after epoch superseded; blocked by replay/epoch binding when enabled), `INJ-COORD-BID-SHILL-001` (auction bidder shilling; success = gini up + on_time down; stealth if no detection). Each is deterministic and mapped to `risk_registry.v0.1` and `method_risk_matrix.v0.1`. To run a single cell for one of these injections:
 
 ```bash
-labtrust run-benchmark --task TaskH_COORD_RISK --episodes 1 --seed 42 --out results.json --coord-method kernel_auction_whca_shielded --injection INJ-COORD-PROMPT-INJECT-001
+labtrust run-benchmark --task coord_risk --episodes 1 --seed 42 --out results.json --coord-method kernel_auction_whca_shielded --injection INJ-COORD-PROMPT-INJECT-001
 ```
 
 Results include `sec.attack_success_rate`, `sec.stealth_success_rate`, `sec.blast_radius_proxy`. Unit and integration tests: `tests/test_coord_protocol_injections.py`.
@@ -83,8 +100,12 @@ The spec YAML must include:
       episodes.jsonl             # optional step log
   summary/
     summary_coord.csv            # one row per cell
-    coverage_missing.json        # written by preflight when required risks have no covering injection (non-strict)
     pareto.md                   # Pareto front and robust winner
+    sota_leaderboard.csv        # per-method means (throughput_mean, violations_mean, resilience_score_mean, stealth_success_rate_mean)
+    sota_leaderboard.md         # leaderboard markdown table
+    method_class_comparison.csv # per-class means (centralized vs ripple vs evolving vs auctions vs kernel_schedulers)
+    method_class_comparison.md  # method-class comparison markdown table
+    coverage_missing.json        # written by preflight when required risks have no covering injection (non-strict)
   PARETO/                        # multi-objective evaluation (v0.1)
     pareto.json                  # nondominated fronts, per-method CIs (v0.3 extension)
     pareto.md                    # interpretation + fronts + CIs
@@ -115,6 +136,21 @@ The spec YAML must include:
 | cost.estimated_cost_usd | Estimated LLM API cost in USD when model pricing exists (null otherwise). |
 | llm.error_rate | Mean LLM call error rate over episodes (0 for deterministic). |
 | llm.invalid_output_rate | Mean rate of schema violations / parse fallbacks (invalid outputs per call). |
+
+## SOTA leaderboard and method-class comparison
+
+The study runner (and the standalone `summarize-coordination` command) produces:
+
+- **SOTA leaderboard**: One row per method with `throughput_mean`, `violations_mean`, `resilience_score_mean`, `stealth_success_rate_mean` (means over all cells for that method), plus `n_cells`. Written as `summary/sota_leaderboard.csv` and `summary/sota_leaderboard.md`.
+- **Method-class comparison**: Same metrics aggregated by *method class* (centralized, ripple, evolving, auctions, kernel_schedulers, and optionally decentralized, swarm, llm, other). Written as `summary/method_class_comparison.csv` and `summary/method_class_comparison.md`.
+
+To generate or refresh these from an existing run directory (e.g. after copying summary_coord.csv):
+
+```bash
+labtrust summarize-coordination --in <run_dir> --out <out_dir>
+```
+
+Input: `--in` must contain `summary/summary_coord.csv` or `summary_coord.csv`. Output: `--out` receives `summary/sota_leaderboard.csv`, `sota_leaderboard.md`, `method_class_comparison.csv`, `method_class_comparison.md`. You can use the same path for `--in` and `--out` to add the aggregation artifacts to an existing run.
 
 ## Interpreting the Pareto report
 

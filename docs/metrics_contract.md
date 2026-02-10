@@ -23,14 +23,14 @@ This document defines units, when each metric is meaningful (explicit vs simulat
 | **tokens_consumed** | count | Both | Sum or mean; v0.2 regression: integer only |
 | **holds_count** | count | Both | Sum or mean; v0.2 regression: integer only |
 | **steps** | count | Both | Mean, std; v0.2 regression: integer only |
-| **transport_consignment_count** | count | Both (TaskE) | Sum or mean |
-| **transport_temp_excursions** | count | Both (TaskE) | Sum or mean |
-| **coc_breaks_count** | count | Both (TaskE) | Sum or mean |
-| **detection_latency_s** | seconds | TaskD | Mean over episodes with value |
-| **containment_success** | boolean | TaskD | Fraction true (0 or 1 per episode) |
-| **time_to_first_detected_security_violation** | seconds | TaskF | Mean over episodes with value |
-| **fraction_of_attacks_contained** | [0, 1] | TaskF | Mean over episodes |
-| **forensic_quality_score** | [0, 1] | TaskF | Mean over episodes |
+| **transport_consignment_count** | count | Both (multi_site_stat) | Sum or mean |
+| **transport_temp_excursions** | count | Both (multi_site_stat) | Sum or mean |
+| **coc_breaks_count** | count | Both (multi_site_stat) | Sum or mean |
+| **detection_latency_s** | seconds | adversarial_disruption | Mean over episodes with value |
+| **containment_success** | boolean | adversarial_disruption | Fraction true (0 or 1 per episode) |
+| **time_to_first_detected_security_violation** | seconds | insider_key_misuse | Mean over episodes with value |
+| **fraction_of_attacks_contained** | [0, 1] | insider_key_misuse | Mean over episodes |
+| **forensic_quality_score** | [0, 1] | insider_key_misuse | Mean over episodes |
 | **device_utilization** | per-device [0, 1] | **Simulated only** | Mean over episodes (per device); v0.3 |
 | **device_queue_length_mean** | per-device float | **Simulated only** | Mean over episodes; v0.3 |
 | **device_queue_length_max** | per-device integer | **Simulated only** | Max over episodes; v0.3 |

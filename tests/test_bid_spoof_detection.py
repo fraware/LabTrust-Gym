@@ -135,7 +135,7 @@ def test_taskh_auction_bid_spoof_smoke(tmp_path) -> None:
         pytest.skip("repo root with policy not found")
     out = tmp_path / "results_taskh_auction.json"
     run_benchmark(
-        task_name="TaskH_COORD_RISK",
+        task_name="coord_risk",
         num_episodes=1,
         base_seed=99,
         out_path=out,

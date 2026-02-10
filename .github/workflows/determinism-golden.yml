@@ -1,0 +1,35 @@
+# Determinism and golden suite: run when core paths change (engine, runner, benchmarks/runner, coordination studies).
+# Use as required status check for PRs that touch these paths.
+# Also runs on schedule and workflow_dispatch from main ci.yml determinism-golden job.
+
+name: Determinism and golden
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/labtrust_gym/engine/**"
+      - "src/labtrust_gym/runner/**"
+      - "src/labtrust_gym/benchmarks/runner.py"
+      - "src/labtrust_gym/studies/coordination_*"
+      - "src/labtrust_gym/studies/coordination_*/**"
+      - "tests/test_golden_suite.py"
+      - "tests/test_determinism_report.py"
+
+jobs:
+  determinism-golden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: Determinism report (throughput_sla, 3 episodes, seed 42)
+        run: |
+          labtrust determinism-report --task throughput_sla --episodes 3 --seed 42 --out ./det_report
+          test -f det_report/determinism_report.json
+          test -f det_report/determinism_report.md
+      - name: Full golden suite
+        run: LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q

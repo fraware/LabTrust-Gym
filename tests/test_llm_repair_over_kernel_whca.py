@@ -19,10 +19,10 @@ def _run_taskh_one_episode(
     injection_id: str,
     seed: int = 42,
 ) -> dict:
-    """Run TaskH_COORD_RISK one episode with llm_repair_over_kernel_whca and injection."""
+    """Run coord_risk one episode with llm_repair_over_kernel_whca and injection."""
     out = tmp_path / "results.json"
     run_benchmark(
-        task_name="TaskH_COORD_RISK",
+        task_name="coord_risk",
         num_episodes=1,
         base_seed=seed,
         out_path=out,

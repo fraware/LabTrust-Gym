@@ -117,7 +117,7 @@ def test_results_v02_v03_schema_compatibility_episode_metrics() -> None:
 # Minimal v0.2-valid results fixture for summarize-results tests.
 FIXTURE_RESULTS_V02 = {
     "schema_version": "0.2",
-    "task": "TaskA",
+    "task": "throughput_sla",
     "seeds": [10, 11],
     "episodes": [
         {"seed": 10, "metrics": {"throughput": 4, "steps": 80, "holds_count": 0}},

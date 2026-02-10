@@ -100,8 +100,8 @@ def test_reproduce_no_outbound_and_logs_network_disabled(tmp_path: Path) -> None
         "network disabled" in captured or "network=disabled" in captured
     ), f"Logs must state network disabled; stderr: {captured!r}"
     assert NETWORK_BLOCKED_MSG not in captured, "No outbound attempt should occur"
-    assert (out_dir / "taska").is_dir()
-    assert (out_dir / "taskc").is_dir()
+    assert (out_dir / "throughput_sla").is_dir()
+    assert (out_dir / "qc_cascade").is_dir()
 
 
 def test_llm_live_mocked_client_call_made_and_logged() -> None:

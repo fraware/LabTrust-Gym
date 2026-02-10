@@ -1,9 +1,0 @@
-task: TaskF
-episodes: 50
-seed_base: 100
-timing_mode: explicit
-ablations:
-  strict_signatures:
-  - false
-  - true
-agent_config: scripted_runner

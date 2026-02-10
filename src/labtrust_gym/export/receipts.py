@@ -579,8 +579,9 @@ def write_evidence_bundle(
                     f.write(_canonical_json(row) + "\n")
     written_files.append("enforcement_actions.jsonl")
 
-    # hashchain_proof.json
+    # hashchain_proof.json: head/last_event from last entry; length = len(entries) so verifier passes
     hc = _hashchain_from_entries(entries)
+    hc["length"] = len(entries)
     proof_path = bundle_dir / "hashchain_proof.json"
     proof_path.write_text(_canonical_json(hc) + "\n", encoding="utf-8")
     written_files.append("hashchain_proof.json")

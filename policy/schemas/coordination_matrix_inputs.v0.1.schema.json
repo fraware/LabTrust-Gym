@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coordination_matrix_inputs.v0.1.schema.json",
+  "title": "Coordination Matrix Inputs v0.1",
+  "description": "Policy defining admissible inputs and metrics for the coordination-resilience matrix. llm_live only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "scope", "clean_metrics", "attack_metrics", "hard_gates", "tie_breakers"],
+  "properties": {
+    "version": { "type": "string", "const": "v0.1" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pipeline_modes_allowed", "notes", "coordination_methods", "scales"],
+      "properties": {
+        "pipeline_modes_allowed": {
+          "type": "array",
+          "items": { "type": "string", "const": "llm_live" },
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "notes": { "type": "string", "minLength": 1 },
+        "coordination_methods": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "scales": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "clean_metrics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/metric_definition" },
+      "minItems": 1
+    },
+    "attack_metrics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/metric_definition" },
+      "minItems": 1
+    },
+    "hard_gates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gate" }
+    },
+    "tie_breakers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "metric_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric_id", "description", "source", "direction", "unit", "normalization"],
+      "properties": {
+        "metric_id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "source": { "type": "string" },
+        "direction": { "type": "string", "enum": ["lower_is_better", "higher_is_better"] },
+        "unit": { "type": "string" },
+        "normalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "clip_percentiles", "epsilon"],
+          "properties": {
+            "method": { "type": "string", "enum": ["robust_minmax"] },
+            "clip_percentiles": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "epsilon": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_id", "description", "predicate", "on_fail"],
+      "properties": {
+        "gate_id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "predicate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metric_id", "op", "threshold"],
+          "properties": {
+            "metric_id": { "type": "string" },
+            "op": { "type": "string", "enum": ["<", "<=", ">", ">=", "==", "!="] },
+            "threshold": { "type": "number" }
+          }
+        },
+        "on_fail": { "type": "string", "enum": ["disqualify", "penalize"] },
+        "penalty": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "if": { "properties": { "on_fail": { "const": "penalize" } }, "required": ["on_fail"] },
+      "then": { "required": ["penalty"] }
+    }
+  }
+}

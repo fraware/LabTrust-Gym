@@ -137,7 +137,7 @@ def test_taskh_under_faults_produces_results_v02(tmp_path: Path) -> None:
     repo = _repo_root()
     out = tmp_path / "results.json"
     run_benchmark(
-        task_name="TaskH_COORD_RISK",
+        task_name="coord_risk",
         num_episodes=1,
         base_seed=42,
         out_path=out,

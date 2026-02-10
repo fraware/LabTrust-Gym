@@ -28,12 +28,12 @@ def _minimal_study_run(tmp_path: Path) -> Path:
     out_dir = tmp_path / "study_run"
     out_dir.mkdir(parents=True)
     (out_dir / "manifest.json").write_text(
-        '{"condition_ids": ["cond_0"], "task": "TaskA", "episodes": 1}',
+        '{"condition_ids": ["cond_0"], "task": "throughput_sla", "episodes": 1}',
         encoding="utf-8",
     )
     (out_dir / "results" / "cond_0").mkdir(parents=True)
     (out_dir / "results" / "cond_0" / "results.json").write_text(
-        '{"task": "TaskA", "num_episodes": 1, "base_seed": 42, "seeds": [42], '
+        '{"task": "throughput_sla", "num_episodes": 1, "base_seed": 42, "seeds": [42], '
         '"episodes": [{"seed": 42, "metrics": {"throughput": 2, '
         '"p95_turnaround_s": 100.0, "violations_by_invariant_id": {}, '
         '"blocked_by_reason_code": {}, "critical_communication_compliance_rate": 1.0, '

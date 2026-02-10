@@ -1,0 +1,52 @@
+# Coordination method selection policy v0.1.
+# Given policy objectives and constraints, the decision builder produces
+# COORDINATION_DECISION.v0.1 (chosen method per scale or "no admissible method").
+# Optimal method selection is an artifact, not a vibe.
+
+version: "0.1"
+policy_id: "coordination_selection_v0.1"
+description: "Objective, hard constraints, and per-scale rules for recommend-coordination-method."
+
+# What to optimize when ranking admissible methods.
+objective:
+  type: "maximize_overall_score"
+  # Alternatives (future): "minimize_cost_under_resilience", "minimize_p95_tat_under_constraints"
+  # overall_score is computed from resilience_scoring.v0.1 (perf, safety, security, coordination).
+  # When resilience_score is missing, fallback: rank by perf.throughput (max) then safety.violations_total (min).
+
+# Hard constraints: method is admissible only if ALL constraints pass.
+# aggregation: "baseline_only" = use row where injection_id is none; "max_over_attacks" = max over attack rows; "mean_over_attacks" = mean.
+constraints:
+  - constraint_id: "violation_rate_gate"
+    metric_key: "safety.violations_total"
+    operator: "<="
+    threshold: 10
+    aggregation: "baseline_only"
+    description: "Baseline violations must not exceed 10."
+
+  - constraint_id: "attack_success_rate_cap"
+    metric_key: "sec.attack_success_rate"
+    operator: "<="
+    threshold: 0.2
+    aggregation: "max_over_attacks"
+    description: "Worst-case attack success rate across injections must be at most 0.2."
+
+  - constraint_id: "cost_ceiling"
+    metric_key: "cost.estimated_cost_usd"
+    operator: "<="
+    threshold: 100.0
+    aggregation: "baseline_only"
+    description: "Estimated cost (USD) per run must not exceed ceiling. Missing cost treated as 0."
+    allow_missing: true
+
+# Per-scale overrides: e.g. tighten or relax constraints, or prioritize resilience more.
+# medium_stress_signed_bus is the hospital lab at scale profile (75 agents, 2 sites, signed bus).
+per_scale_rules:
+  small_smoke:
+    description: "Light load; default constraints and objective."
+    # Optional: constraint_overrides: { "attack_success_rate_cap": { "threshold": 0.1 } }
+
+  medium_stress_signed_bus:
+    description: "Hospital lab at scale; stress scale with signed bus; prioritize resilience over raw throughput."
+    resilience_weight_override: 1.2
+    # Optional: constraint_overrides: { "violation_rate_gate": { "threshold": 5 } }

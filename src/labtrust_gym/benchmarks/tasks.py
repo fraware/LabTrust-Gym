@@ -207,7 +207,7 @@ class TaskA_ThroughputSLA(BenchmarkTask):
 
     def __init__(self) -> None:
         super().__init__(
-            name="TaskA_ThroughputSLA",
+            name="throughput_sla",
             max_steps=80,
             scripted_agents=["ops_0", "runner_0", "runner_1"],
             reward_config={"throughput_reward": 1.0},
@@ -255,7 +255,7 @@ class TaskB_STATInsertionUnderLoad(BenchmarkTask):
 
     def __init__(self) -> None:
         super().__init__(
-            name="TaskB_STATInsertionUnderLoad",
+            name="stat_insertion",
             max_steps=120,
             scripted_agents=["ops_0", "runner_0", "runner_1"],
             reward_config={
@@ -306,7 +306,7 @@ class TaskC_QCFailCascade(BenchmarkTask):
 
     def __init__(self) -> None:
         super().__init__(
-            name="TaskC_QCFailCascade",
+            name="qc_cascade",
             max_steps=100,
             scripted_agents=["ops_0", "runner_0", "runner_1"],
             reward_config={},
@@ -365,7 +365,7 @@ class TaskD_AdversarialDisruption(BenchmarkTask):
 
     def __init__(self) -> None:
         super().__init__(
-            name="TaskD_AdversarialDisruption",
+            name="adversarial_disruption",
             max_steps=80,
             scripted_agents=["ops_0", "runner_0", "runner_1", "adversary_0"],
             reward_config={
@@ -444,7 +444,7 @@ class TaskF_InsiderAndKeyMisuse(BenchmarkTask):
 
     def __init__(self) -> None:
         super().__init__(
-            name="TaskF_InsiderAndKeyMisuse",
+            name="insider_key_misuse",
             max_steps=50,
             scripted_agents=["ops_0", "runner_0", "adversary_insider_0"],
             reward_config={
@@ -500,7 +500,7 @@ class TaskG_COORD_SCALE(BenchmarkTask):
     def __init__(self) -> None:
         scale = _default_scale_config()
         super().__init__(
-            name="TaskG_COORD_SCALE",
+            name="coord_scale",
             max_steps=scale.horizon_steps,
             scripted_agents=[],  # Filled from scale agents (worker_0, worker_1, ...)
             reward_config={"throughput_reward": 1.0, "violation_penalty": 0.1},
@@ -516,7 +516,7 @@ class TaskH_COORD_RISK(BenchmarkTask):
     def __init__(self) -> None:
         scale = _default_scale_config()
         super().__init__(
-            name="TaskH_COORD_RISK",
+            name="coord_risk",
             max_steps=scale.horizon_steps,
             scripted_agents=[],
             reward_config={
@@ -538,7 +538,7 @@ class TaskE_MultiSiteSTAT(BenchmarkTask):
 
     def __init__(self) -> None:
         super().__init__(
-            name="TaskE_MultiSiteSTAT",
+            name="multi_site_stat",
             max_steps=150,
             scripted_agents=["ops_0", "runner_0", "runner_1"],
             reward_config={
@@ -595,7 +595,7 @@ class TaskI_DeviceOutageSurge(BenchmarkTask):
 
     def __init__(self) -> None:
         super().__init__(
-            name="TaskI_DeviceOutageSurge",
+            name="device_outage_surge",
             max_steps=200,
             scripted_agents=["ops_0", "runner_0", "runner_1"],
             reward_config={
@@ -652,7 +652,7 @@ class TaskJ_ReagentStockout(BenchmarkTask):
 
     def __init__(self) -> None:
         super().__init__(
-            name="TaskJ_ReagentStockout",
+            name="reagent_stockout",
             max_steps=150,
             scripted_agents=["ops_0", "runner_0", "runner_1"],
             reward_config={
@@ -702,26 +702,16 @@ class TaskJ_ReagentStockout(BenchmarkTask):
 
 
 _TASK_REGISTRY: dict[str, type] = {
-    "TaskA": TaskA_ThroughputSLA,
-    "TaskA_ThroughputSLA": TaskA_ThroughputSLA,
-    "TaskB": TaskB_STATInsertionUnderLoad,
-    "TaskB_STATInsertionUnderLoad": TaskB_STATInsertionUnderLoad,
-    "TaskC": TaskC_QCFailCascade,
-    "TaskC_QCFailCascade": TaskC_QCFailCascade,
-    "TaskD": TaskD_AdversarialDisruption,
-    "TaskD_AdversarialDisruption": TaskD_AdversarialDisruption,
-    "TaskE": TaskE_MultiSiteSTAT,
-    "TaskE_MultiSiteSTAT": TaskE_MultiSiteSTAT,
-    "TaskF": TaskF_InsiderAndKeyMisuse,
-    "TaskF_InsiderAndKeyMisuse": TaskF_InsiderAndKeyMisuse,
-    "TaskG": TaskG_COORD_SCALE,
-    "TaskG_COORD_SCALE": TaskG_COORD_SCALE,
-    "TaskH": TaskH_COORD_RISK,
-    "TaskH_COORD_RISK": TaskH_COORD_RISK,
-    "TaskI": TaskI_DeviceOutageSurge,
-    "TaskI_DeviceOutageSurge": TaskI_DeviceOutageSurge,
-    "TaskJ": TaskJ_ReagentStockout,
-    "TaskJ_ReagentStockout": TaskJ_ReagentStockout,
+    "throughput_sla": TaskA_ThroughputSLA,
+    "stat_insertion": TaskB_STATInsertionUnderLoad,
+    "qc_cascade": TaskC_QCFailCascade,
+    "adversarial_disruption": TaskD_AdversarialDisruption,
+    "multi_site_stat": TaskE_MultiSiteSTAT,
+    "insider_key_misuse": TaskF_InsiderAndKeyMisuse,
+    "coord_scale": TaskG_COORD_SCALE,
+    "coord_risk": TaskH_COORD_RISK,
+    "device_outage_surge": TaskI_DeviceOutageSurge,
+    "reagent_stockout": TaskJ_ReagentStockout,
 }
 
 

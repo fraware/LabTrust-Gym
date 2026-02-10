@@ -25,17 +25,24 @@ def load_official_baseline_registry(
     Load baseline_registry.v0.1.yaml from repo_root/benchmarks/.
 
     Returns (tasks_in_order, task_to_baseline_id, task_to_result_suffix).
-    If file is missing, returns default mapping: TaskA/B/C/E -> scripted_ops_v1,
-    TaskD -> adversary_v1, TaskF -> insider_v1.
+    If file is missing, returns default mapping: throughput_sla/stat_insertion/qc_cascade/multi_site_stat -> scripted_ops_v1,
+    adversarial_disruption -> adversary_v1, insider_key_misuse -> insider_v1.
     """
-    default_tasks = ["TaskA", "TaskB", "TaskC", "TaskD", "TaskE", "TaskF"]
+    default_tasks = [
+        "throughput_sla",
+        "stat_insertion",
+        "qc_cascade",
+        "adversarial_disruption",
+        "multi_site_stat",
+        "insider_key_misuse",
+    ]
     default_baseline: dict[str, str] = {
-        "TaskA": "scripted_ops_v1",
-        "TaskB": "scripted_ops_v1",
-        "TaskC": "scripted_ops_v1",
-        "TaskD": "adversary_v1",
-        "TaskE": "scripted_ops_v1",
-        "TaskF": "insider_v1",
+        "throughput_sla": "scripted_ops_v1",
+        "stat_insertion": "scripted_ops_v1",
+        "qc_cascade": "scripted_ops_v1",
+        "adversarial_disruption": "adversary_v1",
+        "multi_site_stat": "scripted_ops_v1",
+        "insider_key_misuse": "insider_v1",
     }
     default_suffix: dict[str, str] = {task: _baseline_id_to_suffix(bid) for task, bid in default_baseline.items()}
 

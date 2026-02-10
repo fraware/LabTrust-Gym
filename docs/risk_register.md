@@ -13,7 +13,7 @@ The bundle contains:
 
 - **risks**: One entry per risk from `policy/risks/risk_registry.v0.1.yaml` with crosswalk fields (`risk_id`, `name`, `risk_domain`, `claimed_controls`, `evidence_refs`, `coverage_status`, etc.).
 - **controls**: From the security attack suite and safety-case claims (`control_id`, `name`, `description`, `source`).
-- **evidence**: Aggregated from run dirs (security suite, coordination study, safety case, official pack, bundle verification). Each entry has `evidence_id`, `type`, `status` (`present` or `missing`), optional `path`, `risk_ids`, `summary`, and `artifacts`.
+- **evidence**: Aggregated from run dirs (security suite, coordination study, safety case, official pack, bundle verification). Each entry has `evidence_id`, `type`, `status` (`present` or `missing`), optional `path`, `risk_ids`, `summary`, and `artifacts`. Run dirs that contain `pack_summary.csv`, `SECURITY/coordination_risk_matrix.csv` or `.md`, `LAB_COORDINATION_REPORT.md`, or `COORDINATION_DECISION.v0.1.json` are now scanned and these artifacts are listed as evidence (coordination_pack, lab report, coordination decision).
 - **links**: Repo-local and run-local paths (policy files, SECURITY/, summary/, etc.) for deep links.
 - **reproduce**: Per-evidence CLI commands so the UI can show "how to reproduce" without hardcoding.
 
@@ -44,7 +44,7 @@ Evidence in the bundle will reflect whatever is under `release_paper/` (SECURITY
 
 ### From an official pack run dir
 
-The official benchmark pack produces one output dir with baselines, SECURITY/, SAFETY_CASE/, and transparency log. Use it as the sole run source or in addition to other dirs:
+The official benchmark pack produces one output dir with baselines, SECURITY/, SAFETY_CASE/, and transparency log. When run with `--pipeline-mode llm_live`, it also writes TRANSPARENCY_LOG/llm_live.json and live_evaluation_metadata.json; the risk register includes these in its links when present. Use the pack output as the sole run source or in addition to other dirs:
 
 ```bash
 labtrust run-official-pack --out official_pack_out --seed-base 42
@@ -59,7 +59,7 @@ labtrust export-risk-register --out ./risk_register_out --runs ui_fixtures --inc
 
 ### Multiple run dirs and globs
 
-You can pass several run dirs or globs. Each is scanned for SECURITY/, summary/, PARETO/, SAFETY_CASE/, MANIFEST, and evidence bundles:
+You can pass several run dirs or globs. Each is scanned for SECURITY/ (including attack_results, coverage, coordination_risk_matrix), summary/, pack_summary.csv, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.v0.1.json, PARETO/, SAFETY_CASE/, MANIFEST, and evidence bundles:
 
 ```bash
 labtrust export-risk-register --out ./risk_register_out \

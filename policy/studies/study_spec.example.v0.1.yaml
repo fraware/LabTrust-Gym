@@ -4,7 +4,7 @@
 # Cartesian product of ablations is expanded; each condition runs episodes with deterministic seeds.
 # Output: out_dir/manifest.json, conditions.jsonl, results/<condition_id>/results.json, logs/<condition_id>/episodes.jsonl
 
-task: TaskA
+task: throughput_sla
 episodes: 4
 seed_base: 42
 timing_mode: explicit

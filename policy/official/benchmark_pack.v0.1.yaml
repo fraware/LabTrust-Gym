@@ -1,5 +1,5 @@
 # Official Benchmark Pack v0.1: minimal, stable pack for external researchers.
-# Fixed tasks (A–H), scales (S/M/L), baselines, coordination methods, security suite definitions.
+# Fixed tasks (core + coordination), scales (S/M/L), baselines, coordination methods, security suite definitions.
 # Results semantics v0.2 remains canonical. CLI: labtrust run-official-pack --out <dir> --seed-base N.
 
 version: "0.1"
@@ -7,17 +7,17 @@ description: "Official benchmark pack: tasks, scales, baselines, coordination me
 
 tasks:
   core:
-    - TaskA
-    - TaskB
-    - TaskC
-    - TaskD
-    - TaskE
-    - TaskF
+    - throughput_sla
+    - stat_insertion
+    - qc_cascade
+    - adversarial_disruption
+    - multi_site_stat
+    - insider_key_misuse
   coordination:
-    - TaskG
-    - TaskH
+    - coord_scale
+    - coord_risk
   experimental:
-    []  # Optional TaskI, TaskJ when defined; leave empty for v0.1
+    []  # Optional device_outage_surge, reagent_stockout when defined; leave empty for v0.1
 
 scale_configs:
   S:
@@ -43,14 +43,14 @@ scale_configs:
     horizon_steps: 300
 
 baselines:
-  TaskA: scripted_ops_v1
-  TaskB: scripted_ops_v1
-  TaskC: scripted_ops_v1
-  TaskD: adversary_v1
-  TaskE: scripted_ops_v1
-  TaskF: insider_v1
-  TaskG: kernel_scheduler_or_v0
-  TaskH: kernel_scheduler_or_v0
+  throughput_sla: scripted_ops_v1
+  stat_insertion: scripted_ops_v1
+  qc_cascade: scripted_ops_v1
+  adversarial_disruption: adversary_v1
+  multi_site_stat: scripted_ops_v1
+  insider_key_misuse: insider_v1
+  coord_scale: kernel_scheduler_or_v0
+  coord_risk: kernel_scheduler_or_v0
 
 coordination_methods:
   - centralized_planner
@@ -69,3 +69,8 @@ required_reports:
   - security
   - safety_case
   - transparency_log
+
+# Optional: when enabled, run coordination security pack into coordination_pack/ and build lab report
+coordination_pack:
+  enabled: false
+  matrix_preset: hospital_lab

@@ -32,9 +32,9 @@ Reproduction commands are **stored in the bundle** under `reproduce[]`, so the U
 - Each `reproduce` entry has `evidence_id`, `label`, `commands` (array of strings).
 - Commands are **generated** at bundle build time by evidence type, e.g.:
   - **Security suite:** `labtrust run-security-suite --out <output_dir> --seed 42`
-  - **Coordination study:** `labtrust run-coordination-study --spec <study_spec> --out <output_dir>` (and optional single-cell `run-benchmark --task TaskH_COORD_RISK ...`)
+  - **Coordination study:** `labtrust run-coordination-study --spec <study_spec> --out <output_dir>` (and optional single-cell `run-benchmark --task coord_risk ...`)
   - **Safety case:** `labtrust safety-case --out <output_dir>`
-  - **Official pack:** `labtrust run-official-pack --out <output_dir> [--seed-base 42]`
+  - **Official pack:** `labtrust run-official-pack --out <output_dir> [--seed-base 42]` (add `--pipeline-mode llm_live --allow-network` for live LLM; produces TRANSPARENCY_LOG/llm_live.json and live_evaluation_metadata.json)
   - **Bundle verification:** `labtrust verify-bundle --bundle <run_dir>` or `package-release --profile paper_v0.1 --out <output_dir>`
   - **Missing evidence:** empty `commands[]`; label indicates “Evidence not yet collected”.
 

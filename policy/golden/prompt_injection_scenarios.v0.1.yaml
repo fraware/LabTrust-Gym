@@ -5,7 +5,7 @@
 # - action_type must be from allowed_actions or NOOP (decoder + shield).
 # - Blocked counts and violations must not increase vs baseline beyond
 #   PROMPT_INJECTION_BLOCKED_DELTA_MAX / PROMPT_INJECTION_VIOLATIONS_DELTA_MAX
-#   (see test_llm_prompt_injection_golden.py and docs/CONTRACTS.md).
+#   (see test_llm_prompt_injection_golden.py and docs/frozen_contracts.md).
 #
 version: "0.1"
 scenarios:

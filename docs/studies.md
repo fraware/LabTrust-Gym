@@ -8,7 +8,7 @@ A study spec defines:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `task` | Yes | `TaskA`, `TaskB`, `TaskC`, `TaskD`, `TaskE`, or `TaskF` (or full task name). |
+| `task` | Yes | `throughput_sla`, `stat_insertion`, `qc_cascade`, `adversarial_disruption`, `multi_site_stat`, or `insider_key_misuse` (or coord_scale, coord_risk; see benchmarks). |
 | `episodes` | Yes | Number of episodes per condition. |
 | `seed_base` | Yes | Base seed; condition seed = `seed_base + condition_index`. |
 | `timing_mode` | No | `explicit` (default) or `simulated`. |
@@ -33,7 +33,7 @@ Example: `trust_skeleton: [on, off]` and `rbac: [coarse]` → 2 conditions. Valu
 See `policy/studies/study_spec.example.v0.1.yaml`:
 
 ```yaml
-task: TaskA
+task: throughput_sla
 episodes: 4
 seed_base: 42
 timing_mode: explicit
@@ -84,7 +84,7 @@ Requires `.[env]` (PettingZoo/Gymnasium) for the benchmark runner.
 
 ## Reproduce (minimal results + figures)
 
-A single CLI path reproduces a minimal set of results and figures: a small ablation sweep (trust on/off, dual approval on/off) for **TaskA** and **TaskC**, then plots and data tables. See **[Reproduce](reproduce.md)** for exact commands and expected runtime.
+A single CLI path reproduces a minimal set of results and figures: a small ablation sweep (trust on/off, dual approval on/off) for **throughput_sla** and **qc_cascade**, then plots and data tables. See **[Reproduce](reproduce.md)** for exact commands and expected runtime.
 
 ```bash
 labtrust reproduce --profile minimal   # few episodes
@@ -92,6 +92,23 @@ labtrust reproduce --profile full     # more episodes
 ```
 
 Output: `runs/repro_<profile>_<timestamp>/taska/` and `taskc/` (each with manifest, results, logs, figures, data_tables). With `LABTRUST_REPRO_SMOKE=1`, episodes are set to 1 per condition for fast smoke testing.
+
+## Trust ablations study
+
+The **trust ablations** study (`policy/studies/trust_ablations.v0.1.yaml`) is a standard multi-dimension sweep for paper-ready plots. It expands a Cartesian product of trust-related knobs, runs the benchmark per condition with deterministic seeds, and produces Pareto scatter plots plus a summary table (used in [Paper-ready release](paper_ready.md)).
+
+**Run:**
+
+```bash
+labtrust run-study --spec policy/studies/trust_ablations.v0.1.yaml --out runs/trust_ablations
+labtrust make-plots runs/trust_ablations
+```
+
+Output: `manifest.json`, `conditions.jsonl`, `results/<cond_id>/results.json`, `logs/<cond_id>/episodes.jsonl`, `figures/*.png`, `figures/data_tables/summary.csv`, `figures/data_tables/paper_table.md`.
+
+**Ablation knobs:** `trust_skeleton` (on | off), `rbac` (coarse | fine), `dual_approval` (on | off), `log_granularity` (minimal | full), optional `strict_signatures` (true | false). Each dimension is expanded; condition seed = `seed_base + condition_index`. See the spec for expected effects (e.g. trust_skeleton on = fewer violations, off = baseline for "cost of trust").
+
+**Smoke:** With `LABTRUST_REPRO_SMOKE=1`, episodes are capped to 1 per condition. See `tests/test_trust_ablations_smoke.py`.
 
 ## Schema
 

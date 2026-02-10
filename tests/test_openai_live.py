@@ -222,12 +222,12 @@ def test_openai_live_one_episode_task_a() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out_path = Path(tmp) / "results_live_task_a.json"
         r = run_benchmark(
-            "TaskA",
+            "throughput_sla",
             num_episodes=1,
             base_seed=42,
             out_path=out_path,
             repo_root=root,
             use_llm_live_openai=True,
         )
-    assert r.get("task") == "TaskA"
+    assert r.get("task") == "throughput_sla"
     assert len(r.get("episodes", [])) == 1

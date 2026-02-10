@@ -66,6 +66,10 @@ def _sequence_hash(seed: int, injection_id: str, steps: int, intensity: float = 
         "INJ-ID-REPLAY-COORD-001",
         "INJ-COLLUSION-MARKET-001",
         "INJ-MEMORY-POISON-COORD-001",
+        "INJ-CONSENSUS-POISON-001",
+        "INJ-TIMING-QUEUE-001",
+        "INJ-PARTIAL-OBS-001",
+        "INJ-BLAME-SHIFT-001",
     ],
 )
 def test_same_seed_same_injection_sequence(injection_id: str) -> None:

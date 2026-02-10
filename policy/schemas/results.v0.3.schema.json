@@ -8,7 +8,7 @@
   "additionalProperties": true,
   "properties": {
     "schema_version": { "type": "string", "const": "0.3" },
-    "task": { "type": "string", "description": "Task name (e.g. TaskA, TaskB, TaskC, TaskD, TaskE, TaskF)" },
+    "task": { "type": "string", "description": "Task id (e.g. throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse, coord_scale, coord_risk)" },
     "seeds": {
       "type": "array",
       "items": { "type": "integer" },

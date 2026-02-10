@@ -574,6 +574,60 @@ def verify_bundle(
     return passed, report, errors
 
 
+EVIDENCE_BUNDLE_DIRNAME = "EvidenceBundle.v0.1"
+
+
+def discover_evidence_bundles(release_dir: Path) -> list[Path]:
+    """
+    Discover all EvidenceBundle.v0.1 directories under release_dir/receipts/.
+
+    Returns a sorted list of paths so that verification order is deterministic.
+    """
+    release_dir = Path(release_dir)
+    receipts = release_dir / "receipts"
+    if not receipts.is_dir():
+        return []
+    bundles: list[Path] = []
+    for entry in sorted(receipts.iterdir()):
+        if not entry.is_dir():
+            continue
+        candidate = entry / EVIDENCE_BUNDLE_DIRNAME
+        if candidate.is_dir() and (candidate / "manifest.json").exists():
+            bundles.append(candidate)
+    return bundles
+
+
+def verify_release(
+    release_dir: Path,
+    policy_root: Path | None = None,
+    allow_extra_files: bool = False,
+    quiet: bool = False,
+) -> tuple[bool, list[tuple[Path, bool, str, list[str]]]]:
+    """
+    Verify every EvidenceBundle.v0.1 under release_dir/receipts/.
+
+    Returns (all_passed, results) where results is a list of
+    (bundle_path, passed, report, errors) for each bundle, in deterministic order.
+    If quiet is True, the caller may stop after first failure (results still
+    contain only bundles verified so far).
+    """
+    release_dir = Path(release_dir)
+    policy_root = policy_root or Path.cwd()
+    bundles = discover_evidence_bundles(release_dir)
+    results: list[tuple[Path, bool, str, list[str]]] = []
+    for bundle_path in bundles:
+        passed, report, errors = verify_bundle(
+            bundle_path,
+            policy_root=policy_root,
+            allow_extra_files=allow_extra_files,
+        )
+        results.append((bundle_path, passed, report, errors))
+        if quiet and not passed:
+            break
+    all_passed = all(r[1] for r in results) and len(results) == len(bundles)
+    return all_passed, results
+
+
 def verify_bundle_structured(
     bundle_dir: Path,
     policy_root: Path | None = None,

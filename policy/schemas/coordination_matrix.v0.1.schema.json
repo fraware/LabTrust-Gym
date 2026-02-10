@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coordination_matrix.v0.1.schema.json",
+  "type": "object",
+  "required": ["version", "kind", "generated_at", "policy_fingerprint", "spec", "inputs", "scales", "rows", "recommendations"],
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "kind": { "type": "string", "const": "coordination_matrix" },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "policy_fingerprint": { "type": "string", "minLength": 1 },
+
+    "spec": {
+      "type": "object",
+      "required": ["path", "sha256", "scope"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string" },
+        "scope": {
+          "type": "object",
+          "required": ["pipeline_mode", "allow_network", "allowed_llm_backends", "allowed_methods"],
+          "properties": {
+            "pipeline_mode": { "type": "string", "enum": ["llm_live"] },
+            "allow_network": { "type": "boolean", "const": true },
+            "allowed_llm_backends": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+            "allowed_methods": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "role"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string" },
+          "role": { "type": "string", "enum": ["clean_summary", "attacked_summary", "injection_policy", "column_map", "matrix_spec", "run_provenance"] }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "scales": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scale_id", "meta"],
+        "properties": {
+          "scale_id": { "type": "string" },
+          "meta": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["scale_id", "method_id", "run_meta", "metrics", "scores", "ranks", "feasible"],
+        "properties": {
+          "scale_id": { "type": "string" },
+          "method_id": { "type": "string" },
+
+          "run_meta": {
+            "type": "object",
+            "required": ["pipeline_mode", "allow_network", "llm_backend_id", "llm_model_id", "partner_id"],
+            "properties": {
+              "pipeline_mode": { "type": "string", "enum": ["llm_live"] },
+              "allow_network": { "type": "boolean", "const": true },
+              "llm_backend_id": { "type": "string" },
+              "llm_model_id": { "type": ["string", "null"] },
+              "partner_id": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          },
+
+          "metrics": {
+            "type": "object",
+            "required": ["clean", "attacked", "degradation"],
+            "properties": {
+              "clean": { "$ref": "#/$defs/metricValueMap" },
+              "attacked": { "$ref": "#/$defs/metricValueMap" },
+              "degradation": { "$ref": "#/$defs/metricValueMap" }
+            },
+            "additionalProperties": false
+          },
+
+          "scores": {
+            "type": "object",
+            "required": ["cq_score", "ar_score", "penalties"],
+            "properties": {
+              "cq_score": { "type": "number", "minimum": -1.0, "maximum": 1.0 },
+              "ar_score": { "type": "number", "minimum": -1.0, "maximum": 1.0 },
+              "penalties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["reason", "amount"],
+                  "properties": {
+                    "reason": { "type": "string" },
+                    "amount": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+
+          "ranks": {
+            "type": "object",
+            "required": ["cq_rank", "ar_rank", "pareto_member"],
+            "properties": {
+              "cq_rank": { "type": ["integer", "null"], "minimum": 1 },
+              "ar_rank": { "type": ["integer", "null"], "minimum": 1 },
+              "pareto_member": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          },
+
+          "feasible": {
+            "type": "object",
+            "required": ["clean", "attacked", "overall", "reasons"],
+            "properties": {
+              "clean": { "type": "boolean" },
+              "attacked": { "type": "boolean" },
+              "overall": { "type": "boolean" },
+              "reasons": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scale_id", "ops_first", "sec_first", "balanced", "notes"],
+        "properties": {
+          "scale_id": { "type": "string" },
+          "ops_first": { "$ref": "#/$defs/pick" },
+          "sec_first": { "$ref": "#/$defs/pick" },
+          "balanced": { "$ref": "#/$defs/pick" },
+          "notes": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+
+  "$defs": {
+    "metricValueMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["number", "null"]
+      }
+    },
+    "pick": {
+      "type": "object",
+      "required": ["method_id", "cq_score", "ar_score"],
+      "properties": {
+        "method_id": { "type": ["string", "null"] },
+        "cq_score": { "type": ["number", "null"] },
+        "ar_score": { "type": ["number", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+
+  "additionalProperties": false
+}

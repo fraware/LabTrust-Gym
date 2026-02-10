@@ -1,0 +1,72 @@
+# Optional real-backend smoke: healthcheck + minimal llm_live pack run.
+# Runs only on workflow_dispatch and nightly; does not run on push/PR (never blocks merges).
+# When OPENAI_API_KEY is not set: skips cleanly with success. When set: runs smoke and uploads artifacts.
+# Guardrails: LABTRUST_LLM_TIMEOUT_S=25, gpt-4o-mini, pack step timeout 12 min.
+name: LLM live optional smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * *"
+
+jobs:
+  llm-live-smoke:
+    runs-on: ubuntu-latest
+    env:
+      LABTRUST_ALLOW_NETWORK: "1"
+      LABTRUST_LLM_TIMEOUT_S: "25"
+      LABTRUST_OPENAI_MODEL: "gpt-4o-mini"
+    steps:
+      - name: Check for API key (skip if not set)
+        id: check
+        run: |
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Optional LLM live smoke: OPENAI_API_KEY not set; skipping (no failure)."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package (dev, env, plots)
+        if: steps.check.outputs.skip != 'true'
+        run: pip install -e ".[dev,env,plots]"
+
+      - name: LLM healthcheck (openai_responses, gpt-4o-mini)
+        if: steps.check.outputs.skip != 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          labtrust llm-healthcheck --backend openai_responses --model gpt-4o-mini --allow-network
+
+      - name: Official pack llm_live smoke (produces TRANSPARENCY_LOG/llm_live.json, live_evaluation_metadata.json)
+        if: steps.check.outputs.skip != 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          labtrust run-official-pack \
+            --out ./llm_live_smoke_out \
+            --pipeline-mode llm_live \
+            --allow-network \
+            --smoke \
+            --seed-base 100
+        timeout-minutes: 12
+
+      - name: Upload llm_live artifacts (for regression inspection)
+        if: steps.check.outputs.skip != 'true' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm_live_smoke_artifacts
+          path: |
+            llm_live_smoke_out/TRANSPARENCY_LOG/llm_live.json
+            llm_live_smoke_out/live_evaluation_metadata.json
+          retention-days: 14

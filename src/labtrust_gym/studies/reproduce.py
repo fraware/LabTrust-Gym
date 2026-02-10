@@ -1,9 +1,9 @@
 """
 Single CLI path to reproduce a minimal set of results and figures.
 
-Runs a small StudySpec sweep (trust on/off, dual approval on/off) for TaskA
-and TaskC, then generates plots and data tables under runs/<id>/taskA/figures
-and taskC/figures.
+Runs a small StudySpec sweep (trust on/off, dual approval on/off) for throughput_sla
+and qc_cascade, then generates plots and data tables under runs/<id>/throughput_sla/figures
+and qc_cascade/figures.
 """
 
 from __future__ import annotations
@@ -54,27 +54,34 @@ def run_reproduce(
     seed_base: int | None = None,
 ) -> Path:
     """
-    Run minimal reproduce: TaskA and TaskC study sweep + plots.
+    Run minimal reproduce: throughput_sla and qc_cascade study sweep + plots.
 
-    profile: "minimal" (few episodes) or "full" (more episodes).
+    profile: "minimal" (few episodes), "full" (more episodes), or "full_with_coordination"
+        (full + coordination security pack + build-lab-coordination-report into coordination_pack/).
     When LABTRUST_REPRO_SMOKE=1, episodes are set to 1 per condition regardless of profile.
     seed_base: optional fixed seed for determinism (default 100).
-    Writes: out_dir/taskA/, out_dir/taskC/ (each with manifest, results, logs, figures).
+    Writes: out_dir/throughput_sla/, out_dir/qc_cascade/ (each with manifest, results, logs, figures).
+    When profile is full_with_coordination, also writes out_dir/coordination_pack/ (pack_summary.csv, lab report).
     Returns out_dir.
     """
-    repo_root = repo_root or Path.cwd()
+    repo_root = Path(repo_root) if repo_root else Path.cwd()
     smoke = os.environ.get("LABTRUST_REPRO_SMOKE", "").strip().lower() in (
         "1",
         "true",
         "yes",
     )
 
-    if profile == "minimal":
+    include_coordination = profile == "full_with_coordination"
+    base_profile = "full" if include_coordination else profile
+
+    if base_profile == "minimal":
         episodes = 1 if smoke else 2
-    elif profile == "full":
+    elif base_profile == "full":
         episodes = 1 if smoke else 4
     else:
-        raise ValueError(f"profile must be 'minimal' or 'full', got {profile!r}")
+        raise ValueError(
+            f"profile must be 'minimal', 'full', or 'full_with_coordination', got {profile!r}"
+        )
 
     if out_dir is None:
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -84,7 +91,7 @@ def run_reproduce(
         out_dir = repo_root / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    tasks: list[str] = ["TaskA", "TaskC"]
+    tasks: list[str] = ["throughput_sla", "qc_cascade"]
     seed_base = seed_base if seed_base is not None else 100
 
     for task in tasks:
@@ -95,6 +102,32 @@ def run_reproduce(
         run_study(spec_path, task_out, repo_root=repo_root)
         make_plots(task_out)
 
+    if include_coordination:
+        coord_dir = out_dir / "coordination_pack"
+        coord_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            from labtrust_gym.studies.coordination_security_pack import (
+                run_coordination_security_pack,
+            )
+            from labtrust_gym.studies.lab_report_builder import (
+                build_lab_coordination_report,
+            )
+
+            run_coordination_security_pack(
+                out_dir=coord_dir,
+                repo_root=repo_root,
+                seed_base=seed_base,
+                matrix_preset="hospital_lab",
+            )
+            build_lab_coordination_report(
+                pack_dir=coord_dir,
+                out_dir=coord_dir,
+                policy_root=repo_root,
+                matrix_preset_name="hospital_lab",
+            )
+        except Exception as e:
+            (coord_dir / "run_error.txt").write_text(str(e), encoding="utf-8")
+
     return out_dir
 
 
@@ -104,18 +137,18 @@ def main(
     repo_root: Path | None = None,
     seed_base: int | None = None,
 ) -> int:
-    """CLI entry: run reproduce and write runs/<id>/taskA, taskC with figures."""
+    """CLI entry: run reproduce and write runs/<id>/throughput_sla, qc_cascade with figures."""
     try:
         result = run_reproduce(
             profile=profile, out_dir=out_dir, repo_root=repo_root, seed_base=seed_base
         )
         print(f"Reproduce written to {result}", file=sys.stderr)
         print(
-            f"  taskA: {result / 'taska'}/figures  ({result / 'taska' / 'RUN_SUMMARY.md'})",
+            f"  throughput_sla: {result / 'throughput_sla'}/figures  ({result / 'throughput_sla' / 'RUN_SUMMARY.md'})",
             file=sys.stderr,
         )
         print(
-            f"  taskC: {result / 'taskc'}/figures  ({result / 'taskc' / 'RUN_SUMMARY.md'})",
+            f"  qc_cascade: {result / 'qc_cascade'}/figures  ({result / 'qc_cascade' / 'RUN_SUMMARY.md'})",
             file=sys.stderr,
         )
         print(

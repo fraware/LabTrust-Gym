@@ -37,7 +37,7 @@ def _make_reset_wrapper(gym_env: Any, task: Any) -> Any:
 
 
 def train_ppo(
-    task_name: str = "TaskA",
+    task_name: str = "throughput_sla",
     timesteps: int = 50_000,
     seed: int = 123,
     out_dir: Path | None = None,
@@ -104,7 +104,7 @@ def train_ppo(
 
 def _eval_policy(
     model_path: str,
-    task_name: str = "TaskA",
+    task_name: str = "throughput_sla",
     n_episodes: int = 5,
     seed: int = 123,
 ) -> dict[str, Any]:

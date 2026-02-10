@@ -19,7 +19,7 @@ def test_determinism_report_small_run_passes(tmp_path: Path) -> None:
     if not (repo / "policy").is_dir():
         pytest.skip("repo root not found")
     passed, report, _ = run_determinism_report(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=2,
         base_seed=42,
         out_dir=tmp_path,
@@ -62,7 +62,7 @@ def test_determinism_report_cli(tmp_path: Path) -> None:
             "labtrust_gym.cli.main",
             "determinism-report",
             "--task",
-            "TaskA",
+            "throughput_sla",
             "--episodes",
             "2",
             "--seed",
@@ -89,7 +89,7 @@ def test_determinism_report_simulated_timing_passes(tmp_path: Path) -> None:
     if not (repo / "policy").is_dir():
         pytest.skip("repo root not found")
     passed, report, _ = run_determinism_report(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=2,
         base_seed=99,
         out_dir=tmp_path,
@@ -103,12 +103,12 @@ def test_determinism_report_simulated_timing_passes(tmp_path: Path) -> None:
 
 
 def test_determinism_report_taskg_kernel_passes(tmp_path: Path) -> None:
-    """Determinism report for TaskG_COORD_SCALE with composed method kernel_centralized_edf passes."""
+    """Determinism report for coord_scale with composed method kernel_centralized_edf passes."""
     repo = Path(__file__).resolve().parent.parent
     if not (repo / "policy").is_dir():
         pytest.skip("repo root not found")
     passed, report, _ = run_determinism_report(
-        task_name="TaskG_COORD_SCALE",
+        task_name="coord_scale",
         num_episodes=2,
         base_seed=42,
         out_dir=tmp_path,

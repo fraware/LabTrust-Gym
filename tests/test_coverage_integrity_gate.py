@@ -88,3 +88,45 @@ def test_coverage_preflight_strict_fails_when_missing(tmp_path: Path) -> None:
     finally:
         os.environ.pop("LABTRUST_REPRO_SMOKE", None)
         os.environ.pop("LABTRUST_STRICT_COVERAGE", None)
+
+
+def test_external_reviewer_smoke_summary_and_new_method_cells_covered(tmp_path: Path) -> None:
+    """
+    Run study with external_reviewer_smoke spec; assert summary_coord.csv exists
+    with required columns and required_bench cells for ripple_effect and
+    group_evolving_experience_sharing are covered.
+    """
+    import csv
+
+    repo = _repo_root()
+    spec_path = repo / "tests" / "fixtures" / "coordination_study_external_reviewer_spec.yaml"
+    if not spec_path.exists():
+        pytest.skip(f"Fixture spec not found: {spec_path}")
+
+    os.environ["LABTRUST_REPRO_SMOKE"] = "1"
+    try:
+        run_coordination_study(spec_path, tmp_path, repo_root=repo)
+    finally:
+        os.environ.pop("LABTRUST_REPRO_SMOKE", None)
+
+    summary_csv = tmp_path / "summary" / "summary_coord.csv"
+    assert summary_csv.exists(), "summary_coord.csv must be produced"
+    required_columns = ["method_id", "scale_id", "risk_id", "injection_id"]
+    with summary_csv.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        header = reader.fieldnames or []
+        for col in required_columns:
+            assert col in header, f"summary_coord.csv must have column {col}"
+        pairs = {(row.get("method_id", ""), row.get("risk_id", "")) for row in reader}
+
+    required_new_cells = [
+        ("ripple_effect", "R-COMMS-002"),
+        ("ripple_effect", "R-DATA-001"),
+        ("group_evolving_experience_sharing", "R-COMMS-002"),
+        ("group_evolving_experience_sharing", "R-SYS-002"),
+        ("group_evolving_experience_sharing", "R-DATA-001"),
+    ]
+    for method_id, risk_id in required_new_cells:
+        assert (method_id, risk_id) in pairs, (
+            f"Required ({method_id!r}, {risk_id!r}) must appear in summary"
+        )

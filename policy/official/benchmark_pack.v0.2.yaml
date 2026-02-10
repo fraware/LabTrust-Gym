@@ -1,0 +1,90 @@
+# Official Benchmark Pack v0.2: extends v0.1 with live coordination evaluation protocol.
+# Use for external reproducibility when running in llm_live. Results semantics v0.2 canonical.
+# CLI: labtrust run-official-pack --out <dir> --seed-base N --pipeline-mode llm_live --allow-network
+
+version: "0.2"
+description: "Official benchmark pack v0.2: tasks, scales, baselines, coordination, security; live coordination evaluation protocol and transparency log for llm_live."
+
+# Inherit v0.1 structure (same tasks, scales, baselines, coordination_methods, security_suite)
+tasks:
+  core:
+    - throughput_sla
+    - stat_insertion
+    - qc_cascade
+    - adversarial_disruption
+    - multi_site_stat
+    - insider_key_misuse
+  coordination:
+    - coord_scale
+    - coord_risk
+  experimental: []
+
+scale_configs:
+  S:
+    name: "Small"
+    num_agents_total: 4
+    num_devices: 2
+    num_sites: 1
+    arrival_rate: 1.0
+    horizon_steps: 100
+  M:
+    name: "Medium"
+    num_agents_total: 8
+    num_devices: 4
+    num_sites: 1
+    arrival_rate: 2.0
+    horizon_steps: 200
+  L:
+    name: "Large"
+    num_agents_total: 16
+    num_devices: 8
+    num_sites: 2
+    arrival_rate: 3.0
+    horizon_steps: 300
+
+baselines:
+  throughput_sla: scripted_ops_v1
+  stat_insertion: scripted_ops_v1
+  qc_cascade: scripted_ops_v1
+  adversarial_disruption: adversary_v1
+  multi_site_stat: scripted_ops_v1
+  insider_key_misuse: insider_v1
+  coord_scale: kernel_scheduler_or_v0
+  coord_risk: kernel_scheduler_or_v0
+
+coordination_methods:
+  - centralized_planner
+  - hierarchical_hub_rr
+  - llm_constrained
+
+security_suite:
+  smoke:
+    enabled: true
+    description: "Smoke: attacks with smoke true; CI and pack default."
+  full:
+    enabled: false
+    description: "Full: all attacks; use --full when running pack."
+
+required_reports:
+  - security
+  - safety_case
+  - transparency_log
+
+# Live coordination evaluation protocol (v0.2). Required when pipeline_mode is llm_live.
+live_coordination_evaluation_protocol:
+  required_metadata_fields:
+    - model_id
+    - temperature
+    - tool_registry_fingerprint
+    - allow_network
+  cost_accounting:
+    description: "Record estimated_cost_usd and total_tokens per run (from results.metadata or coordination.llm). Aggregated in TRANSPARENCY_LOG/llm_live.json."
+    fields:
+      - estimated_cost_usd
+      - total_tokens
+      - tokens_per_step
+  reproducibility_expectations: |
+    For llm_live: same seed, same model_id, same policy fingerprint and tool_registry_fingerprint
+    yield comparable but not bit-identical results (API non-determinism). External teams should
+    report model_id, temperature, and allow_network so reviewers can assess parity. Prompt and
+    policy are attested via hashes only (no sensitive prompt text in artifacts).

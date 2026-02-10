@@ -453,3 +453,196 @@ class OllamaBidBackend:
             "tokens_per_step": None,
             "estimated_cost_usd": None,
         }
+
+
+NOOP_ACTION_PROPOSAL: dict[str, Any] = {
+    "action_type": "NOOP",
+    "args": {},
+    "reason_code": None,
+    "token_refs": [],
+    "rationale": "Ollama local proposal fallback.",
+    "confidence": 0.0,
+    "safety_notes": "",
+}
+
+
+class OllamaLocalProposalBackend:
+    """
+    Local proposal backend for llm_local_decider_signed_bus: propose_action(local_view,
+    allowed_actions, agent_id, step) -> ActionProposal dict. Uses Ollama /api/chat;
+    on parse failure returns NOOP.
+    """
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        model: str | None = None,
+        timeout_s: int | None = None,
+    ) -> None:
+        url, mod, to = _get_config()
+        self._base_url = (base_url or url).rstrip("/") + "/"
+        self._model = (model or mod).strip() or "llama3.2"
+        self._timeout_s = timeout_s if timeout_s is not None else to
+        self._seed = 0
+        self._last_metrics: dict[str, Any] = {}
+
+    def reset(self, seed: int) -> None:
+        self._seed = seed
+
+    def propose_action(
+        self,
+        local_view: dict[str, Any],
+        allowed_actions: list[str],
+        agent_id: str,
+        step: int,
+    ) -> dict[str, Any]:
+        """Return ActionProposal dict. On failure returns NOOP."""
+        from labtrust_gym.pipeline import check_network_allowed
+
+        check_network_allowed()
+
+        prompt = (
+            "Return a single JSON object with: action_type (one of "
+            + json.dumps(allowed_actions[:20])
+            + "), args (object), reason_code (null or string), token_refs (array), "
+            "rationale (string), confidence (number 0-1), safety_notes (string). "
+            "Local view: "
+            + json.dumps(local_view, sort_keys=True)
+            + " Agent: "
+            + agent_id
+            + " Step: "
+            + str(step)
+        )
+        try:
+            raw = _call_ollama_chat(
+                prompt,
+                self._base_url,
+                self._model,
+                self._timeout_s,
+            )
+        except Exception:
+            return dict(NOOP_ACTION_PROPOSAL)
+        extracted = extract_first_json_object(raw)
+        if not extracted:
+            return dict(NOOP_ACTION_PROPOSAL)
+        try:
+            out = json.loads(extracted)
+        except json.JSONDecodeError:
+            return dict(NOOP_ACTION_PROPOSAL)
+        if not isinstance(out, dict):
+            return dict(NOOP_ACTION_PROPOSAL)
+        out.setdefault("action_type", "NOOP")
+        out.setdefault("args", {})
+        out.setdefault("reason_code", None)
+        out.setdefault("token_refs", [])
+        out.setdefault("rationale", "")
+        out.setdefault("confidence", 0.0)
+        out.setdefault("safety_notes", "")
+        allowed_set = set(allowed_actions or [])
+        if allowed_set and out["action_type"] not in allowed_set:
+            out["action_type"] = "NOOP"
+            out["args"] = {}
+        return out
+
+    def get_aggregate_metrics(self) -> dict[str, Any]:
+        return dict(self._last_metrics)
+
+    @property
+    def last_metrics(self) -> dict[str, Any]:
+        return dict(self._last_metrics)
+
+
+def _minimal_gossip_payload_ollama(agent_id: str, t: int) -> dict[str, Any]:
+    """Minimal valid gossip payload for fallback when Ollama fails."""
+    return {
+        "agent_id": agent_id[:64],
+        "step_id": t,
+        "zone_id": "",
+        "queue_summary": [],
+        "task": "active",
+    }
+
+
+class OllamaGossipSummaryBackend:
+    """
+    Live summary backend for llm_gossip_summarizer: get_summary(agent_id, obs,
+    zone_ids, device_ids, t) -> dict. Uses Ollama; on failure returns minimal.
+    """
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        model: str | None = None,
+        timeout_s: int | None = None,
+    ) -> None:
+        url, mod, to = _get_config()
+        self._base_url = (base_url or url).rstrip("/") + "/"
+        self._model = (model or mod).strip() or "llama3.2"
+        self._timeout_s = timeout_s if timeout_s is not None else to
+
+    def get_summary(
+        self,
+        agent_id: str,
+        obs: dict[str, Any],
+        zone_ids: list[str],
+        device_ids: list[str],
+        t: int,
+    ) -> dict[str, Any]:
+        """Return gossip payload. On failure return minimal valid payload."""
+        from labtrust_gym.baselines.coordination.obs_utils import (
+            get_queue_by_device,
+            get_zone_from_obs,
+            log_frozen,
+        )
+        o = obs.get(agent_id) or {}
+        zone = get_zone_from_obs(o, zone_ids) or str(o.get("zone_id", ""))[:64]
+        task = "frozen" if log_frozen(o) else "active"
+        qbd = get_queue_by_device(o)
+        queue_preview: list[dict[str, Any]] = []
+        for idx, dev_id in enumerate((device_ids or [])[:12]):
+            if idx >= len(qbd):
+                break
+            d = qbd[idx] if isinstance(qbd[idx], dict) else {}
+            queue_preview.append({
+                "device_id": str(d.get("device_id", dev_id))[:32],
+                "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
+                "queue_head": str(d.get("queue_head", ""))[:64],
+            })
+        prompt = (
+            "Return JSON with agent_id, step_id, zone_id, queue_summary "
+            "(array of {device_id, queue_len, queue_head}), task (active|frozen). "
+            "agent_id=%s step_id=%s zone_id=%s task=%s queue=%s. Only JSON."
+        ) % (agent_id, t, zone, task, json.dumps(queue_preview, sort_keys=True))
+        try:
+            raw = _call_ollama_chat(
+                prompt, self._base_url, self._model, self._timeout_s
+            )
+        except Exception:
+            return _minimal_gossip_payload_ollama(agent_id, t)
+        raw = (raw or "").strip()
+        extracted = extract_first_json_object(raw)
+        if not extracted:
+            return _minimal_gossip_payload_ollama(agent_id, t)
+        try:
+            out = json.loads(extracted)
+        except json.JSONDecodeError:
+            return _minimal_gossip_payload_ollama(agent_id, t)
+        if not isinstance(out, dict):
+            return _minimal_gossip_payload_ollama(agent_id, t)
+        out.setdefault("agent_id", agent_id[:64])
+        out.setdefault("step_id", t)
+        out.setdefault("zone_id", str(out.get("zone_id", ""))[:64])
+        out.setdefault("queue_summary", [])
+        if not isinstance(out["queue_summary"], list):
+            out["queue_summary"] = []
+        out.setdefault("task", "active")
+        if out["task"] not in ("active", "frozen"):
+            out["task"] = "active"
+        return out
+
+    def get_aggregate_metrics(self) -> dict[str, Any]:
+        """For runner metadata when used as llm_backend_ref."""
+        return {
+            "backend_id": "ollama_live_gossip",
+            "model_id": self._model,
+        }

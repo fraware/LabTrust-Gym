@@ -452,6 +452,113 @@ def _plot_critical_compliance_by_condition(
     plt.close()
 
 
+def _load_pack_summary(out_dir: Path) -> list[dict[str, Any]] | None:
+    """Load pack_summary.csv if present (coordination security pack). Returns list of row dicts or None."""
+    csv_path = out_dir / "pack_summary.csv"
+    if not csv_path.exists():
+        return None
+    rows: list[dict[str, Any]] = []
+    with csv_path.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            rows.append(dict(r))
+    return rows if rows else None
+
+
+def _parse_pack_gate_md(gate_path: Path) -> dict[tuple[str, str, str], str]:
+    """Parse pack_gate.md table; return (scale_id, method_id, injection_id) -> verdict."""
+    out: dict[tuple[str, str, str], str] = {}
+    text = gate_path.read_text(encoding="utf-8")
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or not line.startswith("|") or line.startswith("|--"):
+            continue
+        parts = [p.strip() for p in line.split("|") if p.strip()]
+        if len(parts) >= 4 and parts[0] != "scale_id":
+            scale_id = parts[0]
+            method_id = parts[1]
+            injection_id = parts[2]
+            verdict = parts[3].upper()
+            if verdict in ("PASS", "FAIL", "NOT_SUPPORTED"):
+                out[(scale_id, method_id, injection_id)] = (
+                    "not_supported" if verdict == "NOT_SUPPORTED" else verdict.lower()
+                )
+    return out
+
+
+def _write_pack_gate_summary_table(
+    rows: list[dict[str, Any]],
+    verdict_map: dict[tuple[str, str, str], str],
+    fig_dir: Path,
+) -> None:
+    """Write pack gate summary (method x injection verdict counts or table) to figures/data_tables/."""
+    data_tables = fig_dir / "data_tables"
+    data_tables.mkdir(parents=True, exist_ok=True)
+    # Compact table: method_id, injection_id, verdict (one row per scale/method/injection)
+    lines = [
+        "# Coordination pack gate summary",
+        "",
+        "| method_id | injection_id | scale_id | verdict |",
+        "|-----------|--------------|----------|--------|",
+    ]
+    for r in rows:
+        scale_id = r.get("scale_id", "")
+        method_id = r.get("method_id", "")
+        injection_id = r.get("injection_id", "")
+        verdict = verdict_map.get((scale_id, method_id, injection_id), "unknown")
+        lines.append(f"| {method_id} | {injection_id} | {scale_id} | {verdict} |")
+    lines.append("")
+    (data_tables / "pack_gate_summary.md").write_text(
+        "\n".join(lines), encoding="utf-8"
+    )
+
+
+def _plot_pack_gate_heatmap(
+    rows: list[dict[str, Any]],
+    verdict_map: dict[tuple[str, str, str], str],
+    fig_dir: Path,
+) -> None:
+    """Heatmap: method_id x injection_id, color by verdict (PASS=green, FAIL=red, not_supported=gray)."""
+    if not rows:
+        return
+    methods = sorted({r.get("method_id", "") for r in rows})
+    injections = sorted({r.get("injection_id", "") for r in rows})
+    if not methods or not injections:
+        return
+    # Aggregate verdict per (method, injection): use worst across scales (FAIL > not_supported > PASS)
+    order = {"fail": 2, "not_supported": 1, "pass": 0, "unknown": 1}
+    agg: dict[tuple[str, str], str] = {}
+    for r in rows:
+        scale_id = r.get("scale_id", "")
+        method_id = r.get("method_id", "")
+        injection_id = r.get("injection_id", "")
+        v = verdict_map.get((scale_id, method_id, injection_id), "unknown")
+        key = (method_id, injection_id)
+        if key not in agg or order.get(v, 0) > order.get(agg[key], 0):
+            agg[key] = v
+    import numpy as np
+
+    data = np.zeros((len(methods), len(injections)))
+    for i, m in enumerate(methods):
+        for j, inj in enumerate(injections):
+            v = agg.get((m, inj), "unknown")
+            data[i, j] = order.get(v, 1)
+    plt.figure(figsize=(max(4, len(injections) * 0.6), max(3, len(methods) * 0.4)))
+    plt.imshow(data, aspect="auto", cmap="RdYlGn", vmin=0, vmax=2)
+    plt.colorbar(ticks=[0, 1, 2], label="Verdict").set_ticklabels(
+        ["PASS", "not_supported", "FAIL"]
+    )
+    plt.xticks(range(len(injections)), injections, rotation=45, ha="right")
+    plt.yticks(range(len(methods)), methods)
+    plt.xlabel("Injection")
+    plt.ylabel("Method")
+    plt.title("Coordination pack gate: method x injection")
+    plt.tight_layout()
+    plt.savefig(fig_dir / "pack_gate_heatmap.png", dpi=150)
+    plt.savefig(fig_dir / "pack_gate_heatmap.svg")
+    plt.close()
+
+
 def _load_coordination_summary(out_dir: Path) -> list[dict[str, Any]] | None:
     """Load summary_coord.csv if present (coordination study). Returns list of row dicts or None."""
     csv_path = out_dir / "summary" / "summary_coord.csv"
@@ -685,14 +792,22 @@ def make_plots(out_dir: Path) -> Path:
     and figures (PNG + SVG) to out_dir/figures/ and out_dir/figures/data_tables/.
     Pareto scatter plots and summary table used in docs/paper_ready.md.
     If summary/summary_coord.csv exists (coordination study), also produce
-    resilience vs p95_tat and attack_success_rate bar. Same inputs => identical
-    CSV files (determinism).
+    resilience vs p95_tat and attack_success_rate bar. If pack_summary.csv exists
+    (coordination security pack), produce pack_gate_summary.md and pack_gate_heatmap.
+    Same inputs => identical CSV files (determinism).
     """
     if not _HAS_MPL:
         raise ImportError("matplotlib required for make_plots; pip install matplotlib")
     out_dir = Path(out_dir)
     fig_dir = out_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
+
+    pack_rows: list[dict[str, Any]] | None = _load_pack_summary(out_dir)
+    if pack_rows is not None:
+        gate_path = out_dir / "pack_gate.md"
+        verdict_map = _parse_pack_gate_md(gate_path) if gate_path.exists() else {}
+        _write_pack_gate_summary_table(pack_rows, verdict_map, fig_dir)
+        _plot_pack_gate_heatmap(pack_rows, verdict_map, fig_dir)
 
     manifest: dict[str, Any] = {}
     manifest_path = out_dir / "manifest.json"
@@ -703,11 +818,13 @@ def make_plots(out_dir: Path) -> Path:
     if coord_rows is not None:
         _plot_resilience_vs_p95_tat(coord_rows, fig_dir)
         _plot_attack_success_rate_bar(coord_rows, fig_dir)
-        if not (out_dir / "manifest.json").exists():
+        if not manifest_path.exists():
             return fig_dir
 
     condition_ids, condition_labels, results_list = _load_study_results(out_dir)
     if not condition_ids or not results_list:
+        if coord_rows is None and pack_rows is not None:
+            return fig_dir
         if coord_rows is None:
             raise ValueError(f"No condition results found in {out_dir}")
         return fig_dir

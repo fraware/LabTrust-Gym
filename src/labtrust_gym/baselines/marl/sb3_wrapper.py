@@ -161,7 +161,7 @@ else:
 
 
 def make_task_env(
-    task_name: str = "TaskA",
+    task_name: str = "throughput_sla",
     max_steps: int = 80,
     reward_config: dict[str, Any] | None = None,
 ) -> tuple[Any, Any]:

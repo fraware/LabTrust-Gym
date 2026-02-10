@@ -4,19 +4,19 @@ version: "0.1"
 description: "Task -> baseline_id for official baseline runs. Read by labtrust generate-official-baselines."
 
 official_tasks:
-  - task: TaskA
+  - task: throughput_sla
     baseline_id: scripted_ops_v1
-  - task: TaskB
+  - task: stat_insertion
     baseline_id: scripted_ops_v1
-  - task: TaskC
+  - task: qc_cascade
     baseline_id: scripted_ops_v1
-  - task: TaskD
+  - task: adversarial_disruption
     baseline_id: adversary_v1
-  - task: TaskE
+  - task: multi_site_stat
     baseline_id: scripted_ops_v1
-  - task: TaskF
+  - task: insider_key_misuse
     baseline_id: insider_v1
-  - task: TaskG_COORD_SCALE
+  - task: coord_scale
     baseline_id: kernel_scheduler_or_v0
-  - task: TaskH_COORD_RISK
+  - task: coord_risk
     baseline_id: kernel_scheduler_or_v0

@@ -14,7 +14,7 @@ The bundle contains normalized, UI-ready JSON:
 
 | File | Description |
 |------|-------------|
-| **index.json** | Episodes, tasks, baselines; file refs (results path, log path, receipts path) per episode. |
+| **index.json** | Episodes, tasks, baselines; file refs (results path, log path, receipts path) per episode. When the run dir contains coordination pack or lab report output, includes `coordination_artifacts`: list of `{ path, label }`; those files are also included in the zip under `coordination/`. |
 | **events.json** | All step outcomes in one array: normalized gate fields (status, blocked_reason_code, violations, emits, token_consumed, t_s, agent_id, action_type, event_id). Optionally chunked by episode in future. |
 | **receipts_index.json** | List of receipt locations: task/label → path and list of receipt filenames (e.g. receipt_specimen_S1.v0.1.json). |
 | **reason_codes.json** | Full reason code registry (code → namespace, severity, description, etc.) so UI does not parse policy YAML. |
@@ -33,13 +33,13 @@ Typical path: `labtrust_runs/quick_eval_YYYYMMDD_HHMMSS/`.
 
 | Path | Description |
 |------|-------------|
-| `TaskA.json`, `TaskD.json`, `TaskE.json` | Results files (schema results.v0.2). One file per task; each may contain multiple episodes. |
-| `logs/TaskA.jsonl`, `logs/TaskD.jsonl`, `logs/TaskE.jsonl` | Episode log (JSONL): one line per step; same order as steps in run. |
+| `throughput_sla.json`, `adversarial_disruption.json`, `multi_site_stat.json` | Results files (schema results.v0.2). One file per task; each may contain multiple episodes. |
+| `logs/throughput_sla.jsonl`, `logs/adversarial_disruption.jsonl`, `logs/multi_site_stat.jsonl` | Episode log (JSONL): one line per step; same order as steps in run. |
 | `summary.md` | Human-readable summary (optional). |
 
 **Relationships:**
 
-- For each `X.json` in run root, there may be `logs/X.jsonl` (task name derived from filename: e.g. `TaskA.json` → task `TaskA`).
+- For each `X.json` in run root, there may be `logs/X.jsonl` (task id derived from filename: e.g. `throughput_sla.json` → task `throughput_sla`).
 - Episodes in `X.json` are ordered; the i-th episode corresponds to the same run that produced the lines in `logs/X.jsonl` (when num_episodes is 1, the whole JSONL is one episode).
 - No receipts directory in plain quick-eval; `receipts_index.json` in the ui-export will be empty or omit this run’s receipts.
 
@@ -52,7 +52,7 @@ Typical path: `<out>/` from `labtrust package-release --profile paper_v0.1 --out
 | `_baselines/` | Official baselines: `results/*.json`, `summary.csv`, `summary.md`, `metadata.json`. |
 | `_study/` | Study run: `manifest.json`, `results/`, `logs/` (per condition), `figures/`. |
 | `_repr/<task>/` | Representative run per task: `episodes.jsonl`, `results.json`. |
-| `receipts/<task>/` | Receipts and EvidenceBundle.v0.1 per task (e.g. `receipts/TaskA/EvidenceBundle.v0.1/`, `receipts/TaskA/receipt_*.v0.1.json`). |
+| `receipts/<task>/` | Receipts and EvidenceBundle.v0.1 per task (e.g. `receipts/throughput_sla/EvidenceBundle.v0.1/`, `receipts/throughput_sla/receipt_*.v0.1.json`). |
 | `FIGURES/`, `TABLES/` | Plots and summary tables. |
 | `metadata.json`, `RELEASE_NOTES.md` | Run metadata. |
 
@@ -69,13 +69,28 @@ Typical path: `<out>/` from `labtrust package-release --profile paper_v0.1 --out
 - **Task → receipts:** `receipts/<task>/`; receipt files match `receipt_*.v0.1.json` or live inside `EvidenceBundle.v0.1/`.
 - **Event → episode:** Events in `events.json` can carry `episode_key` (e.g. `task` + `episode_index`) so UI can group by episode.
 
+### 3. Run dirs with coordination pack or lab report
+
+When `--run <dir>` is a directory that contains coordination security pack output or a lab report (e.g. from `labtrust run-coordination-security-pack` plus `labtrust build-lab-coordination-report`, or `labtrust run-official-pack --include-coordination-pack` which writes into `coordination_pack/`), ui-export scans for these artifacts and adds them to the bundle.
+
+| Path (relative to run dir) | Description |
+|-----------------------------|-------------|
+| `pack_summary.csv` | One row per cell (scale x method x injection). |
+| `pack_gate.md` | PASS/FAIL/not_supported per cell. |
+| `SECURITY/coordination_risk_matrix.csv`, `.md` | Method x injection x phase outcomes. |
+| `LAB_COORDINATION_REPORT.md` | Single lab report with scope, decision, artifact table. |
+| `COORDINATION_DECISION.v0.1.json`, `.md` | Chosen method per scale. |
+| `summary/sota_leaderboard.md`, `method_class_comparison.md` | SOTA and method-class comparison. |
+
+When present, **index.json** includes `coordination_artifacts`: a list of `{ "path": "<rel>", "label": "..." }` for each found file. Paths may be under `coordination_pack/` when the run is an official pack with `--include-coordination-pack`. The same files are included in the zip under the prefix **coordination/** (e.g. `coordination/pack_summary.csv`, `coordination/coordination_pack/LAB_COORDINATION_REPORT.md`) so the UI can link to or load them without reading the raw run dir.
+
 ---
 
 ## Required files and how to infer relationships
 
 | Need | Source |
 |------|--------|
-| List of tasks | From result filenames (e.g. `TaskA.json`) or from `_repr/`, `_baselines/results/`, `_study/results/`. |
+| List of tasks | From result filenames (e.g. `throughput_sla.json`) or from `_repr/`, `_baselines/results/`, `_study/results/`. |
 | Episodes per task | From `results.json` / `TaskX.json` → `episodes` array; length = number of episodes. |
 | Step-level outcomes | From episode log JSONL; each line = one step. ui-export normalizes these into `events.json` with stable field names. |
 | Receipts per task | From `receipts/<task>/` and `EvidenceBundle.v0.1/` contents; list in `receipts_index.json`. |
@@ -87,6 +102,7 @@ Typical path: `<out>/` from `labtrust package-release --profile paper_v0.1 --out
 - `tasks`: list of task ids.
 - `episodes`: list of `{ "task", "episode_index", "results_ref", "log_ref", "receipts_ref" }` (refs = paths relative to run dir or keys into bundle).
 - `baselines`: list of baseline ids present in the run (if any).
+- `coordination_artifacts` (optional): list of `{ "path": "<rel>", "label": "..." }` when run dir contains pack_summary.csv, LAB_COORDINATION_REPORT.md, or related files; paths are relative to run dir; files are also in the zip under `coordination/`.
 
 **events.json**:
 

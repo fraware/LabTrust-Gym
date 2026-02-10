@@ -23,6 +23,14 @@ RC_SCHEMA_REJECTED = "SEC_INJ_SCHEMA_REJECTED"
 RC_CONTAINMENT_TRIGGERED = "SEC_INJ_CONTAINMENT_TRIGGERED"
 
 
+# Application phase: early = bootstrap (step <= early_step_cap), mid = main episode,
+# late = tail (step >= late_step_min), full = no step restriction (default).
+APPLICATION_PHASE_FULL = "full"
+APPLICATION_PHASE_EARLY = "early"
+APPLICATION_PHASE_MID = "mid"
+APPLICATION_PHASE_LATE = "late"
+
+
 @dataclass
 class InjectionConfig:
     """Configuration for a single injection; deterministic given seed + seed_offset."""
@@ -31,6 +39,9 @@ class InjectionConfig:
     intensity: float  # in [0, 1]
     seed_offset: int
     target: str | None = None  # agent_id, method_id, or channel id
+    application_phase: str = APPLICATION_PHASE_FULL  # early | mid | late | full
+    early_step_cap: int | None = None  # for early: apply only when step <= this
+    late_step_min: int | None = None  # for late: apply only when step >= this
 
 
 def _audit_entry(
@@ -76,6 +87,28 @@ class RiskInjector:
     def injection_id(self) -> str:
         return self._config.injection_id
 
+    def _step_in_phase(self) -> bool:
+        """True if current _step is within the configured application_phase window."""
+        phase = (self._config.application_phase or APPLICATION_PHASE_FULL).lower()
+        if phase == APPLICATION_PHASE_FULL:
+            return True
+        step = self._step
+        if phase == APPLICATION_PHASE_EARLY:
+            cap = self._config.early_step_cap
+            return cap is not None and step <= cap
+        if phase == APPLICATION_PHASE_LATE:
+            low = self._config.late_step_min
+            return low is not None and step >= low
+        if phase == APPLICATION_PHASE_MID:
+            cap = self._config.early_step_cap
+            low = self._config.late_step_min
+            if cap is not None and step <= cap:
+                return False
+            if low is not None and step >= low:
+                return False
+            return True
+        return True
+
     def reset(self, seed: int, injection_config: InjectionConfig | None = None) -> None:
         cfg = injection_config or self._config
         self._config = cfg
@@ -89,7 +122,13 @@ class RiskInjector:
         self._attack_success = False
 
     def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
-        """Return (possibly mutated obs, optional audit entry to append)."""
+        """Return (possibly mutated obs, optional audit entry). Checks application_phase first."""
+        if not self._step_in_phase():
+            return obs, None
+        return self._mutate_obs_impl(obs)
+
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        """Override in subclasses to apply observation mutation. Default: no-op."""
         return obs, None
 
     def mutate_messages(self, messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
@@ -99,7 +138,15 @@ class RiskInjector:
     def mutate_actions(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
-        """Return (possibly mutated action_dict, list of audit entries to append to step_results)."""
+        """Return (possibly mutated action_dict, list of audit entries). Checks application_phase first."""
+        if not self._step_in_phase():
+            return action_dict, []
+        return self._mutate_actions_impl(action_dict)
+
+    def _mutate_actions_impl(
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+        """Override in subclasses to apply action mutation. Default: no-op."""
         return action_dict, []
 
     def observe_step(self, step_outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -179,7 +226,7 @@ class RiskInjector:
 class CommsPoisonInjector(RiskInjector):
     """With p=intensity flip message fields or inject fake queue_head update."""
 
-    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if not self._rng or self._rng.random() > self._config.intensity:
             return obs, None
         obs = copy.deepcopy(obs)
@@ -224,7 +271,7 @@ class CommsPoisonInjector(RiskInjector):
 class IdSpoofInjector(RiskInjector):
     """Attempt to make actions appear from another agent_id/key_id; success if any accepted."""
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._config.intensity <= 0:
@@ -278,7 +325,7 @@ class DosPlannerInjector(RiskInjector):
         super().__init__(config)
         self._compute_budget = compute_budget if compute_budget is not None else 1
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         non_noop = [a for a, ad in action_dict.items() if ad.get("action_index", 0) not in (0, 1)]
@@ -310,7 +357,7 @@ class DosPlannerInjector(RiskInjector):
 class CollusionInjector(RiskInjector):
     """Subset of agents coordinate bids to starve tasks or break fairness."""
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._rng.random() > self._config.intensity:
@@ -344,7 +391,7 @@ class CollusionInjector(RiskInjector):
 class ToolMisparamInjector(RiskInjector):
     """Inject malformed structured output at rate=intensity; schema should reject."""
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._rng.random() > self._config.intensity:
@@ -589,7 +636,7 @@ class MemoryPoisonInjector(RiskInjector):
         super().__init__(config)
         self._corruption_step: int | None = None
 
-    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if not self._rng or self._rng.random() > self._config.intensity:
             return obs, None
         obs = copy.deepcopy(obs)
@@ -633,7 +680,7 @@ class SlowRollPoisonInjector(RiskInjector):
         if self._rng:
             self._delay_steps = max(5, int(10 + self._rng.random() * 30))
 
-    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if self._step < self._delay_steps or not self._rng or self._rng.random() > self._config.intensity:
             return obs, None
         obs = copy.deepcopy(obs)
@@ -682,7 +729,7 @@ class ReplayInjector(RiskInjector):
         self._last_action: dict[str, Any] | None = None
         self._last_agent: str | None = None
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._config.intensity <= 0:
@@ -751,7 +798,7 @@ class PromptInjectCoordInjector(RiskInjector):
         if self._rng:
             self._inject_at_step = self._rng.randint(2, 15)
 
-    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if self._inject_at_step is None or self._step != self._inject_at_step:
             return obs, None
         if self._rng and self._rng.random() > self._config.intensity:
@@ -809,7 +856,7 @@ class ToolEscalationInjector(RiskInjector):
         if self._rng:
             self._inject_at_step = self._rng.randint(1, 10)
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if self._inject_at_step is None or self._step != self._inject_at_step:
@@ -819,7 +866,7 @@ class ToolEscalationInjector(RiskInjector):
         agents = sorted(action_dict.keys())
         if not agents:
             return action_dict, []
-        victim = agents[(self._step + self._config.seed_offset) % len(agents)]
+        victim = agents[(self._step + (self._config.seed_offset or 0)) % len(agents)]
         out = copy.deepcopy(action_dict)
         ad = dict(out[victim])
         ad["action_type"] = "INVOKE_TOOL"
@@ -910,7 +957,7 @@ class MemoryPoisonCoordInjector(RiskInjector):
         if self._rng:
             self._inject_at_step = self._rng.randint(3, 12)
 
-    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if self._inject_at_step is None or self._step != self._inject_at_step:
             return obs, None
         if self._rng and self._rng.random() > self._config.intensity:
@@ -962,7 +1009,7 @@ class CoordPromptInject001Injector(RiskInjector):
         if self._rng:
             self._inject_at_step = self._rng.randint(2, 12)
 
-    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if self._inject_at_step is None or self._step != self._inject_at_step:
             return obs, None
         if self._rng and self._rng.random() > self._config.intensity:
@@ -1024,7 +1071,7 @@ class PlanReplayInjector(RiskInjector):
         self._last_agent = None
         self._last_plan_id = ""
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._config.intensity <= 0:
@@ -1084,7 +1131,7 @@ class BidShillInjector(RiskInjector):
     Deterministic: same agents and step pattern as seed.
     """
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         if not self._rng or self._rng.random() > self._config.intensity:
@@ -1129,6 +1176,204 @@ class BidShillInjector(RiskInjector):
         return extra
 
 
+# ---------------------------------------------------------------------------
+# INJ-CONSENSUS-POISON-001: False state broadcast via bus (coordination-native)
+# ---------------------------------------------------------------------------
+class ConsensusPoisonInjector(RiskInjector):
+    """
+    Coordination-native: inject false consensus state (e.g. fake queue_head) so
+    coordinator or agents consume it. Resisted by bus validation / signed state.
+    Same mechanics as comms poison; distinct ID for goal and matrix.
+    """
+
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        if not self._rng or self._rng.random() > self._config.intensity:
+            return obs, None
+        obs = copy.deepcopy(obs)
+        agents = sorted(obs.keys())
+        if not agents:
+            return obs, None
+        victim = self._rng.choice(agents)
+        o = obs[victim]
+        if isinstance(o, dict) and o.get("queue_has_head") is not None:
+            qhd = o["queue_has_head"]
+            if hasattr(qhd, "__len__") and len(qhd) > 0:
+                idx = self._rng.randint(0, min(len(qhd) - 1, 2))
+                try:
+                    flat = getattr(qhd, "flat", qhd)
+                    arr = list(flat) if flat is not None else []
+                    if idx < len(arr):
+                        arr[idx] = 1 if (arr[idx] == 0 or not arr[idx]) else 0
+                        obs[victim] = dict(o)
+                        try:
+                            import numpy as np
+                            obs[victim]["queue_has_head"] = np.array(
+                                arr, dtype=getattr(qhd, "dtype", np.int64)
+                            )
+                        except Exception:
+                            obs[victim]["queue_has_head"] = arr
+                except (TypeError, IndexError):
+                    pass
+        self._applied_this_step = True
+        if self._first_application_step is None:
+            self._first_application_step = self._step
+        return obs, _audit_entry(
+            EMIT_INJECTION_APPLIED,
+            self.injection_id,
+            self._step,
+            {"target": victim, "type": "consensus_false_state"},
+        )
+
+
+# ---------------------------------------------------------------------------
+# INJ-TIMING-QUEUE-001: Tail-latency weaponization (coordination-native)
+# ---------------------------------------------------------------------------
+class TimingQueueInjector(RiskInjector):
+    """
+    Coordination-native: force delay by replacing a non-NOOP action with NOOP
+    for one agent (weaponize queue/tail latency). Deterministic by seed.
+    Methods with queue bypass or priority resist (fewer effective delays).
+    """
+
+    def _mutate_actions_impl(
+        self, action_dict: dict[str, dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+        if not self._rng or self._rng.random() > self._config.intensity:
+            return action_dict, []
+        agents = sorted(action_dict.keys())
+        if not agents:
+            return action_dict, []
+        victim = self._rng.choice(agents)
+        ad = action_dict.get(victim)
+        if not ad or ad.get("action_index", 0) in (0, 1):
+            return action_dict, []
+        out = copy.deepcopy(action_dict)
+        out[victim] = {"action_index": 0, "action_type": "NOOP"}
+        self._applied_this_step = True
+        if self._first_application_step is None:
+            self._first_application_step = self._step
+        return out, [
+            _audit_entry(
+                EMIT_INJECTION_APPLIED,
+                self.injection_id,
+                self._step,
+                {"victim": victim, "type": "forced_delay_noop"},
+            )
+        ]
+
+    def observe_step(self, step_outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        extra = super().observe_step(step_outputs)
+        if self._applied_this_step:
+            for r in step_outputs:
+                if r.get("status") != "BLOCKED" and (r.get("emits") or r.get("action_type")):
+                    if "RELEASE_RESULT" in (r.get("emits") or []) or r.get("action_type") == "START_RUN":
+                        self._attack_success = True
+                        break
+        return extra
+
+
+# ---------------------------------------------------------------------------
+# INJ-PARTIAL-OBS-001: Sensor dropout localized to zone (coordination-native)
+# ---------------------------------------------------------------------------
+class PartialObsInjector(RiskInjector):
+    """
+    Coordination-native: drop obs for one agent (sensor dropout in one zone).
+    Methods with redundancy or multi-agent view resist.
+    """
+
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        if not self._rng or self._rng.random() > self._config.intensity:
+            return obs, None
+        obs = copy.deepcopy(obs)
+        agents = sorted(obs.keys())
+        if not agents:
+            return obs, None
+        victim = self._rng.choice(agents)
+        o = obs[victim]
+        if isinstance(o, dict) and "queue_has_head" in o:
+            try:
+                import numpy as np
+                qhd = o["queue_has_head"]
+                n = len(getattr(qhd, "flat", qhd) or qhd) if hasattr(qhd, "__len__") else 0
+                obs[victim] = dict(o)
+                obs[victim]["queue_has_head"] = np.zeros(n, dtype=getattr(qhd, "dtype", np.int64))
+            except Exception:
+                pass
+        self._applied_this_step = True
+        if self._first_application_step is None:
+            self._first_application_step = self._step
+        return obs, _audit_entry(
+            EMIT_INJECTION_APPLIED,
+            self.injection_id,
+            self._step,
+            {"target": victim, "type": "sensor_dropout_zone"},
+        )
+
+
+# ---------------------------------------------------------------------------
+# INJ-BLAME-SHIFT-001: Stealth success + delayed attribution (coordination-native)
+# ---------------------------------------------------------------------------
+class BlameShiftInjector(RiskInjector):
+    """
+    Coordination-native: poison like comms but record detection only after a
+    delay so time_to_attribution_steps is high (targeted blame shift).
+    """
+
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        if not self._rng or self._rng.random() > self._config.intensity:
+            return obs, None
+        obs = copy.deepcopy(obs)
+        agents = sorted(obs.keys())
+        if not agents:
+            return obs, None
+        victim = self._rng.choice(agents)
+        o = obs[victim]
+        if isinstance(o, dict) and o.get("queue_has_head") is not None:
+            qhd = o["queue_has_head"]
+            if hasattr(qhd, "__len__") and len(qhd) > 0:
+                idx = self._rng.randint(0, min(len(qhd) - 1, 2))
+                try:
+                    flat = getattr(qhd, "flat", qhd)
+                    arr = list(flat) if flat is not None else []
+                    if idx < len(arr):
+                        arr[idx] = 1 if (arr[idx] == 0 or not arr[idx]) else 0
+                        obs[victim] = dict(o)
+                        try:
+                            import numpy as np
+                            obs[victim]["queue_has_head"] = np.array(
+                                arr, dtype=getattr(qhd, "dtype", np.int64)
+                            )
+                        except Exception:
+                            obs[victim]["queue_has_head"] = arr
+                except (TypeError, IndexError):
+                    pass
+        self._applied_this_step = True
+        if self._first_application_step is None:
+            self._first_application_step = self._step
+        return obs, _audit_entry(
+            EMIT_INJECTION_APPLIED,
+            self.injection_id,
+            self._step,
+            {"target": victim, "type": "blame_shift_poison"},
+        )
+
+    def observe_step(self, step_outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        extra = super().observe_step(step_outputs)
+        if self._applied_this_step:
+            for r in step_outputs:
+                if r.get("status") != "BLOCKED" and r.get("emits"):
+                    if "RELEASE_RESULT" in (r.get("emits") or []):
+                        self._attack_success = True
+                        break
+        attribution_delay = 5
+        if (
+            self._first_detection_step is not None
+            and self._first_detection_step < attribution_delay
+        ):
+            self._first_detection_step = attribution_delay
+        return extra
+
+
 class NoOpInjector(RiskInjector):
     """
     Passthrough injector for legacy or placeholder injection IDs in study specs.
@@ -1136,13 +1381,13 @@ class NoOpInjector(RiskInjector):
     injection_ids that are not yet implemented (e.g. inj_tool_selection_noise).
     """
 
-    def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         return obs, None
 
     def mutate_messages(self, messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
         return messages, None
 
-    def mutate_actions(
+    def _mutate_actions_impl(
         self, action_dict: dict[str, dict[str, Any]]
     ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
         return action_dict, []
@@ -1192,9 +1437,11 @@ INJECTION_REGISTRY: dict[str, type] = {
     "INJ-COORD-PROMPT-INJECT-001": CoordPromptInject001Injector,
     "INJ-COORD-PLAN-REPLAY-001": PlanReplayInjector,
     "INJ-COORD-BID-SHILL-001": BidShillInjector,
+    "INJ-CONSENSUS-POISON-001": ConsensusPoisonInjector,
+    "INJ-TIMING-QUEUE-001": TimingQueueInjector,
+    "INJ-PARTIAL-OBS-001": PartialObsInjector,
+    "INJ-BLAME-SHIFT-001": BlameShiftInjector,
     # INJ-BID-SPOOF-001: currently mapped to CollusionInjector (bid/market manipulation).
-    # A dedicated BidSpoofInjector may be added after product/security confirmation;
-    # until then this harness covers bid-spoof scenarios via the collusion path.
     "INJ-BID-SPOOF-001": CollusionInjector,
 }
 for _lid in LEGACY_INJECTION_IDS:
@@ -1217,6 +1464,9 @@ def make_injector(
         intensity=max(0.0, min(1.0, intensity)),
         seed_offset=seed_offset,
         target=target,
+        application_phase=kwargs.get("application_phase", APPLICATION_PHASE_FULL),
+        early_step_cap=kwargs.get("early_step_cap"),
+        late_step_min=kwargs.get("late_step_min"),
     )
     if injection_id == "INJ-DOS-PLANNER-001":
         return cast(RiskInjector, cls(config, compute_budget=kwargs.get("compute_budget", 1)))

@@ -1,0 +1,30 @@
+# Coordination security pack smoke on PR when studies, benchmarks, or coordination policy change.
+# Lightweight: fixed methods + critical injections only. Fails the build if pack fails or pack_summary.csv missing.
+
+name: Pack smoke (PR)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/labtrust_gym/studies/**"
+      - "src/labtrust_gym/benchmarks/**"
+      - "policy/coordination/**"
+      - "tests/test_coordination_security_pack*.py"
+      - "tests/test_coordination_*smoke*.py"
+
+jobs:
+  pack-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: Coordination security pack smoke (fixed methods, critical injections)
+        run: |
+          labtrust run-coordination-security-pack --out ./pack_smoke --methods-from fixed --injections-from critical --seed 42
+      - name: Assert pack summary exists
+        run: test -f pack_smoke/pack_summary.csv

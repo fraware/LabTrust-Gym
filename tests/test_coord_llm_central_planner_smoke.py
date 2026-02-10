@@ -206,3 +206,20 @@ def test_with_injection_like_obs_proposal_and_shield_outcomes() -> None:
     env.close()
     assert report.executed_actions is not None or report.blocked_actions is not None
     assert report.shield_outcome_hash != ""
+
+
+def test_registry_creates_variant_with_correct_method_id() -> None:
+    """Registry resolves variant to base class but instance reports variant method_id."""
+    from labtrust_gym.baselines.coordination.registry import make_coordination_method
+
+    repo_root = _repo_root()
+    policy = {"pz_to_engine": {"worker_0": "ops_0", "worker_1": "runner_0"}}
+    scale_config = {"seed": 99}
+    method = make_coordination_method(
+        "llm_central_planner_shielded",
+        policy,
+        repo_root=repo_root,
+        scale_config=scale_config,
+        pz_to_engine=policy["pz_to_engine"],
+    )
+    assert method.method_id == "llm_central_planner_shielded"

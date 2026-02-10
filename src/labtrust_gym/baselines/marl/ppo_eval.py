@@ -13,7 +13,7 @@ from labtrust_gym.baselines.marl.ppo_train import _eval_policy
 
 def eval_ppo(
     model_path: str,
-    task_name: str = "TaskA",
+    task_name: str = "throughput_sla",
     episodes: int = 50,
     seed: int = 123,
     out_path: Path | None = None,

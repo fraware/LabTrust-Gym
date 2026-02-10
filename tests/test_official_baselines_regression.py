@@ -4,7 +4,7 @@ Baseline regression guard: compare current benchmark run to frozen official base
 - Gated by LABTRUST_CHECK_BASELINES=1.
 - Prefers benchmarks/baselines_official/v0.2/ (canonical); skips only if v0.2/results/
   is missing or has no *.json (v0.1 is legacy and not used for regression).
-- Runs a tiny sweep (episodes=3, seed=123, timing=explicit) for Tasks A–F.
+- Runs a tiny sweep (episodes=3, seed=123, timing=explicit) for core tasks (throughput_sla through insider_key_misuse).
 - Loads official results from benchmarks/baselines_official/v0.2/results/*.json.
 - Compares exact integer/struct metrics only (stable across OS/Python):
   throughput, holds_count, tokens_minted, tokens_consumed, steps,
@@ -105,7 +105,7 @@ def test_official_baselines_regression(tmp_path: Path) -> None:
         suffix = task_to_suffix[task]
         official_path = official_results_dir / f"{task}_{suffix}.json"
         if not official_path.exists():
-            # Skip tasks that have no committed official baseline yet (e.g. TaskG, TaskH)
+            # Skip tasks that have no committed official baseline yet (e.g. coord_scale, coord_risk)
             continue
 
         current_path = tmp_path / f"{task}_{suffix}.json"

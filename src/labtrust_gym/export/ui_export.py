@@ -48,8 +48,8 @@ def _detect_run_type(run_dir: Path) -> str:
         return "package_release"
     if (run_dir / "metadata.json").exists() or (run_dir / "RELEASE_NOTES.md").exists():
         return "package_release"
-    # quick-eval: TaskA.json, TaskD.json, TaskE.json and logs/
-    if (run_dir / "TaskA.json").exists() and (run_dir / "logs").is_dir():
+    # quick-eval: throughput_sla.json, adversarial_disruption.json, multi_site_stat.json and logs/
+    if (run_dir / "throughput_sla.json").exists() and (run_dir / "logs").is_dir():
         return "quick_eval"
     # Fallback: if we have any Task*.json + logs, treat as quick_eval shape
     task_jsons = list(run_dir.glob("Task*.json"))
@@ -57,7 +57,7 @@ def _detect_run_type(run_dir: Path) -> str:
         return "quick_eval"
     raise ValueError(
         f"Unrecognized run layout under {run_dir}. "
-        "Expected labtrust_runs/quick_eval_* (TaskA.json, logs/) or "
+        "Expected labtrust_runs/quick_eval_* (throughput_sla.json, logs/) or "
         "package-release (_baselines, _repr, _study, receipts/)."
     )
 
@@ -325,6 +325,19 @@ def _build_events(
 # Stable key for coordination telemetry in UI bundle (contract v0.1)
 COORD_TELEMETRY_KEY = "coord_telemetry"
 
+# Coordination pack / lab report artifacts to include when present (contract v0.1)
+COORDINATION_ARTIFACT_REFS = [
+    ("pack_summary.csv", "Pack summary"),
+    ("pack_gate.md", "Pack gate"),
+    ("SECURITY/coordination_risk_matrix.csv", "Coordination risk matrix (CSV)"),
+    ("SECURITY/coordination_risk_matrix.md", "Coordination risk matrix (MD)"),
+    ("LAB_COORDINATION_REPORT.md", "Lab coordination report"),
+    ("COORDINATION_DECISION.v0.1.json", "Coordination decision (JSON)"),
+    ("COORDINATION_DECISION.md", "Coordination decision (MD)"),
+    ("summary/sota_leaderboard.md", "SOTA leaderboard"),
+    ("summary/method_class_comparison.md", "Method class comparison"),
+]
+
 
 def _collect_coord_telemetry(
     run_dir: Path,
@@ -354,6 +367,25 @@ def _collect_coord_telemetry(
             }
         )
     return refs
+
+
+def _collect_coordination_artifacts(run_dir: Path) -> list[dict[str, str]]:
+    """
+    Collect paths to coordination pack / lab report artifacts when present.
+    Checks run_dir and run_dir/coordination_pack/. Returns list of { path, label }
+    with path relative to run_dir for index; actual file may be under coordination_pack/.
+    """
+    out: list[dict[str, str]] = []
+    for rel_path, label in COORDINATION_ARTIFACT_REFS:
+        full = run_dir / rel_path
+        if full.is_file():
+            out.append({"path": rel_path, "label": label})
+            continue
+        # package-release with coordination_pack subdir
+        coord_pack = run_dir / "coordination_pack" / rel_path
+        if coord_pack.is_file():
+            out.append({"path": f"coordination_pack/{rel_path}", "label": label})
+    return out
 
 
 def _load_reason_codes_json(repo_root: Path) -> dict[str, Any]:
@@ -415,11 +447,21 @@ def export_ui_bundle(
             index[key] = pipeline_fields[key]
     if coord_telemetry_refs:
         index[COORD_TELEMETRY_KEY] = coord_telemetry_refs
+    coord_artifacts = _collect_coordination_artifacts(run_dir)
+    if coord_artifacts:
+        index["coordination_artifacts"] = coord_artifacts
     reason_codes = _load_reason_codes_json(Path(repo_root))
 
     out_zip_path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("index.json", json.dumps(index, indent=2, sort_keys=True))
+        for art in coord_artifacts:
+            rel = art.get("path", "")
+            if not rel:
+                continue
+            full = run_dir / rel
+            if full.is_file():
+                zf.write(full, f"coordination/{rel}")
         zf.writestr("events.json", json.dumps(events, indent=2, sort_keys=True))
         zf.writestr(
             "receipts_index.json", json.dumps(receipts_index, indent=2, sort_keys=True)

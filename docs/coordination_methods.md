@@ -1,6 +1,6 @@
 # Coordination Methods
 
-Coordination methods produce per-agent actions for the PettingZoo Parallel env and are compared at scale in TaskG_COORD_SCALE and TaskH_COORD_RISK. Each method implements the same interface and runs deterministically when using the deterministic backend. The registry is defined in `policy/coordination/coordination_methods.v0.1.yaml`; risk coverage is in `policy/coordination/method_risk_matrix.v0.1.yaml` and `policy/risks/risk_registry.v0.1.yaml`.
+Coordination methods produce per-agent actions for the PettingZoo Parallel env and are compared at scale in coord_scale and coord_risk. Each method implements the same interface and runs deterministically when using the deterministic backend. The registry is defined in `policy/coordination/coordination_methods.v0.1.yaml`; risk coverage is in `policy/coordination/method_risk_matrix.v0.1.yaml` and `policy/risks/risk_registry.v0.1.yaml`. For **learning-style methods** (e.g. MARL, evolution), see [Learning methods implementation strategy](coordination/learning_methods_implementation_strategy.md): deterministic track (CI-safe) vs study track (reproducible via seed-base and checkpoint hashing), and optional `metadata.coordination.learning` fields in results.
 
 ## Interface
 
@@ -29,19 +29,19 @@ Swapping only the router changes **route_hash** but not allocation_hash or sched
 - **Scheduler**: `EDFScheduler` (earliest-deadline-first per agent; deterministic tie-break).
 - **Router**: `TrivialRouter` (BFS move toward goal zone or START_RUN when colocated).
 
-Run with: `labtrust run-benchmark --task TaskG_COORD_SCALE --coord-method kernel_centralized_edf --episodes 1 --seed 42 --out results.json`. Determinism: same seed yields identical decision hashes and per-agent actions; see `tests/test_coordination_kernel_determinism.py` and `tests/test_coordination_kernel_composition.py`.
+Run with: `labtrust run-benchmark --task coord_scale --coord-method kernel_centralized_edf --episodes 1 --seed 42 --out results.json`. Determinism: same seed yields identical decision hashes and per-agent actions; see `tests/test_coordination_kernel_determinism.py` and `tests/test_coordination_kernel_composition.py`.
 
 ## Event-sourced blackboard and partial observability
 
-Instead of "agents magically see global state", TaskG/TaskH can use an explicit **BlackboardLog** and **ViewReplicas** so coordination is evaluated under configurable comms semantics:
+Instead of "agents magically see global state", coord_scale/coord_risk can use an explicit **BlackboardLog** and **ViewReplicas** so coordination is evaluated under configurable comms semantics:
 
 - **BlackboardLog** (`src/labtrust_gym/coordination/blackboard.py`): Append-only events (facts) with deterministic ordering and replay. Each event has id, t_event, t_emit, type, payload_hash, payload_small. Head hash chains events for integrity.
 - **ViewReplica** (`views.py`): Per-agent local view that lags behind the global log. `apply(event)` updates from a delivered event; `snapshot()` returns minimal state (queue_heads, zone_occupancy, device_status, specimen_statuses) used by policies.
 - **CommsModel** (`comms_model.py`): Delivers log events to view replicas with configurable delay (seeded), drop_rate, reorder_window, duplicate_rate. **Perfect** mode (default) delivers all events immediately with no loss or reorder.
 
-The **BlackboardHarness** (`harness.py`) is created when running TaskG/TaskH with a coordination method: each env step, facts are derived from engine step outputs and appended to the log; CommsModel delivers new events to replicas; replicas apply and expose snapshots. **KernelContext** receives optional `global_log` and `view_snapshots` so centralized methods can read from the full log and decentralized methods from per-agent views.
+The **BlackboardHarness** (`harness.py`) is created when running coord_scale/coord_risk with a coordination method: each env step, facts are derived from engine step outputs and appended to the log; CommsModel delivers new events to replicas; replicas apply and expose snapshots. **KernelContext** receives optional `global_log` and `view_snapshots` so centralized methods can read from the full log and decentralized methods from per-agent views.
 
-**Comms risk injections** (policy-driven): INJ-COMMS-DELAY-001, INJ-COMMS-DROP-001, INJ-COMMS-REORDER-001 configure the CommsModel (delay, drop rate, reorder window) so TaskH_COORD_RISK can run with comms impairments and produce stable results with seed_base. Results v0.2 can include an optional **coordination** block with **comm.msg_count**, **comm.p95_latency_ms**, **comm.drop_rate**; summarize-results and the coordination study Pareto report include these columns when present. See `tests/test_blackboard_replay_determinism.py` and `tests/test_view_staleness_effect.py`.
+**Comms risk injections** (policy-driven): INJ-COMMS-DELAY-001, INJ-COMMS-DROP-001, INJ-COMMS-REORDER-001 configure the CommsModel (delay, drop rate, reorder window) so coord_risk can run with comms impairments and produce stable results with seed_base. Results v0.2 can include an optional **coordination** block with **comm.msg_count**, **comm.p95_latency_ms**, **comm.drop_rate**; summarize-results and the coordination study Pareto report include these columns when present. See `tests/test_blackboard_replay_determinism.py` and `tests/test_view_staleness_effect.py`.
 
 ## Methods
 
@@ -55,7 +55,7 @@ Kernel-composed method: CentralizedAllocator + EDFScheduler + TrivialRouter. Emi
 
 ### 0b. kernel_whca (composed, WHCA* router)
 
-Kernel-composed method: CentralizedAllocator + EDFScheduler + **WHCARouter**. Uses a reservation table over the zone graph and windowed cooperative A* (WHCA*) for collision-free moves over a finite horizon (default 15 steps). Deadlock-safe fallback: wait-in-place (NOOP). Restricted door edges (INV-ROUTE-002) are never planned without valid token. Metrics: `coordination.route` with `replan_rate`, `mean_plan_time_ms`, `deadlock_avoids`. Scale configs in `policy/coordination/scale_configs.v0.1.yaml` (e.g. corridor_heavy: 200 agents). Run: `labtrust run-benchmark --task TaskG_COORD_SCALE --coord-method kernel_whca --episodes 1 --seed 42 --out results.json`. Determinism: same seed yields identical paths and decision hashes.
+Kernel-composed method: CentralizedAllocator + EDFScheduler + **WHCARouter**. Uses a reservation table over the zone graph and windowed cooperative A* (WHCA*) for collision-free moves over a finite horizon (default 15 steps). Deadlock-safe fallback: wait-in-place (NOOP). Restricted door edges (INV-ROUTE-002) are never planned without valid token. Metrics: `coordination.route` with `replan_rate`, `mean_plan_time_ms`, `deadlock_avoids`. Scale configs in `policy/coordination/scale_configs.v0.1.yaml` (e.g. corridor_heavy: 200 agents). Run: `labtrust run-benchmark --task coord_scale --coord-method kernel_whca --episodes 1 --seed 42 --out results.json`. Determinism: same seed yields identical paths and decision hashes.
 
 **Routing invariants** (coordination-layer, see `routing/invariants.py`): **INV-ROUTE-001** no two agents occupy same (time, node) over planned horizon; **INV-ROUTE-002** restricted door edges require valid token or are never planned. Evaluated in tests and optionally in study runner.
 
@@ -69,7 +69,7 @@ Operations-research-grade baseline: **CentralizedAllocator** + **ORScheduler** (
 
 **Complexity**: O(agents × work items) per step for allocation and schedule filtering; planning time reported in sched.mean_plan_time_ms.
 
-**Failure modes**: Same as centralized (R-SYS-001 single point of failure, R-COMMS-001, R-FLOW-002); scheduler output always passes coordination contract (no illegal actions under strict RBAC/token mode). Official non-LLM coordination baseline for TaskG_COORD_SCALE and TaskH_COORD_RISK (`benchmarks/baseline_registry.v0.1.yaml`: kernel_scheduler_or_v0).
+**Failure modes**: Same as centralized (R-SYS-001 single point of failure, R-COMMS-001, R-FLOW-002); scheduler output always passes coordination contract (no illegal actions under strict RBAC/token mode). Official non-LLM coordination baseline for coord_scale and coord_risk (`benchmarks/baseline_registry.v0.1.yaml`: kernel_scheduler_or_v0).
 
 ---
 
@@ -77,7 +77,7 @@ Operations-research-grade baseline: **CentralizedAllocator** + **ORScheduler** (
 
 Kernel-composed methods: **AuctionAllocator** (sealed-bid auction) + EDFScheduler + TrivialRouter or WHCARouter. Allocation is no longer heuristic-only: each agent bids based on distance-to-work (routing graph), queue load, role constraints, and congestion-aware price signals (zone congestion, device queue price). Auction runs with a strict bid budget (`max_bids` per step); deterministic stable ordering and seeded tie-breaks. RBAC and token constraints are respected (allocator cannot assign forbidden actions). Metrics: `coordination.alloc` with **gini_work_distribution**, **mean_bid**, **rebid_rate**, and optional **alloc_emits** (e.g. BID_ANOMALY_DETECTED).
 
-**Bid anomaly detector**: When enabled (default), outlier low bids are flagged (emit BID_ANOMALY_DETECTED, reason_code BID_ANOMALY_SPOOF_SUSPECTED); the flagged agent is contained (bids ignored for K steps). **INJ-BID-SPOOF-001**: Compromised agent publishes artificially low bids (injection via `scale_config.injection_id`); detector mitigates by containment. Method-risk matrix: market allocator partially covers congestion (R-FLOW-002), vulnerable to bid spoof (R-DATA-001) unless detector enabled. TaskH smoke: run with `--coord-method kernel_auction_edf --injection INJ-BID-SPOOF-001`; results include `coordination.alloc`. See `tests/test_auction_respects_rbac.py`, `tests/test_bid_spoof_detection.py`.
+**Bid anomaly detector**: When enabled (default), outlier low bids are flagged (emit BID_ANOMALY_DETECTED, reason_code BID_ANOMALY_SPOOF_SUSPECTED); the flagged agent is contained (bids ignored for K steps). **INJ-BID-SPOOF-001**: Compromised agent publishes artificially low bids (injection via `scale_config.injection_id`); detector mitigates by containment. Method-risk matrix: market allocator partially covers congestion (R-FLOW-002), vulnerable to bid spoof (R-DATA-001) unless detector enabled. coord_risk smoke: run with `--coord-method kernel_auction_edf --injection INJ-BID-SPOOF-001`; results include `coordination.alloc`. See `tests/test_auction_respects_rbac.py`, `tests/test_bid_spoof_detection.py`.
 
 ---
 
@@ -107,7 +107,7 @@ Hub assigns tasks to cells (zones/sites); within each cell, local rapid-response
 
 ### 2b. hierarchical_hub_local (Hub + local controllers, handoff protocol)
 
-Hub assigns work at macro-level to regions (deterministic partition of zones); each region has a LocalController (EDF + TrivialRouter). HandoffEvent protocol: hub-to-region assignment requires ACK within T steps; missing ACK triggers escalation. Metrics: coordination.hierarchy (cross_region_handoffs, handoff_fail_rate, escalations). At large N in TaskG with comms model active, can reduce comm.msg_count vs centralized. Registry: required_controls include handoff_ack_deadline. See hierarchical/, test_hierarchy_handoff_protocol.py, test_hierarchy_determinism.py.
+Hub assigns work at macro-level to regions (deterministic partition of zones); each region has a LocalController (EDF + TrivialRouter). HandoffEvent protocol: hub-to-region assignment requires ACK within T steps; missing ACK triggers escalation. Metrics: coordination.hierarchy (cross_region_handoffs, handoff_fail_rate, escalations). At large N in coord_scale with comms model active, can reduce comm.msg_count vs centralized. Registry: required_controls include handoff_ack_deadline. See hierarchical/, test_hierarchy_handoff_protocol.py, test_hierarchy_determinism.py.
 
 ---
 
@@ -167,7 +167,7 @@ Reuses the existing `baselines/llm/agent.py` (LLMAgentWithShield) as a Coordinat
 
 Base plan is produced by a deterministic kernel method (default: **kernel_whca**). The LLM is used only as a repairer/sanitizer when: (1) the shield rejects the kernel action set, (2) a security detector flags comms poisoning, inconsistent view, or spoofed identity, or (3) plan staleness exceeds policy limit (e.g. coordination.timing.p95_view_age_ms). Flow: kernel plan -> shield validate -> if blocked or flagged -> build deterministic repair input (scale_config snapshot, last accepted plan summary, blocked actions with reason codes, constraint summary, red-team flags) -> call LLM repair backend -> re-shield repaired plan -> execute or fallback to NOOP.
 
-**Repair input** is canonicalized (stable key order, no timestamps) so that same logical input yields same JSON and same hash; determinism in llm_offline is preserved via a deterministic repair backend (seed + repair_input_hash). **Metrics**: optional `coordination.llm_repair` block in results v0.2: `repair_call_count`, `repair_success_rate`, `repair_fallback_noop_count`, `mean_repair_latency_ms` (null offline), `total_repair_tokens` (0 offline). Required controls: signed_actions, message_auth, shield_execute, repair_loop. Compatible injections: INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-LLM-PROMPT-INJECT-COORD-001. TaskH with INJ-COMMS-POISON-001 or INJ-ID-SPOOF-001 runs produce sec metrics and nonzero repair calls when the runner sets repair triggers. Run: `labtrust run-benchmark --task TaskH_COORD_RISK --coord-method llm_repair_over_kernel_whca --injection INJ-COMMS-POISON-001 --episodes 1 --seed 42 --out results.json`.
+**Repair input** is canonicalized (stable key order, no timestamps) so that same logical input yields same JSON and same hash; determinism in llm_offline is preserved via a deterministic repair backend (seed + repair_input_hash). **Metrics**: optional `coordination.llm_repair` block in results v0.2: `repair_call_count`, `repair_success_rate`, `repair_fallback_noop_count`, `mean_repair_latency_ms` (null offline), `total_repair_tokens` (0 offline). Required controls: signed_actions, message_auth, shield_execute, repair_loop. Compatible injections: INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-LLM-PROMPT-INJECT-COORD-001. coord_risk with INJ-COMMS-POISON-001 or INJ-ID-SPOOF-001 runs produce sec metrics and nonzero repair calls when the runner sets repair triggers. Run: `labtrust run-benchmark --task coord_risk --coord-method llm_repair_over_kernel_whca --injection INJ-COMMS-POISON-001 --episodes 1 --seed 42 --out results.json`.
 
 ---
 
@@ -176,5 +176,28 @@ Base plan is produced by a deterministic kernel method (default: **kernel_whca**
 
 ## Usage
 
-- **CLI**: `labtrust run-benchmark --task TaskG_COORD_SCALE --coord-method centralized_planner --episodes 1 --seed 42 --out results.json`
-- **Runner**: For TaskG_COORD_SCALE and TaskH_COORD_RISK, when `--coord-method` is set, the benchmark uses the chosen coordination method to drive all agents; actions are converted to `(action_index, action_info)` and passed to `env.step()`. RBAC and signature rules are not bypassed; the env and engine enforce them as for scripted/LLM baselines.
+- **CLI**: `labtrust run-benchmark --task coord_scale --coord-method centralized_planner --episodes 1 --seed 42 --out results.json`
+- **Runner**: For coord_scale and coord_risk, when `--coord-method` is set, the benchmark uses the chosen coordination method to drive all agents; actions are converted to `(action_index, action_info)` and passed to `env.step()`. RBAC and signature rules are not bypassed; the env and engine enforce them as for scripted/LLM baselines.
+
+## Coordination done checklist
+
+Acceptance gates for coordination work before UI/Lovable work starts. All items must pass.
+
+- **Policy validation:** `labtrust validate-policy` — risk registry, method registry, method-risk matrix, and coordination study spec validate.
+- **Tasks runnable:** coord_scale with `--coord-method centralized_planner`; coord_risk with `--coord-method market_auction --injection INJ-COLLUSION-001`.
+- **At least 5 coordination methods:** centralized_planner, hierarchical_hub_rr, market_auction, gossip_consensus, swarm_reactive (optional: llm_constrained, marl_ppo). Verify with `labtrust run-benchmark --task coord_scale --episodes 1 --coord-method <method_id> --out /tmp/out.json` for each.
+- **At least 5 injections:** INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-DOS-PLANNER-001, INJ-COLLUSION-001, INJ-TOOL-MISPARAM-001, INJ-MEMORY-POISON-001 (or equivalent). INJ-ID-SPOOF-001 must yield attack_success_rate=0 when strict_signatures=True.
+- **Determinism:** Scale generator and injections determinism (pytest tests/test_coordination_scale_determinism.py, tests/test_risk_injections_deterministic.py).
+- **Study runner:** run-coordination-study emits summary/pareto.md with Pareto front and robust winner.
+- **Benchmark card updated:** coordination suite, methods, injections, metrics (see [Benchmark card](benchmark_card.md)).
+- **CI smoke:** validate-policy, pytest coordination tests, one-episode coord_scale and coord_risk runs without secrets.
+
+## SOTA fidelity checklist
+
+To honestly claim SOTA, methods need **algorithmic fidelity** (implementation matches the described algorithm) and **evaluation fidelity** (benchmarks measure the right quantities and compare to meaningful baselines).
+
+**Algorithmic fidelity:** Ripple protocol propagates via neighborhoods (neighbor graph, signed bus, conflict resolution in ripple_effect.py). Experience sharing changes policy/params (routing_weights from summaries in group_evolving). Evolution = selection + mutation + inheritance (evolution_loop.py: select_top_k, mutate_genome, recombine_genomes). Updates logged and seeded (checkpoints, mutation_log.jsonl, get_learning_metadata).
+
+**Evaluation fidelity:** coord_scale measures scale effects (comm.msg_count, comm.p95_latency_ms, coordination.stale_action_rate in summary_coord.csv). coord_risk measures robustness (sec.attack_success_rate, sec.stealth_success_rate, robustness.resilience_score). Baselines: kernel_whca, market_auction, hierarchical_hub_rr in study spec and Layer 1 scripts.
+
+See source: `src/labtrust_gym/baselines/coordination/ripple_effect.py`, `group_evolving/`, `coordination_study_runner.py`, `benchmarks/metrics.py`, `docs/benchmarking_plan.md`.

@@ -75,6 +75,123 @@ class DeterministicRepairBackend:
         return per_agent, meta
 
 
+def _noop_repair_result(
+    agent_ids: list[str],
+) -> tuple[list[tuple[str, str, dict[str, Any]]], dict[str, Any]]:
+    """Fallback (all NOOP) and meta for live repair on error."""
+    per_agent = [(aid, "NOOP", {}) for aid in sorted(agent_ids)]
+    meta = {
+        "backend_id": "live_repair_fallback",
+        "latency_ms": 0.0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+    }
+    return per_agent, meta
+
+
+class LiveRepairBackend:
+    """
+    Live repair backend: uses an LLM backend (generate(messages) -> str) to produce
+    a repaired plan. Builds prompt from repair_input and agent_ids; parses response
+    to per_agent list. On parse/API error returns all NOOP.
+    """
+
+    def __init__(self, llm_backend: Any) -> None:
+        self._backend = llm_backend
+        self._seed = 0
+
+    def reset(self, seed: int) -> None:
+        self._seed = seed
+
+    def repair(
+        self,
+        repair_input: dict[str, Any],
+        agent_ids: list[str],
+    ) -> tuple[list[tuple[str, str, dict[str, Any]]], dict[str, Any]]:
+        import json
+        import time
+
+        allowed = (repair_input.get("constraint_summary") or {}).get(
+            "allowed_actions", ["NOOP", "TICK", "MOVE", "START_RUN"]
+        )
+        if not isinstance(allowed, list):
+            allowed = ["NOOP", "TICK", "MOVE", "START_RUN"]
+        blocked = repair_input.get("blocked_actions", [])
+        constraint = repair_input.get("constraint_summary", {})
+        user_content = (
+            "Repair the blocked plan. Return a single JSON array of objects, "
+            "each with agent_id, action_type, args. Allowed action_type values: "
+            + json.dumps(allowed)
+            + ". agent_ids: "
+            + json.dumps(agent_ids)
+            + ". repair_input (blocked_actions, constraint_summary): "
+            + json.dumps(
+                {"blocked_actions": blocked, "constraint_summary": constraint},
+                sort_keys=True,
+            )
+            + ". Return only the JSON array, no markdown."
+        )
+        messages = [
+            {
+                "role": "system",
+                "content": "Return only a JSON array of {agent_id, action_type, args}.",
+            },
+            {"role": "user", "content": user_content},
+        ]
+        start = time.perf_counter()
+        try:
+            raw = self._backend.generate(messages)
+        except Exception:
+            return _noop_repair_result(agent_ids)
+        latency_ms = (time.perf_counter() - start) * 1000
+        raw = (raw or "").strip()
+        if "```" in raw:
+            for part in raw.split("```"):
+                part = part.strip()
+                if part.startswith("json") or part.startswith("["):
+                    raw = part.replace("json", "", 1).strip()
+                    break
+        try:
+            from labtrust_gym.baselines.llm.parse_utils import (
+                extract_first_json_object,
+            )
+            extracted = extract_first_json_object(raw)
+            if not extracted or not extracted.strip().startswith("["):
+                return _noop_repair_result(agent_ids)
+            arr = json.loads(extracted)
+        except (json.JSONDecodeError, TypeError):
+            return _noop_repair_result(agent_ids)
+        if not isinstance(arr, list):
+            return _noop_repair_result(agent_ids)
+        per_agent: list[tuple[str, str, dict[str, Any]]] = []
+        allowed_set = set(allowed)
+        for item in arr:
+            if not isinstance(item, dict):
+                continue
+            aid = str(item.get("agent_id", ""))
+            if aid not in agent_ids:
+                continue
+            atype = str(item.get("action_type", "NOOP")).strip()
+            if atype not in allowed_set:
+                atype = "NOOP"
+            args = item.get("args")
+            if not isinstance(args, dict):
+                args = {}
+            per_agent.append((aid, atype, args))
+        for aid in sorted(agent_ids):
+            if not any(aid == p[0] for p in per_agent):
+                per_agent.append((aid, "NOOP", {}))
+        per_agent.sort(key=lambda x: (x[0], x[1]))
+        usage = getattr(self._backend, "last_metrics", lambda: {})()
+        meta = {
+            "backend_id": "live_repair",
+            "latency_ms": round(latency_ms, 2),
+            "tokens_in": int(usage.get("prompt_tokens", 0) or 0),
+            "tokens_out": int(usage.get("completion_tokens", 0) or 0),
+        }
+        return per_agent, meta
+
+
 class LLMRepairOverKernelWHCA(CoordinationMethod):
     """
     Compose: kernel (WHCA) -> shield -> if blocked/flagged -> LLM repair

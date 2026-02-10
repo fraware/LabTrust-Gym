@@ -22,6 +22,12 @@ Before opening a PR:
 
 Policy files under `policy/` must validate against the JSON schemas in `policy/schemas/`. New or modified policy files must pass validation. Legacy and design-only YAML (e.g. override matrix, compiler contracts) live under `docs/design/` and are not loaded by the runtime.
 
+## Testing and contracts
+
+- **Frozen contracts:** Do not weaken runner output, queue contract, coordination interface, or risk register schema without a version bump and doc update. See [Frozen contracts](docs/frozen_contracts.md) for the canonical list.
+- **Implementation audit:** What is tested vs manual checklists and the state-of-the-art bar: [IMPLEMENTATION_AUDIT](docs/IMPLEMENTATION_AUDIT.md).
+- **Troubleshooting:** Common failures (verify-bundle, policy validation, pack gate, E2E chain): [Troubleshooting](docs/troubleshooting.md).
+
 Keep the repo root minimal: do not commit CLI or build artifacts (e.g. `results.json`, `out.json`, `bench_smoke_*.json`, `quick_eval_*/`, `site/`). Use `labtrust_runs/` or `--out <path>` for benchmark and study outputs. See [Repository structure](docs/repository_structure.md).
 
 ## Golden suite
@@ -37,12 +43,14 @@ The golden scenarios in `policy/golden/golden_scenarios.v0.1.yaml` define correc
 
 Preferred PR size: under 400 lines where practical.
 
+Before **tagging a release**, run the full E2E artifacts chain and ensure it passes. See [Release checklist](docs/release_checklist.md).
+
 ## Optional smoke tests (env vars)
 
-- **Quick-eval** — Run 1 episode each of TaskA, TaskD, TaskE: `labtrust quick-eval --seed 42` (requires `.[env,plots]`). CI runs this on every push/PR.
+- **Quick-eval** — Run 1 episode each of throughput_sla, adversarial_disruption, multi_site_stat: `labtrust quick-eval --seed 42` (requires `.[env,plots]`). CI runs this on every push/PR.
 - **LABTRUST_BENCH_SMOKE=1** — Run benchmark smoke (1 episode per task): `labtrust bench-smoke --seed 42` (requires `.[env]`).
 - **LABTRUST_REPRO_SMOKE=1** — Run reproduce smoke: `labtrust reproduce --profile minimal --out runs/repro_smoke` (requires `.[env,plots]`).
-- **Coordination tests** — Run all coordination-related tests: `pytest -q tests/ -k coordination` (requires `.[env]`). CI coordination-smoke job (when `LABTRUST_COORDINATION_SMOKE=1`) runs validate-policy, these tests, and one-episode TaskG + TaskH. See [Coordination done checklist](docs/coordination_done_checklist.md).
-- **LABTRUST_PAPER_SMOKE=1** — Run package-release paper profile smoke (1 episode baselines, 2 episodes TaskF study): `labtrust package-release --profile paper_v0.1 --seed-base 100 --out /tmp/paper_smoke` (requires `.[env,plots]`). Determinism: `pytest tests/test_package_release.py -v` (includes paper_v0.1 smoke and CLI test).
+- **Coordination tests** — Run all coordination-related tests: `pytest -q tests/ -k coordination` (requires `.[env]`). CI coordination-smoke job (when `LABTRUST_COORDINATION_SMOKE=1`) runs validate-policy, these tests, and one-episode coord_scale + coord_risk. See [Coordination done checklist](docs/coordination_done_checklist.md).
+- **LABTRUST_PAPER_SMOKE=1** — Run package-release paper profile smoke (1 episode baselines, 2 episodes insider_key_misuse study): `labtrust package-release --profile paper_v0.1 --seed-base 100 --out /tmp/paper_smoke` (requires `.[env,plots]`). Determinism: `pytest tests/test_package_release.py -v` (includes paper_v0.1 smoke and CLI test).
 - **LABTRUST_MARL_SMOKE=1** — Run MARL smoke: `pytest tests/test_marl_smoke.py -v` (requires `.[marl]`).
 - **Package-release:** `labtrust package-release --profile minimal --out /tmp/labtrust_release --seed-base 100` (requires `.[env,plots]`). For paper-ready artifact: `--profile paper_v0.1` (see docs/paper_ready.md). Determinism: `pytest tests/test_package_release.py -v` with `LABTRUST_REPRO_SMOKE=1` for minimal/full; paper_v0.1 tests use `LABTRUST_PAPER_SMOKE=1`.

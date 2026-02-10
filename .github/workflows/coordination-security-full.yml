@@ -1,0 +1,34 @@
+# Full coordination security matrix: all methods x all (policy) injections.
+# Does not run on push/PR. Trigger: schedule (weekly) or workflow_dispatch.
+# Use for comprehensive method x injection stress; nightly uses fixed matrix.
+
+name: Coordination security full matrix
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+jobs:
+  coordination-security-full:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+
+      - name: Full coordination security pack
+        run: |
+          labtrust run-coordination-security-pack --out ./labtrust_runs/coordination_security_full/pack \
+            --methods-from full --injections-from policy --seed 42
+
+      - name: Upload pack artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coordination-security-full-pack
+          path: |
+            labtrust_runs/coordination_security_full/pack/pack_summary.csv
+            labtrust_runs/coordination_security_full/pack/pack_gate.md

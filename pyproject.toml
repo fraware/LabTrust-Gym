@@ -60,8 +60,8 @@ docs = ["mkdocs>=1.5", "mkdocstrings[python]>=0.24"]
 # Live OpenAI backend (Structured Outputs); install with: pip install -e ".[llm_openai]"
 # Base install remains unchanged; no network calls without this extra.
 llm_openai = ["openai>=1.40"]
-# Live Anthropic backend (future); install with: pip install -e ".[llm_anthropic]"
-llm_anthropic = []
+# Live Anthropic backend; install with: pip install -e ".[llm_anthropic]"
+llm_anthropic = ["anthropic>=0.39"]
 # Online serve mode (rate limiting, auth, etc.); stdlib-only by default; add deps here if needed
 online = []
 

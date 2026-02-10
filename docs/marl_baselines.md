@@ -1,6 +1,6 @@
 # MARL baselines (PPO)
 
-Minimal PPO baseline using stable-baselines3 on TaskA (or other tasks). Install the optional `[marl]` extra to use it.
+Minimal PPO baseline using stable-baselines3 on throughput_sla (or other tasks). Install the optional `[marl]` extra to use it.
 
 ## Installation
 
@@ -20,10 +20,10 @@ This installs `stable-baselines3` and `gymnasium`. The PettingZoo env is wrapped
 ### Train
 
 ```bash
-labtrust train-ppo --task TaskA --timesteps 50000 --seed 123 --out runs/ppo
+labtrust train-ppo --task throughput_sla --timesteps 50000 --seed 123 --out runs/ppo
 ```
 
-- `--task`: TaskA (default), TaskB, TaskC.
+- `--task`: throughput_sla (default), stat_insertion, qc_cascade.
 - `--timesteps`: Total training steps (default 50000).
 - `--seed`: Random seed (default 123).
 - `--out`: Directory for `model.zip` and `eval_metrics.json` (default `runs/ppo`).
@@ -40,7 +40,7 @@ labtrust eval-ppo --model runs/ppo/model.zip --episodes 50 --seed 123 --out eval
 ```
 
 - `--model`: Path to `model.zip`.
-- `--task`: Task name (default TaskA).
+- `--task`: Task id (default throughput_sla).
 - `--episodes`: Number of eval episodes (default 50).
 - `--seed`: Base seed for episodes (default 123).
 - `--out`: Optional path to write metrics JSON.

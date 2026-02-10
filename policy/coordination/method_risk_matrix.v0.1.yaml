@@ -251,3 +251,43 @@ method_risk_matrix:
       coverage: "partially_covered"
       rationale: "Bid shilling (INJ-COORD-BID-SHILL-001); collusion proxy and bid caps mitigate."
       required_bench: true
+    - method_id: "ripple_effect"
+      risk_id: "R-COMMS-002"
+      coverage: "partially_covered"
+      rationale: "Signed bus rejects invalid/poisoned messages; INJ-COMMS-POISON-001 stresses detection/containment."
+      required_bench: true
+    - method_id: "ripple_effect"
+      risk_id: "R-DATA-001"
+      coverage: "partially_covered"
+      rationale: "Intent payloads validated on receive; spoofed updates rejected when strict signatures on."
+      required_bench: true
+    - method_id: "ripple_effect"
+      risk_id: "R-FLOW-002"
+      coverage: "partially_covered"
+      rationale: "Local propagation can delay convergence; progress under drop/latency."
+      required_bench: false
+    - method_id: "group_evolving_experience_sharing"
+      risk_id: "R-FLOW-002"
+      coverage: "partially_covered"
+      rationale: "Experience summaries adjust routing; deterministic buffer and seed for CI."
+      required_bench: false
+    - method_id: "group_evolving_experience_sharing"
+      risk_id: "R-COMMS-002"
+      coverage: "partially_covered"
+      rationale: "Shared experience messages; poisoning (INJ-COMMS-POISON-001) stresses integrity."
+      required_bench: true
+    - method_id: "group_evolving_experience_sharing"
+      risk_id: "R-SYS-002"
+      coverage: "partially_covered"
+      rationale: "Experience sharing can be gamed; collusion (INJ-COLLUSION-001) relevant."
+      required_bench: true
+    - method_id: "group_evolving_experience_sharing"
+      risk_id: "R-DATA-001"
+      coverage: "partially_covered"
+      rationale: "Summaries carry state; untrusted payload / spoof (INJ-COMMS-POISON-001, INJ-BID-SPOOF-001) if modeled."
+      required_bench: true
+    - method_id: "group_evolving_study"
+      risk_id: "R-FLOW-002"
+      coverage: "partially_covered"
+      rationale: "Population evolution; checkpoint per generation; study track only."
+      required_bench: false

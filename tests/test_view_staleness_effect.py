@@ -28,7 +28,7 @@ def test_view_staleness_effect_smoke(tmp_path: Path) -> None:
 
     out_delay = tmp_path / "results_delay.json"
     run_benchmark(
-        task_name="TaskH_COORD_RISK",
+        task_name="coord_risk",
         num_episodes=1,
         base_seed=42,
         out_path=out_delay,

@@ -1,5 +1,0 @@
-condition_id,condition_label,throughput_mean,violations_total,trust_cost_mean,p95_tat_mean
-cond_0,dual_on_trust_on,0.0,0,0.0,
-cond_1,dual_on_trust_off,0.0,0,0.0,
-cond_2,dual_off_trust_on,0.0,0,0.0,
-cond_3,dual_off_trust_off,0.0,0,0.0,

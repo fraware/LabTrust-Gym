@@ -12,12 +12,12 @@
     "force": true
   },
   "tasks": [
-    "TaskA",
-    "TaskB",
-    "TaskC",
-    "TaskD",
-    "TaskE",
-    "TaskF"
+    "throughput_sla",
+    "stat_insertion",
+    "qc_cascade",
+    "adversarial_disruption",
+    "multi_site_stat",
+    "insider_key_misuse"
   ],
   "baseline_ids": [
     "scripted_ops_v1",

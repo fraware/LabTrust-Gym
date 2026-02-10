@@ -15,6 +15,7 @@ This page is the **canonical list of frozen contracts and schema versions** for 
 | **Sites policy schema** | v0.1 | `policy/schemas/sites_policy.v0.1.schema.json` | Schema for `policy/sites/sites_policy.v0.1.yaml`: sites, site_graph, routes (transport_time, temp_drift). Used by engine/transport. |
 | **Key registry schema** | v0.1 | `policy/schemas/key_registry.v0.1.schema.json` | Schema for `policy/keys/key_registry.v0.1.yaml`: Ed25519 keys (key_id, public_key, agent_id, role_id); optional status (ACTIVE/REVOKED/EXPIRED), not_before_ts_s, not_after_ts_s. Used by engine/signatures; lifecycle enforced in verification. |
 | **RBAC policy schema** | v0.1 | `policy/schemas/rbac_policy.v0.1.schema.json` | Schema for `policy/rbac/rbac_policy.v0.1.yaml`: roles (allowed_actions, allowed_zones, allowed_devices), agents (agent_id → role_id), action_constraints. Used by engine/rbac. |
+| **Coordination baseline contract** | v0.1 | `src/labtrust_gym/baselines/coordination/interface.py` | Required: `reset(seed, policy, scale_config)`, `propose_actions(obs, infos, t)` → one action per agent with `action_index` in 0..5. Optional: `on_step_result`, `on_episode_end`. Enforced by `tests/test_coordination_interface_contract.py`: every method_id in `coordination_methods.v0.1.yaml` instantiates, runs 5 steps coord_scale, returns schema-valid actions and is deterministic. |
 | **Benchmark results schema** | v0.2 | `policy/schemas/results.v0.2.schema.json` | CI-stable benchmark results: task, seeds, policy_fingerprint, partner_id, git_sha, agent_baseline_id, episodes with metrics (ints/structs). Used by run-benchmark output and summarize-results; summary_v0.2.csv regression is stable across OS/Python. |
 | **Benchmark results schema** | v0.3 | `policy/schemas/results.v0.3.schema.json` | Paper-grade extension of v0.2: optional quantiles, 95% CI, simulated-mode distributions. Same required fields as v0.2; summary_v0.3.csv includes quantiles and CI. See [Metrics contract](metrics_contract.md). |
 
@@ -59,6 +60,47 @@ Minimal structural contract for FHIR R4 Bundle export (resourceType Bundle, type
 
 Schema for `policy/sites/sites_policy.v0.1.yaml`: sites, site_graph, routes (transport_time_mean_s, temp_drift). Used by `labtrust validate-policy` and engine/transport.
 
+## Coordination baseline contract (v0.1)
+
+Every coordination method registered in `policy/coordination/coordination_methods.v0.1.yaml` must implement the interface in `src/labtrust_gym/baselines/coordination/interface.py` (CoordinationMethod): **reset(seed, policy, scale_config)** and **propose_actions(obs, infos, t)** returning a dict of agent_id to action_dict with at least **action_index** (int in 0..5). Optional hooks: **on_step_result(step_outputs)**, **on_episode_end(episode_metrics)**. New methods cannot break CI: `pytest tests/test_coordination_interface_contract.py` loads every method_id, instantiates via registry (deterministic backends; no network), runs 5 steps in coord_scale with seed=42, and asserts actions for all agents, schema-valid proposals, and determinism. See [Coordination methods](coordination_methods.md).
+
+## Acceptance (v0.1.0 release)
+
+A fresh machine can run:
+
+```bash
+pip install labtrust-gym[env,plots]
+labtrust --version          # prints v0.1.0 + git SHA
+labtrust quick-eval --seed 42
+labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>
+labtrust verify-bundle --bundle <bundle_dir>   # passes when bundle is from export-receipts
+```
+
+Use an EvidenceBundle path under `receipts/` (e.g. `receipts/taska_cond_0/EvidenceBundle.v0.1`), not the release root. To verify all bundles in a release: `labtrust verify-release --release-dir <path>`. See [Evidence verification](evidence_verification.md) and [Release checklist](release_checklist.md).
+
+## Release artifacts (v0.1.0)
+
+Attach to GitHub Release (tag v0.1.0):
+
+- **wheel + sdist** — Built by `.github/workflows/release.yml` on tag `v*`. `pip install labtrust-gym[env,plots]` from PyPI or from the wheel.
+- **paper_v0.1 package-release artifact** — Run `labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>`; zip the output (FIGURES/, TABLES/, receipts, **SECURITY/** (attack_results.json, coverage.json, coverage.md, reason_codes.md, deps_inventory.json), RELEASE_NOTES.md, **COORDINATION_CARD.md**, **_coordination_policy/** with frozen coordination policy + manifest, etc.) or link to immutable storage.
+- **Determinism reports** — Run `labtrust determinism-report --task throughput_sla --episodes 2 --seed 42 --out <dir>` for explicit and (if supported) simulated; attach determinism_report.md and determinism_report.json.
+
+## LLM prompt-injection golden scenarios
+
+Adversarial strings are injected into untrusted_notes (e.g. specimen.note, transport manifest note) and passed to the LLM context. The golden suite asserts that constraints are not bypassed:
+
+- **action_type** must be from **allowed_actions** or **NOOP** (decoder + shield).
+- **Blocked/violations threshold:** When prompt injection is present, blocked count and violations must not increase vs baseline beyond the documented deltas. In tests: `PROMPT_INJECTION_BLOCKED_DELTA_MAX = 0`, `PROMPT_INJECTION_VIOLATIONS_DELTA_MAX = 0`. Scenarios are defined in `policy/golden/prompt_injection_scenarios.v0.1.yaml`; tests in `tests/test_llm_prompt_injection_golden.py`.
+
+## Quickstart script
+
+From repo root: `bash scripts/quickstart_paper_v0_1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows). Runs: install → validate-policy → quick-eval → package-release paper_v0.1 → verify-bundle.
+
+## UI data contract
+
+The **ui-export** output is the primary input for the UI. Run `labtrust ui-export --run <dir> --out ui_bundle.zip` to produce a zip containing `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. Schema version: **UI bundle v0.1**. See [UI data contract](ui_data_contract.md) for folder layouts (labtrust_runs, package-release), required files, relationships, and schema version handling. The UI must not depend on raw internal logs.
+
 ---
 
-See also: [Policy pack and schemas](policy_pack.md), [STATUS](STATUS.md) (§1.3 What's frozen).
+See also: [Policy pack and schemas](policy_pack.md), [STATUS](STATUS.md) (§1.3 What's frozen), [Installation](installation.md), [Paper-ready](paper_ready.md).

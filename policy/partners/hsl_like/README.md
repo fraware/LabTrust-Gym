@@ -31,7 +31,7 @@ Run one episode with default and one with `--partner hsl_like` (same task, seed,
 
 ```bash
 labtrust validate-policy --partner hsl_like
-labtrust run-benchmark --task TaskA --partner hsl_like --episodes 2 --timing simulated
+labtrust run-benchmark --task throughput_sla --partner hsl_like --episodes 2 --timing simulated
 ```
 
 Environment: `LABTRUST_PARTNER=hsl_like`.

@@ -24,15 +24,29 @@ from labtrust_gym.config import get_repo_root
 def test_load_benchmark_pack() -> None:
     """Pack policy loads; has tasks, scale_configs, baselines, required_reports."""
     root = get_repo_root()
-    pack = load_benchmark_pack(root)
+    pack, pack_version, pack_policy_path = load_benchmark_pack(root)
+    assert pack_version == "0.1"
     assert pack.get("version") == "0.1"
     tasks = _all_pack_tasks(pack)
-    assert "TaskA" in tasks
-    assert "TaskH" in tasks
+    assert "throughput_sla" in tasks
+    assert "coord_risk" in tasks
     scale_configs = pack.get("scale_configs") or {}
     assert "S" in scale_configs or not scale_configs
     assert "security" in (pack.get("required_reports") or [])
     assert "safety_case" in (pack.get("required_reports") or [])
+
+
+def test_load_benchmark_pack_prefer_v02_returns_v02_when_present() -> None:
+    """When prefer_v02=True and v0.2 policy exists, load_benchmark_pack returns v0.2 pack."""
+    root = get_repo_root()
+    v02_path = root / "policy" / "official" / "benchmark_pack.v0.2.yaml"
+    if not v02_path.exists():
+        pytest.skip("benchmark_pack.v0.2.yaml not present")
+    pack, pack_version, pack_policy_path = load_benchmark_pack(root, prefer_v02=True)
+    assert pack_version == "0.2"
+    assert pack.get("version") == "0.2"
+    assert "benchmark_pack.v0.2" in pack_policy_path
+    assert "live_coordination_evaluation_protocol" in pack
 
 
 def test_official_pack_smoke_required_folders() -> None:
@@ -62,6 +76,45 @@ def test_official_pack_smoke_required_folders() -> None:
             assert manifest.get("version") == "0.1"
             assert "tasks" in manifest
             assert "seed_base" in manifest
+            assert manifest.get("pipeline_mode") == "deterministic"
+    finally:
+        if prev[0] is not None:
+            os.environ["LABTRUST_OFFICIAL_PACK_SMOKE"] = prev[0]
+        elif "LABTRUST_OFFICIAL_PACK_SMOKE" in os.environ:
+            os.environ.pop("LABTRUST_OFFICIAL_PACK_SMOKE")
+        if prev[1] is not None:
+            os.environ["LABTRUST_PAPER_SMOKE"] = prev[1]
+
+
+def test_official_pack_llm_live_writes_transparency_artifacts() -> None:
+    """With pipeline_mode=llm_live, pack writes TRANSPARENCY_LOG/llm_live.json and live_evaluation_metadata.json."""
+    root = get_repo_root()
+    if os.environ.get("LABTRUST_OFFICIAL_PACK_SMOKE") != "1" and os.environ.get("LABTRUST_PAPER_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_OFFICIAL_PACK_SMOKE=1 or LABTRUST_PAPER_SMOKE=1 to run")
+    prev = os.environ.get("LABTRUST_OFFICIAL_PACK_SMOKE"), os.environ.get("LABTRUST_PAPER_SMOKE")
+    try:
+        os.environ["LABTRUST_OFFICIAL_PACK_SMOKE"] = "1"
+        if "LABTRUST_PAPER_SMOKE" in os.environ:
+            del os.environ["LABTRUST_PAPER_SMOKE"]
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "pack_llm_live"
+            run_official_pack(
+                out_dir=out,
+                repo_root=root,
+                seed_base=100,
+                smoke=True,
+                full_security=False,
+                pipeline_mode="llm_live",
+                allow_network=False,
+            )
+            assert (out / "TRANSPARENCY_LOG" / "llm_live.json").exists()
+            assert (out / "live_evaluation_metadata.json").exists()
+            manifest = __import__("json").loads((out / "pack_manifest.json").read_text(encoding="utf-8"))
+            assert manifest.get("pipeline_mode") == "llm_live"
+            assert manifest.get("version") == "0.2"
+            meta = __import__("json").loads((out / "live_evaluation_metadata.json").read_text(encoding="utf-8"))
+            assert "allow_network" in meta
+            assert meta["allow_network"] is False
     finally:
         if prev[0] is not None:
             os.environ["LABTRUST_OFFICIAL_PACK_SMOKE"] = prev[0]

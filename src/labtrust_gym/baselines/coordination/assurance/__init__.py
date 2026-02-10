@@ -19,6 +19,7 @@ from labtrust_gym.baselines.coordination.assurance.simplex import (
 )
 from labtrust_gym.baselines.coordination.assurance.detector_advisor import (
     DeterministicDetectorBackend,
+    LiveDetectorBackend,
     wrap_with_detector_advisor,
 )
 
@@ -31,5 +32,6 @@ __all__ = [
     "validate_plan",
     "wrap_with_simplex_shield",
     "DeterministicDetectorBackend",
+    "LiveDetectorBackend",
     "wrap_with_detector_advisor",
 ]

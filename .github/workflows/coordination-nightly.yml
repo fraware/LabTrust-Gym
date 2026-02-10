@@ -1,0 +1,51 @@
+# Coordination nightly: security pack + study smoke spec + minimal SOTA sanity.
+# Does not run on push/PR; keeps default CI fast.
+# Trigger: schedule (nightly) or workflow_dispatch.
+
+name: Coordination nightly
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  coordination-nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+
+      - name: Coordination security pack
+        run: |
+          labtrust run-coordination-security-pack --out ./labtrust_runs/coordination_nightly/pack --seed 42
+
+      - name: Coordination study (smoke spec)
+        run: |
+          labtrust run-coordination-study \
+            --spec tests/fixtures/coordination_study_external_reviewer_spec.yaml \
+            --out ./labtrust_runs/coordination_nightly/study_smoke \
+            --llm-backend deterministic
+
+      - name: SOTA sanity (minimal subset)
+        run: |
+          mkdir -p ./labtrust_runs/coordination_nightly/sota_sanity
+          for id in kernel_whca ripple_effect; do
+            labtrust run-benchmark --task coord_scale --coord-method "$id" \
+              --scale small_smoke --episodes 1 --seed 100 \
+              --out ./labtrust_runs/coordination_nightly/sota_sanity/"$id"_taskg.json
+            labtrust run-benchmark --task coord_risk --coord-method "$id" \
+              --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 200 \
+              --out ./labtrust_runs/coordination_nightly/sota_sanity/"$id"_taskh_poison.json
+          done
+
+      - name: At-scale profile (corridor_heavy, 1 episode)
+        run: |
+          mkdir -p ./labtrust_runs/coordination_nightly/at_scale
+          labtrust run-benchmark --task coord_scale --coord-method kernel_whca \
+            --scale corridor_heavy --episodes 1 --seed 300 \
+            --out ./labtrust_runs/coordination_nightly/at_scale/kernel_whca_taskg_corridor_heavy.json

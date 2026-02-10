@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coordination_matrix_spec.v0.1.schema.json",
+  "title": "Coordination Matrix Spec v0.1",
+  "description": "Matrix scoring, ranking, and output semantics. Weights should sum to 1.0 (not enforced). llm_live only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "scope", "scores", "ranking", "outputs", "determinism"],
+  "properties": {
+    "version": { "type": "string", "const": "v0.1" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pipeline_modes_allowed", "notes"],
+      "properties": {
+        "pipeline_modes_allowed": {
+          "type": "array",
+          "items": { "type": "string", "const": "llm_live" },
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "notes": { "type": "string", "minLength": 1 }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coordination_score", "resilience_score", "overall_score"],
+      "properties": {
+        "coordination_score": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["weights"],
+          "properties": {
+            "weights": {
+              "type": "object",
+              "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "resilience_score": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["weights"],
+          "properties": {
+            "weights": {
+              "type": "object",
+              "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "overall_score": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["alpha"],
+          "properties": {
+            "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "ranking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rank_per_scale", "rank_global", "tie_breakers"],
+      "properties": {
+        "rank_per_scale": { "type": "boolean" },
+        "rank_global": { "type": "boolean" },
+        "tie_breakers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["matrix_table_id", "required_columns"],
+      "properties": {
+        "matrix_table_id": { "type": "string", "minLength": 1 },
+        "required_columns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "scale_id",
+              "method_id",
+              "coordination_score",
+              "resilience_score",
+              "overall_score",
+              "coord_rank",
+              "res_rank",
+              "overall_rank",
+              "gated_out",
+              "gate_failures",
+              "notes"
+            ]
+          },
+          "minItems": 11,
+          "uniqueItems": true
+        }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sorting", "float_rounding_decimals"],
+      "properties": {
+        "sorting": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "float_rounding_decimals": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

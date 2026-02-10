@@ -24,12 +24,19 @@ def load_resilience_scoring_policy(path: Path | None = None) -> dict[str, Any]:
     else:
         from labtrust_gym.config import get_repo_root
 
-        p = Path(get_repo_root()) / "policy" / "coordination" / "resilience_scoring.v0.1.yaml"
+        p = (
+            Path(get_repo_root())
+            / "policy"
+            / "coordination"
+            / "resilience_scoring.v0.1.yaml"
+        )
     if not p.is_absolute():
         p = Path.cwd() / p
     data = load_yaml(p)
     if "weights" not in data or "components" not in data:
-        raise ValueError(f"Invalid resilience scoring policy: missing weights or components in {p}")
+        raise ValueError(
+            f"Invalid resilience scoring policy: missing weights or components in {p}"
+        )
     return dict(data)
 
 
@@ -137,3 +144,27 @@ def compute_resilience_score(
         + w_coord * components.get("component_coordination", 0.5)
     )
     return round(max(0.0, min(1.0, score)), 4)
+
+
+def enrich_pack_rows_with_resilience(
+    rows: list[dict[str, Any]],
+    policy: dict[str, Any] | None = None,
+    policy_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Compute robustness.resilience_score for each row from policy-defined components
+    (perf, safety, security, coordination). Used when pack_summary.csv does not
+    contain resilience_score (e.g. deterministic pack run). Mutates rows in place
+    and returns the same list.
+    """
+    if policy is None:
+        if policy_path is not None:
+            policy = load_resilience_scoring_policy(policy_path)
+        else:
+            policy = load_resilience_scoring_policy()
+    weights = policy.get("weights") or {}
+    for r in rows:
+        components = compute_components(r, policy)
+        score = compute_resilience_score(components, weights)
+        r["robustness.resilience_score"] = score
+    return rows

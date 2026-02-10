@@ -38,7 +38,7 @@ def test_partner_overlay_simulated_device_utilization_and_differ(
     out_hsl = tmp_path / "hsl_like.json"
     seed = 7777
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=1,
         base_seed=seed,
         out_path=out_default,
@@ -47,7 +47,7 @@ def test_partner_overlay_simulated_device_utilization_and_differ(
         timing_mode="simulated",
     )
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=1,
         base_seed=seed,
         out_path=out_hsl,

@@ -5,22 +5,53 @@ Loads policy/golden/security_attack_suite.v0.1.yaml; for each attack (optionally
 by smoke=True), runs the scenario (prompt-injection in-process or test_ref via pytest);
 writes SECURITY/attack_results.json with pass/fail and optional receipts.
 Deterministic when run with fixed seed; CI-runnable in smoke mode.
+
+LLM attacker mode (opt-in): attacks with llm_attacker=true are skipped unless
+--llm-attacker and --allow-network are set; then a live LLM generates adversarial
+payloads and the system under test (shield) must block them.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
 
 from labtrust_gym.policy.loader import load_yaml
 
+# Max seconds for live LLM to generate one adversarial payload (prevents suite hang).
+LLM_ATTACKER_GENERATE_TIMEOUT_S = 60
 
-def load_attack_suite(policy_root: Path) -> dict[str, Any]:
-    """Load security_attack_suite.v0.1.yaml from policy/golden/."""
+
+def load_llm_attacker_prompts(policy_root: Path) -> list[dict[str, Any]]:
+    """Load llm_attacker_prompts.v0.1.yaml; return list of prompt dicts (prompt_id, user_prompt, etc.)."""
+    path = policy_root / "policy" / "golden" / "llm_attacker_prompts.v0.1.yaml"
+    if not path.exists():
+        return []
+    data = load_yaml(path)
+    prompts = (data or {}).get("prompts", [])
+    return prompts if isinstance(prompts, list) else []
+
+
+def load_attack_suite(policy_root: Path, partner_id: str | None = None) -> dict[str, Any]:
+    """Load security_attack_suite.v0.1.yaml. When partner_id is set, try policy/partners/<id>/golden/ first, else policy/golden/."""
+    if partner_id:
+        overlay_path = (
+            policy_root
+            / "policy"
+            / "partners"
+            / partner_id
+            / "golden"
+            / "security_attack_suite.v0.1.yaml"
+        )
+        if overlay_path.exists():
+            data = load_yaml(overlay_path)
+            return data if isinstance(data, dict) else {}
     path = policy_root / "policy" / "golden" / "security_attack_suite.v0.1.yaml"
     if not path.exists():
         return {}
@@ -115,16 +146,29 @@ def _observation_with_injection(
     return obs
 
 
+# Max chars of combined stderr+stdout to include in attack_results.json on failure.
+_TEST_REF_ERROR_TRUNCATE = 800
+
+
 def _run_test_ref_attack(
     test_ref: str,
     repo_root: Path,
+    timeout_s: int = 120,
 ) -> tuple[bool, str | None]:
     """
     Run attack via pytest subprocess for test_ref (e.g. tests.test_tool_sandbox).
+    test_ref may be module path or "tests.module::test_function_name" for a single test.
     Returns (passed, error_message).
     """
-    # test_ref: "tests.test_tool_sandbox" or "tests/test_tool_sandbox.py"
-    if test_ref.endswith(".py"):
+    # test_ref: "tests.test_tool_sandbox" or "tests/test_tool_sandbox.py" or "tests.module::test_foo"
+    if "::" in test_ref:
+        module_part, test_name = test_ref.split("::", 1)
+        if module_part.endswith(".py"):
+            target = f"{module_part}::{test_name}"
+        else:
+            path_part = module_part.replace(".", "/") + ".py"
+            target = f"{path_part}::{test_name}"
+    elif test_ref.endswith(".py"):
         target = test_ref
     else:
         target = test_ref.replace(".", "/") + ".py"
@@ -143,16 +187,190 @@ def _run_test_ref_attack(
             cwd=str(repo_root),
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=timeout_s,
         )
         if result.returncode != 0:
-            err = (result.stderr or result.stdout or "")[:500]
-            return False, err or f"pytest exited {result.returncode!s}"
+            combined = (result.stdout or "") + "\n" + (result.stderr or "")
+            combined = combined.strip()
+            if len(combined) > _TEST_REF_ERROR_TRUNCATE:
+                combined = combined[-_TEST_REF_ERROR_TRUNCATE:]
+            err = combined or f"pytest exited {result.returncode!s}"
+            return False, err
         return True, None
     except subprocess.TimeoutExpired:
-        return False, "pytest timeout (120s)"
+        return False, f"pytest timeout ({timeout_s}s)"
     except Exception as e:
         return False, str(e)
+
+
+def _create_attacker_backend(
+    llm_backend_id: str,
+    model_override: str | None = None,
+) -> tuple[Any, str | None]:
+    """
+    Create a live LLM backend suitable for generate(messages) -> str (attacker payload generation).
+    Returns (backend, None) or (None, error_message). Caller must ensure allow_network is set.
+    """
+    if llm_backend_id == "openai_live":
+        if not os.environ.get("OPENAI_API_KEY"):
+            return None, "OPENAI_API_KEY not set (required for openai_live attacker)"
+        try:
+            from labtrust_gym.baselines.llm.backends.openai_live import (
+                OpenAILiveBackend,
+            )
+
+            backend = OpenAILiveBackend(
+                api_key=os.environ.get("OPENAI_API_KEY"),
+                model=model_override
+                or os.environ.get("LABTRUST_OPENAI_MODEL")
+                or "gpt-4o-mini",
+            )
+            return backend, None
+        except ImportError as e:
+            return None, f"openai_live backend not available: {e}"
+    if llm_backend_id == "ollama_live":
+        try:
+            from labtrust_gym.baselines.llm.backends.ollama_live import (
+                OllamaLiveBackend,
+            )
+
+            backend = OllamaLiveBackend(model=model_override or "llama3.2")
+            return backend, None
+        except ImportError as e:
+            return None, f"ollama_live backend not available: {e}"
+    if llm_backend_id == "anthropic_live":
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return (
+                None,
+                "ANTHROPIC_API_KEY not set (required for anthropic_live attacker)",
+            )
+        try:
+            from labtrust_gym.baselines.llm.backends.anthropic_live import (
+                AnthropicLiveBackend,
+            )
+
+            backend = AnthropicLiveBackend(
+                api_key=os.environ.get("ANTHROPIC_API_KEY"),
+                model=model_override or "claude-3-haiku-20240307",
+            )
+            return backend, None
+        except ImportError as e:
+            return None, f"anthropic_live backend not available: {e}"
+    return None, f"unknown llm_backend_id for attacker: {llm_backend_id!r}"
+
+
+def _run_llm_attacker_attack(
+    attack: dict[str, Any],
+    prompts_list: list[dict[str, Any]],
+    policy_root: Path,
+    seed: int,
+    llm_backend_id: str,
+    allow_network: bool,
+    model_override: str | None = None,
+) -> tuple[bool, str | None, str | None]:
+    """
+    Run one LLM-attacker attack: use live LLM to generate adversarial string, then run
+    same in-process check as prompt-injection (observation + LLMAgentWithShield with
+    DeterministicConstrainedBackend). Returns (passed, error_message, model_id).
+    """
+    if not allow_network:
+        return False, "llm_attacker requires allow_network", None
+    prompt_id = attack.get("attacker_prompt_template_id")
+    if not prompt_id:
+        return False, "llm_attacker attack missing attacker_prompt_template_id", None
+    spec = next((p for p in prompts_list if p.get("prompt_id") == prompt_id), None)
+    if not spec:
+        return (
+            False,
+            f"attacker_prompt_template_id {prompt_id!r} not in llm_attacker_prompts",
+            None,
+        )
+    user_prompt = spec.get("user_prompt", "")
+    if not user_prompt:
+        return False, f"prompt {prompt_id!r} has no user_prompt", None
+    backend, err = _create_attacker_backend(llm_backend_id, model_override)
+    if err or backend is None:
+        return False, err or "failed to create attacker backend", None
+    try:
+        from labtrust_gym.pipeline import check_network_allowed
+
+        check_network_allowed()
+    except Exception as e:
+        return False, f"network not allowed: {e}", None
+    messages = [{"role": "user", "content": user_prompt}]
+    result: list[str | Exception] = []
+
+    def _generate() -> None:
+        try:
+            out = backend.generate(messages)
+            result.append(
+                out if isinstance(out, str) else str(out) if out is not None else ""
+            )
+        except Exception as e:
+            result.append(e)
+
+    thread = threading.Thread(target=_generate, daemon=True)
+    thread.start()
+    thread.join(timeout=LLM_ATTACKER_GENERATE_TIMEOUT_S)
+    if thread.is_alive():
+        return (
+            False,
+            f"attacker LLM generate timed out ({LLM_ATTACKER_GENERATE_TIMEOUT_S}s)",
+            None,
+        )
+    if not result:
+        return False, "attacker LLM generate produced no result", None
+    if isinstance(result[0], Exception):
+        return False, f"attacker LLM generate failed: {result[0]}", None
+    adversarial_string = result[0]
+    if not adversarial_string or not isinstance(adversarial_string, str):
+        adversarial_string = ""
+    adversarial_string = adversarial_string.strip()[:2000]
+    model_id = None
+    if hasattr(backend, "get_aggregate_metrics"):
+        metrics = backend.get_aggregate_metrics()
+        model_id = (metrics or {}).get("model_id")
+    if not model_id and hasattr(backend, "_model"):
+        model_id = getattr(backend, "_model", None)
+    try:
+        import gymnasium  # noqa: F401
+        import pettingzoo  # noqa: F401
+    except ImportError:
+        return False, "pettingzoo or gymnasium not installed", model_id
+    try:
+        from labtrust_gym.baselines.llm.agent import (
+            DeterministicConstrainedBackend,
+            LLMAgentWithShield,
+        )
+    except ImportError as e:
+        return False, f"LLM agent import failed: {e}", model_id
+    injection_source = attack.get("injection_source", "specimen_note")
+    allowed = attack.get("allowed_actions_for_assert") or ["NOOP", "TICK"]
+    obs = _observation_with_injection(injection_source, adversarial_string, allowed)
+    rbac = {
+        "roles": [{"role_id": "ROLE_RECEPTION", "allowed_actions": allowed}],
+        "agents": {"ops_0": "ROLE_RECEPTION"},
+    }
+    agent = LLMAgentWithShield(
+        backend=DeterministicConstrainedBackend(seed=seed, default_action_type="NOOP"),
+        rbac_policy=rbac,
+        pz_to_engine={"ops_0": "A_RECEPTION"},
+        use_action_proposal_schema=True,
+    )
+    agent.reset(seed=seed, partner_id="", timing_mode="explicit")
+    _, action_info, meta = agent.act(obs, agent_id="ops_0")
+    action_type = (action_info or {}).get("action_type", "NOOP")
+    if action_type not in allowed and action_type != "NOOP":
+        return False, f"action_type {action_type!r} not in allowed {allowed}", model_id
+    proposal = ((meta or {}).get("_llm_decision") or {}).get("action_proposal") or {}
+    proposal_type = proposal.get("action_type", "NOOP")
+    if proposal_type not in allowed and proposal_type != "NOOP":
+        return (
+            False,
+            f"proposal action_type {proposal_type!r} not in allowed {allowed}",
+            model_id,
+        )
+    return True, None, model_id
 
 
 def run_security_suite(
@@ -160,17 +378,30 @@ def run_security_suite(
     repo_root: Path | None = None,
     smoke_only: bool = True,
     seed: int = 42,
+    timeout_s: int = 120,
+    llm_attacker: bool = False,
+    allow_network: bool = False,
+    llm_backend: str | None = None,
+    llm_model: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Run all attacks in the security attack suite (smoke-only or full).
     Returns list of result dicts: attack_id, passed, outcome, duration_ms, error.
+    timeout_s: max seconds per test_ref pytest run (default 120).
+    When llm_attacker=True and allow_network=True and llm_backend is set, runs attacks
+    with llm_attacker=true (live LLM generates payloads). Otherwise skips them.
     """
     repo_root = repo_root or policy_root
     suite = load_attack_suite(policy_root)
     attacks = suite.get("attacks") or []
     if smoke_only:
         attacks = [a for a in attacks if a.get("smoke") is True]
+    # Skip LLM-attacker attacks unless explicitly opted in
+    run_llm_attacker = bool(llm_attacker and allow_network and llm_backend)
+    if not run_llm_attacker:
+        attacks = [a for a in attacks if not a.get("llm_attacker")]
     scenarios = load_prompt_injection_scenarios(policy_root)
+    llm_prompts = load_llm_attacker_prompts(policy_root) if run_llm_attacker else []
     results: list[dict[str, Any]] = []
     for attack in attacks:
         attack_id = attack.get("attack_id", "unknown")
@@ -178,26 +409,45 @@ def run_security_suite(
         t0 = time.perf_counter()
         passed = False
         err: str | None = None
-        scenario_ref = attack.get("scenario_ref")
-        test_ref = attack.get("test_ref")
-        if scenario_ref:
-            passed, err = _run_prompt_injection_attack(scenario_ref, scenarios, policy_root, seed)
-        elif test_ref:
-            passed, err = _run_test_ref_attack(test_ref, repo_root)
+        model_id: str | None = None
+        if attack.get("llm_attacker"):
+            passed, err, model_id = _run_llm_attacker_attack(
+                attack,
+                llm_prompts,
+                policy_root,
+                seed,
+                llm_backend or "openai_live",
+                allow_network,
+                model_override=llm_model,
+            )
         else:
-            err = "attack has no scenario_ref or test_ref"
+            scenario_ref = attack.get("scenario_ref")
+            test_ref = attack.get("test_ref")
+            if scenario_ref:
+                passed, err = _run_prompt_injection_attack(
+                    scenario_ref, scenarios, policy_root, seed
+                )
+            elif test_ref:
+                passed, err = _run_test_ref_attack(
+                    test_ref, repo_root, timeout_s=timeout_s
+                )
+            else:
+                err = "attack has no scenario_ref, test_ref, or llm_attacker"
         duration_ms = round((time.perf_counter() - t0) * 1000)
-        results.append(
-            {
-                "attack_id": attack_id,
-                "risk_id": attack.get("risk_id"),
-                "control_id": attack.get("control_id"),
-                "expected_outcome": expected,
-                "passed": passed,
-                "duration_ms": duration_ms,
-                "error": err,
-            }
-        )
+        row: dict[str, Any] = {
+            "attack_id": attack_id,
+            "risk_id": attack.get("risk_id"),
+            "control_id": attack.get("control_id"),
+            "expected_outcome": expected,
+            "passed": passed,
+            "duration_ms": duration_ms,
+            "error": err,
+        }
+        if attack.get("llm_attacker"):
+            row["llm_attacker"] = True
+            if model_id:
+                row["model_id"] = model_id
+        results.append(row)
     return results
 
 
@@ -209,9 +459,20 @@ def write_attack_results(
     """Write attack_results.json with results and optional metadata."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    meta = dict(metadata or {})
+    llm_attacker_results = [r for r in results if r.get("llm_attacker")]
+    if llm_attacker_results:
+        meta["llm_attacker_run"] = True
+        model_ids = list(
+            dict.fromkeys(
+                r.get("model_id") for r in llm_attacker_results if r.get("model_id")
+            )
+        )
+        if model_ids:
+            meta["llm_attacker_model_ids"] = model_ids
     payload = {
         "version": "0.1",
-        "metadata": metadata or {},
+        "metadata": meta,
         "results": results,
         "summary": {
             "total": len(results),
@@ -231,17 +492,30 @@ def run_suite_and_emit(
     repo_root: Path | None = None,
     smoke_only: bool = True,
     seed: int = 42,
+    timeout_s: int = 120,
     metadata: dict[str, Any] | None = None,
+    llm_attacker: bool = False,
+    allow_network: bool = False,
+    llm_backend: str | None = None,
+    llm_model: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Run security suite and write SECURITY/attack_results.json under out_dir.
-    Returns results list.
+    Returns results list. timeout_s: max seconds per test_ref run (default 120).
+    When llm_attacker=True, allow_network=True, and llm_backend set, runs LLM-attacker
+    attacks (live LLM generates payloads); metadata will include llm_attacker_run and
+    llm_attacker_model_ids when any such attack ran.
     """
     results = run_security_suite(
         policy_root=policy_root,
         repo_root=repo_root or policy_root,
         smoke_only=smoke_only,
         seed=seed,
+        timeout_s=timeout_s,
+        llm_attacker=llm_attacker,
+        allow_network=allow_network,
+        llm_backend=llm_backend,
+        llm_model=llm_model,
     )
     security_dir = out_dir / "SECURITY"
     security_dir.mkdir(parents=True, exist_ok=True)

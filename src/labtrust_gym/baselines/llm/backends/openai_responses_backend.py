@@ -455,3 +455,154 @@ class OpenAICoordinationProposalBackend:
             "tokens_per_step": tokens_per_step,
             "estimated_cost_usd": round(cost, 6) if cost is not None else None,
         }
+
+
+class OpenAILocalProposalBackend:
+    """
+    Local proposal backend for llm_local_decider_signed_bus: propose_action(local_view,
+    allowed_actions, agent_id, step) -> ActionProposal dict. Wraps OpenAILiveBackend
+    with minimal context built from local_view.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        repo_root: Path | None = None,
+    ) -> None:
+        from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+        self._backend = OpenAILiveBackend(api_key=api_key, model=model)
+
+    def reset(self, seed: int) -> None:
+        pass
+
+    def propose_action(
+        self,
+        local_view: dict[str, Any],
+        allowed_actions: list[str],
+        agent_id: str,
+        step: int,
+    ) -> dict[str, Any]:
+        """Return ActionProposal dict (action_type, args, reason_code, etc.)."""
+        context = {
+            "state_summary": local_view,
+            "allowed_actions": allowed_actions,
+            "partner_id": agent_id,
+            "policy_fingerprint": None,
+            "now_ts_s": step,
+            "timing_mode": "explicit",
+            "active_tokens": None,
+            "recent_violations": None,
+            "enforcement_state": None,
+        }
+        return self._backend.propose_action(context)
+
+    def get_aggregate_metrics(self) -> dict[str, Any]:
+        return getattr(self._backend, "get_aggregate_metrics", lambda: {})()
+
+    @property
+    def last_metrics(self) -> dict[str, Any]:
+        return getattr(self._backend, "last_metrics", lambda: {})()
+
+
+def _minimal_gossip_payload(agent_id: str, t: int) -> dict[str, Any]:
+    """Minimal valid gossip payload for fallback when LLM fails."""
+    return {
+        "agent_id": agent_id[:64],
+        "step_id": t,
+        "zone_id": "",
+        "queue_summary": [],
+        "task": "active",
+    }
+
+
+class OpenAIGossipSummaryBackend:
+    """
+    Live summary backend for llm_gossip_summarizer: get_summary(agent_id, obs,
+    zone_ids, device_ids, t) -> dict. Returns gossip payload (agent_id, step_id,
+    zone_id, queue_summary, task). On API/parse error returns minimal valid payload.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        repo_root: Path | None = None,
+    ) -> None:
+        from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+        self._backend = OpenAILiveBackend(api_key=api_key, model=model)
+
+    def get_summary(
+        self,
+        agent_id: str,
+        obs: dict[str, Any],
+        zone_ids: list[str],
+        device_ids: list[str],
+        t: int,
+    ) -> dict[str, Any]:
+        """Return gossip payload dict. On failure return minimal valid payload."""
+        from labtrust_gym.baselines.coordination.obs_utils import (
+            get_queue_by_device,
+            get_zone_from_obs,
+            log_frozen,
+        )
+        o = obs.get(agent_id) or {}
+        zone = get_zone_from_obs(o, zone_ids) or str(o.get("zone_id", ""))[:64]
+        task = "frozen" if log_frozen(o) else "active"
+        qbd = get_queue_by_device(o)
+        queue_preview: list[dict[str, Any]] = []
+        for idx, dev_id in enumerate((device_ids or [])[:12]):
+            if idx >= len(qbd):
+                break
+            d = qbd[idx] if isinstance(qbd[idx], dict) else {}
+            queue_preview.append({
+                "device_id": str(d.get("device_id", dev_id))[:32],
+                "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
+                "queue_head": str(d.get("queue_head", ""))[:64],
+            })
+        prompt = (
+            "Return a single JSON object with keys: agent_id (string), step_id "
+            "(int), zone_id (string), queue_summary (array of objects with "
+            "device_id, queue_len, queue_head), task (string 'active' or 'frozen'). "
+            "agent_id=%s step_id=%s zone_id=%s task=%s queue_preview=%s. "
+            "Return only the JSON, no markdown."
+        ) % (
+            agent_id,
+            t,
+            zone,
+            task,
+            json.dumps(queue_preview, sort_keys=True),
+        )
+        messages = [{"role": "user", "content": prompt}]
+        try:
+            raw = self._backend.generate(messages)
+        except Exception:
+            return _minimal_gossip_payload(agent_id, t)
+        raw = (raw or "").strip()
+        for part in (raw.split("```") if "```" in raw else [raw]):
+            part = part.strip()
+            if part.startswith("json") or part.startswith("{"):
+                raw = part.replace("json", "", 1).strip()
+                break
+        try:
+            from labtrust_gym.baselines.llm.parse_utils import (
+                extract_first_json_object,
+            )
+            extracted = extract_first_json_object(raw)
+            if not extracted:
+                return _minimal_gossip_payload(agent_id, t)
+            out = json.loads(extracted)
+        except (json.JSONDecodeError, TypeError):
+            return _minimal_gossip_payload(agent_id, t)
+        if not isinstance(out, dict):
+            return _minimal_gossip_payload(agent_id, t)
+        out.setdefault("agent_id", agent_id[:64])
+        out.setdefault("step_id", t)
+        out.setdefault("zone_id", str(out.get("zone_id", ""))[:64])
+        out.setdefault("queue_summary", [])
+        if not isinstance(out["queue_summary"], list):
+            out["queue_summary"] = []
+        out.setdefault("task", "active")
+        if out["task"] not in ("active", "frozen"):
+            out["task"] = "active"
+        return out

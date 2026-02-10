@@ -50,6 +50,7 @@ risk_coverage_registry:
 
     - risk_id: "R-COMMS-002"
       injection_ids: ["INJ-COMMS-POISON-001"]
+      attack_ids: ["SEC-DETECTOR-001"]
 
     - risk_id: "R-CAP-001"
       attack_ids: ["SEC-PI-001", "SEC-PI-002", "SEC-PI-003", "SEC-PI-004", "SEC-PI-005"]

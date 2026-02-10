@@ -90,21 +90,27 @@ def test_try_repair_one_extra_call() -> None:
 
 def test_repair_invalid_then_valid_returns_action() -> None:
     """Canned invalid first response -> repair returns valid -> agent returns TICK."""
-    backend = _RepairMockBackend()
-    rbac = {
-        "roles": [{"role_id": "ops", "allowed_actions": ["NOOP", "TICK"]}],
-        "agents": {"ops_0": "ops"},
-    }
-    agent = LLMAgentWithShield(
-        backend=backend,
-        rbac_policy=rbac,
-        pz_to_engine={"ops_0": "ops_0"},
-        use_action_proposal_schema=True,
-    )
-    agent.reset(seed=42)
-    obs = {"t_s": 0, "zone_id": "Z_SRA_RECEPTION", "queue_by_device": []}
-    action_index, action_info, meta = agent.act(obs, agent_id="ops_0")
-    assert backend._call_count == 2
+    from labtrust_gym.pipeline import set_pipeline_config
+
+    set_pipeline_config("llm_live", allow_network=False)
+    try:
+        backend = _RepairMockBackend()
+        rbac = {
+            "roles": [{"role_id": "ops", "allowed_actions": ["NOOP", "TICK"]}],
+            "agents": {"ops_0": "ops"},
+        }
+        agent = LLMAgentWithShield(
+            backend=backend,
+            rbac_policy=rbac,
+            pz_to_engine={"ops_0": "ops_0"},
+            use_action_proposal_schema=True,
+        )
+        agent.reset(seed=42)
+        obs = {"t_s": 0, "zone_id": "Z_SRA_RECEPTION", "queue_by_device": []}
+        action_index, action_info, meta = agent.act(obs, agent_id="ops_0")
+        assert backend._call_count == 2
+    finally:
+        set_pipeline_config("deterministic", allow_network=False)
     llm = meta.get("_llm_decision")
     assert llm is not None
     assert llm.get("repair_attempted") is True
@@ -117,6 +123,8 @@ def test_repair_invalid_then_valid_returns_action() -> None:
 
 def test_repair_fails_then_noop() -> None:
     """When repair also returns invalid, agent returns NOOP with repair_succeeded=False."""
+    from labtrust_gym.pipeline import set_pipeline_config
+
     call_count = 0
 
     class AlwaysInvalidBackend:
@@ -125,21 +133,25 @@ def test_repair_fails_then_noop() -> None:
             call_count += 1
             return '{"action_type": "TICK"}'
 
-    backend = AlwaysInvalidBackend()
-    rbac = {
-        "roles": [{"role_id": "ops", "allowed_actions": ["NOOP", "TICK"]}],
-        "agents": {"ops_0": "ops"},
-    }
-    agent = LLMAgentWithShield(
-        backend=backend,
-        rbac_policy=rbac,
-        pz_to_engine={"ops_0": "ops_0"},
-        use_action_proposal_schema=True,
-    )
-    agent.reset(seed=42)
-    obs = {"t_s": 0, "zone_id": "Z_SRA_RECEPTION", "queue_by_device": []}
-    action_index, action_info, meta = agent.act(obs, agent_id="ops_0")
-    assert call_count == 2
+    set_pipeline_config("llm_live", allow_network=False)
+    try:
+        backend = AlwaysInvalidBackend()
+        rbac = {
+            "roles": [{"role_id": "ops", "allowed_actions": ["NOOP", "TICK"]}],
+            "agents": {"ops_0": "ops"},
+        }
+        agent = LLMAgentWithShield(
+            backend=backend,
+            rbac_policy=rbac,
+            pz_to_engine={"ops_0": "ops_0"},
+            use_action_proposal_schema=True,
+        )
+        agent.reset(seed=42)
+        obs = {"t_s": 0, "zone_id": "Z_SRA_RECEPTION", "queue_by_device": []}
+        action_index, action_info, meta = agent.act(obs, agent_id="ops_0")
+        assert call_count == 2
+    finally:
+        set_pipeline_config("deterministic", allow_network=False)
     llm = meta.get("_llm_decision")
     assert llm is not None
     assert llm.get("repair_attempted") is True

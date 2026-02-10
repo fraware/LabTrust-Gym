@@ -19,18 +19,18 @@ from labtrust_gym.config import get_repo_root
 
 
 def test_benchmark_run_2_episodes_smoke() -> None:
-    """Run 2 episodes for TaskA; no crash; results.json has 2 episodes."""
+    """Run 2 episodes for throughput_sla; no crash; results.json has 2 episodes."""
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results.json"
         run_benchmark(
-            task_name="TaskA",
+            task_name="throughput_sla",
             num_episodes=2,
             base_seed=42,
             out_path=out,
         )
         assert out.exists()
         data = json.loads(out.read_text(encoding="utf-8"))
-        assert data["task"] == "TaskA"
+        assert data["task"] == "throughput_sla"
         assert data["num_episodes"] == 2
         assert len(data["episodes"]) == 2
         assert "seeds" in data
@@ -48,13 +48,13 @@ def test_benchmark_determinism_same_seed() -> None:
         out1 = Path(tmp) / "run1.json"
         out2 = Path(tmp) / "run2.json"
         run_benchmark(
-            task_name="TaskA",
+            task_name="throughput_sla",
             num_episodes=2,
             base_seed=100,
             out_path=out1,
         )
         run_benchmark(
-            task_name="TaskA",
+            task_name="throughput_sla",
             num_episodes=2,
             base_seed=100,
             out_path=out2,
@@ -71,7 +71,7 @@ def test_benchmark_determinism_same_seed() -> None:
 
 def test_task_initial_state_deterministic() -> None:
     """Task get_initial_state(seed) is deterministic."""
-    task = get_task("TaskA")
+    task = get_task("throughput_sla")
     s1 = task.get_initial_state(99)
     s2 = task.get_initial_state(99)
     assert s1 == s2
@@ -86,7 +86,7 @@ def test_initial_state_has_policy_root_and_reagent_stock_for_reset() -> None:
     This ensures START_RUN can pass reagent checks and scripted runs can produce throughput.
     """
     repo_root = get_repo_root()
-    task = get_task("TaskA")
+    task = get_task("throughput_sla")
     initial_state = task.get_initial_state(100)
     overrides = {"policy_root": str(repo_root)}
     if task.timing_mode is not None:
@@ -98,7 +98,7 @@ def test_initial_state_has_policy_root_and_reagent_stock_for_reset() -> None:
     ), "initial_state passed to reset must include policy_root"
     assert (
         "reagent_initial_stock" in merged
-    ), "initial_state passed to reset must include reagent_initial_stock (TaskA/B/C provide it)"
+    ), "initial_state passed to reset must include reagent_initial_stock (throughput_sla/B/C provide it)"
 
     policy_root = Path(merged["policy_root"])
     reagent_policy_path = (
@@ -119,18 +119,18 @@ def test_initial_state_has_policy_root_and_reagent_stock_for_reset() -> None:
 
 
 def test_task_e_multisite_stat_runs() -> None:
-    """TaskE (MultiSiteSTAT) runs without crash; results have expected structure."""
+    """multi_site_stat (MultiSiteSTAT) runs without crash; results have expected structure."""
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results_taske.json"
         run_benchmark(
-            task_name="TaskE",
+            task_name="multi_site_stat",
             num_episodes=1,
             base_seed=50,
             out_path=out,
         )
         assert out.exists()
         data = json.loads(out.read_text(encoding="utf-8"))
-        assert data["task"] == "TaskE"
+        assert data["task"] == "multi_site_stat"
         assert data["num_episodes"] == 1
         assert len(data["episodes"]) == 1
         assert "seeds" in data
@@ -143,7 +143,7 @@ def test_task_e_multisite_stat_runs() -> None:
 
 
 def test_task_e_emits_dispatch_transport_at_least_once() -> None:
-    """TaskE scripted policy must emit DISPATCH_TRANSPORT at least once per episode."""
+    """multi_site_stat scripted policy must emit DISPATCH_TRANSPORT at least once per episode."""
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
     from labtrust_gym.benchmarks.runner import run_episode
@@ -154,7 +154,7 @@ def test_task_e_emits_dispatch_transport_at_least_once() -> None:
         LabTrustParallelEnv,
     )
 
-    task = get_task("TaskE")
+    task = get_task("multi_site_stat")
     policy_dir = Path(__file__).resolve().parent.parent / "policy"
     num_runners = 2
 
@@ -188,19 +188,19 @@ def test_task_e_emits_dispatch_transport_at_least_once() -> None:
                 if e == "DISPATCH_TRANSPORT":
                     dispatch_count += 1
     assert dispatch_count >= 1, (
-        f"TaskE must emit DISPATCH_TRANSPORT at least once; got {dispatch_count}. "
+        f"multi_site_stat must emit DISPATCH_TRANSPORT at least once; got {dispatch_count}. "
         "Scripted runner policy: DISPATCH_TRANSPORT -> TRANSPORT_TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE_TRANSPORT."
     )
     assert metrics.get("transport_consignment_count", 0) >= 1
 
 
 def test_task_e_determinism() -> None:
-    """TaskE: same seed => identical episode metrics (reproducible)."""
+    """multi_site_stat: same seed => identical episode metrics (reproducible)."""
     with tempfile.TemporaryDirectory() as tmp:
         out1 = Path(tmp) / "taske1.json"
         out2 = Path(tmp) / "taske2.json"
-        run_benchmark(task_name="TaskE", num_episodes=2, base_seed=77, out_path=out1)
-        run_benchmark(task_name="TaskE", num_episodes=2, base_seed=77, out_path=out2)
+        run_benchmark(task_name="multi_site_stat", num_episodes=2, base_seed=77, out_path=out1)
+        run_benchmark(task_name="multi_site_stat", num_episodes=2, base_seed=77, out_path=out2)
         data1 = json.loads(out1.read_text(encoding="utf-8"))
         data2 = json.loads(out2.read_text(encoding="utf-8"))
         assert data1["seeds"] == data2["seeds"]
@@ -208,11 +208,11 @@ def test_task_e_determinism() -> None:
             assert ep1["seed"] == ep2["seed"], f"episode {i} seed"
             assert (
                 ep1["metrics"] == ep2["metrics"]
-            ), f"TaskE episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
+            ), f"multi_site_stat episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
 
 
 def test_task_e_deterministic_transport_path() -> None:
-    """TaskE: fixed seed => deterministic transport path (same transport_consignment_count, same order of transport emits)."""
+    """multi_site_stat: fixed seed => deterministic transport path (same transport_consignment_count, same order of transport emits)."""
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
     from labtrust_gym.benchmarks.runner import run_episode
@@ -223,7 +223,7 @@ def test_task_e_deterministic_transport_path() -> None:
         LabTrustParallelEnv,
     )
 
-    task = get_task("TaskE")
+    task = get_task("multi_site_stat")
     policy_dir = Path(__file__).resolve().parent.parent / "policy"
     num_runners = 2
     seed = 123
@@ -284,18 +284,18 @@ def test_task_e_deterministic_transport_path() -> None:
 
 
 def test_task_f_insider_runs() -> None:
-    """TaskF (InsiderAndKeyMisuse) runs without crash; results include containment/forensic metrics."""
+    """insider_key_misuse (InsiderAndKeyMisuse) runs without crash; results include containment/forensic metrics."""
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results_taskf.json"
         run_benchmark(
-            task_name="TaskF",
+            task_name="insider_key_misuse",
             num_episodes=2,
             base_seed=200,
             out_path=out,
         )
         assert out.exists()
         data = json.loads(out.read_text(encoding="utf-8"))
-        assert data["task"] == "TaskF"
+        assert data["task"] == "insider_key_misuse"
         assert data["num_episodes"] == 2
         assert len(data["episodes"]) == 2
         for ep in data["episodes"]:
@@ -313,15 +313,15 @@ def test_task_f_insider_runs() -> None:
 
 
 def test_task_f_determinism() -> None:
-    """TaskF: same seed => identical episode metrics (deterministic scripted insider)."""
+    """insider_key_misuse: same seed => identical episode metrics (deterministic scripted insider)."""
     with tempfile.TemporaryDirectory() as tmp:
         out1 = Path(tmp) / "taskf1.json"
         out2 = Path(tmp) / "taskf2.json"
-        run_benchmark(task_name="TaskF", num_episodes=2, base_seed=300, out_path=out1)
-        run_benchmark(task_name="TaskF", num_episodes=2, base_seed=300, out_path=out2)
+        run_benchmark(task_name="insider_key_misuse", num_episodes=2, base_seed=300, out_path=out1)
+        run_benchmark(task_name="insider_key_misuse", num_episodes=2, base_seed=300, out_path=out2)
         data1 = json.loads(out1.read_text(encoding="utf-8"))
         data2 = json.loads(out2.read_text(encoding="utf-8"))
         assert data1["seeds"] == data2["seeds"]
         for i, (ep1, ep2) in enumerate(zip(data1["episodes"], data2["episodes"])):
             assert ep1["seed"] == ep2["seed"], f"episode {i} seed"
-            assert ep1["metrics"] == ep2["metrics"], f"TaskF episode {i} metrics differ"
+            assert ep1["metrics"] == ep2["metrics"], f"insider_key_misuse episode {i} metrics differ"

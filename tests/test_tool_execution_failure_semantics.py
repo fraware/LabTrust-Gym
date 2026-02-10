@@ -236,11 +236,11 @@ def test_benchmark_runner_completes_without_uncaught_exceptions(
     from labtrust_gym.benchmarks.runner import run_benchmark
     from labtrust_gym.benchmarks.tasks import get_task
 
-    if get_task("TaskA") is None:
-        pytest.skip("TaskA not available")
+    if get_task("throughput_sla") is None:
+        pytest.skip("throughput_sla not available")
     try:
         results = run_benchmark(
-            "TaskA",
+            "throughput_sla",
             num_episodes=1,
             base_seed=0,
             out_path=tmp_path / "results.json",

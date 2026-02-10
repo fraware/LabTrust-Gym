@@ -1,9 +1,0 @@
-agent_baseline_id,comm_drop_rate_mean,comm_drop_rate_std,comm_msg_count_mean,comm_msg_count_std,comm_p95_latency_ms_mean,comm_p95_latency_ms_std,containment_success_mean,containment_success_std,critical_communication_compliance_rate_mean,critical_communication_compliance_rate_std,detection_latency_s_mean,detection_latency_s_std,forensic_quality_score_mean,forensic_quality_score_std,fraction_of_attacks_contained_mean,fraction_of_attacks_contained_std,n_episodes,on_time_rate_mean,on_time_rate_std,p50_turnaround_s_mean,p50_turnaround_s_std,p95_turnaround_s_mean,p95_turnaround_s_std,partner_id,task,throughput_mean,throughput_std,time_to_first_detected_security_violation_mean,time_to_first_detected_security_violation_std,violations_total_mean,violations_total_std
-scripted_ops_v1,,,,,,,,,,,,,,,,,50,,,,,,,,TaskA,0.0,0.0,,,0.0,0.0
-scripted_ops_v1,,,,,,,,,,,,,,,,,50,,,,,,,,TaskB,0.0,0.0,,,0.0,0.0
-scripted_ops_v1,,,,,,,,,,,,,,,,,50,,,,,,,,TaskC,0.0,0.0,,,0.0,0.0
-adversary_v1,,,,,,,,,,,0.0,0.0,,,,,50,,,,,,,,TaskD,0.0,0.0,,,6.0,0.0
-scripted_ops_v1,,,,,,,,,,,,,,,,,50,,,,,,,,TaskE,0.0,0.0,,,0.0,0.0
-insider_v1,,,,,,,,,,,0.0,0.0,1.0,0.0,0.8,0.2837902619042413,150,,,,,,,,TaskF,0.0,0.0,30.0,0.0,0.6666666666666666,0.9459675396808043
-scripted_ops_v1,,,,,,,,,,,,,,,,,50,,,,,,,,TaskG_COORD_SCALE,0.0,0.0,,,0.0,0.0
-scripted_ops_v1,,,,,,,,,,,,,,,,,50,,,,,,,,TaskH_COORD_RISK,0.0,0.0,,,0.0,0.0

@@ -138,7 +138,7 @@ def _initial_state_overrides(
     overrides["timing_mode"] = timing
     for k, v in condition.items():
         overrides[f"ablation_{k}"] = v
-    # Engine keys from condition (e.g. strict_signatures for TaskF)
+    # Engine keys from condition (e.g. strict_signatures for insider_key_misuse)
     if "strict_signatures" in condition:
         overrides["strict_signatures"] = condition["strict_signatures"]
     return overrides
@@ -181,7 +181,7 @@ def run_study(
         spec = spec_data if isinstance(spec_data, dict) else {}
     study_partner_id = partner_id or spec.get("partner_id")
 
-    task = spec.get("task", "TaskA")
+    task = spec.get("task", "throughput_sla")
     episodes = int(spec.get("episodes", 2))
     seed_base = int(spec.get("seed_base", 0))
     smoke = os.environ.get("LABTRUST_REPRO_SMOKE", "").strip().lower() in (

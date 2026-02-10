@@ -70,32 +70,48 @@ def test_ollama_backend_supports_structured_outputs_false() -> None:
 
 def test_ollama_backend_generate_returns_noop_json_on_connection_error() -> None:
     """generate() returns NOOP JSON string when request fails (no network)."""
-    with patch.dict(os.environ, {"LABTRUST_LOCAL_LLM_URL": "http://localhost:11434"}, clear=False):
-        backend = OllamaLiveBackend()
-    with patch("urllib.request.urlopen") as mock_urlopen:
-        mock_urlopen.side_effect = OSError("Connection refused")
-        out = backend.generate([{"role": "user", "content": "test"}])
-    data = json.loads(out)
-    assert data.get("action_type") == "NOOP"
-    assert backend.last_error_code is not None
-    assert backend.get_aggregate_metrics()["error_count"] == 1
-    assert backend.get_aggregate_metrics()["backend_id"] == BACKEND_ID
+    from labtrust_gym.pipeline import set_pipeline_config
+
+    set_pipeline_config("llm_live", allow_network=True)
+    try:
+        with patch.dict(
+            os.environ,
+            {"LABTRUST_LOCAL_LLM_URL": "http://localhost:11434"},
+            clear=False,
+        ):
+            backend = OllamaLiveBackend()
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.side_effect = OSError("Connection refused")
+            out = backend.generate([{"role": "user", "content": "test"}])
+        data = json.loads(out)
+        assert data.get("action_type") == "NOOP"
+        assert backend.last_error_code is not None
+        assert backend.get_aggregate_metrics()["error_count"] == 1
+        assert backend.get_aggregate_metrics()["backend_id"] == BACKEND_ID
+    finally:
+        set_pipeline_config("deterministic", allow_network=False)
 
 
 def test_ollama_backend_aggregate_metrics_shape() -> None:
     """get_aggregate_metrics returns backend_id, model_id, total_calls, error_count, error_rate, latency."""
-    with patch.dict(os.environ, {}, clear=False):
-        backend = OllamaLiveBackend()
-    with patch("urllib.request.urlopen") as mock_urlopen:
-        mock_urlopen.side_effect = OSError("fail")
-        backend.generate([{"role": "user", "content": "x"}])
-    agg = backend.get_aggregate_metrics()
-    assert agg["backend_id"] == "ollama_live"
-    assert "model_id" in agg
-    assert agg["total_calls"] == 1
-    assert agg["error_count"] == 1
-    assert "error_rate" in agg
-    assert "mean_latency_ms" in agg
+    from labtrust_gym.pipeline import set_pipeline_config
+
+    set_pipeline_config("llm_live", allow_network=True)
+    try:
+        with patch.dict(os.environ, {}, clear=False):
+            backend = OllamaLiveBackend()
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.side_effect = OSError("fail")
+            backend.generate([{"role": "user", "content": "x"}])
+        agg = backend.get_aggregate_metrics()
+        assert agg["backend_id"] == "ollama_live"
+        assert "model_id" in agg
+        assert agg["total_calls"] == 1
+        assert agg["error_count"] == 1
+        assert "error_rate" in agg
+        assert "mean_latency_ms" in agg
+    finally:
+        set_pipeline_config("deterministic", allow_network=False)
 
 
 @pytest.mark.skipif(
