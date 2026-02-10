@@ -1,14 +1,25 @@
 """
 Coordination method interface for PettingZoo Parallel env.
 
-Each method produces per-agent actions compatible with the existing env API:
-action_index (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN)
-and optional action_info (action_type, args, reason_code, token_refs) for engine events.
+FROZEN CONTRACT (Coordination Baseline Contract v0.1): New methods must implement
+this interface; CI enforces it via tests/test_coordination_interface_contract.py.
 
-Contract v0.1: the runner builds a CoordDecision (contract record) per step from
-method_id, t_step, actions, view_age_ms, and optional plan_time_ms, invariants_considered,
-safety_shield_applied; see policy/schemas/coord_method_output_contract.v0.1.schema.json
-and baselines/coordination/telemetry.py.
+Required hooks:
+  - reset(seed, policy, scale_config): called before first propose_actions each episode.
+  - propose_actions(obs, infos, t) -> Dict[agent_id, action_dict]: one action per
+    active agent; action_dict must contain "action_index" (int in 0..5) and may
+    contain "action_type", "args", "reason_code", "token_refs".
+
+Optional hooks (default no-op):
+  - on_step_result(step_outputs): feedback after env.step (alias: observe).
+  - on_episode_end(episode_metrics): called at end of episode (e.g. for learning).
+  - get_learning_metadata(): when method is study-track (learning/evolving), return dict with
+    enabled, checkpoint_sha, update_count, buffer_size for results.metadata.coordination.learning.
+
+Each method produces per-agent actions compatible with the env API:
+action_index (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN).
+The runner builds a CoordDecision (contract record) per step; see
+policy/schemas/coord_method_output_contract.v0.1.schema.json and telemetry.py.
 """
 
 from __future__ import annotations
@@ -19,13 +30,14 @@ from typing import Any
 # CoordDecision: one timestep record per coord_method_output_contract.v0.1 (built in runner)
 CoordDecision = dict[str, Any]
 
-# Action indices aligned with pz_parallel
+# Action indices aligned with pz_parallel (schema-valid range for action_index)
 ACTION_NOOP = 0
 ACTION_TICK = 1
 ACTION_QUEUE_RUN = 2
 ACTION_MOVE = 3
 ACTION_OPEN_DOOR = 4
 ACTION_START_RUN = 5
+VALID_ACTION_INDICES = frozenset({0, 1, 2, 3, 4, 5})
 
 
 def action_dict_to_index_and_info(
@@ -83,3 +95,19 @@ class CoordinationMethod(ABC):
     ) -> None:
         """Optional: feedback after env.step (e.g. for learning or message delay)."""
         pass
+
+    def on_episode_end(
+        self,
+        episode_metrics: dict[str, Any],
+    ) -> None:
+        """Optional: called at end of episode (e.g. for learning or logging)."""
+        pass
+
+    def get_learning_metadata(self) -> dict[str, Any] | None:
+        """
+        Optional: when this method is study-track (learning/evolving across episodes),
+        return a dict for results.metadata.coordination.learning. Keys: enabled (bool),
+        checkpoint_sha (str, optional), update_count (int, optional), buffer_size (int, optional).
+        Return None for deterministic-track or inference-only methods.
+        """
+        return None

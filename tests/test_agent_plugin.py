@@ -87,7 +87,7 @@ def test_eval_agent_produces_valid_results_schema(tmp_path: Path) -> None:
         pytest.skip("repo root not found")
     out_path = tmp_path / "results.json"
     run_eval_agent(
-        task="TaskA",
+        task="throughput_sla",
         episodes=2,
         agent_spec="examples.external_agent_demo:SafeNoOpAgent",
         out_path=out_path,
@@ -97,7 +97,7 @@ def test_eval_agent_produces_valid_results_schema(tmp_path: Path) -> None:
     assert out_path.exists()
     data = json.loads(out_path.read_text(encoding="utf-8"))
     assert data.get("schema_version") == "0.2"
-    assert data.get("task") == "TaskA"
+    assert data.get("task") == "throughput_sla"
     assert isinstance(data.get("episodes"), list)
     assert len(data["episodes"]) == 2
     schema_path = repo / "policy" / "schemas" / "results.v0.2.schema.json"

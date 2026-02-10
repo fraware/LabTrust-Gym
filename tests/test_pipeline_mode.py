@@ -45,7 +45,7 @@ def test_deterministic_run_results_contain_pipeline_mode(tmp_path: Path) -> None
 
     out = tmp_path / "results.json"
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=1,
         base_seed=99,
         out_path=out,
@@ -64,7 +64,7 @@ def test_results_json_includes_pipeline_fields_for_reviewer(tmp_path: Path) -> N
 
     out = tmp_path / "results.json"
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=1,
         base_seed=99,
         out_path=out,
@@ -95,7 +95,7 @@ def test_llm_live_without_allow_network_fails_with_clear_message(
             del os.environ["LABTRUST_ALLOW_NETWORK"]
         with pytest.raises(RuntimeError) as exc_info:
             run_benchmark(
-                task_name="TaskA",
+                task_name="throughput_sla",
                 num_episodes=1,
                 base_seed=42,
                 out_path=tmp_path / "out_llm_live_fail.json",
@@ -166,7 +166,7 @@ def test_pipeline_mode_deterministic_rejects_live_backend(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError) as exc_info:
         run_benchmark(
-            task_name="TaskA",
+            task_name="throughput_sla",
             num_episodes=1,
             base_seed=42,
             out_path=tmp_path / "out_reject.json",
@@ -186,7 +186,7 @@ def test_pipeline_mode_llm_offline_rejects_live_backend(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError) as exc_info:
         run_benchmark(
-            task_name="TaskA",
+            task_name="throughput_sla",
             num_episodes=1,
             base_seed=42,
             out_path=tmp_path / "out_offline_reject.json",

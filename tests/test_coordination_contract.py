@@ -85,7 +85,7 @@ def test_coord_decisions_jsonl_produced_for_taskg() -> None:
         out = Path(tmp) / "results.json"
         log_path = Path(tmp) / "episodes.jsonl"
         run_benchmark(
-            task_name="TaskG_COORD_SCALE",
+            task_name="coord_scale",
             num_episodes=1,
             base_seed=42,
             out_path=out,

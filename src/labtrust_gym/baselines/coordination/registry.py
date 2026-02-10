@@ -61,6 +61,10 @@ from labtrust_gym.baselines.coordination.methods.market_auction import (
 from labtrust_gym.baselines.coordination.methods.swarm_reactive import (
     SwarmReactive,
 )
+from labtrust_gym.baselines.coordination.ripple_effect import (
+    MESSAGE_TYPE_RIPPLE_INTENT,
+    RippleEffectMethod,
+)
 
 
 def _load_scheduler_or_policy(repo_root: Path | None) -> dict[str, Any]:
@@ -119,9 +123,13 @@ def make_coordination_method(
     repo_root is set; kwargs and explicit args override.
     """
     params: dict[str, Any] = {}
+    registry: dict[str, dict[str, Any]] = {}
     if repo_root is not None:
         try:
-            from labtrust_gym.policy.coordination import load_coordination_methods
+            from labtrust_gym.policy.coordination import (
+                load_coordination_methods,
+                resolve_method_variant,
+            )
 
             reg_path = Path(repo_root) / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
             if reg_path.exists():
@@ -129,6 +137,15 @@ def make_coordination_method(
                 entry = registry.get(method_id)
                 if entry and isinstance(entry.get("default_params"), dict):
                     params = dict(entry["default_params"])
+                base_id, defense_profile = resolve_method_variant(method_id, registry)
+                if base_id != method_id:
+                    params["method_id_override"] = method_id
+                    if defense_profile is not None:
+                        params["defense_profile"] = defense_profile
+                    base_entry = registry.get(base_id)
+                    if base_entry and isinstance(base_entry.get("default_params"), dict):
+                        params = {**base_entry["default_params"], **params}
+                    method_id = base_id
         except Exception:
             pass
     if scale_config:
@@ -199,6 +216,8 @@ def make_coordination_method(
                 ),
                 max_repairs=max_repairs,
                 blocked_threshold=blocked_threshold,
+                method_id_override=params.get("method_id_override"),
+                defense_profile=params.get("defense_profile"),
             ),
         )
 
@@ -248,6 +267,8 @@ def make_coordination_method(
                 local_strategy=local_strategy,
                 use_whca=bool(params.get("use_whca", False)),
                 whca_horizon=int(params.get("whca_horizon", 10)),
+                method_id_override=params.get("method_id_override"),
+                defense_profile=params.get("defense_profile"),
             ),
         )
 
@@ -275,6 +296,8 @@ def make_coordination_method(
                 bid_backend=backend,
                 rbac_policy=rbac_policy,
                 policy_summary=params.get("policy_summary") or policy,
+                method_id_override=params.get("method_id_override"),
+                defense_profile=params.get("defense_profile"),
             ),
         )
 
@@ -293,12 +316,14 @@ def make_coordination_method(
         identity_policy = {
             "allowed_message_types": ["gossip_summary"],
         }
+        summary_backend = params.get("summary_backend")
         return cast(
             CoordinationMethod,
             LLMGossipSummarizer(
                 key_store=key_store,
                 repo_root=repo_root,
                 identity_policy=identity_policy,
+                summary_backend=summary_backend,
             ),
         )
     if method_id == "llm_local_decider_signed_bus":
@@ -383,13 +408,74 @@ def make_coordination_method(
         "llm_repair_over_kernel_whca",
         "llm_detector_throttle_advisor",
         "marl_ppo",
+        "ripple_effect",
+        "group_evolving_experience_sharing",
+        "group_evolving_study",
     ):
         raise ValueError(
             f"Unknown coordination method_id: {method_id}. "
             f"Known: {list(_METHOD_CLASSES.keys())}, llm_central_planner, "
             f"llm_hierarchical_allocator, llm_auction_bidder, llm_gossip_summarizer, "
             f"llm_local_decider_signed_bus, llm_repair_over_kernel_whca, "
-            f"llm_detector_throttle_advisor, kernel_*, marl_ppo"
+            f"llm_detector_throttle_advisor, kernel_*, marl_ppo, ripple_effect, "
+            f"group_evolving_experience_sharing, group_evolving_study"
+        )
+    if method_id == "group_evolving_experience_sharing":
+        from labtrust_gym.baselines.coordination.group_evolving.method import (
+            ExperienceSharingDeterministic,
+        )
+        return cast(
+            CoordinationMethod,
+            ExperienceSharingDeterministic(
+                share_interval=params.get("share_interval", 5),
+                summary_max_items=params.get("summary_max_items", 50),
+            ),
+        )
+    if method_id == "group_evolving_study":
+        from labtrust_gym.baselines.coordination.group_evolving.method import (
+            GroupEvolvingStudy,
+        )
+        return cast(
+            CoordinationMethod,
+            GroupEvolvingStudy(
+                share_interval=params.get("share_interval", 5),
+                summary_max_items=params.get("summary_max_items", 50),
+                population_size=params.get("population_size", 4),
+                top_k=params.get("top_k", 2),
+                episodes_per_generation=params.get("episodes_per_generation", 2),
+            ),
+        )
+    if method_id == "ripple_effect":
+        from labtrust_gym.coordination.identity import build_key_store
+
+        pz_map = params.get("pz_to_engine") or {}
+        # Key store must use IDs that appear in obs (PZ names), so signing works.
+        agent_ids = sorted(pz_map.keys()) if pz_map else []
+        if not agent_ids and scale_config:
+            scale_agents = (scale_config or {}).get("agents")
+            if isinstance(scale_agents, list):
+                agent_ids = [
+                    a.get("agent_id")
+                    for a in scale_agents
+                    if isinstance(a, dict) and a.get("agent_id")
+                ]
+        if not agent_ids:
+            agent_ids = ["ops_0", "runner_0"]
+        seed = int((scale_config or {}).get("seed", 0))
+        key_store = build_key_store(agent_ids, seed)
+        if not key_store:
+            raise ValueError(
+                "ripple_effect requires cryptography and non-empty agent set "
+                "for key_store (install [llm_openai] or cryptography)"
+            )
+        return cast(
+            CoordinationMethod,
+            RippleEffectMethod(
+                key_store=key_store,
+                identity_policy={
+                    "allowed_message_types": [MESSAGE_TYPE_RIPPLE_INTENT],
+                },
+            ),
         )
     if method_id == "kernel_centralized_edf":
         alloc: CentralizedAllocator | AuctionAllocator = CentralizedAllocator(
@@ -521,10 +607,12 @@ def make_coordination_method(
         )
         advanced = compose_kernel(alloc, sched, router, "kernel_auction_whca")
         shielded = wrap_with_simplex_shield(advanced, None)
-        detector_backend = DeterministicDetectorBackend(
-            seed=seed,
-            latency_bound_steps=int(params.get("detector_latency_bound_steps", 5)),
-        )
+        detector_backend = params.get("detector_backend")
+        if detector_backend is None:
+            detector_backend = DeterministicDetectorBackend(
+                seed=seed,
+                latency_bound_steps=int(params.get("detector_latency_bound_steps", 5)),
+            )
         return cast(
             CoordinationMethod,
             wrap_with_detector_advisor(shielded, detector_backend),

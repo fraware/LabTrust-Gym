@@ -143,6 +143,9 @@ POLICY_FILE_SCHEMA_MAP: dict[str, str] = {
     "coordination_methods.v0.1.yaml": "coordination_methods.v0.1.schema.json",
     "method_risk_matrix.v0.1.yaml": "method_risk_matrix.v0.1.schema.json",
     "coordination_study_spec.v0.1.yaml": "coordination_study_spec.v0.1.schema.json",
+    "coordination_matrix_inputs.v0.1.yaml": "coordination_matrix_inputs.v0.1.schema.json",
+    "coordination_matrix_column_map.v0.1.yaml": "coordination_matrix_column_map.v0.1.schema.json",
+    "coordination_matrix_spec.v0.1.yaml": "coordination_matrix_spec.v0.1.schema.json",
     "tool_registry.v0.1.yaml": "tool_registry.v0.1.schema.json",
 }
 

@@ -81,7 +81,7 @@ def test_build_log_entry_includes_llm_decision() -> None:
 
 def test_episode_log_jsonl_determinism() -> None:
     """Same episode (seed + task) run twice => identical JSONL files."""
-    task = get_task("TaskA")
+    task = get_task("throughput_sla")
     seed = 99
     with tempfile.TemporaryDirectory() as tmp:
         log1 = Path(tmp) / "ep1.jsonl"

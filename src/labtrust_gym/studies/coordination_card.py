@@ -106,11 +106,11 @@ def render_coordination_card(
 
 def _default_coordination_card_content() -> str:
     """Fallback card content when template is missing."""
-    return """# Coordination Benchmark Card (TaskG / TaskH)
+    return """# Coordination Benchmark Card (coord_scale / coord_risk)
 
 ## Scope
 
-TaskG_COORD_SCALE and TaskH_COORD_RISK evaluate multi-agent coordination in the Blood Sciences lane.
+coord_scale and coord_risk evaluate multi-agent coordination in the Blood Sciences lane.
 
 ## Policy fingerprint
 
@@ -221,7 +221,7 @@ def render_coordination_llm_card(
         "",
         "## Injection coverage (security evaluation)",
         "",
-        "TaskH injections used for security evaluation (from injections.v0.2.yaml):",
+        "coord_risk injections used for security evaluation (from injections.v0.2.yaml):",
         "",
     ])
     for iid in sorted(injection_ids):

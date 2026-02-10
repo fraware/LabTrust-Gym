@@ -6,7 +6,7 @@ Strict interface and telemetry schema for coordination method plug-ins so all me
 
 - **Do not break existing methods**: wrap/adapt them; contract output is produced by the runner from method output and harness telemetry.
 - **Deterministic mode** is required for official baselines; same seed and config yield identical `coord_decisions.jsonl`.
-- **Proof logging**: every TaskG/TaskH episode run writes `coord_decisions.jsonl` (one JSONL line per step, validated against the contract schema when `LABTRUST_STRICT_COORD_CONTRACT=1`).
+- **Proof logging**: every coord_scale/coord_risk episode run writes `coord_decisions.jsonl` (one JSONL line per step, validated against the contract schema when `LABTRUST_STRICT_COORD_CONTRACT=1`).
 
 ## Contract schema (one timestep)
 
@@ -32,7 +32,7 @@ Schema: `policy/schemas/coord_method_output_contract.v0.1.schema.json`.
 
 ## Runner behaviour
 
-- For TaskG/TaskH with a coordination method and when `log_path` is set, the runner opens `coord_decisions.jsonl` in the same directory as the episode log and appends one line per step (canonical JSON).
+- For coord_scale/coord_risk with a coordination method and when `log_path` is set, the runner opens `coord_decisions.jsonl` in the same directory as the episode log and appends one line per step (canonical JSON).
 - When **LABTRUST_STRICT_COORD_CONTRACT=1**: each record is validated against the contract schema before append; on validation failure the run fails (e.g. missing required fields or invalid types).
 - When the env var is unset, records are still written and optionally validated in tests; strict mode is for CI and official baseline runs.
 

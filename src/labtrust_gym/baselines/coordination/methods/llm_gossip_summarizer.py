@@ -109,6 +109,17 @@ def poison_heuristic(payload: dict[str, Any]) -> tuple[bool, str]:
     return False, ""
 
 
+def _is_valid_gossip_payload(payload: Any) -> bool:
+    """Return True if payload is a valid gossip summary dict for signing."""
+    if not isinstance(payload, dict):
+        return False
+    if not all(k in payload for k in ("agent_id", "step_id", "zone_id", "queue_summary", "task")):
+        return False
+    if not isinstance(payload.get("queue_summary"), list):
+        return False
+    return True
+
+
 def _build_local_summary(
     agent_id: str,
     obs: dict[str, Any],
@@ -175,9 +186,11 @@ class LLMGossipSummarizer(CoordinationMethod):
         *,
         repo_root: Path | None = None,
         identity_policy: dict[str, Any] | None = None,
+        summary_backend: Any | None = None,
     ) -> None:
         self._key_store = key_store
         self._repo_root = repo_root
+        self._summary_backend = summary_backend
         self._schema = _load_message_schema(repo_root)
         policy = identity_policy or {}
         policy.setdefault(
@@ -242,9 +255,23 @@ class LLMGossipSummarizer(CoordinationMethod):
 
         envelopes: list[dict[str, Any]] = []
         for i, agent_id in enumerate(agents):
-            payload = _build_local_summary(
-                agent_id, obs, self._zone_ids, self._device_ids, t
-            )
+            if self._summary_backend is not None and hasattr(
+                self._summary_backend, "get_summary"
+            ):
+                try:
+                    payload = self._summary_backend.get_summary(
+                        agent_id, obs, self._zone_ids, self._device_ids, t
+                    )
+                except Exception:
+                    payload = None
+                if not _is_valid_gossip_payload(payload):
+                    payload = _build_local_summary(
+                        agent_id, obs, self._zone_ids, self._device_ids, t
+                    )
+            else:
+                payload = _build_local_summary(
+                    agent_id, obs, self._zone_ids, self._device_ids, t
+                )
             ok, reason = validate_message_payload(
                 payload, self._schema, max_bytes=MAX_MESSAGE_PAYLOAD_BYTES
             )

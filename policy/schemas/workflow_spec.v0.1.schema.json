@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.workflow_spec.v0.1",
+  "title": "Workflow / domain spec v0.1",
+  "description": "Abstract workflow or domain specification: resources, locations, constraints, and allowed actions. Independent of a specific sector (lab, warehouse, factory). The hospital lab is the first concrete instance.",
+  "type": "object",
+  "required": ["workflow_id", "version"],
+  "additionalProperties": true,
+  "properties": {
+    "workflow_id": { "type": "string", "description": "Unique identifier for this workflow (e.g. hospital_lab, warehouse_pick)." },
+    "version": { "type": "string", "description": "Spec version (e.g. 0.1)." },
+    "resources": {
+      "type": "array",
+      "description": "Abstract resource types (e.g. specimen, order, pallet).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "resource_type": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "locations": {
+      "type": "array",
+      "description": "Location or zone identifiers.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "location_id": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "description": "Optional domain constraints (capacity, connectivity, safety).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "constraint_id": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "allowed_actions": {
+      "type": "array",
+      "description": "Allowed action type identifiers (e.g. move, process, handoff).",
+      "items": { "type": "string" }
+    }
+  }
+}

@@ -1,16 +1,16 @@
-# Coordination Benchmark Card (TaskG / TaskH)
+# Coordination Benchmark Card (coord_scale / coord_risk)
 
 This card defines the coordination evaluation suite for scientific review: scenario generation, scale configs, methods, risk injections, metrics, determinism guarantees, and explicit limitations.
 
 ## Scope
 
-TaskG_COORD_SCALE and TaskH_COORD_RISK evaluate multi-agent coordination in the Blood Sciences lane (specimen reception, accessioning, pre-analytics, routine and STAT analytics, QC, critical result notification, release; multi-site transport with chain-of-custody). Agents are driven by a single coordination method; the environment enforces RBAC, signatures, and invariants as for core tasks. This benchmark measures coordination quality (throughput, turnaround, violations, blocks) and optional security/robustness under injected risks.
+coord_scale and coord_risk evaluate multi-agent coordination in the Blood Sciences lane (specimen reception, accessioning, pre-analytics, routine and STAT analytics, QC, critical result notification, release; multi-site transport with chain-of-custody). Agents are driven by a single coordination method; the environment enforces RBAC, signatures, and invariants as for core tasks. This benchmark measures coordination quality (throughput, turnaround, violations, blocks) and optional security/robustness under injected risks.
 
 ## Scenario generation
 
 - **Scale dimensions**: Defined in the coordination study spec as a Cartesian product (e.g. `num_agents`, `num_sites`, `num_devices`, `arrival_rate`, `horizon_steps`). Each combination yields a `CoordinationScaleConfig` passed to the benchmark runner.
 - **Episode setup**: Per episode, the runner builds the PettingZoo Parallel env with the scale config, seeds the RNG with the cell seed (derived from `seed_base`, scale index, method index, injection index), and runs the coordination method (e.g. centralized planner, market auction, WHCA router) to produce per-agent actions. Specimen arrivals and device behavior are deterministic given the seed.
-- **Risk injections**: TaskH applies one injection per cell (e.g. INJ-COMMS-POISON-001, INJ-CLOCK-SKEW-001). Injections are policy-defined with optional intensity and seed_offset; the risk harness applies them deterministically.
+- **Risk injections**: coord_risk applies one injection per cell (e.g. INJ-COMMS-POISON-001, INJ-CLOCK-SKEW-001). Injections are policy-defined with optional intensity and seed_offset; the risk harness applies them deterministically.
 
 ## Scale configs
 

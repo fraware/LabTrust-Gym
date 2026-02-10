@@ -24,10 +24,10 @@ def _run_taskh(
     seed: int = SEED,
     num_episodes: int = 1,
 ) -> dict:
-    """Run TaskH_COORD_RISK and return parsed results.json."""
+    """Run coord_risk and return parsed results.json."""
     out = tmp_path / "results.json"
     run_benchmark(
-        task_name="TaskH_COORD_RISK",
+        task_name="coord_risk",
         num_episodes=num_episodes,
         base_seed=seed,
         out_path=out,

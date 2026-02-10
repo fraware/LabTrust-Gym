@@ -53,7 +53,7 @@ def run_eval_agent(
             device_ids=DEFAULT_DEVICE_IDS,
         ),
     }
-    if task in ("TaskD", "TaskD_AdversarialDisruption"):
+    if task == "adversarial_disruption":
         from labtrust_gym.baselines.adversary import AdversaryAgent
 
         scripted_agents_map["adversary_0"] = AdversaryAgent()
@@ -107,7 +107,7 @@ def register_parser(subparsers: Any) -> None:
     p.add_argument(
         "--task",
         required=True,
-        help="Task name: TaskA, TaskB, TaskC, TaskD, TaskE, TaskF",
+        help="Task name: throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse",
     )
     p.add_argument(
         "--episodes",

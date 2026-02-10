@@ -33,7 +33,7 @@ def test_results_v02_schema_validates_run_benchmark_output() -> None:
     # Minimal valid v0.2 result
     data = {
         "schema_version": "0.2",
-        "task": "TaskA",
+        "task": "throughput_sla",
         "seeds": [42, 43],
         "episodes": [
             {
@@ -61,7 +61,7 @@ def test_results_v02_schema_validates_with_metadata_llm() -> None:
         pytest.skip("policy/schemas/results.v0.2.schema.json not found")
     data = {
         "schema_version": "0.2",
-        "task": "TaskA",
+        "task": "throughput_sla",
         "seeds": [42],
         "episodes": [{"seed": 42, "metrics": {"throughput": 0, "steps": 10}}],
         "agent_baseline_id": "llm_safe_v1",
@@ -88,7 +88,7 @@ def test_run_benchmark_output_validates_v02(tmp_path: Path) -> None:
         pytest.skip("repo root not found")
     out_path = tmp_path / "results.json"
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=2,
         base_seed=9999,
         out_path=out_path,
@@ -109,7 +109,7 @@ def test_summarize_determinism(tmp_path: Path) -> None:
     results_json = results_dir / "results.json"
     data = {
         "schema_version": "0.2",
-        "task": "TaskA",
+        "task": "throughput_sla",
         "seeds": [42, 43],
         "episodes": [
             {
@@ -141,7 +141,7 @@ def test_summarize_aggregates_by_task_baseline_partner(tmp_path: Path) -> None:
     (results_dir / "results.json").write_text(
         json.dumps(
             {
-                "task": "TaskA",
+                "task": "throughput_sla",
                 "seeds": [42, 43],
                 "episodes": [
                     {
@@ -169,7 +169,7 @@ def test_summarize_aggregates_by_task_baseline_partner(tmp_path: Path) -> None:
     assert "11" in content  # mean of 10 and 12
     rows = summarize_results(load_results_from_path(results_dir))
     assert len(rows) == 1
-    assert rows[0]["task"] == "TaskA"
+    assert rows[0]["task"] == "throughput_sla"
     assert rows[0]["throughput_mean"] == 11.0
     assert rows[0]["n_episodes"] == 2
 
@@ -183,7 +183,7 @@ def test_summarize_writes_llm_economics_when_metadata_has_llm_backend(
     (results_dir / "results.json").write_text(
         json.dumps(
             {
-                "task": "TaskA",
+                "task": "throughput_sla",
                 "seeds": [42],
                 "episodes": [{"seed": 42, "metrics": {"throughput": 5}}],
                 "agent_baseline_id": "llm_live_openai_v1",
@@ -218,7 +218,7 @@ def test_summarize_writes_llm_economics_when_metadata_has_llm_backend(
 def test_normalize_accepts_legacy_git_commit_hash() -> None:
     """Legacy results with git_commit_hash (no git_sha) normalize to v0.2 shape."""
     data = {
-        "task": "TaskA",
+        "task": "throughput_sla",
         "episodes": [{"seed": 42, "metrics": {"throughput": 1}}],
         "git_commit_hash": "abc123",
     }
@@ -235,7 +235,7 @@ def test_results_v03_schema_validates() -> None:
         pytest.skip("policy/schemas/results.v0.3.schema.json not found")
     data = {
         "schema_version": "0.3",
-        "task": "TaskA",
+        "task": "throughput_sla",
         "seeds": [42, 43],
         "episodes": [
             {
@@ -278,7 +278,7 @@ def test_summarize_v02_output_unchanged_for_fixture(tmp_path: Path) -> None:
     results_dir.mkdir()
     fixture = {
         "schema_version": "0.2",
-        "task": "TaskA",
+        "task": "throughput_sla",
         "seeds": [42, 43],
         "episodes": [
             {
@@ -306,7 +306,7 @@ def test_summarize_v02_output_unchanged_for_fixture(tmp_path: Path) -> None:
     assert (out1 / "summary.csv").read_text(encoding="utf-8") == csv_v02_1, "summary.csv must equal summary_v0.2.csv"
     rows = summarize_results(load_results_from_path(results_dir))
     assert len(rows) == 1
-    assert rows[0]["task"] == "TaskA"
+    assert rows[0]["task"] == "throughput_sla"
     assert rows[0]["n_episodes"] == 2
     assert rows[0]["throughput_mean"] == 11.0
     assert rows[0]["throughput_std"] == pytest.approx(2**0.5)  # sample stdev of [10, 12]
@@ -321,7 +321,7 @@ def test_summarize_v03_has_quantiles_and_ci(tmp_path: Path) -> None:
         json.dumps(
             {
                 "schema_version": "0.2",
-                "task": "TaskA",
+                "task": "throughput_sla",
                 "seeds": [42, 43],
                 "episodes": [
                     {

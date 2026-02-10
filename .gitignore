@@ -61,6 +61,22 @@ labtrust_runs/
 /quick_eval_*/
 /ui_bundle.zip
 
+# Run and review outputs (keep root clean; use labtrust_runs/ or --out)
+/artifact/
+/out/
+/runs/
+/det_*/
+/external_reviewer_out/
+/external_reviewer_smoke_out/
+/risk_register_reviewer_out/
+/SAFETY_CASE/
+/SECURITY/
+
+# Local env and secrets (do not commit)
+.env
+.env.local
+.env.*.local
+
 # MkDocs build output
 site/
 

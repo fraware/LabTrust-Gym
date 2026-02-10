@@ -1,4 +1,0 @@
-{"step_index": 17, "t_s": 30, "violations": [{"invariant_id": "INV-ZONE-002", "reason_code": null, "status": "VIOLATION"}]}
-{"step_index": 35, "t_s": 60, "violations": [{"invariant_id": "INV-ZONE-004", "reason_code": null, "status": "VIOLATION"}, {"invariant_id": "INV-TOK-003", "reason_code": null, "status": "VIOLATION"}]}
-{"step_index": 53, "t_s": 90, "violations": [{"invariant_id": "INV-TOK-002", "reason_code": null, "status": "VIOLATION"}]}
-{"step_index": 71, "t_s": 120, "violations": [{"invariant_id": "INV-ZONE-004", "reason_code": null, "status": "VIOLATION"}, {"invariant_id": "INV-TOK-003", "reason_code": null, "status": "VIOLATION"}]}

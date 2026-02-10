@@ -42,7 +42,7 @@ This supports forensics and reproducibility checks (e.g. hashing prompt/response
 When the engine runs with **strict_signatures**, mutating actions must be signed. For the LLM agent:
 
 - **Signing proxy** (`src/labtrust_gym/baselines/llm/signing_proxy.py`): Selects a key from the key registry (by agent_id/role_id), signs the event payload (with `last_event_hash`), and attaches `key_id` and `signature` to the action before the safety shield. Supports **ephemeral key** generation for runs (e.g. when no key is bound to the agent).
-- The benchmark runner loads the key registry and configures the proxy for LLMAgentWithShield; TaskF and shift-change scenarios use strict_signatures with the proxy.
+- The benchmark runner loads the key registry and configures the proxy for LLMAgentWithShield; insider_key_misuse and shift-change scenarios use strict_signatures with the proxy.
 - Audit: **signed_by_proxy** (bool) and **key_id_used** in LLM_DECISION.
 
 ## Provider-neutral live interface
@@ -70,7 +70,7 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 
 - **Constrained and reproducible by default.** Chooses from **allowed_actions** using a **seeded RNG** (no API calls).
 - Constructor: `DeterministicConstrainedBackend(seed, default_action_type="NOOP")`. User message must be JSON with `allowed_actions` (list of action_type strings).
-- Same **seed** + same call order ⇒ same action sequence. Used by `run_benchmark(..., use_llm_safe_v1_ops=True)` for TaskE/TaskF.
+- Same **seed** + same call order ⇒ same action sequence. Used by `run_benchmark(..., use_llm_safe_v1_ops=True)` for multi_site_stat/insider_key_misuse.
 - Always returns **rationale**: `"deterministic baseline"`.
 
 ### OpenAIBackend (stub)
@@ -95,7 +95,7 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 - **Constrained decoder** (`src/labtrust_gym/baselines/llm/decoder.py`): At **decode time** (before env step), validates schema, **requires rationale**, restricts **action_type** to `allowed_actions`, and optionally checks zone/device. Refuses impossible actions (RBAC/devices/zones) so the agent cannot propose them without being rejected at decode time.
 - **Shield** (`src/labtrust_gym/baselines/llm/shield.py`): After decode, filters through **RBAC** (context) and **signature required** (when `strict_signatures`). Token validity is left to the engine.
 - If blocked (decode or shield): returns safe NOOP, `_shield_filtered=True`, and **reason_code** (e.g. `MISSING_RATIONALE`, `RBAC_ACTION_DENY`, `SIG_MISSING`). Step output records **LLM_ACTION_FILTERED** in emits and `blocked_reason_code`.
-- **TaskE and TaskF** run with **llm_safe_v1** deterministically: `run_benchmark(..., use_llm_safe_v1_ops=True)` uses `LLMAgentWithShield(DeterministicConstrainedBackend(seed=base_seed), rbac_policy, pz_to_engine)` for ops_0. TaskF demonstrates signature/RBAC attack containment with the LLM baseline.
+- **multi_site_stat and insider_key_misuse** run with **llm_safe_v1** deterministically: `run_benchmark(..., use_llm_safe_v1_ops=True)` uses `LLMAgentWithShield(DeterministicConstrainedBackend(seed=base_seed), rbac_policy, pz_to_engine)` for ops_0. insider_key_misuse demonstrates signature/RBAC attack containment with the LLM baseline.
 
 ## Deterministic vs non-deterministic
 
@@ -107,7 +107,7 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 ## Plugging a real provider without breaking reproducibility
 
 1. Implement `LLMBackend` (e.g. `OpenAIBackend` or a wrapper that calls your API). Keep API keys in env vars; do not commit.
-2. Do **not** wire the real backend into `run_benchmark` or CI by default. Keep `use_llm_safe_v1_ops=True` using `DeterministicConstrainedBackend(seed)` so that benchmarks and TaskF remain reproducible.
+2. Do **not** wire the real backend into `run_benchmark` or CI by default. Keep `use_llm_safe_v1_ops=True` using `DeterministicConstrainedBackend(seed)` so that benchmarks and insider_key_misuse remain reproducible.
 3. For experiments with a real LLM, instantiate `LLMAgentWithShield(backend=YourRealBackend(), ...)` in a separate script or behind a CLI flag (e.g. `--llm-provider openai`). The constrained decoder and shield still apply; only the action proposal is non-deterministic.
 
 ## Safe usage
@@ -123,12 +123,12 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 python examples/llm_agent_mock_demo.py
 ```
 
-Runs TaskB with `LLMAgent(MockDeterministicBackend())` as ops_0 and scripted runners. No API calls.
+Runs stat_insertion with `LLMAgent(MockDeterministicBackend())` as ops_0 and scripted runners. No API calls.
 
 ## Prompt-injection golden scenarios
 
 - **policy/golden/prompt_injection_scenarios.v0.1.yaml** defines adversarial strings injected into specimen notes and transport/scenario notes. The LLM agent receives observations containing these strings.
-- **tests/test_llm_prompt_injection_golden.py**: Runs LLMAgentWithShield (deterministic and optionally openai_live) against observations with injected adversarial content; asserts that the **proposed** `action_type` (from `_llm_decision.action_proposal`) is always in `allowed_actions` or NOOP, and that blocked-count deltas stay within a threshold. See [CONTRACTS](CONTRACTS.md) for the contract on these scenarios.
+- **tests/test_llm_prompt_injection_golden.py**: Runs LLMAgentWithShield (deterministic and optionally openai_live) against observations with injected adversarial content; asserts that the **proposed** `action_type` (from `_llm_decision.action_proposal`) is always in `allowed_actions` or NOOP, and that blocked-count deltas stay within a threshold. See [Frozen contracts](frozen_contracts.md) for the contract on these scenarios.
 
 ## Token usage and cost accounting
 
@@ -138,8 +138,8 @@ Runs TaskB with `LLMAgent(MockDeterministicBackend())` as ops_0 and scripted run
 
 ## Tests
 
-- **tests/test_llm_agent_mock.py**: Mock backend determinism, LLMAgent parse/validate, action schema validation. **LLM v1 + shield**: MockDeterministicBackendV2 determinism, llm_action.v0.2 schema validation, **shield determinism** (same obs → same (idx, info, meta)), **safety** (forbidden action e.g. RELEASE_RESULT for A_RECEPTION → shield blocks with RBAC_ACTION_DENY), **TaskE/TaskF with use_llm_safe_v1_ops** (deterministic metrics). No real LLM calls; golden suite unchanged.
-- **tests/test_llm_constrained_decoder.py**: **Constrained decoder**: illegal action (not in allowed_actions) → rejected, NOOP, RBAC_ACTION_DENY; missing rationale → rejected, NOOP, MISSING_RATIONALE; valid action with rationale → pass. **DeterministicConstrainedBackend**: same seed ⇒ same action sequence; fixed seed reproducible. **TaskF** with LLM baseline: RBAC/insider containment demonstrated.
+- **tests/test_llm_agent_mock.py**: Mock backend determinism, LLMAgent parse/validate, action schema validation. **LLM v1 + shield**: MockDeterministicBackendV2 determinism, llm_action.v0.2 schema validation, **shield determinism** (same obs → same (idx, info, meta)), **safety** (forbidden action e.g. RELEASE_RESULT for A_RECEPTION → shield blocks with RBAC_ACTION_DENY), **multi_site_stat/insider_key_misuse with use_llm_safe_v1_ops** (deterministic metrics). No real LLM calls; golden suite unchanged.
+- **tests/test_llm_constrained_decoder.py**: **Constrained decoder**: illegal action (not in allowed_actions) → rejected, NOOP, RBAC_ACTION_DENY; missing rationale → rejected, NOOP, MISSING_RATIONALE; valid action with rationale → pass. **DeterministicConstrainedBackend**: same seed ⇒ same action sequence; fixed seed reproducible. **insider_key_misuse** with LLM baseline: RBAC/insider containment demonstrated.
 - **tests/test_signing_proxy.py**: Key selection, sign_event_payload, ephemeral key, ensure_run_ephemeral_key.
 - **tests/test_prompt_registry.py**: get_prompt_id_for_role, role-to-prompt mapping, shift-change scenario.
 - **tests/test_parse_utils.py**: extract_first_json_object for robust JSON extraction.

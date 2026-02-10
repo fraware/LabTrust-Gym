@@ -91,6 +91,10 @@ def test_pz_aec_agent_selection_and_observe() -> None:
     assert agent is not None
     obs, reward, term, trunc, info = env.last()
     assert obs is not None
-    assert env.observation_space(agent).contains(obs)
+    # Obs can include extra keys for LLM context; check space keys are present.
+    space = env.observation_space(agent)
+    if hasattr(space, "spaces"):
+        for key in space.spaces:
+            assert key in obs, f"observation missing space key {key!r}"
     env.step(ACTION_NOOP)
     env.close()

@@ -110,7 +110,7 @@ def test_marl_smoke_ppo_train_tiny() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "ppo"
         result = train_ppo(
-            task_name="TaskA",
+            task_name="throughput_sla",
             timesteps=500,
             seed=42,
             out_dir=out,
@@ -137,7 +137,7 @@ def test_marl_smoke_ppo_eval() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "ppo"
         train_ppo(
-            task_name="TaskA",
+            task_name="throughput_sla",
             timesteps=300,
             seed=7,
             out_dir=out,
@@ -146,7 +146,7 @@ def test_marl_smoke_ppo_eval() -> None:
         model_path = out / "model.zip"
         metrics = eval_ppo(
             model_path=str(model_path),
-            task_name="TaskA",
+            task_name="throughput_sla",
             episodes=2,
             seed=100,
             out_path=out / "eval_out.json",

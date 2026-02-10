@@ -164,3 +164,40 @@ def test_no_orphan_coverage_entries() -> None:
         f"Coverage map risk_ids not in risk_registry: {sorted(orphan)}. "
         "Remove from security_coverage_map or add to risk_registry."
     )
+
+
+def test_coordination_pack_full_method_list_non_empty() -> None:
+    """When --methods-from full is used, the pack method list is non-empty and excludes marl_ppo (and study-only placeholders)."""
+    from labtrust_gym.studies.coordination_security_pack import _load_pack_config, _resolve_methods
+
+    root = _repo_root()
+    pack_config = _load_pack_config(root)
+    methods = _resolve_methods(root, "full", pack_config)
+    assert len(methods) >= 1, (
+        "Coordination security pack --methods-from full must resolve to at least one method_id. "
+        "Define method_ids.full in policy/coordination/coordination_security_pack.v0.1.yaml or ensure coordination_methods.v0.1.yaml exists."
+    )
+    assert "marl_ppo" not in methods, (
+        "marl_ppo must be excluded from full method list (no checkpoint in repo)."
+    )
+
+
+def test_coordination_pack_full_method_list_used() -> None:
+    """When pack config defines method_ids.full, --methods-from full uses that list (canonical list in one place)."""
+    from labtrust_gym.studies.coordination_security_pack import _load_pack_config, _resolve_methods
+
+    root = _repo_root()
+    pack_config = _load_pack_config(root)
+    full_list = (pack_config.get("method_ids") or {}).get("full")
+    if not isinstance(full_list, list) or not full_list:
+        return  # No canonical list in config; fallback to registry is acceptable
+    methods = _resolve_methods(root, "full", pack_config)
+    missing = set(full_list) - set(methods)
+    extra = set(methods) - set(full_list)
+    assert not missing, (
+        f"method_ids.full in pack config has methods not returned by --methods-from full: {sorted(missing)}."
+    )
+    assert not extra, (
+        f"--methods-from full returned methods not in method_ids.full: {sorted(extra)}. "
+        "Canonical list should be used when defined."
+    )

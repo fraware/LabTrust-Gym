@@ -1,11 +1,28 @@
 # Reproducing results and figures
 
-A single CLI path reproduces a minimal set of study results and figures: a small ablation sweep (trust on/off, dual approval on/off) for **TaskA** and **TaskC**, then plots and data tables.
+A single CLI path reproduces a minimal set of study results and figures: a small ablation sweep (trust on/off, dual approval on/off) for **throughput_sla** and **qc_cascade**, then plots and data tables.
 
 ## Requirements
 
 - `pip install -e ".[env,plots]"` or `pip install labtrust-gym[env,plots]` (PettingZoo + matplotlib for study runner and plots)
 - Policy path: run from repo root (policy under `policy/`), or from an installed wheel (policy shipped in package), or set `LABTRUST_POLICY_DIR` to the policy directory
+
+## Reproducibility and seeding
+
+LabTrust-Gym is deterministic when seeds and config are fixed.
+
+- **Golden runner**: `reset(initial_state, deterministic=True, rng_seed=<from scenario>)`. The engine uses a single RNG wrapper (`engine/rng.py`); no ambient `random` outside it.
+- **Benchmarks**: `run_episode(task, episode_seed, ...)` passes `episode_seed` into env `reset(seed=episode_seed, options={"initial_state": ...})`. Same task + same seed ⇒ same episode trajectory and metrics.
+- **Studies**: Condition seeds are `seed_base + condition_index`. Same spec + same code + same seeds ⇒ identical manifest and per-condition result hashes.
+- **Plots**: Data tables (CSVs) are deterministic; same study run ⇒ identical CSV output.
+
+**Timing modes:** **explicit** (default) — event `t_s` is explicit; no simulated device service times. **simulated** — device service times from equipment registry; RNG samples from policy. Set `initial_state.timing_mode: "simulated"` (or via study spec) to enable.
+
+**Policy and versions:** Policy files are versioned under `policy/`. Validate with `labtrust validate-policy`. Study manifest records policy paths and (when available) file hashes for reproducibility.
+
+**Official pack and llm_live:** For Official Benchmark Pack runs with `--pipeline-mode llm_live`, same seed, model, and policy yield comparable but not bit-identical results (LLM non-determinism). The v0.2 pack defines reproducibility expectations and requires metadata (model_id, temperature, tool_registry_fingerprint, allow_network). Attestation uses hashes and policy fingerprints only (no sensitive prompt text in artifacts): `TRANSPARENCY_LOG/llm_live.json` records prompt hashes, tool registry fingerprint, model identifiers, and latency/cost statistics.
+
+**End-to-end artifact validation:** To confirm that export, verify, risk register, and UI export plumbing all hold, run the minimal release then validate workflow (package-release minimal → verify-release or verify-bundle → export-risk-register → ui-export). Acceptance: verify-bundle succeeds (hashchain, manifest, schema, invariant trace); risk register builds with no crosswalk failures; UI zip is produced and loadable. See [Artifacts are reproducible end-to-end](#artifacts-are-reproducible-end-to-end).
 
 ## Commands
 
@@ -16,10 +33,10 @@ labtrust reproduce --profile minimal
 ```
 
 - **Sweep**: `trust_skeleton` [on, off] × `dual_approval` [on, off] → 4 conditions per task.
-- **Tasks**: TaskA, TaskC (2 study runs).
+- **Tasks**: throughput_sla, qc_cascade (2 study runs).
 - **Episodes per condition**: 2 (or 1 when `LABTRUST_REPRO_SMOKE=1`).
 - **Output**: `runs/repro_minimal_<YYYYMMDD_HHMMSS>/` with:
-  - `spec_TaskA.yaml`, `spec_TaskC.yaml`
+  - `spec_throughput_sla.yaml`, `spec_qc_cascade.yaml`
   - `taska/` and `taskc/`: `manifest.json`, `conditions.jsonl`, `results/`, `logs/`, `figures/`, `figures/data_tables/`
 
 ### Full run (more episodes)
@@ -61,8 +78,8 @@ With `LABTRUST_REPRO_SMOKE=1`, every condition runs **1 episode** regardless of 
 
 ```
 runs/repro_minimal_<timestamp>/
-  spec_TaskA.yaml
-  spec_TaskC.yaml
+  spec_throughput_sla.yaml
+  spec_qc_cascade.yaml
   taska/
     manifest.json
     conditions.jsonl
@@ -116,9 +133,9 @@ To produce an **external-facing release artifact** (results, plots, receipts, FH
 labtrust package-release --profile minimal --out /tmp/labtrust_release
 ```
 
-Profiles: **minimal** | **full** (reproduce TaskA & TaskC sweep + plots) or **paper_v0.1** (benchmark-first: official baselines + TaskF strict_signatures study + summarize + receipts + FIGURES/TABLES). For paper-ready artifact and exact commands, see [Paper-ready release](paper_ready.md).
+Profiles: **minimal** | **full** (reproduce throughput_sla & qc_cascade sweep + plots) or **paper_v0.1** (benchmark-first: official baselines + insider_key_misuse strict_signatures study + summarize + receipts + FIGURES/TABLES). For paper-ready artifact and exact commands, see [Paper-ready release](paper_ready.md).
 
-- **minimal/full** run **reproduce** (TaskA & TaskC sweep + plots), then **export-receipts** and **export-fhir** per condition, and write:
+- **minimal/full** run **reproduce** (throughput_sla & qc_cascade sweep + plots), then **export-receipts** and **export-fhir** per condition, and write:
   - `MANIFEST.v0.1.json` — list of files with SHA-256 (deterministic for fixed `--seed-base`)
   - `BENCHMARK_CARD.md` — scope, invariants, tasks A–F, baselines, limitations (see [Benchmark card](benchmark_card.md))
   - `metadata.json` — git SHA, partner_id, policy_fingerprint, seed_base, timestamp
@@ -131,6 +148,64 @@ Profiles: **minimal** | **full** (reproduce TaskA & TaskC sweep + plots) or **pa
   - `fhir/` — FHIR R4 bundles per task/condition
 
 Use **`--seed-base N`** for deterministic artifacts (same seed ⇒ identical MANIFEST file hashes). Optional **`--keep-repro`** keeps the intermediate `_repro` directory.
+
+## Artifacts are reproducible end-to-end
+
+This workflow validates export, verify, risk register, UI export, and (optionally) paper artifact plumbing. Run it after producing a minimal release to confirm the full pipeline holds.
+
+**One-command option (no network, deterministic):** Run the full chain locally with:
+
+```bash
+make e2e-artifacts-chain
+```
+
+or directly:
+
+```bash
+bash scripts/ci_e2e_artifacts_chain.sh
+```
+
+This runs package-release (minimal), verify-bundle, and export-risk-register; the script fails on any step or crosswalk failure.
+
+### Minimal release artifact (fast)
+
+```bash
+labtrust package-release --profile minimal --seed-base 100 --out /tmp/labtrust_release_min
+```
+
+### Verify at least one evidence bundle
+
+Point `--bundle` at an **EvidenceBundle.v0.1** directory produced by the release (e.g. under `receipts/<task>_<cond>/`). Example:
+
+```bash
+labtrust verify-bundle --bundle /tmp/labtrust_release_min/receipts/taska_cond_0/EvidenceBundle.v0.1
+```
+
+If your release uses different condition IDs, use the path to any `EvidenceBundle.v0.1` under `receipts/`. This checks manifest integrity, schema validation, hashchain proof, and invariant trace.
+
+### Risk register bundle generation
+
+```bash
+labtrust export-risk-register --out /tmp/risk_register_out --runs /tmp/labtrust_release_min
+```
+
+The bundle is written to `/tmp/risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json`. It must build with no crosswalk failures.
+
+### UI export smoke (optional but recommended)
+
+```bash
+labtrust ui-export --run /tmp/labtrust_release_min --out /tmp/ui_bundle.zip
+```
+
+The zip should be produced and loadable by the UI (index, events, receipts_index, reason_codes).
+
+### Acceptance
+
+- **verify-bundle** succeeds: hashchain proof, manifest, schema, and invariant trace all pass.
+- **Risk register bundle** builds with no crosswalk failures.
+- **UI export** zip is produced and loadable.
+
+On Windows use a writable output path (e.g. `%TEMP%\labtrust_release_min`) instead of `/tmp/...` if needed.
 
 ## Summarize results (leaderboard table)
 
@@ -147,5 +222,5 @@ Writes **summary.csv** and **summary.md** with mean/std for throughput, p50/p95 
 - [Studies and plots](studies.md) for the full study runner and plotting pipeline
 - [Benchmarks](benchmarks.md) for task definitions and metrics
 - [Benchmark card](benchmark_card.md) for results schema v0.2 and official baseline table
-- [Paper-ready release](paper_ready.md) for the **paper_v0.1** profile (baselines + TaskF study + FIGURES/TABLES)
+- [Paper-ready release](paper_ready.md) for the **paper_v0.1** profile (baselines + insider_key_misuse study + FIGURES/TABLES)
 - [Enforcement](enforcement.md) for the evidence bundle section and export-receipts CLI

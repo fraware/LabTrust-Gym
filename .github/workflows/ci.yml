@@ -15,7 +15,7 @@ on:
         default: false
         type: boolean
       run_coordination_smoke:
-        description: "Run coordination smoke (validate-policy, coordination tests, TaskG/TaskH)"
+        description: "Run coordination smoke (validate-policy, coordination tests, coord_scale/coord_risk)"
         required: false
         default: false
         type: boolean
@@ -82,6 +82,8 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Validate policy
         run: labtrust validate-policy
+      - name: Validate policy (partner overlay hsl_like)
+        run: labtrust validate-policy --partner hsl_like
 
   risk-register-gate:
     runs-on: ubuntu-latest
@@ -96,6 +98,18 @@ jobs:
         run: labtrust export-risk-register --out ./risk_register_out --runs ui_fixtures
       - name: Risk register contract gate (schema, snapshot, crosswalk, coverage)
         run: pytest tests/test_risk_register_contract_gate.py -v
+
+  coordination-interface-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: Coordination interface contract (all methods instantiate and run 5 steps coord_scale)
+        run: pytest tests/test_coordination_interface_contract.py -v
 
   bench-smoke:
     runs-on: ubuntu-latest
@@ -126,6 +140,24 @@ jobs:
         env:
           LABTRUST_CHECK_BASELINES: "1"
 
+  determinism-golden:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: Determinism report (throughput_sla, 3 episodes, seed 42)
+        run: |
+          labtrust determinism-report --task throughput_sla --episodes 3 --seed 42 --out ./det_report
+          test -f det_report/determinism_report.json
+          test -f det_report/determinism_report.md
+      - name: Full golden suite
+        run: LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q
+
   coordination-smoke:
     runs-on: ubuntu-latest
     if: env.LABTRUST_COORDINATION_SMOKE == '1'
@@ -140,14 +172,16 @@ jobs:
         run: labtrust validate-policy
       - name: Coordination tests
         run: pytest -q tests/test_coordination_*
-      - name: TaskG_COORD_SCALE (centralized_planner, 1 episode)
+      - name: coord_scale (centralized_planner, 1 episode)
         run: |
-          labtrust run-benchmark --task TaskG_COORD_SCALE --episodes 1 --seed 42 \
+          labtrust run-benchmark --task coord_scale --episodes 1 --seed 42 \
             --coord-method centralized_planner --out ./taskg_smoke.json
-      - name: TaskH_COORD_RISK (market_auction, INJ-COLLUSION-001, 1 episode)
+      - name: coord_risk (market_auction, INJ-COLLUSION-001, 1 episode)
         run: |
-          labtrust run-benchmark --task TaskH_COORD_RISK --episodes 1 --seed 42 \
+          labtrust run-benchmark --task coord_risk --episodes 1 --seed 42 \
             --coord-method market_auction --injection INJ-COLLUSION-001 --out ./taskh_smoke.json
+      - name: Coordination security pack smoke (fixed methods, critical injections)
+        run: labtrust run-coordination-security-pack --out ./pack_smoke --methods-from fixed --injections-from critical --seed 42
 
   external-reviewer-checks:
     runs-on: ubuntu-latest
@@ -172,7 +206,7 @@ jobs:
           python-version: "3.11"
       - name: Install labtrust-gym[env,plots]
         run: pip install -e ".[env,plots]"
-      - name: Quick-eval (TaskA, TaskD, TaskE)
+      - name: Quick-eval (throughput_sla, adversarial_disruption, multi_site_stat)
         run: labtrust quick-eval --seed 42 --out-dir ./labtrust_runs
 
   transparency-log:
@@ -186,9 +220,9 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Create minimal artifact and run transparency-log
         run: |
-          mkdir -p artifact/_repr/TaskA
-          echo '{"schema_version":"0.2","task":"TaskA","seeds":[42],"episodes":[{"seed":42,"metrics":{"throughput":5,"steps":100}}],"agent_baseline_id":"scripted_ops_v1"}' > artifact/_repr/TaskA/results.json
-          echo '{"action_type":"CREATE_ACCESSION","t_s":10}' > artifact/_repr/TaskA/episodes.jsonl
+          mkdir -p artifact/_repr/throughput_sla
+          echo '{"schema_version":"0.2","task":"throughput_sla","seeds":[42],"episodes":[{"seed":42,"metrics":{"throughput":5,"steps":100}}],"agent_baseline_id":"scripted_ops_v1"}' > artifact/_repr/throughput_sla/results.json
+          echo '{"action_type":"CREATE_ACCESSION","t_s":10}' > artifact/_repr/throughput_sla/episodes.jsonl
           labtrust transparency-log --in artifact --out out
           test -f out/TRANSPARENCY_LOG/root.txt
           test -f out/TRANSPARENCY_LOG/log.json

@@ -5,7 +5,7 @@
 # Cartesian product of ablations; each condition gets deterministic seed (seed_base + condition_index).
 # Optional condition_labels: one per condition (product order) for figures and summary table.
 
-task: TaskA
+task: throughput_sla
 episodes: 4
 seed_base: 100
 timing_mode: explicit

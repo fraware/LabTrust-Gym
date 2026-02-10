@@ -1,0 +1,39 @@
+# Minimal spec for external reviewer / coverage gate: new methods + key injections.
+# Ensures ripple_effect and group_evolving_experience_sharing required_bench cells are covered.
+study_id: "coordination_external_reviewer_smoke"
+version: "0.1"
+seed_base: 42
+episodes_per_cell: 1
+
+scales:
+  - name: num_agents
+    values: [2]
+  - name: num_sites
+    values: [1]
+  - name: num_devices
+    values: [2]
+  - name: arrival_rate
+    values: [1.0]
+  - name: horizon_steps
+    values: [30]
+
+methods:
+  - centralized_planner
+  - ripple_effect
+  - group_evolving_experience_sharing
+
+risks: []
+
+injections:
+  - injection_id: INJ-COMMS-POISON-001
+    intensity: 0.2
+    seed_offset: 300
+  - injection_id: INJ-ID-SPOOF-001
+    intensity: 0.3
+    seed_offset: 400
+  - injection_id: INJ-COLLUSION-001
+    intensity: 0.2
+    seed_offset: 600
+  - injection_id: INJ-BID-SPOOF-001
+    intensity: 0.3
+    seed_offset: 900

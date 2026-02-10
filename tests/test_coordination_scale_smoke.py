@@ -1,5 +1,5 @@
 """
-Smoke test: run TaskG_COORD_SCALE with small scale (10 agents) for 1 episode.
+Smoke test: run coord_scale with small scale (10 agents) for 1 episode.
 
 Ensures no crash; env resets and steps with scale-generated initial_state.
 Coordination smoke: TaskG with deterministic kernel method, TaskH with one injection;
@@ -20,19 +20,19 @@ def _repo_root() -> Path:
 
 
 def test_taskg_coord_scale_one_episode_smoke() -> None:
-    """Run TaskG_COORD_SCALE with 1 episode, seed 42; must complete without crash."""
+    """Run coord_scale with 1 episode, seed 42; must complete without crash."""
     root = _repo_root()
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results.json"
         results = run_benchmark(
-            task_name="TaskG_COORD_SCALE",
+            task_name="coord_scale",
             num_episodes=1,
             base_seed=42,
             out_path=out,
             repo_root=root,
         )
         assert results is not None
-        assert results.get("task") == "TaskG_COORD_SCALE"
+        assert results.get("task") == "coord_scale"
         assert results.get("num_episodes") == 1
         assert len(results.get("episodes", [])) == 1
         ep = results["episodes"][0]
@@ -42,9 +42,9 @@ def test_taskg_coord_scale_one_episode_smoke() -> None:
 
 
 def test_taskg_task_exists_and_has_scale_config() -> None:
-    """TaskG_COORD_SCALE exists and has scale_config set."""
-    task = get_task("TaskG_COORD_SCALE")
-    assert task.name == "TaskG_COORD_SCALE"
+    """coord_scale exists and has scale_config set."""
+    task = get_task("coord_scale")
+    assert task.name == "coord_scale"
     assert task.scale_config is not None
     assert task.scale_config.num_agents_total == 10
     initial = task.get_initial_state(42)
@@ -58,7 +58,7 @@ def test_taskg_llm_hierarchical_allocator_deterministic_smoke() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results_hier.json"
         results = run_benchmark(
-            task_name="TaskG_COORD_SCALE",
+            task_name="coord_scale",
             num_episodes=1,
             base_seed=43,
             out_path=out,
@@ -67,7 +67,7 @@ def test_taskg_llm_hierarchical_allocator_deterministic_smoke() -> None:
             llm_backend=None,
         )
         assert results is not None
-        assert results.get("task") == "TaskG_COORD_SCALE"
+        assert results.get("task") == "coord_scale"
         assert len(results.get("episodes", [])) == 1
 
 
@@ -77,7 +77,7 @@ def test_taskg_llm_auction_bidder_deterministic_smoke() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results_auction.json"
         results = run_benchmark(
-            task_name="TaskG_COORD_SCALE",
+            task_name="coord_scale",
             num_episodes=1,
             base_seed=44,
             out_path=out,
@@ -86,7 +86,7 @@ def test_taskg_llm_auction_bidder_deterministic_smoke() -> None:
             llm_backend=None,
         )
         assert results is not None
-        assert results.get("task") == "TaskG_COORD_SCALE"
+        assert results.get("task") == "coord_scale"
         assert len(results.get("episodes", [])) == 1
 
 
@@ -113,7 +113,7 @@ def test_coordination_smoke_taskg_taskh_named_scale_and_metrics(tmp_path: Path) 
     out_h = tmp_path / "taskh_results.json"
 
     results_g = run_benchmark(
-        task_name="TaskG_COORD_SCALE",
+        task_name="coord_scale",
         num_episodes=1,
         base_seed=100,
         out_path=out_g,
@@ -123,7 +123,7 @@ def test_coordination_smoke_taskg_taskh_named_scale_and_metrics(tmp_path: Path) 
     )
     errors_g = validate_results_v02(results_g)
     assert not errors_g, f"TaskG results invalid: {errors_g}"
-    assert results_g.get("task") == "TaskG_COORD_SCALE"
+    assert results_g.get("task") == "coord_scale"
     episodes_g = results_g.get("episodes") or []
     assert len(episodes_g) == 1
     metrics_g = episodes_g[0].get("metrics") or {}
@@ -131,7 +131,7 @@ def test_coordination_smoke_taskg_taskh_named_scale_and_metrics(tmp_path: Path) 
     assert coord_g, "TaskG with coord_method must produce non-empty coordination metrics"
 
     results_h = run_benchmark(
-        task_name="TaskH_COORD_RISK",
+        task_name="coord_risk",
         num_episodes=1,
         base_seed=101,
         out_path=out_h,
@@ -142,7 +142,7 @@ def test_coordination_smoke_taskg_taskh_named_scale_and_metrics(tmp_path: Path) 
     )
     errors_h = validate_results_v02(results_h)
     assert not errors_h, f"TaskH results invalid: {errors_h}"
-    assert results_h.get("task") == "TaskH_COORD_RISK"
+    assert results_h.get("task") == "coord_risk"
     episodes_h = results_h.get("episodes") or []
     assert len(episodes_h) == 1
     metrics_h = episodes_h[0].get("metrics") or {}

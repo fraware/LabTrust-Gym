@@ -1,0 +1,124 @@
+# Phase 1: Map from output columns to metric IDs. Aligns with coordination_matrix_inputs.v0.1.
+version: "v0.1"
+
+sources:
+  clean:
+    - "summary_coord.csv"
+    - "summary_v0.2.csv"
+    - "results.json"
+  attacked:
+    - "pack_summary.csv"
+    - "security_attack_suite.json"
+    - "summary_coord.csv"
+
+column_map:
+  p95_tat_s:
+    preferred_sources:
+      - "summary_coord.csv"
+      - "results.json"
+    candidates:
+      - "p95_tat_s"
+      - "tat_p95_s"
+      - "p95_tat_seconds"
+      - "p95_turnaround_time_s"
+    transform: "identity"
+    missing_policy: "error"
+
+  throughput_per_hr:
+    preferred_sources:
+      - "summary_coord.csv"
+      - "results.json"
+    candidates:
+      - "throughput_per_hr"
+      - "throughput_work_per_sim_hour"
+      - "work_per_sim_hour"
+      - "throughput"
+    transform: "identity"
+    missing_policy: "error"
+
+  violation_rate:
+    preferred_sources:
+      - "summary_coord.csv"
+      - "results.json"
+    candidates:
+      - "violation_rate"
+      - "violations_per_1k_steps"
+      - "violations_per_1000_steps"
+    transform: "identity"
+    missing_policy: "error"
+
+  mean_llm_latency_ms:
+    preferred_sources:
+      - "summary_coord.csv"
+      - "results.json"
+    candidates:
+      - "mean_llm_latency_ms"
+      - "llm_latency_ms"
+      - "p95_llm_latency_ms"
+    transform: "identity"
+    missing_policy: "error"
+
+  estimated_cost_usd:
+    preferred_sources:
+      - "summary_coord.csv"
+      - "results.json"
+    candidates:
+      - "estimated_cost_usd"
+      - "estimated_cost_usd_per_episode"
+      - "cost_usd"
+    transform: "identity"
+    missing_policy: "error"
+
+  attack_success_rate:
+    preferred_sources:
+      - "pack_summary.csv"
+      - "summary_attack.csv"
+    candidates:
+      - "attack_success_rate"
+      - "sec.attack_success_rate"
+      - "success_rate"
+    transform: "identity"
+    missing_policy: "error"
+
+  sec.stealth_success_rate:
+    preferred_sources:
+      - "pack_summary.csv"
+      - "summary_attack.csv"
+    candidates:
+      - "sec.stealth_success_rate"
+      - "stealth_success_rate"
+      - "stealth_success_frac"
+    transform: "identity"
+    missing_policy: "error"
+
+  sec.time_to_attribution_steps:
+    preferred_sources:
+      - "pack_summary.csv"
+      - "summary_attack.csv"
+    candidates:
+      - "sec.time_to_attribution_steps"
+      - "time_to_attribution_steps"
+      - "t_attrib_steps"
+    transform: "identity"
+    missing_policy: "error"
+
+  sec.blast_radius_proxy:
+    preferred_sources:
+      - "pack_summary.csv"
+      - "summary_attack.csv"
+    candidates:
+      - "sec.blast_radius_proxy"
+      - "blast_radius_proxy"
+      - "blast_radius"
+    transform: "identity"
+    missing_policy: "error"
+
+  fallback_rate:
+    preferred_sources:
+      - "pack_summary.csv"
+      - "summary_attack.csv"
+    candidates:
+      - "fallback_rate"
+      - "fallback_frac"
+    transform: "identity"
+    missing_policy: "error"

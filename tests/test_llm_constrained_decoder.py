@@ -293,7 +293,7 @@ def test_task_f_llm_baseline_rbac_containment() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results.json"
         r = run_benchmark(
-            "TaskF",
+            "insider_key_misuse",
             num_episodes=2,
             base_seed=99,
             out_path=out,

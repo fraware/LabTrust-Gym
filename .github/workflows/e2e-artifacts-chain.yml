@@ -1,0 +1,29 @@
+# E2E reproducible artifact chain: package-release (minimal) -> verify-bundle -> export-risk-register.
+# Fails if any step fails or risk register has crosswalk/schema errors or missing evidence/links.
+# No network; deterministic inputs; clean checkout.
+name: E2E artifacts chain
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * *"
+
+jobs:
+  e2e-artifacts-chain:
+    runs-on: ubuntu-latest
+    env:
+      LABTRUST_ALLOW_NETWORK: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package (dev, env, plots for package-release)
+        run: pip install -e ".[dev,env,plots]"
+
+      - name: E2E artifacts chain (package-release -> verify-bundle -> export-risk-register)
+        run: bash scripts/ci_e2e_artifacts_chain.sh

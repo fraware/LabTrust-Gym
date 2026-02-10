@@ -58,6 +58,35 @@ check_summary_coverage(summary_csv, matrix_path, strict=strict)
 "
 echo "Coverage gate: required_bench cells checked."
 
+# Coordination matrix: build from run dir, validate schema, confirm pipeline_mode is llm_live; fail loudly if missing
+MATRIX_JSON="$OUT_DIR/coordination_matrix.v0.1.json"
+if ! labtrust build-coordination-matrix --run "$OUT_DIR" --out "$OUT_DIR" 2>&1; then
+  echo "ERROR: Coordination matrix build failed (matrix is llm_live-only). To include matrix: labtrust run-coordination-study --spec <spec> --out <out> --llm-backend openai_live --emit-coordination-matrix"
+  exit 1
+fi
+if [ ! -f "$MATRIX_JSON" ]; then
+  echo "ERROR: Coordination matrix not found at $MATRIX_JSON after build"
+  exit 1
+fi
+python -c "
+import json
+import sys
+from pathlib import Path
+matrix_path = Path('$MATRIX_JSON'.replace('\"', ''))
+data = json.loads(matrix_path.read_text(encoding='utf-8'))
+if data.get('spec', {}).get('scope', {}).get('pipeline_mode') != 'llm_live':
+    print('ERROR: Matrix spec.scope.pipeline_mode is not llm_live', file=sys.stderr)
+    sys.exit(1)
+repo_root = Path('$REPO_ROOT'.replace('\"', ''))
+schema_path = repo_root / 'policy' / 'schemas' / 'coordination_matrix.v0.1.schema.json'
+if schema_path.exists():
+    from labtrust_gym.policy.loader import load_json, validate_against_schema
+    schema = load_json(schema_path)
+    validate_against_schema(data, schema, matrix_path)
+print('Matrix schema valid, pipeline_mode=llm_live.')
+"
+echo "Coordination matrix: schema valid, pipeline_mode=llm_live."
+
 # Optional: verify-bundle on first EvidenceBundle under out_dir
 BUNDLE_DIR=$(find "$OUT_DIR" -maxdepth 4 -type d -name "EvidenceBundle*" 2>/dev/null | head -n 1)
 if [ -n "$BUNDLE_DIR" ]; then

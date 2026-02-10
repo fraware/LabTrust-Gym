@@ -159,7 +159,7 @@ def _run_taskh_one_episode(
 
     out = tmp_path / "results.json"
     run_benchmark(
-        task_name="TaskH_COORD_RISK",
+        task_name="coord_risk",
         num_episodes=1,
         base_seed=seed,
         out_path=out,

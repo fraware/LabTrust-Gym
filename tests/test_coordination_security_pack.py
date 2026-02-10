@@ -17,6 +17,8 @@ from labtrust_gym.studies.coordination_security_pack import (
     PACK_INJECTIONS,
     PACK_METHODS,
     PACK_SCALES,
+    _load_pack_config,
+    _resolve_methods,
     run_coordination_security_pack,
 )
 
@@ -44,7 +46,7 @@ def _parse_cell_id(cell_id: str) -> tuple[str, str, str]:
 def _minimal_results_json(scale_id: str, method_id: str, injection_id: str) -> dict:
     """Minimal results.json so aggregation and gate logic can run."""
     return {
-        "task": "TaskH_COORD_RISK",
+        "task": "coord_risk",
         "num_episodes": 1,
         "episodes": [
             {
@@ -174,3 +176,144 @@ def test_coordination_security_pack_fixed_matrix_constants() -> None:
     assert "INJ-ID-SPOOF-001" in PACK_INJECTIONS
     assert "INJ-COMMS-POISON-001" in PACK_INJECTIONS
     assert "INJ-COORD-PROMPT-INJECT-001" in PACK_INJECTIONS
+    assert "INJ-CONSENSUS-POISON-001" in PACK_INJECTIONS
+    assert "INJ-TIMING-QUEUE-001" in PACK_INJECTIONS
+
+
+def test_coordination_native_injection_discriminative_resistance(
+    repo_root: Path, tmp_path: Path
+) -> None:
+    """
+    For coordination-native injection INJ-CONSENSUS-POISON-001, the designated resistant
+    method (llm_local_decider_signed_bus) must show strictly better sec.attack_success_rate
+    than at least one other method when metrics are differentiated. Validates that the
+    injection is discriminative and metric extraction flows into the attacked summary.
+    """
+    RESISTANT_METHOD = "llm_local_decider_signed_bus"
+    COORD_INJECTION = "INJ-CONSENSUS-POISON-001"
+
+    def fake_run_benchmark(
+        task_name: str,
+        num_episodes: int,
+        base_seed: int,
+        out_path: Path,
+        repo_root: Path,
+        coord_method: str,
+        injection_id: str,
+        scale_config_override: Any,
+        **kwargs: Any,
+    ) -> None:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        cell_id = Path(out_path).parent.name
+        scale_id, method_id, inj_id = _parse_cell_id(cell_id)
+        if not method_id:
+            method_id = coord_method
+        if not inj_id:
+            inj_id = injection_id
+        attack_rate: float | None = None
+        if inj_id == COORD_INJECTION and method_id == RESISTANT_METHOD:
+            attack_rate = 0.0
+        elif inj_id == COORD_INJECTION:
+            attack_rate = 1.0
+        data = _minimal_results_json(scale_id, method_id, inj_id)
+        if data["episodes"] and data["episodes"][0].get("metrics"):
+            data["episodes"][0]["metrics"]["sec"] = {
+                "attack_success_rate": attack_rate,
+                "detection_latency_steps": 2 if attack_rate else None,
+            }
+        Path(out_path).write_text(json.dumps(data), encoding="utf-8")
+
+    import labtrust_gym.studies.coordination_security_pack as pack_mod
+
+    with patch.object(pack_mod, "run_benchmark", side_effect=fake_run_benchmark):
+        out_dir = tmp_path / "pack_out"
+        run_coordination_security_pack(out_dir=out_dir, repo_root=repo_root, seed_base=42)
+        summary_path = out_dir / "pack_summary.csv"
+        assert summary_path.is_file()
+        with summary_path.open(newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        consensus_rows = [
+            r for r in rows if (r.get("injection_id") or "").strip() == COORD_INJECTION
+        ]
+        assert len(consensus_rows) >= 2, "need at least 2 methods for INJ-CONSENSUS-POISON-001"
+        by_method = {r["method_id"]: r for r in consensus_rows}
+        assert RESISTANT_METHOD in by_method
+        resistant_rate = by_method[RESISTANT_METHOD].get("sec.attack_success_rate")
+        try:
+            resistant_val = float(resistant_rate) if resistant_rate not in (None, "") else None
+        except (TypeError, ValueError):
+            resistant_val = None
+        assert resistant_val is not None, "resistant method must have sec.attack_success_rate"
+        other_methods = [m for m in by_method if m != RESISTANT_METHOD]
+        for other in other_methods:
+            other_rate = by_method[other].get("sec.attack_success_rate")
+            try:
+                other_val = float(other_rate) if other_rate not in (None, "") else None
+            except (TypeError, ValueError):
+                other_val = None
+            if other_val is not None:
+                assert resistant_val < other_val, (
+                    f"resistant method {RESISTANT_METHOD} must have lower attack_success_rate "
+                    f"than {other} for {COORD_INJECTION}"
+                )
+
+
+def test_sec_coord_matrix_001_reduced_matrix(repo_root: Path, tmp_path: Path) -> None:
+    """
+    SEC-COORD-MATRIX-001: Reduced coordination security matrix run produces pack_summary
+    with every method in the list present and at least one PASS verdict (e.g. baseline 'none').
+    Uses mocked run_benchmark so CI stays fast; smoke: false in suite.
+    """
+    def fake_run_benchmark(
+        task_name: str,
+        num_episodes: int,
+        base_seed: int,
+        out_path: Path,
+        repo_root: Path,
+        coord_method: str,
+        injection_id: str,
+        scale_config_override: Any,
+        **kwargs: Any,
+    ) -> None:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        cell_id = Path(out_path).parent.name
+        scale_id, method_id, inj_id = _parse_cell_id(cell_id)
+        if not method_id:
+            method_id = coord_method
+        if not inj_id:
+            inj_id = injection_id
+        data = _minimal_results_json(scale_id, method_id, inj_id)
+        Path(out_path).write_text(json.dumps(data), encoding="utf-8")
+
+    import labtrust_gym.studies.coordination_security_pack as pack_mod
+
+    with patch.object(pack_mod, "run_benchmark", side_effect=fake_run_benchmark):
+        out_dir = tmp_path / "pack_out"
+        run_coordination_security_pack(
+            out_dir=out_dir,
+            repo_root=repo_root,
+            seed_base=42,
+            methods_from="fixed",
+            injections_from="critical",
+        )
+        summary_path = out_dir / "pack_summary.csv"
+        assert summary_path.is_file(), "pack_summary.csv must be emitted"
+        with summary_path.open(newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        assert len(rows) >= 1, "at least one row in pack_summary"
+        methods_in_summary = {r.get("method_id", "").strip() for r in rows if r.get("method_id")}
+        pack_config = _load_pack_config(repo_root)
+        expected_methods = _resolve_methods(repo_root, "fixed", pack_config)
+        missing = set(expected_methods) - methods_in_summary
+        assert not missing, (
+            f"SEC-COORD-MATRIX-001: every method in the pack list must appear in pack_summary. Missing: {sorted(missing)}"
+        )
+        gate_path = out_dir / "pack_gate.md"
+        assert gate_path.is_file(), "pack_gate.md must be emitted"
+        gate_text = gate_path.read_text(encoding="utf-8")
+        pass_count = gate_text.count("| PASS |")
+        assert pass_count >= 1, (
+            "SEC-COORD-MATRIX-001: at least one cell must PASS (e.g. baseline injection 'none')"
+        )

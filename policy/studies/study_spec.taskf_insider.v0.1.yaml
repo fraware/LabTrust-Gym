@@ -1,7 +1,7 @@
-# TaskF study: strict_signatures on/off to show effect on containment.
-# labtrust run-study --spec policy/studies/study_spec.taskf_insider.v0.1.yaml --out runs/taskf_strict
+# insider_key_misuse study: strict_signatures on/off to show effect on containment.
+# labtrust run-study --spec policy/studies/study_spec.taskf_insider.v0.1.yaml --out runs/insider_strict
 
-task: TaskF
+task: insider_key_misuse
 episodes: 4
 seed_base: 100
 timing_mode: explicit

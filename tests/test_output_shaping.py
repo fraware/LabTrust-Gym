@@ -112,7 +112,7 @@ def test_summary_contains_no_forbidden_fields() -> None:
             },
         },
     ]
-    summary = build_run_summary({"task": "TaskA", "episodes": episodes})
+    summary = build_run_summary({"task": "throughput_sla", "episodes": episodes})
     ok, found = summary_contains_no_forbidden_fields(summary)
     assert ok, f"Forbidden keys in summary: {found}"
     for key in summary:
@@ -133,7 +133,7 @@ def test_summary_structure() -> None:
 
     summary2 = build_run_summary(
         {
-            "task": "TaskA",
+            "task": "throughput_sla",
             "episodes": [
                 {
                     "metrics": {
@@ -148,7 +148,7 @@ def test_summary_structure() -> None:
     )
     assert summary2["n_episodes"] == 1
     assert summary2["throughput_mean"] == 3
-    assert summary2["task"] == "TaskA"
+    assert summary2["task"] == "throughput_sla"
 
 
 def test_get_v0_summary_returns_summary_view() -> None:

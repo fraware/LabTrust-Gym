@@ -24,7 +24,7 @@ scales:
     values: ["small_smoke", "medium_stress_signed_bus"]
 ```
 
-The study runner loads each preset from the YAML and uses it as the scale config for that row. TaskG and TaskH consume the same **CoordinationScaleConfig** (via `scale_config_override` when running from the study, or from the task default when running standalone).
+The study runner loads each preset from the YAML and uses it as the scale config for that row. coord_scale and coord_risk consume the same **CoordinationScaleConfig** (via `scale_config_override` when running from the study, or from the task default when running standalone).
 
 **Timing mode**: `medium_stress_signed_bus` sets `timing_mode: "simulated"`. If the task or runner does not yet support simulated timing for coordination scale, it may fall back to explicit step-derived timing; behavior is documented in the task and runner. Explicit mode still yields deterministic, comparable runs.
 
@@ -62,14 +62,14 @@ Every scale run emits **COORD_SCALE_CONFIG** once at episode start (on the first
 
 ## Tasks
 
-- **TaskG_COORD_SCALE**: Coordination at scale under nominal conditions. Uses a default small scale (10 agents, 2 CHEM_ANALYZER, 1 site).
-- **TaskH_COORD_RISK**: Coordination under injected risks; same scale config, risk injection via study spec.
+- **coord_scale**: Coordination at scale under nominal conditions. Uses a default small scale (10 agents, 2 CHEM_ANALYZER, 1 site).
+- **coord_risk**: Coordination under injected risks; same scale config, risk injection via study spec.
 
 Both tasks use `scale_config` on the task instance; `get_initial_state(seed)` calls `generate_scaled_initial_state(scale_config, repo_root, seed)`.
 
 ## Benchmark runner
 
-For `TaskG_COORD_SCALE` and `TaskH_COORD_RISK`:
+For `coord_scale` and `coord_risk`:
 
 1. A **probe** `initial_state` is generated with `base_seed` to obtain agent count and device/zone lists.
 2. **Env factory** creates `LabTrustParallelEnv` with `scale_agents`, `scale_device_ids`, `scale_zone_ids` so the PZ env has `worker_0`..`worker_{N-1}` mapping to engine `A_WORKER_0001`..
@@ -78,12 +78,12 @@ For `TaskG_COORD_SCALE` and `TaskH_COORD_RISK`:
 Run:
 
 ```bash
-labtrust run-benchmark --task TaskG_COORD_SCALE --episodes 1 --seed 42 --out results.json
+labtrust run-benchmark --task coord_scale --episodes 1 --seed 42 --out results.json
 ```
 
 ## Network policy and determinism
 
-Coordination message delivery can use a **network policy** (`policy/coordination/network_policy.v0.1.yaml`, schema `policy/schemas/network_policy.v0.1.schema.json`) to simulate delay (p50/p95 ms), drop rate, partition schedule, and bounded reorder. When a risk injection supplies `CommsConfig.network_policy`, **CommsModel** routes all delivery through **NetworkModel** (`src/labtrust_gym/coordination/network.py`). Network randomness is **seeded solely from the episode seed** (`--seed`): same seed and same policy yield identical delivery and metrics. Telemetry includes `comm.p95_latency_ms`, `comm.drop_rate`, `comm.partition_events`, and `coordination.stale_action_rate` in coordination study summaries (`summary_coord.csv`). TaskH network injections: **INJ-NET-PARTITION-001**, **INJ-NET-REORDER-001**, **INJ-NET-DROP-SPIKE-001**.
+Coordination message delivery can use a **network policy** (`policy/coordination/network_policy.v0.1.yaml`, schema `policy/schemas/network_policy.v0.1.schema.json`) to simulate delay (p50/p95 ms), drop rate, partition schedule, and bounded reorder. When a risk injection supplies `CommsConfig.network_policy`, **CommsModel** routes all delivery through **NetworkModel** (`src/labtrust_gym/coordination/network.py`). Network randomness is **seeded solely from the episode seed** (`--seed`): same seed and same policy yield identical delivery and metrics. Telemetry includes `comm.p95_latency_ms`, `comm.drop_rate`, `comm.partition_events`, and `coordination.stale_action_rate` in coordination study summaries (`summary_coord.csv`). coord_risk network injections: **INJ-NET-PARTITION-001**, **INJ-NET-REORDER-001**, **INJ-NET-DROP-SPIKE-001**.
 
 ## Determinism guarantees
 

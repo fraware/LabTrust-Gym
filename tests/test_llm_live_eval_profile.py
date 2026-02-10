@@ -59,7 +59,7 @@ def test_results_include_non_deterministic_when_llm_live_and_allow_network(
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-dummy"}, clear=False):
         run_benchmark(
-            task_name="TaskD",
+            task_name="adversarial_disruption",
             num_episodes=1,
             base_seed=42,
             out_path=tmp_path / "results.json",

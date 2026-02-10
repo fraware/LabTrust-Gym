@@ -11,8 +11,8 @@ mappings:
     injection_ids: ["inj_tool_selection_noise"]
     notes: "Tool selection errors; legacy or INJ-* if defined."
   - risk_id: "R-SYS-001"
-    injection_ids: ["inj_dos_flood", "INJ-DOS-PLANNER-001"]
-    notes: "DoS / planner exhaustion."
+    injection_ids: ["inj_dos_flood", "INJ-DOS-PLANNER-001", "INJ-TIMING-QUEUE-001"]
+    notes: "DoS / planner exhaustion; timing/queue (tail-latency)."
   - risk_id: "R-COMMS-001"
     injection_ids: ["inj_impersonation", "inj_replay", "INJ-ID-SPOOF-001", "INJ-COORD-PLAN-REPLAY-001"]
     notes: "Identity spoofing, replay."
@@ -20,14 +20,14 @@ mappings:
     injection_ids: ["inj_collusion_handoff", "INJ-COLLUSION-001", "INJ-COORD-BID-SHILL-001", "INJ-BID-SPOOF-001"]
     notes: "Collusion, bid shilling."
   - risk_id: "R-COMMS-002"
-    injection_ids: ["inj_msg_poison", "inj_obs_tamper", "INJ-COMMS-POISON-001"]
-    notes: "Comms poisoning."
+    injection_ids: ["inj_msg_poison", "inj_obs_tamper", "INJ-COMMS-POISON-001", "INJ-CONSENSUS-POISON-001", "INJ-BLAME-SHIFT-001"]
+    notes: "Comms poisoning; consensus poison; blame shift."
   - risk_id: "R-DATA-001"
     injection_ids: ["inj_untrusted_payload", "INJ-COMMS-POISON-001", "INJ-BID-SPOOF-001"]
     notes: "Untrusted data; bid spoof, comms poison."
   - risk_id: "R-DATA-002"
-    injection_ids: ["inj_poison_obs", "inj_poison_reward"]
-    notes: "Reward/obs poisoning."
+    injection_ids: ["inj_poison_obs", "inj_poison_reward", "INJ-PARTIAL-OBS-001"]
+    notes: "Reward/obs poisoning; partial observability (sensor dropout)."
   - risk_id: "R-DATA-003"
     injection_ids: ["inj_memory_tamper", "INJ-MEMORY-POISON-001"]
     notes: "Memory poisoning."

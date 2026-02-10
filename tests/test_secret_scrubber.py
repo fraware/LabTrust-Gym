@@ -74,7 +74,7 @@ def test_scrub_dict_for_log_redacts_nested() -> None:
 
 def test_scrub_dict_for_log_preserves_non_secret() -> None:
     """Keys that are not secret-like are preserved."""
-    d = {"task": "TaskA", "seed": 42}
+    d = {"task": "throughput_sla", "seed": 42}
     out = scrub_dict_for_log(d)
-    assert out["task"] == "TaskA"
+    assert out["task"] == "throughput_sla"
     assert out["seed"] == 42

@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 
 from labtrust_gym.export.risk_register_bundle import (
+    COORDINATION_MATRIX_EVIDENCE_ID_PREFIX,
     build_risk_register_bundle,
     check_crosswalk_integrity,
     check_risk_register_coverage,
@@ -167,3 +168,38 @@ def test_bundle_loadable_and_has_risk_evidence_structure() -> None:
     for ev in bundle["evidence"]:
         assert "evidence_id" in ev
         assert "status" in ev
+
+
+def test_risk_register_includes_matrix_evidence_when_present() -> None:
+    """Export-risk-register on a run dir that contains the matrix records it as evidence."""
+    root = _repo_root()
+    run_fixture = root / "tests" / "fixtures" / "coordination_matrix_run_fixture"
+    if not (run_fixture / "coordination_matrix.v0.1.json").exists():
+        if not (run_fixture / "summary_coord.csv").exists():
+            import pytest
+            pytest.skip("coordination_matrix_run_fixture not present")
+        import pytest
+        pytest.skip("coordination_matrix_run_fixture has no matrix file (run builder first)")
+    run_dirs = [run_fixture]
+    bundle = build_risk_register_bundle(
+        root,
+        run_dirs=run_dirs,
+        include_generated_at=False,
+        include_git_hash=False,
+    )
+    evidence = bundle.get("evidence") or []
+    matrix_evidence = [
+        e for e in evidence
+        if (e.get("evidence_id") or "").startswith(COORDINATION_MATRIX_EVIDENCE_ID_PREFIX)
+    ]
+    assert len(matrix_evidence) >= 1, (
+        "Bundle must include coordination matrix evidence when run dir contains matrix"
+    )
+    ev = matrix_evidence[0]
+    assert ev.get("status") == "present"
+    assert ev.get("type") == "coordination_study"
+    assert "artifacts" in ev and len(ev["artifacts"]) >= 1
+    errors = validate_bundle_against_schema(bundle, root)
+    assert errors == [], f"Schema validation failed: {errors}"
+    crosswalk_errors = check_crosswalk_integrity(bundle)
+    assert crosswalk_errors == [], f"Crosswalk integrity failed: {crosswalk_errors}"

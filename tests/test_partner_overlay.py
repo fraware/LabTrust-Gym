@@ -170,7 +170,7 @@ def test_benchmark_smoke_with_partner() -> None:
     out_path = root / "bench_smoke_partner_test.json"
     try:
         results = run_benchmark(
-            task_name="TaskA",
+            task_name="throughput_sla",
             num_episodes=2,
             base_seed=42,
             out_path=out_path,
@@ -196,7 +196,7 @@ def test_same_seed_same_partner_same_output() -> None:
     out2 = root / "bench_det_2.json"
     try:
         r1 = run_benchmark(
-            task_name="TaskA",
+            task_name="throughput_sla",
             num_episodes=1,
             base_seed=99,
             out_path=out1,
@@ -204,7 +204,7 @@ def test_same_seed_same_partner_same_output() -> None:
             partner_id="hsl_like",
         )
         r2 = run_benchmark(
-            task_name="TaskA",
+            task_name="throughput_sla",
             num_episodes=1,
             base_seed=99,
             out_path=out2,

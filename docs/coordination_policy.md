@@ -10,7 +10,7 @@ This document describes the policy-as-data **Risk Registry**, **Coordination Met
 | Coordination methods | `policy/coordination/coordination_methods.v0.1.yaml` | `policy/schemas/coordination_methods.v0.1.schema.json` | Methods to compare: method_id, coordination_class, known_weaknesses (risk_id), required_controls. |
 | Method-risk matrix | `policy/coordination/method_risk_matrix.v0.1.yaml` | `policy/schemas/method_risk_matrix.v0.1.schema.json` | Coverage per (method_id, risk_id): coverage, rationale, required_bench. |
 | Coordination study spec | `policy/coordination/coordination_study_spec.v0.1.yaml` | `policy/schemas/coordination_study_spec.v0.1.schema.json` | Experiment matrix: study_id, scales, methods, risks, injections, episodes_per_cell, seed_base. |
-| Scale configs | `policy/coordination/scale_configs.v0.1.yaml` | (optional schema) | Named scale configs (e.g. corridor_heavy, small_smoke) for TaskG/TaskH. |
+| Scale configs | `policy/coordination/scale_configs.v0.1.yaml` | (optional schema) | Named scale configs (e.g. corridor_heavy, small_smoke) for coord_scale/coord_risk. |
 | Resilience scoring | `policy/coordination/resilience_scoring.v0.1.yaml` | `policy/schemas/resilience_scoring.v0.1.schema.json` | Component weights (perf, safety, security, coordination), normalization ranges, missing-metric behavior for resilience_score. |
 
 All of these are validated by `labtrust validate-policy` where a schema exists. Loading and fingerprinting are deterministic (no ambient randomness). Study specs may list **legacy injection IDs** (e.g. `inj_tool_selection_noise`, `inj_prompt_injection`); these are implemented as **NoOpInjector** (passthrough, no mutation) so the study runner completes all cells without failing. Implemented **INJ-*** injection IDs (e.g. INJ-COMMS-POISON-001, INJ-ID-SPOOF-001) use the full risk injectors.
@@ -108,6 +108,7 @@ The risk and coordination registries do not define new engine emits or reason co
 
 ## See also
 
+- [Coordination matrix](coordination_matrix.md): matrix inputs, column map, and spec (llm_live only; not used for offline pipelines).
 - [Frozen contracts](frozen_contracts.md): runner output, queue, invariant registry, enforcement map.
 - [Policy validation](api/index.md): `labtrust validate-policy` and schema mapping.
 - [Metrics contract](metrics_contract.md): benchmark results and summary semantics.

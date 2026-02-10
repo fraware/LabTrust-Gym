@@ -1,0 +1,7 @@
+scale_id,method_id,p95_tat_s,throughput_per_hr,violation_rate,mean_llm_latency_ms,estimated_cost_usd
+corridor_heavy,llm_central_planner,100,80,0.005,200,0.10
+corridor_heavy,llm_hierarchical_allocator,120,70,0.008,180,0.12
+corridor_heavy,llm_auction_bidder,110,75,0.02,190,0.11
+small_smoke,llm_central_planner,50,100,0.003,100,0.05
+small_smoke,llm_hierarchical_allocator,55,95,0.004,110,0.06
+small_smoke,llm_auction_bidder,52,98,0.002,105,0.055

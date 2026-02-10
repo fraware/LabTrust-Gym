@@ -8,6 +8,12 @@
       "source": "security_suite"
     },
     {
+      "control_id": "CTRL-DETECTOR-ADVISOR",
+      "description": "Detect + policy-validated containment (coord_risk INJ-COMMS-POISON-001).",
+      "name": "LLM detector throttle advisor",
+      "source": "security_suite"
+    },
+    {
       "control_id": "CTRL-LLM-SHIELD",
       "description": "RBAC + schema-constrained action_type; prompt-injection resistance.",
       "name": "LLM shield and constrained decoding",
@@ -36,6 +42,11 @@
       "description": "Byte/record caps, egress allowlist, data classification.",
       "name": "Tool sandbox and egress limits",
       "source": "security_suite"
+    },
+    {
+      "control_id": "Coordination security pack (scale x method x injection matrix)",
+      "name": "Coordination security pack (scale x method x injection matrix)",
+      "source": "safety_case"
     },
     {
       "control_id": "Golden runner validates contract",
@@ -113,6 +124,7 @@
     {
       "evidence_id": "ev-missing-R-COMMS-002",
       "expected_sources": [
+        "security suite smoke",
         "coordination study required_bench"
       ],
       "label": "Evidence missing for R-COMMS-002",
@@ -330,10 +342,10 @@
     }
   ],
   "policy_fingerprints": {
-    "method_risk_matrix": "e444278edb226cbb0a5bd8bb56e321103ad010134947a1854804ff0c8865b82b",
+    "method_risk_matrix": "8f093ef402b1f24279e1c81e18bfbab6b5815590640aaae84b906b0c84bc8e25",
     "risk_registry": "dbb71ecd9ec0e5594bc2474ad91b46ddb3472ed226712db49a596e1a40de7988",
-    "safety_case_claims": "090f654eb1043ccd3d25ba6e7b0cf8f1210abc716d7757a2d62a3f2699632ec8",
-    "security_attack_suite": "968536f954ebc407a4fd63c447dd3ca32877fa5f8deb4be9e9fe88435a6563fc"
+    "safety_case_claims": "a70f3ed5491cd0016924bb600d8d99016449432dbcbc55a117ac57f84941ed91",
+    "security_attack_suite": "88f7dd4044cc207cd3e2725f7f7d7974a9ae93e2e21c74cb41e9e1fe33b965b0"
   },
   "reproduce": [
     {
@@ -495,7 +507,10 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-DETECTOR-ADVISOR",
+        "CTRL-COORD-IDENTITY"
+      ],
       "complexity_hint": "high",
       "coverage_status": "partially_covered",
       "description": "Messages between agents or from environment are altered to mislead or trigger failures.",

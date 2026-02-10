@@ -28,7 +28,7 @@ def test_explicit_mode_deterministic(tmp_path: Path) -> None:
     out1 = tmp_path / "run1.json"
     out2 = tmp_path / "run2.json"
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=2,
         base_seed=100,
         out_path=out1,
@@ -36,7 +36,7 @@ def test_explicit_mode_deterministic(tmp_path: Path) -> None:
         timing_mode="explicit",
     )
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=2,
         base_seed=100,
         out_path=out2,
@@ -64,7 +64,7 @@ def test_simulated_mode_deterministic(tmp_path: Path) -> None:
     out1 = tmp_path / "run1_sim.json"
     out2 = tmp_path / "run2_sim.json"
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=2,
         base_seed=200,
         out_path=out1,
@@ -72,7 +72,7 @@ def test_simulated_mode_deterministic(tmp_path: Path) -> None:
         timing_mode="simulated",
     )
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=2,
         base_seed=200,
         out_path=out2,
@@ -100,7 +100,7 @@ def test_utilization_metrics_only_in_simulated(tmp_path: Path) -> None:
     out_explicit = tmp_path / "explicit.json"
     out_simulated = tmp_path / "simulated.json"
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=1,
         base_seed=42,
         out_path=out_explicit,
@@ -108,7 +108,7 @@ def test_utilization_metrics_only_in_simulated(tmp_path: Path) -> None:
         timing_mode="explicit",
     )
     run_benchmark(
-        task_name="TaskA",
+        task_name="throughput_sla",
         num_episodes=1,
         base_seed=42,
         out_path=out_simulated,

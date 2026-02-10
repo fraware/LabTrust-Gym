@@ -74,7 +74,7 @@ def main() -> int:
     p_bench.add_argument(
         "--task",
         default=None,
-        help="TaskA, TaskB, TaskC, TaskD, TaskE, TaskF, TaskG_COORD_SCALE, TaskH_COORD_RISK (omit when using --profile llm_live_eval)",
+        help="throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse, coord_scale, coord_risk (omit when using --profile llm_live_eval)",
     )
     p_bench.add_argument("--episodes", type=int, default=10, help="Number of episodes")
     p_bench.add_argument("--seed", type=int, default=123, help="Base seed")
@@ -91,7 +91,13 @@ def main() -> int:
     )
     p_bench.add_argument(
         "--llm-backend",
-        choices=["deterministic", "openai_live", "openai_responses", "ollama_live"],
+        choices=[
+            "deterministic",
+            "openai_live",
+            "openai_responses",
+            "ollama_live",
+            "anthropic_live",
+        ],
         default=None,
         help="LLM agent/coordination backend: deterministic (seeded, no API), openai_live, openai_responses, or ollama_live. Default: no LLM (scripted / deterministic).",
     )
@@ -114,12 +120,23 @@ def main() -> int:
     p_bench.add_argument(
         "--coord-method",
         default=None,
-        help="Coordination method for TaskG_COORD_SCALE / TaskH_COORD_RISK (e.g. centralized_planner, swarm_reactive).",
+        help="Coordination method for coord_scale / coord_risk (e.g. centralized_planner, swarm_reactive).",
     )
     p_bench.add_argument(
         "--injection",
         default=None,
-        help="Risk injection id for TaskH_COORD_RISK (e.g. INJ-ID-SPOOF-001, INJ-COMMS-POISON-001).",
+        help="Risk injection id for coord_risk (e.g. INJ-ID-SPOOF-001, INJ-COMMS-POISON-001).",
+    )
+    p_bench.add_argument(
+        "--scale",
+        default=None,
+        help="Scale config id for coord_scale / coord_risk (e.g. small_smoke, medium_stress_signed_bus, corridor_heavy). Uses task default if omitted.",
+    )
+    p_bench.add_argument(
+        "--timing",
+        choices=["explicit", "simulated"],
+        default=None,
+        help="Override timing_mode for coord_scale/coord_risk: explicit (deterministic) or simulated (latency/TAT realism). Uses scale default if omitted.",
     )
     p_bench.add_argument(
         "--use-llm-live-openai",
@@ -141,12 +158,12 @@ def main() -> int:
         "--profile",
         default=None,
         choices=["llm_live_eval"],
-        help="Preset: llm_live_eval = TaskD, TaskF, TaskH_COORD_RISK with llm_live + allow-network, writes LLM_TRACE/ (requires --allow-network).",
+        help="Preset: llm_live_eval = adversarial_disruption, insider_key_misuse, coord_risk with llm_live + allow-network, writes LLM_TRACE/ (requires --allow-network).",
     )
     p_bench.set_defaults(func=_run_benchmark)
     p_bench_smoke = sub.add_parser(
         "bench-smoke",
-        help="Run 1 episode per task (TaskA, TaskB, TaskC); regression smoke.",
+        help="Run 1 episode per task (throughput_sla, stat_insertion, qc_cascade); regression smoke.",
     )
     p_bench_smoke.add_argument(
         "--seed",
@@ -197,7 +214,7 @@ def main() -> int:
     )
     p_coord_study.add_argument(
         "--llm-backend",
-        choices=["deterministic", "openai_live", "ollama_live"],
+        choices=["deterministic", "openai_live", "ollama_live", "anthropic_live"],
         default=None,
         help="Include LLM coordination methods: deterministic, openai_live, or ollama_live. Omit to run only non-LLM methods.",
     )
@@ -206,10 +223,22 @@ def main() -> int:
         default=None,
         help="Optional LLM model when using --llm-backend openai_live (e.g. gpt-4o).",
     )
+    p_coord_study.add_argument(
+        "--emit-coordination-matrix",
+        action="store_true",
+        default=False,
+        help="After the study, build CoordinationMatrix v0.1 into the run directory (llm_live only; errors if pipeline is not llm_live).",
+    )
+    p_coord_study.add_argument(
+        "--partner",
+        default=None,
+        metavar="ID",
+        help="Partner overlay ID; use policy/partners/<id>/coordination/coordination_study_spec.v0.1.yaml as spec when present (overrides --spec path).",
+    )
     p_coord_study.set_defaults(func=_run_coordination_study)
     p_coord_security_pack = sub.add_parser(
         "run-coordination-security-pack",
-        help="Run internal coordination security regression pack: fixed scale x method x injection matrix, deterministic, 1 ep/cell. Writes pack_results/, pack_summary.csv, pack_gate.md.",
+        help="Run internal coordination security regression pack: scale x method x injection matrix, deterministic, 1 ep/cell. Writes pack_results/, pack_summary.csv, pack_gate.md.",
     )
     p_coord_security_pack.add_argument(
         "--out",
@@ -222,7 +251,207 @@ def main() -> int:
         default=42,
         help="Base seed for deterministic runs (default: 42).",
     )
+    p_coord_security_pack.add_argument(
+        "--methods-from",
+        default="fixed",
+        metavar="MODE_OR_PATH",
+        help="Methods: fixed (config default), full (all from policy except marl_ppo), or path to file (one method_id per line or YAML list).",
+    )
+    p_coord_security_pack.add_argument(
+        "--injections-from",
+        default="fixed",
+        metavar="MODE_OR_PATH",
+        help="Injections: fixed (config default), critical (short list), policy (injections.v0.2 + registry), or path to file.",
+    )
+    p_coord_security_pack.add_argument(
+        "--matrix-preset",
+        default=None,
+        metavar="NAME",
+        help="Use matrix preset from policy (e.g. hospital_lab): overrides scale/method/injection lists.",
+    )
+    p_coord_security_pack.add_argument(
+        "--partner",
+        default=None,
+        help="Partner overlay ID (e.g. hsl_like); effective policy merged for each pack cell.",
+    )
     p_coord_security_pack.set_defaults(func=_run_coordination_security_pack)
+    p_build_matrix = sub.add_parser(
+        "build-coordination-matrix",
+        help="Build CoordinationMatrix v0.1 from an llm_live coordination run directory.",
+    )
+    p_build_matrix.add_argument(
+        "--run",
+        required=True,
+        help="Run directory (llm_live coordination study output with summary/ and metadata).",
+    )
+    p_build_matrix.add_argument(
+        "--out",
+        required=True,
+        help="Output path (JSON file) or directory; if directory, writes coordination_matrix.v0.1.json",
+    )
+    p_build_matrix.add_argument(
+        "--policy-root",
+        default=None,
+        help="Policy root for inputs/column_map/spec (default: repo policy dir).",
+    )
+    p_build_matrix.add_argument(
+        "--no-strict",
+        action="store_true",
+        help="If set, do not require pipeline_mode to be discoverable (not recommended).",
+    )
+    p_build_matrix.add_argument(
+        "--matrix-mode",
+        choices=("llm_live", "pack"),
+        default="llm_live",
+        help="llm_live: require llm_live run and summary_coord; pack: allow pack-only dir, derive clean from pack_summary baseline.",
+    )
+    p_build_matrix.set_defaults(func=_run_build_coordination_matrix)
+    p_recommend = sub.add_parser(
+        "recommend-coordination-method",
+        help="Produce coordination decision artifact from run dir: COORDINATION_DECISION.v0.1.json and COORDINATION_DECISION.md (objective + constraints from selection policy).",
+    )
+    p_recommend.add_argument(
+        "--run",
+        required=True,
+        help="Run directory containing pack_summary.csv or summary/summary_coord.csv",
+    )
+    p_recommend.add_argument(
+        "--out",
+        required=True,
+        help="Output directory for COORDINATION_DECISION.v0.1.json and COORDINATION_DECISION.md",
+    )
+    p_recommend.add_argument(
+        "--policy-root",
+        default=None,
+        help="Policy root (default: repo root); selection policy and schema loaded from here.",
+    )
+    p_recommend.set_defaults(func=_run_recommend_coordination_method)
+    p_summarize_coord = sub.add_parser(
+        "summarize-coordination",
+        help="Aggregate coordination results: read summary_coord.csv from --in, write SOTA leaderboard and method-class comparison to --out.",
+    )
+    p_summarize_coord.add_argument(
+        "--in",
+        dest="in_dir",
+        required=True,
+        help="Input run directory containing summary/summary_coord.csv (or summary_coord.csv).",
+    )
+    p_summarize_coord.add_argument(
+        "--out",
+        dest="out_dir",
+        required=True,
+        help="Output directory for summary/sota_leaderboard.csv, sota_leaderboard.md, method_class_comparison.csv, method_class_comparison.md.",
+    )
+    p_summarize_coord.set_defaults(func=_run_summarize_coordination)
+    p_lab_report = sub.add_parser(
+        "build-lab-coordination-report",
+        help="Bundle summarize + recommend from pack output; write LAB_COORDINATION_REPORT.md and artifacts.",
+    )
+    p_lab_report.add_argument(
+        "--pack-dir",
+        required=True,
+        help="Directory containing pack_summary.csv (and optionally pack_gate.md, SECURITY/).",
+    )
+    p_lab_report.add_argument(
+        "--out",
+        default=None,
+        help="Output directory for summary/, COORDINATION_DECISION.*, and LAB_COORDINATION_REPORT.md (default: pack-dir).",
+    )
+    p_lab_report.add_argument(
+        "--policy-root",
+        default=None,
+        help="Policy root for selection policy (default: repo root).",
+    )
+    p_lab_report.add_argument(
+        "--matrix-preset",
+        default=None,
+        metavar="NAME",
+        help="Matrix preset name for report scope (e.g. hospital_lab).",
+    )
+    p_lab_report.add_argument(
+        "--include-matrix",
+        action="store_true",
+        help="Also build CoordinationMatrix from pack (pack mode) and add coordination_matrix.v0.1.json to artifacts.",
+    )
+    p_lab_report.add_argument(
+        "--partner",
+        default=None,
+        help="Partner overlay ID; selection policy loaded from partner overlay when present.",
+    )
+    p_lab_report.set_defaults(func=_run_build_lab_coordination_report)
+    p_forker_quickstart = sub.add_parser(
+        "forker-quickstart",
+        help="One-command forker flow: validate-policy, run pack (fixed + critical), build report, export risk register; print artifact paths.",
+    )
+    p_forker_quickstart.add_argument(
+        "--out",
+        required=True,
+        help="Output directory; pack and risk register written under it.",
+    )
+    p_forker_quickstart.add_argument(
+        "--partner",
+        default=None,
+        metavar="ID",
+        help="Optional partner overlay ID for validate, pack, report, and export.",
+    )
+    p_forker_quickstart.set_defaults(func=_run_forker_quickstart)
+    p_live_orch = sub.add_parser(
+        "run-live-orchestrator",
+        help="Live orchestrator: run chosen coordination method (llm_live or deterministic), emit run dir with matrix + decision + receipts + defense transition. Verify with verify-bundle.",
+    )
+    p_live_orch.add_argument(
+        "--run-dir",
+        required=True,
+        help="Output run directory (cells/, summary/, decision/, receipts/, defense_transition).",
+    )
+    p_live_orch.add_argument(
+        "--method",
+        required=True,
+        help="Coordination method id (from COORDINATION_DECISION or policy).",
+    )
+    p_live_orch.add_argument(
+        "--scale",
+        default="small_smoke",
+        help="Scale config id (default: small_smoke).",
+    )
+    p_live_orch.add_argument(
+        "--injection",
+        default=None,
+        help="Optional risk injection id (e.g. INJ-COMMS-POISON-001). Omit for baseline.",
+    )
+    p_live_orch.add_argument(
+        "--episodes",
+        type=int,
+        default=1,
+        help="Number of episodes (default: 1).",
+    )
+    p_live_orch.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Base seed (default: 42).",
+    )
+    p_live_orch.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network for llm_live backends.",
+    )
+    p_live_orch.add_argument(
+        "--llm-backend",
+        default="deterministic",
+        help="LLM backend: deterministic, openai_live, ollama_live (default: deterministic).",
+    )
+    p_live_orch.add_argument(
+        "--llm-model",
+        default=None,
+        help="Optional model for openai_live (e.g. gpt-4o).",
+    )
+    p_live_orch.add_argument(
+        "--policy-root",
+        default=None,
+        help="Policy root (default: repo root).",
+    )
+    p_live_orch.set_defaults(func=_run_live_orchestrator)
     p_plots = sub.add_parser(
         "make-plots",
         help="Generate figures and data tables from a study run (out_dir/figures/)",
@@ -275,12 +504,12 @@ def main() -> int:
     p_export_fhir.set_defaults(func=_run_export_fhir)
     p_verify_bundle = sub.add_parser(
         "verify-bundle",
-        help="Verify EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace",
+        help="Verify a single EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace",
     )
     p_verify_bundle.add_argument(
         "--bundle",
         required=True,
-        help="EvidenceBundle.v0.1 directory (e.g. out/EvidenceBundle.v0.1)",
+        help="EvidenceBundle.v0.1 directory (must contain manifest.json; use a path under receipts/.../EvidenceBundle.v0.1, not the release root)",
     )
     p_verify_bundle.add_argument(
         "--allow-extra-files",
@@ -288,6 +517,36 @@ def main() -> int:
         help="Do not fail on files present but not in manifest (e.g. fhir_bundle.json)",
     )
     p_verify_bundle.set_defaults(func=_run_verify_bundle)
+    p_verify_release = sub.add_parser(
+        "verify-release",
+        help="Verify all EvidenceBundle.v0.1 dirs under a release (package-release output); exits non-zero if any bundle fails",
+    )
+    p_verify_release.add_argument(
+        "--release-dir",
+        required=True,
+        help="Release directory (output of package-release; contains receipts/ and MANIFEST.v0.1.json)",
+    )
+    p_verify_release.add_argument(
+        "--allow-extra-files",
+        action="store_true",
+        help="Do not fail on files present but not in manifest (passed to each verify-bundle)",
+    )
+    p_verify_release.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Only print summary; stop on first failure",
+    )
+    p_verify_release.set_defaults(func=_run_verify_release)
+    p_check_gate = sub.add_parser(
+        "check-security-gate",
+        help="Check coordination security pack gate: exit 0 if pack_gate.md has no FAIL, else exit 1.",
+    )
+    p_check_gate.add_argument(
+        "--run",
+        required=True,
+        help="Run directory containing pack_gate.md (e.g. output of run-coordination-security-pack).",
+    )
+    p_check_gate.set_defaults(func=_run_check_security_gate)
     p_ui_export = sub.add_parser(
         "ui-export",
         help="Export UI-ready bundle (index, events, receipts_index, reason_codes) from a run dir",
@@ -348,6 +607,12 @@ def main() -> int:
         help="Run directory or glob (e.g. ui_fixtures, labtrust_runs/*); can be repeated",
     )
     p_export_risk.add_argument(
+        "--partner",
+        default=None,
+        metavar="ID",
+        help="Partner overlay ID; load risk registry and security suite from policy/partners/<id>/ when present",
+    )
+    p_export_risk.add_argument(
         "--include-official-pack",
         default=None,
         metavar="DIR",
@@ -376,8 +641,8 @@ def main() -> int:
     p_repro.add_argument(
         "--profile",
         required=True,
-        choices=["minimal", "full"],
-        help="minimal: small sweep, few episodes; full: same sweep, more episodes",
+        choices=["minimal", "full", "full_with_coordination"],
+        help="minimal: small sweep, few episodes; full: same sweep, more episodes; full_with_coordination: full + coordination pack + lab report",
     )
     p_repro.add_argument(
         "--out",
@@ -399,7 +664,7 @@ def main() -> int:
         "--profile",
         required=True,
         choices=["minimal", "full", "paper_v0.1"],
-        help="minimal or full reproduce profile; paper_v0.1 = benchmark-first (baselines + TaskF study + summarize + receipts + FIGURES/TABLES)",
+        help="minimal or full reproduce profile; paper_v0.1 = benchmark-first (baselines + insider_key_misuse study + summarize + receipts + FIGURES/TABLES)",
     )
     p_package_release.add_argument(
         "--out",
@@ -428,6 +693,11 @@ def main() -> int:
         action="store_true",
         help="Allow network (only with --pipeline-mode llm_live); default: disabled",
     )
+    p_package_release.add_argument(
+        "--include-coordination-pack",
+        action="store_true",
+        help="(paper_v0.1 only) Run coordination security pack into _coordination_pack/ and build lab report.",
+    )
     p_package_release.set_defaults(func=_run_package_release)
     p_security_suite = sub.add_parser(
         "run-security-suite",
@@ -454,6 +724,35 @@ def main() -> int:
         type=int,
         default=42,
         help="Seed for deterministic runs (default 42)",
+    )
+    p_security_suite.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        metavar="SECS",
+        help="Max seconds per test_ref pytest run (default 120)",
+    )
+    p_security_suite.add_argument(
+        "--llm-attacker",
+        action="store_true",
+        help="Include LLM-attacker attacks (live LLM generates adversarial payloads). Requires --allow-network and --llm-backend. Default: off (deterministic only).",
+    )
+    p_security_suite.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network (required for --llm-attacker). Set LABTRUST_ALLOW_NETWORK=1 to allow.",
+    )
+    p_security_suite.add_argument(
+        "--llm-backend",
+        choices=["openai_live", "ollama_live", "anthropic_live"],
+        default=None,
+        help="Live LLM backend for attacker payload generation (required with --llm-attacker).",
+    )
+    p_security_suite.add_argument(
+        "--llm-model",
+        default=None,
+        metavar="MODEL",
+        help="Optional model override for --llm-backend (e.g. gpt-4o, llama3.2).",
     )
     p_security_suite.set_defaults(func=_run_security_suite)
     p_safety_case = sub.add_parser(
@@ -516,7 +815,7 @@ def main() -> int:
     p_summarize.set_defaults(func=_run_summarize_results)
     p_gen_baselines = sub.add_parser(
         "generate-official-baselines",
-        help="Regenerate and freeze official baseline results (Tasks A–F); write results/, summary.csv, summary.md, metadata.json. Refuse to overwrite unless --force.",
+        help="Regenerate and freeze official baseline results (core tasks from registry); write results/, summary.csv, summary.md, metadata.json. Refuse to overwrite unless --force.",
     )
     p_gen_baselines.add_argument(
         "--out",
@@ -594,7 +893,55 @@ def main() -> int:
         action="store_true",
         help="Allow network (only with --pipeline-mode llm_live); default: disabled",
     )
+    p_official_pack.add_argument(
+        "--llm-backend",
+        default=None,
+        help="When --pipeline-mode llm_live: backend to use (e.g. openai_responses, anthropic_live, ollama_live).",
+    )
+    p_official_pack.add_argument(
+        "--include-coordination-pack",
+        action="store_true",
+        help="Run coordination security pack into coordination_pack/ and build lab report (or set coordination_pack.enabled in pack policy).",
+    )
+    p_official_pack.add_argument(
+        "--partner",
+        default=None,
+        metavar="ID",
+        help="Partner overlay ID; load benchmark pack from policy/partners/<id>/official/ when present.",
+    )
     p_official_pack.set_defaults(func=_run_official_pack)
+    p_cross_provider = sub.add_parser(
+        "run-cross-provider-pack",
+        help="Run official pack once per provider (llm_live); emit per-provider dirs and merged summary.",
+    )
+    p_cross_provider.add_argument(
+        "--out",
+        required=True,
+        help="Output directory; each provider writes to <out>/<provider>/",
+    )
+    p_cross_provider.add_argument(
+        "--providers",
+        required=True,
+        help="Comma-separated list (e.g. openai_live,anthropic_live,ollama_live)",
+    )
+    p_cross_provider.add_argument(
+        "--seed-base",
+        type=int,
+        default=100,
+        help="Base seed (default 100)",
+    )
+    p_cross_provider.add_argument(
+        "--smoke",
+        action="store_true",
+        default=True,
+        help="Use smoke settings (default True)",
+    )
+    p_cross_provider.add_argument(
+        "--no-smoke",
+        action="store_true",
+        help="Disable smoke; run full pack per provider",
+    )
+    p_cross_provider.set_defaults(func=_run_cross_provider_pack)
     from labtrust_gym.cli.eval_agent import register_parser as register_eval_agent
 
     register_eval_agent(sub)
@@ -605,7 +952,7 @@ def main() -> int:
     p_determinism.add_argument(
         "--task",
         required=True,
-        help="Task name (e.g. TaskA, TaskB, TaskC, TaskD, TaskE, TaskF)",
+        help="Task name (e.g. throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse)",
     )
     p_determinism.add_argument(
         "--episodes",
@@ -638,12 +985,12 @@ def main() -> int:
     p_determinism.add_argument(
         "--coord-method",
         default=None,
-        help="Coordination method for TaskG_COORD_SCALE / TaskH_COORD_RISK (e.g. kernel_centralized_edf). Defaults to kernel_centralized_edf when task is TaskG or TaskH.",
+        help="Coordination method for coord_scale / coord_risk (e.g. kernel_centralized_edf). Defaults to kernel_centralized_edf when task is coord_scale or coord_risk.",
     )
     p_determinism.set_defaults(func=_run_determinism_report)
     p_quick_eval = sub.add_parser(
         "quick-eval",
-        help="Run 1 episode each of TaskA, TaskD, TaskE with scripted baselines; write markdown summary and logs under ./labtrust_runs/",
+        help="Run 1 episode each of throughput_sla, adversarial_disruption, multi_site_stat with scripted baselines; write markdown summary and logs under ./labtrust_runs/",
     )
     p_quick_eval.add_argument(
         "--seed",
@@ -680,9 +1027,9 @@ def main() -> int:
     )
     p_llm_health.add_argument(
         "--backend",
-        choices=["openai_live", "openai_responses"],
+        choices=["openai_live", "openai_responses", "anthropic_live"],
         default="openai_responses",
-        help="Backend to check (default: openai_responses). openai_live uses legacy Chat Completions; openai_responses uses Responses API with strict schema.",
+        help="Backend to check (default: openai_responses). openai_live uses legacy Chat Completions; openai_responses uses Responses API; anthropic_live uses Anthropic Messages API.",
     )
     p_llm_health.add_argument(
         "--model",
@@ -713,10 +1060,10 @@ def main() -> int:
     p_serve.set_defaults(func=_run_serve)
     p_train_ppo = sub.add_parser(
         "train-ppo",
-        help="Train PPO on TaskA (or other task); requires [marl] extra",
+        help="Train PPO on throughput_sla (or other task); requires [marl] extra",
     )
     p_train_ppo.add_argument(
-        "--task", default="TaskA", help="Task name (default TaskA)"
+        "--task", default="throughput_sla", help="Task name (default throughput_sla)"
     )
     p_train_ppo.add_argument(
         "--timesteps",
@@ -736,7 +1083,7 @@ def main() -> int:
         help="Evaluate trained PPO policy; requires [marl] extra",
     )
     p_eval_ppo.add_argument("--model", required=True, help="Path to model.zip")
-    p_eval_ppo.add_argument("--task", default="TaskA", help="Task name")
+    p_eval_ppo.add_argument("--task", default="throughput_sla", help="Task name")
     p_eval_ppo.add_argument(
         "--episodes", type=int, default=50, help="Evaluation episodes"
     )
@@ -799,10 +1146,28 @@ def _run_benchmark(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
+    if llm_backend == "anthropic_live" and not os.environ.get("ANTHROPIC_API_KEY"):
+        print(
+            "ANTHROPIC_API_KEY is required for --llm-backend anthropic_live. Reason code: ANTHROPIC_API_KEY_MISSING",
+            file=sys.stderr,
+        )
+        return 1
     llm_agents_str = getattr(args, "llm_agents", "ops_0") or "ops_0"
     llm_agents = [a.strip() for a in llm_agents_str.split(",") if a.strip()]
     pipeline_mode = getattr(args, "pipeline_mode", None)
     allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
+    scale_config_override = None
+    if getattr(args, "scale", None) and args.task in (
+        "coord_scale",
+        "coord_risk",
+    ):
+        from labtrust_gym.benchmarks.coordination_scale import load_scale_config_by_id
+
+        try:
+            scale_config_override = load_scale_config_by_id(root, args.scale)
+        except (KeyError, FileNotFoundError, ValueError) as e:
+            print(f"Invalid --scale {args.scale!r}: {e}", file=sys.stderr)
+            return 1
     _run(
         task_name=args.task,
         num_episodes=args.episodes,
@@ -818,6 +1183,7 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         timing_mode=getattr(args, "timing", None),
         coord_method=getattr(args, "coord_method", None),
         injection_id=getattr(args, "injection", None),
+        scale_config_override=scale_config_override,
         pipeline_mode=pipeline_mode,
         allow_network=allow_network,
     )
@@ -830,7 +1196,7 @@ def _run_benchmark(args: argparse.Namespace) -> int:
 
 
 def _run_benchmark_llm_live_eval(args: argparse.Namespace) -> int:
-    """Run llm_live_eval profile: TaskD, TaskF, TaskH_COORD_RISK with llm_live, allow-network, LLM_TRACE bundle."""
+    """Run llm_live_eval profile: adversarial_disruption, insider_key_misuse, coord_risk with llm_live, allow-network, LLM_TRACE bundle."""
     from labtrust_gym.benchmarks.llm_trace import LLMTraceCollector
     from labtrust_gym.benchmarks.runner import run_benchmark
 
@@ -858,9 +1224,9 @@ def _run_benchmark_llm_live_eval(args: argparse.Namespace) -> int:
     partner_id = _get_partner_id(args)
 
     tasks_config: list[tuple[str, str | None]] = [
-        ("TaskD", None),
-        ("TaskF", None),
-        ("TaskH_COORD_RISK", "kernel_centralized_edf"),
+        ("adversarial_disruption", None),
+        ("insider_key_misuse", None),
+        ("coord_risk", "kernel_centralized_edf"),
     ]
     collector = LLMTraceCollector()
 
@@ -962,7 +1328,7 @@ def _run_export_receipts(args: argparse.Namespace) -> int:
 
 
 def _run_verify_bundle(args: argparse.Namespace) -> int:
-    """Verify EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace."""
+    """Verify a single EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace."""
     from labtrust_gym.export.verify import verify_bundle
 
     root = get_repo_root()
@@ -983,6 +1349,79 @@ def _run_verify_bundle(args: argparse.Namespace) -> int:
         for e in errors:
             print(e, file=sys.stderr)
     return 0 if passed else 1
+
+
+def _run_verify_release(args: argparse.Namespace) -> int:
+    """Verify all EvidenceBundle.v0.1 dirs under a release; exit non-zero if any fail."""
+    from labtrust_gym.export.verify import discover_evidence_bundles, verify_release
+
+    root = get_repo_root()
+    release_path = Path(args.release_dir)
+    if not release_path.is_absolute():
+        release_path = root / release_path
+    if not release_path.is_dir():
+        print(f"Release directory not found or not a directory: {release_path}", file=sys.stderr)
+        return 1
+    bundles = discover_evidence_bundles(release_path)
+    if not bundles:
+        print(
+            f"No EvidenceBundle.v0.1 found under {release_path / 'receipts'}",
+            file=sys.stderr,
+        )
+        return 1
+    allow_extra = getattr(args, "allow_extra_files", False)
+    quiet = getattr(args, "quiet", False)
+    all_passed, results = verify_release(
+        release_path,
+        policy_root=root,
+        allow_extra_files=allow_extra,
+        quiet=quiet,
+    )
+    for bundle_path, passed, report, errors in results:
+        rel = bundle_path.relative_to(release_path) if bundle_path.is_relative_to(release_path) else bundle_path
+        status = "PASS" if passed else "FAIL"
+        if quiet:
+            print(f"  {rel}: {status}")
+        else:
+            print(f"  {rel}: {status}")
+            if not passed and errors:
+                for e in errors[:3]:
+                    print(f"    {e}", file=sys.stderr)
+                if len(errors) > 3:
+                    print(f"    ... and {len(errors) - 3} more", file=sys.stderr)
+        if quiet and not passed:
+            break
+    n = len(results)
+    total = len(bundles)
+    summary = f"verify-release: {n} bundle(s) checked, {'all passed' if all_passed else 'at least one failed'}."
+    if not quiet and n < total:
+        summary += f" (stopped after first failure; {total - n} remaining)"
+    print(summary)
+    return 0 if all_passed else 1
+
+
+def _run_check_security_gate(args: argparse.Namespace) -> int:
+    """Check pack_gate.md under --run; exit 0 if all cells PASS or not_supported, else exit 1."""
+    from labtrust_gym.studies.coordination_decision_builder import check_security_gate
+
+    root = get_repo_root()
+    run_path = Path(args.run)
+    if not run_path.is_absolute():
+        run_path = root / run_path
+    if not run_path.is_dir():
+        print(f"Run directory not found: {run_path}", file=sys.stderr)
+        return 1
+    passed, failed_cells = check_security_gate(run_path)
+    if passed:
+        print("Security gate: PASS (no FAIL cells in pack_gate.md).")
+        return 0
+    print("Security gate: FAIL.", file=sys.stderr)
+    for c in failed_cells:
+        print(
+            f"  {c.get('scale_id')} / {c.get('method_id')} / {c.get('injection_id')}",
+            file=sys.stderr,
+        )
+    return 1
 
 
 def _run_ui_export(args: argparse.Namespace) -> int:
@@ -1016,7 +1455,9 @@ def _run_build_risk_register_bundle(args: argparse.Namespace) -> int:
     out_path = Path(args.out)
     if not out_path.is_absolute():
         out_path = root / out_path
-    run_dirs = [Path(r) if Path(r).is_absolute() else root / r for r in (args.run_dirs or [])]
+    run_dirs = [
+        Path(r) if Path(r).is_absolute() else root / r for r in (args.run_dirs or [])
+    ]
     try:
         write_risk_register_bundle(
             repo_root=root,
@@ -1046,6 +1487,7 @@ def _run_export_risk_register(args: argparse.Namespace) -> int:
         out_dir = root / out_dir
     run_specs = getattr(args, "run_specs", None) or []
     include_official_pack = getattr(args, "include_official_pack", None)
+    partner_id = getattr(args, "partner", None)
     if include_official_pack is not None:
         include_official_pack = Path(include_official_pack)
         if not include_official_pack.is_absolute():
@@ -1056,6 +1498,7 @@ def _run_export_risk_register(args: argparse.Namespace) -> int:
             out_dir=out_dir,
             run_specs=run_specs,
             include_official_pack_dir=include_official_pack,
+            partner_id=partner_id,
             include_generated_at=getattr(args, "include_generated_at", False),
             include_git_hash=True,
             validate=not getattr(args, "no_validate", False),
@@ -1090,7 +1533,7 @@ def _run_export_fhir(args: argparse.Namespace) -> int:
 
 
 def _run_reproduce(args: argparse.Namespace) -> int:
-    """Run reproduce: minimal study sweep (TaskA, TaskC) + plots."""
+    """Run reproduce: minimal study sweep (throughput_sla, qc_cascade) + plots."""
     from labtrust_gym.studies.reproduce import main as reproduce_main
 
     root = get_repo_root()
@@ -1119,6 +1562,7 @@ def _run_package_release(args: argparse.Namespace) -> int:
     include_repro = getattr(args, "keep_repro", False)
     pipeline_mode = getattr(args, "pipeline_mode", "deterministic") or "deterministic"
     allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
+    include_coordination_pack = getattr(args, "include_coordination_pack", False)
     try:
         result = run_package_release(
             profile=args.profile,
@@ -1128,6 +1572,7 @@ def _run_package_release(args: argparse.Namespace) -> int:
             include_repro_dir=include_repro,
             pipeline_mode=pipeline_mode,
             allow_network=allow_network,
+            include_coordination_pack=include_coordination_pack,
         )
         print(f"Release artifact written to {result}", file=sys.stderr)
         print("  MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json", file=sys.stderr)
@@ -1149,6 +1594,31 @@ def _run_security_suite(args: argparse.Namespace) -> int:
         out_dir = root / out_dir
     smoke_only = not getattr(args, "full", False)
     seed = getattr(args, "seed", 42)
+    timeout_s = getattr(args, "timeout", 120)
+    llm_attacker = getattr(args, "llm_attacker", False)
+    allow_network = getattr(args, "allow_network", False) or bool(
+        os.environ.get("LABTRUST_ALLOW_NETWORK")
+    )
+    llm_backend = getattr(args, "llm_backend", None)
+    llm_model = getattr(args, "llm_model", None)
+    if llm_attacker and (not allow_network or not llm_backend):
+        print(
+            "Warning: --llm-attacker requires --allow-network and --llm-backend; skipping LLM-attacker attacks.",
+            file=sys.stderr,
+        )
+        llm_attacker = False
+    if llm_attacker and allow_network:
+        print(
+            "WILL MAKE NETWORK CALLS: LLM-attacker mode enabled; live LLM will generate adversarial payloads.",
+            file=sys.stderr,
+        )
+        from labtrust_gym.pipeline import set_pipeline_config
+
+        set_pipeline_config(
+            pipeline_mode="llm_live",
+            allow_network=True,
+            llm_backend_id=llm_backend,
+        )
     try:
         results = run_suite_and_emit(
             policy_root=root,
@@ -1156,13 +1626,34 @@ def _run_security_suite(args: argparse.Namespace) -> int:
             repo_root=root,
             smoke_only=smoke_only,
             seed=seed,
+            timeout_s=timeout_s,
             metadata={
                 "seed": seed,
                 "smoke_only": smoke_only,
+                "timeout_s": timeout_s,
                 "git_sha": _git_sha(),
             },
+            llm_attacker=llm_attacker,
+            allow_network=allow_network,
+            llm_backend=llm_backend,
+            llm_model=llm_model,
         )
         emit_securitization_packet(root, out_dir)
+        if any(r.get("llm_attacker") for r in results):
+            model_ids = list(
+                dict.fromkeys(
+                    r.get("model_id")
+                    for r in results
+                    if r.get("llm_attacker") and r.get("model_id")
+                )
+            )
+            note_path = out_dir / "SECURITY" / "llm_attacker_note.txt"
+            note_path.parent.mkdir(parents=True, exist_ok=True)
+            note_path.write_text(
+                "LLM attacker (live) run. Model IDs: "
+                + ", ".join(model_ids or ["unknown"]),
+                encoding="utf-8",
+            )
         passed = sum(1 for r in results if r.get("passed"))
         print(
             f"Security suite: {passed}/{len(results)} passed",
@@ -1286,11 +1777,39 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
     spec_path = Path(args.spec)
     if not spec_path.is_absolute():
         spec_path = root / spec_path
+    partner_id = getattr(args, "partner", None)
+    if partner_id:
+        overlay_spec = (
+            root
+            / "policy"
+            / "partners"
+            / partner_id
+            / "coordination"
+            / "coordination_study_spec.v0.1.yaml"
+        )
+        if overlay_spec.exists():
+            spec_path = overlay_spec
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
         out_dir = root / out_dir
     llm_backend = getattr(args, "llm_backend", None)
     llm_model = getattr(args, "llm_model", None)
+    emit_matrix = getattr(args, "emit_coordination_matrix", False)
+
+    if emit_matrix:
+        pipeline_mode = (
+            "llm_live"
+            if llm_backend in ("openai_live", "ollama_live")
+            else (llm_backend or "deterministic")
+        )
+        if pipeline_mode != "llm_live":
+            print(
+                "emit-coordination-matrix requires llm_live pipeline (--llm-backend openai_live or ollama_live). "
+                f"This run uses pipeline_mode={pipeline_mode!r}. Matrix builder is llm_live-only; offline pipelines are out of scope.",
+                file=sys.stderr,
+            )
+            return 1
+
     if llm_backend == "openai_live" and not os.environ.get("OPENAI_API_KEY"):
         print(
             "OPENAI_API_KEY is required for --llm-backend openai_live. Reason code: OPENAI_API_KEY_MISSING",
@@ -1301,20 +1820,295 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
         spec_path, out_dir, repo_root=root, llm_backend=llm_backend, llm_model=llm_model
     )
     print(f"Coordination study written to {out_dir}", file=sys.stderr)
+
+    if emit_matrix:
+        from labtrust_gym.studies.coordination_matrix_builder import (
+            build_coordination_matrix,
+        )
+
+        matrix_path = out_dir / COORDINATION_MATRIX_CANONICAL_FILENAME
+        build_coordination_matrix(out_dir, matrix_path, policy_root=None, strict=True)
+        print(f"Coordination matrix written to {matrix_path}", file=sys.stderr)
+
     return 0
 
 
 def _run_coordination_security_pack(args: argparse.Namespace) -> int:
     """Run coordination security pack; write pack_results/, pack_summary.csv, pack_gate.md."""
-    from labtrust_gym.studies.coordination_security_pack import run_coordination_security_pack
+    from labtrust_gym.studies.coordination_security_pack import (
+        run_coordination_security_pack,
+    )
 
     root = get_repo_root()
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
         out_dir = root / out_dir
     seed_base = getattr(args, "seed", 42)
-    run_coordination_security_pack(out_dir=out_dir, repo_root=root, seed_base=seed_base)
+    methods_from = getattr(args, "methods_from", "fixed")
+    injections_from = getattr(args, "injections_from", "fixed")
+    matrix_preset = getattr(args, "matrix_preset", None)
+    partner_id = _get_partner_id(args)
+    run_coordination_security_pack(
+        out_dir=out_dir,
+        repo_root=root,
+        seed_base=seed_base,
+        methods_from=methods_from,
+        injections_from=injections_from,
+        matrix_preset=matrix_preset,
+        partner_id=partner_id,
+    )
     print(f"Coordination security pack written to {out_dir}", file=sys.stderr)
+    return 0
+
+
+# Canonical filename for coordination matrix output when --out is a directory (contract gate / Prompt 0).
+COORDINATION_MATRIX_CANONICAL_FILENAME = "coordination_matrix.v0.1.json"
+
+
+def _run_build_coordination_matrix(args: argparse.Namespace) -> int:
+    """Build CoordinationMatrix v0.1 from llm_live run dir; print summary."""
+    from labtrust_gym.studies.coordination_matrix_builder import (
+        build_coordination_matrix,
+    )
+
+    root = get_repo_root()
+    run_dir = Path(args.run)
+    if not run_dir.is_absolute():
+        run_dir = root / run_dir
+    out_arg = Path(args.out)
+    if not out_arg.is_absolute():
+        out_arg = root / out_arg
+    if out_arg.is_dir() or out_arg.suffix.lower() != ".json":
+        out_path = out_arg / COORDINATION_MATRIX_CANONICAL_FILENAME
+    else:
+        out_path = out_arg
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    policy_root = getattr(args, "policy_root", None)
+    if policy_root is not None:
+        policy_root = Path(policy_root)
+        if not policy_root.is_absolute():
+            policy_root = root / policy_root
+    strict = not getattr(args, "no_strict", False)
+    matrix_mode = getattr(args, "matrix_mode", "llm_live")
+    matrix = build_coordination_matrix(
+        run_dir,
+        out_path,
+        policy_root=policy_root,
+        strict=strict,
+        matrix_mode=matrix_mode,
+    )
+    rows = matrix.get("rows") or []
+    scales = matrix.get("scales") or []
+    n_scales = len(scales)
+    method_ids = sorted({r["method_id"] for r in rows})
+    n_methods = len(method_ids)
+    alpha = 0.6
+    method_scores: dict[str, list[float]] = {}
+    for r in rows:
+        if not r.get("feasible", {}).get("overall", True):
+            continue
+        mid = r["method_id"]
+        s = r.get("scores") or {}
+        cq = float(s.get("cq_score", 0.0))
+        ar = float(s.get("ar_score", 0.0))
+        overall = alpha * cq + (1.0 - alpha) * ar
+        method_scores.setdefault(mid, []).append(overall)
+    global_avg = {
+        mid: (sum(s) / len(s)) if s else 0.0 for mid, s in method_scores.items()
+    }
+    top3 = sorted(global_avg.items(), key=lambda x: -x[1])[:3]
+    print(f"Scales: {n_scales}", file=sys.stderr)
+    print(f"Methods: {n_methods}", file=sys.stderr)
+    if top3:
+        print("Top-3 methods by global overall score:", file=sys.stderr)
+        for i, (mid, score) in enumerate(top3, 1):
+            print(f"  {i}. {mid}: {score:.4f}", file=sys.stderr)
+    print("llm_live-only enforced.", file=sys.stderr)
+    print(f"Matrix written to {out_path}", file=sys.stderr)
+    return 0
+
+
+def _run_recommend_coordination_method(args: argparse.Namespace) -> int:
+    """Produce COORDINATION_DECISION.v0.1.json and COORDINATION_DECISION.md from run dir."""
+    from labtrust_gym.studies.coordination_decision_builder import (
+        run_recommend_coordination_method,
+    )
+
+    root = get_repo_root()
+    run_dir = Path(args.run)
+    if not run_dir.is_absolute():
+        run_dir = root / run_dir
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    policy_root = getattr(args, "policy_root", None)
+    if policy_root is not None:
+        policy_root = Path(policy_root)
+        if not policy_root.is_absolute():
+            policy_root = root / policy_root
+    else:
+        policy_root = root
+    result = run_recommend_coordination_method(
+        run_dir=run_dir, out_dir=out_dir, policy_root=policy_root
+    )
+    decision = result["decision"]
+    print(f"Verdict: {decision.get('verdict')}", file=sys.stderr)
+    for sd in decision.get("scale_decisions") or []:
+        chosen = sd.get("chosen_method_id")
+        print(
+            f"  {sd.get('scale_id')}: {chosen or '(no admissible method)'}",
+            file=sys.stderr,
+        )
+    print(f"JSON: {result['json_path']}", file=sys.stderr)
+    print(f"MD:   {result['md_path']}", file=sys.stderr)
+    return 0
+
+
+def _run_summarize_coordination(args: argparse.Namespace) -> int:
+    """Aggregate coordination results: SOTA leaderboard + method-class comparison from summary_coord.csv."""
+    from labtrust_gym.studies.coordination_summarizer import run_summarize
+
+    root = get_repo_root()
+    in_dir = Path(getattr(args, "in_dir", ""))
+    out_dir = Path(getattr(args, "out_dir", ""))
+    if not in_dir.is_absolute():
+        in_dir = root / in_dir
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    run_summarize(in_dir=in_dir, out_dir=out_dir, repo_root=root)
+    print(
+        f"Wrote summary/sota_leaderboard.csv, sota_leaderboard.md, method_class_comparison.csv, method_class_comparison.md under {out_dir}",
+        file=sys.stderr,
+    )
+    return 0
+
+
+def _run_build_lab_coordination_report(args: argparse.Namespace) -> int:
+    """Build lab coordination report: summarize + recommend + LAB_COORDINATION_REPORT.md."""
+    from labtrust_gym.studies.lab_report_builder import build_lab_coordination_report
+
+    root = get_repo_root()
+    pack_dir = Path(args.pack_dir)
+    if not pack_dir.is_absolute():
+        pack_dir = root / pack_dir
+    out_dir = getattr(args, "out", None)
+    if out_dir is not None:
+        out_dir = Path(out_dir)
+        if not out_dir.is_absolute():
+            out_dir = root / out_dir
+    else:
+        out_dir = None
+    policy_root = getattr(args, "policy_root", None)
+    if policy_root is not None:
+        policy_root = Path(policy_root)
+        if not policy_root.is_absolute():
+            policy_root = root / policy_root
+    else:
+        policy_root = root
+    matrix_preset = getattr(args, "matrix_preset", None)
+    include_matrix = getattr(args, "include_matrix", False)
+    partner_id = _get_partner_id(args)
+    report_path = build_lab_coordination_report(
+        pack_dir=pack_dir,
+        out_dir=out_dir,
+        policy_root=policy_root,
+        matrix_preset_name=matrix_preset,
+        include_matrix=include_matrix,
+        partner_id=partner_id,
+    )
+    print(f"Lab coordination report written to {report_path}", file=sys.stderr)
+    return 0
+
+
+def _run_forker_quickstart(args: argparse.Namespace) -> int:
+    """One-command forker flow: validate, pack (fixed + critical), report, export risk register; print artifact paths."""
+    from labtrust_gym.export.risk_register_bundle import (
+        RISK_REGISTER_BUNDLE_FILENAME,
+        export_risk_register,
+    )
+    from labtrust_gym.studies.coordination_security_pack import run_coordination_security_pack
+    from labtrust_gym.studies.lab_report_builder import build_lab_coordination_report
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    partner_id = _get_partner_id(args)
+
+    if _run_validate_policy(root, partner_id) != 0:
+        return 1
+
+    pack_dir = out_dir / "pack"
+    print("Running coordination security pack (fixed methods, critical injections)...", file=sys.stderr)
+    run_coordination_security_pack(
+        out_dir=pack_dir,
+        repo_root=root,
+        seed_base=42,
+        methods_from="fixed",
+        injections_from="critical",
+        partner_id=partner_id,
+    )
+
+    print("Building lab coordination report...", file=sys.stderr)
+    build_lab_coordination_report(
+        pack_dir=pack_dir,
+        out_dir=pack_dir,
+        policy_root=root,
+        partner_id=partner_id,
+    )
+
+    risk_out = out_dir / "risk_out"
+    print("Exporting risk register...", file=sys.stderr)
+    export_risk_register(
+        repo_root=root,
+        out_dir=risk_out,
+        run_specs=[str(pack_dir)],
+        partner_id=partner_id,
+    )
+
+    decision_json = pack_dir / "COORDINATION_DECISION.v0.1.json"
+    decision_md = pack_dir / "COORDINATION_DECISION.md"
+    bundle_path = risk_out / RISK_REGISTER_BUNDLE_FILENAME
+    print("Forker quickstart done.", file=sys.stderr)
+    print(f"  COORDINATION_DECISION (JSON): {decision_json}", file=sys.stderr)
+    print(f"  COORDINATION_DECISION (MD):   {decision_md}", file=sys.stderr)
+    print(f"  Risk register bundle:         {bundle_path}", file=sys.stderr)
+    return 0
+
+
+def _run_live_orchestrator(args: argparse.Namespace) -> int:
+    """Run live orchestrator: chosen method, run dir with matrix + decision + receipts + defense."""
+    from labtrust_gym.orchestrator.config import OrchestratorConfig
+    from labtrust_gym.orchestrator.live import run_live_orchestrator
+
+    root = get_repo_root()
+    run_dir = Path(args.run_dir)
+    if not run_dir.is_absolute():
+        run_dir = root / run_dir
+    policy_root = getattr(args, "policy_root", None)
+    if policy_root is not None:
+        policy_root = Path(policy_root)
+        if not policy_root.is_absolute():
+            policy_root = root / policy_root
+    else:
+        policy_root = root
+    config = OrchestratorConfig(
+        run_dir=run_dir,
+        chosen_method_id=args.method,
+        policy_root=policy_root,
+        allow_network=getattr(args, "allow_network", False),
+        scale_id=getattr(args, "scale", "small_smoke"),
+        injection_id=getattr(args, "injection", None),
+        num_episodes=getattr(args, "episodes", 1),
+        base_seed=getattr(args, "seed", 42),
+        llm_backend=getattr(args, "llm_backend", "deterministic"),
+        llm_model=getattr(args, "llm_model", None),
+    )
+    result = run_live_orchestrator(config)
+    print(f"Run dir: {result['run_dir']}", file=sys.stderr)
+    print(f"Cell: {result['cell_id']}", file=sys.stderr)
+    print(f"Defense state: {result.get('defense_state', 'n/a')}", file=sys.stderr)
     return 0
 
 
@@ -1367,7 +2161,7 @@ def _run_determinism_report(args: argparse.Namespace) -> int:
 
 
 def _run_generate_official_baselines(args: argparse.Namespace) -> int:
-    """Regenerate official baseline results: run Tasks A–F (from registry), write results/, summary.csv, summary.md, metadata.json."""
+    """Regenerate official baseline results: run core tasks (from registry), write results/, summary.csv, summary.md, metadata.json."""
     import json
     from datetime import datetime, timedelta
 
@@ -1509,6 +2303,9 @@ def _run_official_pack(args: argparse.Namespace) -> int:
             "true",
             "yes",
         ) or os.environ.get("LABTRUST_PAPER_SMOKE", "").strip() in ("1", "true", "yes")
+    llm_backend = getattr(args, "llm_backend", None)
+    include_coordination_pack = getattr(args, "include_coordination_pack", False)
+    partner_id = getattr(args, "partner", None)
     try:
         result = run_official_pack(
             out_dir=out_dir,
@@ -1518,6 +2315,9 @@ def _run_official_pack(args: argparse.Namespace) -> int:
             full_security=full_security,
             pipeline_mode=pipeline_mode,
             allow_network=allow_network,
+            llm_backend=llm_backend,
+            include_coordination_pack=include_coordination_pack,
+            partner_id=partner_id,
         )
         print(f"Official pack written to {result}", file=sys.stderr)
         return 0
@@ -1529,13 +2329,47 @@ def _run_official_pack(args: argparse.Namespace) -> int:
         return 1
 
 
+def _run_cross_provider_pack(args: argparse.Namespace) -> int:
+    """Run official pack per provider; emit per-provider dirs and summary_cross_provider.json/.md."""
+    from labtrust_gym.benchmarks.official_pack import run_cross_provider_pack
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    providers = [
+        p.strip() for p in getattr(args, "providers", "").split(",") if p.strip()
+    ]
+    if not providers:
+        print("run-cross-provider-pack: --providers must be non-empty", file=sys.stderr)
+        return 1
+    seed_base = getattr(args, "seed_base", 100)
+    smoke = not getattr(args, "no_smoke", False)
+    try:
+        result = run_cross_provider_pack(
+            out_dir=out_dir,
+            repo_root=root,
+            providers=providers,
+            seed_base=seed_base,
+            smoke=smoke,
+        )
+        print(f"Cross-provider pack written to {result}", file=sys.stderr)
+        return 0
+    except Exception as e:
+        import traceback
+
+        print(f"run-cross-provider-pack failed: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return 1
+
+
 def _run_bench_smoke(args: argparse.Namespace) -> int:
-    """Run 1 episode per task (TaskA, TaskB, TaskC); exit 0 if all succeed."""
+    """Run 1 episode per task (throughput_sla, stat_insertion, qc_cascade); exit 0 if all succeed."""
     from labtrust_gym.benchmarks.runner import run_benchmark
 
     root = get_repo_root()
     seed = getattr(args, "seed", 42)
-    tasks = ["TaskA", "TaskB", "TaskC"]
+    tasks = ["throughput_sla", "stat_insertion", "qc_cascade"]
     for task in tasks:
         run_benchmark(
             task_name=task,
@@ -1573,6 +2407,12 @@ def _run_llm_healthcheck(args: argparse.Namespace) -> int:
         )
 
         backend = OpenAILiveResponsesBackend(model=model_override)
+    elif backend_name == "anthropic_live":
+        from labtrust_gym.baselines.llm.backends.anthropic_live import (
+            AnthropicLiveBackend,
+        )
+
+        backend = AnthropicLiveBackend(model=model_override)
     else:
         from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
 
@@ -1623,7 +2463,7 @@ def _run_serve(args: argparse.Namespace) -> int:
 
 
 def _run_quick_eval(args: argparse.Namespace) -> int:
-    """Run 1 episode each of TaskA, TaskD, TaskE; write markdown summary and logs under labtrust_runs/."""
+    """Run 1 episode each of throughput_sla, adversarial_disruption, multi_site_stat; write markdown summary and logs under labtrust_runs/."""
     import json
     from datetime import datetime
 
@@ -1643,7 +2483,7 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
     pipeline_mode = getattr(args, "pipeline_mode", "deterministic") or "deterministic"
     allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
 
-    tasks = ["TaskA", "TaskD", "TaskE"]
+    tasks = ["throughput_sla", "adversarial_disruption", "multi_site_stat"]
     rows: list[dict[str, Any]] = []
     for task in tasks:
         results_path = run_dir / f"{task}.json"

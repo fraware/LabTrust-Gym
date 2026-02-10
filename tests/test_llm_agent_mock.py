@@ -241,7 +241,7 @@ def test_task_e_llm_safe_v1_runs_deterministically() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results.json"
         r1 = run_benchmark(
-            "TaskE",
+            "multi_site_stat",
             num_episodes=2,
             base_seed=42,
             out_path=out,
@@ -249,7 +249,7 @@ def test_task_e_llm_safe_v1_runs_deterministically() -> None:
             use_llm_safe_v1_ops=True,
         )
         r2 = run_benchmark(
-            "TaskE",
+            "multi_site_stat",
             num_episodes=2,
             base_seed=42,
             out_path=Path(tmp) / "results2.json",
@@ -274,7 +274,7 @@ def test_task_f_llm_safe_v1_runs_deterministically() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "results.json"
         r1 = run_benchmark(
-            "TaskF",
+            "insider_key_misuse",
             num_episodes=2,
             base_seed=99,
             out_path=out,
@@ -282,7 +282,7 @@ def test_task_f_llm_safe_v1_runs_deterministically() -> None:
             use_llm_safe_v1_ops=True,
         )
         r2 = run_benchmark(
-            "TaskF",
+            "insider_key_misuse",
             num_episodes=2,
             base_seed=99,
             out_path=Path(tmp) / "results2.json",

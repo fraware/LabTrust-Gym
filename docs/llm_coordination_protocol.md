@@ -33,7 +33,7 @@ This document defines the benchmark protocol for LLM-based coordination methods 
 
 **Metrics**: coordination.comm is extended with **invalid_sig_count**, **replay_drop_count**, **invalid_msg_rate**, **spoof_attempt_count**. coordination.alloc has **conflict_rate**, **overridden_count**, **total_proposals**. When the method provides get_comm_metrics(), the runner merges these into the episode coordination.comm block.
 
-**TaskH**: With INJ-ID-SPOOF-001 and strict signatures, spoofed actions are rejected by the bus or engine; attack_success_rate should be near 0. With INJ-COMMS-POISON-001, detection signals (invalid_sig_count, replay_drop_count) may increase; runs remain stable and deterministic offline.
+**coord_risk**: With INJ-ID-SPOOF-001 and strict signatures, spoofed actions are rejected by the bus or engine; attack_success_rate should be near 0. With INJ-COMMS-POISON-001, detection signals (invalid_sig_count, replay_drop_count) may increase; runs remain stable and deterministic offline.
 
 ## Typed proposal schema
 
@@ -74,7 +74,7 @@ Live backends (e.g. OpenAI Responses API) use structured outputs constrained to 
 ## Security evaluation: mapping risks to injections/tests
 
 - **Risk taxonomy**: Risks are defined in policy (e.g. `method_risk_matrix.v0.1.yaml`, `injections.v0.2.yaml`). Each injection has `injection_id`, `strategy_type`, `success_definition`, `detection_definition`, `containment_definition`.
-- **Mapping**: TaskH applies one injection per cell. The study spec lists `injections` (e.g. `INJ-ID-SPOOF-001`, `INJ-COMMS-POISON-001`, `INJ-BID-SPOOF-001`, `INJ-LLM-PROMPT-INJECT-COORD-001`). The risk harness applies them deterministically given the cell seed.
+- **Mapping**: coord_risk applies one injection per cell. The study spec lists `injections` (e.g. `INJ-ID-SPOOF-001`, `INJ-COMMS-POISON-001`, `INJ-BID-SPOOF-001`, `INJ-LLM-PROMPT-INJECT-COORD-001`). The risk harness applies them deterministically given the cell seed.
 - **LLM-relevant injections** (from `policy/coordination/injections.v0.2.yaml`): Include prompt injection (`INJ-LLM-PROMPT-INJECT-COORD-001`), tool escalation (`INJ-LLM-TOOL-ESCALATION-001`), comms flood (`INJ-COMMS-FLOOD-LLM-001`), replay (`INJ-ID-REPLAY-COORD-001`), collusion/market (`INJ-COLLUSION-MARKET-001`), memory poisoning for coordinator (`INJ-MEMORY-POISON-COORD-001`), plus identity spoofing, replay, stealthy poisoning, slow-roll poisoning, and collusion.
 - **Injection to sec.* and harness**: Each injection_id in the spec must have an entry in the risk injector registry (`INJECTION_REGISTRY` in `risk_injections.py`). The injector implements `get_metrics()` returning `attack_success`, `first_application_step`, `first_detection_step`, `first_containment_step`; `metrics.compute_episode_metrics` maps these to `sec.attack_success_rate`, `sec.detection_latency_steps`, `sec.containment_time_steps`, and optionally `sec.stealth_success_rate`, `sec.time_to_attribution_steps`, `sec.blast_radius_proxy`. Any new injection added to the spec must implement a harness and `get_metrics()` so that summary_coord.csv and results.json record sec.* consistently.
 - **INJ-BID-SPOOF-001**: Currently mapped to the same harness as collusion (CollusionInjector), which covers bid/market manipulation. A dedicated BidSpoofInjector targeting the bid/proposal path may be added later if product/security requests a distinct bid-spoof scenario.

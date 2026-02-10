@@ -112,7 +112,9 @@ entries:
     covered_by:
       - type: injection
         ref: "INJ-COMMS-POISON-001"
-    notes: "Communication poisoning; coordination stealthy poisoning injection."
+      - type: attack_suite
+        ref: "SEC-DETECTOR-001"
+    notes: "Communication poisoning; coordination stealthy poisoning injection; detector defensive control."
 
   - risk_id: "R-CAP-001"
     category: capability

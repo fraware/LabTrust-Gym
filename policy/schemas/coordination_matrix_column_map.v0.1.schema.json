@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coordination_matrix_column_map.v0.1.schema.json",
+  "title": "Coordination Matrix Column Map v0.1",
+  "description": "Maps source table columns to metric IDs from coordination_matrix_inputs. Phase 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "sources", "column_map"],
+  "properties": {
+    "version": { "type": "string", "const": "v0.1" },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clean", "attacked"],
+      "properties": {
+        "clean": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "attacked": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "column_map": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/column_map_entry" },
+      "minProperties": 1
+    }
+  },
+  "$defs": {
+    "column_map_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preferred_sources", "candidates", "missing_policy"],
+      "properties": {
+        "preferred_sources": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "candidates": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "transform": {
+          "type": "string",
+          "enum": ["identity", "pct_to_rate", "ms_to_s", "s_to_ms"]
+        },
+        "missing_policy": {
+          "type": "string",
+          "enum": ["error", "nan"]
+        }
+      }
+    }
+  }
+}

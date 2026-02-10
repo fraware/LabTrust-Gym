@@ -26,7 +26,7 @@ def _repo_root() -> Path:
 def _minimal_spec_yaml() -> str:
     """Minimal spec: 2 conditions (trust_skeleton on/off), 1 episode each for fast smoke."""
     return """
-task: TaskA
+task: throughput_sla
 episodes: 1
 seed_base: 100
 timing_mode: explicit

@@ -282,10 +282,14 @@ class LLMAuctionBidder(CoordinationMethod):
         rbac_policy: dict[str, Any],
         *,
         policy_summary: dict[str, Any] | None = None,
+        method_id_override: str | None = None,
+        defense_profile: str | None = None,
     ) -> None:
         self._backend = bid_backend
         self._rbac_policy = rbac_policy
         self._policy_summary = policy_summary or {}
+        self._method_id_override = method_id_override
+        self._defense_profile = defense_profile or ""
         self._seed = 0
         self._scale_config: dict[str, Any] = {}
         self._last_metrics: dict[str, Any] = {}
@@ -295,7 +299,7 @@ class LLMAuctionBidder(CoordinationMethod):
 
     @property
     def method_id(self) -> str:
-        return "llm_auction_bidder"
+        return self._method_id_override or "llm_auction_bidder"
 
     def reset(
         self,
@@ -333,11 +337,18 @@ class LLMAuctionBidder(CoordinationMethod):
             return out
         digest = build_state_digest(obs, infos or {}, t, policy)
         digest["device_zone"] = device_zone
-        raw = gen(
-            state_digest=digest,
-            step_id=t,
-            method_id=self.method_id,
-        )
+        safe_fallback = self._defense_profile == "safe_fallback"
+        try:
+            raw = gen(
+                state_digest=digest,
+                step_id=t,
+                method_id=self.method_id,
+            )
+        except Exception:
+            if safe_fallback:
+                self._last_metrics = {}
+                return out
+            raise
         if isinstance(raw, tuple):
             proposal, meta = raw[0], raw[1]
         else:

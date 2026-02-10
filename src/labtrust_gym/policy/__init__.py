@@ -6,6 +6,7 @@ from labtrust_gym.policy.coordination import (
     load_coordination_study_spec,
     load_method_risk_matrix,
     load_risk_to_injection_map,
+    resolve_method_variant,
 )
 from labtrust_gym.policy.emits import (
     load_emits_vocab,
@@ -64,4 +65,5 @@ __all__ = [
     "load_coordination_study_spec",
     "get_required_bench_cells",
     "load_risk_to_injection_map",
+    "resolve_method_variant",
 ]

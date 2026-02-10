@@ -2,7 +2,7 @@
 Release candidate research artifact: reproduce + export-receipts + export-fhir + make-plots,
 then MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json.
 
-Profiles: minimal | full | paper_v0.1 (benchmark-first: baselines + TaskF study + summarize + receipts + FIGURES/TABLES).
+Profiles: minimal | full | paper_v0.1 (benchmark-first: baselines + insider_key_misuse study + summarize + receipts + FIGURES/TABLES).
 
 Single command: labtrust package-release --profile minimal|full|paper_v0.1 --out <dir> [--seed-base N]
 """
@@ -95,20 +95,20 @@ Blood Sciences lane: specimen reception, accessioning, pre-analytics, routine an
 - **Invariant registry** (v1.0): zone movement, co-location, restricted door, critical ack, stability, transport (INV-COC-001, INV-TRANSPORT-001), etc.
 - **Enforcement**: optional throttle, kill_switch, freeze_zone, forensic_freeze via policy/enforcement.
 
-## Tasks (A–E)
+## Tasks
 
 | Task | Description | SLA |
 |------|-------------|-----|
-| TaskA | Throughput under SLA | 3600 s |
-| TaskB | STAT insertion under load | 1800 s |
-| TaskC | QC fail cascade | — |
-| TaskD | Adversarial disruption | 3600 s |
-| TaskE | Multi-site STAT (transport latency) | 2400 s |
+| throughput_sla | Throughput under SLA | 3600 s |
+| stat_insertion | STAT insertion under load | 1800 s |
+| qc_cascade | QC fail cascade | — |
+| adversarial_disruption | Adversarial disruption | 3600 s |
+| multi_site_stat | Multi-site STAT (transport latency) | 2400 s |
 
 ## Baselines
 
 - **Scripted (ops + runner)**: deterministic policy; used in reproduce and package-release.
-- **Adversary** (TaskD): scripted adversary agent.
+- **Adversary** (adversarial_disruption): scripted adversary agent.
 - **PPO/MARL**: optional Stable-Baselines3; train-ppo / eval-ppo.
 - **LLM mock**: optional LLM agent stub.
 
@@ -116,7 +116,7 @@ Blood Sciences lane: specimen reception, accessioning, pre-analytics, routine an
 
 - Golden suite: some scenarios (e.g. zone door alarm) may depend on enforcement or timing.
 - Full FHIR validation: export is minimal structural; no terminology server.
-- Transport: TaskE scripted policy emits DISPATCH_TRANSPORT → TRANSPORT_TICK → CHAIN_OF_CUSTODY_SIGN → RECEIVE_TRANSPORT; transport is mandatory and audited.
+- Transport: multi_site_stat scripted policy emits DISPATCH_TRANSPORT → TRANSPORT_TICK → CHAIN_OF_CUSTODY_SIGN → RECEIVE_TRANSPORT; transport is mandatory and audited.
 """
 
 
@@ -127,7 +127,14 @@ PAPER_FIGURES_DIR = "FIGURES"
 PAPER_TABLES_DIR = "TABLES"
 PAPER_EPISODES_BASELINES = 50
 PAPER_EPISODES_STUDY_TASKF = 50
-OFFICIAL_TASKS = ["TaskA", "TaskB", "TaskC", "TaskD", "TaskE", "TaskF"]
+OFFICIAL_TASKS = [
+    "throughput_sla",
+    "stat_insertion",
+    "qc_cascade",
+    "adversarial_disruption",
+    "multi_site_stat",
+    "insider_key_misuse",
+]
 
 
 def _deterministic_timestamp(seed_base: int) -> str:
@@ -137,6 +144,9 @@ def _deterministic_timestamp(seed_base: int) -> str:
     )
 
 
+COORDINATION_PACK_SUBDIR = "_coordination_pack"
+
+
 def run_package_release_paper(
     out_dir: Path,
     repo_root: Path,
@@ -144,11 +154,14 @@ def run_package_release_paper(
     fixed_timestamp: str | None = None,
     pipeline_mode: str = "deterministic",
     allow_network: bool = False,
+    include_coordination_pack: bool = False,
 ) -> Path:
     """
-    Paper-ready release profile: generate-official-baselines, TaskF strict_signatures study,
+    Paper-ready release profile: generate-official-baselines, insider_key_misuse strict_signatures study,
     summarize-results across both, export receipts + verify bundle for one run per task,
     RELEASE_NOTES.md, FIGURES/, TABLES/ (summary.csv + paper_table.md).
+    When include_coordination_pack is True, run coordination security pack into _coordination_pack/
+    and build lab report (LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.*).
     Works offline. When seed_base is set, timestamps in metadata are deterministic.
     Set LABTRUST_PAPER_SMOKE=1 to use 1 episode for baselines and 2 for study (fast smoke test).
     """
@@ -196,11 +209,11 @@ def run_package_release_paper(
         check=True,
     )
 
-    # 2) TaskF strict_signatures ablation study (episodes >= 50; 2 when smoke)
+    # 2) insider_key_misuse strict_signatures ablation study (episodes >= 50; 2 when smoke)
     study_dir.mkdir(parents=True, exist_ok=True)
     spec_path = study_dir / "study_spec_taskf_strict_signatures.yaml"
     spec = {
-        "task": "TaskF",
+        "task": "insider_key_misuse",
         "episodes": episodes_study,
         "seed_base": seed_base,
         "timing_mode": "explicit",
@@ -324,7 +337,72 @@ def run_package_release_paper(
     except Exception:
         pass
 
-    # 5) FIGURES: 2–3 canonical plots from TaskF study
+    # 4d2) Optional coordination security pack + lab report (_coordination_pack/)
+    if include_coordination_pack:
+        coord_pack_dir = out_dir / COORDINATION_PACK_SUBDIR
+        coord_pack_dir.mkdir(parents=True, exist_ok=True)
+        matrix_preset = "hospital_lab"
+        try:
+            from labtrust_gym.studies.coordination_security_pack import (
+                run_coordination_security_pack,
+            )
+            from labtrust_gym.studies.lab_report_builder import (
+                build_lab_coordination_report,
+            )
+
+            run_coordination_security_pack(
+                out_dir=coord_pack_dir,
+                repo_root=repo_root,
+                seed_base=seed_base,
+                matrix_preset=matrix_preset,
+            )
+            build_lab_coordination_report(
+                pack_dir=coord_pack_dir,
+                out_dir=coord_pack_dir,
+                policy_root=repo_root,
+                matrix_preset_name=matrix_preset,
+                include_matrix=True,
+            )
+        except Exception as e:
+            (coord_pack_dir / "run_error.txt").write_text(str(e), encoding="utf-8")
+
+    # 4e) COORDINATION_MATRIX/ (COORDINATION_MATRIX.v0.1.json + README.md; included in MANIFEST)
+    coord_matrix_dir = out_dir / "COORDINATION_MATRIX"
+    coord_matrix_dir.mkdir(parents=True, exist_ok=True)
+    matrix_dest = coord_matrix_dir / "COORDINATION_MATRIX.v0.1.json"
+    matrix_found = None
+    for p in out_dir.rglob("coordination_matrix.v0.1.json"):
+        if p.is_file():
+            matrix_found = p
+            break
+    if matrix_found is not None:
+        shutil.copy2(matrix_found, matrix_dest)
+    else:
+        fixture = (
+            Path(repo_root)
+            / "tests"
+            / "fixtures"
+            / "coordination_matrix_expected_output.v0.1.json"
+        )
+        if fixture.exists():
+            shutil.copy2(fixture, matrix_dest)
+        else:
+            (coord_matrix_dir / "COORDINATION_MATRIX.v0.1.json").write_text(
+                "{}", encoding="utf-8"
+            )
+    readme = coord_matrix_dir / "README.md"
+    readme.write_text(
+        "## Coordination matrix (v0.1)\n\n"
+        "Produced by: (1) `labtrust build-coordination-matrix --run <run_dir> --out <run_dir>` or "
+        "`labtrust run-coordination-study --spec <spec> --out <out_dir> --llm-backend openai_live --emit-coordination-matrix`; "
+        "(2) or from the coordination security pack when `labtrust package-release --profile paper_v0.1 --include-coordination-pack` is used "
+        "(build-lab-coordination-report with include_matrix=True writes coordination_matrix.v0.1.json under _coordination_pack/).\n\n"
+        "Pipeline mode: llm_live for study runs; pack mode for --include-coordination-pack. "
+        "Model ID and backend come from the run when applicable; see matrix JSON `spec.scope.allowed_llm_backends` and row `run_meta.llm_model_id`.\n",
+        encoding="utf-8",
+    )
+
+    # 5) FIGURES: 2–3 canonical plots from insider_key_misuse study
     figures_dir.mkdir(parents=True, exist_ok=True)
     try:
         from labtrust_gym.studies.plots import make_plots
@@ -345,7 +423,7 @@ def run_package_release_paper(
 ## What ran
 
 - **Official baselines**: Tasks A–F, {episodes_baselines} episodes each, seed_base={seed_base}.
-- **TaskF study**: strict_signatures ablation (false/true), {episodes_study} episodes per condition, seed_base={seed_base}.
+- **insider_key_misuse study**: strict_signatures ablation (false/true), {episodes_study} episodes per condition, seed_base={seed_base}.
 - **Summarize**: combined official + study results → TABLES/summary.csv, TABLES/summary.md, TABLES/paper_table.md.
 - **Representative runs**: 1 episode per task with episode log → export receipts → verify bundle (receipts/<task>/).
 
@@ -358,17 +436,24 @@ def run_package_release_paper(
 ## Layout
 
 - `_baselines/`: official baseline results (results/, summary.csv, summary.md, metadata.json).
-- `_study/`: TaskF strict_signatures study (manifest.json, results/, logs/, figures/).
-- `FIGURES/`: canonical plots from TaskF study.
+- `_study/`: insider_key_misuse strict_signatures study (manifest.json, results/, logs/, figures/).
+- `FIGURES/`: canonical plots from insider_key_misuse study.
 - `TABLES/`: summary.csv, summary.md, paper_table.md.
 - `receipts/<task>/`: EvidenceBundle.v0.1 and verify_report.txt per task.
 - `_repr/`: one representative run per task (episodes.jsonl, results.json).
 - `SECURITY/`: attack_results.json (security attack suite), coverage.md, coverage.json, reason_codes.md, deps_inventory.json, deps_inventory_runtime.json (securitization packet).
 - `TRANSPARENCY_LOG/`: log.json (append-only episode digests), root.txt (Merkle root), proofs/<episode_id>.json (inclusion proofs).
 - `SAFETY_CASE/`: safety_case.json, safety_case.md (claim -> control -> test -> artifact -> command).
-- `COORDINATION_CARD.md`: coordination benchmark card (TaskG/TaskH; scenario generation, scale configs, methods, injections, metrics, determinism, limitations, policy fingerprint).
+- `COORDINATION_MATRIX/`: COORDINATION_MATRIX.v0.1.json (matrix artifact; from pack when --include-coordination-pack), README.md (how produced; llm_live or pack mode).
+- `COORDINATION_CARD.md`: coordination benchmark card (coord_scale/coord_risk; scenario generation, scale configs, methods, injections, metrics, determinism, limitations, policy fingerprint).
 - `COORDINATION_LLM_CARD.md`: LLM coordination card (LLM methods, backends, policy fingerprint, injection coverage, known limitations).
 - `_coordination_policy/`: frozen copy of policy/coordination/ files used for the card; manifest.json contains coordination_policy_fingerprint and per-file sha256.
+"""
+    if include_coordination_pack:
+        release_notes += """
+- `_coordination_pack/`: coordination security pack output when run with `--include-coordination-pack`: pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.v0.1.json; see [Lab coordination report](docs/lab_coordination_report.md).
+"""
+    release_notes += """
 
 ## Official Benchmark Pack (v0.1)
 
@@ -377,7 +462,7 @@ The **Official Benchmark Pack** is defined in `policy/official/benchmark_pack.v0
 | Item | Value |
 |------|-------|
 | Pack policy | policy/official/benchmark_pack.v0.1.yaml |
-| Tasks | TaskA–TaskF (core), TaskG–TaskH (coordination) |
+| Tasks | throughput_sla–insider_key_misuse (core), coord_scale–coord_risk (coordination) |
 | Scale configs | S (small), M (medium), L (large) |
 | Baselines | scripted_ops_v1, adversary_v1, insider_v1, kernel_scheduler_or_v0 |
 | Coordination methods | centralized_planner, hierarchical_hub_rr, llm_constrained |
@@ -437,10 +522,12 @@ def run_package_release(
     fixed_timestamp: str | None = None,
     pipeline_mode: str = "deterministic",
     allow_network: bool = False,
+    include_coordination_pack: bool = False,
 ) -> Path:
     """
     Run reproduce, export receipts and FHIR, copy plots/tables, write MANIFEST, BENCHMARK_CARD, metadata.
     For profile paper_v0.1, run benchmark-first paper-ready pipeline instead.
+    When include_coordination_pack is True (paper_v0.1), run coordination security pack and lab report.
     Returns release_out directory.
     """
     repo_root = repo_root or Path.cwd()
@@ -456,6 +543,7 @@ def run_package_release(
             fixed_timestamp=fixed_timestamp,
             pipeline_mode=pipeline_mode,
             allow_network=allow_network,
+            include_coordination_pack=include_coordination_pack,
         )
 
     repro_dir = out_dir / REPRO_DIR_NAME
@@ -485,7 +573,7 @@ def run_package_release(
     partner_id: str | None = None
     policy_fingerprint: str | None = None
 
-    for task in ["taska", "taskc"]:
+    for task in ["throughput_sla", "qc_cascade"]:
         task_path = repro_dir / task
         if not task_path.is_dir():
             continue

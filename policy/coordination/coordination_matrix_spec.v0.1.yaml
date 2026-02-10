@@ -1,0 +1,63 @@
+# Phase 1: Matrix scoring/ranking semantics. Declarative only; builder in Phase 2.
+version: "v0.1"
+
+scope:
+  pipeline_modes_allowed:
+    - "llm_live"
+  notes: "Matrix is llm_live only; offline pipelines do not compute it."
+
+scores:
+  coordination_score:
+    # Weights sum to 1.0. Heavy on p95_tat_s and violation_rate, then throughput, then cost and llm latency.
+    weights:
+      p95_tat_s: 0.30
+      violation_rate: 0.25
+      throughput_per_hr: 0.20
+      mean_llm_latency_ms: 0.15
+      estimated_cost_usd: 0.10
+
+  resilience_score:
+    # Weights sum to 1.0. Heavy on attack_success_rate and blast_radius, then stealth, attribution, fallback.
+    weights:
+      attack_success_rate: 0.35
+      sec.blast_radius_proxy: 0.25
+      sec.stealth_success_rate: 0.20
+      sec.time_to_attribution_steps: 0.12
+      fallback_rate: 0.08
+
+  overall_score:
+    # alpha = weight on coordination_score; resilience gets (1 - alpha).
+    alpha: 0.6
+
+ranking:
+  rank_per_scale: true
+  rank_global: true
+  tie_breakers:
+    - "p95_tat_s"
+    - "violation_rate"
+    - "throughput_per_hr"
+    - "attack_success_rate"
+    - "sec.blast_radius_proxy"
+    - "sec.stealth_success_rate"
+
+outputs:
+  matrix_table_id: "coordination_resilience_matrix"
+  required_columns:
+    - "scale_id"
+    - "method_id"
+    - "coordination_score"
+    - "resilience_score"
+    - "overall_score"
+    - "coord_rank"
+    - "res_rank"
+    - "overall_rank"
+    - "gated_out"
+    - "gate_failures"
+    - "notes"
+
+determinism:
+  sorting:
+    - "scale_id"
+    - "overall_rank"
+    - "method_id"
+  float_rounding_decimals: 6

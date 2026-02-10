@@ -8,7 +8,7 @@
   "additionalProperties": true,
   "properties": {
     "schema_version": { "type": "string", "const": "0.2" },
-    "task": { "type": "string", "description": "Task name (e.g. TaskA, TaskB, TaskC, TaskD, TaskE)" },
+    "task": { "type": "string", "description": "Task id (e.g. throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse, coord_scale, coord_risk)" },
     "seeds": {
       "type": "array",
       "items": { "type": "integer" },
@@ -58,7 +58,7 @@
     },
     "metadata": {
       "type": "object",
-      "description": "Optional run metadata (e.g. llm_backend_id, llm_model_id, llm_error_rate, mean_llm_latency_ms when using LLM).",
+      "description": "Optional run metadata (e.g. llm_backend_id, llm_model_id, llm_error_rate, mean_llm_latency_ms when using LLM; coordination.learning.enabled, checkpoint_sha, update_count, buffer_size when using study-track learning methods).",
       "additionalProperties": true
     }
   }

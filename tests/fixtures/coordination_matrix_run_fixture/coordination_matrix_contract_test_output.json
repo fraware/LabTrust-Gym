@@ -1,0 +1,360 @@
+{
+  "generated_at": "2026-02-09T09:12:51.567085Z",
+  "inputs": [
+    {
+      "path": "policy/coordination/coordination_matrix_column_map.v0.1.yaml",
+      "role": "column_map",
+      "sha256": "624da5051b035a6e0dee8303a8770888cd51dcd4748ad7fd641d33420cabbc97"
+    },
+    {
+      "path": "policy/coordination/coordination_matrix_spec.v0.1.yaml",
+      "role": "matrix_spec",
+      "sha256": "80da82f11201b2c3f276be6bc3b908a11ea2630490fdd7805dcd2aadc60d2eed"
+    }
+  ],
+  "kind": "coordination_matrix",
+  "policy_fingerprint": "sha256:7e8dc4ad14dc45c215e3a248d468bd71afcce785cf83a5933f00829a4ae683be",
+  "recommendations": [
+    {
+      "balanced": {
+        "ar_score": 1.0,
+        "cq_score": 0.35,
+        "method_id": "llm_hierarchical_allocator"
+      },
+      "notes": [],
+      "ops_first": {
+        "ar_score": 0.0,
+        "cq_score": 0.85,
+        "method_id": "llm_central_planner"
+      },
+      "scale_id": "corridor_heavy",
+      "sec_first": {
+        "ar_score": 1.0,
+        "cq_score": 0.35,
+        "method_id": "llm_hierarchical_allocator"
+      }
+    },
+    {
+      "balanced": {
+        "ar_score": 1.0,
+        "cq_score": 0.875,
+        "method_id": "llm_central_planner"
+      },
+      "notes": [],
+      "ops_first": {
+        "ar_score": 1.0,
+        "cq_score": 0.875,
+        "method_id": "llm_central_planner"
+      },
+      "scale_id": "small_smoke",
+      "sec_first": {
+        "ar_score": 1.0,
+        "cq_score": 0.875,
+        "method_id": "llm_central_planner"
+      }
+    }
+  ],
+  "rows": [
+    {
+      "feasible": {
+        "attacked": true,
+        "clean": true,
+        "overall": true,
+        "reasons": []
+      },
+      "method_id": "llm_hierarchical_allocator",
+      "metrics": {
+        "attacked": {
+          "attack_success_rate": 0.12,
+          "fallback_rate": 0.01,
+          "sec.blast_radius_proxy": 1.2,
+          "sec.stealth_success_rate": 0.04,
+          "sec.time_to_attribution_steps": 18.0
+        },
+        "clean": {
+          "estimated_cost_usd": 0.12,
+          "mean_llm_latency_ms": 180.0,
+          "p95_tat_s": 120.0,
+          "throughput_per_hr": 70.0,
+          "violation_rate": 0.008
+        },
+        "degradation": {}
+      },
+      "ranks": {
+        "ar_rank": 1,
+        "cq_rank": 3,
+        "pareto_member": true
+      },
+      "run_meta": {
+        "allow_network": true,
+        "llm_backend_id": "openai_live",
+        "llm_model_id": null,
+        "partner_id": null,
+        "pipeline_mode": "llm_live"
+      },
+      "scale_id": "corridor_heavy",
+      "scores": {
+        "ar_score": 1.0,
+        "cq_score": 0.35,
+        "penalties": []
+      }
+    },
+    {
+      "feasible": {
+        "attacked": true,
+        "clean": false,
+        "overall": false,
+        "reasons": [
+          "violation_rate_cap"
+        ]
+      },
+      "method_id": "llm_auction_bidder",
+      "metrics": {
+        "attacked": {
+          "attack_success_rate": 0.18,
+          "fallback_rate": 0.015,
+          "sec.blast_radius_proxy": 1.8,
+          "sec.stealth_success_rate": 0.06,
+          "sec.time_to_attribution_steps": 22.0
+        },
+        "clean": {
+          "estimated_cost_usd": 0.11,
+          "mean_llm_latency_ms": 190.0,
+          "p95_tat_s": 110.0,
+          "throughput_per_hr": 75.0,
+          "violation_rate": 0.02
+        },
+        "degradation": {}
+      },
+      "ranks": {
+        "ar_rank": 2,
+        "cq_rank": 2,
+        "pareto_member": true
+      },
+      "run_meta": {
+        "allow_network": true,
+        "llm_backend_id": "openai_live",
+        "llm_model_id": null,
+        "partner_id": null,
+        "pipeline_mode": "llm_live"
+      },
+      "scale_id": "corridor_heavy",
+      "scores": {
+        "ar_score": 0.470962,
+        "cq_score": 0.375,
+        "penalties": []
+      }
+    },
+    {
+      "feasible": {
+        "attacked": true,
+        "clean": true,
+        "overall": true,
+        "reasons": [
+          "attack_success_cap"
+        ]
+      },
+      "method_id": "llm_central_planner",
+      "metrics": {
+        "attacked": {
+          "attack_success_rate": 0.25,
+          "fallback_rate": 0.02,
+          "sec.blast_radius_proxy": 2.0,
+          "sec.stealth_success_rate": 0.08,
+          "sec.time_to_attribution_steps": 30.0
+        },
+        "clean": {
+          "estimated_cost_usd": 0.1,
+          "mean_llm_latency_ms": 200.0,
+          "p95_tat_s": 100.0,
+          "throughput_per_hr": 80.0,
+          "violation_rate": 0.005
+        },
+        "degradation": {}
+      },
+      "ranks": {
+        "ar_rank": 3,
+        "cq_rank": 1,
+        "pareto_member": true
+      },
+      "run_meta": {
+        "allow_network": true,
+        "llm_backend_id": "openai_live",
+        "llm_model_id": null,
+        "partner_id": null,
+        "pipeline_mode": "llm_live"
+      },
+      "scale_id": "corridor_heavy",
+      "scores": {
+        "ar_score": 0.0,
+        "cq_score": 0.85,
+        "penalties": [
+          {
+            "amount": 0.2,
+            "reason": "attack_success_cap"
+          }
+        ]
+      }
+    },
+    {
+      "feasible": {
+        "attacked": true,
+        "clean": true,
+        "overall": true,
+        "reasons": []
+      },
+      "method_id": "llm_central_planner",
+      "metrics": {
+        "attacked": {
+          "attack_success_rate": 0.08,
+          "fallback_rate": 0.005,
+          "sec.blast_radius_proxy": 1.0,
+          "sec.stealth_success_rate": 0.03,
+          "sec.time_to_attribution_steps": 15.0
+        },
+        "clean": {
+          "estimated_cost_usd": 0.05,
+          "mean_llm_latency_ms": 100.0,
+          "p95_tat_s": 50.0,
+          "throughput_per_hr": 100.0,
+          "violation_rate": 0.003
+        },
+        "degradation": {}
+      },
+      "ranks": {
+        "ar_rank": 1,
+        "cq_rank": 1,
+        "pareto_member": true
+      },
+      "run_meta": {
+        "allow_network": true,
+        "llm_backend_id": "openai_live",
+        "llm_model_id": null,
+        "partner_id": null,
+        "pipeline_mode": "llm_live"
+      },
+      "scale_id": "small_smoke",
+      "scores": {
+        "ar_score": 1.0,
+        "cq_score": 0.875,
+        "penalties": []
+      }
+    },
+    {
+      "feasible": {
+        "attacked": true,
+        "clean": true,
+        "overall": true,
+        "reasons": []
+      },
+      "method_id": "llm_auction_bidder",
+      "metrics": {
+        "attacked": {
+          "attack_success_rate": 0.1,
+          "fallback_rate": 0.01,
+          "sec.blast_radius_proxy": 1.2,
+          "sec.stealth_success_rate": 0.04,
+          "sec.time_to_attribution_steps": 17.0
+        },
+        "clean": {
+          "estimated_cost_usd": 0.055,
+          "mean_llm_latency_ms": 105.0,
+          "p95_tat_s": 52.0,
+          "throughput_per_hr": 98.0,
+          "violation_rate": 0.002
+        },
+        "degradation": {}
+      },
+      "ranks": {
+        "ar_rank": 2,
+        "cq_rank": 2,
+        "pareto_member": false
+      },
+      "run_meta": {
+        "allow_network": true,
+        "llm_backend_id": "openai_live",
+        "llm_model_id": null,
+        "partner_id": null,
+        "pipeline_mode": "llm_live"
+      },
+      "scale_id": "small_smoke",
+      "scores": {
+        "ar_score": 0.333333,
+        "cq_score": 0.675,
+        "penalties": []
+      }
+    },
+    {
+      "feasible": {
+        "attacked": true,
+        "clean": true,
+        "overall": true,
+        "reasons": []
+      },
+      "method_id": "llm_hierarchical_allocator",
+      "metrics": {
+        "attacked": {
+          "attack_success_rate": 0.14,
+          "fallback_rate": 0.008,
+          "sec.blast_radius_proxy": 1.1,
+          "sec.stealth_success_rate": 0.05,
+          "sec.time_to_attribution_steps": 16.0
+        },
+        "clean": {
+          "estimated_cost_usd": 0.06,
+          "mean_llm_latency_ms": 110.0,
+          "p95_tat_s": 55.0,
+          "throughput_per_hr": 95.0,
+          "violation_rate": 0.004
+        },
+        "degradation": {}
+      },
+      "ranks": {
+        "ar_rank": 3,
+        "cq_rank": 3,
+        "pareto_member": false
+      },
+      "run_meta": {
+        "allow_network": true,
+        "llm_backend_id": "openai_live",
+        "llm_model_id": null,
+        "partner_id": null,
+        "pipeline_mode": "llm_live"
+      },
+      "scale_id": "small_smoke",
+      "scores": {
+        "ar_score": 0.217,
+        "cq_score": 0.0,
+        "penalties": []
+      }
+    }
+  ],
+  "scales": [
+    {
+      "meta": {},
+      "scale_id": "corridor_heavy"
+    },
+    {
+      "meta": {},
+      "scale_id": "small_smoke"
+    }
+  ],
+  "spec": {
+    "path": "policy/coordination/coordination_matrix_spec.v0.1.yaml",
+    "scope": {
+      "allow_network": true,
+      "allowed_llm_backends": [
+        "openai_live",
+        "ollama_live"
+      ],
+      "allowed_methods": [
+        "llm_central_planner",
+        "llm_hierarchical_allocator",
+        "llm_auction_bidder"
+      ],
+      "pipeline_mode": "llm_live"
+    },
+    "sha256": "sha256:80da82f11201b2c3f276be6bc3b908a11ea2630490fdd7805dcd2aadc60d2eed"
+  },
+  "version": "0.1"
+}

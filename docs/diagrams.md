@@ -13,7 +13,7 @@ flowchart TB
     subgraph inputs["Inputs"]
         CLI["CLI (quick-eval, run-benchmark, package-release, ...)"]
         Policy["Policy (policy/)\nzones, RBAC, tokens, invariants,\ncritical, catalogue, coordination"]
-        Tasks["Tasks (TaskA–H)\nscenario, scale, metrics"]
+        Tasks["Tasks (throughput_sla–coord_risk)\nscenario, scale, metrics"]
         Baselines["Baselines\nscripted, adversary, LLM, MARL,\ncoordination methods"]
     end
 

@@ -123,7 +123,7 @@ def test_simplex_fallback_liveness_smoke(repo_root: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     try:
         run_benchmark(
-            task_name="TaskH_COORD_RISK",
+            task_name="coord_risk",
             num_episodes=1,
             base_seed=99,
             out_path=out / "results.json",

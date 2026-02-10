@@ -144,6 +144,8 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         local_strategy: str = "edf",
         use_whca: bool = False,
         whca_horizon: int = 10,
+        method_id_override: str | None = None,
+        defense_profile: str | None = None,
     ) -> None:
         self._backend = allocator_backend
         self._rbac_policy = rbac_policy
@@ -156,13 +158,15 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         self._local_strategy = local_strategy if ok else "edf"
         self._use_whca = use_whca
         self._whca_horizon = whca_horizon
+        self._method_id_override = method_id_override
+        self._defense_profile = defense_profile or ""
         self._seed = 0
         self._last_proposal: dict[str, Any] | None = None
         self._last_meta: dict[str, Any] | None = None
 
     @property
     def method_id(self) -> str:
-        return "llm_hierarchical_allocator"
+        return self._method_id_override or "llm_hierarchical_allocator"
 
     def reset(
         self,
@@ -207,18 +211,25 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         if not callable(generate):
             return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
 
-        proposal, meta = generate(
-            digest,
-            self._allowed_actions,
-            step_id=t,
-            method_id=self.method_id,
-        )
+        safe_fallback = self._defense_profile == "safe_fallback"
+        try:
+            proposal, meta = generate(
+                digest,
+                self._allowed_actions,
+                step_id=t,
+                method_id=self.method_id,
+            )
+        except Exception:
+            if safe_fallback:
+                return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
+            raise
         self._last_proposal = proposal
         self._last_meta = meta
+        strict_reason = self._defense_profile == "shielded"
         valid, errors = validate_proposal(
             proposal,
             allowed_actions=self._allowed_actions,
-            strict_reason_codes=False,
+            strict_reason_codes=strict_reason,
         )
         if not valid:
             return {a: {"action_index": ACTION_NOOP} for a in agent_ids}

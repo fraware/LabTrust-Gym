@@ -20,19 +20,29 @@ from pathlib import Path
 from typing import Any
 
 # Method IDs that use LLM; only included in the study when --llm-backend is set.
+# Includes base methods and defended variants (shielded, safe_fallback).
 LLM_METHOD_IDS = frozenset({
     "llm_central_planner",
     "llm_hierarchical_allocator",
     "llm_auction_bidder",
+    "llm_central_planner_shielded",
+    "llm_hierarchical_allocator_shielded",
+    "llm_auction_bidder_shielded",
+    "llm_central_planner_with_safe_fallback",
+    "llm_hierarchical_allocator_with_safe_fallback",
+    "llm_auction_bidder_with_safe_fallback",
     "llm_gossip_summarizer",
     "llm_local_decider_signed_bus",
     "llm_repair_over_kernel_whca",
+    "llm_constrained",
+    "llm_detector_throttle_advisor",
 })
 
 from labtrust_gym.benchmarks.coordination_scale import CoordinationScaleConfig
 from labtrust_gym.benchmarks.runner import run_benchmark
 from labtrust_gym.policy.coordination import (
     get_required_bench_cells,
+    injection_id_to_risk_ids_map,
     load_coordination_study_spec,
     load_method_risk_matrix,
     load_risk_to_injection_map,
@@ -563,6 +573,7 @@ def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
         "comm.p95_latency_ms",
         "comm.drop_rate",
         "comm.partition_events",
+        "coordination.stale_action_rate",
         "proposal_valid_rate",
         "blocked_rate",
         "repair_rate",
@@ -590,6 +601,7 @@ def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
         "comm.p95_latency_ms",
         "comm.drop_rate",
         "comm.partition_events",
+        "coordination.stale_action_rate",
         "proposal_valid_rate",
         "blocked_rate",
         "repair_rate",
@@ -807,10 +819,16 @@ def run_coordination_study(
 
     injections = _expand_injections(spec)
     risks = spec.get("risks") or []
+    map_path = repo_root / "policy" / "coordination" / "risk_to_injection_map.v0.1.yaml"
+    inj_to_risk_ids = injection_id_to_risk_ids_map(map_path) if map_path.is_file() else {}
+    # Fallback: single risk_id per injection (spec.risks by index or injection_id)
     risk_id_by_injection: dict[str, str] = {}
     for i, inj in enumerate(injections):
         inj_id = inj.get("injection_id", "")
-        risk_id_by_injection[inj_id] = risks[i] if i < len(risks) else inj_id
+        rids = inj_to_risk_ids.get(inj_id)
+        risk_id_by_injection[inj_id] = (
+            rids[0] if rids else (risks[i] if i < len(risks) else None) or inj_id
+        )
 
     cells_dir = out_dir / "cells"
     summary_dir = out_dir / "summary"
@@ -855,7 +873,7 @@ def run_coordination_study(
                 log_path = cell_out / "episodes.jsonl"
 
                 run_benchmark(
-                    task_name="TaskH_COORD_RISK",
+                    task_name="coord_risk",
                     num_episodes=episodes_per_cell,
                     base_seed=cell_seed,
                     out_path=results_path,
@@ -889,22 +907,55 @@ def run_coordination_study(
 
                 components = compute_components(agg, resilience_policy)
                 resilience_score = compute_resilience_score(components, resilience_policy.get("weights") or {})
-                row = {
-                    "method_id": method_id,
-                    "scale_id": scale_id,
-                    "risk_id": risk_id_by_injection.get(injection_id, injection_id),
-                    "injection_id": injection_id,
-                    **agg,
-                    "robustness.resilience_score": resilience_score,
-                    "resilience.component_perf": components.get("component_perf"),
-                    "resilience.component_safety": components.get("component_safety"),
-                    "resilience.component_security": components.get("component_security"),
-                    "resilience.component_coordination": components.get("component_coordination"),
-                }
-                summary_rows.append(row)
+                risk_ids_for_cell = inj_to_risk_ids.get(
+                    injection_id,
+                    [risk_id_by_injection.get(injection_id, injection_id)],
+                )
+                for rid in risk_ids_for_cell:
+                    row = {
+                        "method_id": method_id,
+                        "scale_id": scale_id,
+                        "risk_id": rid,
+                        "injection_id": injection_id,
+                        **agg,
+                        "robustness.resilience_score": resilience_score,
+                        "resilience.component_perf": components.get("component_perf"),
+                        "resilience.component_safety": components.get("component_safety"),
+                        "resilience.component_security": components.get("component_security"),
+                        "resilience.component_coordination": components.get("component_coordination"),
+                    }
+                    summary_rows.append(row)
 
     _write_summary_csv(summary_dir / "summary_coord.csv", summary_rows)
     _write_pareto_md(summary_dir / "pareto.md", summary_rows, spec)
+
+    try:
+        from labtrust_gym.studies.coordination_summarizer import (
+            build_method_class_comparison,
+            build_sota_leaderboard,
+            write_leaderboard_csv,
+            write_leaderboard_md,
+            write_method_class_csv,
+            write_method_class_md,
+        )
+
+        registry = None
+        if repo_root and (repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml").is_file():
+            try:
+                from labtrust_gym.policy.coordination import load_coordination_methods
+                registry = load_coordination_methods(
+                    repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
+                )
+            except Exception:
+                pass
+        leaderboard = build_sota_leaderboard(summary_rows)
+        comparison = build_method_class_comparison(summary_rows, registry)
+        write_leaderboard_csv(summary_dir / "sota_leaderboard.csv", leaderboard)
+        write_leaderboard_md(summary_dir / "sota_leaderboard.md", leaderboard)
+        write_method_class_csv(summary_dir / "method_class_comparison.csv", comparison)
+        write_method_class_md(summary_dir / "method_class_comparison.md", comparison)
+    except Exception:
+        pass
 
     pareto_dir = out_dir / "PARETO"
     try:

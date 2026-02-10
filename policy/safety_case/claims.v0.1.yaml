@@ -42,6 +42,7 @@ safety_case_claims:
         - "CTRL-RBAC"
         - "CTRL-TOOL-SANDBOX"
         - "CTRL-COORD-IDENTITY"
+        - "CTRL-DETECTOR-ADVISOR"
       tests:
         - "tests.test_security_attack_suite"
         - "tests.test_securitization"
@@ -52,6 +53,20 @@ safety_case_claims:
       commands:
         - "labtrust run-security-suite --out <dir> --smoke --seed 42"
         - "pytest tests/test_security_attack_suite.py tests/test_securitization.py -q"
+
+    - claim_id: "SC-SECURITY-002"
+      statement: "All in-scope coordination methods are stress-tested against the coordination injection set (and optional application phases). Evidence is pack_summary.csv and pack_gate.md from run-coordination-security-pack with full method list; optionally SECURITY/coordination_risk_matrix.csv."
+      controls:
+        - "Coordination security pack (scale x method x injection matrix)"
+      tests:
+        - "tests.test_security_coverage_gate::test_coordination_pack_full_method_list_non_empty"
+        - "tests.test_security_coverage_gate::test_coordination_pack_full_method_list_used"
+      artifacts:
+        - "pack_summary.csv"
+        - "pack_gate.md"
+        - "SECURITY/coordination_risk_matrix.csv"
+      commands:
+        - "labtrust run-coordination-security-pack --out <dir> --methods-from full --injections-from policy"
 
     - claim_id: "SC-POLICY-001"
       statement: "All policy files validate against their JSON schemas."

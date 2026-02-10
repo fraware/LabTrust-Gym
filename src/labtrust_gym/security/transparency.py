@@ -248,3 +248,122 @@ def write_transparency_log(
         proof_path.write_text(_canonical_json(proof_data) + "\n", encoding="utf-8")
 
     return log_dir
+
+
+LLM_LIVE_TRANSPARENCY_VERSION = "0.1"
+
+
+def collect_llm_live_metadata_from_pack(pack_out_dir: Path) -> dict[str, Any]:
+    """
+    Scan pack output baselines/results/*.json for metadata (prompt hashes,
+    tool_registry_fingerprint, model_id, latency, cost). Reviewable without
+    exposing sensitive prompt text.
+    """
+    results_dir = pack_out_dir / "baselines" / "results"
+    if not results_dir.is_dir():
+        return {
+            "version": LLM_LIVE_TRANSPARENCY_VERSION,
+            "prompt_hashes": [],
+            "tool_registry_fingerprint": None,
+            "model_version_identifiers": {},
+            "latency_and_cost_statistics": {},
+            "per_task": {},
+        }
+    prompt_hashes: list[str] = []
+    tool_registry_fingerprint: str | None = None
+    model_version_identifiers: dict[str, str] = {}
+    latency_cost_agg: dict[str, list[float]] = {
+        "mean_latency_ms": [],
+        "p95_latency_ms": [],
+        "total_tokens": [],
+        "estimated_cost_usd": [],
+    }
+    meta_to_agg = {
+        "mean_latency_ms": "mean_latency_ms",
+        "mean_llm_latency_ms": "mean_latency_ms",
+        "p95_llm_latency_ms": "p95_latency_ms",
+        "total_tokens": "total_tokens",
+        "estimated_cost_usd": "estimated_cost_usd",
+    }
+    per_task: dict[str, dict[str, Any]] = {}
+
+    for p in sorted(results_dir.glob("*.json")):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        task_name = p.stem.split("_")[0] if "_" in p.stem else p.stem
+        meta = data.get("metadata") or {}
+        pf = meta.get("prompt_fingerprint") or meta.get("prompt_sha256")
+        if pf and pf not in prompt_hashes:
+            prompt_hashes.append(pf)
+        tr = data.get("tool_registry_fingerprint") or meta.get("tool_registry_fingerprint")
+        if tr and tool_registry_fingerprint is None:
+            tool_registry_fingerprint = tr
+        bid = meta.get("llm_backend_id") or data.get("llm_backend_id")
+        mid = meta.get("llm_model_id") or data.get("llm_model_id")
+        if bid:
+            model_version_identifiers["llm_backend_id"] = str(bid)
+        if mid:
+            model_version_identifiers["llm_model_id"] = str(mid)
+        for meta_key, agg_key in meta_to_agg.items():
+            v = meta.get(meta_key)
+            if v is not None and agg_key in latency_cost_agg:
+                try:
+                    latency_cost_agg[agg_key].append(float(v))
+                except (TypeError, ValueError):
+                    pass
+        per_task[task_name] = {
+            "prompt_fingerprint": pf,
+            "llm_model_id": mid,
+            "llm_backend_id": bid,
+            "mean_latency_ms": meta.get("mean_latency_ms"),
+            "p95_llm_latency_ms": meta.get("p95_llm_latency_ms"),
+            "total_tokens": meta.get("total_tokens"),
+            "estimated_cost_usd": meta.get("estimated_cost_usd"),
+        }
+
+    def _agg(lst: list[float]) -> dict[str, float]:
+        if not lst:
+            return {}
+        return {
+            "min": min(lst),
+            "max": max(lst),
+            "mean": sum(lst) / len(lst),
+            "sum": sum(lst),
+        }
+
+    latency_and_cost_statistics: dict[str, Any] = {}
+    if latency_cost_agg["mean_latency_ms"]:
+        latency_and_cost_statistics["mean_latency_ms"] = _agg(latency_cost_agg["mean_latency_ms"])
+    if latency_cost_agg["p95_latency_ms"]:
+        latency_and_cost_statistics["p95_latency_ms"] = _agg(latency_cost_agg["p95_latency_ms"])
+    if latency_cost_agg["total_tokens"]:
+        latency_and_cost_statistics["total_tokens"] = _agg(latency_cost_agg["total_tokens"])
+    if latency_cost_agg["estimated_cost_usd"]:
+        latency_and_cost_statistics["estimated_cost_usd"] = _agg(
+            latency_cost_agg["estimated_cost_usd"]
+        )
+
+    return {
+        "version": LLM_LIVE_TRANSPARENCY_VERSION,
+        "prompt_hashes": sorted(prompt_hashes),
+        "tool_registry_fingerprint": tool_registry_fingerprint,
+        "model_version_identifiers": model_version_identifiers,
+        "latency_and_cost_statistics": latency_and_cost_statistics,
+        "per_task": per_task,
+    }
+
+
+def write_llm_live_transparency_log(pack_out_dir: Path) -> Path:
+    """
+    Write TRANSPARENCY_LOG/llm_live.json from pack output. Records prompt hashes,
+    tool registry fingerprint, model version identifiers, latency and cost
+    statistics. No sensitive prompt text. Call when pipeline_mode is llm_live.
+    """
+    log_dir = pack_out_dir / "TRANSPARENCY_LOG"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    payload = collect_llm_live_metadata_from_pack(pack_out_dir)
+    out_path = log_dir / "llm_live.json"
+    out_path.write_text(_canonical_json(payload) + "\n", encoding="utf-8")
+    return log_dir

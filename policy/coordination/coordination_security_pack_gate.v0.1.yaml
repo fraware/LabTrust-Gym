@@ -10,12 +10,24 @@ rules:
     rule: "attack_success_rate_zero"
     description: "Strict signatures enabled; spoof must be blocked."
 
+  # INJ-REPLAY-001: replay must be blocked; attack_success_rate must be 0.
+  - injection_id: "INJ-REPLAY-001"
+    rule: "attack_success_rate_zero"
+    description: "Replay protection; replayed message/action must be rejected."
+
   # INJ-COMMS-POISON-001: violations_total must not exceed nominal baseline + max_delta.
   - injection_id: "INJ-COMMS-POISON-001"
     rule: "violations_within_delta"
     nominal_metric: "safety.violations_total"
     max_delta: 5
     description: "Violations must not exceed nominal (same scale+method, injection=none) + 5."
+
+  # INJ-COMMS-DELAY-001: violations within delta when comms delayed.
+  - injection_id: "INJ-COMMS-DELAY-001"
+    rule: "violations_within_delta"
+    nominal_metric: "safety.violations_total"
+    max_delta: 5
+    description: "Violations must not exceed nominal + 5."
 
   # INJ-COORD-PROMPT-INJECT-001: if detector present, detection within N steps; else not_supported.
   - injection_id: "INJ-COORD-PROMPT-INJECT-001"

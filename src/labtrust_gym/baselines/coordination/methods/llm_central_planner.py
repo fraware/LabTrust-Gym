@@ -129,6 +129,8 @@ class LLMCentralPlanner(CoordinationMethod):
         get_allowed_actions_fn: Callable[[str], list[str]] | None = None,
         max_repairs: int = 1,
         blocked_threshold: int = 0,
+        method_id_override: str | None = None,
+        defense_profile: str | None = None,
     ) -> None:
         self._backend = proposal_backend
         self._rbac_policy = rbac_policy
@@ -137,6 +139,8 @@ class LLMCentralPlanner(CoordinationMethod):
         self._get_allowed_actions_fn = get_allowed_actions_fn
         self._max_repairs = max(0, int(max_repairs))
         self._blocked_threshold = max(0, int(blocked_threshold))
+        self._method_id_override = method_id_override
+        self._defense_profile = defense_profile or ""
         self._last_proposal: dict[str, Any] | None = None
         self._last_meta: dict[str, Any] | None = None
         self._last_valid = False
@@ -146,7 +150,7 @@ class LLMCentralPlanner(CoordinationMethod):
 
     @property
     def method_id(self) -> str:
-        return "llm_central_planner"
+        return self._method_id_override or "llm_central_planner"
 
     def reset(
         self,
@@ -191,12 +195,18 @@ class LLMCentralPlanner(CoordinationMethod):
         if not callable(generate):
             return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
 
-        proposal, meta = generate(
-            digest,
-            allowed,
-            step_id=t,
-            method_id=self.method_id,
-        )
+        safe_fallback = self._defense_profile == "safe_fallback"
+        try:
+            proposal, meta = generate(
+                digest,
+                allowed,
+                step_id=t,
+                method_id=self.method_id,
+            )
+        except Exception:
+            if safe_fallback:
+                return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
+            raise
         self._last_proposal = proposal
         self._last_meta = meta
         self._proposal_total_count += 1
@@ -204,10 +214,11 @@ class LLMCentralPlanner(CoordinationMethod):
         if lat is not None and isinstance(lat, (int, float)):
             self._latency_ms_list.append(float(lat))
 
+        strict_reason = self._defense_profile == "shielded"
         valid, errors = validate_proposal(
             proposal,
             allowed_actions=allowed,
-            strict_reason_codes=False,
+            strict_reason_codes=strict_reason,
         )
         if not valid:
             return {a: {"action_index": ACTION_NOOP} for a in agent_ids}

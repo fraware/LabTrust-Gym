@@ -31,7 +31,23 @@ def test_load_attack_suite() -> None:
     for a in attacks:
         assert "attack_id" in a
         assert a.get("risk_id") or a.get("control_id")
-        assert a.get("scenario_ref") or a.get("test_ref")
+        assert (
+            a.get("scenario_ref") or a.get("test_ref") or a.get("llm_attacker")
+        ), "each attack must have scenario_ref, test_ref, or llm_attacker"
+
+
+def test_detector_attack_sec_detector_001_in_suite() -> None:
+    """SEC-DETECTOR-001 exists in suite with test_ref and control_id CTRL-DETECTOR-ADVISOR."""
+    root = _repo_root()
+    suite = load_attack_suite(root)
+    attacks = suite.get("attacks") or []
+    detector = next(
+        (a for a in attacks if a.get("attack_id") == "SEC-DETECTOR-001"), None
+    )
+    assert detector is not None, "SEC-DETECTOR-001 must be in security_attack_suite"
+    assert detector.get("control_id") == "CTRL-DETECTOR-ADVISOR"
+    assert detector.get("test_ref") == "tests.test_detector_advisor_taskh"
+    assert detector.get("risk_id") == "R-COMMS-002"
 
 
 def test_run_security_suite_smoke_deterministic() -> None:

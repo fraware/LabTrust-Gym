@@ -1,7 +1,7 @@
 # LabTrust-Gym make targets
 # Optional: use 'make test' and 'make bench-smoke' (bench-smoke requires [env])
 
-.PHONY: test golden bench-smoke lint format typecheck policy-validate
+.PHONY: test golden bench-smoke lint format typecheck policy-validate e2e-artifacts-chain
 
 # Default: run fast test suite (no env optional deps for golden/policy)
 test:
@@ -30,3 +30,8 @@ typecheck:
 
 policy-validate:
 	labtrust validate-policy
+
+# Full reproducible artifact chain: package-release (minimal) -> verify-bundle -> export-risk-register.
+# Requires bash. No network. Deterministic (SEED_BASE=100). Use for CI gate and local one-button proof.
+e2e-artifacts-chain:
+	bash scripts/ci_e2e_artifacts_chain.sh

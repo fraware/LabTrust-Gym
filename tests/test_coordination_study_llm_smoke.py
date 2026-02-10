@@ -58,7 +58,7 @@ def test_coordination_study_llm_smoke_one_cell_per_method(tmp_path: Path) -> Non
         data = json.loads(results_path.read_text(encoding="utf-8"))
         assert "schema_version" in data
         assert "task" in data
-        assert data.get("task") == "TaskH_COORD_RISK"
+        assert data.get("task") == "coord_risk"
         assert "episodes" in data
         assert isinstance(data["episodes"], list)
         assert "seeds" in data

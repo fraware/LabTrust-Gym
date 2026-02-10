@@ -90,6 +90,15 @@ coordination_methods:
       compatible_injections: ["inj_msg_poison", "inj_memory_tamper"]
       default_params: {}
 
+    - method_id: "ripple_effect"
+      name: "Ripple effect (local intent + signed bus, neighbor propagation)"
+      coordination_class: decentralized
+      scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-FLOW-002"]
+      required_controls: ["message_auth", "replay_protection", "signed_actions"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-CONSENSUS-POISON-001", "INJ-ID-SPOOF-001"]
+      default_params: {}
+
     - method_id: "swarm_reactive"
       name: "Swarm reactive"
       coordination_class: swarm
@@ -147,13 +156,80 @@ coordination_methods:
       compatible_injections: ["INJ-COLLUSION-001", "INJ-BID-SPOOF-001", "INJ-COMMS-POISON-001", "INJ-COORD-BID-SHILL-001"]
       default_params: {}
 
+    # Defended variants (composition over base methods; deployable stacks for matrix ranking)
+    - method_id: "llm_central_planner_shielded"
+      name: "LLM central planner (shielded: strict validation, safe fallback on reject)"
+      coordination_class: llm
+      base_method: "llm_central_planner"
+      defense_profile: "shielded"
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_prompt_injection", "inj_jailbreak", "inj_misparam_device"]
+      default_params: {}
+
+    - method_id: "llm_hierarchical_allocator_shielded"
+      name: "LLM hierarchical allocator (shielded)"
+      coordination_class: llm
+      base_method: "llm_hierarchical_allocator"
+      defense_profile: "shielded"
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-COMMS-002", "R-DATA-001"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_prompt_injection", "inj_msg_poison", "inj_misparam_device"]
+      default_params: {}
+
+    - method_id: "llm_auction_bidder_shielded"
+      name: "LLM auction bidder (shielded)"
+      coordination_class: llm
+      base_method: "llm_auction_bidder"
+      defense_profile: "shielded"
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-DATA-001", "R-COMMS-002", "R-TOOL-006"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit", "bid_validation"]
+      compatible_injections: ["INJ-COLLUSION-001", "INJ-BID-SPOOF-001", "INJ-COMMS-POISON-001"]
+      default_params: {}
+
+    - method_id: "llm_central_planner_with_safe_fallback"
+      name: "LLM central planner (explicit safe fallback on error)"
+      coordination_class: llm
+      base_method: "llm_central_planner"
+      defense_profile: "safe_fallback"
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-CAP-001", "R-DATA-001"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_prompt_injection", "inj_jailbreak", "inj_misparam_device"]
+      default_params: {}
+
+    - method_id: "llm_hierarchical_allocator_with_safe_fallback"
+      name: "LLM hierarchical allocator (safe fallback)"
+      coordination_class: llm
+      base_method: "llm_hierarchical_allocator"
+      defense_profile: "safe_fallback"
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-COMMS-002", "R-DATA-001"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit"]
+      compatible_injections: ["inj_prompt_injection", "inj_msg_poison", "inj_misparam_device"]
+      default_params: {}
+
+    - method_id: "llm_auction_bidder_with_safe_fallback"
+      name: "LLM auction bidder (safe fallback)"
+      coordination_class: llm
+      base_method: "llm_auction_bidder"
+      defense_profile: "safe_fallback"
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-DATA-001", "R-COMMS-002", "R-TOOL-006"]
+      required_controls: ["signed_actions", "RBAC", "rate_limit", "bid_validation"]
+      compatible_injections: ["INJ-COLLUSION-001", "INJ-BID-SPOOF-001", "INJ-COMMS-POISON-001"]
+      default_params: {}
+
     - method_id: "llm_gossip_summarizer"
       name: "LLM gossip summarizer (signed typed messages, deterministic consensus)"
       coordination_class: llm
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-SYS-002"]
       required_controls: ["signed_actions", "RBAC", "message_auth", "replay_protection"]
-      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001", "INJ-CONSENSUS-POISON-001", "INJ-TIMING-QUEUE-001", "INJ-PARTIAL-OBS-001", "INJ-BLAME-SHIFT-001"]
       default_params: {}
 
     - method_id: "llm_repair_over_kernel_whca"
@@ -162,7 +238,7 @@ coordination_methods:
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-CAP-001", "R-SYS-002"]
       required_controls: ["signed_actions", "message_auth", "shield_execute", "repair_loop"]
-      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001", "INJ-LLM-PROMPT-INJECT-COORD-001", "INJ-COORD-PROMPT-INJECT-001"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001", "INJ-LLM-PROMPT-INJECT-COORD-001", "INJ-COORD-PROMPT-INJECT-001", "INJ-CONSENSUS-POISON-001", "INJ-TIMING-QUEUE-001", "INJ-PARTIAL-OBS-001", "INJ-BLAME-SHIFT-001"]
       default_params:
         kernel_method: "kernel_whca"
         whca_horizon: 15
@@ -174,7 +250,7 @@ coordination_methods:
       scaling_knobs: ["num_agents", "num_devices", "num_sites", "arrival_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-SYS-002"]
       required_controls: ["signed_actions", "message_auth", "replay_protection"]
-      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001", "INJ-ID-REPLAY-COORD-001", "INJ-COORD-PLAN-REPLAY-001"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001", "INJ-ID-REPLAY-COORD-001", "INJ-COORD-PLAN-REPLAY-001", "INJ-CONSENSUS-POISON-001", "INJ-TIMING-QUEUE-001", "INJ-PARTIAL-OBS-001", "INJ-BLAME-SHIFT-001"]
       default_params: {}
 
     - method_id: "llm_detector_throttle_advisor"
@@ -186,3 +262,28 @@ coordination_methods:
       compatible_injections: ["INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001"]
       default_params:
         detector_latency_bound_steps: 5
+
+    - method_id: "group_evolving_experience_sharing"
+      name: "Group-Evolving experience sharing (deterministic track)"
+      coordination_class: decentralized
+      scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-FLOW-002"]
+      required_controls: ["signed_actions", "RBAC"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail"]
+      default_params:
+        share_interval: 5
+        summary_max_items: 50
+
+    - method_id: "group_evolving_study"
+      name: "Group-Evolving study (population evolution across episodes)"
+      coordination_class: decentralized
+      scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate", "episodes_per_generation"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-FLOW-002"]
+      required_controls: ["signed_actions", "RBAC"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail"]
+      default_params:
+        share_interval: 5
+        summary_max_items: 50
+        population_size: 4
+        top_k: 2
+        episodes_per_generation: 2

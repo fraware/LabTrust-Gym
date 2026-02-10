@@ -127,6 +127,18 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
         "policy/coordination/coordination_study_spec.v0.1.yaml",
         "coordination_study_spec.v0.1.schema.json",
     ),
+    (
+        "policy/coordination/coordination_matrix_inputs.v0.1.yaml",
+        "coordination_matrix_inputs.v0.1.schema.json",
+    ),
+    (
+        "policy/coordination/coordination_matrix_column_map.v0.1.yaml",
+        "coordination_matrix_column_map.v0.1.schema.json",
+    ),
+    (
+        "policy/coordination/coordination_matrix_spec.v0.1.yaml",
+        "coordination_matrix_spec.v0.1.schema.json",
+    ),
     ("policy/tool_registry.v0.1.yaml", "tool_registry.v0.1.schema.json"),
     ("policy/capabilities.v0.1.yaml", "capabilities.v0.1.schema.json"),
     (

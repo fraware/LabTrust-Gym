@@ -19,7 +19,7 @@ def test_taskd_runs_deterministically() -> None:
     pytest.importorskip("gymnasium")
     pytest.importorskip("pettingzoo")
     _repo_root()
-    task = get_task("TaskD")
+    task = get_task("adversarial_disruption")
     from labtrust_gym.baselines.adversary import AdversaryAgent
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
@@ -70,7 +70,7 @@ def test_taskd_produces_detection_metrics() -> None:
     pytest.importorskip("gymnasium")
     pytest.importorskip("pettingzoo")
     _repo_root()
-    task = get_task("TaskD")
+    task = get_task("adversarial_disruption")
     from labtrust_gym.baselines.adversary import AdversaryAgent
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
     from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
