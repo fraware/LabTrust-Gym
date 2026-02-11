@@ -24,10 +24,12 @@ from labtrust_gym.security.safety_case import (
 
 
 def _test_module_to_path(module: str) -> Path:
-    """Map tests.test_foo_bar -> tests/test_foo_bar.py."""
-    if not module.startswith("tests."):
-        return Path(module.replace(".", "/") + ".py")
-    rest = module[len("tests.") :]
+    """Map tests.test_foo_bar or tests.test_foo_bar::test_func -> tests/test_foo_bar.py."""
+    # Claims may reference test names (module::test_name); we only need the module file to exist.
+    module_only = module.split("::")[0].strip()
+    if not module_only.startswith("tests."):
+        return Path(module_only.replace(".", "/") + ".py")
+    rest = module_only[len("tests.") :]
     return Path("tests") / (rest.replace(".", "_") + ".py")
 
 
@@ -87,6 +89,8 @@ def test_claimed_artifacts_referenced_in_layout() -> None:
         "RELEASE_NOTES.md",
         "_repr/",
     }
+    # Run artifacts produced by commands (e.g. run-coordination-security-pack) but not under a single top dir
+    run_artifact_names = {"pack_summary.csv", "pack_gate.md"}
     for a in artifacts:
         # Normalize: artifact may be "SAFETY_CASE/safety_case.json" or "SECURITY/"
         top = a.split("/")[0] if "/" in a else a
@@ -96,7 +100,8 @@ def test_claimed_artifacts_referenced_in_layout() -> None:
             or a in paper_output_paths
         )
         in_repo = (root / a).exists() or (root / top).exists()
-        assert in_paper or in_repo, (
+        is_run_artifact = a in run_artifact_names or top in run_artifact_names
+        assert in_paper or in_repo or is_run_artifact, (
             f"Claimed artifact {a!r} is neither under repo nor in paper_v0.1 layout. "
             "Add to package_release output or policy."
         )

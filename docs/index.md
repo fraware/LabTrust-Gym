@@ -71,7 +71,7 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `generate-official-baselines --out \<dir\>` | Run Tasks A–F with official baselines; write results/, summary, metadata (--episodes, --seed, --force) |
 | `summarize-results --in \<paths\> --out \<dir\>` | Aggregate results.json; write summary_v0.2.csv (CI-stable), summary_v0.3.csv (paper-grade), summary.csv + summary.md |
 | `determinism-report` | Run benchmark twice; produce determinism_report.md/.json; assert v0.2 metrics and log hash identical |
-| `train-ppo`, `eval-ppo` | PPO training/eval (requires `.[marl]`) |
+| `train-ppo`, `eval-ppo` | PPO training/eval (requires `.[marl]`). Throughput_sla uses schedule_reward for non-zero mean reward. Use `eval-agent` with `labtrust_gym.baselines.marl.ppo_agent:PPOAgent` and `LABTRUST_PPO_MODEL` to run benchmark with a trained model. See [MARL baselines](marl_baselines.md). |
 
 ## Layout
 

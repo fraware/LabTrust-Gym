@@ -57,6 +57,24 @@ Common failures and how to fix or work around them.
 2. Either improve the methods (so at least one passes all constraints) or relax constraints in the selection policy for your org (e.g. increase violation ceiling) and re-run the pack and report.
 3. Use the recommended actions in the decision artifact (e.g. “Tighten defenses or add safe fallback for failing methods”).
 
+## train-ppo: mean reward 0.00
+
+**Symptom:** After training, `labtrust eval-ppo` reports mean reward 0.00.
+
+**Cause:** Throughput_sla rewards only when `RELEASE_RESULT` is emitted (QC/supervisor). In the PPO setup those agents are scripted and may never release in short runs.
+
+**Fix:** The task now includes **schedule_reward** (0.1) for each accepted QUEUE_RUN by ops_0, so you get non-zero reward during training. Retrain with the current code; if you still see 0.00, increase timesteps or check that the policy is taking action 2 (QUEUE_RUN) sometimes.
+
+## eval-agent with PPO model
+
+**Symptom:** You want to run the benchmark with a trained PPO model as ops_0.
+
+**Fix:** Use the built-in PPOAgent. Set `LABTRUST_PPO_MODEL` to the path to your `model.zip` (e.g. `labtrust_runs/ppo_10k/model.zip`), then run:
+
+`labtrust eval-agent --task throughput_sla --episodes 5 --agent labtrust_gym.baselines.marl.ppo_agent:PPOAgent --out labtrust_runs/ppo_bench_results.json`
+
+See [MARL baselines](marl_baselines.md).
+
 ## E2E artifacts chain fails
 
 **Symptom:** `make e2e-artifacts-chain` or `bash scripts/ci_e2e_artifacts_chain.sh` fails at package-release, verify-release, or export-risk-register.

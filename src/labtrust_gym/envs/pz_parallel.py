@@ -113,7 +113,9 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         scale_agents: list[dict[str, str]] | None = None,
         scale_device_ids: list[str] | None = None,
         scale_zone_ids: list[str] | None = None,
+        render_mode: str | None = None,
     ) -> None:
+        self.render_mode = render_mode
         if ParallelEnv is None or spaces is None:
             raise ImportError(
                 'PettingZoo and Gymnasium are required for LabTrustParallelEnv. Install with: pip install -e ".[env]"'
@@ -615,6 +617,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         violation_count = 0
         blocked_count = 0
         result_released = False
+        accepted_schedule_agent: str | None = None
         action_infos = action_infos or {}
         step_results: list[dict[str, Any]] = []
 
@@ -707,7 +710,17 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             violation_count += len(result.get("violations", []))
             if "RELEASE_RESULT" in result.get("emits", []):
                 result_released = True
+            if (
+                event.get("action_type") == "QUEUE_RUN"
+                and result.get("status") == "ACCEPTED"
+            ):
+                accepted_schedule_agent = agent
 
+        if self._reward_config.get("schedule_reward") and accepted_schedule_agent:
+            r = float(self._reward_config.get("schedule_reward", 0.0))
+            rewards[accepted_schedule_agent] = rewards.get(
+                accepted_schedule_agent, 0.0
+            ) + r
         if self._reward_config.get("throughput_reward") and result_released:
             for a in self.agents:
                 rewards[a] = float(self._reward_config.get("throughput_reward", 1.0))

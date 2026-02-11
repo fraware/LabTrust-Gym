@@ -56,6 +56,8 @@ labtrust run-benchmark --task throughput_sla --episodes 5 --out results.json
 labtrust reproduce --profile minimal
 ```
 
+**New to the repo?** If you forked the repo and want to customize for your hospital lab and run all commands end-to-end, see [Getting started (forker)](docs/GETTING_STARTED_FORKER.md).
+
 | Extra | Purpose |
 |-------|---------|
 | `[env]` | PettingZoo/Gymnasium |
@@ -113,7 +115,7 @@ Keep the repo root minimal; put CLI outputs in `labtrust_runs/` or `--out` (see 
 |---------|-------------|
 | **quick-eval** | One episode each of throughput_sla, adversarial_disruption, multi_site_stat; summary + logs under `./labtrust_runs/`. |
 | **run-benchmark** | Run tasks (throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse, coord_scale, coord_risk); write results.json. Options: `--task`, `--episodes`, `--out`, `--coord-method`, `--injection`, `--scale`, `--timing`, `--llm-backend`, `--llm-agents`. See [docs/llm_live.md](docs/llm_live.md), [docs/llm_coordination_protocol.md](docs/llm_coordination_protocol.md). |
-| **eval-agent** | Run benchmark with external agent (e.g. `--agent "examples.external_agent_demo:SafeNoOpAgent"`). |
+| **eval-agent** | Run benchmark with external agent (e.g. `--agent "examples.external_agent_demo:SafeNoOpAgent"` or trained PPO: set `LABTRUST_PPO_MODEL=<path>/model.zip`, `--agent labtrust_gym.baselines.marl.ppo_agent:PPOAgent`). |
 | **bench-smoke** | One episode per task (throughput_sla, stat_insertion, qc_cascade). |
 | **determinism-report** | Run benchmark twice in fresh temp dirs; assert v0.2 metrics and episode log hash identical; write determinism_report.md/json. |
 | **train-ppo**, **eval-ppo** | PPO training/eval (requires `.[marl]`). |
@@ -176,7 +178,7 @@ Keep the repo root minimal; put CLI outputs in `labtrust_runs/` or `--out` (see 
 | **tests/** | Pytest: golden suite, policy, benchmarks, coordination, risk_injections, studies, export, online, CLI smoke matrix (`test_cli_smoke_matrix.py`). |
 | **benchmarks/** | Baseline registry, official baselines (v0.1, v0.2). |
 | **examples/** | Example agents (external_agent_demo, scripted_ops_agent, llm_agent_mock_demo, etc.). |
-| **docs/** | MkDocs: architecture, benchmarks, coordination ([methods](docs/coordination_methods.md)), [benchmarking plan](docs/benchmarking_plan.md), [frozen contracts](docs/frozen_contracts.md), installation, [STATUS](docs/STATUS.md), security, LLM, MARL. |
+| **docs/** | MkDocs: architecture, benchmarks, coordination ([methods](docs/coordination_methods.md)), [benchmarking plan](docs/benchmarking_plan.md), [frozen contracts](docs/frozen_contracts.md), installation, [STATUS](docs/STATUS.md), security, LLM, MARL. [Getting started (forker)](docs/GETTING_STARTED_FORKER.md) for fork-to-run and customization. |
 | **scripts/** | Quickstart, paper-release, benchmarking (run_benchmarking_layer1_sanity, run_external_reviewer_checks). |
 | **tests/fixtures/ui_fixtures/** | Minimal results, episode log, evidence bundle for offline UI. |
 
@@ -205,7 +207,7 @@ Before adding online APIs and non-deterministic runs, see **[docs/STATUS.md](doc
 
 ## Current state
 
-See **docs/STATUS.md** for the full report: policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2), transport, export, package-release, risk register, security (attack suite, safety case), coordination red team, Official Benchmark Pack, online serve, PettingZoo wrappers, scripted/adversary/LLM/MARL baselines, TaskA–TaskH, quick-eval, PyPI packaging, studies, and docs site.
+See **docs/STATUS.md** for the full report. The test suite runs with `pytest -v`: **1059 passed, 51 skipped** (PettingZoo smoke, MARL smoke, golden suite, and optional-backend tests may be skipped depending on env). Policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2), transport, export, package-release, risk register, security (attack suite, safety case), coordination red team, Official Benchmark Pack, online serve, PettingZoo wrappers (with `render_mode`), scripted/adversary/LLM/MARL baselines, PPO reward design (schedule_reward for throughput_sla), and docs site are current.
 
 ---
 

@@ -210,7 +210,10 @@ class TaskA_ThroughputSLA(BenchmarkTask):
             name="throughput_sla",
             max_steps=80,
             scripted_agents=["ops_0", "runner_0", "runner_1"],
-            reward_config={"throughput_reward": 1.0},
+            reward_config={
+                "throughput_reward": 1.0,
+                "schedule_reward": 0.1,
+            },
             sla_turnaround_s=3600,
         )
 

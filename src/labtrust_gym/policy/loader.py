@@ -63,8 +63,11 @@ def load_yaml(path: Path) -> dict[str, Any]:
     Load a YAML file. Raise PolicyLoadError with path on parse failure.
     """
     path = Path(path)
-    if not path.exists():
-        raise PolicyLoadError(path, "file not found")
+    try:
+        if not path.exists():
+            raise PolicyLoadError(path, "file not found")
+    except OSError as e:
+        raise PolicyLoadError(path, f"file not found or inaccessible: {e}") from e
     try:
         text = path.read_text(encoding="utf-8")
         data = yaml.safe_load(text)

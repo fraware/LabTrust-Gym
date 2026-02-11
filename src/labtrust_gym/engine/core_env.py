@@ -314,7 +314,9 @@ class CoreEnv(LabTrustEnvAdapter):
                     self._stability_policy = load_stability_policy(stab_path)
                 except Exception:
                     pass
-        inv_path = Path("policy/invariants/invariant_registry.v1.0.yaml")
+        _root_inv = initial_state.get("policy_root")
+        _inv_root = Path(_root_inv) if _root_inv else Path(".")
+        inv_path = _inv_root / "policy" / "invariants" / "invariant_registry.v1.0.yaml"
         if inv_path.exists():
             try:
                 self._invariants_runtime = InvariantsRuntime(inv_path)

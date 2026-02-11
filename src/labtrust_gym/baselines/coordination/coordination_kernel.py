@@ -20,12 +20,35 @@ from labtrust_gym.baselines.coordination.decision_types import (
 )
 
 
-def _stable_hash(obj: Any) -> str:
-    """Deterministic SHA-256 hash of JSON-serializable obj."""
+def _to_json_safe(obj: Any) -> Any:
+    """Recursively convert numpy arrays/scalars and nested structures to JSON-serializable form."""
     try:
-        payload = json.dumps(obj, sort_keys=True, separators=(",", ":"))
+        import numpy as np
+
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, (np.floating, np.integer, np.bool_, np.str_, np.bytes_)):
+            return obj.item()
+        if hasattr(obj, "tolist") and callable(obj.tolist):
+            return obj.tolist()
+        if hasattr(obj, "item") and callable(obj.item):
+            return obj.item()
+    except ImportError:
+        pass
+    if isinstance(obj, dict):
+        return {k: _to_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_json_safe(x) for x in obj]
+    return obj
+
+
+def _stable_hash(obj: Any) -> str:
+    """Deterministic SHA-256 hash of obj (converts numpy types to JSON-serializable first)."""
+    obj_safe = _to_json_safe(obj)
+    try:
+        payload = json.dumps(obj_safe, sort_keys=True, separators=(",", ":"))
     except (TypeError, ValueError):
-        payload = repr(obj)
+        payload = str(type(obj).__name__) + str(id(obj))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 

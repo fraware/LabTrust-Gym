@@ -186,7 +186,9 @@ def _collect_quick_eval(
     episodes: list[dict[str, Any]] = []
     receipts_index: list[dict[str, Any]] = []
     logs_dir = run_dir / "logs"
-    for res_path in sorted(run_dir.glob("Task*.json")):
+    # Support both Task*.json and task-named results (e.g. throughput_sla.json)
+    result_globs = list(run_dir.glob("Task*.json")) or list(run_dir.glob("*.json"))
+    for res_path in sorted(result_globs):
         task = res_path.stem
         tasks.append(task)
         try:

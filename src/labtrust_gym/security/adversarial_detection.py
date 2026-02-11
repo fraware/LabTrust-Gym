@@ -9,12 +9,29 @@ Configurable via policy/security/adversarial_detection.v0.1.yaml.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
+
+# Cache loaded policy per path so we do not re-parse YAML on every env.step().
+_ADV_POLICY_CACHE: dict[str, dict[str, Any]] = {}
+
+_DEFAULT_ADV_POLICY: dict[str, Any] = {
+    "version": "0.1",
+    "severity_threshold": 1,
+    "max_text_length": 2000,
+    "patterns": [],
+    "suggested_actions": {
+        "0": "NOOP",
+        "1": "NOOP",
+        "2": "REQUIRE_HUMAN_REVIEW",
+        "3": "THROTTLE_AGENT",
+    },
+}
 
 
 @dataclass
@@ -44,40 +61,31 @@ def load_adversarial_detection_policy(
 ) -> dict[str, Any]:
     """
     Load adversarial_detection.v0.1.yaml. Returns dict with version, severity_threshold,
-    patterns, suggested_actions, max_text_length.
+    patterns, suggested_actions, max_text_length. Result is cached per path so the file
+    is only parsed once per process.
     """
     if path is None:
         root = repo_root or _get_repo_root()
         path = root / "policy" / "security" / "adversarial_detection.v0.1.yaml"
     path = Path(path)
-    if not path.exists():
-        return {
-            "version": "0.1",
-            "severity_threshold": 1,
-            "max_text_length": 2000,
-            "patterns": [],
-            "suggested_actions": {
-                "0": "NOOP",
-                "1": "NOOP",
-                "2": "REQUIRE_HUMAN_REVIEW",
-                "3": "THROTTLE_AGENT",
-            },
-        }
+    cache_key = str(path)
+    if cache_key in _ADV_POLICY_CACHE:
+        return _ADV_POLICY_CACHE[cache_key]
+    if os.environ.get("LABTRUST_ADVERSARIAL_USE_DEFAULT", "").strip().lower() in ("1", "true", "yes"):
+        _ADV_POLICY_CACHE[cache_key] = dict(_DEFAULT_ADV_POLICY)
+        return _ADV_POLICY_CACHE[cache_key]
+    try:
+        path_exists = path.exists()
+    except OSError:
+        path_exists = False
+    if not path_exists:
+        _ADV_POLICY_CACHE[cache_key] = dict(_DEFAULT_ADV_POLICY)
+        return _ADV_POLICY_CACHE[cache_key]
     try:
         data = load_yaml(path)
-    except PolicyLoadError:
-        return {
-            "version": "0.1",
-            "severity_threshold": 1,
-            "max_text_length": 2000,
-            "patterns": [],
-            "suggested_actions": {
-                "0": "NOOP",
-                "1": "NOOP",
-                "2": "REQUIRE_HUMAN_REVIEW",
-                "3": "THROTTLE_AGENT",
-            },
-        }
+    except (PolicyLoadError, Exception):
+        _ADV_POLICY_CACHE[cache_key] = dict(_DEFAULT_ADV_POLICY)
+        return _ADV_POLICY_CACHE[cache_key]
     if not isinstance(data, dict):
         data = {}
     patterns = data.get("patterns")
@@ -91,13 +99,15 @@ def load_adversarial_detection_policy(
             "2": "REQUIRE_HUMAN_REVIEW",
             "3": "THROTTLE_AGENT",
         }
-    return {
+    result = {
         "version": data.get("version", "0.1"),
         "severity_threshold": max(0, min(3, int(data.get("severity_threshold", 1)))),
         "max_text_length": max(100, min(100000, int(data.get("max_text_length", 2000)))),
         "patterns": patterns,
         "suggested_actions": suggested,
     }
+    _ADV_POLICY_CACHE[cache_key] = result
+    return result
 
 
 def _collect_texts(context: dict[str, Any], max_len: int) -> list[str]:

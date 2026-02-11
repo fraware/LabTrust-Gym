@@ -5,6 +5,7 @@ and returns typed InvariantEntry objects for runtime compilation.
 
 from __future__ import annotations
 
+import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -65,12 +66,16 @@ def load_invariant_registry(path: Path | None = None) -> list[InvariantEntry]:
     Path defaults to policy/invariants/invariant_registry.v1.0.yaml.
     """
     path = path or Path("policy/invariants/invariant_registry.v1.0.yaml")
-    if not path.exists():
+    try:
+        path_exists = path.exists()
+    except OSError:
+        path_exists = False
+    if not path_exists:
         return []
     try:
-        import yaml
-
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return []
     except Exception:
         return []
     if not isinstance(data, dict):

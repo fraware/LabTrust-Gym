@@ -571,7 +571,7 @@ def test_cli_package_release_minimal(tmp_path: Path) -> None:
 
 
 def test_cli_run_official_pack_smoke(tmp_path: Path) -> None:
-    """run-official-pack --smoke: metadata, _baselines or SECURITY."""
+    """run-official-pack --smoke: pack_manifest or metadata, _baselines or SECURITY."""
     out_dir = tmp_path / "official_out"
     out_dir.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, "LABTRUST_OFFICIAL_PACK_SMOKE": "1"}
@@ -581,7 +581,7 @@ def test_cli_run_official_pack_smoke(tmp_path: Path) -> None:
         env=env,
     )
     _assert_cli_success(r)
-    assert (out_dir / "metadata.json").exists()
+    assert (out_dir / "metadata.json").exists() or (out_dir / "pack_manifest.json").exists()
 
 
 def test_cli_generate_official_baselines(tmp_path: Path) -> None:

@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -2478,7 +2478,7 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
     out_dir = Path(getattr(args, "out_dir", "labtrust_runs"))
     if not out_dir.is_absolute():
         out_dir = root / out_dir
-    stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     run_dir = out_dir / f"quick_eval_{stamp}"
     run_dir.mkdir(parents=True, exist_ok=True)
     logs_dir = run_dir / "logs"
