@@ -911,7 +911,7 @@ def run_coordination_study(
                     injection_id,
                     [risk_id_by_injection.get(injection_id, injection_id)],
                 )
-                for rid in risk_ids_for_cell:
+                for rid in sorted(risk_ids_for_cell):
                     row = {
                         "method_id": method_id,
                         "scale_id": scale_id,

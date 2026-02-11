@@ -292,8 +292,8 @@ def collect_llm_live_metadata_from_pack(pack_out_dir: Path) -> dict[str, Any]:
             data = json.loads(p.read_text(encoding="utf-8"))
         except Exception:
             continue
-        task_name = p.stem.split("_")[0] if "_" in p.stem else p.stem
         meta = data.get("metadata") or {}
+        task_name = data.get("task") or meta.get("task") or (p.stem.split("_")[0] if "_" in p.stem else p.stem)
         pf = meta.get("prompt_fingerprint") or meta.get("prompt_sha256")
         if pf and pf not in prompt_hashes:
             prompt_hashes.append(pf)

@@ -67,6 +67,10 @@ Defined relations (5–10 properties):
 
 These are run in CI as part of the main test job (see below). Marked with `@pytest.mark.metamorphic` for optional filtering.
 
+## Full test suite
+
+Running **`pytest -v`** from the repo root executes all tests, including PettingZoo env smoke (`test_pz_parallel_smoke`, `test_pz_aec_smoke`), benchmark smoke (`test_benchmark_smoke`), and CLI smoke matrix. Expected result: **1059 passed, 51 skipped** in about 10 minutes. Skipped tests are intentional (optional MARL smoke, golden suite when `LABTRUST_RUN_GOLDEN` is unset, live-LLM or missing backends). For a faster run, use `pytest -q` with optional `--ignore=tests/test_pz_parallel_smoke.py --ignore=tests/test_pz_aec_smoke.py --ignore=tests/test_benchmark_smoke.py` to exclude the heaviest smoke tests.
+
 ## CI
 
 - **Smoke:** The default test job runs `pytest -q`, which includes `tests/test_metamorphic_properties.py`. A dedicated step runs `pytest tests/test_metamorphic_properties.py -q` so metamorphic properties are explicitly part of smoke.

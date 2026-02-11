@@ -483,7 +483,7 @@ def _build_evidence(
             evidence.append(
                 {
                     "evidence_id": eid,
-                    "type": "security",
+                    "type": "security_suite",
                     "path": prefix + coord_risk_path,
                     "label": "Coordination risk matrix (method x injection x phase)",
                     "status": "present",
@@ -500,7 +500,7 @@ def _build_evidence(
             evidence.append(
                 {
                     "evidence_id": eid,
-                    "type": "report",
+                    "type": "other",
                     "path": prefix + lab_report_path,
                     "label": "Lab coordination report",
                     "status": "present",
@@ -714,7 +714,7 @@ def _build_reproduce(evidence_list: list[dict[str, Any]]) -> list[dict[str, Any]
                     ],
                 }
             )
-        elif etype == "report" and "Lab coordination" in (label or ""):
+        elif etype == "other" and "Lab coordination" in (label or ""):
             out.append(
                 {
                     "evidence_id": eid,
@@ -724,7 +724,7 @@ def _build_reproduce(evidence_list: list[dict[str, Any]]) -> list[dict[str, Any]
                     ],
                 }
             )
-        elif etype == "security" and "coordination_risk_matrix" in (
+        elif etype == "security_suite" and "coordination_risk_matrix" in (
             e.get("path") or ""
         ):
             out.append(

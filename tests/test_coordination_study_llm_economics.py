@@ -176,12 +176,15 @@ def test_coordination_study_llm_cell_has_llm_economics_and_summary_columns(
     ):
         assert col in header, f"summary_coord.csv must include column {col}"
 
-    # Summary rows exist and include the new columns (values may be 0 or empty for deterministic runs)
+    # Summary rows exist and include the new columns (values may be 0 or empty for deterministic runs).
+    # Rows can exceed cell count when one injection maps to multiple risk_ids.
     import csv as csv_module
     from io import StringIO
     reader = csv_module.DictReader(StringIO(content))
     data_rows = list(reader)
-    assert len(data_rows) == len(cell_ids)
+    assert len(data_rows) >= len(cell_ids), (
+        f"summary_coord.csv must have at least one row per cell: {len(data_rows)} rows, {len(cell_ids)} cells"
+    )
     for row in data_rows:
         assert "cost.total_tokens" in row
         assert "llm.error_rate" in row

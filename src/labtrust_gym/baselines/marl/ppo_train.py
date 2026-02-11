@@ -74,10 +74,17 @@ def train_ppo(
         verbose=verbose,
         policy_kwargs=dict(net_arch=[64, 64]),
     )
+    # Progress bar needs tqdm+rich (sb3[extra]); disable when unavailable
+    try:
+        import tqdm  # noqa: F401
+        import rich  # noqa: F401
+        use_progress_bar = verbose > 0
+    except ImportError:
+        use_progress_bar = False
     model.learn(
         total_timesteps=timesteps,
         log_interval=log_interval,
-        progress_bar=verbose > 0,
+        progress_bar=use_progress_bar,
     )
     model_path = out_dir / "model.zip"
     model.save(str(model_path))
