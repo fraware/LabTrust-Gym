@@ -230,9 +230,6 @@ def build_lab_coordination_report(
     _write_safety_case_report(out_dir, pack_dir)
     pack_gate_path = pack_dir / "pack_gate.md"
     risk_matrix_md_path = pack_dir / "SECURITY" / "coordination_risk_matrix.md"
-    leaderboard_md_path = out_dir / "summary" / "sota_leaderboard.md"
-    method_class_md_path = out_dir / "summary" / "method_class_comparison.md"
-    decision_md_path = out_dir / "COORDINATION_DECISION.md"
 
     gate_rel = "pack_gate.md"
     if pack_gate_path.is_file() and out_dir != pack_dir:
@@ -273,7 +270,7 @@ def build_lab_coordination_report(
         "| [summary/sota_leaderboard.md](summary/sota_leaderboard.md) | Per-method means (throughput, violations, resilience, stealth). |",
         "| [summary/method_class_comparison.md](summary/method_class_comparison.md) | Comparison by method class. |",
         "| [COORDINATION_DECISION.md](COORDINATION_DECISION.md) | Chosen method and rationale (constraints + objective). |",
-    ]
+    ])
     if matrix_path is not None and matrix_path.is_file():
         report_lines.append(f"| [{COORDINATION_MATRIX_FILENAME}]({COORDINATION_MATRIX_FILENAME}) | CoordinationMatrix (pack-based): scores and ops_first/sec_first/balanced per scale. |")
     report_lines.extend([

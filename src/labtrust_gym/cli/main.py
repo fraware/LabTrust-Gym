@@ -604,7 +604,7 @@ def main() -> int:
         default=[],
         dest="run_specs",
         metavar="DIR_OR_GLOB",
-        help="Run directory or glob (e.g. ui_fixtures, labtrust_runs/*); can be repeated",
+        help="Run directory or glob (e.g. tests/fixtures/ui_fixtures, labtrust_runs/*); can be repeated",
     )
     p_export_risk.add_argument(
         "--partner",
@@ -1091,7 +1091,11 @@ def main() -> int:
     p_eval_ppo.add_argument("--out", default=None, help="Output JSON path for metrics")
     p_eval_ppo.set_defaults(func=_run_eval_ppo)
     args = parser.parse_args()
-    return cast(int, args.func(args))
+    try:
+        return cast(int, args.func(args))
+    except Exception as e:
+        print(f"labtrust {getattr(args, 'command', '?')} failed: {e}", file=sys.stderr)
+        return 1
 
 
 def _run_validate_policy_wrapper(args: argparse.Namespace) -> int:

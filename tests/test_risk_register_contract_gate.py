@@ -31,9 +31,12 @@ SNAPSHOT_PATH = (
 )
 
 
+UI_FIXTURES_RUN_SPEC = "tests/fixtures/ui_fixtures"
+
+
 def _bundle_ui_fixtures(root: Path) -> dict:
-    """Build deterministic bundle from ui_fixtures."""
-    run_dirs = resolve_run_dirs(root, ["ui_fixtures"])
+    """Build deterministic bundle from tests/fixtures/ui_fixtures."""
+    run_dirs = resolve_run_dirs(root, [UI_FIXTURES_RUN_SPEC])
     return build_risk_register_bundle(
         root,
         run_dirs=run_dirs,
@@ -63,7 +66,7 @@ def test_snapshot_ui_fixtures_bundle() -> None:
         "If intentional, regenerate: python -c \"from pathlib import Path; "
         "from labtrust_gym.export.risk_register_bundle import "
         "build_risk_register_bundle, resolve_run_dirs; import json; "
-        "r=Path('.'); d=resolve_run_dirs(r, ['ui_fixtures']); "
+        "r=Path('.'); d=resolve_run_dirs(r, ['tests/fixtures/ui_fixtures']); "
         "b=build_risk_register_bundle(r, run_dirs=d, "
         "include_generated_at=False, include_git_hash=False); "
         "Path('tests/fixtures/risk_register_bundle_ui_fixtures.v0.1.json')."

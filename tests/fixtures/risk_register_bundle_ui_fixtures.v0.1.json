@@ -9,7 +9,7 @@
     },
     {
       "control_id": "CTRL-DETECTOR-ADVISOR",
-      "description": "Detect + policy-validated containment (coord_risk INJ-COMMS-POISON-001).",
+      "description": "Detect + policy-validated containment (TaskH INJ-COMMS-POISON-001).",
       "name": "LLM detector throttle advisor",
       "source": "security_suite"
     },
@@ -336,7 +336,7 @@
       "type": "repo_local"
     },
     {
-      "href": "ui_fixtures/SECURITY/attack_results.json",
+      "href": "tests/fixtures/ui_fixtures/SECURITY/attack_results.json",
       "label": "Attack results",
       "type": "run_local"
     }

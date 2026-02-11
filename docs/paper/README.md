@@ -19,7 +19,7 @@ A single tarball (e.g. from GitHub Release or Zenodo) should contain or point to
 
 - Wheel/sdist: `pip install labtrust-gym[env,plots]`
 - Policy: bundled in wheel or `policy/` in repo
-- This provenance map: `paper/README.md`
+- This provenance map: `docs/paper/README.md`
 - CONTRACTS: `docs/frozen_contracts.md`
 - PAPER_CLAIMS: `docs/PAPER_CLAIMS.md`
 

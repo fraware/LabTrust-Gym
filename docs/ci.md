@@ -10,7 +10,7 @@ CI runs on every push/PR to `main` and keeps the default pipeline **fast**. All 
 | **typecheck**   | Mypy on `src/`                 | `mypy src/`                |
 | **test**        | Pytest (fast suite)            | `pytest -q`                |
 | **policy-validate** | Policy YAML/JSON vs schemas | `labtrust validate-policy` |
-| **risk-register-gate** | Risk register contract (schema, snapshot, crosswalk, coverage) | `labtrust export-risk-register --out ./risk_register_out --runs ui_fixtures` then `pytest tests/test_risk_register_contract_gate.py -v` |
+| **risk-register-gate** | Risk register contract (schema, snapshot, crosswalk, coverage) | `labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures` then `pytest tests/test_risk_register_contract_gate.py -v` |
 | **quick-eval**  | 1 episode throughput_sla, adversarial_disruption, multi_site_stat   | `pip install -e ".[env,plots]"` then `labtrust quick-eval --seed 42 --out-dir ./labtrust_runs` |
 | **baseline-regression** | Compare to canonical frozen v0.2 (exact metrics) | `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`; non-skipping when `benchmarks/baselines_official/v0.2/results/*.json` exist |
 | **docs**        | Build MkDocs site              | `pip install -e ".[docs]"` then `mkdocs build --strict` |
@@ -206,7 +206,7 @@ A separate workflow **`.github/workflows/package-release-nightly.yml`** runs **p
 
 ## Summary
 
-- **Default CI:** lint, typecheck, test (includes golden), policy-validate, **risk-register-gate** (generate bundle from ui_fixtures, schema + contract gate tests: snapshot, crosswalk, coverage), **baseline-regression** (compares against canonical v0.2; non-skipping when v0.2 exists), **quick-eval** (throughput_sla, adversarial_disruption, multi_site_stat), docs (MkDocs build). No benchmark smoke, no package-release.
+- **Default CI:** lint, typecheck, test (includes golden), policy-validate, **risk-register-gate** (generate bundle from tests/fixtures/ui_fixtures, schema + contract gate tests: snapshot, crosswalk, coverage), **baseline-regression** (compares against canonical v0.2; non-skipping when v0.2 exists), **quick-eval** (throughput_sla, adversarial_disruption, multi_site_stat), docs (MkDocs build). No benchmark smoke, no package-release.
 - **Baseline regression:** Job runs `pytest tests/test_official_baselines_regression.py` with `LABTRUST_CHECK_BASELINES=1`. Test uses **benchmarks/baselines_official/v0.2/** only; runs (does not skip) when v0.2/results/*.json exist. To update baselines, run `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` (matches regression params) and commit the results.
 - **Nightly / manual:** same plus bench-smoke (1 episode per task) when `LABTRUST_BENCH_SMOKE=1`; **coordination-smoke** (validate-policy, coordination tests, coord_scale + coord_risk one episode) when `LABTRUST_COORDINATION_SMOKE=1`; **package-release** artifact when workflow `package-release-nightly` runs; **e2e-artifacts-chain** (package-release → verify-release → export-risk-register) via `e2e-artifacts-chain.yml`; **llm_live optional smoke** (healthcheck + pack smoke, artifact upload) via `llm_live_optional_smoke.yml` when `OPENAI_API_KEY` is set.
 - Golden suite must remain green on every run. Documentation site is built on every PR; deploy to GitHub Pages via `.github/workflows/docs.yml` on push to `main`.

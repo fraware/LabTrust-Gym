@@ -52,6 +52,7 @@ nav:
     - Scale and operational limits: scale_operational_limits.md
     - Reproduce (minimal results + figures): reproduce.md
     - Paper-ready release: paper_ready.md
+    - Paper provenance (figures, tarball): paper/README.md
   - Implementation verification (safety case, controls): implementation_verification.md
   - Reproducible builds (SLSA-ish): reproducible_builds.md
   - Threat model: threat_model.md
