@@ -133,7 +133,7 @@ The bundle is **sufficient to render a complete risk register** without addition
 
 ## CLI
 
-- **export-risk-register** — Primary command: `labtrust export-risk-register --out <dir> [--runs <dir_or_glob> ...] [--include-official-pack <dir>] [--inject-ui-export]`. Writes `<dir>/RISK_REGISTER_BUNDLE.v0.1.json`. Run specs can be paths or globs (e.g. `ui_fixtures`, `labtrust_runs/*`). With `--inject-ui-export`, the same bundle is written into each run dir for the UI to load.
+- **export-risk-register** — Primary command: `labtrust export-risk-register --out <dir> [--runs <dir_or_glob> ...] [--include-official-pack <dir>] [--inject-ui-export]`. Writes `<dir>/RISK_REGISTER_BUNDLE.v0.1.json`. Run specs can be paths or globs (e.g. `tests/fixtures/ui_fixtures`, `labtrust_runs/*`). With `--inject-ui-export`, the same bundle is written into each run dir for the UI to load.
 - **build-risk-register-bundle** — Writes the same bundle to an explicit file path: `--out <path>`, optional `--run <dir>` repeated.
 
 ## Versioning

@@ -144,16 +144,16 @@ def test_write_risk_register_bundle_validates_by_default(tmp_path: Path) -> None
 
 
 def test_export_risk_register_ui_fixtures() -> None:
-    """Running export-risk-register on ui_fixtures produces valid bundle with at least a few populated evidence refs."""
+    """Running export-risk-register on tests/fixtures/ui_fixtures produces valid bundle with at least a few populated evidence refs."""
     root = _repo_root()
-    ui_fixtures = root / "ui_fixtures"
+    ui_fixtures = root / "tests" / "fixtures" / "ui_fixtures"
     if not ui_fixtures.is_dir():
-        pytest.skip("ui_fixtures/ not found")
+        pytest.skip("tests/fixtures/ui_fixtures/ not found")
     out_dir = root / "labtrust_runs" / "risk_export_test"
     out_path = export_risk_register(
         repo_root=root,
         out_dir=out_dir,
-        run_specs=["ui_fixtures"],
+        run_specs=["tests/fixtures/ui_fixtures"],
         include_generated_at=False,
         include_git_hash=False,
         validate=True,
@@ -163,7 +163,7 @@ def test_export_risk_register_ui_fixtures() -> None:
     data = json.loads(out_path.read_text(encoding="utf-8"))
     assert data["bundle_version"] == "0.1"
     present_evidence = [e for e in data["evidence"] if e.get("status") == "present"]
-    assert len(present_evidence) >= 1, "ui_fixtures has SECURITY/attack_results.json so at least one present evidence"
+    assert len(present_evidence) >= 1, "tests/fixtures/ui_fixtures has SECURITY/attack_results.json so at least one present evidence"
     risk_cap = next((r for r in data["risks"] if r["risk_id"] == "R-CAP-001"), None)
     assert risk_cap is not None
     refs = risk_cap.get("evidence_refs") or []

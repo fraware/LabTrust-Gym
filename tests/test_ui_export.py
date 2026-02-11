@@ -31,7 +31,7 @@ def _quick_eval_fixture_dir(tmp_path: Path) -> Path:
     logs_dir = run_dir / "logs"
     logs_dir.mkdir(parents=True)
     # Copy or create throughput_sla.json (results.v0.2 shape)
-    results_src = _repo_root() / "ui_fixtures" / "results_v0.2.json"
+    results_src = _repo_root() / "tests" / "fixtures" / "ui_fixtures" / "results_v0.2.json"
     if results_src.exists():
         (run_dir / "throughput_sla.json").write_text(results_src.read_text(encoding="utf-8"), encoding="utf-8")
     else:
@@ -47,7 +47,7 @@ def _quick_eval_fixture_dir(tmp_path: Path) -> Path:
             ),
             encoding="utf-8",
         )
-    log_src = _repo_root() / "ui_fixtures" / "episode_log.jsonl"
+    log_src = _repo_root() / "tests" / "fixtures" / "ui_fixtures" / "episode_log.jsonl"
     if log_src.exists():
         (logs_dir / "throughput_sla.jsonl").write_text(log_src.read_text(encoding="utf-8"), encoding="utf-8")
     else:

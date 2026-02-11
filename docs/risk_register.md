@@ -23,10 +23,10 @@ Missing evidence is explicit: when a risk has no evidence in the scanned runs, t
 
 ### From fixtures (CI and local smoke)
 
-Use the committed `ui_fixtures/` run dir so the bundle is reproducible without running benchmarks:
+Use the committed `tests/fixtures/ui_fixtures/` run dir so the bundle is reproducible without running benchmarks:
 
 ```bash
-labtrust export-risk-register --out ./risk_register_out --runs ui_fixtures
+labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures
 ```
 
 The bundle is written to `./risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json`. Omit `--include-generated-at` (default) and leave the default `git_commit_hash` for provenance. CI runs the risk-register gate: generate from fixtures, validate schema, run contract gate tests (snapshot, crosswalk, coverage). See [CI](ci.md).
@@ -54,7 +54,7 @@ labtrust export-risk-register --out ./risk_register_out --runs official_pack_out
 Or add it alongside other runs:
 
 ```bash
-labtrust export-risk-register --out ./risk_register_out --runs ui_fixtures --include-official-pack official_pack_out
+labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures --include-official-pack official_pack_out
 ```
 
 ### Multiple run dirs and globs

@@ -17,7 +17,7 @@ Canonical layout of the LabTrust-Gym repo. Keep the root minimal; put CLI and bu
 | `Makefile` | Shortcuts: test, lint, format, bench-smoke, policy-validate, **e2e-artifacts-chain** (package-release minimal → verify-bundle → export-risk-register; no network). |
 | `mkdocs.yml` | MkDocs site config. |
 | `.gitignore` | Ignore build artifacts, venvs, `labtrust_runs/`, root-level CLI outputs. |
-| `.github/workflows/` | CI: lint, typecheck, test, policy-validate, **risk-register-gate** (bundle from ui_fixtures, schema + contract gate tests), bench-smoke, coordination-smoke, quick-eval, docs; **e2e-artifacts-chain.yml** (e2e reproducible chain); **llm_live_optional_smoke.yml** (healthcheck + pack smoke when OPENAI_API_KEY set); **coordination-nightly.yml** (schedule + workflow_dispatch: coordination-security-pack, coordination-study smoke, minimal SOTA sanity; see [CI](ci.md)). |
+| `.github/workflows/` | CI: lint, typecheck, test, policy-validate, **risk-register-gate** (bundle from tests/fixtures/ui_fixtures, schema + contract gate tests), bench-smoke, coordination-smoke, quick-eval, docs; **e2e-artifacts-chain.yml** (e2e reproducible chain); **llm_live_optional_smoke.yml** (healthcheck + pack smoke when OPENAI_API_KEY set); **coordination-nightly.yml** (schedule + workflow_dispatch: coordination-security-pack, coordination-study smoke, minimal SOTA sanity; see [CI](ci.md)). |
 | `.gitattributes` | Text/line-ending rules (e.g. `*.sh text eol=lf` so shell scripts use LF on all platforms). |
 
 Do not commit CLI outputs at the root (e.g. `results.json`, `out.json`, `bench_smoke_*.json`). Use `labtrust_runs/` or `--out <path>` so outputs stay out of the repo root.
@@ -38,13 +38,11 @@ Do not commit CLI outputs at the root (e.g. `results.json`, `out.json`, `bench_s
 | `policy/coordination_identity_policy.v0.1.yaml`, `policy/tool_boundary_policy.v0.1.yaml`, `policy/memory_policy.v0.1.yaml` | Coordination identity, tool boundary, memory policy (security controls). |
 | `benchmarks/` | Baseline registry (baseline_registry.v0.1.yaml), official baselines (v0.1, v0.2). |
 | `tests/` | Pytest: golden suite, policy validation, benchmarks, coordination, risk injections, studies, export, etc. |
-| `tests/fixtures/` | Test data (coordination study smoke spec, legacy-injection spec, keys; **risk_register_bundle_ui_fixtures.v0.1.json** snapshot for risk register contract gate). |
+| `tests/fixtures/` | Test data (coordination study smoke spec, legacy-injection spec, keys; **ui_fixtures/** minimal run dir for UI and risk-register gate; **risk_register_bundle_ui_fixtures.v0.1.json** snapshot for risk register contract gate). |
 | `examples/` | Example agents and scripts (external_agent_demo, scripted_ops_agent, llm_agent_mock_demo, etc.). |
 | `scripts/` | Quickstart and paper-release scripts (shell, PowerShell); **ci_e2e_artifacts_chain.sh** (e2e reproducible chain: package-release minimal → verify-bundle → export-risk-register; no network); **run_external_reviewer_checks.sh** and **.ps1** (coordination study + coverage gate + COORDINATION_LLM_CARD); **run_external_reviewer_risk_register_checks.sh** and **.ps1** (security/coord smoke or provided dirs, export-risk-register, schema + crosswalk validation); **run_benchmarking_layer1_sanity.sh** / **.ps1**, **run_benchmarking_layer2_coverage.sh** / **.ps1**, **run_benchmarking_layer3_scale.sh** / **.ps1** (three-layer benchmarking matrix; see [Benchmarking plan](benchmarking_plan.md)). |
-| `docs/` | MkDocs source (architecture, benchmarks, coordination, contracts, installation, STATUS, etc.). |
-| `ui_fixtures/` | Minimal results, episode log, evidence bundle, FHIR for offline UI work. |
+| `docs/` | MkDocs source (architecture, benchmarks, coordination, contracts, installation, STATUS, **paper/** provenance and tarball checklist, etc.). |
 | `viewer/` | Risk register viewer: static HTML/JS over RiskRegisterBundle.v0.1; loader (local file, zip, URL), search, filters, risk detail, reproduce commands. See [Risk register viewer](risk_register_viewer.md). |
-| `paper/` | Paper-related notes (README). |
 
 ## Source package (`src/labtrust_gym/`)
 

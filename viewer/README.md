@@ -12,7 +12,7 @@ Open `index.html` in a browser (file:// or serve the `viewer/` directory). Load 
 ## Build a bundle
 
 ```bash
-labtrust export-risk-register --out <dir> --runs ui_fixtures
+labtrust export-risk-register --out <dir> --runs tests/fixtures/ui_fixtures
 # Then open <dir>/RISK_REGISTER_BUNDLE.v0.1.json in the viewer (file picker).
 ```
 

@@ -48,7 +48,7 @@ Placeholders `<output_dir>` and `<study_spec>` can be substituted by the user wh
 
 ## Acceptance
 
-- **Swap datasets:** Load `ui_fixtures`-derived bundle or a paper-release bundle; same viewer code, no changes.
+- **Swap datasets:** Load bundle derived from `tests/fixtures/ui_fixtures` or a paper-release bundle; same viewer code, no changes.
 - **Every risk page shows:** definition (name, description, typical_failure_mode), claimed controls, evidence list (with status, summary, verification summary when present, reason-code distribution when present, coord metrics when present), and reproduction commands per evidence.
 - **Reviewers can understand:** what failed, how it was detected, what contained it, and which invariant/control is implicated (via verification summary, reason codes, and evidence links).
 

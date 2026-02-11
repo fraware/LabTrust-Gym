@@ -129,9 +129,9 @@ def test_verify_bundle_runs() -> None:
     from labtrust_gym.export.verify import verify_bundle
 
     root = get_repo_root()
-    bundle_path = root / "ui_fixtures" / "evidence_bundle" / "EvidenceBundle.v0.1"
+    bundle_path = root / "tests" / "fixtures" / "ui_fixtures" / "evidence_bundle" / "EvidenceBundle.v0.1"
     if not bundle_path.is_dir():
-        pytest.skip("ui_fixtures/evidence_bundle/EvidenceBundle.v0.1 not found")
+        pytest.skip("tests/fixtures/ui_fixtures/evidence_bundle/EvidenceBundle.v0.1 not found")
     passed, report, errors = verify_bundle(bundle_path, policy_root=root, allow_extra_files=True)
     assert isinstance(passed, bool)
     assert isinstance(report, str)

@@ -9,7 +9,7 @@ This document lays out the remaining steps to (1) capture and fix remaining repo
 ### 1.1 Fixed in this pass
 
 - **Risk register evidence type:** The bundle export used `type: "coordination_pack"` for pack run evidence, but the schema enum did not include it. **Done:** `policy/schemas/risk_register_bundle.v0.1.schema.json` now includes `"coordination_pack"` in the evidence `type` enum.
-- **Risk register snapshot:** The contract gate snapshot `tests/fixtures/risk_register_bundle_ui_fixtures.v0.1.json` had drifted (new controls/evidence). **Done:** Snapshot regenerated from `ui_fixtures` with the same script referenced in the test (build_risk_register_bundle with include_generated_at=False, include_git_hash=False).
+- **Risk register snapshot:** The contract gate snapshot `tests/fixtures/risk_register_bundle_ui_fixtures.v0.1.json` had drifted (new controls/evidence). **Done:** Snapshot regenerated from `tests/fixtures/ui_fixtures` with the same script referenced in the test (build_risk_register_bundle with include_generated_at=False, include_git_hash=False).
 
 ### 1.2 Remaining gaps (from STATUS implementation audit and STATUS)
 
