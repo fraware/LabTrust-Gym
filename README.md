@@ -23,6 +23,7 @@ RBAC, signed actions, append-only audit log, invariants, and anomaly throttles�
 - **Policy is data** — Invariants, tokens, reason codes, catalogue, zones live in versioned files under `policy/`.
 - **Determinism** — Golden runs are deterministic (seeded RNG, no ambient randomness).
 - **No silent failure** — Missing hooks or invalid data fail loudly with reason codes.
+- For system and threat model context, see [Systems and threat model](docs/systems_and_threat_model.md).
 
 ---
 
@@ -58,11 +59,17 @@ labtrust reproduce --profile minimal
 
 **New to the repo?** If you forked the repo and want to customize for your hospital lab and run all commands end-to-end, see [Getting started (forker)](docs/GETTING_STARTED_FORKER.md).
 
+**Extending without forking**
+
+- **Option A:** Fork and customize via partner overlay and policy only. See [Getting started (forker)](docs/GETTING_STARTED_FORKER.md).
+- **Option B:** Install `labtrust-gym` and ship your own pip package that registers domains, tasks, coordination methods, invariant handlers, or providers via `register_*` or entry_points; use `--profile` to set partner and provider IDs and `extension_packages`. See [Extension development](docs/extension_development.md).
+
 | Extra | Purpose |
 |-------|---------|
 | `[env]` | PettingZoo/Gymnasium |
 | `[plots]` | Matplotlib |
-| `[marl]` | Stable-Baselines3 |
+| `[marl]` | Stable-Baselines3 (PPO train/eval, PPOAgent) |
+| `[marl_hpo]` | Optuna (hyperparameter search for PPO; use with marl) |
 | `[docs]` | MkDocs + mkdocstrings |
 
 ---
@@ -96,6 +103,14 @@ labtrust quick-eval
 
 Output: markdown summary (throughput, violations, blocked counts) and logs under `./labtrust_runs/quick_eval_<timestamp>/`. Use `--seed` and `--out-dir` to customize.
 
+### Example agents and notebooks
+
+See [Example experiments](docs/example_experiments.md) for trust-vs-performance experiments. Example agents (scripted, random, LLM mock, external) and configs are in `examples/`. An optional Jupyter notebook `examples/quick_eval.ipynb` runs quick-eval from the repo root (requires `.[env,plots]`). Run a benchmark with an external agent:
+
+```bash
+labtrust eval-agent --agent 'examples.external_agent_demo:MyAgent' --task throughput_sla --episodes 2 --out out.json
+```
+
 ---
 
 ## CLI
@@ -118,14 +133,14 @@ Keep the repo root minimal; put CLI outputs in `labtrust_runs/` or `--out` (see 
 | **eval-agent** | Run benchmark with external agent (e.g. `--agent "examples.external_agent_demo:SafeNoOpAgent"` or trained PPO: set `LABTRUST_PPO_MODEL=<path>/model.zip`, `--agent labtrust_gym.baselines.marl.ppo_agent:PPOAgent`). |
 | **bench-smoke** | One episode per task (throughput_sla, stat_insertion, qc_cascade). |
 | **determinism-report** | Run benchmark twice in fresh temp dirs; assert v0.2 metrics and episode log hash identical; write determinism_report.md/json. |
-| **train-ppo**, **eval-ppo** | PPO training/eval (requires `.[marl]`). |
+| **train-ppo**, **eval-ppo** | PPO training/eval (requires `.[marl]`). Writes `train_config.json`; eval-ppo auto-loads it. Optional HPO: `.[marl_hpo]`. See [MARL baselines](docs/marl_baselines.md). |
 
 ### Export and verification
 
 | Command | Description |
 |---------|-------------|
 | **export-receipts** | Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log. |
-| **export-fhir** | Export FHIR R4 Bundle from receipts dir. |
+| **export-fhir** | Export valid HL7 FHIR R4 Bundle from receipts dir (data-absent-reason for missing specimen/value; no placeholder IDs). See [docs/fhir_export.md](docs/fhir_export.md). |
 | **verify-bundle** | Verify a **single** EvidenceBundle.v0.1 (manifest, schema, hashchain, invariant trace). |
 | **verify-release** | Verify **all** EvidenceBundles under a release dir (output of package-release). |
 | **ui-export** | Export UI-ready zip (index, events, receipts_index, reason_codes). See [docs/ui_data_contract.md](docs/ui_data_contract.md). |
@@ -134,7 +149,7 @@ Keep the repo root minimal; put CLI outputs in `labtrust_runs/` or `--out` (see 
 
 | Command | Description |
 |---------|-------------|
-| **run-security-suite** | Security attack suite (smoke/full); SECURITY/attack_results.json and securitization packet. See [docs/security_attack_suite.md](docs/security_attack_suite.md). |
+| **run-security-suite** | Security attack suite (smoke/full); SECURITY/attack_results.json and securitization packet. See [docs/security_attack_suite.md](docs/security_attack_suite.md). Prompt-injection defenses: pre-LLM block, output consistency; policy `policy/security/prompt_injection_defense.v0.1.yaml`. See [docs/prompt_injection_defense.md](docs/prompt_injection_defense.md), [docs/security_monitoring.md](docs/security_monitoring.md). |
 | **safety-case** | Generate safety case to SAFETY_CASE/. See [docs/implementation_verification.md](docs/implementation_verification.md). |
 | **run-official-pack** | Official Benchmark Pack v0.1 (tasks, scales, baselines, coordination, security, safety case, transparency log). See [docs/official_benchmark_pack.md](docs/official_benchmark_pack.md). |
 
@@ -142,8 +157,9 @@ Keep the repo root minimal; put CLI outputs in `labtrust_runs/` or `--out` (see 
 
 | Command | Description |
 |---------|-------------|
-| **export-risk-register** | Export RiskRegisterBundle.v0.1 to a directory. CI contract gate: schema, snapshot, crosswalk, coverage. See [docs/risk_register.md](docs/risk_register.md). |
+| **export-risk-register** | Export RiskRegisterBundle.v0.1 to a directory. Bundle represents evidence gaps (status=missing) as first-class; no placeholder wording. CI contract gate: schema, snapshot, crosswalk, coverage. See [docs/risk_register.md](docs/risk_register.md). |
 | **build-risk-register-bundle** | Build same bundle to an explicit file path. |
+| **validate-coverage** | Validate bundle coverage (required_bench cells evidenced or waived). Use `--strict` to fail if any required risk has missing evidence. |
 
 ### Coordination and studies
 
@@ -207,7 +223,7 @@ Before adding online APIs and non-deterministic runs, see **[docs/STATUS.md](doc
 
 ## Current state
 
-See **docs/STATUS.md** for the full report. The test suite runs with `pytest -v`: **1059 passed, 51 skipped** (PettingZoo smoke, MARL smoke, golden suite, and optional-backend tests may be skipped depending on env). Policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2), transport, export, package-release, risk register, security (attack suite, safety case), coordination red team, Official Benchmark Pack, online serve, PettingZoo wrappers (with `render_mode`), scripted/adversary/LLM/MARL baselines, PPO reward design (schedule_reward for throughput_sla), and docs site are current.
+See **docs/STATUS.md** for the full report. The test suite runs with `pytest -v` (1100+ tests; PettingZoo smoke, MARL smoke, golden suite, and optional-backend tests may be skipped depending on env). Implemented: policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2), transport, export, package-release, risk register, security (attack suite, safety case, **prompt-injection defense**), coordination red team, Official Benchmark Pack, online serve, PettingZoo wrappers (with `render_mode`), scripted/adversary/LLM/MARL baselines, PPO (train_config, obs_history_len, reward curriculum, Optuna HPO, PPOAgent with train_config.json), and docs site.
 
 ---
 

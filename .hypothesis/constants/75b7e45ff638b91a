@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\enforcement.py
+# hypothesis_version: 6.151.6
+
+['0.1', 'ENFORCEMENT', 'VIOLATION', 'action', 'action_type', 'agent_id', 'duration_s', 'escalation', 'event_type', 'forensic_freeze', 'freeze_zone', 'invariant_id', 'kill_switch', 'match', 'reason_code', 'rule_id', 'rules', 'scope', 'severity', 'status', 'target', 'target_type', 'throttle_agent', 'type', 'version', 'violation_count', 'violation_count_min', 'zone_id']

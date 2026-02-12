@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\studies\reproduce.py
+# hypothesis_version: 6.151.6
+
+[100, '%Y%m%d_%H%M%S', '1', 'LABTRUST_REPRO_SMOKE', 'ablations', 'agent_config', 'coordination_pack', 'dual_approval', 'episodes', 'explicit', 'full', 'hospital_lab', 'minimal', 'off', 'on', 'qc_cascade', 'run_error.txt', 'runs', 'scripted_runner', 'seed_base', 'task', 'throughput_sla', 'timing_mode', 'true', 'trust_skeleton', 'utf-8', 'yes']

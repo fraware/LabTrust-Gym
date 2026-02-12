@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\online\rate_limit.py
+# hypothesis_version: 6.151.6
+
+[0.1, 1.0, '_capacity', '_last', '_lock', '_rate', '_tokens']

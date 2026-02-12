@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\security\output_shaping.py
+# hypothesis_version: 6.151.6
+
+['...', 'action_type', 'agent_baseline_id', 'api_key', 'args', 'backend_id', 'blocked_count', 'entries', 'episode_log', 'episode_log_entries', 'episodes', 'error_code', 'hash', 'key_id', 'latency_ms', 'llm_decision', 'metrics', 'model_id', 'n_episodes', 'on_time_rate', 'on_time_rate_mean', 'p50_turnaround_s', 'p95_turnaround_s', 'partner_id', 'passed', 'password', 'private_key', 'prompt', 'prompt_sha256', 'raw_prompt', 'raw_response', 'reason_code', 'repair_attempted', 'repair_succeeded', 'response', 'response_sha256', 'secret', 'signature', 'specimen_id', 'status', 'steps', 'steps_total', 'summary', 't_s', 'task', 'throughput', 'throughput_mean', 'throughput_std', 'token', 'truncate', 'utf-8', 'violations_total', 'work_id']

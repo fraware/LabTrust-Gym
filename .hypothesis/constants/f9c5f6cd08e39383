@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\llm\tool_proxy.py
+# hypothesis_version: 6.151.6
+
+['.', 'additionalProperties', 'allowed_actions', 'capabilities', 'description', 'function', 'get_restricted_zones', 'name', 'object', 'parameters', 'policy_summary', 'properties', 'restricted_zones', 'state_summary', 'type']

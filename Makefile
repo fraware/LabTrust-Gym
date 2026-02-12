@@ -1,7 +1,7 @@
 # LabTrust-Gym make targets
 # Optional: use 'make test' and 'make bench-smoke' (bench-smoke requires [env])
 
-.PHONY: test golden bench-smoke lint format typecheck policy-validate e2e-artifacts-chain
+.PHONY: test golden bench-smoke lint format typecheck policy-validate no-placeholders e2e-artifacts-chain
 
 # Default: run fast test suite (no env optional deps for golden/policy)
 test:
@@ -30,6 +30,10 @@ typecheck:
 
 policy-validate:
 	labtrust validate-policy
+
+# Fail if placeholder/stub markers or NotImplementedError/501 remain in non-test code/docs/config
+no-placeholders:
+	python tools/no_placeholders.py
 
 # Full reproducible artifact chain: package-release (minimal) -> verify-bundle -> export-risk-register.
 # Requires bash. No network. Deterministic (SEED_BASE=100). Use for CI gate and local one-button proof.

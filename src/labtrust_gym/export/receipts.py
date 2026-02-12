@@ -13,8 +13,14 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from labtrust_gym.engine.signatures import (
+    RECEIPT_SIGNATURE_ALGORITHM,
+    canonical_for_signing,
+    get_public_key_b64_for_key_id,
+    sign_payload_bytes,
+)
 from labtrust_gym.tools.registry import combined_policy_fingerprint
 
 RECEIPT_VERSION = "0.1"
@@ -506,6 +512,9 @@ def write_evidence_bundle(
     allowed_actions_payload_sha256: str | None = None,
     coordination_policy_fingerprint: str | None = None,
     prompt_fingerprint_inputs: dict[str, Any] | None = None,
+    get_private_key: Callable[[str], bytes | None] | None = None,
+    sign_key_id: str | None = None,
+    key_registry: dict[str, Any] | None = None,
 ) -> Path:
     """
     Write EvidenceBundle.v0.1/ under out_dir.
@@ -536,6 +545,13 @@ def write_evidence_bundle(
     def _safe_filename(s: str) -> str:
         return "".join(c if c.isalnum() or c in "_-" else "_" for c in s)
 
+    # Optional signing: callback supplies private key; no disk read in core.
+    sign_receipts = (
+        sign_bundle
+        and get_private_key is not None
+        and sign_key_id is not None
+        and key_registry is not None
+    )
     written_files: list[str] = []
     if policy_root_hash is not None:
         written_files.append(POLICY_PACK_MANIFEST_FILENAME)
@@ -543,6 +559,19 @@ def write_evidence_bundle(
         rec = dict(r)
         if policy_root_hash is not None:
             rec["policy_root_hash"] = policy_root_hash
+        if sign_receipts:
+            payload = canonical_for_signing(rec)
+            priv = get_private_key(sign_key_id)
+            pub_b64 = get_public_key_b64_for_key_id(key_registry, sign_key_id)
+            if priv and pub_b64:
+                sig_b64 = sign_payload_bytes(payload, priv)
+                if sig_b64:
+                    rec["signature"] = {
+                        "algorithm": RECEIPT_SIGNATURE_ALGORITHM,
+                        "public_key_b64": pub_b64,
+                        "signature_b64": sig_b64,
+                        "key_id": sign_key_id,
+                    }
         etype = rec.get("entity_type", "entity")
         eid = rec.get("specimen_id") or rec.get("result_id")
         eid_str = _safe_filename(str(eid)) if eid is not None else "unknown"
@@ -616,15 +645,27 @@ def write_evidence_bundle(
         manifest["allowed_actions_payload_sha256"] = allowed_actions_payload_sha256
     if coordination_policy_fingerprint is not None:
         manifest["coordination_policy_fingerprint"] = coordination_policy_fingerprint
-    if sign_bundle:
-        manifest["signature"] = {"algorithm": "stub", "value": ""}
-    else:
-        manifest["signature"] = None
+    manifest["signature"] = None
 
     for rel in sorted(written_files):
         full = bundle_dir / rel
         if full.exists():
             manifest["files"].append({"path": rel, "sha256": _sha256_file(full)})
+
+    # Real signing when runner supplies get_private_key(key_id) and key_registry (key custody agnostic).
+    if sign_receipts:
+        payload = canonical_for_signing(manifest)
+        priv = get_private_key(sign_key_id)
+        pub_b64 = get_public_key_b64_for_key_id(key_registry, sign_key_id)
+        if priv and pub_b64:
+            sig_b64 = sign_payload_bytes(payload, priv)
+            if sig_b64:
+                manifest["signature"] = {
+                    "algorithm": RECEIPT_SIGNATURE_ALGORITHM,
+                    "public_key_b64": pub_b64,
+                    "signature_b64": sig_b64,
+                    "key_id": sign_key_id,
+                }
 
     manifest_path = bundle_dir / "manifest.json"
     manifest_path.write_text(_canonical_json(manifest) + "\n", encoding="utf-8")

@@ -19,7 +19,7 @@ So at the highest level: you run a **hospital lab simulator** under **versioned 
 
 - **Core**: Agents (scripted, LLM, or MARL) operate in a lab world: zones, devices, specimens, QC, critical results, queueing, multi-site transport. The engine steps the simulation, enforces invariants, and records an append-only, hash-chained audit log.
 - **Trust**: Actions can be signed (Ed25519); keys have lifecycle (ACTIVE/REVOKED/EXPIRED). There is RBAC, reason codes, and runtime controls (throttle, kill switch, forensic freeze). Policy defines what is allowed and how violations are treated.
-- **Pipeline modes**: Runs can be **deterministic** (no network, scripted/LLM stub only), **llm_offline** (LLM interface but deterministic backend), or **llm_live** (real API calls; opt-in with `--allow-network`). Default is offline so CI and reproduction do not hit APIs.
+- **Pipeline modes**: Runs can be **deterministic** (no network, scripted or deterministic LLM backend only), **llm_offline** (LLM interface but deterministic backend), or **llm_live** (real API calls; opt-in with `--allow-network`). Default is offline so CI and reproduction do not hit APIs.
 
 So the repo gives you a **controllable, auditable lab simulation** that can be driven by scripted baselines or by LLM/MARL agents, with security and coordination built into the model.
 
@@ -101,7 +101,7 @@ It is **deterministic** for a fixed seed and policy; smoke mode runs only smoke-
 
 ### 9. Risk register (evidence bundle for risks and controls)
 
-- **export-risk-register** / **build-risk-register-bundle**: Build **RiskRegisterBundle.v0.1** from policy and run dir(s). The bundle ties **risks** (from risk registry) to **controls** and **evidence** (SECURITY/, summary/, SAFETY_CASE/, MANIFEST, etc.). Missing evidence is explicit (stubs). Used for review, coverage, and UIs that show "risk → control → test → artifact."  
+- **export-risk-register** / **build-risk-register-bundle**: Build **RiskRegisterBundle.v0.1** from policy and run dir(s). The bundle ties **risks** (from risk registry) to **controls** and **evidence** (SECURITY/, summary/, SAFETY_CASE/, MANIFEST, etc.). Missing evidence is explicit (entries with status=missing). Used for review, coverage, and UIs that show "risk → control → test → artifact."  
   So: **runs + policy → one JSON bundle** that answers "what evidence do we have for each risk?"
 
 ### 10. Export and verification
@@ -184,7 +184,7 @@ So: **study → summarize → recommend → (optional) matrix.**
 
 2. **Risk register from that artifact**:  
    `labtrust export-risk-register --out <dir> --runs <release_dir>`  
-   → RISK_REGISTER_BUNDLE.v0.1.json with evidence links and missing stubs.
+   → RISK_REGISTER_BUNDLE.v0.1.json with evidence links and missing-evidence entries.
 
 So: **package-release → export-risk-register** gives a **single evidence bundle** for the release.
 

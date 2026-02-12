@@ -1,0 +1,22 @@
+# Lab profile: default hospital lab (single source of truth for partner, paths, providers).
+# Use: labtrust --profile hospital_lab <command> ...
+version: "0.1"
+profile_id: hospital_lab
+description: "Default hospital lab profile (reference policy and overlays)."
+
+# Partner overlay ID; applied to validate-policy, run-benchmark, etc.
+partner_id: null
+
+# Optional path overrides (relative to policy root). When null, use repo defaults.
+benchmark_pack_path: null
+security_suite_path: null
+safety_claims_path: null
+coordination_study_spec_path: null
+
+# Optional provider IDs for security/safety/metrics. When null, use default.
+security_suite_provider_id: null
+safety_case_provider_id: null
+metrics_aggregator_id: null
+
+# Optional list of extension package names to ensure are loaded (for entry_points).
+extension_packages: []

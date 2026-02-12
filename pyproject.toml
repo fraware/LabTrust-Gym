@@ -44,10 +44,12 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "pytest-timeout>=2.0",
     "ruff>=0.1",
     "mypy>=1.0",
     "types-PyYAML>=6.0",
     "types-jsonschema>=4.0",
+    "hypothesis>=6.0",
 ]
 # PettingZoo Parallel API wrapper; install with: pip install -e ".[env]"
 env = ["pettingzoo>=1.24", "gymnasium>=0.29"]
@@ -55,6 +57,8 @@ env = ["pettingzoo>=1.24", "gymnasium>=0.29"]
 plots = ["matplotlib>=3.7"]
 # PPO/MARL baselines; install with: pip install -e ".[marl]"
 marl = ["stable-baselines3>=2.0", "gymnasium>=0.29"]
+# HPO for PPO (run_ppo_optuna); install with: pip install -e ".[marl,marl_hpo]"
+marl_hpo = ["optuna>=3.0"]
 # Documentation site; install with: pip install -e ".[docs]"
 docs = ["mkdocs>=1.5", "mkdocstrings[python]>=0.24"]
 # Live OpenAI backend (Structured Outputs); install with: pip install -e ".[llm_openai]"
@@ -64,6 +68,19 @@ llm_openai = ["openai>=1.40"]
 llm_anthropic = ["anthropic>=0.39"]
 # Online serve mode (rate limiting, auth, etc.); stdlib-only by default; add deps here if needed
 online = []
+# OpenTelemetry OTLP export for LLM traces; install with: pip install -e ".[otel]"
+otel = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
+
+# Extension points: other packages may add entries to these groups.
+# See docs/extension_development.md for contracts.
+[project.entry-points."labtrust_gym.domains"]
+[project.entry-points."labtrust_gym.coordination_methods"]
+[project.entry-points."labtrust_gym.tasks"]
+[project.entry-points."labtrust_gym.invariant_handlers"]
+[project.entry-points."labtrust_gym.security_suite_providers"]
+[project.entry-points."labtrust_gym.safety_case_providers"]
+[project.entry-points."labtrust_gym.metrics_aggregators"]
+[project.entry-points."labtrust_gym.benchmark_pack_loaders"]
 
 [project.scripts]
 labtrust = "labtrust_gym.cli.main:main"
@@ -107,8 +124,11 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-q"
+addopts = "-q --timeout=120"
 markers = [
     "metamorphic: metamorphic property tests (deterministic relations).",
     "determinism: failure physics / determinism tests (seeded).",
+    "live: integration tests that call live APIs (require OPENAI_API_KEY, LABTRUST_RUN_LLM_LIVE=1).",
+    "security: security fuzz and property tests (injection points, no action outside allowed).",
+    "slow: long-running tests (golden suite, package-release, heavy CLI); exclude with -m 'not slow'.",
 ]

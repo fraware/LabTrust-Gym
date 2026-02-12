@@ -54,6 +54,10 @@ Observation context is passed per step by the PettingZoo env: it builds a dict f
 
 The detector returns a **suggested_action** (NOOP, THROTTLE_AGENT, REQUIRE_HUMAN_REVIEW, FREEZE_EPISODE). Optional enforcement (throttle / freeze) can be wired to existing enforcement mechanisms (e.g. `policy/enforcement/enforcement_map.v0.1.yaml`) by matching on a synthetic “security” invariant or by handling SECURITY_ALERT in the runner. Current behaviour: SECURITY_ALERT and SECURITY_EVENT are emitted and recorded; automatic throttle/freeze is not applied by default.
 
+## Prompt-injection defense (layered)
+
+A separate **prompt-injection defense** layer (`policy/security/prompt_injection_defense.v0.1.yaml`) adds pre-LLM blocking, optional sanitization, and output-consistency checks. When the detector severity is at or above `block_severity_threshold`, the LLM call is skipped and the agent returns NOOP with `PROMPT_INJECTION_DETECTED`. See [Prompt-injection defense](prompt_injection_defense.md).
+
 ## False positives
 
 - **Clinical or operational phrases**: Patterns that match normal specimen or scenario notes (e.g. “override” in a clinical context) can trigger ADV_INJECTION_DETECTED. Tune patterns or severity_threshold, or narrow patterns to clearly adversarial substrings/regexes.

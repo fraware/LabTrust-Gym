@@ -1376,9 +1376,10 @@ class BlameShiftInjector(RiskInjector):
 
 class NoOpInjector(RiskInjector):
     """
-    Passthrough injector for legacy or placeholder injection IDs in study specs.
-    No mutation; metrics remain zero. Allows coordination study to run with
-    injection_ids that are not yet implemented (e.g. inj_tool_selection_noise).
+    Passthrough injector for reserved injection IDs that are not implemented
+    as full injectors in this release. No mutation; metrics remain zero.
+    Allows study specs and compatible_injections that reference these IDs to run.
+    Prefer INJ-* IDs from policy/coordination/injections.v0.2.yaml for active injections.
     """
 
     def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
@@ -1393,9 +1394,9 @@ class NoOpInjector(RiskInjector):
         return action_dict, []
 
 
-# Legacy/placeholder IDs from study spec or risk registry that are not yet
-# implemented as full injectors; they use NoOpInjector so runs do not fail.
-LEGACY_INJECTION_IDS = (
+# Reserved IDs (study spec / risk registry) not implemented as full injectors
+# in this release; NoOpInjector so runs do not fail. Prefer INJ-* from injections.v0.2.
+RESERVED_NOOP_INJECTION_IDS = (
     "none",  # No-op baseline for coordination security pack (nominal cell).
     "inj_tool_selection_noise",
     "inj_prompt_injection",
@@ -1444,8 +1445,8 @@ INJECTION_REGISTRY: dict[str, type] = {
     # INJ-BID-SPOOF-001: currently mapped to CollusionInjector (bid/market manipulation).
     "INJ-BID-SPOOF-001": CollusionInjector,
 }
-for _lid in LEGACY_INJECTION_IDS:
-    INJECTION_REGISTRY.setdefault(_lid, NoOpInjector)
+for _rid in RESERVED_NOOP_INJECTION_IDS:
+    INJECTION_REGISTRY.setdefault(_rid, NoOpInjector)
 
 
 def make_injector(
@@ -1455,7 +1456,7 @@ def make_injector(
     target: str | None = None,
     **kwargs: Any,
 ) -> RiskInjector:
-    """Build a RiskInjector from injection_id and config. Legacy/placeholder IDs use NoOpInjector."""
+    """Build a RiskInjector from injection_id and config. Reserved no-op IDs use NoOpInjector."""
     cls = INJECTION_REGISTRY.get(injection_id)
     if cls is None:
         raise ValueError(f"Unknown injection_id: {injection_id}. Known: {sorted(INJECTION_REGISTRY.keys())}")

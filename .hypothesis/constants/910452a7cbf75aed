@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\assurance\simplex.py
+# hypothesis_version: 6.151.6
+
+['CTRL-COORD-SIMPLEX', 'INV-ROUTE-001', 'INV-ROUTE-002', 'MOVE', 'NOOP', 'SC-SECURITY-RBAC-001', 'START_RUN', '_last_shield_emits', '_policy', '_scale_config', '_seed', '_shielded', 'accepted', 'action_index', 'advanced', 'agent_ids', 'agents', 'allowed_actions', 'assurance_evidence', 'blocked', 'claim_id', 'collision', 'control_id', 'coord_shield_payload', 'counters', 'device_id', 'device_zone', 'emit', 'emits', 'from_zone', 'get_alloc_metrics', 'get_route_metrics', 'invariant_id', 'method_id', 'obs', 'outcome', 'passed', 'policy', 'propose_actions', 'rbac', 'rbac_policy', 'reason_code', 'reason_codes', 'reasons', 'reset', 'restricted', 'roles', 'simplex_fallback', 'step', 'step_idx', 't', 'to_zone', 'token_active', 'zone_id', 'zone_layout', 'zone_layout_policy', 'zones']

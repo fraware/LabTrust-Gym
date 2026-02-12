@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\coordination\coordination_monitor.py
+# hypothesis_version: 6.151.6
+
+[0.0, 0.95, 10.0, 500.0, 'COORD_STALE_DECISION', 'COORD_STALE_VIEW', 'OPEN_DOOR', 'RESTRICTED', 'START_RUN', 'action_type', 'agent_id', 'args', 'decision_step', 'door_id', 'emit', 'last_processing_step', 'max_staleness_ms', 'mean_view_age_ms', 'p95_view_age_ms', 'reason_code', 'stale_action_rate', 'view_age_ms']

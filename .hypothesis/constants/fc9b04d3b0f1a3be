@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\hierarchical\region_partition.py
+# hypothesis_version: 6.151.6
+
+['num_regions', 'num_sites', 'region_id', 'site_id', 'zone_id', 'zone_layout', 'zones']

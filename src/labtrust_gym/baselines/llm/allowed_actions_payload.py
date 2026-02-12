@@ -55,12 +55,12 @@ ACTION_SPEC_REGISTRY: dict[str, dict[str, Any]] = {
         "args_examples": [
             {
                 "device_id": "DEV_CHEM_A_01",
-                "work_id": "OBS_PLACEHOLDER",
+                "work_id": "work_0_ops_0_0",
                 "priority_class": "ROUTINE",
             },
             {
                 "device_id": "DEV_HAEM_01",
-                "work_id": "OBS_PLACEHOLDER",
+                "work_id": "work_0_ops_0_1",
                 "priority_class": "STAT",
             },
         ],

@@ -9,6 +9,7 @@ FHIR R4 export: convert Receipt.v0.1 (from evidence bundle) into a minimal FHIR 
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC
 from pathlib import Path
@@ -16,6 +17,35 @@ from typing import Any
 
 FHIR_BUNDLE_TYPE = "collection"
 FHIR_VERSION = "4.0.1"
+
+# HL7 data-absent-reason: when specimen or value is missing (no placeholder IDs)
+DATA_ABSENT_REASON_EXTENSION_URL = "http://hl7.org/fhir/StructureDefinition/data-absent-reason"
+DATA_ABSENT_REASON_CODESYSTEM = "http://terminology.hl7.org/CodeSystem/data-absent-reason"
+DATA_ABSENT_REASON_CODE_UNKNOWN = "unknown"
+
+
+def _specimen_reference_data_absent() -> dict[str, Any]:
+    """Reference object with only data-absent-reason extension (no reference, no Specimen resource)."""
+    return {
+        "extension": [
+            {
+                "url": DATA_ABSENT_REASON_EXTENSION_URL,
+                "valueCode": DATA_ABSENT_REASON_CODE_UNKNOWN,
+            }
+        ]
+    }
+
+
+def _observation_data_absent_reason() -> dict[str, Any]:
+    """Observation.dataAbsentReason when no numeric value (omit value[x])."""
+    return {
+        "coding": [
+            {
+                "system": DATA_ABSENT_REASON_CODESYSTEM,
+                "code": DATA_ABSENT_REASON_CODE_UNKNOWN,
+            }
+        ]
+    }
 
 
 def _canonical_json(obj: Any) -> str:
@@ -70,9 +100,16 @@ def load_receipts_from_dir(
     return receipts, partner_id, policy_fingerprint
 
 
+def _specimen_id_from_receipt(receipt: dict[str, Any]) -> str:
+    """Deterministic id when specimen_id is missing: content-addressed hash of receipt."""
+    canonical = json.dumps(receipt, sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
+
 def _receipt_to_fhir_specimen(receipt: dict[str, Any]) -> dict[str, Any]:
-    """Map receipt (entity_type=specimen) to FHIR R4 Specimen."""
-    sid = receipt.get("specimen_id") or "unknown"
+    """Map receipt (entity_type=specimen) to FHIR R4 Specimen. Id = specimen_id or content-addressed hash."""
+    raw_sid = (receipt.get("specimen_id") or "").strip()
+    sid = raw_sid if raw_sid else _specimen_id_from_receipt(receipt)
     accession_ids = receipt.get("accession_ids") or []
     accession_id = accession_ids[0] if accession_ids else None
     timestamps = receipt.get("timestamps") or {}
@@ -100,9 +137,10 @@ def _receipt_to_fhir_specimen(receipt: dict[str, Any]) -> dict[str, Any]:
 def _receipt_to_fhir_observation(
     receipt: dict[str, Any],
     index: int,
+    specimen_ref_or_extension: str | dict[str, Any],
     interpretation_from_reason: bool = True,
 ) -> dict[str, Any]:
-    """Map receipt (entity_type=result) to FHIR R4 Observation."""
+    """Map receipt (entity_type=result) to FHIR R4 Observation. Specimen is reference or data-absent extension."""
     rid = receipt.get("result_id") or f"obs-{index}"
     panel_id = receipt.get("panel_id") or rid
     device_ids = receipt.get("device_ids") or []
@@ -119,8 +157,8 @@ def _receipt_to_fhir_observation(
             "coding": [{"system": "urn:labtrust:test", "code": panel_id, "display": panel_id}],
         },
     }
-    # Value: receipt has no numeric value; use placeholder or valueString
-    obs["valueString"] = "result"
+    # No numeric value in receipt: omit value[x], use dataAbsentReason per R4
+    obs["dataAbsentReason"] = _observation_data_absent_reason()
     if interpretation_from_reason:
         interp: list[dict[str, Any]] = []
         for rc in reason_codes:
@@ -175,6 +213,11 @@ def _receipt_to_fhir_observation(
         )
     if issued:
         obs["issued"] = issued
+    # Specimen: reference when present, or Reference with data-absent-reason extension when missing
+    if isinstance(specimen_ref_or_extension, str):
+        obs["specimen"] = {"reference": specimen_ref_or_extension}
+    else:
+        obs["specimen"] = specimen_ref_or_extension
     return obs
 
 
@@ -192,10 +235,10 @@ def _diagnostic_report_status(decision: str) -> str:
 
 def _receipt_to_fhir_diagnostic_report(
     receipt: dict[str, Any],
-    specimen_ref: str,
+    specimen_ref_or_extension: str | dict[str, Any],
     observation_refs: list[str],
 ) -> dict[str, Any]:
-    """Map receipt (entity_type=result) to FHIR R4 DiagnosticReport."""
+    """Map receipt (entity_type=result) to FHIR R4 DiagnosticReport. Specimen is reference or data-absent extension."""
     rid = receipt.get("result_id") or "dr-unknown"
     status = _diagnostic_report_status(receipt.get("decision", ""))
     timestamps = receipt.get("timestamps") or {}
@@ -205,9 +248,12 @@ def _receipt_to_fhir_diagnostic_report(
         "resourceType": "DiagnosticReport",
         "id": rid,
         "status": status,
-        "specimen": [{"reference": specimen_ref}],
         "result": [{"reference": ref} for ref in observation_refs],
     }
+    if isinstance(specimen_ref_or_extension, str):
+        dr["specimen"] = [{"reference": specimen_ref_or_extension}]
+    else:
+        dr["specimen"] = [specimen_ref_or_extension]
     if issued:
         dr["effectiveDateTime"] = issued
     return dr
@@ -221,7 +267,9 @@ def receipts_to_fhir_bundle(
     """
     Build FHIR R4 Bundle (type=collection) from receipts.
     Deterministic: specimens first, then observations (one per result receipt), then diagnostic reports.
-    Each result receipt produces one Observation and one DiagnosticReport; specimen ref = first Specimen in bundle.
+    When specimen receipts exist: Specimen resources with deterministic ids; Observation/DiagnosticReport
+    reference them. When none exist: no Specimen; Observation.specimen and DiagnosticReport.specimen
+    use data-absent-reason extension only. No placeholder IDs anywhere.
     """
     specimens: list[dict[str, Any]] = []
     result_receipts: list[dict[str, Any]] = []
@@ -230,27 +278,21 @@ def receipts_to_fhir_bundle(
             specimens.append(r)
         elif r.get("entity_type") == "result":
             result_receipts.append(r)
-    # Build resources
     fhir_specimens: list[dict[str, Any]] = [_receipt_to_fhir_specimen(s) for s in specimens]
     first_specimen_id = fhir_specimens[0]["id"] if fhir_specimens else None
-    specimen_ref = f"#Specimen/{first_specimen_id}" if first_specimen_id else None
-    if not specimen_ref and result_receipts:
-        specimen_ref = "#Specimen/placeholder"
-        fhir_specimens.append(
-            {
-                "resourceType": "Specimen",
-                "id": "placeholder",
-                "identifier": [{"system": "urn:labtrust:specimen", "value": "placeholder"}],
-            }
-        )
+    if first_specimen_id:
+        specimen_ref_or_extension: str | dict[str, Any] = f"#Specimen/{first_specimen_id}"
+    else:
+        specimen_ref_or_extension = _specimen_reference_data_absent()
     fhir_observations: list[dict[str, Any]] = [
-        _receipt_to_fhir_observation(r, i) for i, r in enumerate(result_receipts)
+        _receipt_to_fhir_observation(r, i, specimen_ref_or_extension)
+        for i, r in enumerate(result_receipts)
     ]
     fhir_reports: list[dict[str, Any]] = []
     for i, r in enumerate(result_receipts):
         obs_id = fhir_observations[i]["id"] if i < len(fhir_observations) else f"obs-{i}"
         obs_refs = [f"#Observation/{obs_id}"]
-        fhir_reports.append(_receipt_to_fhir_diagnostic_report(r, specimen_ref or "#Specimen/unknown", obs_refs))
+        fhir_reports.append(_receipt_to_fhir_diagnostic_report(r, specimen_ref_or_extension, obs_refs))
     # Bundle.entry: deterministic order Specimen(s), Observation(s), DiagnosticReport(s)
     entries: list[dict[str, Any]] = []
     for s in fhir_specimens:
@@ -280,6 +322,7 @@ def receipts_to_fhir_bundle(
 def validate_bundle_structure(bundle: dict[str, Any]) -> list[str]:
     """
     Lightweight structural validation: required keys, references resolve within bundle.
+    No placeholder IDs. Observation/DiagnosticReport.specimen may be extension-only (data-absent-reason).
     Returns list of error messages (empty if valid).
     """
     errors: list[str] = []
@@ -303,8 +346,12 @@ def validate_bundle_structure(bundle: dict[str, Any]) -> list[str]:
             continue
         rt = resource.get("resourceType")
         rid = resource.get("id")
+        if rid == "placeholder" or (isinstance(rid, str) and "placeholder" in rid.lower()):
+            errors.append(f"entry[{i}].resource.id must not be placeholder")
         if full_url and full_url.startswith("#"):
             ids.add(full_url)
+            if "placeholder" in full_url.lower():
+                errors.append(f"entry[{i}].fullUrl must not contain placeholder")
         elif rid:
             ids.add(f"#{rt}/{rid}")
     for i, e in enumerate(entries):
@@ -313,11 +360,14 @@ def validate_bundle_structure(bundle: dict[str, Any]) -> list[str]:
             refs = resource.get(ref_key)
             if isinstance(refs, list):
                 for ref_obj in refs:
-                    ref = ref_obj.get("reference") if isinstance(ref_obj, dict) else None
+                    if not isinstance(ref_obj, dict):
+                        continue
+                    ref = ref_obj.get("reference")
                     if ref and ref.startswith("#") and ref not in ids:
                         errors.append(f"entry[{i}].resource.{ref_key} reference '{ref}' not found in bundle")
-            elif isinstance(refs, dict) and refs.get("reference") and refs["reference"].startswith("#"):
-                if refs["reference"] not in ids:
+            elif isinstance(refs, dict):
+                ref = refs.get("reference")
+                if ref and ref.startswith("#") and ref not in ids:
                     errors.append(f"entry[{i}].resource.{ref_key} reference not found in bundle")
     return errors
 

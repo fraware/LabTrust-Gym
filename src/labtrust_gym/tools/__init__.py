@@ -16,6 +16,7 @@ from labtrust_gym.tools.execution import (
     TOOL_EXEC_EXCEPTION,
     TOOL_OUTPUT_MALFORMED,
     TOOL_TIMEOUT,
+    ToolExecutionConfigurationError,
     execute_tool_safely,
 )
 from labtrust_gym.tools.registry import (
@@ -51,6 +52,7 @@ __all__ = [
     "TOOL_ARG_SCHEMA_FAIL",
     "TOOL_ARG_RANGE_FAIL",
     "execute_tool_safely",
+    "ToolExecutionConfigurationError",
     "TOOL_EXEC_EXCEPTION",
     "TOOL_TIMEOUT",
     "TOOL_OUTPUT_MALFORMED",

@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\scripted_ops.py
+# hypothesis_version: 6.151.6
+
+[0.0, 150.0, 100, 'DEV_ALIQUOTER_01', 'DEV_CHEM_A_01', 'DEV_CHEM_B_01', 'DEV_COAG_01', 'DEV_HAEM_01', 'RELEASE_RESULT', 'ROUTINE', 'STAT', '__len__', 'action_type', 'args', 'deadline_s', 'device_id', 'device_qc_pass', 'door_restricted_open', 'flat', 'item', 'log_frozen', 'ops_0', 'priority', 'queue_lengths', 'result_id', 'stability_ok', 'temp_ok', 'token_count_override', 'work_id', 'work_list']

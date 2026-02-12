@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\online\config.py
+# hypothesis_version: 6.151.6
+
+[0.1, 2.0, 5.0, 256, 1024, 8765, 65536, '127.0.0.1', 'LABTRUST_AUTH_KEY', 'LABTRUST_AUTH_MODE', 'LABTRUST_SERVE_HOST', 'LABTRUST_SERVE_PORT', 'admin', 'api_key', 'auth_keys', 'key', 'multi_key', 'off', 'role', 'runner', 'viewer']

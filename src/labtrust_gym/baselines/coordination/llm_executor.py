@@ -215,7 +215,7 @@ def execute_proposal(
     env.step(actions, action_infos); collects step_results and builds
     ExecutionReport. Does not mutate proposal_dict. Comms in proposal
     are not delivered by the core env; comms_delivered and comms_dropped
-    are placeholder counts unless integrated.
+    are default counts unless integrated.
     """
     agents = getattr(env, "agents", None) or getattr(env, "possible_agents", [])
     if hasattr(agents, "__iter__") and not isinstance(agents, list):

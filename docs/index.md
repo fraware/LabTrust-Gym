@@ -2,7 +2,7 @@
 
 A multi-agent environment (PettingZoo/Gym style) for a self-driving hospital lab, with a reference **trust skeleton**: RBAC, signed actions, append-only audit log, invariants, and anomaly throttles.
 
-This documentation reflects the **current state of the repo**: contract freeze, coordination suite (coord_scale/coord_risk, methods, risk injections, study runner), ui-export, paper-ready release, and all CLI commands. Use the nav (left) or [Installation](installation.md) to get started. See [Repository structure](repository_structure.md) for directory layout and [Frozen contracts](frozen_contracts.md) and [UI data contract](ui_data_contract.md) for stable interfaces.
+This documentation reflects the **current state of the repo**: contract freeze, coordination suite (coord_scale/coord_risk, methods, risk injections, study runner), ui-export, paper-ready release, systems and threat model, example experiments, build-your-own-agent walkthrough, prompt-injection defense (pre-LLM block, output consistency), PPO/MARL (train_config, obs_history_len, Optuna HPO, train_config.json), valid FHIR R4 export (data-absent-reason for missing specimen/value; no placeholder IDs), risk register with evidence gaps as first-class and **validate-coverage --strict**, and all CLI commands. Use the nav (left) or [Installation](installation.md) to get started. See [Repository structure](repository_structure.md) for directory layout and [Frozen contracts](frozen_contracts.md) and [UI data contract](ui_data_contract.md) for stable interfaces.
 
 ## North star
 
@@ -57,7 +57,7 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `make-plots` | Generate figures and data tables from a study run; for coordination runs adds resilience vs p95_tat and attack_success_rate bar |
 | `reproduce --profile minimal \| full` | Reproduce minimal results + figures (throughput_sla & qc_cascade sweep + plots) |
 | `export-receipts --run \<log\> --out \<dir\>` | Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log |
-| `export-fhir --receipts \<dir\> --out \<dir\>` | Export FHIR R4 Bundle from receipts directory |
+| `export-fhir --receipts \<dir\> --out \<dir\>` | Export valid HL7 FHIR R4 Bundle from receipts directory (data-absent-reason for missing specimen/value; no placeholder IDs). See [FHIR R4 export](fhir_export.md). |
 | `verify-bundle --bundle \<dir\>` | Verify EvidenceBundle.v0.1: manifest, schema, hashchain, invariant trace; optional policy fingerprints (tool, rbac, coordination, memory) |
 | `run-security-suite --out \<dir\>` | Run security attack suite; emit SECURITY/attack_results.json and securitization packet ([Security attack suite](security_attack_suite.md)) |
 | `safety-case --out \<dir\>` | Generate safety case (claim to control, test, artifact, command) to SAFETY_CASE/safety_case.json and .md ([Implementation verification](implementation_verification.md)) |
@@ -65,13 +65,14 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `run-cross-provider-pack --out \<dir\> --providers \<list\>` | Run official pack once per provider (llm_live); per-provider dirs plus summary_cross_provider.json/.md ([Official benchmark pack](official_benchmark_pack.md), [Live LLM](llm_live.md)) |
 | `llm-healthcheck --backend \<openai_responses\|openai_live\|anthropic_live\> [--allow-network]` | One minimal request to live backend; reports ok, model_id, latency_ms ([Live LLM](llm_live.md)) |
 | `ui-export --run \<dir\> --out \<zip\>` | Export UI-ready zip (index, events, receipts_index, reason_codes) from run dir; see [UI data contract](ui_data_contract.md) |
-| `export-risk-register --out \<dir\> [--runs \<dir_or_glob\> ...]` | Export RiskRegisterBundle.v0.1 into \<dir\>/RISK_REGISTER_BUNDLE.v0.1.json. Evidence from SECURITY/, summary/, PARETO/, SAFETY_CASE/, MANIFEST in run dirs. CI runs contract gate (schema, snapshot, crosswalk, coverage). Optional `--include-official-pack \<dir\>`, `--inject-ui-export`. See [Risk register](risk_register.md), [Risk register contract](risk_register_contract.v0.1.md). |
+| `export-risk-register --out \<dir\> [--runs \<dir_or_glob\> ...]` | Export RiskRegisterBundle.v0.1 into \<dir\>/RISK_REGISTER_BUNDLE.v0.1.json. Evidence gaps (status=missing) are first-class. CI runs contract gate (schema, snapshot, crosswalk, coverage). Optional `--include-official-pack \<dir\>`, `--inject-ui-export`. See [Risk register](risk_register.md), [Risk register contract](risk_register_contract.v0.1.md). |
 | `build-risk-register-bundle --out \<path\> [--run \<dir\> ...]` | Build same bundle to an explicit file path (alternative to export-risk-register). |
+| `validate-coverage [--bundle \<path\>] [--out \<dir\>] [--strict]` | Validate risk register bundle coverage (required_bench evidenced or waived). With `--strict`, exit 1 if any required risk has missing evidence. |
 | `package-release --profile minimal \| full \| paper_v0.1 --out \<dir\>` | Release candidate: minimal/full = reproduce + receipts + FHIR + plots; paper_v0.1 = baselines + insider_key_misuse study + FIGURES/TABLES + receipts + SECURITY/ + COORDINATION_CARD.md + COORDINATION_LLM_CARD.md ([paper_ready](paper_ready.md)) |
 | `generate-official-baselines --out \<dir\>` | Run Tasks A–F with official baselines; write results/, summary, metadata (--episodes, --seed, --force) |
 | `summarize-results --in \<paths\> --out \<dir\>` | Aggregate results.json; write summary_v0.2.csv (CI-stable), summary_v0.3.csv (paper-grade), summary.csv + summary.md |
 | `determinism-report` | Run benchmark twice; produce determinism_report.md/.json; assert v0.2 metrics and log hash identical |
-| `train-ppo`, `eval-ppo` | PPO training/eval (requires `.[marl]`). Throughput_sla uses schedule_reward for non-zero mean reward. Use `eval-agent` with `labtrust_gym.baselines.marl.ppo_agent:PPOAgent` and `LABTRUST_PPO_MODEL` to run benchmark with a trained model. See [MARL baselines](marl_baselines.md). |
+| `train-ppo`, `eval-ppo` | PPO training/eval (requires `.[marl]`). Training accepts `train_config` (net_arch, learning_rate, n_steps, obs_history_len, reward_scale_schedule) and writes `train_config.json`; eval-ppo auto-loads it from the model dir. Optional HPO: `.[marl_hpo]` for Optuna. Use `eval-agent` with `labtrust_gym.baselines.marl.ppo_agent:PPOAgent` and `LABTRUST_PPO_MODEL` to run benchmark with a trained model (PPOAgent loads device_ids and obs_history_len from train_config.json). See [MARL baselines](marl_baselines.md). |
 
 ## Layout
 
@@ -91,7 +92,10 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 ## See also
 
 - [Installation](installation.md) — pip, quick-eval, quickstart script, troubleshooting
+- [Build your own agent](build_your_own_agent.md) — install, quick-eval, implement agent, eval-agent, inspect results (5–10 min)
+- **Example agents** (`examples/`): scripted_ops_agent, scripted_runner_agent, minimal_random_policy_agent, llm_agent_mock_demo, external_agent_demo; run a custom agent with `labtrust eval-agent --agent 'module:Class' --task throughput_sla --episodes 2 --out out.json`
 - [Architecture](architecture.md)
+- [Systems and threat model](systems_and_threat_model.md) — system summary, threat model, applicability to other self-driving labs and cyber-physical settings
 - [Policy pack and schemas](policy_pack.md)
 - [Frozen contracts](frozen_contracts.md) (public contract freeze v0.1.0)
 - [UI data contract](ui_data_contract.md) — ui-export bundle format; UI consumes ui-export output, not raw logs
@@ -100,9 +104,10 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 - [Risk register viewer](risk_register_viewer.md) — Dataset-driven viewer (loader: local file, zip, URL); search, filters, risk detail, reproduce commands
 - [Invariants and enforcement](invariants_registry.md) · [Enforcement](enforcement.md)
 - [PettingZoo API](pettingzoo_api.md)
-- [Benchmarks](benchmarks.md) · [Benchmark card](benchmark_card.md) · [Coordination benchmark card](coordination_benchmark_card.md) (coord_scale/coord_risk) · [Benchmarking plan](benchmarking_plan.md) (three-layer matrix: sanity, coverage, scale) · [LLM Coordination Protocol](llm_coordination_protocol.md) · [Official benchmark pack](official_benchmark_pack.md) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md) (coordination checklists: [Coordination methods](coordination_methods.md))
+- [Benchmarks](benchmarks.md) · [Example experiments](example_experiments.md) — reproducible experiments showing how trust mechanisms change behaviour and performance · [Benchmark card](benchmark_card.md) · [Coordination benchmark card](coordination_benchmark_card.md) (coord_scale/coord_risk) · [Benchmarking plan](benchmarking_plan.md) (three-layer matrix: sanity, coverage, scale) · [LLM Coordination Protocol](llm_coordination_protocol.md) · [Official benchmark pack](official_benchmark_pack.md) · [Studies and plots](studies.md) · [Reproduce](reproduce.md) · [Paper-ready release](paper_ready.md) (coordination checklists: [Coordination methods](coordination_methods.md))
 - [FHIR R4 export](fhir_export.md) · [Evidence verification](evidence_verification.md) · [Security attack suite and securitization packet](security_attack_suite.md) · [Implementation verification](implementation_verification.md) (safety case, controls, artifacts)
 - [MARL baselines](marl_baselines.md) · [LLM baselines](llm_baselines.md) · [Live LLM benchmark mode](llm_live.md)
+- [Security monitoring (adversarial detection)](security_monitoring.md) · [Prompt-injection defense](prompt_injection_defense.md) (pre-LLM block, output consistency)
 - [Security controls for online mode](security_online.md) · [Deployment hardening](deployment_hardening.md) (B008) · [Output controls](output_controls.md) (B009)
 - [CI](ci.md) · [STATUS](STATUS.md) (includes 3-min summary)
 - [STATUS](STATUS.md) — [Implementation and testing audit](STATUS.md#implementation-and-testing-audit) (official pack v0.2, llm_live); [Improvements before online](STATUS.md#improvements-before-online-checklist) (stability, code, testing, docs)

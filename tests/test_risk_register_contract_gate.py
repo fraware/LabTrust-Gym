@@ -77,6 +77,18 @@ def test_snapshot_ui_fixtures_bundle() -> None:
     )
 
 
+def test_ui_fixtures_evidence_bundle_verifies() -> None:
+    """ui_fixtures EvidenceBundle.v0.1 passes verify_bundle (manifest hashes and schema)."""
+    from labtrust_gym.export.verify import verify_bundle
+
+    root = _repo_root()
+    bundle_dir = root / "tests" / "fixtures" / "ui_fixtures" / "evidence_bundle" / "EvidenceBundle.v0.1"
+    if not bundle_dir.is_dir():
+        return  # skip if fixture not present
+    passed, _report, errors = verify_bundle(bundle_dir, policy_root=root)
+    assert passed, f"ui_fixtures evidence bundle must verify: {errors}"
+
+
 def test_crosswalk_risk_ids_in_evidence_exist_in_registry() -> None:
     """Every risk_id referenced in evidence exists in bundle.risks."""
     root = _repo_root()

@@ -1,0 +1,21 @@
+# Few-shot examples for LLM action proposal (SOTA). Optional; loaded when use_few_shot=True
+# or LABTRUST_LLM_FEW_SHOT=1. Each example can be user_snippet + assistant_snippet
+# or state_summary + action_proposal (converted to User/Assistant pair internally).
+schema_version: "0.1"
+examples:
+  - user_snippet: |
+      partner_id: LAB
+      now_ts_s: 0
+      STATE_SUMMARY_JSON: {"location":{"zone_id":"Z_SRA_RECEPTION","site_id":"SITE_HUB"},"queue":{"by_device":[]}}
+      ALLOWED_ACTIONS_JSON: ["NOOP","TICK","MOVE"]
+      Return a single ActionProposal JSON now.
+    assistant_snippet: |
+      {"action_type":"NOOP","args":{},"reason_code":null,"token_refs":[],"rationale":"No work in queue; wait.","confidence":0.9,"safety_notes":""}
+  - user_snippet: |
+      partner_id: LAB
+      now_ts_s: 10
+      STATE_SUMMARY_JSON: {"location":{"zone_id":"Z_ACCESSIONING","site_id":"SITE_HUB"},"work":{"pending_results":[{"result_id":"R1","criticality":"ROUTINE"}]}}
+      ALLOWED_ACTIONS_JSON: ["NOOP","TICK","QUEUE_RUN","MOVE"]
+      Return a single ActionProposal JSON now.
+    assistant_snippet: |
+      {"action_type":"TICK","args":{},"reason_code":null,"token_refs":[],"rationale":"Advance time; no device colocated for QUEUE_RUN.","confidence":0.85,"safety_notes":""}

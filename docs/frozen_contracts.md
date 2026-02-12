@@ -101,6 +101,10 @@ From repo root: `bash scripts/quickstart_paper_v0_1.sh` (or `scripts/quickstart_
 
 The **ui-export** output is the primary input for the UI. Run `labtrust ui-export --run <dir> --out ui_bundle.zip` to produce a zip containing `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. Schema version: **UI bundle v0.1**. See [UI data contract](ui_data_contract.md) for folder layouts (labtrust_runs, package-release), required files, relationships, and schema version handling. The UI must not depend on raw internal logs.
 
+## Extensibility
+
+New domains, tasks, coordination methods, invariant handlers, security/safety providers, and metrics aggregators are **additive** and must conform to the existing contracts: adapter interface (`LabTrustEnvAdapter`), task interface (`BenchmarkTask`), coordination interface (`CoordinationMethod`), invariant registry schema (v1.0), and results v0.2/v0.3 semantics. Registration is via `register_*` APIs or setuptools entry_points; see [Extension development](extension_development.md). Frozen contracts (runner output, queue, receipt, evidence bundle, etc.) are unchanged; extensions only add new names or optional fields.
+
 ---
 
 See also: [Policy pack and schemas](policy_pack.md), [STATUS](STATUS.md) (§1.3 What's frozen), [Installation](installation.md), [Paper-ready](paper_ready.md).

@@ -14,7 +14,10 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-from labtrust_gym.benchmarks.metrics import compute_episode_metrics
+from labtrust_gym.benchmarks.metrics import (
+    compute_episode_metrics,
+    get_metrics_aggregator,
+)
 from labtrust_gym.benchmarks.tasks import BenchmarkTask, get_task
 from labtrust_gym.baselines.coordination.llm_executor import (
     _proposal_hash,
@@ -167,6 +170,8 @@ def run_episode(
     comms_config: Any | None = None,
     episode_id: int = 0,
     run_dir: Path | None = None,
+    metrics_aggregator_id: str | None = None,
+    repo_root: Path | None = None,
 ) -> tuple[dict[str, Any], list[list[dict[str, Any]]]]:
     """
     Run one episode. Returns (metrics_dict, step_results_per_step).
@@ -177,11 +182,14 @@ def run_episode(
     initial_state_overrides: optional dict merged into initial_state (e.g. timing_mode, ablations).
     coord_method: optional CoordinationMethod; when set, propose_actions drives all agents (coord_scale/coord_risk).
     run_dir: optional; when set, passed to coord_method.reset via scale_config for study-track artifacts.
+    repo_root: optional policy root; when set, passed to task.get_initial_state as policy_root.
     """
     calibration = (
         initial_state_overrides.get("calibration") if initial_state_overrides else None
     )
-    initial_state = task.get_initial_state(episode_seed, calibration=calibration)
+    initial_state = task.get_initial_state(
+        episode_seed, calibration=calibration, policy_root=repo_root
+    )
     if initial_state_overrides:
         initial_state = {**initial_state, **initial_state_overrides}
     env = env_factory(
@@ -586,12 +594,20 @@ def run_episode(
                     or getattr(coord_method, "last_shield_outcome_hash", None)
                     or ""
                 )
+                assurance_evidence: list[dict[str, Any]] | None = None
+                shield_emits_for_evidence = getattr(coord_method, "last_shield_emits", None) or []
+                for emit_item in shield_emits_for_evidence:
+                    payload = emit_item.get("coord_shield_payload") if isinstance(emit_item, dict) else None
+                    if payload and payload.get("assurance_evidence") is not None:
+                        assurance_evidence = payload["assurance_evidence"]
+                        break
                 record = build_llm_coord_proposal_entry(
                     proposal_id=last_proposal.get("proposal_id", ""),
                     step_id=step_t,
                     canonical_proposal_hash=prop_hash,
                     meta=last_meta,
                     shield_outcome_hash=(shield_hash if shield_hash else None),
+                    assurance_evidence=assurance_evidence,
                 )
                 episode_logger_llm.log_llm_coord_proposal(record)
                 llm_audit_steps.append({
@@ -633,7 +649,13 @@ def run_episode(
         comm_metrics = blackboard_harness.get_comm_metrics()
     else:
         comm_metrics = None
-    metrics = compute_episode_metrics(
+    aggregator = (
+        get_metrics_aggregator(metrics_aggregator_id)
+        if metrics_aggregator_id
+        else None
+    )
+    compute_fn = aggregator if aggregator is not None else compute_episode_metrics
+    metrics = compute_fn(
         step_results_per_step,
         t_s_per_step=t_s_list,
         sla_turnaround_s=task.sla_turnaround_s,
@@ -789,6 +811,9 @@ def run_benchmark(
     allow_network: bool | None = None,
     llm_trace_collector: Any | None = None,
     llm_model: str | None = None,
+    metrics_aggregator_id: str | None = None,
+    domain_id: str | None = None,
+    record_fixtures_path: Path | None = None,
 ) -> dict[str, Any]:
     """
     Run N episodes for the task, write results.json.
@@ -811,6 +836,7 @@ def run_benchmark(
     pipeline_mode: optional "deterministic" | "llm_offline" | "llm_live"; when set, configures pipeline and enforces network gating.
     allow_network: optional; when True and pipeline_mode is llm_live, allows live LLM backends.
     llm_trace_collector: optional; when set, live LLM backends record redacted requests/responses/fingerprints/usage for LLM_TRACE bundle.
+    domain_id: optional; when set, use get_domain_adapter_factory(domain_id) to build the env engine (default hospital_lab when unset).
     """
     from labtrust_gym.pipeline import (
         PipelineMode,
@@ -824,7 +850,7 @@ def run_benchmark(
     if llm_backend is None and use_llm_live_openai:
         llm_backend = "openai_live"
     if llm_backend is None and use_llm_safe_v1_ops:
-        llm_backend = "deterministic"
+        llm_backend = "deterministic_constrained"
     if llm_agents is None and llm_backend is not None:
         llm_agents = ["ops_0"]
     llm_agents = llm_agents or []
@@ -841,11 +867,11 @@ def run_benchmark(
     if pipeline_mode is None:
         if llm_backend is None:
             pipeline_mode = "deterministic"
-        elif llm_backend == "deterministic":
+        elif llm_backend in ("deterministic", "deterministic_constrained"):
             pipeline_mode = "llm_offline"
         else:
             pipeline_mode = "llm_live"
-    _live_backends = ("openai_live", "openai_responses", "ollama_live", "anthropic_live")
+    _live_backends = ("openai_live", "openai_responses", "ollama_live", "anthropic_live", "openai_hosted")
     if pipeline_mode == "deterministic" and llm_backend in _live_backends:
         raise ValueError(
             "pipeline_mode=deterministic does not allow live LLM backends. "
@@ -860,6 +886,8 @@ def run_benchmark(
         allow_network = False
     llm_backend_id_for_banner: str | None = None
     if llm_backend == "deterministic":
+        llm_backend_id_for_banner = "fixture"
+    elif llm_backend == "deterministic_constrained":
         llm_backend_id_for_banner = "deterministic_constrained"
     elif llm_backend == "openai_live":
         llm_backend_id_for_banner = "openai_live"
@@ -869,6 +897,8 @@ def run_benchmark(
         llm_backend_id_for_banner = "ollama_live"
     elif llm_backend == "anthropic_live":
         llm_backend_id_for_banner = "anthropic_live"
+    elif llm_backend == "openai_hosted":
+        llm_backend_id_for_banner = "openai_hosted"
     set_pipeline_config(
         pipeline_mode=cast(PipelineMode, pipeline_mode),
         allow_network=allow_network,
@@ -879,6 +909,7 @@ def run_benchmark(
         "openai_responses",
         "ollama_live",
         "anthropic_live",
+        "openai_hosted",
     ):
         require_llm_live_allow_network()
     print_startup_banner()
@@ -918,7 +949,7 @@ def run_benchmark(
     ):
         overrides["calibration"] = effective_policy["calibration"]
     use_strict_signatures = bool(
-        task.get_initial_state(0).get("strict_signatures")
+        task.get_initial_state(0, policy_root=repo_root).get("strict_signatures")
         or (overrides or {}).get("strict_signatures")
     )
     # Inject tool registry so engine can gate tool_id calls (B010).
@@ -1003,7 +1034,7 @@ def run_benchmark(
             task.max_steps = scale_config_override.horizon_steps
             task.scale_config = scale_config_override
         else:
-            scale_probe_state = task.get_initial_state(base_seed)
+            scale_probe_state = task.get_initial_state(base_seed, policy_root=repo_root)
     if is_scale_task and coord_method:
         from dataclasses import asdict
 
@@ -1561,6 +1592,20 @@ def run_benchmark(
 
         policy_dir = repo_root / "policy"
 
+        # Resolve domain adapter: use domain registry when domain_id set, else default hospital_lab
+        _domain_id = domain_id if domain_id else "hospital_lab"
+        from labtrust_gym.domain import get_domain_adapter_factory
+
+        _adapter_factory_fn = get_domain_adapter_factory(_domain_id)
+        if _adapter_factory_fn is None:
+            from labtrust_gym.domain.lab_adapter import lab_domain_adapter_factory
+
+            _adapter_factory_fn = lab_domain_adapter_factory
+        _adapter_factory_fn_ref = _adapter_factory_fn
+
+        def _engine_factory() -> Any:
+            return _adapter_factory_fn_ref({}, None)
+
         if is_scale_task and scale_probe_state:
             scale_agents = scale_probe_state.get("agents") or []
             scale_device_ids = scale_probe_state.get("_scale_device_ids")
@@ -1584,6 +1629,7 @@ def run_benchmark(
                     scale_agents=scale_agents,
                     scale_device_ids=scale_device_ids,
                     scale_zone_ids=scale_zone_ids,
+                    engine_factory=_engine_factory,
                 )
 
         else:
@@ -1603,6 +1649,7 @@ def run_benchmark(
                     reward_config=reward_config,
                     policy_dir=policy_dir,
                     log_path=log_path,
+                    engine_factory=_engine_factory,
                 )
 
         def _make_env(
@@ -1660,6 +1707,36 @@ def run_benchmark(
                 ),
             }
         if not is_scale_task and llm_backend == "deterministic":
+            from labtrust_gym.baselines.llm.agent import (
+                FixtureBackend,
+                LLMAgentWithShield,
+            )
+            from labtrust_gym.engine.rbac import load_rbac_policy
+            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
+
+            rbac_path = (
+                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            )
+            rbac_policy = load_rbac_policy(rbac_path)
+            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
+            pz_to_engine = _default_pz_to_engine(
+                num_runners=num_runners, num_insiders=num_insiders
+            )
+            backend = FixtureBackend(repo_root=repo_root)
+            llm_backend_ref = cast(Any, backend)
+            for aid in llm_agents:
+                if aid not in scripted_agents_map:
+                    continue
+                scripted_agents_map[aid] = LLMAgentWithShield(
+                    backend=backend,
+                    rbac_policy=rbac_policy,
+                    pz_to_engine=pz_to_engine,
+                    strict_signatures=use_strict_signatures,
+                    key_registry=key_registry_merged,
+                    get_private_key=get_private_key_fn,
+                    capability_policy=capability_policy,
+                )
+        elif not is_scale_task and llm_backend == "deterministic_constrained":
             from labtrust_gym.baselines.llm.agent import (
                 DeterministicConstrainedBackend,
                 LLMAgentWithShield,
@@ -1817,6 +1894,42 @@ def run_benchmark(
                     get_private_key=get_private_key_fn,
                     capability_policy=capability_policy,
                 )
+        elif not is_scale_task and llm_backend == "openai_hosted":
+            from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
+            from labtrust_gym.baselines.llm.backends.openai_hosted import (
+                OpenAIHostedBackend,
+            )
+            from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
+            from labtrust_gym.engine.rbac import load_rbac_policy
+            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
+
+            rbac_path = (
+                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            )
+            rbac_policy = load_rbac_policy(rbac_path)
+            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
+            pz_to_engine = _default_pz_to_engine(
+                num_runners=num_runners, num_insiders=num_insiders
+            )
+            base_backend = OpenAIHostedBackend()
+            backend = (
+                RecordingBackend(base_backend)
+                if record_fixtures_path is not None
+                else base_backend
+            )
+            llm_backend_ref = cast(Any, backend)
+            for aid in llm_agents:
+                if aid not in scripted_agents_map:
+                    continue
+                scripted_agents_map[aid] = LLMAgentWithShield(
+                    backend=backend,
+                    rbac_policy=rbac_policy,
+                    pz_to_engine=pz_to_engine,
+                    strict_signatures=use_strict_signatures,
+                    key_registry=key_registry_merged,
+                    get_private_key=get_private_key_fn,
+                    capability_policy=capability_policy,
+                )
         if not is_scale_task and task_name == "adversarial_disruption":
             from labtrust_gym.baselines.adversary import AdversaryAgent
 
@@ -1878,6 +1991,10 @@ def run_benchmark(
             risk_injector_instance, "get_comms_config"
         ):
             comms_cfg = risk_injector_instance.get_comms_config()
+        if llm_backend_ref is not None and hasattr(
+            llm_backend_ref, "reset_aggregate_metrics"
+        ):
+            llm_backend_ref.reset_aggregate_metrics()
         metrics, _ = run_episode(
             task,
             ep_seed,
@@ -1890,8 +2007,15 @@ def run_benchmark(
             comms_config=comms_cfg,
             episode_id=ep_idx,
             run_dir=run_dir_episodes,
+            metrics_aggregator_id=metrics_aggregator_id,
+            repo_root=repo_root,
         )
-        episodes_metrics.append({"seed": ep_seed, "metrics": metrics})
+        ep_record: dict[str, Any] = {"seed": ep_seed, "metrics": metrics}
+        if llm_backend_ref is not None and hasattr(
+            llm_backend_ref, "snapshot_aggregate_metrics"
+        ):
+            ep_record["llm_episode"] = llm_backend_ref.snapshot_aggregate_metrics()
+        episodes_metrics.append(ep_record)
 
     policy_versions = _policy_versions(repo_root)
     git_hash = _git_commit_hash(repo_root)
@@ -1899,10 +2023,12 @@ def run_benchmark(
     policy_fingerprint_result = policy_fingerprint
     if coord_method:
         agent_baseline_id = f"coord_{coord_method}"
-    elif llm_backend == "deterministic":
+    elif llm_backend in ("deterministic", "deterministic_constrained"):
         agent_baseline_id = "llm_safe_v1"
     elif llm_backend == "openai_live":
         agent_baseline_id = "llm_live_openai_v1"
+    elif llm_backend == "openai_hosted":
+        agent_baseline_id = "llm_live_openai_hosted_v1"
     elif llm_backend == "openai_responses":
         agent_baseline_id = "llm_live_openai_responses_v1"
     elif llm_backend == "anthropic_live":
@@ -1958,6 +2084,13 @@ def run_benchmark(
     if llm_backend is not None:
         if llm_backend == "deterministic":
             results["metadata"] = {
+                "llm_backend_id": "fixture",
+                "llm_model_id": "fixture",
+                "llm_error_rate": 0.0,
+                "mean_llm_latency_ms": None,
+            }
+        elif llm_backend == "deterministic_constrained":
+            results["metadata"] = {
                 "llm_backend_id": "deterministic_constrained",
                 "llm_model_id": "n/a",
                 "llm_error_rate": 0.0,
@@ -1999,6 +2132,15 @@ def run_benchmark(
                 "total_tokens": agg.get("total_tokens"),
                 "tokens_per_step": agg.get("tokens_per_step"),
                 "estimated_cost_usd": agg.get("estimated_cost_usd"),
+            }
+        elif llm_backend == "openai_hosted":
+            inner = getattr(llm_backend_ref, "_inner", llm_backend_ref)
+            model_id = getattr(inner, "_model", None) or "gpt-4o-mini"
+            results["metadata"] = {
+                "llm_backend_id": "openai_hosted",
+                "llm_model_id": model_id,
+                "llm_error_rate": None,
+                "mean_llm_latency_ms": None,
             }
         else:
             results["metadata"] = {
@@ -2048,6 +2190,33 @@ def run_benchmark(
                 if results.get("metadata") is None:
                     results["metadata"] = {}
                 results["metadata"].setdefault("coordination", {})["learning"] = learning_dict
+
+    trace_env = os.environ.get("LABTRUST_LLM_TRACE", "").strip().lower()
+    if trace_env in ("1", "true", "yes"):
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+            if tracer is not None:
+                results["llm_trace"] = tracer.get_spans()
+                summary = tracer.get_attribution_summary()
+                if results.get("metadata") is None:
+                    results["metadata"] = {}
+                results["metadata"]["llm_attribution_summary"] = summary
+                tracer.clear()
+        except Exception:
+            pass
+
+    if record_fixtures_path is not None and llm_backend_ref is not None:
+        records = getattr(llm_backend_ref, "records", None)
+        if isinstance(records, dict) and records:
+            from labtrust_gym.baselines.llm.record_fixtures import (
+                merge_and_write_fixtures,
+            )
+            n = merge_and_write_fixtures(records, Path(record_fixtures_path))
+            if results.get("metadata") is None:
+                results["metadata"] = {}
+            results["metadata"]["recorded_fixtures"] = n
+            results["metadata"]["record_fixtures_path"] = str(record_fixtures_path)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)

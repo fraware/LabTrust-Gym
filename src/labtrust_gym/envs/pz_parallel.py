@@ -12,12 +12,13 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
 from labtrust_gym.baselines.llm.shield import LLM_ACTION_FILTERED
 from labtrust_gym.engine.core_env import CoreEnv
+from labtrust_gym.runner.adapter import LabTrustEnvAdapter
 from labtrust_gym.security.adversarial_detection import (
     detect_adversarial,
     load_adversarial_detection_policy,
@@ -62,7 +63,7 @@ RESTRICTED_ZONE_ID = "Z_RESTRICTED_BIOHAZARD"
 NUM_ACTION_TYPES = 6
 ACTION_NOOP = 0
 ACTION_TICK = 1
-ACTION_QUEUE_RUN_PLACEHOLDER = 2
+ACTION_QUEUE_RUN = 2
 ACTION_MOVE = 3
 ACTION_OPEN_DOOR = 4
 ACTION_START_RUN = 5
@@ -114,6 +115,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         scale_device_ids: list[str] | None = None,
         scale_zone_ids: list[str] | None = None,
         render_mode: str | None = None,
+        engine_factory: Callable[[], LabTrustEnvAdapter] | None = None,
     ) -> None:
         self.render_mode = render_mode
         if ParallelEnv is None or spaces is None:
@@ -217,7 +219,10 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             a: spaces.Discrete(NUM_ACTION_TYPES) for a in self.possible_agents
         }
 
-        self._engine = CoreEnv()
+        if engine_factory is not None:
+            self._engine = engine_factory()
+        else:
+            self._engine = CoreEnv()
         self._step_count = 0
         self._seed_value: int | None = None
         self.agents = list(self.possible_agents)
@@ -522,12 +527,15 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "reason_code": None,
                 "token_refs": [],
             }
-        if action == ACTION_QUEUE_RUN_PLACEHOLDER:
+        if action == ACTION_QUEUE_RUN:
             info = action_info or {}
             device_id = info.get("device_id") or (
                 self._device_ids[0] if self._device_ids else ""
             )
-            work_id = info.get("work_id", "OBS_PLACEHOLDER")
+            run_id = getattr(self, "_seed_value", None) is not None and self._seed_value or 0
+            work_id = info.get("work_id") or (
+                f"work_{run_id}_{engine_id}_{self._step_count}"
+            )
             prio = info.get("priority") or info.get("priority_class") or "ROUTINE"
             prio = (
                 str(prio).upper()

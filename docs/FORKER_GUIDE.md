@@ -77,6 +77,8 @@ Partner overlays let you override policy (critical thresholds, stability, enforc
 6. **Partner-scoped benchmark pack and study spec**  
    With `--partner <id>`, `run-official-pack` loads the benchmark pack from `policy/partners/<id>/official/benchmark_pack.v0.1.yaml` when present. For `run-coordination-study`, when `--partner <id>` is set, the spec is resolved from `policy/partners/<id>/coordination/coordination_study_spec.v0.1.yaml` when that file exists (overriding the path given by `--spec`).
 
+For full customization without forking (custom tasks, coordination methods, invariant handlers, security/safety providers), see the [Extension development](extension_development.md) guide and [Lab profile reference](lab_profile_reference.md).
+
 ---
 
 ## Coordination methods and scales
@@ -143,7 +145,7 @@ To verify a **full release directory** (output of `package-release`), use `labtr
 
 ## Risk register and run directory layout
 
-`export-risk-register` builds the bundle from policy and from run directories you pass with `--runs`. It expects run dirs to contain the usual layout: e.g. `pack_summary.csv`, `SECURITY/`, `summary/`, `COORDINATION_DECISION.v0.1.json`, `LAB_COORDINATION_REPORT.md`, etc. So you can run your own pack or coordination study and pass that directory to `--runs`; the bundle will list present evidence and stub missing evidence. See [Risk register](risk_register.md) for details.
+`export-risk-register` builds the bundle from policy and from run directories you pass with `--runs`. It expects run dirs to contain the usual layout: e.g. `pack_summary.csv`, `SECURITY/`, `summary/`, `COORDINATION_DECISION.v0.1.json`, `LAB_COORDINATION_REPORT.md`, etc. So you can run your own pack or coordination study and pass that directory to `--runs`; the bundle will list present evidence and evidence gaps (status=missing) for risks with no evidence yet. See [Risk register](risk_register.md) for details.
 
 ---
 

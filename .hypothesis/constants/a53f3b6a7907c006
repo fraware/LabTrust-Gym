@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\devices.py
+# hypothesis_version: 6.151.6
+
+[1.8, 2.0, 3.0, 30.0, 60.0, 600.0, 600, 'ALIQUOTER', 'CENTRIFUGE_BANK', 'CHEM_ANALYZER', 'COAG_ANALYZER', 'FAULT', 'HAEM_ANALYZER', 'IDLE', 'MAINT', 'RUNNING', 'UNKNOWN', 'deterministic', 'device_id', 'device_instances', 'device_type', 'device_types', 'dist', 'end_ts_s', 'equipment_registry', 'failure_models', 'maintenance_schedule', 'per_aliquot_s', 'per_panel_s', 'per_test_s', 'per_tube_overhead_s', 'r', 'run_s', 'service_time_model', 'setup_s', 'spin_time_s', 'start_ts_s', 'teardown_s', 'timing_model', 'utf-8', 'value', 'zone', 'zone_id']

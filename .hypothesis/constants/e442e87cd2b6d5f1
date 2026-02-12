@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\memory\validators.py
+# hypothesis_version: 6.151.6
+
+[256, 4096, '0.1', 'MEM_POISON_DETECTED', 'allowed_fields', 'content', 'flags', 'forbidden_patterns', 'i', 'id', 'max_content_length', 'max_summary_length', 'memory_policy', 'pattern', 'policy', 'role', 'source', 'summary', 'tags', 'timestamp', 'version']

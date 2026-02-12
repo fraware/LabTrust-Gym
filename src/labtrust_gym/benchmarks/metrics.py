@@ -44,6 +44,29 @@ SECURITY_REASON_CODES = frozenset(
     }
 )
 
+# Metrics aggregator registry: aggregator_id -> callable with same signature as compute_episode_metrics.
+_METRICS_AGGREGATORS: dict[str, Any] = {}
+
+
+def register_metrics_aggregator(aggregator_id: str, aggregator: Any) -> None:
+    """Register a metrics aggregator. Overwrites if present."""
+    _METRICS_AGGREGATORS[aggregator_id] = aggregator
+
+
+def get_metrics_aggregator(aggregator_id: str) -> Any | None:
+    """Return the registered metrics aggregator, or None."""
+    return _METRICS_AGGREGATORS.get(aggregator_id)
+
+
+def list_metrics_aggregators() -> list[str]:
+    """Return sorted list of registered metrics aggregator IDs."""
+    return sorted(_METRICS_AGGREGATORS.keys())
+
+
+def _ensure_default_metrics_aggregator() -> None:
+    if "default" not in _METRICS_AGGREGATORS:
+        register_metrics_aggregator("default", compute_episode_metrics)
+
 
 def compute_episode_metrics(
     step_results_per_step: list[list[dict[str, Any]]],
@@ -341,3 +364,6 @@ def compute_episode_metrics(
             "resilience_score": max(0.0, min(1.0, resilience_score)),
         }
     return out
+
+
+_ensure_default_metrics_aggregator()

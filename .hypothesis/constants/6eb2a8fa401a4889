@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\coordination\network.py
+# hypothesis_version: 6.151.6
+
+[0.0, 0.95, 1.645, '_agent_ids', '_dropped_count', '_msg_count', '_pending_by_agent', '_policy', '_resolved_partition', '_rng', 'affected_agents', 'delay', 'drop_rate', 'drop_spike', 'dropped_count', 'end_t', 'msg_count', 'p50_ms', 'p95_latency_ms', 'p95_ms', 'partition_events', 'partition_schedule', 'perfect', 'reorder_window', 'start_t']

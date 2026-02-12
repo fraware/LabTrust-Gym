@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\llm\decoder.py
+# hypothesis_version: 6.151.6
+
+[0.0, 'MISSING_CITATION', 'MISSING_RATIONALE', 'MOVE', 'NOOP', 'QUEUE_RUN', 'RC_ILLEGAL_MOVE', 'START_RUN', 'action_type', 'agent_zone', 'allowed_actions', 'args', 'citation_anchors', 'confidence', 'device_id', 'key_id', 'message', 'queue_head', 'rationale', 'reason_code', 'safety_notes', 'signature', 'to_zone', 'token_refs', 'zone_graph']

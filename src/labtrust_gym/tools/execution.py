@@ -3,7 +3,8 @@ Tool execution safety wrapper: non-fatal execution, canonical failure semantics.
 
 Wraps tool execution in a single choke point with exception capture, timeout,
 and output schema validation. Converts failures into structured (ok, result, error)
-without propagating malformed outputs or crashing the run.
+without propagating malformed outputs or crashing the run. Requires an adapter;
+no silent no-op when adapter is absent.
 """
 
 from __future__ import annotations
@@ -28,10 +29,28 @@ TOOL_DATA_CLASS_VIOLATION = "TOOL_DATA_CLASS_VIOLATION"
 # Default timeout when none specified (seconds); use a small value for determinism in tests.
 DEFAULT_TOOL_TIMEOUT_S = 30.0
 
+# Docs section for tool execution configuration (adapter, context).
+DOCS_TOOL_EXECUTION = "repository_structure.md"
 
-def _default_stub_adapter(tool_id: str, args: dict[str, Any]) -> dict[str, Any]:
-    """Stub adapter when no adapter is provided: returns empty dict (safe no-op)."""
-    return {}
+
+class ToolExecutionConfigurationError(Exception):
+    """
+    Raised when tool execution is requested but no adapter is configured.
+
+    Remediation: provide an adapter via initial_state["tool_adapter"] (CoreEnv)
+    or the adapter parameter (execute_tool_safely). Use a real implementation
+    or a test double; no default no-op adapter is provided.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        remediation: str,
+        docs_section: str = DOCS_TOOL_EXECUTION,
+    ):
+        super().__init__(message)
+        self.remediation = remediation
+        self.docs_section = docs_section
 
 
 def _load_output_schema(ref: str, policy_root: Path) -> dict[str, Any]:
@@ -74,10 +93,18 @@ def execute_tool_safely(
         - tool_result: adapter return value (or {} on failure).
         - tool_error: When ok is False, dict with reason_code, message, and optional details.
 
-    Uses a stub adapter (returns {}) when adapter is None so runs never crash.
+    Requires adapter to be provided; raises ToolExecutionConfigurationError when absent.
     """
     if adapter is None:
-        adapter = _default_stub_adapter
+        raise ToolExecutionConfigurationError(
+            "Tool execution requires an adapter; none was provided.",
+            remediation=(
+                "Set initial_state['tool_adapter'] when creating the env (CoreEnv), "
+                "or pass adapter= to execute_tool_safely. "
+                "Config key: tool_adapter (callable(tool_id, args) -> dict)."
+            ),
+            docs_section=DOCS_TOOL_EXECUTION,
+        )
     if timeout_s is None:
         timeout_s = DEFAULT_TOOL_TIMEOUT_S
     sandbox_ctx = sandbox_ctx or {}

@@ -127,7 +127,11 @@ def test_coordination_security_pack_outputs(repo_root: Path, tmp_path: Path) -> 
         gate_text = gate_path.read_text(encoding="utf-8")
         assert "PASS" in gate_text
         assert "|" in gate_text
-        assert "not_supported" in gate_text or "PASS" in gate_text
+        assert (
+            "not_supported" in gate_text
+            or "SKIP" in gate_text
+            or "PASS" in gate_text
+        )
 
 
 def test_coordination_security_pack_gate_verdicts_present(repo_root: Path, tmp_path: Path) -> None:

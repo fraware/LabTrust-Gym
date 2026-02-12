@@ -1,23 +1,33 @@
-"""LabTrustEnvAdapter: interface that the simulator must implement for the golden runner."""
+"""LabTrustEnvAdapter: interface for the golden runner."""
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import Any
 
 
-class LabTrustEnvAdapter:
+class LabTrustEnvAdapter(ABC):
     """
-    Your simulator should implement this thin interface.
+    Interface that the simulator must implement for the golden runner.
 
-    Key design rule:
-      - The golden runner is the oracle. The engine is a black box that must return enough
-        structured data for the oracle to normalize and assert.
+    Key design rule: the golden runner is the oracle; the engine is a black box
+    that must return enough structured data for the oracle to normalize and assert.
+
+    Concrete implementations: CoreEnv, PZParallelAdapter. Do not instantiate base.
     """
 
-    def reset(self, initial_state: dict[str, Any], *, deterministic: bool, rng_seed: int) -> None:
+    @abstractmethod
+    def reset(
+        self,
+        initial_state: dict[str, Any],
+        *,
+        deterministic: bool,
+        rng_seed: int,
+    ) -> None:
         """Reset the simulator to the scenario initial state."""
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def step(self, event: dict[str, Any]) -> dict[str, Any]:
         """
         Apply one event.
@@ -25,15 +35,16 @@ class LabTrustEnvAdapter:
         Must return a dict containing at minimum:
           - status: "ACCEPTED" | "BLOCKED"
           - emits: [str] (optional; empty list if none)
-          - violations: list of {invariant_id, status, reason_code?, message?} (optional)
+          - violations: list of {invariant_id, status, reason_code?, message?}
           - blocked_reason_code: str|None (required if status == BLOCKED)
           - token_consumed: [token_id] (optional)
           - hashchain: {head_hash, length, last_event_hash} (required)
-          - enforcements: list of {type, target?, duration_s?, reason_code?, rule_id?} (optional)
-          - (optional) state_snapshot: any data you want to expose for assertions
+          - enforcements: list (optional)
+          - (optional) state_snapshot: any data for assertions
         """
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def query(self, expr: str) -> Any:
         """
         Query a computed property for state_assertions in the golden YAML.
@@ -44,4 +55,4 @@ class LabTrustEnvAdapter:
           - "result_status('RES_QC1')"
           - "system_state('log_frozen')"
         """
-        raise NotImplementedError
+        ...

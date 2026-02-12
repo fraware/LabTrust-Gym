@@ -79,7 +79,7 @@ def test_changing_policy_file_changes_coordination_fingerprint(tmp_path: Path) -
     assert isinstance(fp, str)
     assert len(fp) == 64
     assert all(c in "0123456789abcdef" for c in fp)
-    # When file is missing, we get a placeholder hash
+    # When file is missing, we get a fallback hash
     fp_missing = coordination_policy_fingerprint_from_repo(tmp_path)
     assert fp_missing != fp or not (tmp_path / "policy" / "coordination_identity_policy.v0.1.yaml").exists()
 

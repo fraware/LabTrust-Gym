@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\adversary.py
+# hypothesis_version: 6.151.6
+
+['DEV_ALIQUOTER_01', 'DEV_CHEM_A_01', 'DEV_CHEM_B_01', 'DEV_COAG_01', 'DEV_HAEM_01', 'D_RESTRICTED_AIRLOCK', 'ROUTINE', 'T_EXPIRED', '__len__', 'adversary_0', 'device_id', 'door_id', 'flat', 'item', 'log_frozen', 'priority', 'token_refs', 'work_id']

@@ -78,6 +78,10 @@ All of the following are **data-driven**: edit YAML/JSON under `policy/` (and op
 
 Details: [Forker guide](FORKER_GUIDE.md) (partner overlay, coordination methods, security gates, risk register).
 
+**Path B: Extension package (no fork)**
+
+You can depend on `labtrust-gym` as a library and ship your own pip-installable package that implements and registers extensions (tasks, coordination methods, invariant handlers, security/safety providers, metrics aggregators). Use `--profile <id>` to point to a lab profile that sets partner_id and provider IDs. No fork required. See [Extension development](extension_development.md) and [Lab profile reference](lab_profile_reference.md).
+
 ---
 
 ## 4. Validate policy and run tests

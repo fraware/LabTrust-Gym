@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\rbac.py
+# hypothesis_version: 6.151.6
+
+['0.1', 'RBAC_ACTION_DENY', 'RBAC_DEVICE_DENY', 'RBAC_ZONE_DENY', 'action_constraints', 'agents', 'allowed', 'allowed_actions', 'allowed_devices', 'allowed_zones', 'device_id', 'rbac_policy', 'reason_code', 'role_id', 'roles', 'version', 'zone_id']

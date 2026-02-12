@@ -2,8 +2,10 @@
 Live OpenAI backend: config parsing, disabled by default, optional integration.
 
 - Unit tests: config from env, is_available when no key, NOOP when no key.
-- Integration: skipped unless LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY.
-No network calls in default run; no .env loading.
+- Integration (marked @pytest.mark.live): run with LABTRUST_RUN_LLM_LIVE=1 and
+  OPENAI_API_KEY set, then: pytest tests/test_openai_live.py -m live -v
+  or: pytest tests/test_openai_live.py::test_openai_live_one_episode_task_a -v
+  No network calls in default run; no .env loading.
 """
 
 import json
@@ -36,9 +38,10 @@ def test_get_config_defaults_when_no_env() -> None:
             "LABTRUST_LLM_RETRIES",
         ):
             os.environ.pop(k, None)
-        api_key, model, timeout_s, retries = _get_config()
+        api_key, model, fallback_models, timeout_s, retries = _get_config()
     assert api_key == ""
     assert model == "gpt-4o-mini"
+    assert fallback_models == []
     assert timeout_s == 20
     assert retries == 0
 
@@ -55,7 +58,7 @@ def test_get_config_reads_env() -> None:
         },
         clear=False,
     ):
-        api_key, model, timeout_s, retries = _get_config()
+        api_key, model, fallback_models, timeout_s, retries = _get_config()
     assert api_key == "sk-test-key"
     assert model == "gpt-4o"
     assert timeout_s == 30
@@ -65,7 +68,7 @@ def test_get_config_reads_env() -> None:
 def test_get_config_invalid_timeout_fallback() -> None:
     """Invalid LABTRUST_LLM_TIMEOUT_S falls back to 20."""
     with patch.dict(os.environ, {"LABTRUST_LLM_TIMEOUT_S": "x"}, clear=False):
-        _, _, timeout_s, _ = _get_config()
+        _, _, _, timeout_s, _ = _get_config()
     assert timeout_s == 20
 
 
@@ -76,9 +79,9 @@ def test_openai_backend_provider_interface_and_capabilities() -> None:
         backend = OpenAILiveBackend()
     assert isinstance(backend, ProviderBackend)
     assert supports_structured_outputs(backend) is True
-    assert supports_tool_calls(backend) is False
+    assert supports_tool_calls(backend) is True
     assert backend.supports_structured_outputs is True
-    assert backend.supports_tool_calls is False
+    assert backend.supports_tool_calls is True
 
 
 def test_openai_backend_disabled_by_default() -> None:
@@ -94,6 +97,58 @@ def test_openai_backend_available_when_key_set() -> None:
     with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-x"}, clear=False):
         backend = OpenAILiveBackend()
     assert backend.is_available is True
+
+
+def test_propose_action_use_tools_calls_tool_path() -> None:
+    """When context use_tools=True, backend uses _call_api_with_tools and returns parsed action."""
+    from labtrust_gym.pipeline import set_pipeline_config
+
+    set_pipeline_config(
+        pipeline_mode="llm_live",
+        allow_network=True,
+        llm_backend_id=BACKEND_ID,
+    )
+    try:
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-x"}, clear=False):
+            backend = OpenAILiveBackend()
+        tool_response = (
+            json.dumps({
+                "action_type": "TICK",
+                "args": {},
+                "reason_code": None,
+                "token_refs": [],
+                "rationale": "Tool-assisted decision.",
+                "confidence": 0.9,
+                "safety_notes": "",
+            }),
+            {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+        )
+        ctx = {
+            "partner_id": "",
+            "now_ts_s": 0,
+            "timing_mode": "explicit",
+            "state_summary": {},
+            "allowed_actions": ["NOOP", "TICK"],
+            "active_tokens": [],
+            "recent_violations": [],
+            "enforcement_state": {},
+            "use_tools": True,
+        }
+        with patch.object(
+            backend,
+            "_call_api_with_tools",
+            return_value=tool_response,
+        ):
+            out = backend.propose_action(ctx)
+        assert out.get("action_type") == "TICK"
+        assert backend.last_metrics.get("prompt_tokens") == 10
+        assert backend.last_metrics.get("completion_tokens") == 20
+    finally:
+        set_pipeline_config(
+            pipeline_mode="deterministic",
+            allow_network=False,
+            llm_backend_id=None,
+        )
 
 
 def test_propose_action_returns_noop_when_no_key() -> None:
@@ -208,12 +263,13 @@ def test_llm_decision_event_shape_live_backend_no_network() -> None:
         )
 
 
+@pytest.mark.live
 @pytest.mark.skipif(
     os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1" or not os.environ.get("OPENAI_API_KEY"),
     reason="Set LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY for live integration",
 )
 def test_openai_live_one_episode_task_a() -> None:
-    """Integration: one episode TaskA with live OpenAI when explicitly enabled."""
+    """Integration: one episode TaskA with live OpenAI (run with -m live and env vars set)."""
     import tempfile
 
     from labtrust_gym.benchmarks.runner import run_benchmark
@@ -228,6 +284,7 @@ def test_openai_live_one_episode_task_a() -> None:
             out_path=out_path,
             repo_root=root,
             use_llm_live_openai=True,
+            allow_network=True,
         )
     assert r.get("task") == "throughput_sla"
     assert len(r.get("episodes", [])) == 1

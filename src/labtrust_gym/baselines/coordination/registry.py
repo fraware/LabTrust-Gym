@@ -1,11 +1,16 @@
 """
 Coordination method factory: load registry from policy YAML and instantiate methods.
+
+Extension: register_coordination_method(method_id, factory) and entry_points
+labtrust_gym.coordination_methods allow external packages to add methods without editing this file.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Callable, cast
+
+from labtrust_gym.config import policy_path
 
 from labtrust_gym.baselines.coordination.allocation.auction import (
     AuctionAllocator,
@@ -71,7 +76,7 @@ def _load_scheduler_or_policy(repo_root: Path | None) -> dict[str, Any]:
     """Load scheduler_or_policy.v0.1.yaml from repo; return dict or empty."""
     if repo_root is None:
         return {}
-    path = repo_root / "policy" / "coordination" / "scheduler_or_policy.v0.1.yaml"
+    path = policy_path(repo_root, "coordination", "scheduler_or_policy.v0.1.yaml")
     if not path.exists():
         return {}
     try:
@@ -93,80 +98,43 @@ _METHOD_CLASSES: dict[str, type] = {
     "llm_constrained": LLMConstrained,
 }
 
+# Registry for coordination method factories (method_id -> factory).
+# Built-in methods are registered in _register_builtin_coordination_methods().
+# External packages can call register_coordination_method() or use entry_points.
+# Contract: see docs/extension_development.md (Coordination method factory contract).
+CoordinationMethodFactory = Callable[
+    [
+        dict[str, Any],
+        Path | None,
+        dict[str, Any] | None,
+        dict[str, Any],
+    ],
+    CoordinationMethod,
+]
+_COORDINATION_FACTORIES: dict[str, CoordinationMethodFactory] = {}
 
-def _get_marl_ppo_if_available(**kwargs: Any) -> CoordinationMethod | None:
-    from labtrust_gym.baselines.coordination.methods.marl_ppo import (
-        make_marl_ppo_if_available,
-    )
 
-    return make_marl_ppo_if_available(**kwargs)
+def register_coordination_method(
+    method_id: str,
+    factory: CoordinationMethodFactory,
+) -> None:
+    """Register a coordination method factory. Overwrites if present."""
+    _COORDINATION_FACTORIES[method_id] = factory
 
 
-def make_coordination_method(
+def list_coordination_methods() -> list[str]:
+    """Return registered coordination method IDs."""
+    return sorted(_COORDINATION_FACTORIES.keys())
+
+
+def _build_builtin(
     method_id: str,
     policy: dict[str, Any],
-    repo_root: Path | None = None,
-    scale_config: dict[str, Any] | None = None,
-    compute_budget: int | None = None,
-    collusion: bool = False,
-    message_delay_scale: float = 1.0,
-    gossip_rounds: int = 3,
-    model_path: str | None = None,
-    llm_agent: Any | None = None,
-    pz_to_engine: dict[str, str] | None = None,
-    proposal_backend: Any | None = None,
-    **kwargs: Any,
+    repo_root: Path | None,
+    scale_config: dict[str, Any] | None,
+    params: dict[str, Any],
 ) -> CoordinationMethod:
-    """
-    Instantiate a coordination method by method_id.
-    Loads default_params from policy/coordination/coordination_methods.v0.1.yaml when
-    repo_root is set; kwargs and explicit args override.
-    """
-    params: dict[str, Any] = {}
-    registry: dict[str, dict[str, Any]] = {}
-    if repo_root is not None:
-        try:
-            from labtrust_gym.policy.coordination import (
-                load_coordination_methods,
-                resolve_method_variant,
-            )
-
-            reg_path = Path(repo_root) / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
-            if reg_path.exists():
-                registry = load_coordination_methods(reg_path)
-                entry = registry.get(method_id)
-                if entry and isinstance(entry.get("default_params"), dict):
-                    params = dict(entry["default_params"])
-                base_id, defense_profile = resolve_method_variant(method_id, registry)
-                if base_id != method_id:
-                    params["method_id_override"] = method_id
-                    if defense_profile is not None:
-                        params["defense_profile"] = defense_profile
-                    base_entry = registry.get(base_id)
-                    if base_entry and isinstance(base_entry.get("default_params"), dict):
-                        params = {**base_entry["default_params"], **params}
-                    method_id = base_id
-        except Exception:
-            pass
-    if scale_config:
-        params["scale_config"] = scale_config
-    params.update(kwargs)
-    if compute_budget is not None:
-        params["compute_budget"] = compute_budget
-    if collusion:
-        params["collusion"] = collusion
-    if message_delay_scale != 1.0:
-        params["message_delay_scale"] = message_delay_scale
-    if gossip_rounds != 3:
-        params["gossip_rounds"] = gossip_rounds
-    if model_path is not None:
-        params["model_path"] = model_path
-    if llm_agent is not None:
-        params["llm_agent"] = llm_agent
-    if pz_to_engine is not None:
-        params["pz_to_engine"] = pz_to_engine
-    if proposal_backend is not None:
-        params["proposal_backend"] = proposal_backend
+    """Instantiate a built-in coordination method. Used by the registry."""
 
     if method_id == "llm_central_planner":
         from labtrust_gym.engine.rbac import get_allowed_actions
@@ -185,9 +153,7 @@ def make_coordination_method(
                 "for deterministic backend"
             )
         rbac_path = (
-            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            if repo_root
-            else None
+            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         )
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         pz_to_engine_map = params.get("pz_to_engine") or {}
@@ -235,9 +201,7 @@ def make_coordination_method(
                 "for deterministic backend"
             )
         rbac_path = (
-            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            if repo_root
-            else None
+            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         )
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         pz_to_engine_map = params.get("pz_to_engine") or {}
@@ -285,9 +249,7 @@ def make_coordination_method(
                 "for deterministic backend"
             )
         rbac_path = (
-            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            if repo_root
-            else None
+            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         )
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         return cast(
@@ -353,9 +315,7 @@ def make_coordination_method(
         if backend is None:
             backend = DeterministicLocalProposalBackend(seed=seed)
         rbac_path = (
-            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            if repo_root
-            else None
+            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         )
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         first_engine = (
@@ -379,7 +339,11 @@ def make_coordination_method(
         )
 
     if method_id == "marl_ppo":
-        inst = _get_marl_ppo_if_available(model_path=params.get("model_path"))
+        from labtrust_gym.baselines.coordination.methods.marl_ppo import (
+            make_marl_ppo_if_available,
+        )
+
+        inst = make_marl_ppo_if_available(model_path=params.get("model_path"))
         if inst is None:
             raise ImportError(
                 "marl_ppo requires stable-baselines3 and gymnasium. Install with: pip install labtrust-gym[marl]"
@@ -387,9 +351,13 @@ def make_coordination_method(
         return inst
 
     if method_id == "llm_constrained":
-        if llm_agent is None:
+        _llm_agent = params.get("llm_agent")
+        if _llm_agent is None:
             raise ValueError("llm_constrained requires llm_agent= to be passed")
-        return LLMConstrained(llm_agent=llm_agent, pz_to_engine=pz_to_engine or {})
+        return LLMConstrained(
+            llm_agent=_llm_agent,
+            pz_to_engine=params.get("pz_to_engine") or {},
+        )
 
     cls = _METHOD_CLASSES.get(method_id)
     if cls is None and method_id not in (
@@ -478,17 +446,35 @@ def make_coordination_method(
             ),
         )
     if method_id == "kernel_centralized_edf":
-        alloc: CentralizedAllocator | AuctionAllocator = CentralizedAllocator(
+        alloc = CentralizedAllocator(
             compute_budget=params.get("compute_budget"),
+            fairness=bool(params.get("fairness", False)),
         )
-        sched: EDFScheduler | ORScheduler = EDFScheduler()
-        router: TrivialRouter | WHCARouter = TrivialRouter()
+        crit_slack_ce = params.get("criticality_slack_steps")
+        if isinstance(crit_slack_ce, dict):
+            crit_slack_ce = {int(k): int(v) for k, v in crit_slack_ce.items()}
+        else:
+            crit_slack_ce = None
+        sched = EDFScheduler(
+            deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
+            criticality_slack_steps=crit_slack_ce,
+        )
+        router = TrivialRouter()
         return compose_kernel(alloc, sched, router, "kernel_centralized_edf")
     if method_id == "kernel_whca":
         alloc = CentralizedAllocator(
             compute_budget=params.get("compute_budget"),
+            fairness=bool(params.get("fairness", False)),
         )
-        sched = EDFScheduler()
+        crit_slack = params.get("criticality_slack_steps")
+        if isinstance(crit_slack, dict):
+            crit_slack = {int(k): int(v) for k, v in crit_slack.items()}
+        else:
+            crit_slack = None
+        sched = EDFScheduler(
+            deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
+            criticality_slack_steps=crit_slack,
+        )
         router = WHCARouter(
             horizon=params.get("whca_horizon", 15),
         )
@@ -514,15 +500,33 @@ def make_coordination_method(
     if method_id == "kernel_auction_edf":
         alloc = AuctionAllocator(
             max_bids=params.get("compute_budget") or params.get("max_bids"),
+            fairness_weight=float(params.get("fairness_weight", 0)),
         )
-        sched = EDFScheduler()
+        crit_slack_edf = params.get("criticality_slack_steps")
+        if isinstance(crit_slack_edf, dict):
+            crit_slack_edf = {int(k): int(v) for k, v in crit_slack_edf.items()}
+        else:
+            crit_slack_edf = None
+        sched = EDFScheduler(
+            deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
+            criticality_slack_steps=crit_slack_edf,
+        )
         router = TrivialRouter()
         return compose_kernel(alloc, sched, router, "kernel_auction_edf")
     if method_id == "kernel_auction_whca":
         alloc = AuctionAllocator(
             max_bids=params.get("compute_budget") or params.get("max_bids"),
+            fairness_weight=float(params.get("fairness_weight", 0)),
         )
-        sched = EDFScheduler()
+        crit_slack = params.get("criticality_slack_steps")
+        if isinstance(crit_slack, dict):
+            crit_slack = {int(k): int(v) for k, v in crit_slack.items()}
+        else:
+            crit_slack = None
+        sched = EDFScheduler(
+            deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
+            criticality_slack_steps=crit_slack,
+        )
         router = WHCARouter(
             horizon=params.get("whca_horizon", 15),
         )
@@ -534,8 +538,17 @@ def make_coordination_method(
 
         alloc = AuctionAllocator(
             max_bids=params.get("compute_budget") or params.get("max_bids"),
+            fairness_weight=float(params.get("fairness_weight", 0)),
         )
-        sched = EDFScheduler()
+        crit_slack = params.get("criticality_slack_steps")
+        if isinstance(crit_slack, dict):
+            crit_slack = {int(k): int(v) for k, v in crit_slack.items()}
+        else:
+            crit_slack = None
+        sched = EDFScheduler(
+            deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
+            criticality_slack_steps=crit_slack,
+        )
         router = WHCARouter(
             horizon=params.get("whca_horizon", 15),
         )
@@ -566,9 +579,7 @@ def make_coordination_method(
                 repair_backend, fault_model_config, seed=seed
             )
         rbac_path = (
-            Path(repo_root) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            if repo_root
-            else None
+            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         )
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         pz_to_engine_map = params.get("pz_to_engine") or {}
@@ -638,3 +649,119 @@ def make_coordination_method(
     if method_id == "swarm_reactive":
         return cast(CoordinationMethod, cls())
     return cast(CoordinationMethod, cls())
+
+BUILTIN_COORDINATION_METHOD_IDS: tuple[str, ...] = (
+    'centralized_planner',
+    'gossip_consensus',
+    'group_evolving_experience_sharing',
+    'group_evolving_study',
+    'hierarchical_hub_local',
+    'hierarchical_hub_rr',
+    'kernel_auction_edf',
+    'kernel_auction_whca',
+    'kernel_auction_whca_shielded',
+    'kernel_centralized_edf',
+    'kernel_scheduler_or',
+    'kernel_scheduler_or_whca',
+    'kernel_whca',
+    'llm_auction_bidder',
+    'llm_central_planner',
+    'llm_constrained',
+    'llm_detector_throttle_advisor',
+    'llm_gossip_summarizer',
+    'llm_hierarchical_allocator',
+    'llm_local_decider_signed_bus',
+    'llm_repair_over_kernel_whca',
+    'market_auction',
+    'marl_ppo',
+    'ripple_effect',
+    'swarm_reactive',
+)
+
+
+def _register_builtin_coordination_methods() -> None:
+    for mid in BUILTIN_COORDINATION_METHOD_IDS:
+        def _factory(p, r, s, params, _mid=mid):
+            return _build_builtin(_mid, p, r, s, params)
+        register_coordination_method(mid, _factory)
+
+
+_register_builtin_coordination_methods()
+
+
+def make_coordination_method(
+    method_id: str,
+    policy: dict[str, Any],
+    repo_root: Path | None = None,
+    scale_config: dict[str, Any] | None = None,
+    compute_budget: int | None = None,
+    collusion: bool = False,
+    message_delay_scale: float = 1.0,
+    gossip_rounds: int = 3,
+    model_path: str | None = None,
+    llm_agent: Any | None = None,
+    pz_to_engine: dict[str, str] | None = None,
+    proposal_backend: Any | None = None,
+    **kwargs: Any,
+) -> CoordinationMethod:
+    """
+    Instantiate a coordination method by method_id.
+    Loads default_params from policy/coordination/coordination_methods.v0.1.yaml when
+    repo_root is set; kwargs and explicit args override.
+    """
+    params: dict[str, Any] = {}
+    registry: dict[str, dict[str, Any]] = {}
+    if repo_root is not None:
+        try:
+            from labtrust_gym.policy.coordination import (
+                load_coordination_methods,
+                resolve_method_variant,
+            )
+
+            reg_path = policy_path(repo_root, "coordination", "coordination_methods.v0.1.yaml")
+            if reg_path.exists():
+                registry = load_coordination_methods(reg_path)
+                entry = registry.get(method_id)
+                if entry and isinstance(entry.get("default_params"), dict):
+                    params = dict(entry["default_params"])
+                base_id, defense_profile = resolve_method_variant(method_id, registry)
+                if base_id != method_id:
+                    params["method_id_override"] = method_id
+                    if defense_profile is not None:
+                        params["defense_profile"] = defense_profile
+                    base_entry = registry.get(base_id)
+                    if base_entry and isinstance(base_entry.get("default_params"), dict):
+                        params = {**base_entry["default_params"], **params}
+                    method_id = base_id
+        except Exception:
+            pass
+    if scale_config:
+        params["scale_config"] = scale_config
+    params.update(kwargs)
+    if compute_budget is not None:
+        params["compute_budget"] = compute_budget
+    if collusion:
+        params["collusion"] = collusion
+    if message_delay_scale != 1.0:
+        params["message_delay_scale"] = message_delay_scale
+    if gossip_rounds != 3:
+        params["gossip_rounds"] = gossip_rounds
+    if model_path is not None:
+        params["model_path"] = model_path
+    if llm_agent is not None:
+        params["llm_agent"] = llm_agent
+    if pz_to_engine is not None:
+        params["pz_to_engine"] = pz_to_engine
+    if proposal_backend is not None:
+        params["proposal_backend"] = proposal_backend
+
+    # External plugins may register a factory for this method_id; use it if present.
+    factory = _COORDINATION_FACTORIES.get(method_id)
+    if factory is not None:
+        return factory(policy, repo_root, scale_config, params)
+    factory = _COORDINATION_FACTORIES.get(method_id)
+    if factory is None:
+        raise ValueError(
+            f"Unknown coordination method_id: {method_id}. Known: {sorted(_COORDINATION_FACTORIES.keys())}"
+        )
+    return factory(policy, repo_root, scale_config, params)

@@ -73,10 +73,12 @@ class DeterministicProposalBackend:
         allowed_actions: list[str],
         step_id: int,
         method_id: str,
+        **kwargs: Any,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
         Return (proposal_dict, meta). Proposal conforms to coordination_proposal schema.
-        Deterministic for same digest and step_id.
+        Deterministic for same digest and step_id. Accepts optional conversation_history
+        for interface compatibility; ignored.
         """
         agent_ids = [p.get("agent_id") for p in state_digest.get("per_agent") or []]
         if not agent_ids:
@@ -141,6 +143,7 @@ class LLMCentralPlanner(CoordinationMethod):
         self._blocked_threshold = max(0, int(blocked_threshold))
         self._method_id_override = method_id_override
         self._defense_profile = defense_profile or ""
+        self._conversation_history: list[dict[str, Any]] = []
         self._last_proposal: dict[str, Any] | None = None
         self._last_meta: dict[str, Any] | None = None
         self._last_valid = False
@@ -174,6 +177,7 @@ class LLMCentralPlanner(CoordinationMethod):
                     (policy["pz_to_engine"] or {}).get(agents[0], agents[0])
                 )
         self._latency_ms_list = []
+        self._conversation_history = []
         reset_fn = getattr(self._backend, "reset", None)
         if callable(reset_fn):
             reset_fn(seed)
@@ -202,6 +206,7 @@ class LLMCentralPlanner(CoordinationMethod):
                 allowed,
                 step_id=t,
                 method_id=self.method_id,
+                conversation_history=self._conversation_history or None,
             )
         except Exception:
             if safe_fallback:
@@ -209,6 +214,8 @@ class LLMCentralPlanner(CoordinationMethod):
             raise
         self._last_proposal = proposal
         self._last_meta = meta
+        if meta.get("conversation_history_updated") is not None:
+            self._conversation_history = meta["conversation_history_updated"]
         self._proposal_total_count += 1
         lat = meta.get("latency_ms")
         if lat is not None and isinstance(lat, (int, float)):

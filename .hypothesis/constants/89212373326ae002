@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\logging\episode_log.py
+# hypothesis_version: 6.151.6
+
+['0.1', 'LLM_COORD_PROPOSAL', 'a', 'action_type', 'agent_id', 'allowed_actions_hash', 'args', 'assurance_evidence', 'attempt_index', 'audit_digest_version', 'blocked_count', 'blocked_reason_code', 'capability_decision', 'consignment_id', 'control_decision', 'decoder_version', 'emits', 'enforcements', 'episode_id', 'hashchain', 'hashchain_head', 'head_hash', 'invariant_id', 'last_event_hash', 'length', 'llm_decision', 'log_type', 'meta', 'partner_id', 'policy_fingerprint', 'policy_summary_hash', 'prompt_hash', 'proposal_hash', 'proposal_id', 'rbac_decision', 'reason_code', 'repair_request_hash', 'security_event', 'shield_outcome_hash', 'shield_outcomes', 'status', 'step_id', 'steps', 't_s', 'token_consumed', 'utf-8', 'validation_failed', 'violations']

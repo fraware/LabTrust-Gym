@@ -122,6 +122,41 @@ def test_marl_smoke_ppo_train_tiny() -> None:
         assert "mean_reward" in result["eval_metrics"]
 
 
+def test_marl_smoke_ppo_train_config_and_history() -> None:
+    """Train with train_config (obs_history_len, net_arch); check train_config.json (LABTRUST_MARL_SMOKE=1)."""
+    if os.environ.get("LABTRUST_MARL_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_MARL_SMOKE=1 to run MARL smoke tests")
+    _require_sb3_or_skip()
+    if sys.platform == "win32" and os.environ.get("MARL_RUN_INLINE") != "1":
+        _run_test_in_subprocess("test_marl_smoke_ppo_train_config_and_history")
+        return
+    pytest.importorskip("gymnasium")
+    pytest.importorskip("pettingzoo")
+    import json
+    from labtrust_gym.baselines.marl.ppo_train import train_ppo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "ppo"
+        result = train_ppo(
+            task_name="throughput_sla",
+            timesteps=400,
+            seed=43,
+            out_dir=out,
+            log_interval=200,
+            verbose=0,
+            train_config={"obs_history_len": 2, "net_arch": [32, 32]},
+        )
+        assert Path(result["model_path"]).exists()
+        assert "eval_metrics" in result
+        cfg_path = out / "train_config.json"
+        assert cfg_path.exists(), "train_config.json must be written at start of training"
+        with open(cfg_path, encoding="utf-8") as f:
+            cfg = json.load(f)
+        assert cfg.get("obs_history_len") == 2
+        assert cfg.get("net_arch") == [32, 32]
+        assert "mean_reward" in result["eval_metrics"]
+
+
 def test_marl_smoke_ppo_eval() -> None:
     """With LABTRUST_MARL_SMOKE=1, run eval after a tiny train."""
     if os.environ.get("LABTRUST_MARL_SMOKE") != "1":

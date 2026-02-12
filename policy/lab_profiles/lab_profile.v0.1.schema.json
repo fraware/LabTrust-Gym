@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust-gym/lab_profile.v0.1",
+  "title": "Lab profile",
+  "description": "Schema for policy/lab_profiles/<profile_id>.v0.1.yaml (YAML loaded as JSON-compatible object).",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "description": "Schema version, e.g. 0.1" },
+    "profile_id": { "type": "string", "description": "Profile identifier" },
+    "description": { "type": "string", "description": "Human-readable description" },
+    "partner_id": { "type": ["string", "null"], "description": "Partner overlay ID" },
+    "benchmark_pack_path": { "type": ["string", "null"], "description": "Path to benchmark pack YAML relative to policy root" },
+    "security_suite_path": { "type": ["string", "null"], "description": "Path to security attack suite YAML relative to policy root" },
+    "safety_claims_path": { "type": ["string", "null"], "description": "Path to safety case claims YAML relative to policy root" },
+    "coordination_study_spec_path": { "type": ["string", "null"], "description": "Path to coordination study spec YAML relative to policy root" },
+    "security_suite_provider_id": { "type": ["string", "null"], "description": "Registered security suite provider ID" },
+    "safety_case_provider_id": { "type": ["string", "null"], "description": "Registered safety case provider ID" },
+    "metrics_aggregator_id": { "type": ["string", "null"], "description": "Registered metrics aggregator ID" },
+    "domain_id": { "type": ["string", "null"], "description": "Domain adapter ID; default hospital_lab" },
+    "extension_packages": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Package names to import so their entry_points run"
+    }
+  }
+}

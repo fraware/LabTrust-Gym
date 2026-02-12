@@ -68,6 +68,17 @@ if ! run_step package-release "${LABTRUST_CLI[@]}" package-release --profile min
   exit 1
 fi
 
+# 1b) Determinism report (throughput_sla, 3 episodes, seed 42)
+DET_OUT="$WORK_DIR/det_report"
+if ! run_step determinism-report "${LABTRUST_CLI[@]}" determinism-report --task throughput_sla --episodes 3 --seed 42 --out "$DET_OUT"; then
+  echo "E2E chain failed at determinism-report"
+  exit 1
+fi
+if [ ! -f "$DET_OUT/determinism_report.json" ] || [ ! -f "$DET_OUT/determinism_report.md" ]; then
+  echo "E2E chain failed: determinism-report did not write determinism_report.json and determinism_report.md"
+  exit 1
+fi
+
 # 2) Verify all EvidenceBundles under the release
 if ! run_step verify-release "${LABTRUST_CLI[@]}" verify-release --release-dir "$RELEASE_DIR"; then
   echo "E2E chain failed at verify-release"

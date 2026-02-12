@@ -109,7 +109,7 @@ coordination_methods:
       default_params: {}
 
     - method_id: "marl_ppo"
-      name: "MARL PPO (optional stub)"
+      name: "MARL PPO (shared policy with agent_id in obs)"
       coordination_class: learning
       scaling_knobs: ["num_agents", "num_devices", "horizon_steps"]
       known_weaknesses: ["R-DATA-002", "R-FLOW-002", "R-TOOL-004"]

@@ -10,7 +10,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from labtrust_gym.config import get_repo_root
+from labtrust_gym.config import get_repo_root, load_lab_profile
+from labtrust_gym.plugins import load_plugins
 from labtrust_gym.policy.validate import validate_policy
 from labtrust_gym.version import __version__
 
@@ -55,7 +56,15 @@ def main() -> int:
             print(f"labtrust-gym {__version__}")
         return 0
 
+    load_plugins()
+
     parser = argparse.ArgumentParser(prog="labtrust", description="LabTrust-Gym CLI")
+    parser.add_argument(
+        "--profile",
+        default=None,
+        metavar="ID",
+        help="Lab profile ID (loads policy/lab_profiles/<id>.v0.1.yaml); overrides partner_id and optional paths when set",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     p_validate = sub.add_parser(
         "validate-policy",
@@ -93,13 +102,15 @@ def main() -> int:
         "--llm-backend",
         choices=[
             "deterministic",
+            "deterministic_constrained",
             "openai_live",
+            "openai_hosted",
             "openai_responses",
             "ollama_live",
             "anthropic_live",
         ],
         default=None,
-        help="LLM agent/coordination backend: deterministic (seeded, no API), openai_live, openai_responses, or ollama_live. Default: no LLM (scripted / deterministic).",
+        help="LLM backend: deterministic (fixture-based, record fixtures first), deterministic_constrained (seeded RNG, no API), openai_live, openai_responses, ollama_live, anthropic_live.",
     )
     p_bench.add_argument(
         "--llm-model",
@@ -634,6 +645,28 @@ def main() -> int:
         help="Skip schema validation before writing",
     )
     p_export_risk.set_defaults(func=_run_export_risk_register)
+    p_validate_cov = sub.add_parser(
+        "validate-coverage",
+        help="Validate risk register bundle coverage (required_bench cells evidenced or waived). With --strict, exit 1 if any required risk has missing evidence.",
+    )
+    p_validate_cov.add_argument(
+        "--bundle",
+        default=None,
+        metavar="PATH",
+        help="Path to RISK_REGISTER_BUNDLE.v0.1.json (default: <repo_root>/risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json if --out not set)",
+    )
+    p_validate_cov.add_argument(
+        "--out",
+        default=None,
+        metavar="DIR",
+        help="Directory containing RISK_REGISTER_BUNDLE.v0.1.json (used when --bundle not set)",
+    )
+    p_validate_cov.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail (exit 1) if any required_bench (method_id, risk_id) has no present evidence and is not waived",
+    )
+    p_validate_cov.set_defaults(func=_run_validate_coverage)
     p_repro = sub.add_parser(
         "reproduce",
         help="Reproduce minimal results and figures (study sweep + plots)",
@@ -1042,6 +1075,39 @@ def main() -> int:
         help="Allow network (required for live check); also LABTRUST_ALLOW_NETWORK=1",
     )
     p_llm_health.set_defaults(func=_run_llm_healthcheck)
+    p_record_fixtures = sub.add_parser(
+        "record-llm-fixtures",
+        help="Run a short benchmark with OpenAI-hosted backend and record (message_digest, response) to tests/fixtures/llm_responses/. Run manually with network; not for CI.",
+    )
+    p_record_fixtures.add_argument(
+        "--task",
+        default="insider_key_misuse",
+        help="Task to run (default: insider_key_misuse). Use a task that exercises LLM agents.",
+    )
+    p_record_fixtures.add_argument(
+        "--episodes",
+        type=int,
+        default=1,
+        help="Number of episodes (default: 1).",
+    )
+    p_record_fixtures.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Base seed (default: 42).",
+    )
+    p_record_fixtures.add_argument(
+        "--out",
+        default="runs/record_fixtures/results.json",
+        help="Output path for run results (default: runs/record_fixtures/results.json).",
+    )
+    p_record_fixtures.add_argument(
+        "--repo-root",
+        type=Path,
+        default=None,
+        help="Repo root; default from get_repo_root().",
+    )
+    p_record_fixtures.set_defaults(func=_run_record_llm_fixtures)
     p_serve = sub.add_parser(
         "serve",
         help="Start online HTTP API (local-only by default; rate limits and optional API key).",
@@ -1077,6 +1143,50 @@ def main() -> int:
         default="runs/ppo",
         help="Output directory for model and eval metrics",
     )
+    p_train_ppo.add_argument(
+        "--net-arch",
+        default=None,
+        help="Policy MLP hidden sizes, comma-separated (e.g. 128,128); default 64,64",
+    )
+    p_train_ppo.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=None,
+        help="Save checkpoint every N steps; with --keep-best run eval and keep best",
+    )
+    p_train_ppo.add_argument(
+        "--keep-best",
+        type=int,
+        default=0,
+        help="When using --checkpoint-every, keep best model by eval mean_reward (1=save best_model.zip)",
+    )
+    p_train_ppo.add_argument(
+        "--train-config",
+        default=None,
+        metavar="PATH",
+        help="Path to JSON train config (net_arch, obs_history_len, learning_rate, n_steps, reward_scale_schedule). CLI --net-arch overrides net_arch in file.",
+    )
+    p_train_ppo.add_argument(
+        "--obs-history-len",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Stack last N observations (partial observability); overrides train_config file if set.",
+    )
+    p_train_ppo.add_argument(
+        "--learning-rate",
+        type=float,
+        default=None,
+        metavar="LR",
+        help="PPO learning rate; overrides train_config file if set.",
+    )
+    p_train_ppo.add_argument(
+        "--n-steps",
+        type=int,
+        default=None,
+        metavar="N",
+        help="PPO n_steps per update; overrides train_config file if set.",
+    )
     p_train_ppo.set_defaults(func=_run_train_ppo)
     p_eval_ppo = sub.add_parser(
         "eval-ppo",
@@ -1091,6 +1201,109 @@ def main() -> int:
     p_eval_ppo.add_argument("--out", default=None, help="Output JSON path for metrics")
     p_eval_ppo.set_defaults(func=_run_eval_ppo)
     args = parser.parse_args()
+    # Apply lab profile when --profile is set (override partner_id and optional provider/paths).
+    profile_id = getattr(args, "profile", None)
+    if profile_id:
+        root = get_repo_root()
+        profile = load_lab_profile(root, profile_id)
+        if profile:
+            if profile.get("partner_id") is not None:
+                setattr(args, "partner", profile["partner_id"])
+            if profile.get("security_suite_provider_id") is not None:
+                setattr(args, "security_suite_provider_id", profile["security_suite_provider_id"])
+            if profile.get("safety_case_provider_id") is not None:
+                setattr(args, "safety_case_provider_id", profile["safety_case_provider_id"])
+            if profile.get("metrics_aggregator_id") is not None:
+                setattr(args, "metrics_aggregator_id", profile["metrics_aggregator_id"])
+            extension_packages = profile.get("extension_packages")
+            if isinstance(extension_packages, list):
+                import importlib
+                for pkg in extension_packages:
+                    if isinstance(pkg, str) and pkg.strip():
+                        try:
+                            importlib.import_module(pkg.strip())
+                        except Exception:
+                            pass
+            from labtrust_gym.config import get_effective_path
+            if profile.get("security_suite_path") is not None:
+                setattr(
+                    args,
+                    "security_suite_path",
+                    get_effective_path(root, profile, "security_suite_path", "golden/security_attack_suite.v0.1.yaml"),
+                )
+            if profile.get("safety_claims_path") is not None:
+                setattr(
+                    args,
+                    "safety_claims_path",
+                    get_effective_path(root, profile, "safety_claims_path", "safety_case/claims.v0.1.yaml"),
+                )
+            if profile.get("benchmark_pack_path") is not None:
+                setattr(
+                    args,
+                    "benchmark_pack_path",
+                    get_effective_path(root, profile, "benchmark_pack_path", "official/benchmark_pack.v0.1.yaml"),
+                )
+            if profile.get("coordination_study_spec_path") is not None:
+                setattr(
+                    args,
+                    "coordination_study_spec_path",
+                    get_effective_path(root, profile, "coordination_study_spec_path", "coordination/coordination_study_spec.v0.1.yaml"),
+                )
+            if profile.get("domain_id") is not None:
+                setattr(args, "domain_id", profile["domain_id"])
+            # Validate profile provider IDs so unknown IDs fail fast with a clear message.
+            pid = getattr(args, "security_suite_provider_id", None)
+            if pid is not None:
+                from labtrust_gym.benchmarks.security_runner import (
+                    get_security_suite_provider,
+                    list_security_suite_providers,
+                )
+                if get_security_suite_provider(pid) is None:
+                    known = list_security_suite_providers()
+                    print(
+                        f"Profile references security_suite_provider_id {pid!r} but no provider is registered for it. Known: {known}",
+                        file=sys.stderr,
+                    )
+                    return 1
+            pid = getattr(args, "safety_case_provider_id", None)
+            if pid is not None:
+                from labtrust_gym.security.safety_case import (
+                    get_safety_case_provider,
+                    list_safety_case_providers,
+                )
+                if get_safety_case_provider(pid) is None:
+                    known = list_safety_case_providers()
+                    print(
+                        f"Profile references safety_case_provider_id {pid!r} but no provider is registered for it. Known: {known}",
+                        file=sys.stderr,
+                    )
+                    return 1
+            pid = getattr(args, "metrics_aggregator_id", None)
+            if pid is not None:
+                from labtrust_gym.benchmarks.metrics import (
+                    get_metrics_aggregator,
+                    list_metrics_aggregators,
+                )
+                if get_metrics_aggregator(pid) is None:
+                    known = list_metrics_aggregators()
+                    print(
+                        f"Profile references metrics_aggregator_id {pid!r} but no aggregator is registered for it. Known: {known}",
+                        file=sys.stderr,
+                    )
+                    return 1
+            did = getattr(args, "domain_id", None)
+            if did is not None:
+                from labtrust_gym.domain import (
+                    get_domain_adapter_factory,
+                    list_domains,
+                )
+                if get_domain_adapter_factory(did) is None:
+                    known = list_domains()
+                    print(
+                        f"Profile references domain_id {did!r} but no domain adapter is registered for it. Known: {known}",
+                        file=sys.stderr,
+                    )
+                    return 1
     try:
         return cast(int, args.func(args))
     except Exception as e:
@@ -1172,6 +1385,8 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         except (KeyError, FileNotFoundError, ValueError) as e:
             print(f"Invalid --scale {args.scale!r}: {e}", file=sys.stderr)
             return 1
+    metrics_aggregator_id = getattr(args, "metrics_aggregator_id", None)
+    domain_id = getattr(args, "domain_id", None)
     _run(
         task_name=args.task,
         num_episodes=args.episodes,
@@ -1190,6 +1405,8 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         scale_config_override=scale_config_override,
         pipeline_mode=pipeline_mode,
         allow_network=allow_network,
+        metrics_aggregator_id=metrics_aggregator_id,
+        domain_id=domain_id,
     )
     print(f"Wrote {args.out}", file=sys.stderr)
     if getattr(args, "log", None):
@@ -1252,6 +1469,7 @@ def _run_benchmark_llm_live_eval(args: argparse.Namespace) -> int:
             allow_network=True,
             coord_method=coord_method,
             llm_trace_collector=collector,
+            metrics_aggregator_id=getattr(args, "metrics_aggregator_id", None),
         )
         print(f"Wrote {task_out}", file=sys.stderr)
 
@@ -1515,6 +1733,52 @@ def _run_export_risk_register(args: argparse.Namespace) -> int:
         return 1
 
 
+def _run_validate_coverage(args: argparse.Namespace) -> int:
+    """Validate risk register bundle coverage; with --strict, fail if any required risk has missing evidence."""
+    import json
+
+    from labtrust_gym.export.risk_register_bundle import (
+        RISK_REGISTER_BUNDLE_FILENAME,
+        check_risk_register_coverage,
+    )
+
+    root = get_repo_root()
+    bundle_path = getattr(args, "bundle", None)
+    if bundle_path is not None:
+        bundle_path = Path(bundle_path)
+        if not bundle_path.is_absolute():
+            bundle_path = root / bundle_path
+    else:
+        out_dir = getattr(args, "out", None)
+        if out_dir is None:
+            out_dir = root / "risk_register_out"
+        else:
+            out_dir = Path(out_dir)
+            if not out_dir.is_absolute():
+                out_dir = root / out_dir
+        bundle_path = out_dir / RISK_REGISTER_BUNDLE_FILENAME
+    if not bundle_path.exists():
+        print(f"Bundle not found: {bundle_path}", file=sys.stderr)
+        return 1
+    try:
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"Failed to load bundle: {e}", file=sys.stderr)
+        return 1
+    passed, missing_list = check_risk_register_coverage(bundle, root)
+    if passed:
+        if getattr(args, "strict", False):
+            print("Coverage OK: all required_bench cells evidenced or waived.", file=sys.stderr)
+        return 0
+    if getattr(args, "strict", False):
+        print("Coverage FAIL: required risks with missing evidence (method_id, risk_id):", file=sys.stderr)
+        for mid, rid in sorted(missing_list):
+            print(f"  {mid} {rid}", file=sys.stderr)
+        return 1
+    print(f"Coverage: {len(missing_list)} required cell(s) with evidence gaps (run with --strict to fail).", file=sys.stderr)
+    return 0
+
+
 def _run_export_fhir(args: argparse.Namespace) -> int:
     """Export FHIR R4 Bundle from receipts directory."""
     from labtrust_gym.export.fhir_r4 import export_fhir
@@ -1623,6 +1887,8 @@ def _run_security_suite(args: argparse.Namespace) -> int:
             allow_network=True,
             llm_backend_id=llm_backend,
         )
+    provider_id = getattr(args, "security_suite_provider_id", None)
+    security_suite_path = getattr(args, "security_suite_path", None)
     try:
         results = run_suite_and_emit(
             policy_root=root,
@@ -1641,6 +1907,8 @@ def _run_security_suite(args: argparse.Namespace) -> int:
             allow_network=allow_network,
             llm_backend=llm_backend,
             llm_model=llm_model,
+            provider_id=provider_id,
+            security_suite_path=security_suite_path,
         )
         emit_securitization_packet(root, out_dir)
         if any(r.get("llm_attacker") for r in results):
@@ -1706,8 +1974,10 @@ def _run_safety_case(args: argparse.Namespace) -> int:
     if not out_dir.is_absolute():
         out_dir = root / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
+    provider_id = getattr(args, "safety_case_provider_id", None)
+    claims_path = getattr(args, "safety_claims_path", None)
     try:
-        emit_safety_case(policy_root=root, out_dir=out_dir)
+        emit_safety_case(policy_root=root, out_dir=out_dir, provider_id=provider_id, claims_path=claims_path)
         safety_dir = out_dir / "SAFETY_CASE"
         print(f"SAFETY_CASE/ written to {safety_dir}", file=sys.stderr)
         return 0
@@ -1778,11 +2048,15 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
     from labtrust_gym.studies.coordination_study_runner import run_coordination_study
 
     root = get_repo_root()
-    spec_path = Path(args.spec)
+    profile_spec = getattr(args, "coordination_study_spec_path", None)
+    if profile_spec is not None:
+        spec_path = Path(profile_spec)
+    else:
+        spec_path = Path(args.spec)
     if not spec_path.is_absolute():
         spec_path = root / spec_path
     partner_id = getattr(args, "partner", None)
-    if partner_id:
+    if partner_id and profile_spec is None:
         overlay_spec = (
             root
             / "policy"
@@ -1831,7 +2105,7 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
         )
 
         matrix_path = out_dir / COORDINATION_MATRIX_CANONICAL_FILENAME
-        build_coordination_matrix(out_dir, matrix_path, policy_root=None, strict=True)
+        build_coordination_matrix(out_dir, matrix_path, policy_root=root, strict=True)
         print(f"Coordination matrix written to {matrix_path}", file=sys.stderr)
 
     return 0
@@ -2229,6 +2503,7 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
             log_path=None,
             partner_id=partner_id,
             timing_mode=timing,
+            metrics_aggregator_id=getattr(args, "metrics_aggregator_id", None),
         )
         if schema_path:
             data = json.loads(out_path.read_text(encoding="utf-8"))
@@ -2310,6 +2585,8 @@ def _run_official_pack(args: argparse.Namespace) -> int:
     llm_backend = getattr(args, "llm_backend", None)
     include_coordination_pack = getattr(args, "include_coordination_pack", False)
     partner_id = getattr(args, "partner", None)
+    metrics_aggregator_id = getattr(args, "metrics_aggregator_id", None)
+    benchmark_pack_path = getattr(args, "benchmark_pack_path", None)
     try:
         result = run_official_pack(
             out_dir=out_dir,
@@ -2322,6 +2599,8 @@ def _run_official_pack(args: argparse.Namespace) -> int:
             llm_backend=llm_backend,
             include_coordination_pack=include_coordination_pack,
             partner_id=partner_id,
+            metrics_aggregator_id=metrics_aggregator_id,
+            benchmark_pack_path=benchmark_pack_path,
         )
         print(f"Official pack written to {result}", file=sys.stderr)
         return 0
@@ -2381,9 +2660,51 @@ def _run_bench_smoke(args: argparse.Namespace) -> int:
             base_seed=seed,
             out_path=root / f"bench_smoke_{task}.json",
             repo_root=root,
+            metrics_aggregator_id=getattr(args, "metrics_aggregator_id", None),
         )
         print(f"bench-smoke {task} OK (1 episode, seed={seed})", file=sys.stderr)
     print("bench-smoke all tasks OK.", file=sys.stderr)
+    return 0
+
+
+def _run_record_llm_fixtures(args: argparse.Namespace) -> int:
+    """Run a short benchmark with OpenAI-hosted backend and record fixtures. Manual use only; not for CI."""
+    repo_root = getattr(args, "repo_root", None) or get_repo_root()
+    repo_root = Path(repo_root)
+    if not os.environ.get("OPENAI_API_KEY"):
+        print(
+            "record-llm-fixtures requires OPENAI_API_KEY. Set it and run with network enabled.",
+            file=sys.stderr,
+        )
+        return 1
+    from labtrust_gym.benchmarks.runner import run_benchmark
+
+    task = getattr(args, "task", "insider_key_misuse")
+    episodes = getattr(args, "episodes", 1)
+    seed = getattr(args, "seed", 42)
+    out_path = Path(getattr(args, "out", "runs/record_fixtures/results.json"))
+    fixtures_dir = repo_root / "tests" / "fixtures" / "llm_responses"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    run_benchmark(
+        task_name=task,
+        num_episodes=episodes,
+        base_seed=seed,
+        out_path=out_path,
+        repo_root=repo_root,
+        llm_backend="openai_hosted",
+        pipeline_mode="llm_live",
+        allow_network=True,
+        record_fixtures_path=fixtures_dir,
+    )
+    n = 0
+    if out_path.exists():
+        try:
+            data = json.loads(out_path.read_text(encoding="utf-8"))
+            meta = data.get("metadata") or {}
+            n = meta.get("recorded_fixtures", 0)
+        except (json.JSONDecodeError, OSError):
+            pass
+    print(f"Recorded {n} fixture(s) to {fixtures_dir}", file=sys.stderr)
     return 0
 
 
@@ -2501,6 +2822,7 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
             log_path=log_path,
             pipeline_mode=pipeline_mode,
             allow_network=allow_network,
+            metrics_aggregator_id=getattr(args, "metrics_aggregator_id", None),
         )
         with open(results_path, encoding="utf-8") as f:
             data = json.load(f)
@@ -2547,11 +2869,39 @@ def _run_train_ppo(args: argparse.Namespace) -> int:
     out = Path(args.out)
     if not out.is_absolute():
         out = root / out
+    net_arch = None
+    if getattr(args, "net_arch", None):
+        net_arch = [int(x.strip()) for x in args.net_arch.split(",") if x.strip()]
+    train_config: dict[str, Any] = {}
+    config_path = getattr(args, "train_config", None)
+    if config_path:
+        p = Path(config_path)
+        if not p.is_absolute():
+            p = root / p
+        if not p.exists():
+            print(f"train-config file not found: {p}", file=sys.stderr)
+            return 1
+        try:
+            with open(p, encoding="utf-8") as f:
+                train_config = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"Failed to load train-config: {e}", file=sys.stderr)
+            return 1
+    if getattr(args, "obs_history_len", None) is not None:
+        train_config["obs_history_len"] = max(1, int(args.obs_history_len))
+    if getattr(args, "learning_rate", None) is not None:
+        train_config["learning_rate"] = float(args.learning_rate)
+    if getattr(args, "n_steps", None) is not None:
+        train_config["n_steps"] = int(args.n_steps)
     result = train_ppo(
         task_name=args.task,
         timesteps=args.timesteps,
         seed=args.seed,
         out_dir=out,
+        net_arch=net_arch,
+        train_config=train_config if train_config else None,
+        checkpoint_every_steps=getattr(args, "checkpoint_every", None),
+        keep_best_checkpoints=getattr(args, "keep_best", 0) or 0,
     )
     print(f"Model saved to {result['model_path']}", file=sys.stderr)
     print(f"Eval metrics to {result['eval_metrics_path']}", file=sys.stderr)

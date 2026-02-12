@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\policy\prompt_registry.py
+# hypothesis_version: 6.151.6
+
+['2.0.0', 'agent_id', 'default_prompt_id', 'defaults.yaml', 'developer_template', 'explicit', 'llm', 'mapping', 'ops_v2', 'partner_id', 'policy', 'policy_fingerprint', 'prompt_id', 'prompt_version', 'prompts', 'role_id', 'system_template', 'timing_mode', 'use_prompts_v02', 'user_template', 'utf-8', 'version']

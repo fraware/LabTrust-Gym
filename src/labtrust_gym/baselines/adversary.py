@@ -48,7 +48,7 @@ class AdversaryAgent:
 
     Schedule (by _step_counter, 0-based):
     - 0-1: NOOP
-    - 2: QUEUE_RUN to wrong device (work_id from obs or placeholder; device_id = DEV_COAG_01 for chem work)
+    - 2: QUEUE_RUN to wrong device (work_id from obs or default; device_id = DEV_COAG_01 for chem work)
     - 3-4: NOOP
     - 5: OPEN_DOOR restricted without token (attempt unauthorized)
     - 6-7: NOOP

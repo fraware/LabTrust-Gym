@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\llm\signing_proxy.py
+# hypothesis_version: 6.151.6
+
+['0.1', ':', 'ACTIVE', 'EXPIRED', 'NOOP', 'REVOKED', 'SIG_KEY_EXPIRED', 'SIG_KEY_REVOKED', '_', 'action_type', 'agent_id', 'args', 'ascii', 'ed25519:run_', 'key_id', 'key_registry', 'keys', 'not_after_ts_s', 'not_before_ts_s', 'public_key', 'replace', 'role_id', 'rotation_of_key_id', 'run_private_key.b64', 'status', 'token_refs', 'utf-8', 'version']

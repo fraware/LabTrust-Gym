@@ -13,7 +13,7 @@ A study spec defines:
 | `seed_base` | Yes | Base seed; condition seed = `seed_base + condition_index`. |
 | `timing_mode` | No | `explicit` (default) or `simulated`. |
 | `ablations` | No | Object of ablation axes; each value is a list of options. Cartesian product defines conditions. |
-| `agent_config` | No | `scripted_runner` (default), `scripted_ops`, `random`, or `placeholder`. |
+| `agent_config` | No | `scripted_runner` (default), `scripted_ops`, `random`, or `unset`. |
 
 ### Ablations
 

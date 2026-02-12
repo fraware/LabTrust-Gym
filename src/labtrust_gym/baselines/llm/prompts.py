@@ -37,6 +37,14 @@ SYSTEM_PROMPT_ACTION_PROPOSAL = (
     "- Prefer safety and policy compliance over throughput when in doubt."
 )
 
+# Optional instruction when chain-of-thought is enabled (reasoning field in schema).
+SYSTEM_PROMPT_CHAIN_OF_THOUGHT_APPENDIX = (
+    "\n\nWhen the schema includes an optional 'reasoning' field: "
+    "first reason step-by-step (constraints, allowed actions, state), "
+    "then fill the reasoning field with that brief reasoning, and output "
+    "your final action in the same JSON. Keep reasoning under 300 characters."
+)
+
 
 # --- 2.2 DEVELOPER prompt template ------------------------------------------
 
@@ -63,7 +71,8 @@ USER_PAYLOAD_TEMPLATE_ACTION_PROPOSAL = """partner_id: {{partner_id}}
 policy_fingerprint: {{policy_fingerprint}}
 now_ts_s: {{now_ts_s}}
 timing_mode: {{timing_mode}}
-
+{{few_shot_block}}
+{{rag_excerpts}}
 STATE_SUMMARY_JSON:
 {{state_summary_json}}
 
@@ -93,23 +102,30 @@ def build_user_payload_action_proposal(
     active_tokens_json: str | None = None,
     recent_violations_json: str | None = None,
     enforcement_state_json: str | None = None,
+    few_shot_block: str = "",
+    rag_excerpts: str = "",
 ) -> str:
     """
     Build the USER message content from the ActionProposal payload template.
 
     The runtime should generate allowed_actions_json from the constrained decoder
     (or from the action spec registry), so the LLM never guesses the action surface.
+    few_shot_block and rag_excerpts are optional SOTA additions (injected when non-empty).
     """
     state_summary_json = state_summary_json if state_summary_json is not None else "{}"
     allowed_actions_json = allowed_actions_json if allowed_actions_json is not None else "[]"
     active_tokens_json = active_tokens_json if active_tokens_json is not None else "[]"
     recent_violations_json = recent_violations_json if recent_violations_json is not None else "[]"
     enforcement_state_json = enforcement_state_json if enforcement_state_json is not None else "{}"
+    few_shot_block = few_shot_block if few_shot_block else ""
+    rag_excerpts = rag_excerpts if rag_excerpts else ""
     return (
         USER_PAYLOAD_TEMPLATE_ACTION_PROPOSAL.replace("{{partner_id}}", str(partner_id or ""))
         .replace("{{policy_fingerprint}}", str(policy_fingerprint or ""))
         .replace("{{now_ts_s}}", str(now_ts_s))
         .replace("{{timing_mode}}", str(timing_mode))
+        .replace("{{few_shot_block}}", few_shot_block)
+        .replace("{{rag_excerpts}}", rag_excerpts)
         .replace("{{state_summary_json}}", state_summary_json)
         .replace("{{allowed_actions_json}}", allowed_actions_json)
         .replace("{{active_tokens_json}}", active_tokens_json)
@@ -130,12 +146,15 @@ def build_user_payload_from_context(
     active_tokens: list[str] | None = None,
     recent_violations: list[str] | None = None,
     enforcement_state: dict[str, Any] | None = None,
+    few_shot_block: str = "",
+    rag_excerpts: str = "",
 ) -> str:
     """
     Build USER payload from structured context (serializes dicts/lists to JSON).
     Use when the caller has policy_summary, observation, etc.
     When allowed_actions_payload is provided (canonical list of {action_type, args_examples, ...}),
     it is used verbatim for ALLOWED_ACTIONS_JSON; otherwise allowed_actions (list of strings) is used.
+    few_shot_block and rag_excerpts are optional (SOTA: few-shot examples and RAG over policy).
     """
     state_summary_json = json.dumps(state_summary or {}, sort_keys=True)
     if allowed_actions_payload is not None and isinstance(allowed_actions_payload, list):
@@ -155,4 +174,6 @@ def build_user_payload_from_context(
         active_tokens_json=active_tokens_json,
         recent_violations_json=recent_violations_json,
         enforcement_state_json=enforcement_state_json,
+        few_shot_block=few_shot_block,
+        rag_excerpts=rag_excerpts,
     )

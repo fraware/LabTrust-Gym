@@ -49,6 +49,7 @@ class DeterministicAssignmentsBackend:
         allowed_actions: list[str],
         step_id: int,
         method_id: str,
+        **kwargs: Any,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
         Return (proposal_dict, meta). per_agent entries have action_type

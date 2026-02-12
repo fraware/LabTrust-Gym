@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\plugins.py
+# hypothesis_version: 6.151.6
+
+['.', 'labtrust_gym.domains', 'labtrust_gym.tasks']

@@ -16,8 +16,10 @@ theme:
 nav:
   - Overview: index.md
   - Installation: installation.md
+  - Build your own agent: build_your_own_agent.md
   - Repository structure: repository_structure.md
   - Architecture: architecture.md
+  - Systems and threat model: systems_and_threat_model.md
   - Architecture diagrams: diagrams.md
   - Policy pack and schemas: policy_pack.md
   - Coordination policy (risk and method registry): coordination_policy.md
@@ -36,6 +38,7 @@ nav:
     - Security attack suite and securitization packet: security_attack_suite.md
   - Contracts and UI:
     - Frozen contracts: frozen_contracts.md
+    - Extension development: extension_development.md
     - UI data contract: ui_data_contract.md
     - Risk register (bundle, generate, review): risk_register.md
     - Risk register contract (v0.1): risk_register_contract.v0.1.md
@@ -43,6 +46,7 @@ nav:
   - PettingZoo API: pettingzoo_api.md
   - Benchmarks, studies, plots:
     - Benchmarks: benchmarks.md
+    - Example experiments (trust vs performance): example_experiments.md
     - Benchmark card: benchmark_card.md
     - Benchmarking plan (three-layer matrix): benchmarking_plan.md
     - Studies and plots: studies.md
@@ -57,11 +61,13 @@ nav:
   - Reproducible builds (SLSA-ish): reproducible_builds.md
   - Threat model: threat_model.md
   - Security monitoring (adversarial detection): security_monitoring.md
+  - Prompt-injection defense: prompt_injection_defense.md
   - Online mode: online_mode.md
   - Security controls (online): security_online.md
   - Output controls (B009): output_controls.md
   - Queue contract: queue_contract.v0.1.md
   - MARL baselines: marl_baselines.md
+  - MARL multi-agent design: marl_multi_agent_design.md
   - LLM baselines: llm_baselines.md
   - Live LLM benchmark mode: llm_live.md
   - Contributing: contributing.md

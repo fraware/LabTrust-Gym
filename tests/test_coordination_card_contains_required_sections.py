@@ -43,13 +43,13 @@ def test_coordination_card_contains_required_sections() -> None:
         assert section in content, f"Missing required section: {section}"
 
 
-def test_coordination_card_fingerprint_block_not_placeholder() -> None:
-    """Policy fingerprint block is replaced with actual fingerprint (no placeholder)."""
+def test_coordination_card_fingerprint_block_replaced() -> None:
+    """Policy fingerprint block is replaced with actual fingerprint (token not left in output)."""
     repo = _repo_root()
     if not (repo / "policy" / "coordination").is_dir():
         pytest.skip("policy/coordination not found (not in repo root)")
     content = render_coordination_card(repo, include_file_hashes=True)
-    assert "COORDINATION_POLICY_FINGERPRINT_PLACEHOLDER" not in content
+    assert "COORDINATION_POLICY_FINGERPRINT_TOKEN" not in content
     assert "SHA-256" in content or "sha256" in content.lower()
     assert "Fingerprint" in content
 

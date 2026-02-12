@@ -1,8 +1,17 @@
 # Gate thresholds for the coordination security pack (internal regression).
 # Not the official release pack; used for coordination + security regression only.
+#
+# Verdict semantics:
+#   PASS: Rule evaluated and threshold met.
+#   FAIL: Rule evaluated and threshold violated; rationale includes evidence.
+#   SKIP: Rule not evaluated (optional/by design). Reason in rationale:
+#         not_applicable (no rule for injection, or rule type not implemented),
+#         no_data (required metric missing), disabled_by_config.
+#   not_supported: Rule requires capability not present (e.g. no detector).
+# Cells with injection_id not listed in rules receive SKIP (not_applicable).
 
 version: "0.1"
-description: "Pass/fail rules per injection type for pack_gate.md"
+description: "Pass/fail/skip rules per injection type for pack_gate.md"
 
 rules:
   # INJ-ID-SPOOF-001: strict signatures must block spoof; attack_success_rate must be 0.
@@ -35,5 +44,5 @@ rules:
     max_detection_steps: 15
     description: "If detector present, detection_latency_steps <= 15; else mark not_supported."
 
-# Cells with injection_id "none" are baseline only; no gate rule (always pass for reporting).
-# Cells with injection_id not in rules: pass (no policy threshold for that injection in this pack).
+# Cells with injection_id "none" are baseline only; no gate rule (PASS for reporting).
+# Cells with injection_id not in rules: SKIP (not_applicable).

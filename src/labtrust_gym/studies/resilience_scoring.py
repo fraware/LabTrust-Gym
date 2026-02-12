@@ -14,13 +14,26 @@ from typing import Any
 from labtrust_gym.policy.loader import load_yaml
 
 
-def load_resilience_scoring_policy(path: Path | None = None) -> dict[str, Any]:
+def load_resilience_scoring_policy(
+    path: Path | None = None,
+    policy_root: Path | None = None,
+) -> dict[str, Any]:
     """
-    Load resilience scoring policy from YAML. If path is None, load default
-    policy/coordination/resilience_scoring.v0.1.yaml relative to repo root.
+    Load resilience scoring policy from YAML.
+
+    - If path is set, load from that path.
+    - Else if policy_root is set, load from policy_root / "policy" / "coordination" / "resilience_scoring.v0.1.yaml".
+    - Else load from get_repo_root() / "policy" / "coordination" / "resilience_scoring.v0.1.yaml".
     """
     if path is not None:
         p = Path(path)
+    elif policy_root is not None:
+        p = (
+            Path(policy_root)
+            / "policy"
+            / "coordination"
+            / "resilience_scoring.v0.1.yaml"
+        )
     else:
         from labtrust_gym.config import get_repo_root
 
@@ -150,6 +163,7 @@ def enrich_pack_rows_with_resilience(
     rows: list[dict[str, Any]],
     policy: dict[str, Any] | None = None,
     policy_path: Path | None = None,
+    policy_root: Path | None = None,
 ) -> list[dict[str, Any]]:
     """
     Compute robustness.resilience_score for each row from policy-defined components
@@ -161,7 +175,7 @@ def enrich_pack_rows_with_resilience(
         if policy_path is not None:
             policy = load_resilience_scoring_policy(policy_path)
         else:
-            policy = load_resilience_scoring_policy()
+            policy = load_resilience_scoring_policy(policy_root=policy_root)
     weights = policy.get("weights") or {}
     for r in rows:
         components = compute_components(r, policy)

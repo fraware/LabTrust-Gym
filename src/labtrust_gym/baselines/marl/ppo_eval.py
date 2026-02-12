@@ -17,15 +17,24 @@ def eval_ppo(
     episodes: int = 50,
     seed: int = 123,
     out_path: Path | None = None,
+    train_config_path: str | None = None,
 ) -> dict[str, Any]:
     """
     Load model, run N episodes with deterministic seeds, return and optionally save metrics.
+    If train_config_path is not set, looks for train_config.json next to model.zip so
+    eval uses the same obs_history_len (and other settings) as training.
     """
+    path = Path(model_path)
+    default_cfg = str(path.parent / "train_config.json") if path.parent else None
+    cfg_path = train_config_path or default_cfg
+    if cfg_path and not Path(cfg_path).exists():
+        cfg_path = None
     metrics = _eval_policy(
         model_path=model_path,
         task_name=task_name,
         n_episodes=episodes,
         seed=seed,
+        train_config_path=cfg_path,
     )
     if out_path:
         out_path = Path(out_path)

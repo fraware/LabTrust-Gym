@@ -7,7 +7,7 @@ description: "Method, scale, and injection lists for coordination security pack;
 
 # Default fixed matrix (same as previous hardcoded PACK_*)
 # full: canonical list of coordination methods to security-stress (all from coordination_methods.v0.1 minus exclusions).
-# Exclusions: marl_ppo (no checkpoint in repo), group_evolving_study (study-only placeholder).
+# Exclusions: marl_ppo (no checkpoint in repo), group_evolving_study (study-only; excluded from pack).
 method_ids:
   default:
     - kernel_auction_whca_shielded

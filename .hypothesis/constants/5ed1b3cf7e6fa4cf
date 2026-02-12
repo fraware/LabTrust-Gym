@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\llm\structured_output_retry.py
+# hypothesis_version: 6.151.6
+
+[0.0, '1', 'NOOP', 'Parse fallback.', 'action_type', 'args', 'confidence', 'rationale', 'reason_code', 'reasoning', 'safety_notes', 'token_refs', 'true', 'yes']

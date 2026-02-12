@@ -8,14 +8,15 @@ CI runs on every push/PR to `main` and keeps the default pipeline **fast**. All 
 |-----------------|--------------------------------|----------------------------|
 | **lint-format** | Ruff format + check            | `ruff format --check .`    |
 | **typecheck**   | Mypy on `src/`                 | `mypy src/`                |
-| **test**        | Pytest (fast suite)            | `pytest -q`                |
+| **test**        | Pytest (fast suite, excludes slow) | `pytest -q -m "not slow"` |
+| **golden**      | Full golden suite (real engine)    | `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q` (timeout 30 min) |
 | **policy-validate** | Policy YAML/JSON vs schemas | `labtrust validate-policy` |
 | **risk-register-gate** | Risk register contract (schema, snapshot, crosswalk, coverage) | `labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures` then `pytest tests/test_risk_register_contract_gate.py -v` |
 | **quick-eval**  | 1 episode throughput_sla, adversarial_disruption, multi_site_stat   | `pip install -e ".[env,plots]"` then `labtrust quick-eval --seed 42 --out-dir ./labtrust_runs` |
 | **baseline-regression** | Compare to canonical frozen v0.2 (exact metrics) | `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`; non-skipping when `benchmarks/baselines_official/v0.2/results/*.json` exist |
 | **docs**        | Build MkDocs site              | `pip install -e ".[docs]"` then `mkdocs build --strict` |
 
-The **golden suite** is included in the default `pytest -q` run and must stay green. It validates scenario correctness against the engine contract.
+The **golden suite** runs in a separate **golden** job on every push/PR and must stay green. It validates scenario correctness against the engine contract. Slow tests (golden, package-release, heavy CLI) are excluded from the default **test** job via `-m "not slow"` so CI stays bounded.
 
 ## Optional: benchmark smoke
 
@@ -58,6 +59,16 @@ When **LABTRUST_EXTERNAL_REVIEWER_CHECKS=1**, an extra job **external-reviewer-c
 **When it runs:** Nightly schedule or manual "Run workflow" with **Run external reviewer checks** enabled. No network, no secrets. To run the same locally with the full spec: `bash scripts/run_external_reviewer_checks.sh <out_dir> policy/coordination/coordination_study_spec.v0.1.yaml`.
 
 **Windows:** The script may fail with CRLF line endings (e.g. `set -eu` parsed incorrectly). Use WSL or ensure shell scripts use LF (`.gitattributes` sets `*.sh text eol=lf` on checkout).
+
+## Deterministic vs non-deterministic runs
+
+**Deterministic runs** (reproducible with the same seed): default `pytest -q`, `labtrust quick-eval`, `labtrust package-release` and `labtrust run-benchmark` when no live LLM or network is used, and CI jobs that do not set `LABTRUST_RUN_LLM_LIVE`, `OPENAI_API_KEY`, or `--llm-backend openai_live` / `ollama_live` / `anthropic_live`. No outbound API calls; results depend only on seed and code.
+
+**Non-deterministic runs**: any run that uses a live LLM (e.g. `LABTRUST_RUN_LLM_LIVE=1`, `--llm-backend openai_live`, or `OPENAI_API_KEY` set and live calls made) or other external services. Outputs can vary between runs. In scripts and CI, non-deterministic runs must be clearly labeled (e.g. job name "llm_live smoke", env var in description) and should not be the default path for regression.
+
+## Optional: LLM live E2E in CI
+
+An optional CI job can run with a real LLM when the API key is set (e.g. as a repository secret). Such a job would run one or more benchmark episodes with `--llm-backend openai_live` (or `openai_responses`) and `--allow-network`, then assert that artifacts contain non-empty `llm_model_id`, latency/cost metadata (e.g. from `metadata.llm_attribution_summary` or episode LLM_DECISION meta), and that the run completed without fatal errors. This is **not** part of the default gate; add it only if you need to validate the live LLM path in CI. Document the job name and required secrets (e.g. `OPENAI_API_KEY`) in the workflow file and in this section when you add it.
 
 ## Determinism and golden suite
 
@@ -162,7 +173,7 @@ Then run `labtrust summarize-results --in benchmarks/baselines_official/v0.2/res
   - `make golden` — golden suite  
   - `make bench-smoke` — 1 episode per task (needs `.[env]`)  
   - `make bench-smoke-pytest` — pytest benchmark smoke tests (2 episodes throughput_sla + determinism)  
-  - `make e2e-artifacts-chain` — full e2e reproducible chain (package-release minimal → verify-release → export-risk-register; no network). See [E2E artifacts chain](#e2e-artifacts-chain) below.
+  - `make e2e-artifacts-chain` — full e2e reproducible chain (package-release → determinism-report → verify-release → export-risk-register; no network). See [E2E artifacts chain](#e2e-artifacts-chain) below.
 
 - **Full benchmark smoke tests (pytest):**  
   `pytest tests/test_benchmark_smoke.py -v`
@@ -175,8 +186,8 @@ Then run `labtrust summarize-results --in benchmarks/baselines_official/v0.2/res
 
 (Nightly / manual.) Workflow **`.github/workflows/e2e-artifacts-chain.yml`** runs the full reproducible artifact chain with no network:
 
-- **When:** On push/PR (optional job), **workflow_dispatch**, or nightly schedule.
-- **Steps:** `scripts/ci_e2e_artifacts_chain.sh` — package-release (minimal profile), verify-release (all EvidenceBundles under the release), export-risk-register from the release dir. The job fails if any step or crosswalk validation fails.
+- **When:** On push to `main`, pull requests targeting `main`, **workflow_dispatch**, or nightly schedule.
+- **Steps:** `scripts/ci_e2e_artifacts_chain.sh` — package-release (minimal profile), determinism-report (throughput_sla, 3 episodes, seed 42), verify-release (all EvidenceBundles under the release), export-risk-register from the release dir. The job fails if any step or crosswalk validation fails.
 - **Run locally:** `make e2e-artifacts-chain` or `bash scripts/ci_e2e_artifacts_chain.sh` (deterministic; same seed-base as script default).
 
 ## LLM live optional smoke (nightly / manual)

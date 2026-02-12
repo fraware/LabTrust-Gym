@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\hierarchical\handoff.py
+# hypothesis_version: 6.151.6
+
+['HUB', 'escalations', 'handoff_ack_count', 'handoff_fail_rate']

@@ -1,6 +1,6 @@
 # Risk register
 
-This document describes the **RiskRegisterBundle**: what it is, how to generate it from fixtures, a paper release, or an official pack run, and how to review coverage and missing evidence. For the formal contract and schema see [Risk register contract](risk_register_contract.v0.1.md). For the dataset-driven viewer see [Risk register viewer](risk_register_viewer.md).
+This document describes the **RiskRegisterBundle**: what it is, how to generate it from fixtures, a paper release, or an official pack run, and how to review coverage and evidence gaps. For the formal contract and schema see [Risk register contract](risk_register_contract.v0.1.md). For the dataset-driven viewer see [Risk register viewer](risk_register_viewer.md).
 
 ## What the bundle is
 
@@ -17,7 +17,7 @@ The bundle contains:
 - **links**: Repo-local and run-local paths (policy files, SECURITY/, summary/, etc.) for deep links.
 - **reproduce**: Per-evidence CLI commands so the UI can show "how to reproduce" without hardcoding.
 
-Missing evidence is explicit: when a risk has no evidence in the scanned runs, the bundle includes a stub with `status=missing` and `expected_sources` so reviewers see what is not yet collected.
+Evidence gaps are explicit and first-class: when a risk has no evidence in the scanned runs, the bundle includes a missing-evidence object with `status=missing` and `expected_sources` so reviewers see what is not yet collected.
 
 ## How to generate the bundle
 
@@ -76,7 +76,7 @@ To write the same bundle into each run dir so the viewer can load it from there 
 labtrust export-risk-register --out ./risk_register_out --runs release_paper --inject-ui-export
 ```
 
-## How to review coverage and missing evidence
+## How to review coverage and evidence gaps
 
 1. **Open the bundle in the viewer**  
    Open `viewer/index.html` and load `RISK_REGISTER_BUNDLE.v0.1.json` (or a zip that contains it). Use search and filters (risk_domain, applies_to, coverage_status, "has evidence") to find risks and their evidence.

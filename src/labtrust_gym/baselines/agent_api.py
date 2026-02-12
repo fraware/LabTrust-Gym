@@ -4,16 +4,40 @@ External agent plugin interface and dynamic loader.
 Researchers can run an agent baseline by pointing to "module:Class" or
 "module:function" without modifying core code. LabTrustAgent protocol:
 reset(seed, policy_summary, partner_id, timing_mode); act(observation) -> action (int);
-optional explain_last_action() -> dict.
+optional explain_last_action() -> dict; optional healthcheck() -> bool; optional warm_up().
+Contract version: AGENT_CONTRACT_VERSION (e.g. v0.1) for compatibility checks.
 """
 
 from __future__ import annotations
 
 import importlib
+import inspect
 import re
 import sys
 from pathlib import Path
 from typing import Any, Protocol
+
+# Versioned agent contract; bump when breaking changes to reset/act/explain_last_action.
+AGENT_CONTRACT_VERSION = "0.1"
+
+
+class ContractVersionMismatch(ValueError):
+    """Raised when a loaded agent reports a contract_version incompatible with expected."""
+
+    def __init__(
+        self,
+        expected: str,
+        actual: str,
+        spec: str,
+    ) -> None:
+        self.expected = expected
+        self.actual = actual
+        self.spec = spec
+        super().__init__(
+            f"Agent contract version mismatch: spec={spec!r} reports "
+            f"contract_version={actual!r}, runner expects {expected!r}. "
+            "Update the agent or AGENT_CONTRACT_VERSION."
+        )
 
 
 class LabTrustAgent(Protocol):
@@ -41,22 +65,32 @@ class LabTrustAgent(Protocol):
         ...
 
 
+# Optional extensions (not part of Protocol): healthcheck() -> bool, warm_up(observation).
+# Wrapper exposes them and delegates to inner when present.
+
 # Pattern: module.path:ClassName or module.path:function_name
 _AGENT_SPEC_PATTERN = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_.]*):([a-zA-Z_][a-zA-Z0-9_]*)$")
 
 
-def load_agent(spec: str, repo_root: Path | None = None) -> Any:
+def load_agent(
+    spec: str,
+    repo_root: Path | None = None,
+    expect_contract_version: str | None = None,
+) -> Any:
     """
     Load an agent from spec "module:ClassName" or "module:function_name".
 
     - module:ClassName -> instantiate ClassName() (no args)
     - module:function_name -> call function() and return result (factory)
+    - If the loaded instance has a contract_version attribute, it must match
+      expect_contract_version or AGENT_CONTRACT_VERSION; else ContractVersionMismatch.
 
     If module_path starts with "examples." and import fails, repo_root (or cwd)
     is prepended to sys.path so examples/ is loadable when run from repo root.
 
     Raises:
         ValueError: invalid spec format
+        ContractVersionMismatch: agent contract_version != expected
         ModuleNotFoundError: module not found
         AttributeError: class or function not found in module
         TypeError: instantiation/call failed
@@ -90,23 +124,57 @@ def load_agent(spec: str, repo_root: Path | None = None) -> Any:
         raise AttributeError(f"Module {module_path!r} has no attribute {name!r}")
     if callable(obj):
         try:
-            instance = obj()
+            sig = inspect.signature(obj)
+            if repo_root is not None and "repo_root" in sig.parameters:
+                instance = obj(repo_root=repo_root)
+            else:
+                instance = obj()
         except Exception as e:
             raise TypeError(f"Failed to instantiate/call {module_path!r}:{name!r}: {e}") from e
+        expected_ver = expect_contract_version or AGENT_CONTRACT_VERSION
+        actual = getattr(instance, "contract_version", None)
+        if actual is not None and str(actual).strip() != str(expected_ver).strip():
+            raise ContractVersionMismatch(
+                expected=expected_ver,
+                actual=str(actual),
+                spec=spec,
+            )
         return instance
-    raise TypeError(f"Agent spec {module_path!r}:{name!r} is not callable (expected class or factory function)")
+    raise TypeError(
+        f"Agent spec {module_path!r}:{name!r} is not callable "
+        "(expected class or factory function)"
+    )
 
 
 def wrap_agent_for_runner(agent: Any) -> Any:
     """
-    Wrap a LabTrustAgent (or any with act, optional reset/explain_last_action) for use
-    in scripted_agents_map: act(obs, agent_id) -> (action_index, action_info, meta).
+    Wrap a LabTrustAgent (or any with act, optional reset/explain_last_action/healthcheck/warm_up)
+    for use in scripted_agents_map: act(obs, agent_id) -> (action_index, action_info, meta).
+    Exposes contract_version and optional healthcheck/warm_up for state-of-the-art pipelines.
     """
 
     class Wrapper:
         def __init__(self, inner: Any) -> None:
             self._inner = inner
             self._last_info: dict[str, Any] = {}
+
+        @property
+        def contract_version(self) -> str:
+            return AGENT_CONTRACT_VERSION
+
+        def healthcheck(self) -> bool:
+            fn = getattr(self._inner, "healthcheck", None)
+            if callable(fn):
+                return bool(fn())
+            return True
+
+        def warm_up(self, observation: dict[str, Any] | None = None) -> None:
+            fn = getattr(self._inner, "warm_up", None)
+            if callable(fn):
+                fn(observation)
+                return
+            if observation is not None and hasattr(self._inner, "act"):
+                self._inner.act(observation)
 
         def reset(
             self,

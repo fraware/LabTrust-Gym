@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.baselines.agent_api import (
+    AGENT_CONTRACT_VERSION,
+    ContractVersionMismatch,
     load_agent,
     wrap_agent_for_runner,
 )
@@ -60,6 +62,45 @@ def test_load_agent_attr_not_found() -> None:
     repo = _repo_root()
     with pytest.raises(AttributeError, match="has no attribute"):
         load_agent("examples.external_agent_demo:NonexistentClass", repo_root=repo)
+
+
+def test_load_agent_contract_version_accept() -> None:
+    """Load agent with contract_version matching expect_contract_version succeeds."""
+    repo = _repo_root()
+    agent = load_agent(
+        "examples.agent_contract_demo:AgentV01",
+        repo_root=repo,
+        expect_contract_version="0.1",
+    )
+    assert agent is not None
+    assert getattr(agent, "contract_version", None) == "0.1"
+    assert agent.act({}) == 0
+
+
+def test_load_agent_contract_version_mismatch() -> None:
+    """Load agent with contract_version != expect_contract_version raises ContractVersionMismatch."""
+    repo = _repo_root()
+    with pytest.raises(ContractVersionMismatch) as exc_info:
+        load_agent(
+            "examples.agent_contract_demo:AgentV00",
+            repo_root=repo,
+            expect_contract_version="0.1",
+        )
+    assert exc_info.value.expected == "0.1"
+    assert exc_info.value.actual == "0.0"
+    assert "AgentV00" in exc_info.value.spec or "agent_contract_demo" in exc_info.value.spec
+
+
+def test_load_agent_contract_version_default() -> None:
+    """load_agent with expect_contract_version=None uses AGENT_CONTRACT_VERSION for check."""
+    repo = _repo_root()
+    agent = load_agent(
+        "examples.agent_contract_demo:AgentV01",
+        repo_root=repo,
+        expect_contract_version=None,
+    )
+    assert agent is not None
+    assert getattr(agent, "contract_version", None) == AGENT_CONTRACT_VERSION
 
 
 def test_wrap_agent_for_runner() -> None:

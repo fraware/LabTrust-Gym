@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\studies\study_runner.py
+# hypothesis_version: 6.151.6
+
+['"', ',', '--all', '-m', '1', ':', '==', 'HEAD', 'LABTRUST_REPRO_SMOKE', '_', 'ablations', 'agent_config', 'condition', 'condition_id', 'condition_ids', 'condition_index', 'condition_label', 'condition_labels', 'condition_seed', 'conditions.jsonl', 'deps_snapshot', 'emits', 'emits_vocab', 'episodes', 'episodes.jsonl', 'explicit', 'freeze', 'git', 'git_commit_hash', 'logs', 'manifest.json', 'num_conditions', 'out_dir', 'partner_id', 'pip', 'policy', 'policy_fingerprint', 'policy_versions', 'python_version', 'result_hashes', 'results', 'results.json', 'rev-parse', 'scripted_runner', 'seed_base', 'strict_signatures', 'study_spec', 'study_spec_path', 'task', 'throughput_sla', 'timing_mode', 'true', 'unknown', 'utf-8', 'version:', 'w', 'yes']

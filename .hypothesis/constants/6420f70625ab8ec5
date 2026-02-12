@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\tools\sandbox.py
+# hypothesis_version: 6.151.6
+
+[100, 4096, '*', '*.', ',', '.', ':', 'Operational', 'TOOL_EGRESS_DENIED', '_boundary_policy', '_policy_root', '_role_id', '_tool_id', 'actual_bytes', 'actual_records', 'allowed_classes', 'class', 'classification_rules', 'data_class', 'default', 'destination', 'egress_key', 'egress_to', 'forward_to', 'internal', 'limit', 'max_bytes_out', 'max_records_out', 'message', 'path', 'policy', 'tool_boundary_policy', 'tool_id', 'tools', 'utf-8']

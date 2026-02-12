@@ -7,7 +7,7 @@ Offline-safe, **constrained and reproducible by default** LLM agent interface fo
 - **LLMBackend protocol**: `generate(messages) -> text`. Backends are pluggable.
 - **LLMAgent**: Builds a system prompt (allowed actions, constraints), calls the backend, parses output as **strict JSON** (action_type + action_info), and validates against `policy/llm/action_schema.v0.1.json`. On parse or validation failure, returns NOOP.
 - **LLMAgentWithShield (v1)**: Uses **llm_action.schema.v0.2** (string action_type). Proposes action from backend, then **constrained decode** (schema + rationale + allowed_actions at decode time) and **safety shield** (RBAC + signature). Returns `(action_index, action_info, meta)`; when blocked, `meta` has `_shield_filtered` and `_shield_reason_code`, and the step output records **LLM_ACTION_FILTERED** in emits. **Rationale is required** (explainable actions).
-- **Deterministic by default**: Use **DeterministicConstrainedBackend(seed)** as the official LLM baseline; it chooses from `allowed_actions` with a seeded RNG. Same seed ⇒ same action sequence. Real providers are optional and never used in default tests.
+- **Deterministic by default**: **pipeline_mode=deterministic** uses **FixtureBackend** (offline lookup from `tests/fixtures/llm_responses/`). Alternatively use **DeterministicConstrainedBackend(seed)** via `--llm-backend deterministic_constrained` (seeded RNG, no fixtures). Online mode can opt into **OpenAIHostedBackend** (api.openai.com only, `OPENAI_API_KEY`). Deterministic CI never performs network calls.
 
 ## Action schema
 
@@ -66,17 +66,24 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 - **canned**: hash of user message (JSON with `obs_hash`, `allowed_actions`) → action dict. **default_action_type**: string (e.g. `"NOOP"`).
 - Use with **LLMAgentWithShield** for tests that supply canned actions (must include **rationale**).
 
-### DeterministicConstrainedBackend (official LLM baseline)
+### FixtureBackend (deterministic, default for pipeline_mode=deterministic)
 
-- **Constrained and reproducible by default.** Chooses from **allowed_actions** using a **seeded RNG** (no API calls).
+- **Offline-only**: Looks up response by digest of messages in `tests/fixtures/llm_responses/fixtures.json`. No network.
+- Key is SHA-256 of canonical JSON messages. If no fixture exists for a request, raises **FixtureMissingError** with remediation to run **record-llm-fixtures** (with network) to record fixtures.
+- Enable via CLI: `labtrust run-benchmark --llm-backend deterministic`. Requires fixtures to have been recorded first, or use `--llm-backend deterministic_constrained` for seeded RNG without fixtures.
+
+### DeterministicConstrainedBackend (seeded RNG, no fixtures)
+
+- Chooses from **allowed_actions** using a **seeded RNG** (no API calls, no fixture files).
 - Constructor: `DeterministicConstrainedBackend(seed, default_action_type="NOOP")`. User message must be JSON with `allowed_actions` (list of action_type strings).
-- Same **seed** + same call order ⇒ same action sequence. Used by `run_benchmark(..., use_llm_safe_v1_ops=True)` for multi_site_stat/insider_key_misuse.
+- Same **seed** + same call order ⇒ same action sequence. Enable via CLI: `labtrust run-benchmark --llm-backend deterministic_constrained` (default when `--use-llm-safe-v1-ops` is used).
 - Always returns **rationale**: `"deterministic baseline"`.
 
-### OpenAIBackend (stub)
+### OpenAIHostedBackend (OpenAI-hosted only)
 
-- Reads API key from env var `OPENAI_API_KEY`.
-- **Stub**: Does not call the API; returns NOOP if no key, else raises NotImplementedError. Not used in tests. Plug a real implementation when needed.
+- **Real backend**: Uses official OpenAI SDK with `api_key` from env **OPENAI_API_KEY** only. No base_url or gateway; api.openai.com only.
+- Strict timeouts and bounded retries. Raises **AuthError** if `OPENAI_API_KEY` is missing (no network call), **RateLimitError** (429), **ProviderUnavailable** (timeout/5xx).
+- Implements **LLMBackend** (`generate(messages) -> str`). Optional extra: `.[llm_openai]`. Enable via CLI: `labtrust run-benchmark --llm-backend openai_hosted --allow-network`.
 
 ### OpenAILiveBackend (live provider)
 
@@ -95,25 +102,21 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 - **Constrained decoder** (`src/labtrust_gym/baselines/llm/decoder.py`): At **decode time** (before env step), validates schema, **requires rationale**, restricts **action_type** to `allowed_actions`, and optionally checks zone/device. Refuses impossible actions (RBAC/devices/zones) so the agent cannot propose them without being rejected at decode time.
 - **Shield** (`src/labtrust_gym/baselines/llm/shield.py`): After decode, filters through **RBAC** (context) and **signature required** (when `strict_signatures`). Token validity is left to the engine.
 - If blocked (decode or shield): returns safe NOOP, `_shield_filtered=True`, and **reason_code** (e.g. `MISSING_RATIONALE`, `RBAC_ACTION_DENY`, `SIG_MISSING`). Step output records **LLM_ACTION_FILTERED** in emits and `blocked_reason_code`.
-- **multi_site_stat and insider_key_misuse** run with **llm_safe_v1** deterministically: `run_benchmark(..., use_llm_safe_v1_ops=True)` uses `LLMAgentWithShield(DeterministicConstrainedBackend(seed=base_seed), rbac_policy, pz_to_engine)` for ops_0. insider_key_misuse demonstrates signature/RBAC attack containment with the LLM baseline.
+- **multi_site_stat and insider_key_misuse** run with **llm_safe_v1** deterministically: `run_benchmark(..., use_llm_safe_v1_ops=True)` uses `--llm-backend deterministic_constrained` by default (seeded RNG). Use `--llm-backend deterministic` for FixtureBackend (requires recorded fixtures). insider_key_misuse demonstrates signature/RBAC attack containment with the LLM baseline.
 
 ## Deterministic vs non-deterministic
 
-- **Deterministic (default)**: `DeterministicConstrainedBackend(seed)` or `MockDeterministicBackendV2(canned=...)` with fixed inputs. Same seed / same canned keys ⇒ same actions. Required for CI, benchmarks, and reproducibility.
-- **Non-deterministic**: Real LLM provider (e.g. OpenAI, local model). Use behind a **flag** (e.g. `use_real_llm=True`) so that:
-  - Default runs (tests, `run_benchmark`, studies) use the deterministic backend and remain reproducible.
-  - Optional runs with the flag call the real API; do not compare metrics across runs without fixing seed/temperature on the provider side.
+- **Deterministic**: **FixtureBackend** (offline lookup from fixtures; run **record-llm-fixtures** with network to populate) or **DeterministicConstrainedBackend(seed)** / **MockDeterministicBackendV2(canned=...)**. Same inputs ⇒ same actions. Required for CI; deterministic CI never performs network calls.
+- **Non-deterministic**: **OpenAIHostedBackend**, **OpenAILiveBackend**, or local Ollama. Use `--llm-backend openai_hosted` or `openai_live` with `--allow-network` for live runs. Do not compare metrics across runs without fixing seed/temperature on the provider side.
 
-## Plugging a real provider without breaking reproducibility
+## Recording fixtures (offline-friendly design)
 
-1. Implement `LLMBackend` (e.g. `OpenAIBackend` or a wrapper that calls your API). Keep API keys in env vars; do not commit.
-2. Do **not** wire the real backend into `run_benchmark` or CI by default. Keep `use_llm_safe_v1_ops=True` using `DeterministicConstrainedBackend(seed)` so that benchmarks and insider_key_misuse remain reproducible.
-3. For experiments with a real LLM, instantiate `LLMAgentWithShield(backend=YourRealBackend(), ...)` in a separate script or behind a CLI flag (e.g. `--llm-provider openai`). The constrained decoder and shield still apply; only the action proposal is non-deterministic.
+- **record-llm-fixtures**: CLI command to populate `tests/fixtures/llm_responses/` from OpenAI responses. Run **manually** with network enabled (not in CI): `labtrust record-llm-fixtures --task insider_key_misuse --episodes 1`. Requires `OPENAI_API_KEY`. After recording, deterministic runs with `--llm-backend deterministic` use these fixtures and do not call the network.
 
 ## Safe usage
 
-1. **Tests and CI**: Use only `DeterministicConstrainedBackend` or `MockDeterministicBackend` / `MockDeterministicBackendV2`. No API keys; no network.
-2. **Real providers**: Implement `LLMBackend`; use behind a flag so default behaviour stays reproducible.
+1. **Tests and CI**: Use **FixtureBackend** (with pre-recorded fixtures), **DeterministicConstrainedBackend**, or **MockDeterministicBackend** / **MockDeterministicBackendV2**. No API keys; no network in deterministic pipeline.
+2. **Real providers**: Use **OpenAIHostedBackend** (`--llm-backend openai_hosted`) or **OpenAILiveBackend** (`--llm-backend openai_live`) with `--allow-network` only when needed.
 3. **Strict output**: LLMAgent expects a single JSON object. Wrap model output (e.g. strip markdown, extract JSON) before parse. Invalid JSON or schema failure → NOOP. **Rationale** is required for the constrained path.
 4. **Constraints in prompt**: System prompt describes allowed action_type values and constraints. The **decoder** refuses actions not in `allowed_actions` at decode time; the environment still enforces the rest.
 

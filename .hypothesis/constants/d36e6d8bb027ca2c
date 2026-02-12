@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\security\secret_scrubber.py
+# hypothesis_version: 6.151.6
+
+['<redacted>', 'AUTH', 'CREDENTIAL', 'KEY', 'PASSWORD', 'PWD', 'SECRET', 'TOKEN', 'api', 'sk-']

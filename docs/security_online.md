@@ -125,6 +125,22 @@ All limits apply even when auth is off. Default binding is `127.0.0.1` (local-on
 | `LABTRUST_SERVE_HOST` | Bind address. | 127.0.0.1 |
 | `LABTRUST_SERVE_PORT` | Port. | 8765 |
 
+## LLM call throttling (circuit breaker and rate limit)
+
+When the pipeline is **llm_live**, the LLM agent applies a **circuit breaker** and **rate limiter** so repeated blocks (pre-LLM or shield) do not hammer the API:
+
+- **Circuit breaker:** After `LABTRUST_CIRCUIT_BREAKER_THRESHOLD` consecutive blocks (default 5), the agent skips LLM calls for the next `LABTRUST_CIRCUIT_BREAKER_COOLDOWN` steps (default 10), returning NOOP with reason code `CIRCUIT_BREAKER_OPEN`.
+- **Rate limiter:** At most `LABTRUST_RATE_LIMIT_MAX_CALLS` LLM calls per `LABTRUST_RATE_LIMIT_WINDOW_SECONDS` seconds (default 60 per 60 s). Excess calls return NOOP with reason code `RATE_LIMITED`.
+
+These apply only when `get_pipeline_mode() == "llm_live"`. Implemented in `src/labtrust_gym/baselines/llm/throttle.py` and wired in `LLMAgentWithShield`.
+
+| Variable | Meaning | Default |
+|----------|---------|--------|
+| `LABTRUST_CIRCUIT_BREAKER_THRESHOLD` | Consecutive blocks before opening circuit. | 5 |
+| `LABTRUST_CIRCUIT_BREAKER_COOLDOWN` | Steps to skip LLM after circuit opens. | 10 |
+| `LABTRUST_RATE_LIMIT_MAX_CALLS` | Max LLM calls per window. | 60 |
+| `LABTRUST_RATE_LIMIT_WINDOW_SECONDS` | Sliding window in seconds. | 60.0 |
+
 ## Response-level protections
 
 - **Consistent error payloads**: Errors return JSON with `error` and `code` only; no stack traces or internal paths.

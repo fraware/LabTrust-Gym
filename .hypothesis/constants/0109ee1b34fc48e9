@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\pipeline.py
+# hypothesis_version: 6.151.6
+
+['\x1b[0m', '\x1b[31m', 'allow_network', 'allowed', 'deterministic', 'disabled', 'llm_backend_id', 'llm_live', 'llm_offline', 'none', 'pipeline_mode']

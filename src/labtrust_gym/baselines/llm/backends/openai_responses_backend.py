@@ -173,6 +173,10 @@ def _estimated_cost_usd(
         return None
 
 
+# Max conversation turns to keep for multi-turn (user+assistant pairs).
+COORD_CONVERSATION_MAX_TURNS = 3
+
+
 def generate_coordination_proposal(
     prompt: str,
     schema: dict[str, Any],
@@ -180,19 +184,33 @@ def generate_coordination_proposal(
     retries: int = 1,
     model: str | None = None,
     api_key: str | None = None,
+    *,
+    conversation_history: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Call OpenAI Chat Completions with structured output for CoordinationProposal.
 
     Returns (proposal_dict, meta). proposal_dict conforms to coordination_proposal schema.
     meta: model_id, request_id, latency_ms, tokens_in, tokens_out, estimated_cost_usd (best-effort).
+    When conversation_history is provided, meta may include conversation_history_updated (trimmed).
     Raises on API/key errors. Does not log raw prompt; logs redacted payload for auditing.
     """
     key = (api_key or os.environ.get("OPENAI_API_KEY") or "").strip()
     if not key:
         raise ValueError(REASON_OPENAI_API_KEY_MISSING)
     model = (model or os.environ.get("LABTRUST_OPENAI_MODEL") or "gpt-4o-mini").strip()
-    messages = [{"role": "user", "content": prompt}]
+    if conversation_history:
+        system_content = (
+            "You are a coordination planner. Output valid JSON only, conforming to the "
+            "coordination proposal schema. No commentary outside the JSON."
+        )
+        messages = (
+            [{"role": "system", "content": system_content}]
+            + list(conversation_history)
+            + [{"role": "user", "content": prompt}]
+        )
+    else:
+        messages = [{"role": "user", "content": prompt}]
     prompt_fingerprint = _sha256(json.dumps(messages, sort_keys=True))
     start = time.perf_counter()
     try:
@@ -274,6 +292,14 @@ def generate_coordination_proposal(
         proposal["meta"].update(
             {k: v for k, v in meta.items() if k != "prompt_fingerprint"}
         )
+        if conversation_history is not None:
+            new_user = {"role": "user", "content": prompt}
+            new_assistant = {"role": "assistant", "content": content}
+            updated = list(conversation_history) + [new_user, new_assistant]
+            max_msgs = COORD_CONVERSATION_MAX_TURNS * 2
+            if len(updated) > max_msgs:
+                updated = updated[-max_msgs:]
+            meta["conversation_history_updated"] = updated
         return (proposal, meta)
     raise last_exc or RuntimeError("No response")
 
@@ -328,11 +354,15 @@ class OpenAICoordinationProposalBackend:
         allowed_actions: list[str],
         step_id: int,
         method_id: str,
+        *,
+        conversation_history: list[dict[str, Any]] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
         Return (proposal_dict, meta). Builds prompt from state_digest; calls OpenAI;
         returns dict conforming to coordination_proposal schema. On error returns
         a minimal valid proposal (all NOOP) and meta with error info.
+        When conversation_history is provided, multi-turn is used and meta may
+        include conversation_history_updated for the next step.
         """
         from labtrust_gym.pipeline import check_network_allowed
         check_network_allowed()
@@ -399,6 +429,7 @@ class OpenAICoordinationProposalBackend:
                 retries=self._retries,
                 model=self._model,
                 api_key=self._api_key,
+                conversation_history=conversation_history,
             )
         except Exception as e:
             self._error_count += 1

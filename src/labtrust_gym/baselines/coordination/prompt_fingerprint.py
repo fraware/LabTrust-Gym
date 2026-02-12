@@ -133,7 +133,7 @@ def allowed_actions_payload_sha256(
 def coordination_policy_fingerprint_from_repo(repo_root: Path) -> str:
     """
     Fingerprint of policy/coordination_identity_policy.v0.1.yaml (same as verify-bundle).
-    When file is missing, returns hash of placeholder.
+    When file is missing, returns hash of fallback content.
     """
     path = Path(repo_root) / "policy" / "coordination_identity_policy.v0.1.yaml"
     if not path.is_file():

@@ -125,6 +125,8 @@ Legacy flag `--use-llm-live-openai` is equivalent to `--llm-backend openai_live`
 | `LABTRUST_LLM_TIMEOUT_S` | Request timeout in seconds. | 20 |
 | `LABTRUST_LLM_RETRIES` | Number of retries on transient errors. | 0 |
 
+For tracing and cost/latency attribution (including OTLP export and per-agent/backend summary), see [Observability](observability.md).
+
 The code does not load `.env` automatically. If you use a `.env` file, load it first (see [Before using live providers](#before-using-live-providers)); otherwise set these in the shell or use a tool that injects them.
 
 ## Structured Outputs and machine-safe responses
