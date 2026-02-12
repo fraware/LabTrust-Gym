@@ -17,6 +17,19 @@ REASON_SHIELD_RESTRICTED = "COORD_SHIELD_REJECT_RESTRICTED"
 REASON_SHIELD_RBAC = "COORD_SHIELD_REJECT_RBAC"
 EMIT_COORD_SHIELD_DECISION = "COORD_SHIELD_DECISION"
 
+# Safety-case traceability: claim_id / control_id / invariant_id for evidence
+SHIELD_CLAIM_ROUTE_SAFETY = "SC-SECURITY-ROUTE-001"
+SHIELD_CLAIM_RBAC = "SC-SECURITY-RBAC-001"
+SHIELD_CTRL_SIMPLEX = "CTRL-COORD-SIMPLEX"
+INV_ROUTE_001 = "INV-ROUTE-001"
+INV_ROUTE_002 = "INV-ROUTE-002"
+
+REASON_TO_EVIDENCE_MAP = {
+    REASON_SHIELD_COLLISION: (SHIELD_CLAIM_ROUTE_SAFETY, SHIELD_CTRL_SIMPLEX, INV_ROUTE_001),
+    REASON_SHIELD_RESTRICTED: (SHIELD_CLAIM_ROUTE_SAFETY, SHIELD_CTRL_SIMPLEX, INV_ROUTE_002),
+    REASON_SHIELD_RBAC: (SHIELD_CLAIM_RBAC, SHIELD_CTRL_SIMPLEX, None),
+}
+
 
 @dataclass
 class ShieldResult:
@@ -181,13 +194,37 @@ def select_controller(
     return advanced_route if shield_ok else fallback_route
 
 
+def _build_assurance_evidence(
+    reason_codes: list[str],
+    step_idx: int,
+    outcome: str,
+) -> list[dict[str, Any]]:
+    """Build assurance evidence list for safety-case traceability (claim_id, control_id, step, outcome, reason_code, invariant_id)."""
+    evidence: list[dict[str, Any]] = []
+    for code in reason_codes:
+        claim_id, control_id, invariant_id = REASON_TO_EVIDENCE_MAP.get(
+            code, (SHIELD_CLAIM_ROUTE_SAFETY, SHIELD_CTRL_SIMPLEX, None)
+        )
+        entry: dict[str, Any] = {
+            "claim_id": claim_id,
+            "control_id": control_id,
+            "step": step_idx,
+            "outcome": outcome,
+            "reason_code": code,
+        }
+        if invariant_id is not None:
+            entry["invariant_id"] = invariant_id
+        evidence.append(entry)
+    return evidence
+
+
 def build_shield_payload(
     accepted: bool,
     reasons: list[str],
     counters: dict[str, int],
     step_idx: int,
 ) -> dict[str, Any]:
-    """Build structured payload for COORD_SHIELD_DECISION emit."""
+    """Build structured payload for COORD_SHIELD_DECISION emit. Includes assurance_evidence for audit/safety-case link."""
     reason_codes: list[str] = []
     if counters.get("collision", 0) > 0:
         reason_codes.append(REASON_SHIELD_COLLISION)
@@ -195,6 +232,18 @@ def build_shield_payload(
         reason_codes.append(REASON_SHIELD_RESTRICTED)
     if counters.get("rbac", 0) > 0:
         reason_codes.append(REASON_SHIELD_RBAC)
+    outcome = "passed" if accepted else "blocked"
+    assurance_evidence = _build_assurance_evidence(reason_codes, step_idx, outcome)
+    if accepted and not reason_codes:
+        assurance_evidence = [
+            {
+                "claim_id": SHIELD_CLAIM_ROUTE_SAFETY,
+                "control_id": SHIELD_CTRL_SIMPLEX,
+                "step": step_idx,
+                "outcome": "passed",
+                "reason_code": "",
+            }
+        ]
     return {
         "emit": EMIT_COORD_SHIELD_DECISION,
         "accepted": accepted,
@@ -202,6 +251,7 @@ def build_shield_payload(
         "reasons": reasons[:50],
         "reason_codes": reason_codes,
         "counters": dict(counters),
+        "assurance_evidence": assurance_evidence,
     }
 
 

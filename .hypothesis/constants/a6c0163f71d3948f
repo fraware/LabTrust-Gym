@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\adversary_coord.py
+# hypothesis_version: 6.151.6
+
+[0.1, 0.2, 0.3, 0.5, 200, 'INJ-COLLUSION-001', 'INJ-COMMS-POISON-001', 'INJ-ID-SPOOF-001', 'INJ-REPLAY-001', 'INJ-SLOW-POISON-001', 'collusion', 'contained', 'delayed_trigger', 'detected', 'first_detection_step', 'identity_rotation', 'replay_attempts', 'slow_roll_poisoning', 'stealth_success', 'stealthy_poisoning', 'success']

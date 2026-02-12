@@ -25,7 +25,7 @@ def _repo_root() -> Path:
 
 
 def test_one_receipt_bundle_correct_references() -> None:
-    """One result receipt -> bundle with Specimen (placeholder), Observation, DiagnosticReport; references resolve."""
+    """One result receipt -> bundle with Observation and DiagnosticReport; no Specimen when no specimen receipts; references resolve."""
     receipts = [
         {
             "version": "0.1",
@@ -58,19 +58,25 @@ def test_one_receipt_bundle_correct_references() -> None:
     assert bundle["resourceType"] == "Bundle"
     assert bundle["type"] == "collection"
     entries = bundle["entry"]
-    assert len(entries) >= 3  # Specimen (placeholder), Observation, DiagnosticReport
     specimen_entries = [e for e in entries if e.get("resource", {}).get("resourceType") == "Specimen"]
     obs_entries = [e for e in entries if e.get("resource", {}).get("resourceType") == "Observation"]
     dr_entries = [e for e in entries if e.get("resource", {}).get("resourceType") == "DiagnosticReport"]
-    assert len(specimen_entries) == 1
+    assert len(specimen_entries) == 0, "No Specimen when no specimen receipts"
     assert len(obs_entries) == 1
     assert len(dr_entries) == 1
+    obs = obs_entries[0]["resource"]
+    assert "specimen" in obs
+    assert "reference" not in obs["specimen"], "Missing specimen uses extension only, no reference"
+    assert "extension" in obs["specimen"]
     dr = dr_entries[0]["resource"]
-    assert dr["specimen"][0]["reference"] == "#Specimen/placeholder"
+    assert "specimen" in dr
+    assert len(dr["specimen"]) == 1 and "extension" in dr["specimen"][0]
     assert dr["result"][0]["reference"] == "#Observation/R1"
     assert dr["status"] == "final"
     errs = validate_bundle_structure(bundle)
     assert errs == [], errs
+    serialized = json.dumps(bundle)
+    assert "placeholder" not in serialized.lower(), "Exported bundle must not contain literal 'placeholder'"
 
 
 def test_multiple_observations_per_diagnostic_report() -> None:
@@ -378,3 +384,190 @@ def test_export_fhir_from_receipts_dir(tmp_path: Path) -> None:
     assert data["resourceType"] == "Bundle"
     assert data["type"] == "collection"
     assert validate_bundle_structure(data) == []
+
+
+def test_fhir_export_valid_r4_json_no_placeholder() -> None:
+    """Produced JSON parses; Bundle.type and resourceType present; references resolve; no literal 'placeholder'."""
+    receipts = [
+        {
+            "version": "0.1",
+            "entity_type": "specimen",
+            "specimen_id": "S1",
+            "result_id": None,
+            "accession_ids": ["ACC1"],
+            "panel_id": None,
+            "device_ids": [],
+            "timestamps": {"received": 100},
+            "decision": "RELEASED",
+            "reason_codes": [],
+            "tokens": {"minted": [], "consumed": [], "revoked": []},
+            "critical_comm_records": {"attempts": [], "ack_summary": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
+            "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
+        },
+        {
+            "version": "0.1",
+            "entity_type": "result",
+            "specimen_id": None,
+            "result_id": "R1",
+            "panel_id": "P1",
+            "device_ids": [],
+            "timestamps": {},
+            "decision": "RELEASED",
+            "reason_codes": [],
+            "tokens": {"minted": [], "consumed": [], "revoked": []},
+            "critical_comm_records": {"attempts": [], "ack_summary": []},
+            "invariant_summary": {
+                "violated_ids": [],
+                "first_violation_ts": None,
+                "final_status": "PASS",
+            },
+            "enforcement_summary": {
+                "throttle": [],
+                "kill_switch": [],
+                "freeze_zone": [],
+                "forensic_freeze": [],
+            },
+            "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
+        },
+    ]
+    bundle = receipts_to_fhir_bundle(receipts)
+    # Round-trip: parse produced JSON
+    serialized = json.dumps(bundle, sort_keys=True)
+    parsed = json.loads(serialized)
+    assert parsed.get("resourceType") == "Bundle"
+    assert parsed.get("type") == "collection"
+    for i, e in enumerate(parsed.get("entry") or []):
+        r = e.get("resource") or {}
+        assert "resourceType" in r, f"entry[{i}].resource must have resourceType"
+        assert "id" in r, f"entry[{i}].resource must have id"
+    errs = validate_bundle_structure(parsed)
+    assert errs == [], errs
+    assert "placeholder" not in serialized.lower(), "Exported FHIR JSON must not contain literal 'placeholder'"
+
+
+# --- Deterministic, offline tests for Option B (data-absent-reason) and no placeholders ---
+
+DATA_ABSENT_EXTENSION_URL = "http://hl7.org/fhir/StructureDefinition/data-absent-reason"
+DATA_ABSENT_CODESYSTEM = "http://terminology.hl7.org/CodeSystem/data-absent-reason"
+
+
+def _minimal_result_receipt(result_id: str = "R1") -> dict:
+    return {
+        "version": "0.1",
+        "entity_type": "result",
+        "specimen_id": None,
+        "result_id": result_id,
+        "panel_id": "PANEL_K",
+        "device_ids": [],
+        "timestamps": {},
+        "decision": "RELEASED",
+        "reason_codes": [],
+        "tokens": {"minted": [], "consumed": [], "revoked": []},
+        "critical_comm_records": {"attempts": [], "ack_summary": []},
+        "invariant_summary": {
+            "violated_ids": [],
+            "first_violation_ts": None,
+            "final_status": "PASS",
+        },
+        "enforcement_summary": {
+            "throttle": [],
+            "kill_switch": [],
+            "freeze_zone": [],
+            "forensic_freeze": [],
+        },
+        "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
+    }
+
+
+def test_missing_specimen_uses_extension() -> None:
+    """When specimen is absent: no Specimen resource; Observation.specimen has only data-absent-reason extension; no placeholder anywhere."""
+    receipts = [_minimal_result_receipt()]
+    bundle = receipts_to_fhir_bundle(receipts)
+    serialized = json.dumps(bundle)
+    assert "placeholder" not in serialized.lower(), "No string 'placeholder' in exported JSON"
+    for e in bundle.get("entry") or []:
+        r = e.get("resource") or {}
+        assert r.get("id") != "placeholder", f"Resource id must not be placeholder: {r.get('resourceType')}"
+        assert "placeholder" not in (r.get("id") or "").lower()
+    specimen_entries = [e for e in bundle["entry"] if (e.get("resource") or {}).get("resourceType") == "Specimen"]
+    assert len(specimen_entries) == 0, "No Specimen resource when specimen absent"
+    obs_entries = [e for e in bundle["entry"] if (e.get("resource") or {}).get("resourceType") == "Observation"]
+    assert len(obs_entries) >= 1
+    for obs_resource in [e["resource"] for e in obs_entries]:
+        assert "specimen" in obs_resource
+        specimen = obs_resource["specimen"]
+        assert specimen.get("reference") is None or specimen.get("reference") == "", "reference must be absent"
+        exts = specimen.get("extension") or []
+        assert any(
+            ext.get("url") == DATA_ABSENT_EXTENSION_URL and ext.get("valueCode") == "unknown"
+            for ext in exts
+        ), "Observation.specimen must contain data-absent-reason extension with valueCode unknown"
+    assert validate_bundle_structure(bundle) == []
+
+
+def test_present_specimen_resolves() -> None:
+    """When specimen exists: Specimen resource with non-placeholder id; Observation.specimen.reference resolves in bundle."""
+    receipts = [
+        {
+            "version": "0.1",
+            "entity_type": "specimen",
+            "specimen_id": "S1",
+            "result_id": None,
+            "accession_ids": ["ACC1"],
+            "panel_id": None,
+            "device_ids": [],
+            "timestamps": {"received": 100},
+            "decision": "RELEASED",
+            "reason_codes": [],
+            "tokens": {"minted": [], "consumed": [], "revoked": []},
+            "critical_comm_records": {"attempts": [], "ack_summary": []},
+            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
+            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "hashchain": {"head_hash": "h", "last_event_hash": "e", "length": 1},
+        },
+        _minimal_result_receipt("R1"),
+    ]
+    bundle = receipts_to_fhir_bundle(receipts)
+    serialized = json.dumps(bundle)
+    assert "placeholder" not in serialized.lower()
+    specimen_entries = [e for e in bundle["entry"] if (e.get("resource") or {}).get("resourceType") == "Specimen"]
+    assert len(specimen_entries) == 1
+    spec = specimen_entries[0]["resource"]
+    spec_id = spec["id"]
+    assert spec_id != "placeholder" and "placeholder" not in (spec_id or "").lower()
+    obs_entries = [e for e in bundle["entry"] if (e.get("resource") or {}).get("resourceType") == "Observation"]
+    for obs_resource in [e["resource"] for e in obs_entries]:
+        assert "specimen" in obs_resource
+        ref = obs_resource["specimen"].get("reference")
+        assert ref == f"#Specimen/{spec_id}", f"Observation.specimen.reference must resolve to Specimen in bundle: {ref}"
+    full_urls = {e.get("fullUrl") for e in bundle["entry"] if e.get("fullUrl")}
+    assert f"#Specimen/{spec_id}" in full_urls
+    assert validate_bundle_structure(bundle) == []
+
+
+def test_missing_numeric_value_uses_data_absent_reason() -> None:
+    """Observation with no numeric value: value[x] absent; dataAbsentReason with correct coding."""
+    receipts = [_minimal_result_receipt()]
+    bundle = receipts_to_fhir_bundle(receipts)
+    obs_entries = [e for e in bundle["entry"] if (e.get("resource") or {}).get("resourceType") == "Observation"]
+    assert len(obs_entries) == 1
+    obs = obs_entries[0]["resource"]
+    assert "valueQuantity" not in obs
+    assert "valueString" not in obs
+    assert "dataAbsentReason" in obs
+    dar = obs["dataAbsentReason"]
+    codings = dar.get("coding") or []
+    assert any(
+        c.get("system") == DATA_ABSENT_CODESYSTEM and c.get("code") == "unknown" for c in codings
+    ), "dataAbsentReason must have coding with system and code unknown"

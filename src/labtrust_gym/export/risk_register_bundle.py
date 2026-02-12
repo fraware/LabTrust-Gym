@@ -6,7 +6,7 @@ policy/schemas/risk_register_bundle.v0.1.schema.json.
 
 Evidence model: security_attack (attack_results), coord_cell/summary, pareto_front,
 safety_case_claim (SAFETY_CASE/safety_case.json), bundle_verification (MANIFEST).
-Missing evidence is explicit via status=missing stubs with expected_sources.
+Evidence gaps are explicit: status=missing objects with expected_sources represent missing evidence as first-class bundle output.
 """
 
 from __future__ import annotations
@@ -174,7 +174,7 @@ def _expected_sources_for_risk(
     suite: dict[str, Any],
     matrix: dict[str, Any],
 ) -> list[str]:
-    """Return expected_sources for a risk when evidence is missing (for stubs)."""
+    """Return expected_sources for a risk when evidence is missing (for evidence-gap objects)."""
     sources: list[str] = []
     for a in suite.get("attacks") or []:
         if a.get("risk_id") == risk_id:
@@ -283,13 +283,13 @@ def _build_evidence(
     suite: dict[str, Any],
     matrix: dict[str, Any],
     all_risk_ids: list[str],
-    include_missing_stubs: bool = True,
+    include_missing_entries: bool = True,
 ) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
     """
     Build evidence[] from run_dirs. Returns (evidence_list, risk_id -> evidence_ids).
     Includes SECURITY/attack_results.json, coverage.json, summary_coord.csv, PARETO/pareto.json,
     SAFETY_CASE/safety_case.json, MANIFEST.v0.1.json. Uses MANIFEST for artifacts sha256 when present.
-    If include_missing_stubs, adds one evidence stub per risk with no evidence (status=missing).
+    If include_missing_entries, adds one evidence-gap object per risk with no evidence (status=missing).
     Deterministic order by evidence_id.
     """
     evidence: list[dict[str, Any]] = []
@@ -604,8 +604,8 @@ def _build_evidence(
                     pass
             evidence.append(manifest_entry)
 
-    # Missing evidence stubs: one per risk with no evidence_refs
-    if include_missing_stubs:
+    # Evidence gaps: one per risk with no evidence_refs (first-class status=missing objects)
+    if include_missing_entries:
         for risk_id in all_risk_ids:
             if risk_id in risk_to_evidence:
                 continue
@@ -615,7 +615,7 @@ def _build_evidence(
                     "evidence_id": eid,
                     "type": "other",
                     "path": "",
-                    "label": f"Evidence missing for {risk_id}",
+                    "label": f"Evidence gap: {risk_id}",
                     "status": "missing",
                     "expected_sources": _expected_sources_for_risk(
                         risk_id, suite, matrix
@@ -631,7 +631,7 @@ def _build_evidence(
 def _build_reproduce(evidence_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Build reproduce[]: one entry per evidence with deterministic CLI commands.
-    UI renders these as "how to reproduce" without hardcoding. Placeholders
+    UI renders these as "how to reproduce" without hardcoding. Template variables
     <output_dir> and <study_spec> can be substituted by the user.
     """
     out: list[dict[str, Any]] = []
@@ -879,7 +879,7 @@ def build_risk_register_bundle(
         suite=suite,
         matrix=matrix,
         all_risk_ids=all_risk_ids,
-        include_missing_stubs=True,
+        include_missing_entries=True,
     )
     risks_list = _build_risks(
         repo_root,

@@ -14,10 +14,10 @@ HSL-like Blood Sciences example overlay. Researchers can run benchmarks with `--
 
 Merge rules: critical by (analyte_code, units); stability by scope/panel_rules; enforcement by rule_id; equipment not merged (base only).
 
-## Realistic vs placeholder
+## Illustrative vs production
 
-- **Realistic (illustrative):** Threshold ranges and stability windows are in a plausible HSL-like range; enforcement rule IDs and throttle durations are example values.
-- **Placeholder:** Numeric values (e.g. 90 min, 45 s throttle) are not validated against a real site; equipment registry is base-only so service times and device counts are unchanged. Use for overlay behaviour and metric-shift sanity checks, not production tuning.
+- **Illustrative:** Threshold ranges and stability windows are in a plausible HSL-like range; enforcement rule IDs and throttle durations are example values. Suitable for overlay behaviour and metric-shift sanity checks.
+- **Not production:** Numeric values (e.g. 90 min, 45 s throttle) are not validated against a real site; equipment registry is base-only so service times and device counts are unchanged. Calibrate with site data before clinical use.
 
 ## Expected metric shifts with `--timing simulated`
 

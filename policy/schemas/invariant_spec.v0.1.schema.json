@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.invariant_spec.v0.1",
+  "title": "Invariant spec (single entry for registry)",
+  "description": "Declarative spec for one invariant. Compiled at runtime into a runnable check via logic_template.type + parameters.check. See invariants_runtime and invariants_registry.",
+  "type": "object",
+  "required": ["invariant_id", "logic_template"],
+  "additionalProperties": true,
+  "properties": {
+    "invariant_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "med", "high", "critical"]
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["specimen", "result", "device", "zone", "agent", "system"]
+    },
+    "signals": { "type": "array", "items": { "type": "string" } },
+    "logic_template": {
+      "type": "object",
+      "description": "DSL: type (state|temporal) + parameters (check name + handler-specific params).",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["state", "temporal"] },
+        "parameters": {
+          "type": "object",
+          "description": "Must include 'check' (handler name). Other keys depend on handler (e.g. door_id, action_types).",
+          "required": ["check"],
+          "additionalProperties": true
+        }
+      }
+    },
+    "exception_hooks": {
+      "type": "object",
+      "properties": {
+        "override_token_types": { "type": "array", "items": { "type": "string" } },
+        "allow_when": {}
+      }
+    },
+    "enforcement_hint": {
+      "type": "object",
+      "properties": { "recommend_action": { "type": "string" } }
+    },
+    "reason_code": { "type": "string" },
+    "triggers": { "type": "array", "items": { "type": "string" } }
+  }
+}

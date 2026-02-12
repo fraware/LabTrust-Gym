@@ -15,8 +15,9 @@ import os
 import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from labtrust_gym.config import policy_path
 from labtrust_gym.policy.loader import load_yaml
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,27 @@ logger = logging.getLogger(__name__)
 PACK_POLICY_PATH = "policy/official/benchmark_pack.v0.1.yaml"
 PACK_POLICY_PATH_V02 = "policy/official/benchmark_pack.v0.2.yaml"
 LIVE_EVALUATION_METADATA_FILENAME = "live_evaluation_metadata.json"
+
+# Optional custom pack loaders: register_benchmark_pack_loader(loader_id, loader).
+# Loader signature: (repo_root: Path, prefer_v02: bool, partner_id: str | None) -> tuple[dict, str, str].
+_BENCHMARK_PACK_LOADERS: dict[str, Callable[..., tuple[dict[str, Any], str, str]]] = {}
+
+
+def register_benchmark_pack_loader(
+    loader_id: str,
+    loader: Callable[[Path, bool, str | None], tuple[dict[str, Any], str, str]],
+) -> None:
+    """Register a custom benchmark pack loader. Overwrites if present."""
+    _BENCHMARK_PACK_LOADERS[loader_id] = loader
+
+
+def get_benchmark_pack_loader(
+    loader_id: str,
+) -> Callable[[Path, bool, str | None], tuple[dict[str, Any], str, str]] | None:
+    """Return the registered loader for loader_id, or None."""
+    return _BENCHMARK_PACK_LOADERS.get(loader_id)
+
+
 DEFAULT_ROLE_MIX = {
     "ROLE_RUNNER": 0.4,
     "ROLE_ANALYTICS": 0.3,
@@ -37,12 +59,38 @@ def load_benchmark_pack(
     repo_root: Path,
     prefer_v02: bool = False,
     partner_id: str | None = None,
+    loader_id: str | None = None,
+    pack_path: Path | None = None,
 ) -> tuple[dict[str, Any], str, str]:
     """
     Load benchmark pack YAML. When prefer_v02 is True, load v0.2 if present, else v0.1.
     When partner_id is set, try policy/partners/<id>/official/benchmark_pack.v0.1.yaml first.
+    When loader_id is set and registered, use that loader instead of file-based load.
+    When pack_path is set and exists, load from that path (profile path override).
     Returns (pack_dict, version_string, pack_policy_path).
     """
+    if loader_id:
+        loader = get_benchmark_pack_loader(loader_id)
+        if loader is not None:
+            return loader(repo_root, prefer_v02, partner_id)
+    if pack_path is not None and pack_path.exists():
+        data = load_yaml(pack_path)
+        default_pack = {
+            "version": "0.1",
+            "tasks": {"core": [], "coordination": [], "experimental": []},
+            "scale_configs": {},
+            "baselines": {},
+            "coordination_methods": [],
+            "security_suite": {"smoke": {"enabled": True}, "full": {"enabled": False}},
+            "required_reports": ["security", "safety_case", "transparency_log"],
+        }
+        pack = data if isinstance(data, dict) else default_pack
+        version = pack.get("version", "0.1")
+        try:
+            path_str = pack_path.relative_to(repo_root).as_posix()
+        except ValueError:
+            path_str = str(pack_path)
+        return pack, str(version), path_str
     default_pack = {
         "version": "0.1",
         "tasks": {"core": [], "coordination": [], "experimental": []},
@@ -53,21 +101,16 @@ def load_benchmark_pack(
         "required_reports": ["security", "safety_case", "transparency_log"],
     }
     if partner_id:
-        overlay_v01 = (
-            repo_root
-            / "policy"
-            / "partners"
-            / partner_id
-            / "official"
-            / "benchmark_pack.v0.1.yaml"
+        overlay_v01 = policy_path(
+            repo_root, "partners", partner_id, "official", "benchmark_pack.v0.1.yaml"
         )
         if overlay_v01.exists():
             data = load_yaml(overlay_v01)
             pack = data if isinstance(data, dict) else default_pack
             version = pack.get("version", "0.1")
             return pack, str(version), overlay_v01.relative_to(repo_root).as_posix()
-    path_v02 = repo_root / PACK_POLICY_PATH_V02.replace("/", os.sep)
-    path_v01 = repo_root / PACK_POLICY_PATH.replace("/", os.sep)
+    path_v02 = policy_path(repo_root, "official", "benchmark_pack.v0.2.yaml")
+    path_v01 = policy_path(repo_root, "official", "benchmark_pack.v0.1.yaml")
     if prefer_v02 and path_v02.exists():
         data = load_yaml(path_v02)
         pack = data if isinstance(data, dict) else default_pack
@@ -126,6 +169,8 @@ def run_official_pack(
     llm_backend: str | None = None,
     include_coordination_pack: bool | None = None,
     partner_id: str | None = None,
+    metrics_aggregator_id: str | None = None,
+    benchmark_pack_path: Path | None = None,
 ) -> Path:
     """
     Run the official benchmark pack: baselines, SECURITY/, SAFETY_CASE/, TRANSPARENCY_LOG/.
@@ -140,7 +185,7 @@ def run_official_pack(
 
     prefer_v02 = pipeline_mode == "llm_live"
     pack, pack_version, pack_policy_path = load_benchmark_pack(
-        repo_root, prefer_v02=prefer_v02, partner_id=partner_id
+        repo_root, prefer_v02=prefer_v02, partner_id=partner_id, pack_path=benchmark_pack_path
     )
     tasks_raw = _all_pack_tasks(pack)
     import labtrust_gym.benchmarks.tasks as _tasks_mod
@@ -217,6 +262,7 @@ def run_official_pack(
             pipeline_mode=pipeline_mode,
             allow_network=allow_network,
             llm_backend=llm_backend,
+            metrics_aggregator_id=metrics_aggregator_id,
         )
 
     # 1b) LLM live: transparency log and live evaluation metadata

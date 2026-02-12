@@ -65,7 +65,7 @@ Summary output: `summary_coord.csv` (one row per cell: method_id, scale_id, risk
 The coordination policy fingerprint is the SHA-256 (hex) of the concatenation of sorted file hashes (path relative to `policy/coordination/`, then SHA-256 of file content). Files included: `coordination_study_spec.v0.1.yaml`, `scale_configs.v0.1.yaml`, `coordination_methods.v0.1.yaml`, `method_risk_matrix.v0.1.yaml`, `resilience_scoring.v0.1.yaml`. This section is replaced at card generation time with the actual fingerprint and optional per-file hashes.
 
 ```
-COORDINATION_POLICY_FINGERPRINT_PLACEHOLDER
+COORDINATION_POLICY_FINGERPRINT_TOKEN
 ```
 
 **See also:** [LLM Coordination Protocol](llm_coordination_protocol.md) (pipeline modes, typed proposal schema, shield/repair, security evaluation, reporting). Package-release paper_v0.1 also emits **COORDINATION_LLM_CARD.md** (LLM methods, backends, injection coverage, limitations).

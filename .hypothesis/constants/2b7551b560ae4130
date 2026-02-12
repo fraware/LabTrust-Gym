@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\tools\capabilities.py
+# hypothesis_version: 6.151.6
+
+['allowed_capabilities', 'capabilities', 'capability_ids', 'default', 'policy', 'state_labels', 'tool_id', 'tool_registry', 'tools']

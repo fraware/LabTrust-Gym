@@ -22,15 +22,50 @@ import time
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.config import policy_path
 from labtrust_gym.policy.loader import load_yaml
 
 # Max seconds for live LLM to generate one adversarial payload (prevents suite hang).
 LLM_ATTACKER_GENERATE_TIMEOUT_S = 60
 
+# Security suite provider registry: provider_id -> provider (load_suite, run_suite).
+# Provider: load_suite(policy_root, partner_id) -> dict; run_suite(policy_root, repo_root, ...) -> list[dict].
+_SECURITY_SUITE_PROVIDERS: dict[str, Any] = {}
+
+
+def register_security_suite_provider(provider_id: str, provider: Any) -> None:
+    """Register a security suite provider. Overwrites if present."""
+    _SECURITY_SUITE_PROVIDERS[provider_id] = provider
+
+
+def get_security_suite_provider(provider_id: str) -> Any | None:
+    """Return the registered security suite provider, or None."""
+    return _SECURITY_SUITE_PROVIDERS.get(provider_id)
+
+
+def list_security_suite_providers() -> list[str]:
+    """Return sorted list of registered security suite provider IDs."""
+    return sorted(_SECURITY_SUITE_PROVIDERS.keys())
+
+
+def _default_security_suite_provider() -> Any:
+    """Build the default provider (current load_attack_suite + run_security_suite)."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        load_suite=load_attack_suite,
+        run_suite=run_security_suite,
+    )
+
+
+def _ensure_default_security_provider() -> None:
+    if "default" not in _SECURITY_SUITE_PROVIDERS:
+        register_security_suite_provider("default", _default_security_suite_provider())
+
 
 def load_llm_attacker_prompts(policy_root: Path) -> list[dict[str, Any]]:
     """Load llm_attacker_prompts.v0.1.yaml; return list of prompt dicts (prompt_id, user_prompt, etc.)."""
-    path = policy_root / "policy" / "golden" / "llm_attacker_prompts.v0.1.yaml"
+    path = policy_path(policy_root, "golden", "llm_attacker_prompts.v0.1.yaml")
     if not path.exists():
         return []
     data = load_yaml(path)
@@ -38,21 +73,23 @@ def load_llm_attacker_prompts(policy_root: Path) -> list[dict[str, Any]]:
     return prompts if isinstance(prompts, list) else []
 
 
-def load_attack_suite(policy_root: Path, partner_id: str | None = None) -> dict[str, Any]:
-    """Load security_attack_suite.v0.1.yaml. When partner_id is set, try policy/partners/<id>/golden/ first, else policy/golden/."""
+def load_attack_suite(
+    policy_root: Path,
+    partner_id: str | None = None,
+    suite_path: Path | None = None,
+) -> dict[str, Any]:
+    """Load security_attack_suite. When suite_path is set, load from it; else when partner_id try partners/<id>/golden/, else policy/golden/."""
+    if suite_path is not None and suite_path.exists():
+        data = load_yaml(suite_path)
+        return data if isinstance(data, dict) else {}
     if partner_id:
-        overlay_path = (
-            policy_root
-            / "policy"
-            / "partners"
-            / partner_id
-            / "golden"
-            / "security_attack_suite.v0.1.yaml"
+        overlay_path = policy_path(
+            policy_root, "partners", partner_id, "golden", "security_attack_suite.v0.1.yaml"
         )
         if overlay_path.exists():
             data = load_yaml(overlay_path)
             return data if isinstance(data, dict) else {}
-    path = policy_root / "policy" / "golden" / "security_attack_suite.v0.1.yaml"
+    path = policy_path(policy_root, "golden", "security_attack_suite.v0.1.yaml")
     if not path.exists():
         return {}
     data = load_yaml(path)
@@ -61,7 +98,7 @@ def load_attack_suite(policy_root: Path, partner_id: str | None = None) -> dict[
 
 def load_prompt_injection_scenarios(policy_root: Path) -> list[dict[str, Any]]:
     """Load prompt_injection_scenarios.v0.1.yaml scenarios."""
-    path = policy_root / "policy" / "golden" / "prompt_injection_scenarios.v0.1.yaml"
+    path = policy_path(policy_root, "golden", "prompt_injection_scenarios.v0.1.yaml")
     if not path.exists():
         return []
     data = load_yaml(path)
@@ -383,6 +420,8 @@ def run_security_suite(
     allow_network: bool = False,
     llm_backend: str | None = None,
     llm_model: str | None = None,
+    provider_id: str | None = None,
+    security_suite_path: Path | None = None,
 ) -> list[dict[str, Any]]:
     """
     Run all attacks in the security attack suite (smoke-only or full).
@@ -390,9 +429,25 @@ def run_security_suite(
     timeout_s: max seconds per test_ref pytest run (default 120).
     When llm_attacker=True and allow_network=True and llm_backend is set, runs attacks
     with llm_attacker=true (live LLM generates payloads). Otherwise skips them.
+    When provider_id is set, use the registered security suite provider.
+    When security_suite_path is set, load the suite from that path instead of default.
     """
+    if provider_id is not None:
+        provider = get_security_suite_provider(provider_id)
+        if provider is not None and hasattr(provider, "run_suite"):
+            return provider.run_suite(
+                policy_root=policy_root,
+                repo_root=repo_root or policy_root,
+                smoke_only=smoke_only,
+                seed=seed,
+                timeout_s=timeout_s,
+                llm_attacker=llm_attacker,
+                allow_network=allow_network,
+                llm_backend=llm_backend,
+                llm_model=llm_model,
+            )
     repo_root = repo_root or policy_root
-    suite = load_attack_suite(policy_root)
+    suite = load_attack_suite(policy_root, suite_path=security_suite_path)
     attacks = suite.get("attacks") or []
     if smoke_only:
         attacks = [a for a in attacks if a.get("smoke") is True]
@@ -411,15 +466,36 @@ def run_security_suite(
         err: str | None = None
         model_id: str | None = None
         if attack.get("llm_attacker"):
-            passed, err, model_id = _run_llm_attacker_attack(
-                attack,
-                llm_prompts,
-                policy_root,
-                seed,
-                llm_backend or "openai_live",
-                allow_network,
-                model_override=llm_model,
+            template_ids: list[str] = list(
+                attack.get("attacker_prompt_template_ids") or []
             )
+            if not template_ids and attack.get("attacker_prompt_template_id"):
+                template_ids = [str(attack["attacker_prompt_template_id"])]
+            if not template_ids:
+                err = "llm_attacker attack missing attacker_prompt_template_id(s)"
+            else:
+                all_passed = True
+                first_err: str | None = None
+                for tid in template_ids:
+                    attack_one = dict(attack)
+                    attack_one["attacker_prompt_template_id"] = tid
+                    p, e, mid = _run_llm_attacker_attack(
+                        attack_one,
+                        llm_prompts,
+                        policy_root,
+                        seed,
+                        llm_backend or "openai_live",
+                        allow_network,
+                        model_override=llm_model,
+                    )
+                    if not p:
+                        all_passed = False
+                        first_err = e or "unknown"
+                        break
+                    if mid:
+                        model_id = mid
+                passed = all_passed
+                err = None if all_passed else first_err
         else:
             scenario_ref = attack.get("scenario_ref")
             test_ref = attack.get("test_ref")
@@ -498,6 +574,8 @@ def run_suite_and_emit(
     allow_network: bool = False,
     llm_backend: str | None = None,
     llm_model: str | None = None,
+    provider_id: str | None = None,
+    security_suite_path: Path | None = None,
 ) -> list[dict[str, Any]]:
     """
     Run security suite and write SECURITY/attack_results.json under out_dir.
@@ -505,6 +583,7 @@ def run_suite_and_emit(
     When llm_attacker=True, allow_network=True, and llm_backend set, runs LLM-attacker
     attacks (live LLM generates payloads); metadata will include llm_attacker_run and
     llm_attacker_model_ids when any such attack ran.
+    When provider_id is set, use the registered security suite provider.
     """
     results = run_security_suite(
         policy_root=policy_root,
@@ -516,6 +595,8 @@ def run_suite_and_emit(
         allow_network=allow_network,
         llm_backend=llm_backend,
         llm_model=llm_model,
+        provider_id=provider_id,
+        security_suite_path=security_suite_path,
     )
     security_dir = out_dir / "SECURITY"
     security_dir.mkdir(parents=True, exist_ok=True)
@@ -525,3 +606,6 @@ def run_suite_and_emit(
         metadata=metadata,
     )
     return results
+
+
+_ensure_default_security_provider()

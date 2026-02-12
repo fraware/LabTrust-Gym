@@ -56,10 +56,19 @@ def _bfs_next_zone(
 
 
 class CentralizedAllocator:
-    """Greedy allocation: STAT > URGENT > ROUTINE, colocation, compute_budget."""
+    """
+    Greedy allocation: STAT > URGENT > ROUTINE, colocation, compute_budget.
+    When fairness=True, assigns to the agent with fewest current assignments first
+    (load balancing; improves Gini work distribution).
+    """
 
-    def __init__(self, compute_budget: int | None = None) -> None:
+    def __init__(
+        self,
+        compute_budget: int | None = None,
+        fairness: bool = False,
+    ) -> None:
         self._compute_budget = compute_budget
+        self._fairness = bool(fairness)
         self._last_assignments: list[tuple[str, str, str, int]] = []
 
     def get_alloc_metrics(self) -> dict[str, Any] | None:
@@ -102,22 +111,29 @@ class CentralizedAllocator:
         used_work: set[tuple[str, str]] = set()
         assignments: list[tuple[str, str, str, int]] = []
 
+        work_count = {a: 0 for a in agents}
         for prio, device_id, work_id, zone_id in worklist:
             if len(assigned) >= budget:
                 break
             if (device_id, work_id) in used_work:
                 continue
-            for agent_id in agents:
-                if agent_id in assigned:
-                    continue
-                o = context.obs.get(agent_id) or {}
-                my_zone = get_zone_from_obs(o, zone_ids) or o.get("zone_id") or ""
-                if my_zone != zone_id:
-                    continue
-                assigned.add(agent_id)
-                used_work.add((device_id, work_id))
-                assignments.append((agent_id, work_id, device_id, prio))
-                break
+            candidates = [
+                a for a in agents
+                if a not in assigned
+                and (get_zone_from_obs(context.obs.get(a) or {}, zone_ids)
+                     or (context.obs.get(a) or {}).get("zone_id") or "") == zone_id
+            ]
+            if not candidates:
+                continue
+            if self._fairness:
+                candidates.sort(key=lambda a: (work_count[a], a))
+            else:
+                candidates.sort(key=lambda a: a)
+            agent_id = candidates[0]
+            assigned.add(agent_id)
+            used_work.add((device_id, work_id))
+            assignments.append((agent_id, work_id, device_id, prio))
+            work_count[agent_id] = work_count.get(agent_id, 0) + 1
 
         self._last_assignments = list(assignments)
         explain = f"n={len(assignments)}"
@@ -125,7 +141,27 @@ class CentralizedAllocator:
 
 
 class EDFScheduler:
-    """Earliest-deadline-first: order by (deadline_step, priority). Deterministic."""
+    """
+    Earliest-deadline-first: order by (deadline_step, priority). Deterministic.
+    deadline_slack_steps: default slack (deadline = context.t + slack).
+    criticality_slack_steps: optional map priority -> slack for criticality-aware
+    scheduling (e.g. STAT/CRIT_A gets 10, ROUTINE gets 20). When provided,
+    overrides deadline_slack_steps per priority.
+    """
+
+    def __init__(
+        self,
+        deadline_slack_steps: int = 20,
+        criticality_slack_steps: dict[int, int] | None = None,
+    ) -> None:
+        self._deadline_slack = max(1, min(200, deadline_slack_steps))
+        self._criticality_slack = dict(criticality_slack_steps) if criticality_slack_steps else {}
+
+    def _slack_for_priority(self, prio: int) -> int:
+        """Slack steps for this priority (criticality-aware)."""
+        if self._criticality_slack and prio in self._criticality_slack:
+            return max(1, min(200, self._criticality_slack[prio]))
+        return self._deadline_slack
 
     def schedule(
         self,
@@ -134,7 +170,8 @@ class EDFScheduler:
     ) -> ScheduleDecision:
         per_agent: dict[str, list[tuple[str, int, int]]] = {}
         for agent_id, work_id, device_id, prio in allocation.assignments:
-            deadline = context.t + 20
+            slack = self._slack_for_priority(prio)
+            deadline = context.t + slack
             if agent_id not in per_agent:
                 per_agent[agent_id] = []
             per_agent[agent_id].append((work_id, deadline, prio))
@@ -231,16 +268,33 @@ class WHCARouter:
     Windowed Cooperative A* over zone graph with reservation table.
     Plans collision-free moves for horizon H; deadlock-safe fallback (wait-in-place).
     Deterministic: agent order sorted, tie-break via context.rng.
+
+    Tuning (state-of-the-art):
+    - horizon: planning window (1--64). Can be overridden per step via
+      context.scale_config["whca_horizon"] for dynamic tuning.
+    - Larger horizon improves path quality but increases reservation density;
+      smaller horizon reduces conflicts but may increase deadlock-avoid steps.
     """
 
     def __init__(self, horizon: int = 10) -> None:
-        self._horizon = max(1, min(64, horizon))
+        self._horizon_default = max(1, min(64, horizon))
         self._route_metrics: dict[str, Any] = {}
         self._accumulated: dict[str, Any] = {
             "replan_rate_sum": 0.0,
             "steps": 0,
             "deadlock_avoids": 0,
         }
+
+    def _effective_horizon(self, context: KernelContext) -> int:
+        """Horizon for this step: scale_config.whca_horizon or constructor default."""
+        cfg = (context.scale_config or {}).get("whca_horizon")
+        if cfg is not None:
+            try:
+                h = int(cfg)
+                return max(1, min(64, h))
+            except (TypeError, ValueError):
+                pass
+        return self._horizon_default
 
     def reset(self, seed: int = 0) -> None:
         """Reset accumulated metrics for new episode."""
@@ -304,7 +358,8 @@ class WHCARouter:
             }
             return RouteDecision(per_agent=tuple(per_agent_no_graph), explain="whca_no_graph")
 
-        max_t = context.t + self._horizon + 1
+        horizon = self._effective_horizon(context)
+        max_t = context.t + horizon + 1
         reservations = ReservationTable(max_t=max_t)
 
         assignment_by_agent: dict[str, tuple[str, str, int]] = {}
@@ -352,7 +407,7 @@ class WHCARouter:
                 my_zone,
                 goal,
                 context.t,
-                self._horizon,
+                horizon,
                 graph,
                 reservations,
                 rng,

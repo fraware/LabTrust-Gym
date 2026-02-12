@@ -165,16 +165,20 @@ class BenchmarkTask:
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         """Deterministic initial_state given seed. calibration optional (workload priors)."""
         scale = self.scale_config
         if scale is not None:
-            try:
-                from labtrust_gym.config import get_repo_root
+            if policy_root is not None:
+                root = Path(policy_root)
+            else:
+                try:
+                    from labtrust_gym.config import get_repo_root
 
-                root = Path(get_repo_root())
-            except Exception:
-                root = Path.cwd()
+                    root = Path(get_repo_root())
+                except Exception:
+                    root = Path.cwd()
             return generate_scaled_initial_state(scale, root, seed)
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
@@ -221,6 +225,7 @@ class TaskA_ThroughputSLA(BenchmarkTask):
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
@@ -272,6 +277,7 @@ class TaskB_STATInsertionUnderLoad(BenchmarkTask):
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
@@ -320,6 +326,7 @@ class TaskC_QCFailCascade(BenchmarkTask):
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
@@ -384,6 +391,7 @@ class TaskD_AdversarialDisruption(BenchmarkTask):
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
@@ -470,6 +478,7 @@ class TaskF_InsiderAndKeyMisuse(BenchmarkTask):
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
@@ -555,6 +564,7 @@ class TaskE_MultiSiteSTAT(BenchmarkTask):
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         rng = random.Random(seed)
         n, arrivals = _sample_arrival_and_n_from_calibration(
@@ -613,14 +623,18 @@ class TaskI_DeviceOutageSurge(BenchmarkTask):
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         rng = random.Random(seed)
-        try:
-            from labtrust_gym.config import get_repo_root
+        if policy_root is not None:
+            root = Path(policy_root)
+        else:
+            try:
+                from labtrust_gym.config import get_repo_root
 
-            root = Path(get_repo_root())
-        except Exception:
-            root = Path(".")
+                root = Path(get_repo_root())
+            except Exception:
+                root = Path(".")
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=8, default_n_max=12, default_arrival_max=200
         )
@@ -670,14 +684,18 @@ class TaskJ_ReagentStockout(BenchmarkTask):
         self,
         seed: int,
         calibration: dict[str, Any] | None = None,
+        policy_root: Path | None = None,
     ) -> dict[str, Any]:
         rng = random.Random(seed)
-        try:
-            from labtrust_gym.config import get_repo_root
+        if policy_root is not None:
+            root = Path(policy_root)
+        else:
+            try:
+                from labtrust_gym.config import get_repo_root
 
-            root = Path(get_repo_root())
-        except Exception:
-            root = Path(".")
+                root = Path(get_repo_root())
+            except Exception:
+                root = Path(".")
         n, arrivals = _sample_arrival_and_n_from_calibration(
             rng, calibration, default_n_min=5, default_n_max=8, default_arrival_max=80
         )
@@ -718,11 +736,21 @@ _TASK_REGISTRY: dict[str, type] = {
 }
 
 
+def register_task(name: str, task_class: type[BenchmarkTask]) -> None:
+    """Register a benchmark task by name. Overwrites if present."""
+    _TASK_REGISTRY[name] = task_class
+
+
+def list_tasks() -> list[str]:
+    """Return registered task names."""
+    return sorted(_TASK_REGISTRY.keys())
+
+
 def get_task(name: str) -> BenchmarkTask:
     """Return task instance by name."""
     cls = _TASK_REGISTRY.get(name)
     if cls is None:
-        raise ValueError(f"Unknown task: {name}. Known: {list(_TASK_REGISTRY.keys())}")
+        raise ValueError(f"Unknown task: {name}. Known: {list_tasks()}")
     if not callable(cls):
         raise TypeError(
             f"Task {name!r} maps to non-callable {type(cls).__name__!r}; "

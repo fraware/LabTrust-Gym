@@ -65,7 +65,7 @@ Runs can be exported into a stable **EvidenceBundle.v0.1** directory for audit a
 ### Schemas
 
 - **policy/schemas/receipt.v0.1.schema.json** — Per-specimen/result receipt: identifiers, timestamps, decision (RELEASED | HELD | REJECTED | BLOCKED), reason_codes, tokens, critical comm records, invariant/enforcement summary, hashchain.
-- **policy/schemas/evidence_bundle_manifest.v0.1.schema.json** — Manifest: list of files with SHA-256, policy_fingerprint, partner_id, optional signature (stub behind feature flag).
+- **policy/schemas/evidence_bundle_manifest.v0.1.schema.json** — Manifest: list of files with SHA-256, policy_fingerprint, partner_id, optional signature (Ed25519; see below).
 
 ### CLI
 
@@ -85,7 +85,11 @@ Output is deterministic (same log ⇒ identical bundle). Receipts validate again
 - **invariant_eval_trace.jsonl** — Per-step invariant evaluations (violations).
 - **enforcement_actions.jsonl** — Per-step enforcement actions (throttle, kill_switch, freeze_zone, forensic_freeze).
 - **hashchain_proof.json** — head_hash, last_event_hash, length, break_status.
-- **manifest.json** — Files with sha256, policy_fingerprint, partner_id.
+- **manifest.json** — Files with sha256, policy_fingerprint, partner_id, optional Ed25519 signature.
+
+### Evidence bundle signing and verification
+
+Signing is **key-custody agnostic**: the core export does not read keys from disk. The runner supplies a `get_private_key(key_id)` callback and a key registry (e.g. from `policy/keys/key_registry.v0.1.yaml` plus overlays). When `sign_bundle=True` and these are provided, the manifest and each receipt are signed with Ed25519. Signature format: `{"algorithm": "ed25519", "public_key_b64": ..., "signature_b64": ..., "key_id": ...}`. Verification uses the same key registry: `verify_receipt(receipt, key_registry)` and `verify_manifest_signature(manifest, key_registry)`. The `labtrust verify-bundle` command runs these checks when the key registry is present under the policy root; tampering with signed content causes verification to fail.
 
 ## Tests
 

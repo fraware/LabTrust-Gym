@@ -118,12 +118,12 @@
           "type": "string",
           "enum": ["security_suite", "coordination_study", "coordination_pack", "official_pack", "safety_case", "bundle_verification", "other"]
         },
-        "path": { "type": "string", "description": "Repo-relative or run-relative path; empty or omitted for status=missing stubs." },
+        "path": { "type": "string", "description": "Repo-relative or run-relative path; empty or omitted for evidence gaps (status=missing)." },
         "label": { "type": "string" },
         "status": {
           "type": "string",
           "enum": ["present", "missing"],
-          "description": "present when evidence exists; missing for explicit stub when no evidence in scanned runs."
+          "description": "present when evidence exists; missing for evidence gap (no evidence in scanned runs)."
         },
         "expected_sources": {
           "type": "array",

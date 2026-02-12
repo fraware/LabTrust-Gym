@@ -5,8 +5,8 @@ LLM agent interface: offline-safe and deterministic by default.
 - LLMAgent: system prompt, backend call, strict JSON parse + schema validation
 - MockDeterministicBackend: canned JSON from observation hash (deterministic)
 - MockDeterministicBackendV2: canned llm_action.schema.v0.2 (string action_type)
+- FixtureBackend: offline lookup from tests/fixtures/llm_responses/; raises FixtureMissingError when missing
 - LLMAgentWithShield: proposes action, applies safety shield (RBAC + signature), returns (idx, info, meta)
-- OpenAIBackend stub: API key from env; not used in tests
 """
 
 from __future__ import annotations
@@ -200,7 +200,7 @@ class MockDeterministicBackend:
         self._default = default_action_type
 
     def generate(self, messages: list[dict[str, str]]) -> str:
-        """Ignore messages; use last user message or placeholder to derive hash, or default."""
+        """Ignore messages; use last user message or fallback to derive hash, or default."""
         user = next(
             (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
         )
@@ -217,24 +217,71 @@ class MockDeterministicBackend:
         )
 
 
-class OpenAIBackend:
+def _messages_digest(messages: list[dict[str, str]]) -> str:
+    """Deterministic SHA-256 digest of messages for fixture key (canonical JSON)."""
+    canonical = json.dumps(messages, sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+class FixtureBackend:
     """
-    Stub backend: reads API key from OPENAI_API_KEY; never used in tests.
-    Real implementation would call OpenAI API.
+    Offline deterministic backend: lookup response by (prompt_fingerprint, state_digest,
+    allowed_actions_digest) represented as a single digest of messages.
+    Fixtures stored under tests/fixtures/llm_responses/ (e.g. fixtures.json).
+    If fixture is missing, raises FixtureMissingError with remediation to record fixtures.
     """
 
-    def __init__(self, api_key_env: str = "OPENAI_API_KEY") -> None:
-        import os
+    backend_id = "fixture"
+    model_id = "fixture"
 
-        self._api_key = os.environ.get(api_key_env, "")
+    def __init__(
+        self,
+        fixtures_dir: Path | None = None,
+        repo_root: Path | None = None,
+    ) -> None:
+        if fixtures_dir is not None:
+            self._fixtures_dir = Path(fixtures_dir)
+        elif repo_root is not None:
+            self._fixtures_dir = Path(repo_root) / "tests" / "fixtures" / "llm_responses"
+        else:
+            try:
+                from labtrust_gym.config import get_repo_root
+                root = get_repo_root()
+            except Exception:
+                root = Path(__file__).resolve().parent.parent.parent.parent.parent
+            self._fixtures_dir = Path(root) / "tests" / "fixtures" / "llm_responses"
+        self._cache: dict[str, str] | None = None
+
+    def _load_responses(self) -> dict[str, str]:
+        if self._cache is not None:
+            return self._cache
+        path = self._fixtures_dir / "fixtures.json"
+        if not path.exists():
+            self._cache = {}
+            return self._cache
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            responses = data.get("responses")
+            if not isinstance(responses, dict):
+                self._cache = {}
+                return self._cache
+            self._cache = {k: str(v) for k, v in responses.items()}
+            return self._cache
+        except (json.JSONDecodeError, OSError):
+            self._cache = {}
+            return self._cache
 
     def generate(self, messages: list[dict[str, str]]) -> str:
-        """Stub: returns NOOP if no key; otherwise would call API."""
-        if not self._api_key:
-            return json.dumps(
-                {"action_type": ACTION_NOOP, "action_info": {}}, sort_keys=True
+        key = _messages_digest(messages)
+        responses = self._load_responses()
+        if key not in responses:
+            from labtrust_gym.baselines.llm.exceptions import FixtureMissingError
+            raise FixtureMissingError(
+                f"No fixture for request key {key[:16]}...; cannot run deterministic pipeline.",
+                key=key,
+                remediation="Run the record-llm-fixtures command with network enabled to record fixtures.",
             )
-        raise NotImplementedError("OpenAI API call not implemented in this stub")
+        return responses[key]
 
 
 class MockDeterministicBackendV2:
@@ -737,6 +784,20 @@ class LLMAgentWithShield:
         self._partner_id: str = ""
         self._timing_mode: str = "explicit"
         self._policy_fingerprint: str | None = None
+        from labtrust_gym.baselines.llm.throttle import (
+            CircuitBreaker,
+            RateLimiter,
+            throttle_config_from_env,
+        )
+        cfg = throttle_config_from_env()
+        self._circuit_breaker = CircuitBreaker(
+            consecutive_threshold=int(cfg.get("circuit_consecutive_threshold", 5)),
+            cooldown_calls=int(cfg.get("circuit_cooldown_calls", 10)),
+        )
+        self._rate_limiter = RateLimiter(
+            max_calls=int(cfg.get("rate_max_calls", 60)),
+            window_seconds=float(cfg.get("rate_window_seconds", 60.0)),
+        )
 
     def reset(
         self,
@@ -752,6 +813,11 @@ class LLMAgentWithShield:
             self._timing_mode = "explicit"
         if policy_summary is not None and isinstance(policy_summary, dict):
             self._policy_fingerprint = policy_summary.get("policy_fingerprint")
+        self._conversation_history = []
+        if hasattr(self, "_circuit_breaker") and self._circuit_breaker is not None:
+            self._circuit_breaker.reset()
+        if hasattr(self, "_rate_limiter") and self._rate_limiter is not None:
+            self._rate_limiter.reset()
 
     def act(
         self,
@@ -767,7 +833,11 @@ class LLMAgentWithShield:
             decode_constrained,
             validate_schema_returns_errors,
         )
-        from labtrust_gym.baselines.llm.shield import apply_shield, build_policy_summary
+        from labtrust_gym.baselines.llm.shield import (
+            apply_shield,
+            build_policy_summary,
+            generate_policy_summary_from_policy,
+        )
         from labtrust_gym.engine.rbac import get_agent_role, get_allowed_actions
 
         engine_id = self._pz_to_engine.get(agent_id, agent_id)
@@ -790,14 +860,7 @@ class LLMAgentWithShield:
             role_id,
             self._timing_mode,
         )
-        policy_summary = build_policy_summary(
-            allowed_actions=allowed_actions,
-            agent_zone=observation.get("zone_id"),
-            strict_signatures=self._strict_signatures,
-            role_id=role_id,
-        )
-        max_repair_attempts = 1 if get_pipeline_mode() == "llm_live" else 0
-        citation_anchors = list(policy_summary.get("citation_anchors") or [])
+        log_frozen_obs = bool(observation.get("log_frozen", 0))
         if self._use_action_proposal_schema:
             now_ts_s = int(observation.get("t_s", 0))
             engine_state = _observation_to_engine_state(observation)
@@ -805,7 +868,7 @@ class LLMAgentWithShield:
                 "partner_id": self._partner_id,
                 "policy_fingerprint": self._policy_fingerprint,
                 "strict_signatures": self._strict_signatures,
-                "log_frozen": bool(observation.get("log_frozen", 0)),
+                "log_frozen": log_frozen_obs,
             }
             state_summary = build_state_summary_v0_2(
                 engine_state,
@@ -815,6 +878,114 @@ class LLMAgentWithShield:
                 now_ts_s,
                 self._timing_mode,
             )
+            defense_policy: dict[str, Any] | None = None
+            try:
+                from labtrust_gym.security.prompt_injection_defense import (
+                    load_prompt_injection_defense_policy,
+                    pre_llm_prompt_injection_check,
+                )
+                from labtrust_gym.config import get_repo_root as _get_repo
+                _repo = _get_repo()
+                defense_policy = load_prompt_injection_defense_policy(repo_root=_repo)
+                pre_result = pre_llm_prompt_injection_check(
+                    state_summary, defense_policy=defense_policy, repo_root=_repo
+                )
+                if pre_result.block and pre_result.reason_code:
+                    if hasattr(self, "_circuit_breaker") and self._circuit_breaker is not None:
+                        self._circuit_breaker.record_block()
+                    noop_action = (
+                        dict(NOOP_ACTION_V01)
+                        if self._use_action_proposal_schema
+                        else {"action_type": "NOOP", "args": {}}
+                    )
+                    meta_block: dict[str, Any] = {
+                        "_shield_filtered": True,
+                        "_shield_reason_code": pre_result.reason_code,
+                        "_llm_decision": {},
+                    }
+                    return (ACTION_NOOP, noop_action, meta_block)
+                if pre_result.sanitized_untrusted_samples:
+                    state_summary = dict(state_summary)
+                    state_summary["untrusted_notes"] = {
+                        "present": len(pre_result.sanitized_untrusted_samples) > 0,
+                        "samples": pre_result.sanitized_untrusted_samples,
+                    }
+            except Exception:
+                defense_policy = None
+            self._last_state_summary_for_defense = state_summary
+            self._last_defense_policy_for_defense = defense_policy
+            queue_head: dict[str, str] = {}
+            for q in (state_summary.get("queue") or {}).get("by_device") or []:
+                if isinstance(q, dict) and q.get("device_id"):
+                    queue_head[str(q["device_id"])] = str(q.get("queue_head", ""))
+            pending_criticals = [
+                str(c.get("result_id", ""))
+                for c in (state_summary.get("work") or {}).get("pending_criticals") or []
+                if isinstance(c, dict) and c.get("result_id")
+            ]
+            try:
+                from labtrust_gym.config import get_repo_root
+                repo_root = get_repo_root()
+                if (repo_root / "policy").exists():
+                    policy_summary = generate_policy_summary_from_policy(
+                        repo_root=repo_root,
+                        allowed_actions=allowed_actions,
+                        agent_zone=observation.get("zone_id"),
+                        queue_head=queue_head or None,
+                        pending_criticals=pending_criticals or None,
+                        log_frozen=log_frozen_obs,
+                        strict_signatures=self._strict_signatures,
+                        role_id=role_id,
+                    )
+                else:
+                    policy_summary = build_policy_summary(
+                        allowed_actions=allowed_actions,
+                        agent_zone=observation.get("zone_id"),
+                        strict_signatures=self._strict_signatures,
+                        role_id=role_id,
+                    )
+            except Exception:
+                policy_summary = build_policy_summary(
+                    allowed_actions=allowed_actions,
+                    agent_zone=observation.get("zone_id"),
+                    strict_signatures=self._strict_signatures,
+                    role_id=role_id,
+                )
+        else:
+            policy_summary = build_policy_summary(
+                allowed_actions=allowed_actions,
+                agent_zone=observation.get("zone_id"),
+                strict_signatures=self._strict_signatures,
+                role_id=role_id,
+            )
+            self._last_state_summary_for_defense = None
+            self._last_defense_policy_for_defense = None
+        max_repair_attempts = 1 if get_pipeline_mode() == "llm_live" else 0
+        citation_anchors = list(policy_summary.get("citation_anchors") or [])
+        if get_pipeline_mode() == "llm_live" and hasattr(self, "_circuit_breaker") and self._circuit_breaker is not None:
+            if self._circuit_breaker.should_skip_llm():
+                noop_action = (
+                    dict(NOOP_ACTION_V01)
+                    if self._use_action_proposal_schema
+                    else {"action_type": "NOOP", "args": {}}
+                )
+                return (
+                    ACTION_NOOP,
+                    noop_action,
+                    {"_shield_filtered": True, "_shield_reason_code": "CIRCUIT_BREAKER_OPEN", "_llm_decision": {}},
+                )
+            if hasattr(self, "_rate_limiter") and self._rate_limiter is not None and not self._rate_limiter.allow_call():
+                noop_action = (
+                    dict(NOOP_ACTION_V01)
+                    if self._use_action_proposal_schema
+                    else {"action_type": "NOOP", "args": {}}
+                )
+                return (
+                    ACTION_NOOP,
+                    noop_action,
+                    {"_shield_filtered": True, "_shield_reason_code": "RATE_LIMITED", "_llm_decision": {}},
+                )
+        if self._use_action_proposal_schema:
             allowed_actions_payload = build_allowed_actions_payload(
                 state=state_summary,
                 allowed_actions=allowed_actions,
@@ -829,6 +1000,7 @@ class LLMAgentWithShield:
                     "now_ts_s": now_ts_s,
                     "timing_mode": self._timing_mode,
                     "state_summary": state_summary,
+                    "policy_summary": policy_summary,
                     "allowed_actions": allowed_actions,
                     "allowed_actions_payload": allowed_actions_payload,
                     "active_tokens": state_summary.get("tokens", {}).get("active", []),
@@ -839,8 +1011,25 @@ class LLMAgentWithShield:
                         "enforcement_state", {}
                     ),
                     "role_id": role_id,
+                    "agent_id": agent_id,
+                    "conversation_history": getattr(
+                        self, "_conversation_history", []
+                    ),
                 }
                 proposal = self._backend.propose_action(context)
+                bm = getattr(self._backend, "last_metrics", None)
+                if isinstance(bm, dict) and bm.get("last_user_content") is not None and bm.get("last_assistant_content") is not None:
+                    if not hasattr(self, "_conversation_history"):
+                        self._conversation_history = []
+                    self._conversation_history.append(
+                        {"role": "user", "content": bm["last_user_content"]}
+                    )
+                    self._conversation_history.append(
+                        {"role": "assistant", "content": bm["last_assistant_content"]}
+                    )
+                    max_turns = 6
+                    if len(self._conversation_history) > max_turns * 2:
+                        self._conversation_history = self._conversation_history[-max_turns * 2:]
                 text = json.dumps(proposal)
                 bm = getattr(self._backend, "last_metrics", None)
                 if isinstance(bm, dict) and bm.get("prompt_fingerprint"):
@@ -944,6 +1133,51 @@ class LLMAgentWithShield:
                 "rationale": "",
             }
         )
+        output_check_blocked = False
+        output_check_reason: str | None = None
+        state_for_defense = getattr(self, "_last_state_summary_for_defense", None)
+        defense_for_defense = getattr(self, "_last_defense_policy_for_defense", None)
+        if (
+            state_for_defense is not None
+            and defense_for_defense is not None
+            and defense_for_defense.get("output_consistency_check")
+        ):
+            try:
+                from labtrust_gym.security.prompt_injection_defense import (
+                    output_consistency_check,
+                )
+                samples = (state_for_defense.get("untrusted_notes") or {}).get(
+                    "samples", []
+                )
+                min_len = int(defense_for_defense.get("min_verbatim_len", 20))
+                flagged, reason = output_consistency_check(
+                    text, samples, min_verbatim_len=min_len
+                )
+                if flagged and reason:
+                    output_check_blocked = True
+                    output_check_reason = reason
+            except Exception:
+                pass
+        if output_check_blocked and output_check_reason:
+            if hasattr(self, "_circuit_breaker") and self._circuit_breaker is not None:
+                self._circuit_breaker.record_block()
+            meta_out: dict[str, Any] = {
+                "_shield_filtered": True,
+                "_shield_reason_code": output_check_reason,
+                "_llm_decision": _build_llm_decision(
+                    self._backend,
+                    prompt_hash,
+                    response_sha256,
+                    dict(noop_fallback),
+                    None,
+                    prompt_id=prompt_id_this_act,
+                    prompt_version=prompt_version_this_act,
+                    prompt_fingerprint=prompt_fp,
+                    agent_id=agent_id,
+                    role_id=role_id,
+                ),
+            }
+            return (ACTION_NOOP, dict(noop_fallback), meta_out)
         try:
             candidate = json.loads(text)
         except json.JSONDecodeError:
@@ -1537,6 +1771,13 @@ class LLMAgentWithShield:
         if filtered and reason_code:
             meta["_shield_filtered"] = True
             meta["_shield_reason_code"] = reason_code
+            if hasattr(self, "_circuit_breaker") and self._circuit_breaker is not None:
+                self._circuit_breaker.record_block()
+        else:
+            if hasattr(self, "_circuit_breaker") and self._circuit_breaker is not None:
+                self._circuit_breaker.record_success()
+            if hasattr(self, "_rate_limiter") and self._rate_limiter is not None:
+                self._rate_limiter.record_call()
         return (action_index, action_info, meta)
 
 

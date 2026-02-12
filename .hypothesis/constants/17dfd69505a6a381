@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\hierarchical\local_controller.py
+# hypothesis_version: 6.151.6
+
+['MOVE', 'NOOP', 'START_RUN', 'action_index', 'action_type', 'args', 'device_id', 'edf', 'from_zone', 'local', 'to_zone', 'work_id', 'zone_id']

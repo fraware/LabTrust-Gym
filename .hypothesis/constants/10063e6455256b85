@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\llm_hierarchical_allocator.py
+# hypothesis_version: 6.151.6
+
+[0.0, 'COORD_HIER_ASSIGN', 'SET_INTENT', 'STAT', 'URGENT', 'Z_SORTING_LANES', 'action_index', 'action_type', 'agent_id', 'args', 'backend_id', 'comms', 'device_id', 'device_zone', 'edf', 'estimated_cost_usd', 'generate_proposal', 'greedy', 'horizon_steps', 'job_id', 'latency_ms', 'meta', 'method_id', 'model_id', 'n/a', 'per_agent', 'per_device', 'policy_summary', 'priority_weight', 'proposal_id', 'pz_to_engine', 'queue_head', 'reason_code', 'reset', 'safe_fallback', 'shielded', 'step_id', 'tokens_in', 'tokens_out', 'whca', 'zone']

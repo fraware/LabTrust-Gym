@@ -4,9 +4,8 @@ Golden suite: run scenarios against env adapter and validate runner output contr
 - Loads schema policy/schemas/runner_output_contract.v0.1.schema.json.
 - Validates runner output via jsonschema.
 - Fails if any scenario failed.
-
-When LABTRUST_RUN_GOLDEN=1 uses real engine (CoreEnv); otherwise uses
-PlaceholderLabTrustEnv and skips so CI stays green.
+- Uses real adapter (PZParallelAdapter wrapping CoreEnv) in deterministic mode by default.
+- Optional longer or heavy scenarios can be gated by LABTRUST_RUN_GOLDEN=1.
 """
 
 from __future__ import annotations
@@ -18,32 +17,7 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-from labtrust_gym.runner import GoldenRunner, LabTrustEnvAdapter
-
-
-def _get_env_adapter():  # type: () -> LabTrustEnvAdapter
-    """Return real engine when LABTRUST_RUN_GOLDEN=1, else placeholder."""
-    if os.environ.get("LABTRUST_RUN_GOLDEN") == "1":
-        from labtrust_gym.engine.core_env import CoreEnv
-
-        return CoreEnv()
-    return PlaceholderLabTrustEnv()
-
-
-class PlaceholderLabTrustEnv(LabTrustEnvAdapter):
-    """
-    Placeholder adapter: raises NotImplementedError.
-    Used when LABTRUST_RUN_GOLDEN is not set so tests are skipped.
-    """
-
-    def reset(self, initial_state, *, deterministic: bool, rng_seed: int) -> None:
-        raise NotImplementedError("Engine adapter not implemented.")
-
-    def step(self, event):
-        raise NotImplementedError("Engine adapter not implemented.")
-
-    def query(self, expr: str):
-        raise NotImplementedError("Engine adapter not implemented.")
+from labtrust_gym.runner import GoldenRunner, LabTrustEnvAdapter, get_default_env_adapter
 
 
 def _repo_root() -> Path:
@@ -52,10 +26,11 @@ def _repo_root() -> Path:
 
 
 def _should_run_golden() -> bool:
-    """Run golden suite only when LABTRUST_RUN_GOLDEN=1."""
+    """Optional: run additional golden scenarios when LABTRUST_RUN_GOLDEN=1."""
     return os.environ.get("LABTRUST_RUN_GOLDEN") == "1"
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "suite_path",
     [
@@ -66,12 +41,9 @@ def _should_run_golden() -> bool:
 def test_golden_suite(suite_path: str, tmp_path: Path) -> None:
     """
     Run golden suite: validate runner output against contract schema; fail if any scenario failed.
-    Skipped unless LABTRUST_RUN_GOLDEN=1 (CI stays green until engine exists).
+    Uses real adapter (PZParallelAdapter) in deterministic mode; executes meaningful steps.
     Export dirs (receipts, FHIR) are written under tmp_path when running full suite.
     """
-    if not _should_run_golden():
-        pytest.skip("Set LABTRUST_RUN_GOLDEN=1 to run golden suite (engine adapter required).")
-
     root = _repo_root()
     suite_file = root / suite_path
     if not suite_file.exists():
@@ -84,7 +56,7 @@ def test_golden_suite(suite_path: str, tmp_path: Path) -> None:
         pytest.fail(f"Runner output contract schema not found: {schema_path}")
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
 
-    env = _get_env_adapter()
+    env = get_default_env_adapter()
     emits_path = root / "policy" / "emits" / "emits_vocab.v0.1.yaml"
     if not emits_path.exists():
         emits_path = root / "emits_vocab.v0.1.yaml"
@@ -234,7 +206,7 @@ def test_golden_shift_change_001(tmp_path: Path) -> None:
     if shift_scen is None:
         pytest.skip("GS-SHIFT-CHANGE-001 not found in golden_scenarios.v0.1.yaml")
 
-    env = _get_env_adapter()
+    env = get_default_env_adapter()
     emits_path = root / "policy" / "emits" / "emits_vocab.v0.1.yaml"
     if not emits_path.exists():
         pytest.fail("Emits vocab not found")

@@ -479,9 +479,11 @@ def _parse_pack_gate_md(gate_path: Path) -> dict[tuple[str, str, str], str]:
             method_id = parts[1]
             injection_id = parts[2]
             verdict = parts[3].upper()
-            if verdict in ("PASS", "FAIL", "NOT_SUPPORTED"):
+            if verdict in ("PASS", "FAIL", "NOT_SUPPORTED", "SKIP"):
                 out[(scale_id, method_id, injection_id)] = (
-                    "not_supported" if verdict == "NOT_SUPPORTED" else verdict.lower()
+                    "not_supported" if verdict == "NOT_SUPPORTED"
+                    else "skip" if verdict == "SKIP"
+                    else verdict.lower()
                 )
     return out
 
@@ -525,8 +527,8 @@ def _plot_pack_gate_heatmap(
     injections = sorted({r.get("injection_id", "") for r in rows})
     if not methods or not injections:
         return
-    # Aggregate verdict per (method, injection): use worst across scales (FAIL > not_supported > PASS)
-    order = {"fail": 2, "not_supported": 1, "pass": 0, "unknown": 1}
+    # Aggregate verdict: FAIL > not_supported > skip > PASS (skip = optional/skipped)
+    order = {"fail": 3, "not_supported": 2, "skip": 1, "pass": 0, "unknown": 1}
     agg: dict[tuple[str, str], str] = {}
     for r in rows:
         scale_id = r.get("scale_id", "")
@@ -538,15 +540,17 @@ def _plot_pack_gate_heatmap(
             agg[key] = v
     import numpy as np
 
+    # Color: 0=PASS, 1=SKIP/not_supported, 2=FAIL
+    color_val = {"pass": 0, "skip": 1, "not_supported": 1, "fail": 2}
     data = np.zeros((len(methods), len(injections)))
     for i, m in enumerate(methods):
         for j, inj in enumerate(injections):
             v = agg.get((m, inj), "unknown")
-            data[i, j] = order.get(v, 1)
+            data[i, j] = color_val.get(v, 1)
     plt.figure(figsize=(max(4, len(injections) * 0.6), max(3, len(methods) * 0.4)))
     plt.imshow(data, aspect="auto", cmap="RdYlGn", vmin=0, vmax=2)
     plt.colorbar(ticks=[0, 1, 2], label="Verdict").set_ticklabels(
-        ["PASS", "not_supported", "FAIL"]
+        ["PASS", "SKIP/not_supported", "FAIL"]
     )
     plt.xticks(range(len(injections)), injections, rotation=45, ha="right")
     plt.yticks(range(len(methods)), methods)

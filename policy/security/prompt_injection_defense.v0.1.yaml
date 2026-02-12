@@ -1,0 +1,13 @@
+# Prompt-injection defense policy v0.1.
+# Layered defenses: pre-LLM block, optional sanitization, output consistency.
+# Used by security.prompt_injection_defense and LLM agent integration.
+#
+version: "0.1"
+block_severity_threshold: 2
+block_reason_code: "PROMPT_INJECTION_DETECTED"
+sanitizer_mode: "none"
+max_untrusted_chars: 200
+sanitize_redaction_severity: 1
+output_consistency_check: true
+min_verbatim_len: 20
+adversarial_policy: "adversarial_detection.v0.1.yaml"

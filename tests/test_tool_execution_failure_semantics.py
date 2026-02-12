@@ -19,6 +19,7 @@ from labtrust_gym.tools.execution import (
     TOOL_EXEC_EXCEPTION,
     TOOL_OUTPUT_MALFORMED,
     TOOL_TIMEOUT,
+    ToolExecutionConfigurationError,
     execute_tool_safely,
 )
 from labtrust_gym.tools.registry import load_tool_registry
@@ -169,8 +170,10 @@ def test_tool_timeout_simulated_blocked_with_tool_timeout(
     assert TOOL_TIMEOUT in result.get("emits", [])
 
 
-def test_tool_stub_adapter_succeeds_no_block(repo_registry_and_root) -> None:
-    """No adapter (stub): valid tool call completes without BLOCKED."""
+def test_missing_adapter_raises_tool_execution_configuration_error(
+    repo_registry_and_root,
+) -> None:
+    """Missing adapter: tool invocation raises ToolExecutionConfigurationError."""
     registry, policy_root = repo_registry_and_root
     initial_state = _minimal_initial_state(registry, policy_root=policy_root)
     env = CoreEnv()
@@ -182,12 +185,10 @@ def test_tool_stub_adapter_succeeds_no_block(repo_registry_and_root) -> None:
         "args": {"accession_id": "ACC001"},
         "tool_id": "read_lims_v1",
     }
-    result = env.step(event)
-    assert result.get("blocked_reason_code") not in (
-        TOOL_EXEC_EXCEPTION,
-        TOOL_TIMEOUT,
-        TOOL_OUTPUT_MALFORMED,
-    )
+    with pytest.raises(ToolExecutionConfigurationError) as exc_info:
+        env.step(event)
+    assert "adapter" in (exc_info.value.remediation or "").lower()
+    assert getattr(exc_info.value, "docs_section", None)
 
 
 def test_execute_tool_safely_unit_exception() -> None:

@@ -1,9 +1,9 @@
 """
 HTTP server for labtrust serve: request/response protections and abuse telemetry.
 
-- Optional API key, per-key and per-IP rate limits, body size and concurrency limits.
-- Consistent error responses (no stack traces or info leaks).
-- SECURITY_ALERT telemetry for auth failures, rate limits, body too large, too many in-flight.
+- Optional API key or Bearer token (LABTRUST_API_TOKEN); when online_mode, token required.
+- Per-key and per-IP rate limits, body size and concurrency limits.
+- POST /v0/step: one environment step via adapter; works in deterministic mode without network.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 from typing import TYPE_CHECKING, Any, cast
@@ -27,6 +28,8 @@ from labtrust_gym.online.telemetry import (
     emit_security_alert,
     get_abuse_counters,
 )
+from labtrust_gym.runner import get_default_env_adapter
+from labtrust_gym.runner.adapter import LabTrustEnvAdapter
 from labtrust_gym.security.output_shaping import build_run_summary
 
 if TYPE_CHECKING:
@@ -40,6 +43,128 @@ if TYPE_CHECKING:
         labtrust_limiters_per_ip: KeyedTokenBuckets
         labtrust_inflight_semaphore: threading.Semaphore
         labtrust_abuse_counters: AbuseCounters
+
+
+# -----------------------------
+# Step API request/response models
+# -----------------------------
+@dataclass
+class StepRequest:
+    """POST /v0/step request body."""
+
+    run_id: str
+    action: dict[str, Any]
+    tool_payload: dict[str, Any] | None = None
+    flags: dict[str, Any] | None = None
+
+
+@dataclass
+class StepResponse:
+    """POST /v0/step response body."""
+
+    observation: dict[str, Any]
+    receipts: dict[str, Any]
+    gate_outcomes: dict[str, Any]
+    digests: dict[str, Any]
+
+
+def _default_initial_state() -> dict[str, Any]:
+    """Minimal initial state for a new run (deterministic)."""
+    return {
+        "system": {"now_s": 0, "downtime_active": False},
+        "agents": [
+            {"agent_id": "A_RECEPTION", "zone_id": "Z_SRA_RECEPTION"},
+        ],
+        "specimens": [],
+        "tokens": [],
+        "timing_mode": "explicit",
+    }
+
+
+# Run store: run_id -> { adapter, step_count, rng_seed }
+_run_store: dict[str, dict[str, Any]] = {}
+_run_store_lock = threading.Lock()
+
+
+def _get_or_create_run(run_id: str) -> tuple[LabTrustEnvAdapter, int]:
+    """Get or create run; returns (adapter, step_count)."""
+    with _run_store_lock:
+        if run_id in _run_store:
+            r = _run_store[run_id]
+            return r["adapter"], r["step_count"]
+        adapter = get_default_env_adapter()
+        initial_state = _default_initial_state()
+        adapter.reset(
+            initial_state,
+            deterministic=True,
+            rng_seed=42,
+        )
+        _run_store[run_id] = {
+            "adapter": adapter,
+            "step_count": 0,
+            "rng_seed": 42,
+        }
+        return adapter, 0
+
+
+def _increment_run_step(run_id: str) -> None:
+    with _run_store_lock:
+        if run_id in _run_store:
+            _run_store[run_id]["step_count"] += 1
+
+
+def _handle_step(body: dict[str, Any]) -> StepResponse:
+    """Execute one step; returns response model."""
+    run_id = str(body.get("run_id") or "").strip()
+    if not run_id:
+        raise ValueError("run_id is required")
+    action = body.get("action")
+    if not isinstance(action, dict):
+        raise ValueError("action must be an object")
+    adapter, step_count = _get_or_create_run(run_id)
+    t_s = int(action.get("t_s", 0)) if action.get("t_s") is not None else step_count * 10
+    event_id = f"e{step_count}"
+    event = {
+        "event_id": event_id,
+        "t_s": t_s,
+        "agent_id": str(action.get("agent_id", "A_RECEPTION")),
+        "action_type": str(action.get("action_type", "NOOP")),
+        "args": action.get("args") if isinstance(action.get("args"), dict) else {},
+        "reason_code": action.get("reason_code"),
+        "token_refs": action.get("token_refs") if isinstance(action.get("token_refs"), list) else [],
+    }
+    if action.get("key_id") is not None:
+        event["key_id"] = action["key_id"]
+    if action.get("signature") is not None:
+        event["signature"] = action["signature"]
+    result = adapter.step(event)
+    _increment_run_step(run_id)
+    status = result.get("status", "ACCEPTED")
+    hashchain = result.get("hashchain") or {}
+    emits = result.get("emits") or []
+    violations = result.get("violations") or []
+    observation = result.get("state_snapshot") if isinstance(result.get("state_snapshot"), dict) else {"step": step_count, "event_id": event_id}
+    receipts = {
+        "hashchain": hashchain,
+        "emits": emits,
+        "token_consumed": result.get("token_consumed") or [],
+    }
+    gate_outcomes = {
+        "status": status,
+        "violations": violations,
+        "blocked_reason_code": result.get("blocked_reason_code"),
+    }
+    digests = {
+        "head_hash": hashchain.get("head_hash"),
+        "length": hashchain.get("length"),
+        "last_event_hash": hashchain.get("last_event_hash"),
+    }
+    return StepResponse(
+        observation=observation,
+        receipts=receipts,
+        gate_outcomes=gate_outcomes,
+        digests=digests,
+    )
 
 
 def _client_ip(handler: BaseHTTPRequestHandler) -> str:
@@ -60,6 +185,14 @@ def _extract_api_key(handler: BaseHTTPRequestHandler) -> str | None:
             if part.startswith("api_key="):
                 return part[8:].strip() or None
     return None
+
+
+def _extract_bearer_token(handler: BaseHTTPRequestHandler) -> str | None:
+    """Bearer token from Authorization header."""
+    auth = handler.headers.get("Authorization") or handler.headers.get("authorization")
+    if not auth or not auth.strip().lower().startswith("bearer "):
+        return None
+    return auth[7:].strip() or None
 
 
 def _send_json(handler: BaseHTTPRequestHandler, status: int, body: dict[str, Any]) -> None:
@@ -111,18 +244,28 @@ class LabTrustHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def _check_auth(self) -> bool:
         """Return True if auth OK; else send 401 and return False. Sets _user_role when auth required."""
-        if not self.config.auth_required:
+        if not self.config.auth_required and self.config.api_token is None:
             return True
         key = _extract_api_key(self)
         role = resolve_role(key, self.config)
-        if role is None:
-            emit_security_alert(
-                ONLINE_AUTH_FAILURE,
-                counters=self.abuse_counters,
-                request_id=getattr(self, "_request_id", None),
-            )
-            _send_error(self, 401, "auth_failure", "Invalid or missing API key")
-            return False
+        if role is None and self.config.api_token:
+            bearer = _extract_bearer_token(self)
+            if bearer and bearer == self.config.api_token:
+                role = "runner"
+        if self.config.auth_required or self.config.api_token:
+            if role is None:
+                emit_security_alert(
+                    ONLINE_AUTH_FAILURE,
+                    counters=self.abuse_counters,
+                    request_id=getattr(self, "_request_id", None),
+                )
+                _send_error(
+                    self,
+                    401,
+                    "auth_failure",
+                    "Invalid or missing API key or Bearer token",
+                )
+                return False
         self._user_role = role
         return True
 
@@ -262,8 +405,17 @@ class LabTrustHTTPRequestHandler(BaseHTTPRequestHandler):
         try:
             path = self.path.split("?")[0].rstrip("/") or "/"
             if path in ("/v0/step", "/v0/step/"):
-                # Stub: future AI endpoint; return 501 for now so tests can hit a real route
-                _send_json(self, 501, {"error": "Not implemented", "code": "not_implemented"})
+                body_bytes = self._read_body_capped()
+                try:
+                    body = json.loads(body_bytes.decode("utf-8")) if body_bytes else {}
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    _send_error(self, 400, "bad_request", "Invalid JSON body")
+                    return
+                try:
+                    resp = _handle_step(body)
+                    _send_json(self, 200, asdict(resp))
+                except ValueError as e:
+                    _send_error(self, 400, "bad_request", str(e))
             else:
                 _send_error(self, 404, "not_found", "Not found")
         except Exception:

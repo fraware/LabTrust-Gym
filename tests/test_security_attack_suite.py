@@ -6,6 +6,7 @@ CI-runnable with smoke_only=True (default).
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -97,3 +98,74 @@ def test_run_suite_and_emit_writes_attack_results() -> None:
         assert "summary" in data
         assert data["summary"]["total"] == len(results)
         assert data["summary"]["passed"] + data["summary"]["failed"] == len(results)
+
+
+@pytest.mark.security
+def test_security_suite_smoke_gate_all_passed() -> None:
+    """
+    Regression gate: every smoke attack must pass (control held).
+    Fails the build if any prompt-injection or test_ref attack in the smoke set
+    does not meet its expected_outcome (blocked/detected).
+    """
+    pytest.importorskip("pettingzoo")
+    pytest.importorskip("gymnasium")
+    root = _repo_root()
+    results = run_security_suite(
+        policy_root=root,
+        repo_root=root,
+        smoke_only=True,
+        seed=42,
+        timeout_s=120,
+    )
+    assert len(results) >= 1, (
+        "Security suite smoke must contain at least one attack; "
+        "check policy/golden/security_attack_suite.v0.1.yaml"
+    )
+    failed = [r for r in results if not r.get("passed")]
+    if failed:
+        lines = [
+            f"  {r.get('attack_id', '?')}: {r.get('error', 'no error')!r}"
+            for r in failed
+        ]
+        raise AssertionError(
+            f"Security suite smoke gate: {len(failed)} attack(s) did not pass.\n"
+            + "\n".join(lines)
+        )
+
+
+@pytest.mark.security
+@pytest.mark.live
+@pytest.mark.skipif(
+    not os.environ.get("LABTRUST_RUN_LLM_ATTACKER") or not os.environ.get("OPENAI_API_KEY"),
+    reason="LABTRUST_RUN_LLM_ATTACKER=1 and OPENAI_API_KEY required for red-team regression",
+)
+def test_red_team_llm_attacker_regression() -> None:
+    """
+    Red-team regression: run all LLM-attacker attacks; every one must be blocked.
+    Skipped unless LABTRUST_RUN_LLM_ATTACKER=1 and OPENAI_API_KEY are set.
+    """
+    pytest.importorskip("pettingzoo")
+    pytest.importorskip("gymnasium")
+    root = _repo_root()
+    results = run_security_suite(
+        policy_root=root,
+        repo_root=root,
+        smoke_only=False,
+        seed=42,
+        timeout_s=120,
+        llm_attacker=True,
+        allow_network=True,
+        llm_backend="openai_live",
+    )
+    llm_results = [r for r in results if r.get("llm_attacker")]
+    assert len(llm_results) >= 1, "Suite must define at least one LLM-attacker attack"
+    failed = [r for r in llm_results if not r.get("passed")]
+    if failed:
+        lines = [
+            f"  {r.get('attack_id', '?')}: {r.get('error', 'no error')!r}"
+            for r in failed
+        ]
+        raise AssertionError(
+            f"Red-team regression: {len(failed)} LLM-attacker attack(s) did not pass.\n"
+            + "\n".join(lines)
+        )

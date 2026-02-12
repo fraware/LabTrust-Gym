@@ -129,7 +129,7 @@ def _make_coord_method_for_contract(
         if "marl_ppo" in method_id or "stable_baselines3" in str(e).lower():
             return None
         raise
-    except (ValueError, NotImplementedError) as e:
+    except (ValueError, NotImplementedError, RuntimeError) as e:
         if "marl_ppo" in method_id or "SB3" in str(e):
             return None
         raise
@@ -207,7 +207,7 @@ def test_coordination_method_contract(
     for t in range(5):
         try:
             actions_dict = coord_method.propose_actions(obs, infos, t)
-        except NotImplementedError as e:
+        except (NotImplementedError, RuntimeError) as e:
             if "marl_ppo" in method_id or "trained model" in str(e).lower():
                 pytest.skip(f"{method_id}: {e}")
             raise

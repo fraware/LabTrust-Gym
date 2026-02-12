@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\audit_log.py
+# hypothesis_version: 6.151.6
+
+[',', ':', 'broken', 'event_id', 'head_hash', 'last_event_hash', 'length', 'utf-8']

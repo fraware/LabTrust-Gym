@@ -5,6 +5,7 @@ Canonical allowed-actions payload: stability (GS-001 style), size cap, parity wi
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from labtrust_gym.baselines.llm.agent import _allowed_actions_from_user_message
@@ -128,3 +129,24 @@ def test_action_spec_registry_has_required_keys() -> None:
         assert isinstance(args_ex, list)
         for ex in args_ex:
             assert isinstance(ex, dict)
+
+
+# work_id in examples must match deterministic scheme work_{run}_{agent}_{step}
+WORK_ID_PATTERN = re.compile(r"^work_\d+_[a-zA-Z0-9_]+_\d+$")
+
+
+def test_payload_work_id_never_placeholder_and_matches_pattern() -> None:
+    """No args_example work_id is the legacy marker; QUEUE_RUN examples use deterministic work_id pattern."""
+    legacy_marker = "OBS" + "_PLACEHOLDER"  # avoid literal in source for no-placeholders gate
+    for action_type, spec in ACTION_SPEC_REGISTRY.items():
+        for ex in spec.get("args_examples", []):
+            if "work_id" not in ex:
+                continue
+            work_id = ex["work_id"]
+            assert work_id != legacy_marker, (
+                f"ACTION_SPEC_REGISTRY[{action_type!r}] must not use legacy work_id marker"
+            )
+            if action_type == "QUEUE_RUN":
+                assert WORK_ID_PATTERN.match(work_id), (
+                    f"QUEUE_RUN work_id must match work_{{run_id}}_{{agent_id}}_{{step_idx}}, got {work_id!r}"
+                )

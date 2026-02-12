@@ -3,19 +3,29 @@ Adversarial input detector: defensive monitoring for prompt injection and relate
 
 Consumes raw text from observations (specimen notes, scenario notes), optional LLM input/output.
 Produces detection flags, severity (0-3), and suggested response action.
-Deterministic, keyword/pattern-based, bounded; no external calls.
+Default: deterministic, keyword/pattern-based, bounded; no external calls.
+Optional: when use_classifier is true (policy or LABTRUST_USE_CLASSIFIER_DETECTION=1), run
+classifier/judge on same texts and merge with pattern result (max severity, union of flags).
 Configurable via policy/security/adversarial_detection.v0.1.yaml.
 """
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 import re
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
+
+LOG = logging.getLogger(__name__)
+
+_CLASSIFIER_TIMEOUT_S = 2
 
 # Cache loaded policy per path so we do not re-parse YAML on every env.step().
 _ADV_POLICY_CACHE: dict[str, dict[str, Any]] = {}
@@ -24,6 +34,7 @@ _DEFAULT_ADV_POLICY: dict[str, Any] = {
     "version": "0.1",
     "severity_threshold": 1,
     "max_text_length": 2000,
+    "use_classifier": False,
     "patterns": [],
     "suggested_actions": {
         "0": "NOOP",
@@ -99,10 +110,18 @@ def load_adversarial_detection_policy(
             "2": "REQUIRE_HUMAN_REVIEW",
             "3": "THROTTLE_AGENT",
         }
+    use_classifier = bool(data.get("use_classifier", False))
+    if os.environ.get("LABTRUST_USE_CLASSIFIER_DETECTION", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        use_classifier = True
     result = {
         "version": data.get("version", "0.1"),
         "severity_threshold": max(0, min(3, int(data.get("severity_threshold", 1)))),
         "max_text_length": max(100, min(100000, int(data.get("max_text_length", 2000)))),
+        "use_classifier": use_classifier,
         "patterns": patterns,
         "suggested_actions": suggested,
     }
@@ -151,6 +170,39 @@ def _match_pattern(pattern_spec: dict[str, Any], text: str) -> bool:
         except re.error:
             return False
     return pat.lower() in text.lower()
+
+
+def _classifier_detect(texts: list[str]) -> tuple[int, list[str]] | None:
+    """
+    Optional classifier/judge path. When LABTRUST_CLASSIFIER_JUDGE_URL is set,
+    POST concatenated text to the judge; expect JSON {severity: 0-3, flags: [str]}.
+    Returns (severity, flags) or None on missing URL, timeout, or parse failure.
+    """
+    url = (os.environ.get("LABTRUST_CLASSIFIER_JUDGE_URL") or "").strip()
+    if not url or not texts:
+        return None
+    combined = "\n".join(t[:5000] for t in texts if isinstance(t, str))
+    if not combined.strip():
+        return None
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps({"text": combined}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=_CLASSIFIER_TIMEOUT_S) as resp:
+            body = resp.read().decode("utf-8")
+        data = json.loads(body) if body else {}
+        sev = max(0, min(3, int(data.get("severity", 0))))
+        flags = data.get("flags")
+        if not isinstance(flags, list):
+            flags = []
+        flags = [str(f) for f in flags if f]
+        return (sev, flags)
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, ValueError, OSError) as e:
+        LOG.debug("Classifier judge unavailable or failed: %s", e)
+        return None
 
 
 def detect_adversarial(
@@ -203,6 +255,17 @@ def detect_adversarial(
                     max_severity = sev
                     reason_code = rc
                 break
+
+    if policy.get("use_classifier"):
+        classifier_result = _classifier_detect(texts)
+        if classifier_result is not None:
+            c_sev, c_flags = classifier_result
+            pattern_max = max_severity
+            max_severity = max(max_severity, c_sev)
+            flags = list(set(flags) | set(c_flags))
+            matched_ids = list(set(matched_ids) | set(c_flags))
+            if c_sev > 0 and (reason_code is None or c_sev >= pattern_max):
+                reason_code = reason_code or "ADV_CLASSIFIER_DETECTED"
 
     suggested_action = str(
         suggested_actions.get(max_severity)

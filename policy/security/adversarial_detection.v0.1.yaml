@@ -1,10 +1,12 @@
 # Adversarial input detection policy v0.1.
-# Defensive monitoring: keyword/pattern-based, deterministic, no external calls.
+# Defensive monitoring: keyword/pattern-based (default), optional classifier when use_classifier: true.
 # Used by security.adversarial_detection to produce detection flags, severity, suggested_action.
 #
 version: "0.1"
 severity_threshold: 1  # Emit SECURITY_ALERT when severity >= this (0-3).
 max_text_length: 2000  # Truncate inputs to avoid abuse; chars.
+# Optional: when true (or LABTRUST_USE_CLASSIFIER_DETECTION=1), run classifier on same texts and merge with pattern result (max severity, union of flags). Pattern-based remains auditable; classifier is best-effort.
+use_classifier: false
 
 # Patterns: list of { id, pattern, severity, reason_code }.
 # pattern: substring (case-insensitive) or regex (prefix with "re:").
@@ -38,6 +40,26 @@ patterns:
     pattern: "re:exfil|dump (all )?data|output (all )?contents"
     severity: 3
     reason_code: "ADV_SUSPECTED_EXFIL"
+  - id: "new_instruction_override"
+    pattern: "re:new instructions|disregard (previous|above|all)"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "role_impersonation"
+    pattern: "re:you are now|act as (a )?different|pretend to be"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "output_format_override"
+    pattern: "re:output (only )?(raw|verbatim|exact)|repeat (the )?(above|following)"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "trusted_context_spoof"
+    pattern: "TRUSTED_CONTEXT"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "system_prompt_extract"
+    pattern: "re:(show|display|print|reveal) (your )?(system )?prompt"
+    severity: 3
+    reason_code: "ADV_JAILBREAK_PATTERN"
 
 # Severity -> suggested response action (for enforcement integration).
 suggested_actions:

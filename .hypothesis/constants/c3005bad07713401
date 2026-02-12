@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\orchestrator\live.py
+# hypothesis_version: 6.151.6
+
+['-', '_', '_live', 'allow_network', 'attack_detected', 'cell_id', 'cells', 'chosen_method_id', 'containment_step', 'coord_risk', 'decision', 'decision_skipped.txt', 'defense_state', 'defense_transition', 'detection_step', 'deterministic', 'episodes', 'episodes.jsonl', 'event', 'export_skipped.txt', 'fallback_activated', 'ignore', 'injection_id', 'llm_live', 'metadata.json', 'method_id', 'metrics', 'none', 'partner_id', 'perf.', 'perf.p95_tat', 'perf.throughput', 'pipeline_mode', 'r', 'receipts', 'results.json', 'results_path', 'risk_id', 'run_dir', 'safety.', 'safety.blocks_total', 'scale_id', 'sec', 'sec.', 'summary', 'summary_coord.csv', 'summary_path', 'task', 'transition_log', 'utf-8', 'w']

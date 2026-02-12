@@ -335,3 +335,140 @@ def test_write_evidence_bundle_creates_manifest() -> None:
         assert len(manifest["files"]) >= 1
         for f in manifest["files"]:
             assert "path" in f and "sha256" in f
+
+
+def test_write_evidence_bundle_real_signing_and_verify_receipt() -> None:
+    """Real Ed25519 signing via get_private_key callback; verify_receipt and verify_manifest_signature pass."""
+    pytest.importorskip("cryptography")
+    import base64
+    import tempfile
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from labtrust_gym.engine.signatures import (
+        verify_manifest_signature,
+        verify_receipt,
+    )
+
+    priv = Ed25519PrivateKey.generate()
+    pub_raw = priv.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    pub_b64 = base64.b64encode(pub_raw).decode("ascii")
+    priv_raw = priv.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    key_id = "ed25519:key_bundle_test"
+    key_registry = {
+        "version": "0.1",
+        "keys": [
+            {
+                "key_id": key_id,
+                "public_key": pub_b64,
+                "agent_id": "SYSTEM",
+                "role_id": "R_SYSTEM_CONTROL",
+                "status": "ACTIVE",
+                "not_before_ts_s": None,
+                "not_after_ts_s": None,
+            },
+        ],
+    }
+
+    def get_private_key(kid: str) -> bytes | None:
+        if kid == key_id:
+            return priv_raw
+        return None
+
+    receipts = [
+        {
+            "version": "0.1",
+            "entity_type": "specimen",
+            "specimen_id": "S1",
+            "result_id": None,
+            "accession_ids": [],
+            "panel_id": None,
+            "device_ids": [],
+            "timestamps": {},
+            "decision": "RELEASED",
+            "reason_codes": [],
+            "tokens": {"minted": [], "consumed": [], "revoked": []},
+            "critical_comm_records": {"attempts": [], "ack_summary": []},
+            "invariant_summary": {"violated_ids": [], "first_violation_ts": None, "final_status": "PASS"},
+            "enforcement_summary": {"throttle": [], "kill_switch": [], "freeze_zone": [], "forensic_freeze": []},
+            "hashchain": {"head_hash": "", "last_event_hash": "", "length": 0, "break_status": "intact"},
+        },
+    ]
+    entries: list[dict] = []
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "signed"
+        bundle_dir = write_evidence_bundle(
+            out,
+            receipts,
+            entries,
+            policy_fingerprint="fp",
+            partner_id=None,
+            sign_bundle=True,
+            get_private_key=get_private_key,
+            sign_key_id=key_id,
+            key_registry=key_registry,
+        )
+        manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert isinstance(manifest.get("signature"), dict)
+        assert manifest["signature"].get("algorithm") == "ed25519"
+        assert "signature_b64" in manifest["signature"] and "public_key_b64" in manifest["signature"]
+        ok, err = verify_manifest_signature(manifest, key_registry)
+        assert ok, err
+
+        receipt_path = bundle_dir / "receipt_specimen_S1.v0.1.json"
+        assert receipt_path.exists()
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        assert isinstance(receipt.get("signature"), dict)
+        ok, err = verify_receipt(receipt, key_registry)
+        assert ok, err
+
+
+def test_receipt_tampering_fails_verification() -> None:
+    """Tampering with a signed receipt causes verify_receipt to fail."""
+    pytest.importorskip("cryptography")
+    import base64
+    import tempfile
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from labtrust_gym.engine.signatures import canonical_for_signing, sign_payload_bytes, verify_receipt
+
+    priv = Ed25519PrivateKey.generate()
+    pub_b64 = base64.b64encode(
+        priv.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+    ).decode("ascii")
+    priv_raw = priv.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    key_id = "ed25519:key_tamper_test"
+    key_registry = {"version": "0.1", "keys": [{"key_id": key_id, "public_key": pub_b64, "status": "ACTIVE"}]}
+    receipt = {"version": "0.1", "entity_type": "result", "result_id": "R1", "decision": "RELEASED"}
+    payload = canonical_for_signing(receipt)
+    sig_b64 = sign_payload_bytes(payload, priv_raw)
+    receipt["signature"] = {
+        "algorithm": "ed25519",
+        "public_key_b64": pub_b64,
+        "signature_b64": sig_b64,
+        "key_id": key_id,
+    }
+    ok, _ = verify_receipt(receipt, key_registry)
+    assert ok
+    receipt["decision"] = "REJECTED"
+    ok, reason = verify_receipt(receipt, key_registry)
+    assert not ok
+    assert reason is not None

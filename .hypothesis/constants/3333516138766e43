@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\online\telemetry.py
+# hypothesis_version: 6.151.6
+
+['%s', 'ONLINE_AUTH_FAILURE', 'ONLINE_FORBIDDEN', 'ONLINE_RATE_LIMIT', 'SECURITY_ALERT', 'auth_failures', 'body_too_large', 'detail', 'event', 'forbidden', 'labtrust_gym.online', 'rate_limit_hits', 'reason_code', 'request_id', 'too_many_inflight']

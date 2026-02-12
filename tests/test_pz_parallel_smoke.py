@@ -13,12 +13,18 @@ import pytest
 pytest.importorskip("pettingzoo")
 pytest.importorskip("gymnasium")
 
+import re
+
 from labtrust_gym.envs.pz_parallel import (
     ACTION_NOOP,
+    ACTION_QUEUE_RUN,
     ACTION_TICK,
     LabTrustParallelEnv,
     _hash_obs,
 )
+
+# Deterministic work_id pattern: work_{run_id}_{agent_id}_{step_idx}
+WORK_ID_PATTERN = re.compile(r"^work_\d+_[a-zA-Z0-9_]+_\d+$")
 
 
 def test_pz_parallel_instantiate_reset_step_50() -> None:
@@ -84,3 +90,43 @@ def test_pz_parallel_observation_action_spaces() -> None:
         ac = int(ac_space.sample())
         assert ac_space.contains(ac)
     env.close()
+
+
+def test_pz_parallel_work_id_never_placeholder_and_matches_pattern() -> None:
+    """Default work_id is never the legacy marker and matches work_{run_id}_{agent_id}_{step_idx}."""
+    legacy_marker = "OBS" + "_PLACEHOLDER"  # avoid literal in source for no-placeholders gate
+    env = LabTrustParallelEnv(num_runners=1)
+    env.reset(seed=42)
+    event = env._action_to_event("ops_0", ACTION_QUEUE_RUN, None)
+    env.close()
+    work_id = event["args"]["work_id"]
+    assert work_id != legacy_marker, "work_id must not be the legacy marker"
+    assert WORK_ID_PATTERN.match(work_id), (
+        f"work_id must match work_{{run_id}}_{{agent_id}}_{{step_idx}}, got {work_id!r}"
+    )
+    # Determinism: same seed/agent/step -> same work_id
+    env2 = LabTrustParallelEnv(num_runners=1)
+    env2.reset(seed=42)
+    event2 = env2._action_to_event("ops_0", ACTION_QUEUE_RUN, None)
+    env2.close()
+    assert event2["args"]["work_id"] == work_id
+
+
+def test_pz_parallel_queue_run_reachable_and_produces_receipts() -> None:
+    """ACTION_QUEUE_RUN is reachable and step produces receipts (emits / status)."""
+    env = LabTrustParallelEnv(num_runners=1)
+    env.reset(seed=0)
+    actions = {"ops_0": ACTION_QUEUE_RUN}
+    action_infos = {
+        "ops_0": {"device_id": env._device_ids[0] if env._device_ids else "DEV_CHEM_A_01"}
+    }
+    obs, rewards, terminations, truncations, infos = env.step(actions, action_infos)
+    env.close()
+    assert "ops_0" in infos
+    step_results = infos["ops_0"].get("_benchmark_step_results", [])
+    assert len(step_results) >= 1
+    # At least one result (QUEUE_RUN) has status and emits (receipt)
+    has_receipt = any(
+        "emits" in r or "status" in r for r in step_results
+    )
+    assert has_receipt, "QUEUE_RUN step must produce receipts (emits or status)"

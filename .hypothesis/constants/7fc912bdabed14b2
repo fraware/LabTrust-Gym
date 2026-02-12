@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\zones.py
+# hypothesis_version: 6.151.6
+
+[200, 600, 'ALARM', 'A_ANALYTICS', 'A_CLINSCI', 'A_PREAN', 'A_QC', 'A_RECEPTION', 'A_RUNNER', 'A_SECURITY', 'A_SUPERVISOR', 'DEV_ALIQUOTER_01', 'DEV_CHEM_A_01', 'DEV_CHEM_B_01', 'DEV_COAG_01', 'DEV_HAEM_01', 'D_RESTRICTED_AIRLOCK', 'D_WASTE', 'INV-ZONE-001', 'INV-ZONE-004', 'INV-ZONE-005', 'KILL_SWITCH_ZONE', 'RC_ILLEGAL_MOVE', 'RESTRICTED', 'RESTRICTED_AIRLOCK', 'VIOLATION', 'Z_ACCESSIONING', 'Z_ALIQUOT_LABEL', 'Z_ANALYZER_HALL_A', 'Z_ANALYZER_HALL_B', 'Z_CENTRIFUGE_BAY', 'Z_PREANALYTICS', 'Z_QC_SUPERVISOR', 'Z_SORTING_LANES', 'Z_SRA_RECEPTION', 'Z_WASTE_DISPOSAL', 'alarm_on_breach', 'device_id', 'device_placement', 'door_id', 'doors', 'from', 'from_zone', 'frozen', 'graph_edges', 'invariant_id', 'kind', 'max_open_s', 'normal', 'requires_token', 'restricted', 'status', 'to', 'to_zone', 'via_door', 'zone_id', 'zone_layout_policy']

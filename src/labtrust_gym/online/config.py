@@ -66,11 +66,17 @@ class OnlineConfig:
     # B007
     auth_mode: str
     key_registry: tuple[dict[str, str], ...]  # ({key, role}, ...)
+    api_token: str | None = None
 
     @property
     def auth_required(self) -> bool:
         """True when auth is enabled (api_key or multi_key)."""
         return self.auth_mode in (AUTH_API_KEY, AUTH_MULTI_KEY)
+
+    @property
+    def online_mode(self) -> bool:
+        """True when server requires auth (API key or Bearer token) for protected routes."""
+        return self.auth_required or self.api_token is not None
 
 
 def _parse_float(value: str | None, default: float, min_val: float = 0.1) -> float:
@@ -130,6 +136,10 @@ def load_online_config() -> OnlineConfig:
         if not key_registry and single_key:
             key_registry = [{"key": single_key, "role": "admin"}]
     key_registry_t = tuple(key_registry)
+    api_token_raw = os.environ.get("LABTRUST_API_TOKEN")
+    api_token = api_token_raw.strip() if api_token_raw and isinstance(api_token_raw, str) else None
+    if api_token == "":
+        api_token = None
 
     return OnlineConfig(
         api_key=api_key,
@@ -160,6 +170,7 @@ def load_online_config() -> OnlineConfig:
         % 65536,
         auth_mode=auth_mode_raw,
         key_registry=key_registry_t,
+        api_token=api_token,
     )
 
 

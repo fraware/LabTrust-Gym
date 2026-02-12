@@ -6,7 +6,7 @@ This document describes controls to protect the model deployment environment in 
 
 - **Secrets**: Never log or print API keys; use the secret scrubber for debug output.
 - **Filesystem**: All server-side writes must stay under a configurable base dir; path traversal is blocked.
-- **Artifacts**: Optional encryption-at-rest is stubbed; public mode avoids writing sensitive artifacts.
+- **Artifacts**: Optional encryption-at-rest; public mode avoids writing sensitive artifacts. Evidence bundles support real Ed25519 signing via a callback (no key read in core).
 
 ## Secrets
 
@@ -15,7 +15,7 @@ This document describes controls to protect the model deployment environment in 
 The module `labtrust_gym.security.secret_scrubber` provides:
 
 - **get_secret_env_names()**: Returns environment variable names considered secret (names containing KEY, SECRET, PASSWORD, TOKEN, CREDENTIAL, AUTH).
-- **scrub_secrets(text, secret_names=None, placeholder="<redacted>")**: Redacts secret values from a string (env-style `KEY=value` and JSON-style `"key": "value"`).
+- **scrub_secrets(text, secret_names=None)**: Redacts secret values from a string (env-style `KEY=value` and JSON-style `"key": "value"`). An optional third argument specifies the replacement string (default `<redacted>`).
 - **scrub_dict_for_log(d)**: Returns a copy of a dict with secret-like keys replaced by `<redacted>`; use before logging config or request context.
 
 ### Practice
@@ -44,18 +44,30 @@ Disallow path traversal in any filename or path parameter received from the netw
 
 ## Artifact storage
 
-### Encryption-at-rest (stub)
+### Encryption-at-rest
 
-- **LABTRUST_ARTIFACT_ENCRYPTION_KEY**: When set, the runtime treats artifact encryption as desired. The current implementation does **not** encrypt; artifacts are written in plaintext. This stub allows:
-  - Future implementation of envelope encryption (e.g. AES with a key derived from the env value).
-  - Operational policy to avoid writing sensitive artifacts when the key is not set (e.g. in public or shared environments).
+- **LABTRUST_ARTIFACT_ENCRYPTION_KEY**: Base64-encoded Fernet key (32 bytes). When set and valid, `write_artifact_safe` encrypts sensitive data; `read_artifact_safe` decrypts. Generate a key with `cryptography.fernet.Fernet.generate_key()` and set it in the environment (e.g. from a vault or secret manager).
+- **should_encrypt_artifacts()**: Returns `True` when `LABTRUST_ARTIFACT_ENCRYPTION_KEY` is set and valid.
+- **write_artifact_safe(path, data, public_mode=False, sensitive=True)**: If `public_mode` and `sensitive`, the write is skipped. Otherwise, if encryption is enabled and `sensitive`, data is encrypted with Fernet and written with a magic header (LABTRUST\\1 + key_id + token). Plaintext otherwise.
+- **read_artifact_safe(path)**: Returns decrypted bytes if the file has the encryption header (tries active key then legacy key); otherwise returns raw bytes. Raises `ValueError` if the file is encrypted but decryption fails.
 
-- **should_encrypt_artifacts()**: Returns `True` when `LABTRUST_ARTIFACT_ENCRYPTION_KEY` is set.
-- **write_artifact_safe(path, data, public_mode=False, sensitive=True)**: Writes `data` to `path`. If `public_mode` and `sensitive`, the write is skipped. Encryption is not applied in the current stub.
+### Key rotation
+
+- **LABTRUST_ARTIFACT_ENCRYPTION_KEY_LEGACY**: Optional. When set, `read_artifact_safe` tries the active key first, then the legacy key, so artifacts written with the old key remain readable.
+- **Rotation procedure**: (1) Set `LABTRUST_ARTIFACT_ENCRYPTION_KEY_LEGACY` to the current (old) key and `LABTRUST_ARTIFACT_ENCRYPTION_KEY` to the new key. (2) Run a re-encrypt job that reads each artifact with `read_artifact_safe` and writes with `write_artifact_safe` so all files are rewritten with the new key. (3) Remove `LABTRUST_ARTIFACT_ENCRYPTION_KEY_LEGACY` and retire the old key.
+
+### Integrity
+
+- **verify_artifact_integrity(path)**: Returns `(ok, error_message)`. For encrypted files, integrity is verified by successful decryption (Fernet authenticity). For plaintext, if a `.sha256` sidecar exists, the file digest is checked.
+- **write_artifact_with_integrity(..., store_digest=False)**: When `store_digest=True`, plaintext writes also create a `path.sha256` file with the SHA-256 digest for later verification.
 
 ### Public mode
 
 Planned B003 public-release flows (e.g. **package-release --public**, **ui-export --public**) will redact or omit sensitive fields and produce a REDACTION_REPORT.md when implemented; they will not rely on artifact encryption. Until then, use standard package-release and ui-export and control exposure via [Output controls](output_controls.md) and access control.
+
+## Evidence bundle signing
+
+Evidence bundles (receipts and manifest) can be signed with Ed25519 without the core reading keys from disk. The runner provides `get_private_key(key_id)` and a key registry (e.g. `policy/keys/key_registry.v0.1.yaml`). Signatures follow the format `algorithm: ed25519`, `public_key_b64`, `signature_b64`, `key_id`. Verification is used by `labtrust verify-bundle` when the key registry is available; tampering with signed receipts or the manifest fails verification.
 
 ## Safe defaults
 

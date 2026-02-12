@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+from labtrust_gym.config import policy_path
 from labtrust_gym.export.receipts import (
     POLICY_PACK_MANIFEST_FILENAME,
     load_episode_log,
@@ -74,8 +75,8 @@ def _check_schemas(
 ) -> list[str]:
     """Validate manifest and each receipt against JSON schemas. Returns list of errors."""
     errors: list[str] = []
-    receipt_schema_path = policy_root / "policy" / "schemas" / "receipt.v0.1.schema.json"
-    manifest_schema_path = policy_root / "policy" / "schemas" / "evidence_bundle_manifest.v0.1.schema.json"
+    receipt_schema_path = policy_path(policy_root, "schemas", "receipt.v0.1.schema.json")
+    manifest_schema_path = policy_path(policy_root, "schemas", "evidence_bundle_manifest.v0.1.schema.json")
     if not receipt_schema_path.exists():
         errors.append(f"schema missing: {receipt_schema_path}")
         return errors
@@ -93,7 +94,7 @@ def _check_schemas(
         if not path or not path.endswith(".json") or path == "manifest.json":
             continue
         if path == POLICY_PACK_MANIFEST_FILENAME:
-            policy_manifest_schema_path = policy_root / "policy" / "schemas" / "policy_pack_manifest.v0.1.schema.json"
+            policy_manifest_schema_path = policy_path(policy_root, "schemas", "policy_pack_manifest.v0.1.schema.json")
             if policy_manifest_schema_path.exists():
                 full = bundle_dir / path
                 if full.exists():
@@ -336,7 +337,7 @@ def _check_rbac_policy_fingerprint(
         from labtrust_gym.auth.authorize import rbac_policy_fingerprint
         from labtrust_gym.engine.rbac import load_rbac_policy
 
-        rbac_path = policy_root / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+        rbac_path = policy_path(policy_root, "rbac", "rbac_policy.v0.1.yaml")
         rbac_policy = load_rbac_policy(rbac_path)
         if not rbac_policy or not rbac_policy.get("roles"):
             errors.append(
@@ -374,7 +375,7 @@ def _check_coordination_policy_fingerprint(
     expected = manifest.get("coordination_policy_fingerprint")
     if not expected or not isinstance(expected, str):
         return errors
-    path = policy_root / "policy" / "coordination_identity_policy.v0.1.yaml"
+    path = policy_path(policy_root, "coordination_identity_policy.v0.1.yaml")
     if not path.exists():
         errors.append(
             "manifest: coordination_policy_fingerprint present but "
@@ -454,7 +455,7 @@ def _check_memory_policy_fingerprint(
     expected = manifest.get("memory_policy_fingerprint")
     if not expected or not isinstance(expected, str):
         return errors
-    path = policy_root / "policy" / "memory_policy.v0.1.yaml"
+    path = policy_path(policy_root, "memory_policy.v0.1.yaml")
     if not path.exists():
         errors.append("manifest: memory_policy_fingerprint present but policy/memory_policy.v0.1.yaml not found")
         return errors
@@ -514,6 +515,46 @@ def _check_invariant_trace(bundle_dir: Path) -> list[str]:
     return errors
 
 
+def _check_signatures(
+    bundle_dir: Path,
+    manifest: dict[str, Any],
+    policy_root: Path,
+) -> list[str]:
+    """Verify manifest and receipt signatures when key registry is available. Returns list of errors."""
+    from labtrust_gym.engine.signatures import (
+        load_key_registry,
+        verify_manifest_signature,
+        verify_receipt,
+    )
+
+    errors: list[str] = []
+    key_registry_path = policy_path(policy_root, "keys", "key_registry.v0.1.yaml")
+    if not key_registry_path.exists():
+        return errors
+    try:
+        key_registry = load_key_registry(key_registry_path)
+    except Exception:
+        return errors
+    ok, reason = verify_manifest_signature(manifest, key_registry)
+    if not ok and reason:
+        errors.append(f"manifest signature: {reason}")
+    for f in manifest.get("files", []):
+        path = f.get("path")
+        if not path or "receipt_" not in str(path) or not str(path).endswith(".v0.1.json"):
+            continue
+        full = bundle_dir / path
+        if not full.exists():
+            continue
+        try:
+            receipt = _load_json_file(full)
+        except PolicyLoadError:
+            continue
+        ok, reason = verify_receipt(receipt, key_registry)
+        if not ok and reason:
+            errors.append(f"{path} signature: {reason}")
+    return errors
+
+
 def verify_bundle(
     bundle_dir: Path,
     policy_root: Path | None = None,
@@ -552,6 +593,7 @@ def verify_bundle(
     errors.extend(_check_coordination_policy_fingerprint(manifest, policy_root))
     errors.extend(_check_memory_policy_fingerprint(manifest, policy_root))
     errors.extend(_check_prompt_sha256(bundle_dir, manifest))
+    errors.extend(_check_signatures(bundle_dir, manifest, policy_root))
 
     passed = len(errors) == 0
     count_manifest = len(manifest.get("files", []))

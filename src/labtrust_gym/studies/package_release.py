@@ -110,7 +110,7 @@ Blood Sciences lane: specimen reception, accessioning, pre-analytics, routine an
 - **Scripted (ops + runner)**: deterministic policy; used in reproduce and package-release.
 - **Adversary** (adversarial_disruption): scripted adversary agent.
 - **PPO/MARL**: optional Stable-Baselines3; train-ppo / eval-ppo.
-- **LLM mock**: optional LLM agent stub.
+- **LLM mock**: optional LLM agent (deterministic backend).
 
 ## Known limitations and non-goals
 

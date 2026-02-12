@@ -26,6 +26,10 @@ from labtrust_gym.engine.zones import build_adjacency_set
 
 GOSSIP_ROUNDS = 3
 
+# Aggregation mode for load from peers: "sum" (default), "median", "trim_mean".
+# median/trim_mean reduce impact of Byzantine or faulty reports.
+GOSSIP_AGGREGATION_DEFAULT = "sum"
+
 
 def _bfs_one_step(start: str, goal: str, adjacency: set[tuple[str, str]]) -> str | None:
     if start == goal:
@@ -50,11 +54,31 @@ def _message_lost(agent_i: int, agent_j: int, t: int, round_k: int, seed: int) -
     return rng.random() < 0.1
 
 
+def _aggregate_load_values(values: list[int], mode: str) -> int:
+    """Aggregate load values from self + peers. mode: sum, median, trim_mean."""
+    if not values:
+        return 0
+    if mode == "sum":
+        return sum(values)
+    if mode == "median":
+        sorted_v = sorted(values)
+        n = len(sorted_v)
+        return sorted_v[n // 2] if n else 0
+    if mode == "trim_mean":
+        if len(values) <= 2:
+            return sum(values) // len(values) if values else 0
+        sorted_v = sorted(values)
+        trimmed = sorted_v[1:-1]
+        return sum(trimmed) // len(trimmed)
+    return sum(values)
+
+
 class GossipConsensus(CoordinationMethod):
     """Agents gossip load/queue state; K rounds per step; assignment by consensus."""
 
     def __init__(self, gossip_rounds: int = GOSSIP_ROUNDS) -> None:
         self._gossip_rounds = gossip_rounds
+        self._aggregation_mode = GOSSIP_AGGREGATION_DEFAULT
         self._rng: random.Random | None = None
         self._zone_ids: list[str] = []
         self._device_ids: list[str] = []
@@ -69,6 +93,12 @@ class GossipConsensus(CoordinationMethod):
     def reset(self, seed: int, policy: dict[str, Any], scale_config: dict[str, Any]) -> None:
         self._rng = random.Random(seed)
         self._seed = seed
+        if isinstance(scale_config, dict):
+            self._gossip_rounds = int(scale_config.get("gossip_rounds", self._gossip_rounds))
+            self._gossip_rounds = max(1, min(self._gossip_rounds, 20))
+            agg = scale_config.get("gossip_aggregation") or scale_config.get("byzantine_mode")
+            if agg in ("sum", "median", "trim_mean"):
+                self._aggregation_mode = agg
         self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         if isinstance(layout, dict):
@@ -111,19 +141,22 @@ class GossipConsensus(CoordinationMethod):
             my_zone = get_zone_from_obs(o, self._zone_ids) or o.get("zone_id") or ""
             load[aid] = (my_zone, 0)
 
-        # Gossip rounds: share load; under message loss some agents keep 0
+        # Gossip rounds: share load; aggregate by mode (sum/median/trim_mean)
         for round_k in range(self._gossip_rounds):
-            next_load: dict[str, tuple[str, int]] = dict(load)
+            next_load: dict[str, tuple[str, int]] = {}
             for i, aid in enumerate(agents):
+                z_i, n_i = load.get(aid, ("", 0))
+                collected = [n_i]
                 for j, oid in enumerate(agents):
                     if i == j:
                         continue
                     if _message_lost(i, j, t, round_k, self._seed):
                         continue
                     z_j, n_j = load.get(oid, ("", 0))
-                    z_i, n_i = next_load.get(aid, ("", 0))
                     if z_i == z_j:
-                        next_load[aid] = (z_i, n_i + n_j)
+                        collected.append(n_j)
+                n_new = _aggregate_load_values(collected, self._aggregation_mode)
+                next_load[aid] = (z_i, n_new)
             load = next_load
 
         # Assign work to least-loaded colocated agent (consensus: same zone)

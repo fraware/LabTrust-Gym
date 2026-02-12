@@ -31,9 +31,11 @@ __all__ = [
 # marl_ppo: optional import in registry only (requires [marl])
 try:
     from labtrust_gym.baselines.coordination.methods.marl_ppo import (
-        MarlPPOStub,
+        MarlPPOCoordination,
+        make_marl_ppo_if_available,
     )
 
-    __all__.append("MarlPPOStub")
+    __all__.extend(["MarlPPOCoordination", "make_marl_ppo_if_available"])
 except ImportError:
-    MarlPPOStub = None  # type: ignore[misc, assignment]
+    MarlPPOCoordination = None  # type: ignore[misc, assignment]
+    make_marl_ppo_if_available = None  # type: ignore[misc, assignment]

@@ -148,7 +148,7 @@ def test_coordination_matrix_smoke(
             scale_config_override=scale_config,
             pipeline_mode="deterministic",
         )
-    except (ValueError, ImportError, NotImplementedError) as e:
+    except (ValueError, ImportError, NotImplementedError, RuntimeError) as e:
         if method_id in SKIP_METHOD_IDS or "marl_ppo" in method_id or "llm_constrained" in str(e).lower():
             pytest.skip(f"{method_id} requires special setup or deps: {e}")
         raise

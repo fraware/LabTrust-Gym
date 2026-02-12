@@ -1,0 +1,6 @@
+{
+  "responses": {
+    "4614c3d1bf60ad9bf91c7ad0220ef30cc64c48faf296edd39704f6f6f6d33a1b": "{\"action_type\": \"NOOP\", \"args\": {}, \"reason_code\": null, \"token_refs\": [], \"rationale\": \"Fixture baseline\", \"confidence\": 0.9, \"safety_notes\": \"\"}"
+  },
+  "_comment": "Keys are SHA-256 of canonical JSON messages. Add entries via record-llm-fixtures."
+}

@@ -399,6 +399,7 @@ def test_cli_determinism_report(tmp_path: Path) -> None:
     assert (out_dir / "determinism_report.md").exists()
 
 
+@pytest.mark.slow
 def test_cli_forker_quickstart(tmp_path: Path) -> None:
     """forker-quickstart: pack + report + risk register under --out. Long-running (~3–5 min)."""
     out_dir = tmp_path / "forker_out"
@@ -416,6 +417,7 @@ def test_cli_forker_quickstart(tmp_path: Path) -> None:
     assert (risk_out / "RISK_REGISTER_BUNDLE.v0.1.json").exists()
 
 
+@pytest.mark.slow
 def test_cli_run_coordination_security_pack(tmp_path: Path) -> None:
     """run-coordination-security-pack: pack_summary.csv, pack_gate.md. Long-running (~3–4 min)."""
     r = _run_labtrust(
@@ -532,6 +534,7 @@ def test_cli_make_plots(tmp_path: Path) -> None:
     assert figures.is_dir()
 
 
+@pytest.mark.slow
 def test_cli_reproduce_minimal(tmp_path: Path) -> None:
     """reproduce --profile minimal: sweep dirs and figures."""
     out_dir = tmp_path / "repro_out"
@@ -548,6 +551,7 @@ def test_cli_reproduce_minimal(tmp_path: Path) -> None:
     assert (out_dir / "throughput_sla" / "figures").is_dir()
 
 
+@pytest.mark.slow
 def test_cli_package_release_minimal(tmp_path: Path) -> None:
     """package-release --profile minimal: MANIFEST, _repr, receipts."""
     out_dir = tmp_path / "release_out"
@@ -570,6 +574,7 @@ def test_cli_package_release_minimal(tmp_path: Path) -> None:
     assert repr_dir.is_dir() or (out_dir / "receipts").is_dir()
 
 
+@pytest.mark.slow
 def test_cli_run_official_pack_smoke(tmp_path: Path) -> None:
     """run-official-pack --smoke: pack_manifest or metadata, _baselines or SECURITY."""
     out_dir = tmp_path / "official_out"
@@ -584,6 +589,7 @@ def test_cli_run_official_pack_smoke(tmp_path: Path) -> None:
     assert (out_dir / "metadata.json").exists() or (out_dir / "pack_manifest.json").exists()
 
 
+@pytest.mark.slow
 def test_cli_generate_official_baselines(tmp_path: Path) -> None:
     """generate-official-baselines: 2 episodes, --force; results/, summary.csv."""
     out_dir = tmp_path / "baselines_out"
@@ -606,6 +612,7 @@ def test_cli_generate_official_baselines(tmp_path: Path) -> None:
     assert (out_dir / "metadata.json").exists()
 
 
+@pytest.mark.slow
 def test_cli_run_study(tmp_path: Path) -> None:
     """run-study: spec YAML, out dir with manifest and results."""
     root = _repo_root()
@@ -624,6 +631,7 @@ def test_cli_run_study(tmp_path: Path) -> None:
     assert (out_dir / "results").is_dir()
 
 
+@pytest.mark.slow
 def test_cli_run_coordination_study(tmp_path: Path) -> None:
     """run-coordination-study: smoke spec, summary_coord.csv and cells."""
     root = _repo_root()
@@ -654,10 +662,25 @@ def test_cli_run_coordination_study(tmp_path: Path) -> None:
     assert summary_csv.exists()
 
 
+def test_cli_train_ppo_invalid_train_config(tmp_path: Path) -> None:
+    """train-ppo with missing --train-config file exits 1 and reports error."""
+    root = _repo_root()
+    bad_path = tmp_path / "nonexistent_train_config.json"
+    assert not bad_path.exists()
+    r = _run_labtrust(
+        ["train-ppo", "--train-config", str(bad_path), "--timesteps", "1", "--out", str(tmp_path / "out")],
+        cwd=root,
+        timeout=TIMEOUT_FAST,
+    )
+    assert r.returncode != 0
+    assert "not found" in (r.stderr + r.stdout).lower() or "Failed to load" in (r.stderr + r.stdout)
+
+
 @pytest.mark.skipif(
     not os.environ.get("LABTRUST_CLI_FULL"),
     reason="LABTRUST_CLI_FULL not set; train-ppo requires [marl]",
 )
+@pytest.mark.slow
 def test_cli_train_ppo(tmp_path: Path) -> None:
     """train-ppo: minimal timesteps; optional, requires [marl]."""
     out_dir = tmp_path / "ppo_out"

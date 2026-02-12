@@ -14,6 +14,9 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+# Token in docs/coordination_benchmark_card.md replaced with fingerprint block at render time
+COORDINATION_POLICY_FINGERPRINT_TOKEN = "COORDINATION_POLICY_FINGERPRINT_TOKEN"
+
 # Relative to repo_root / "policy" / "coordination"
 COORDINATION_POLICY_FILES = [
     "coordination_study_spec.v0.1.yaml",
@@ -71,7 +74,7 @@ def render_coordination_card(
 ) -> str:
     """
     Render COORDINATION_CARD.md from docs/coordination_benchmark_card.md,
-    replacing the policy fingerprint placeholder with the actual fingerprint
+    replacing the policy fingerprint token with the actual fingerprint
     and optional per-file hashes table.
     """
     root = Path(repo_root).resolve()
@@ -96,8 +99,8 @@ def render_coordination_card(
         block_lines.append("")
 
     replacement = "\n".join(block_lines)
-    if "COORDINATION_POLICY_FINGERPRINT_PLACEHOLDER" in body:
-        body = body.replace("COORDINATION_POLICY_FINGERPRINT_PLACEHOLDER", replacement)
+    if COORDINATION_POLICY_FINGERPRINT_TOKEN in body:
+        body = body.replace(COORDINATION_POLICY_FINGERPRINT_TOKEN, replacement)
     else:
         body = body.rstrip() + "\n\n" + replacement + "\n"
 
@@ -114,7 +117,7 @@ coord_scale and coord_risk evaluate multi-agent coordination in the Blood Scienc
 
 ## Policy fingerprint
 
-COORDINATION_POLICY_FINGERPRINT_PLACEHOLDER
+""" + COORDINATION_POLICY_FINGERPRINT_TOKEN + """
 """
 
 

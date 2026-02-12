@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\market\__init__.py
+# hypothesis_version: 6.151.6
+
+['TypedBid', 'WorkItem', 'clear_auction', 'validate_bid']

@@ -9,6 +9,7 @@ checks on registry file or tool artifacts).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -51,3 +52,53 @@ def get_tool_capabilities(registry: dict[str, Any], tool_id: str) -> list[str]:
         return []
     caps = entry.get("capabilities")
     return list(caps) if isinstance(caps, list) else []
+
+
+def get_read_only_tool_definitions_for_llm() -> list[dict[str, Any]]:
+    """
+    Return OpenAI-style tool definitions for read-only tools (policy lookup, queue/zone summary).
+    Guardrails: these tools only return data from context; they cannot override RBAC or mutate state.
+    Use in LLM backends when use_tools is True to allow function calling for allowed_actions and
+    restricted_zones without exposing write operations.
+    """
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_allowed_actions_summary",
+                "description": "Return the list of allowed action types for the current role (RBAC). Read-only.",
+                "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_restricted_zones",
+                "description": "Return zone IDs that require a token for OPEN_DOOR or MOVE. Read-only.",
+                "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+            },
+        },
+    ]
+
+
+def execute_read_only_tool(
+    name: str,
+    context: dict[str, Any],
+) -> str:
+    """
+    Execute a read-only tool by name using data from context only. No RBAC override.
+    Returns JSON string for the LLM. Raises ValueError if tool name not allowed.
+    """
+    allowed = {"get_allowed_actions_summary", "get_restricted_zones"}
+    if name not in allowed:
+        raise ValueError(f"Tool {name!r} not in allowed read-only set: {allowed}")
+    if name == "get_allowed_actions_summary":
+        actions = context.get("allowed_actions") or []
+        return json.dumps({"allowed_actions": list(actions)})
+    if name == "get_restricted_zones":
+        zones = context.get("restricted_zones")
+        if zones is None:
+            policy = context.get("policy_summary") or context.get("state_summary") or {}
+            zones = policy.get("restricted_zones") or []
+        return json.dumps({"restricted_zones": list(zones)})
+    raise ValueError(f"Unknown read-only tool: {name!r}")

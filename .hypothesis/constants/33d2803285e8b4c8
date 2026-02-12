@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\marl_ppo.py
+# hypothesis_version: 6.151.6
+
+['action_index', 'include_agent_id', 'item', 'marl_ppo', 'n_d', 'n_status', 'num_agents', 'obs_history_len', 'train_config.json', 'utf-8']

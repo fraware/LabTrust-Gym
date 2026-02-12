@@ -62,9 +62,9 @@ Each element of `evidence[]` has:
 |-------|------|-------------|
 | `evidence_id` | string | Unique ID for reference from `risks[].evidence_refs`. |
 | `type` | string | `security_suite` \| `coordination_study` \| `official_pack` \| `safety_case` \| `bundle_verification` \| `other`. |
-| `path` | string | Optional. Repo- or run-relative path; empty or omitted for `status=missing` stubs. |
+| `path` | string | Optional. Repo- or run-relative path; empty or omitted for evidence gaps (`status=missing`). |
 | `label` | string | Optional short label for UI. |
-| `status` | string | Optional: `present` (evidence exists) or `missing` (explicit stub when no evidence in scanned runs). |
+| `status` | string | Optional: `present` (evidence exists) or `missing` (evidence gap: no evidence in scanned runs). |
 | `expected_sources` | array | For `status=missing`: e.g. "security suite smoke", "coordination study required_bench". |
 | `risk_ids` | array | Optional. Risk IDs this evidence applies to. |
 | `artifacts` | array | Optional. `{ path, sha256? }` from MANIFEST when known. |
@@ -76,7 +76,7 @@ Aggregated from run dirs (and optional official pack):
 - **Coordination study**: `summary/summary_coord.csv`, `PARETO/pareto.json` when present.
 - **Safety case**: `SAFETY_CASE/safety_case.json` when present.
 - **Bundle verification**: `MANIFEST.v0.1.json` (hashes for reviewer trust).
-- **Missing**: If a risk has no evidence in scanned runs, a stub with `status=missing` and `expected_sources` is included so missing evidence is explicit.
+- **Evidence gaps**: If a risk has no evidence in scanned runs, a missing-evidence object with `status=missing` and `expected_sources` is included so gaps are explicit.
 
 ### Reproduce (how to reproduce)
 
@@ -88,7 +88,7 @@ Each element of `reproduce[]` links an evidence item to deterministic CLI comman
 | `label` | string | Short label (e.g. Security suite, Coordination study). |
 | `commands` | array of string | CLI commands to reproduce this evidence (e.g. `labtrust run-security-suite --out <output_dir> --seed 42`). Empty for missing evidence. |
 
-Generated at bundle build time by evidence type (security_suite, coordination_study, safety_case, official_pack, bundle_verification). Placeholders `<output_dir>`, `<study_spec>` are for user substitution.
+Generated at bundle build time by evidence type (security_suite, coordination_study, safety_case, official_pack, bundle_verification). Template variables `<output_dir>`, `<study_spec>` are for user substitution.
 
 ### Links
 

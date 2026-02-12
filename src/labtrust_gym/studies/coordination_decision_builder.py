@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.config import policy_path
 from labtrust_gym.policy.loader import (
     get_partner_overlay_dir,
     load_yaml,
@@ -282,8 +283,8 @@ def build_decision(
                 enrich_pack_rows_with_resilience,
             )
 
-            resilience_policy_path = (
-                policy_root / "policy" / "coordination" / "resilience_scoring.v0.1.yaml"
+            resilience_policy_path = policy_path(
+                policy_root, "coordination", "resilience_scoring.v0.1.yaml"
             )
             if resilience_policy_path.is_file():
                 policy_res = load_resilience_scoring_policy(resilience_policy_path)
@@ -292,7 +293,7 @@ def build_decision(
             pass
 
     # Partner overlay may override selection policy
-    policy_path = policy_root / "policy" / "coordination" / SELECTION_POLICY_FILENAME
+    selection_policy_path = policy_path(policy_root, "coordination", SELECTION_POLICY_FILENAME)
     if partner_id:
         overlay_path = (
             get_partner_overlay_dir(policy_root, partner_id)
@@ -300,10 +301,10 @@ def build_decision(
             / SELECTION_POLICY_FILENAME
         )
         if overlay_path.is_file():
-            policy_path = overlay_path
-    if not policy_path.is_file():
-        raise FileNotFoundError(f"Selection policy not found: {policy_path}")
-    policy = load_yaml(policy_path)
+            selection_policy_path = overlay_path
+    if not selection_policy_path.is_file():
+        raise FileNotFoundError(f"Selection policy not found: {selection_policy_path}")
+    policy = load_yaml(selection_policy_path)
     policy_id = policy.get("policy_id") or "coordination_selection_v0.1"
     constraints: list[dict[str, Any]] = policy.get("constraints") or []
     objective: dict[str, Any] = policy.get("objective") or {
@@ -502,7 +503,7 @@ def write_decision_artifact(
     json_path = out_dir / DECISION_FILENAME_JSON
     md_path = out_dir / DECISION_FILENAME_MD
 
-    schemas_dir = policy_root / "policy" / "schemas"
+    schemas_dir = policy_path(policy_root, "schemas")
     schema_path = schemas_dir / SCHEMA_FILENAME
     if schema_path.is_file():
         schema = load_json(schema_path)

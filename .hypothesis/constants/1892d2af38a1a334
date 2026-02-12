@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\llm_constrained.py
+# hypothesis_version: 6.151.6
+
+['_llm_decision', 'action_index', 'explicit', 'llm_constrained', 'partner_id', 'policy_summary', 'reset', 'timing_mode']

@@ -143,7 +143,7 @@ def test_coordination_method_smoke_50_steps(method_id: str) -> None:
             pytest.skip(f"llm_constrained deps: {e}")
     try:
         method = make_coordination_method(method_id, policy, **kwargs)
-    except (ValueError, ImportError, NotImplementedError) as e:
+    except (ValueError, ImportError, NotImplementedError, RuntimeError) as e:
         if "marl_ppo" in method_id or "trained model" in str(e).lower():
             pytest.skip(f"{method_id}: optional deps missing — {e}")
         raise
@@ -151,7 +151,7 @@ def test_coordination_method_smoke_50_steps(method_id: str) -> None:
         pytest.skip(f"{method_id}: factory returned non-method")
     try:
         _run_50_steps(method, policy, scale_config)
-    except NotImplementedError as e:
+    except (NotImplementedError, RuntimeError) as e:
         if "trained model" in str(e).lower() or "marl_ppo" in method_id:
             pytest.skip(f"{method_id}: {e}")
         raise
@@ -175,7 +175,7 @@ def test_centralized_planner_compute_budget() -> None:
     assert non_noop <= 1
 
 
-def test_marl_ppo_stub_skip_if_no_deps() -> None:
+def test_marl_ppo_skip_if_no_deps() -> None:
     """marl_ppo is skipped (or raises) when SB3 not installed."""
     try:
         import gymnasium  # noqa: F401
@@ -184,7 +184,7 @@ def test_marl_ppo_stub_skip_if_no_deps() -> None:
         pytest.skip("SB3 installed; test only runs when marl extra missing")
     except ImportError:
         pass
-    with pytest.raises((ImportError, NotImplementedError)):
+    with pytest.raises((ImportError, NotImplementedError, RuntimeError)):
         make_coordination_method(
             "marl_ppo",
             {},

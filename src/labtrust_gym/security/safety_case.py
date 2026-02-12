@@ -14,16 +14,55 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+from labtrust_gym.config import policy_path
 from labtrust_gym.policy.loader import load_yaml
 
 SAFETY_CASE_DIR = "SAFETY_CASE"
 SAFETY_CASE_JSON = "safety_case.json"
 SAFETY_CASE_MD = "safety_case.md"
 
+# Safety case provider registry: provider_id -> provider (load_claims, build_safety_case).
+_SAFETY_CASE_PROVIDERS: dict[str, Any] = {}
 
-def load_claims(policy_root: Path) -> dict[str, Any]:
-    """Load safety case claims from policy/safety_case/claims.v0.1.yaml."""
-    path = policy_root / "policy" / "safety_case" / "claims.v0.1.yaml"
+
+def register_safety_case_provider(provider_id: str, provider: Any) -> None:
+    """Register a safety case provider. Overwrites if present."""
+    _SAFETY_CASE_PROVIDERS[provider_id] = provider
+
+
+def get_safety_case_provider(provider_id: str) -> Any | None:
+    """Return the registered safety case provider, or None."""
+    return _SAFETY_CASE_PROVIDERS.get(provider_id)
+
+
+def list_safety_case_providers() -> list[str]:
+    """Return sorted list of registered safety case provider IDs."""
+    return sorted(_SAFETY_CASE_PROVIDERS.keys())
+
+
+def _ensure_default_safety_provider() -> None:
+    from types import SimpleNamespace
+
+    if "default" not in _SAFETY_CASE_PROVIDERS:
+        register_safety_case_provider(
+            "default",
+            SimpleNamespace(
+                load_claims=load_claims,
+                build_safety_case=_build_safety_case_impl,
+            ),
+        )
+
+
+def load_claims(
+    policy_root: Path,
+    claims_path: Path | None = None,
+) -> dict[str, Any]:
+    """Load safety case claims. When claims_path is set, load from it; else policy/safety_case/claims.v0.1.yaml."""
+    path = (
+        claims_path
+        if claims_path is not None and claims_path.exists()
+        else policy_path(policy_root, "safety_case", "claims.v0.1.yaml")
+    )
     if not path.exists():
         return {"version": "0.1", "claims": []}
     data = load_yaml(path)
@@ -33,30 +72,80 @@ def load_claims(policy_root: Path) -> dict[str, Any]:
     return cast(dict[str, Any], out)
 
 
-def _claim_to_dict(c: dict[str, Any]) -> dict[str, Any]:
-    """Normalize a claim for JSON output."""
+def _claim_to_dict(c: dict[str, Any], claim_version: str = "0.1") -> dict[str, Any]:
+    """
+    Normalize a claim for JSON output with traceability: claim -> control -> test/artifact.
+    Adds claim_version and evidence_links with optional path/code_ref for validation.
+    """
+    claim_id = c.get("claim_id", "")
+    controls = list(c.get("controls") or [])
+    tests = list(c.get("tests") or [])
+    artifacts = list(c.get("artifacts") or [])
+    commands = list(c.get("commands") or [])
+    control_sources = c.get("control_sources") or {}
+    if not isinstance(control_sources, dict):
+        control_sources = {}
+    evidence_links: list[dict[str, Any]] = []
+    for ctrl in controls:
+        link: dict[str, Any] = {"type": "control", "id": ctrl}
+        if ctrl in control_sources and control_sources[ctrl]:
+            link["source"] = control_sources[ctrl]
+        evidence_links.append(link)
+    for t in tests:
+        link = {"type": "test", "ref": t}
+        if t.startswith("tests."):
+            link["path"] = t.replace(".", "/", 1) + ".py"
+        elif t.startswith("tests/"):
+            link["path"] = t
+        evidence_links.append(link)
+    for a in artifacts:
+        evidence_links.append({"type": "artifact", "path": a})
     return {
-        "claim_id": c.get("claim_id", ""),
+        "claim_id": claim_id,
+        "claim_version": claim_version,
         "statement": c.get("statement", ""),
-        "controls": list(c.get("controls") or []),
-        "tests": list(c.get("tests") or []),
-        "artifacts": list(c.get("artifacts") or []),
-        "commands": list(c.get("commands") or []),
+        "controls": controls,
+        "tests": tests,
+        "artifacts": artifacts,
+        "commands": commands,
+        "traceability": {
+            "claim_id": claim_id,
+            "evidence_links": evidence_links,
+        },
     }
 
 
-def build_safety_case(policy_root: Path) -> dict[str, Any]:
+def _build_safety_case_impl(
+    policy_root: Path,
+    claims_path: Path | None = None,
+) -> dict[str, Any]:
+    """Core safety case build (no provider dispatch)."""
+    claims_data = load_claims(policy_root, claims_path=claims_path)
+    claims_list = claims_data.get("claims") or []
+    claim_version = str(claims_data.get("version", "0.1"))
+    return {
+        "version": claim_version,
+        "source": "policy/safety_case/claims.v0.1.yaml",
+        "claims": [_claim_to_dict(c, claim_version=claim_version) for c in claims_list],
+    }
+
+
+def build_safety_case(
+    policy_root: Path,
+    provider_id: str | None = None,
+    claims_path: Path | None = None,
+) -> dict[str, Any]:
     """
     Build the full safety case structure: version, claims (each with claim_id, statement,
     controls, tests, artifacts, commands). Deterministic for same policy file.
+    When provider_id is set, use the registered safety case provider.
+    When claims_path is set (and using default provider), load claims from that path.
     """
-    claims_data = load_claims(policy_root)
-    claims_list = claims_data.get("claims") or []
-    return {
-        "version": claims_data.get("version", "0.1"),
-        "source": "policy/safety_case/claims.v0.1.yaml",
-        "claims": [_claim_to_dict(c) for c in claims_list],
-    }
+    if provider_id is not None:
+        provider = get_safety_case_provider(provider_id)
+        if provider is not None and hasattr(provider, "build_safety_case"):
+            return provider.build_safety_case(policy_root)
+    return _build_safety_case_impl(policy_root, claims_path=claims_path)
 
 
 def write_safety_case_md(safety_case: dict[str, Any], md_path: Path) -> None:
@@ -106,15 +195,21 @@ def write_safety_case_md(safety_case: dict[str, Any], md_path: Path) -> None:
     md_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def emit_safety_case(policy_root: Path, out_dir: Path) -> dict[str, Any]:
+def emit_safety_case(
+    policy_root: Path,
+    out_dir: Path,
+    provider_id: str | None = None,
+    claims_path: Path | None = None,
+) -> dict[str, Any]:
     """
     Write SAFETY_CASE/safety_case.json and SAFETY_CASE/safety_case.md under out_dir.
-    Returns the safety_case dict.
+    Returns the safety_case dict. When provider_id is set, use that provider.
+    When claims_path is set, load claims from that path (default provider only).
     """
     out_dir = Path(out_dir)
     safety_dir = out_dir / SAFETY_CASE_DIR
     safety_dir.mkdir(parents=True, exist_ok=True)
-    safety_case = build_safety_case(policy_root)
+    safety_case = build_safety_case(policy_root, provider_id=provider_id, claims_path=claims_path)
     json_path = safety_dir / SAFETY_CASE_JSON
     json_path.write_text(
         json.dumps(safety_case, indent=2, sort_keys=True),
@@ -144,3 +239,45 @@ def get_claimed_artifacts(policy_root: Path) -> list[str]:
             if a and a not in artifacts:
                 artifacts.append(a)
     return artifacts
+
+
+def run_smt_checks(safety_case: dict[str, Any]) -> dict[str, Any]:
+    """
+    Optional SMT verification of safety case structure (when z3 is available).
+    Performs trivial consistency checks (e.g. claim_id non-empty, controls list present).
+    Returns {"smt_available": bool, "results": {claim_id: "pass"|"fail"|"skip"}, "errors": [...]}.
+    When z3 is not installed, returns smt_available=False and empty results.
+    """
+    out: dict[str, Any] = {
+        "smt_available": False,
+        "results": {},
+        "errors": [],
+    }
+    try:
+        import z3
+        out["smt_available"] = True
+    except ImportError:
+        return out
+    for claim in safety_case.get("claims") or []:
+        cid = claim.get("claim_id", "")
+        if not cid:
+            out["results"][cid or "(empty)"] = "fail"
+            out["errors"].append("Claim with empty claim_id")
+            continue
+        # Trivial structural check via SMT: claim_id non-empty string constraint
+        try:
+            s = z3.String("claim_id")
+            solver = z3.Solver()
+            solver.add(z3.Length(s) > 0)
+            solver.add(s == cid)
+            if solver.check() == z3.sat:
+                out["results"][cid] = "pass"
+            else:
+                out["results"][cid] = "fail"
+        except Exception as e:
+            out["results"][cid] = "skip"
+            out["errors"].append(f"{cid}: {e}")
+    return out
+
+
+_ensure_default_safety_provider()

@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\compose.py
+# hypothesis_version: 6.151.6
+
+[',', ':', 'MOVE', 'NOOP', 'START_RUN', 'TICK', 'action_index', 'action_type', 'args', 'device_id', 'from_zone', 'get_alloc_metrics', 'get_route_metrics', 'get_schedule_metrics', 'reset', 'to_zone', 'utf-8', 'work_id']

@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\hierarchical_hub_rr.py
+# hypothesis_version: 6.151.6
+
+[1.0, 'MOVE', 'START_RUN', 'STAT', 'URGENT', 'W', 'action_index', 'action_type', 'args', 'device_id', 'from_zone', 'graph_edges', 'hierarchical_hub_rr', 'num_agents_total', 'num_sites', 'queue_head', 'queue_len', 'to_zone', 'work_id', 'zone_id', 'zone_layout']

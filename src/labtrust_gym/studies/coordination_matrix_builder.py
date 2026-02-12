@@ -626,8 +626,10 @@ def build_coordination_matrix(
         policy_root = Path(get_repo_root())
 
     policy_root = Path(policy_root).resolve()
-    coord_dir = policy_root / "policy" / "coordination"
-    schemas_dir = policy_root / "policy" / "schemas"
+    from labtrust_gym.config import policy_path
+
+    coord_dir = policy_path(policy_root, "coordination")
+    schemas_dir = policy_path(policy_root, "schemas")
 
     # 1B) pipeline_mode: pack mode skips llm_live check
     if matrix_mode == MATRIX_MODE_PACK:
@@ -934,7 +936,7 @@ def build_coordination_matrix(
                 break
         pareto_member[key] = not dominated
 
-    # Run metadata placeholder (builder may not have full run_meta per cell from CSV)
+    # Run metadata slot (builder may not have full run_meta per cell from CSV)
     allowed_backends = ["openai_live", "ollama_live"]
     allowed_methods = (inputs_policy.get("scope") or {}).get(
         "coordination_methods"

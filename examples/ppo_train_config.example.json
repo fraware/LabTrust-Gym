@@ -1,0 +1,7 @@
+{
+  "net_arch": [128, 128],
+  "obs_history_len": 2,
+  "learning_rate": 3e-4,
+  "n_steps": 2048,
+  "reward_scale_schedule": [[0.0, 0.5], [0.5, 1.0]]
+}

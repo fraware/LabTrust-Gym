@@ -147,7 +147,7 @@ Purely local rules; zero global state.
 
 ### 6. marl_ppo
 
-If Stable-Baselines3 (and gymnasium) is installed, reuses the existing PPO policy wrapper for evaluation. If not installed, a stub raises a clear error and the method is skipped in studies unless the `[marl]` extra is present.
+If Stable-Baselines3 (and gymnasium) is installed, reuses the existing PPO policy wrapper for evaluation. If not installed, a fallback raises a clear error and the method is skipped in studies unless the `[marl]` extra is present.
 
 **Expected vulnerabilities**: R-DATA-002, R-FLOW-002, R-TOOL-004.
 

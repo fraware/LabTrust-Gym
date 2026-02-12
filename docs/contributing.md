@@ -34,6 +34,14 @@ The golden scenarios in `policy/golden/golden_scenarios.v0.1.yaml` define correc
 
 Preferred PR size: under 400 lines where practical.
 
+## Release and contract change
+
+Do not weaken **frozen contracts** (runner output, queue, receipt, evidence bundle, results semantics) without a **version bump** and a design note. See [Frozen contracts](frozen_contracts.md) for the canonical list. Changes that alter step return shape, queue semantics, or evidence bundle format require a new contract version and migration path.
+
+## Risk register and evidence
+
+When adding new **benchmark tasks** or **coordination methods**, update the method-risk matrix (`policy/coordination/method_risk_matrix.v0.1.yaml`) and ensure every required_bench cell is either **evidenced** (run covered by risk register) or **waived**. Run the risk-register contract gate before release: `labtrust export-risk-register --out <dir> --runs <dir>` then `pytest tests/test_risk_register_contract_gate.py -v`. See [Risk register](risk_register.md).
+
 ## Verification and audit (full command sequence)
 
 To fully audit the repo as a new user, run in order from the repo root:

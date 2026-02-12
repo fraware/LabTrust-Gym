@@ -9,6 +9,8 @@ from labtrust_gym.benchmarks.tasks import (
     TaskB_STATInsertionUnderLoad,
     TaskC_QCFailCascade,
     get_task,
+    list_tasks,
+    register_task,
 )
 
 __all__ = [
@@ -16,6 +18,8 @@ __all__ = [
     "TaskB_STATInsertionUnderLoad",
     "TaskC_QCFailCascade",
     "get_task",
+    "list_tasks",
+    "register_task",
     "compute_episode_metrics",
     "run_benchmark",
 ]

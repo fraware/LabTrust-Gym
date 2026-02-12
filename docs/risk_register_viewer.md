@@ -36,9 +36,9 @@ Reproduction commands are **stored in the bundle** under `reproduce[]`, so the U
   - **Safety case:** `labtrust safety-case --out <output_dir>`
   - **Official pack:** `labtrust run-official-pack --out <output_dir> [--seed-base 42]` (add `--pipeline-mode llm_live --allow-network` for live LLM; produces TRANSPARENCY_LOG/llm_live.json and live_evaluation_metadata.json)
   - **Bundle verification:** `labtrust verify-bundle --bundle <run_dir>` or `package-release --profile paper_v0.1 --out <output_dir>`
-  - **Missing evidence:** empty `commands[]`; label indicates “Evidence not yet collected”.
+  - **Evidence gap:** empty `commands[]`; label indicates “Evidence not yet collected”.
 
-Placeholders `<output_dir>` and `<study_spec>` can be substituted by the user when copying the command.
+Template variables `<output_dir>` and `<study_spec>` can be substituted by the user when copying the command.
 
 ## What reviewers see (beyond PASS/FAIL)
 

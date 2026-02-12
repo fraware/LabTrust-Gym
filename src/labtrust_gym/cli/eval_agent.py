@@ -28,6 +28,7 @@ def run_eval_agent(
     repo_root: Path | None = None,
     pipeline_mode: str = "deterministic",
     allow_network: bool = False,
+    domain_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Load agent from agent_spec (module:Class or module:function), run N episodes, write results.json.
@@ -80,6 +81,7 @@ def run_eval_agent(
         initial_state_overrides=overrides if overrides else None,
         pipeline_mode=pipeline_mode,
         allow_network=allow_network,
+        domain_id=domain_id,
     )
     # Override agent_baseline_id so results reflect the external agent
     results["agent_baseline_id"] = agent_baseline_id
@@ -183,6 +185,7 @@ def _run_eval_agent(args: argparse.Namespace) -> int:
         repo_root=root,
         pipeline_mode=pipeline_mode,
         allow_network=allow_network,
+        domain_id=getattr(args, "domain_id", None),
     )
     print(f"Wrote {out}", file=__import__("sys").stderr)
     return 0

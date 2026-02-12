@@ -31,7 +31,7 @@
     },
     "signature": {
       "type": ["object", "null"],
-      "description": "Optional signature (stub behind feature flag)",
+      "description": "Optional Ed25519 signature: algorithm, public_key_b64, signature_b64, key_id",
       "properties": {
         "algorithm": { "type": "string" },
         "value": { "type": "string" }

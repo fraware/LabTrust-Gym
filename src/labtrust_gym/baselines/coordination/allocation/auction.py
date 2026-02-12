@@ -67,10 +67,14 @@ def compute_bid(
     agent_zone: str,
     agent_queue_load: int,
     energy_proxy: float = 0.0,
+    current_assignment_count: int = 0,
+    fairness_weight: float = 0.0,
 ) -> float:
     """
     Bid cost for (agent, item). Lower = better.
-    Combines: distance-to-work, queue load, congestion price, device queue price, energy proxy.
+    Combines: distance-to-work, queue load, congestion price, device queue price,
+    energy proxy. When fairness_weight > 0, adds fairness_weight * current_assignment_count
+    so underloaded agents get lower effective cost (improves Gini work distribution).
     Returns BID_FORBIDDEN if view indicates agent cannot perform (caller filters by RBAC).
     """
     dist = _path_length(agent_zone, item.zone_id, adjacency)
@@ -85,6 +89,7 @@ def compute_bid(
         + device_price
         + energy_proxy
         - item.priority * 5.0
+        + fairness_weight * float(current_assignment_count)
     )
     return max(0.0, cost)
 
@@ -243,13 +248,16 @@ def gini_coefficient(work_per_agent: dict[str, int]) -> float:
 def run_auction(
     items: list[WorkItem],
     agents: list[str],
-    bid_fn: Callable[[str, WorkItem], float],
+    bid_fn: Callable[..., float],
     max_bids: int,
     rng: Any,
+    fairness_weight: float = 0.0,
 ) -> tuple[list[tuple[str, str, str, int]], list[tuple[str, str, float]], dict[str, Any]]:
     """
     Sealed-bid auction: each agent bids for each item; assign item to lowest bidder.
     One item per agent per round; max_bids caps total assignments.
+    When fairness_weight > 0, bid_fn must accept (agent_id, item, work_so_far) so
+    bids can penalize already-loaded agents (improves Gini). Otherwise bid_fn(agent_id, item).
     Returns (assignments, all_bids_used, metrics).
     assignments: (agent_id, work_id, device_id, priority)
     all_bids_used: (agent_id, work_id, bid) for winning bids.
@@ -259,6 +267,7 @@ def run_auction(
     bids_used: list[tuple[str, str, float]] = []
     all_bids_list: list[float] = []
     rebids = 0
+    work_so_far: dict[str, int] = {a: 0 for a in agents}
 
     sorted_items = sorted(
         items,
@@ -278,7 +287,10 @@ def run_auction(
         for idx, agent_id in enumerate(sorted_agents):
             if agent_id in assigned_agents:
                 continue
-            bid = bid_fn(agent_id, item)
+            if fairness_weight > 0:
+                bid = bid_fn(agent_id, item, work_so_far)
+            else:
+                bid = bid_fn(agent_id, item)
             if bid >= BID_FORBIDDEN:
                 continue
             tie = rng.randint(0, 999) if rng else 0
@@ -289,6 +301,7 @@ def run_auction(
         best_bid, winner, _ = candidate_bids[0]
         assigned_agents.add(winner)
         used_work.add((item.device_id, item.work_id))
+        work_so_far[winner] = work_so_far.get(winner, 0) + 1
         assignments.append((winner, item.work_id, item.device_id, item.priority))
         bids_used.append((winner, item.work_id, best_bid))
         all_bids_list.append(best_bid)
@@ -307,6 +320,8 @@ class AuctionAllocator:
     """
     Allocator that runs a sealed-bid auction over work items.
     Respects RBAC and token constraints; uses congestion-aware price signals.
+    fairness_weight: when > 0, bids include a term that penalizes already-loaded
+    agents so underloaded agents win more (improves Gini work distribution).
     Optional bid anomaly detector: flags outlier low bids, containment for K steps.
     INJ-BID-SPOOF-001: when injection_id set in scale_config, designated agent bids artificially low.
     Exposes alloc metrics (gini_work_distribution, mean_bid, rebid_rate) and last_emits.
@@ -317,10 +332,12 @@ class AuctionAllocator:
         max_bids: int | None = None,
         detector_enabled: bool = True,
         containment_steps: int = CONTAINMENT_STEPS_K,
+        fairness_weight: float = 0.0,
     ) -> None:
         self._max_bids = max_bids
         self._detector_enabled = detector_enabled
         self._containment_steps = containment_steps
+        self._fairness_weight = max(0.0, float(fairness_weight))
         self._last_metrics: dict[str, Any] = {}
         self._excluded_until_step: dict[str, int] = {}
         self._last_emits: list[dict[str, Any]] = []
@@ -396,8 +413,15 @@ class AuctionAllocator:
 
         price_signals = build_price_signals(obs, device_zone, zone_ids, device_ids)
         view_snapshots = getattr(context, "view_snapshots", None) or {}
+        fairness_weight = float(
+            scale_config.get("auction_fairness_weight", self._fairness_weight)
+        )
 
-        def bid_fn(agent_id: str, item: WorkItem) -> float:
+        def bid_fn(
+            agent_id: str,
+            item: WorkItem,
+            work_so_far: dict[str, int] | None = None,
+        ) -> float:
             if agent_id in excluded_this_step:
                 return BID_FORBIDDEN
             o = obs.get(agent_id) or {}
@@ -415,6 +439,7 @@ class AuctionAllocator:
             qbd = get_queue_by_device(o)
             load = sum(int((d or {}).get("queue_len", 0)) for d in qbd if isinstance(d, dict))
             energy_proxy = 0.0
+            current_count = (work_so_far or {}).get(agent_id, 0)
             raw_bid = compute_bid(
                 agent_id,
                 item,
@@ -424,6 +449,8 @@ class AuctionAllocator:
                 agent_zone,
                 load,
                 energy_proxy,
+                current_assignment_count=current_count,
+                fairness_weight=fairness_weight,
             )
             if (
                 injection_id == INJ_BID_SPOOF_001
@@ -434,7 +461,14 @@ class AuctionAllocator:
                 return max(0.0, raw_bid * 0.1)
             return raw_bid
 
-        assignments, bids_used, metrics = run_auction(work_items, agents, bid_fn, max_bids, rng)
+        assignments, bids_used, metrics = run_auction(
+            work_items,
+            agents,
+            bid_fn,
+            max_bids,
+            rng,
+            fairness_weight=fairness_weight,
+        )
         detector_enabled = scale_config.get("detector_enabled", self._detector_enabled)
         if detector_enabled and bids_used:
             threshold_std = 0.5 if len(bids_used) <= 3 else 2.0

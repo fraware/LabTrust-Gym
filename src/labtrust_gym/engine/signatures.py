@@ -11,6 +11,7 @@ Signed actions: Ed25519 signature verification over canonical payload.
 from __future__ import annotations
 
 import base64
+import json
 from pathlib import Path
 from typing import Any
 
@@ -138,6 +139,28 @@ def _key_valid_at(key: dict[str, Any], now_ts: int) -> tuple[bool, str | None]:
     return True, None
 
 
+RECEIPT_SIGNATURE_ALGORITHM = "ed25519"
+
+
+def sign_payload_bytes(payload_bytes: bytes, private_key_bytes: bytes) -> str | None:
+    """
+    Sign payload with Ed25519. private_key_bytes must be 32 bytes.
+    Returns base64-encoded signature or None on failure.
+    """
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    except ImportError:
+        return None
+    if len(private_key_bytes) != 32:
+        return None
+    try:
+        priv_key = Ed25519PrivateKey.from_private_bytes(private_key_bytes)
+        sig_raw = priv_key.sign(payload_bytes)
+        return base64.b64encode(sig_raw).decode("ascii")
+    except Exception:
+        return None
+
+
 def verify_signature(
     payload_bytes: bytes,
     signature_b64: str,
@@ -203,7 +226,7 @@ def verify_action_signature(
     if not key:
         info["reason_code"] = SIG_INVALID  # key not in registry
         return False, SIG_INVALID, info
-    # Golden scenario bypass: accept placeholder signature for deterministic golden runs
+    # Golden scenario bypass: accept sentinel signature for deterministic golden runs
     if signature_b64 == "GOLDEN_TEST_ACCEPT":
         valid_at, reason = _key_valid_at(key, now_ts)
         if valid_at:
@@ -256,3 +279,69 @@ def verify_action_signature(
 def is_mutating_action(action_type: str) -> bool:
     """True if action_type requires a valid signature when strict_signatures is on."""
     return (action_type or "").strip() in MUTATING_ACTION_TYPES
+
+
+def _canonical_receipt_or_manifest(obj: dict[str, Any], exclude_key: str = "signature") -> bytes:
+    """Canonical JSON for signing: sort_keys, exclude signature key."""
+    reduced = {k: v for k, v in obj.items() if k != exclude_key}
+    return json.dumps(reduced, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def canonical_for_signing(obj: dict[str, Any], exclude_key: str = "signature") -> bytes:
+    """Canonical bytes for signing receipts/manifests (exclude signature key). Public for use by export."""
+    return _canonical_receipt_or_manifest(obj, exclude_key=exclude_key)
+
+
+def get_public_key_b64_for_key_id(registry: dict[str, Any], key_id: str) -> str | None:
+    """Return public_key (base64) for key_id from registry, or None."""
+    key = _key_by_id(registry, key_id)
+    if not key:
+        return None
+    return key.get("public_key")
+
+
+def verify_receipt(receipt: dict[str, Any], key_registry: dict[str, Any]) -> tuple[bool, str | None]:
+    """
+    Verify receipt signature if present. Signature format:
+    {"algorithm": "ed25519", "public_key_b64": ..., "signature_b64": ..., "key_id": ...}.
+    Returns (True, None) if no signature or verification passes; (False, reason) on failure.
+    """
+    sig = receipt.get("signature")
+    if not isinstance(sig, dict):
+        return True, None
+    algo = sig.get("algorithm")
+    pub_b64 = sig.get("public_key_b64")
+    sig_b64 = sig.get("signature_b64")
+    key_id = sig.get("key_id")
+    if algo != RECEIPT_SIGNATURE_ALGORITHM or not pub_b64 or not sig_b64 or not key_id:
+        return False, "signature missing required fields (algorithm, public_key_b64, signature_b64, key_id)"
+    key = _key_by_id(key_registry, key_id)
+    if key and (key.get("status") or "ACTIVE").strip().upper() == "REVOKED":
+        return False, SIG_KEY_REVOKED
+    payload = _canonical_receipt_or_manifest(receipt)
+    if verify_signature(payload, sig_b64, pub_b64):
+        return True, None
+    return False, SIG_INVALID
+
+
+def verify_manifest_signature(manifest: dict[str, Any], key_registry: dict[str, Any]) -> tuple[bool, str | None]:
+    """
+    Verify manifest signature if present. Same format as receipt.
+    Returns (True, None) if no signature or verification passes; (False, reason) on failure.
+    """
+    sig = manifest.get("signature")
+    if not isinstance(sig, dict):
+        return True, None
+    algo = sig.get("algorithm")
+    pub_b64 = sig.get("public_key_b64")
+    sig_b64 = sig.get("signature_b64")
+    key_id = sig.get("key_id")
+    if algo != RECEIPT_SIGNATURE_ALGORITHM or not pub_b64 or not sig_b64 or not key_id:
+        return False, "signature missing required fields"
+    key = _key_by_id(key_registry, key_id)
+    if key and (key.get("status") or "ACTIVE").strip().upper() == "REVOKED":
+        return False, SIG_KEY_REVOKED
+    payload = _canonical_receipt_or_manifest(manifest)
+    if verify_signature(payload, sig_b64, pub_b64):
+        return True, None
+    return False, SIG_INVALID

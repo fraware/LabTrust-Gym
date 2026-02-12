@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\assurance\detector_advisor.py
+# hypothesis_version: 6.151.6
+
+[0.0, 0.95, 256, '*', 'BLOCKED', 'INJ-COMMS-POISON-001', '```', 'action_index', 'agent_count', 'all', 'all_agents', 'blocked_reason_code', 'comms_keys', 'comms_stats', 'content', 'detect', 'detector_payload', 'emits', 'enforcement_action', 'flat', 'freeze_zone', 'is_attack_suspected', 'json', 'kill_switch', 'none', 'obs', 'obs_keys', 'obs_snapshot', 'on_step_result', 'queue_anomaly', 'queue_has_head', 'random', 'rationale_short', 'reason_code', 'recommend', 'reset', 'role', 'scope', 'status', 'step', 'suspect_agent_ids', 'suspected_risk_id', 'system', 'throttle', 'user', 'valid', 'validation', '{']

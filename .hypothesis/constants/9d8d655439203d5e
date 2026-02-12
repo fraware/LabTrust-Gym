@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\kernel_components.py
+# hypothesis_version: 6.151.6
+
+[0.0, 200, 'MOVE', 'NOOP', 'START_RUN', 'STAT', 'URGENT', 'W', 'Z_SORTING_LANES', 'deadlock_avoids', 'device_id', 'edf', 'from_zone', 'graph_edges', 'mean_plan_time_ms', 'no_devices', 'queue_head', 'queue_len', 'replan_rate', 'replan_rate_sum', 'steps', 'to_zone', 'token_active', 'trivial', 'whca', 'whca_horizon', 'whca_no_graph', 'work_id', 'zone_id', 'zone_layout', 'zone_layout_policy']

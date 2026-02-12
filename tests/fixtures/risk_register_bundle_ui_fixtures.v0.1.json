@@ -113,7 +113,7 @@
         "security suite smoke",
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-COMMS-001",
+      "label": "Evidence gap: R-COMMS-001",
       "path": "",
       "risk_ids": [
         "R-COMMS-001"
@@ -127,7 +127,7 @@
         "security suite smoke",
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-COMMS-002",
+      "label": "Evidence gap: R-COMMS-002",
       "path": "",
       "risk_ids": [
         "R-COMMS-002"
@@ -141,7 +141,7 @@
         "security suite smoke",
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-DATA-001",
+      "label": "Evidence gap: R-DATA-001",
       "path": "",
       "risk_ids": [
         "R-DATA-001"
@@ -154,7 +154,7 @@
       "expected_sources": [
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-DATA-002",
+      "label": "Evidence gap: R-DATA-002",
       "path": "",
       "risk_ids": [
         "R-DATA-002"
@@ -168,7 +168,7 @@
         "security suite smoke",
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-DATA-003",
+      "label": "Evidence gap: R-DATA-003",
       "path": "",
       "risk_ids": [
         "R-DATA-003"
@@ -181,7 +181,7 @@
       "expected_sources": [
         "policy or run evidence"
       ],
-      "label": "Evidence missing for R-FLOW-001",
+      "label": "Evidence gap: R-FLOW-001",
       "path": "",
       "risk_ids": [
         "R-FLOW-001"
@@ -194,7 +194,7 @@
       "expected_sources": [
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-FLOW-002",
+      "label": "Evidence gap: R-FLOW-002",
       "path": "",
       "risk_ids": [
         "R-FLOW-002"
@@ -207,7 +207,7 @@
       "expected_sources": [
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-SYS-001",
+      "label": "Evidence gap: R-SYS-001",
       "path": "",
       "risk_ids": [
         "R-SYS-001"
@@ -221,7 +221,7 @@
         "security suite smoke",
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-SYS-002",
+      "label": "Evidence gap: R-SYS-002",
       "path": "",
       "risk_ids": [
         "R-SYS-002"
@@ -234,7 +234,7 @@
       "expected_sources": [
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-TOOL-001",
+      "label": "Evidence gap: R-TOOL-001",
       "path": "",
       "risk_ids": [
         "R-TOOL-001"
@@ -247,7 +247,7 @@
       "expected_sources": [
         "policy or run evidence"
       ],
-      "label": "Evidence missing for R-TOOL-002",
+      "label": "Evidence gap: R-TOOL-002",
       "path": "",
       "risk_ids": [
         "R-TOOL-002"
@@ -260,7 +260,7 @@
       "expected_sources": [
         "policy or run evidence"
       ],
-      "label": "Evidence missing for R-TOOL-003",
+      "label": "Evidence gap: R-TOOL-003",
       "path": "",
       "risk_ids": [
         "R-TOOL-003"
@@ -273,7 +273,7 @@
       "expected_sources": [
         "policy or run evidence"
       ],
-      "label": "Evidence missing for R-TOOL-004",
+      "label": "Evidence gap: R-TOOL-004",
       "path": "",
       "risk_ids": [
         "R-TOOL-004"
@@ -286,7 +286,7 @@
       "expected_sources": [
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-TOOL-005",
+      "label": "Evidence gap: R-TOOL-005",
       "path": "",
       "risk_ids": [
         "R-TOOL-005"
@@ -300,7 +300,7 @@
         "security suite smoke",
         "coordination study required_bench"
       ],
-      "label": "Evidence missing for R-TOOL-006",
+      "label": "Evidence gap: R-TOOL-006",
       "path": "",
       "risk_ids": [
         "R-TOOL-006"
@@ -345,7 +345,7 @@
     "method_risk_matrix": "8f093ef402b1f24279e1c81e18bfbab6b5815590640aaae84b906b0c84bc8e25",
     "risk_registry": "dbb71ecd9ec0e5594bc2474ad91b46ddb3472ed226712db49a596e1a40de7988",
     "safety_case_claims": "a70f3ed5491cd0016924bb600d8d99016449432dbcbc55a117ac57f84941ed91",
-    "security_attack_suite": "88f7dd4044cc207cd3e2725f7f7d7974a9ae93e2e21c74cb41e9e1fe33b965b0"
+    "security_attack_suite": "cef7ecf288152c387c5e6f474114d70bd101f3d05b5c162c9fd03bf079a6b50a"
   },
   "reproduce": [
     {
@@ -358,77 +358,77 @@
     {
       "commands": [],
       "evidence_id": "ev-missing-R-COMMS-001",
-      "label": "Evidence missing for R-COMMS-001"
+      "label": "Evidence gap: R-COMMS-001"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-COMMS-002",
-      "label": "Evidence missing for R-COMMS-002"
+      "label": "Evidence gap: R-COMMS-002"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-DATA-001",
-      "label": "Evidence missing for R-DATA-001"
+      "label": "Evidence gap: R-DATA-001"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-DATA-002",
-      "label": "Evidence missing for R-DATA-002"
+      "label": "Evidence gap: R-DATA-002"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-DATA-003",
-      "label": "Evidence missing for R-DATA-003"
+      "label": "Evidence gap: R-DATA-003"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-FLOW-001",
-      "label": "Evidence missing for R-FLOW-001"
+      "label": "Evidence gap: R-FLOW-001"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-FLOW-002",
-      "label": "Evidence missing for R-FLOW-002"
+      "label": "Evidence gap: R-FLOW-002"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-SYS-001",
-      "label": "Evidence missing for R-SYS-001"
+      "label": "Evidence gap: R-SYS-001"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-SYS-002",
-      "label": "Evidence missing for R-SYS-002"
+      "label": "Evidence gap: R-SYS-002"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-TOOL-001",
-      "label": "Evidence missing for R-TOOL-001"
+      "label": "Evidence gap: R-TOOL-001"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-TOOL-002",
-      "label": "Evidence missing for R-TOOL-002"
+      "label": "Evidence gap: R-TOOL-002"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-TOOL-003",
-      "label": "Evidence missing for R-TOOL-003"
+      "label": "Evidence gap: R-TOOL-003"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-TOOL-004",
-      "label": "Evidence missing for R-TOOL-004"
+      "label": "Evidence gap: R-TOOL-004"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-TOOL-005",
-      "label": "Evidence missing for R-TOOL-005"
+      "label": "Evidence gap: R-TOOL-005"
     },
     {
       "commands": [],
       "evidence_id": "ev-missing-R-TOOL-006",
-      "label": "Evidence missing for R-TOOL-006"
+      "label": "Evidence gap: R-TOOL-006"
     }
   ],
   "risks": [

@@ -74,7 +74,7 @@ def test_render_prompt_v02_returns_fingerprint() -> None:
 
 
 def test_render_user_content_v02_untrusted_block() -> None:
-    """User content includes UNTRUSTED_NOTES placeholder."""
+    """User content includes the UNTRUSTED_NOTES block."""
     out = render_user_content_v02(
         partner_id="p1",
         policy_fingerprint="fp",

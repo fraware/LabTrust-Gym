@@ -137,6 +137,7 @@ def build_llm_coord_proposal_entry(
     meta: dict[str, Any],
     shield_outcomes: dict[str, Any] | None = None,
     shield_outcome_hash: str | None = None,
+    assurance_evidence: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     Build one JSONL log entry for type LLM_COORD_PROPOSAL.
@@ -144,7 +145,9 @@ def build_llm_coord_proposal_entry(
     Includes proposal_id, step_id, canonical proposal hash, meta (backend_id,
     model_id, latency_ms, tokens_in, tokens_out, prompt_fingerprint,
     policy_fingerprint), and optional shield_outcomes (blocked reason codes,
-    invariant violations) and shield_outcome_hash for audit digest.
+    invariant violations), shield_outcome_hash for audit digest, and
+    assurance_evidence for safety-case traceability (claim_id, control_id,
+    step, outcome).
     """
     entry: dict[str, Any] = {
         "log_type": "LLM_COORD_PROPOSAL",
@@ -157,6 +160,8 @@ def build_llm_coord_proposal_entry(
         entry["shield_outcomes"] = shield_outcomes
     if shield_outcome_hash is not None and shield_outcome_hash != "":
         entry["shield_outcome_hash"] = str(shield_outcome_hash)
+    if assurance_evidence is not None and isinstance(assurance_evidence, list):
+        entry["assurance_evidence"] = list(assurance_evidence)
     return entry
 
 

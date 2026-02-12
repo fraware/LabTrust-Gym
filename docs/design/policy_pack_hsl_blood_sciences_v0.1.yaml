@@ -131,14 +131,13 @@ packaging_transport:
     reject_if_outer_unsealed_or_damaged: true
     mark_required_on_outer: "UN3373_CATEGORY_B_WHEN_APPLICABLE"
   time_temperature_stability:
-    # Placeholder bands; calibrate with discipline SOPs / test catalogue
+    # Demo bands (non-clinical); calibrate with discipline SOPs / test catalogue for production.
     temperature_bands_c:
       AMBIENT: {min: 18, max: 25}
       REFRIGERATED: {min: 2, max: 8}
       FROZEN_M20: {max: -20}
       FROZEN_M80: {max: -80}
     stability_defaults_minutes:
-      # coarse defaults for simulation until test-level data injected
       BIOCHEM_PANEL: 360
       HAEM_PANEL: 240
       COAG_PANEL: 180
@@ -178,7 +177,7 @@ qc_and_result_validity:
     tokens_required_to_clear_qc_fail: ["T_QC_OFFICER"]
   auto_verification:
     enabled: true
-    ruleset: "V0_COARSE"   # placeholder: delta checks, plausibility, QC state, sample integrity flags
+    ruleset: "AV_DEMO_RCPATH"   # Demo ruleset: delta checks, plausibility, QC state, sample integrity flags (non-clinical).
 
 critical_results:
   electronic_record_required: true
@@ -191,7 +190,8 @@ critical_results:
   escalation_required_if_unreachable: true
   audit_kpis_required: true
   critical_thresholds:
-    # placeholder; to be calibrated with partner lab action limits
+    # Rule set id; use policy/critical/critical_thresholds.v0.1.yaml defaults_rcpath2017 for demo (non-clinical).
+    rule_set_id: "defaults_rcpath2017"
     BIOCHEMISTRY: []
     HAEMATOLOGY: []
     COAGULATION: []

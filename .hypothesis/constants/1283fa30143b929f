@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\orchestrator\defense.py
+# hypothesis_version: 6.151.6
+
+['BLOCKED', 'VIOLATION', 'blocked', 'blocked_reason_code', 'contained', 'containment', 'emits', 'event', 'fallback_requested', 'freeze', 'freeze_zone', 'frozen', 'invariant_id', 'invariant_violation', 'kill_switch', 'manual', 'new_state', 'no_token_required', 'normal', 'reason', 'reason_code', 'resume', 'status', 'step', 'switch_to_baseline', 'throttle', 'token_accepted', 'type', 'violations']

@@ -33,6 +33,7 @@ def test_deterministic_timestamp() -> None:
     assert _deterministic_timestamp(42) == _deterministic_timestamp(42)
 
 
+@pytest.mark.slow
 def test_package_release_determinism() -> None:
     """Run package-release twice with same seed_base; MANIFEST paths must match; non-plot file hashes must be identical (plots may vary by matplotlib backend)."""
     seed_base = 4242
@@ -67,6 +68,7 @@ def test_package_release_determinism() -> None:
             assert files1[path] == files2[path], f"MANIFEST hash for {path} must be identical for same seed_base"
 
 
+@pytest.mark.slow
 def test_package_release_produces_expected_files() -> None:
     """package-release produces MANIFEST, BENCHMARK_CARD, metadata, results.json, plots/, tables/, receipts/, fhir/."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -92,6 +94,7 @@ def test_package_release_produces_expected_files() -> None:
         assert meta["profile"] == "minimal"
 
 
+@pytest.mark.slow
 def test_package_release_paper_v01_smoke() -> None:
     """paper_v0.1 profile with LABTRUST_PAPER_SMOKE=1 produces complete self-contained artifact dir."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -146,6 +149,7 @@ def test_package_release_paper_v01_smoke() -> None:
         )
 
 
+@pytest.mark.slow
 def test_package_release_paper_v01_cli() -> None:
     """CLI: labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir> works offline."""
     with tempfile.TemporaryDirectory() as tmp:

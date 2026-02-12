@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\policy\invariants_registry.py
+# hypothesis_version: 6.151.6
+
+['allow_when', 'description', 'enforcement_hint', 'exception_hooks', 'invariant_id', 'invariants', 'logic_template', 'med', 'override_token_types', 'parameters', 'reason_code', 'scope', 'severity', 'signals', 'state', 'system', 'title', 'triggers', 'type', 'utf-8']

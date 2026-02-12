@@ -5,6 +5,12 @@ from labtrust_gym.security.adversarial_detection import (
     detect_adversarial,
     load_adversarial_detection_policy,
 )
+from labtrust_gym.security.prompt_injection_defense import (
+    PreLLMResult,
+    load_prompt_injection_defense_policy,
+    output_consistency_check,
+    pre_llm_prompt_injection_check,
+)
 from labtrust_gym.security.agent_capabilities import (
     AGENT_CAPABILITY_DENY,
     AGENT_OVERRIDE_BUDGET_EXCEEDED,
@@ -38,6 +44,10 @@ from labtrust_gym.security.secret_scrubber import (
 
 __all__ = [
     "AGENT_CAPABILITY_DENY",
+    "PreLLMResult",
+    "output_consistency_check",
+    "pre_llm_prompt_injection_check",
+    "load_prompt_injection_defense_policy",
     "AGENT_OVERRIDE_BUDGET_EXCEEDED",
     "AGENT_RATE_LIMIT",
     "DetectionResult",

@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\llm_auction_bidder.py
+# hypothesis_version: 6.151.6
+
+[0.0, 3.0, 10.0, 'INJ-BID-SPOOF-001', 'INJ-COLLUSION-001', 'MOVE', 'NOOP', 'START_RUN', 'STAT', 'URGENT', 'W', 'Z_SORTING_LANES', 'action_index', 'action_type', 'agent_id', 'args', 'backend_id', 'bid', 'bundle', 'comms', 'constraints', 'cost', 'deterministic_bid', 'device', 'device_id', 'device_zone', 'estimated_cost_usd', 'from_zone', 'generate_proposal', 'graph_edges', 'horizon_steps', 'injection_active', 'injection_id', 'latency_ms', 'llm_auction_bidder', 'market', 'meta', 'method_id', 'model_id', 'n/a', 'per_agent', 'per_device', 'policy_summary', 'proposal_id', 'queue_head', 'queue_len', 'reset', 'safe_fallback', 'step_id', 'to_zone', 'tokens_in', 'tokens_out', 'units', 'validation_errors', 'value', 'work', 'work_id', 'zone', 'zone_id', 'zone_layout']

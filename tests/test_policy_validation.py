@@ -108,3 +108,32 @@ def test_validate_all_policy_schemas_includes_all_mapped_files() -> None:
     errors = validate_all_policy_schemas(root)
     assert errors == [], f"All policy schema validations should pass: {errors}"
     assert len(POLICY_FILES_WITH_SCHEMAS) >= 8
+
+
+def test_validate_all_policy_packs_deterministic_order() -> None:
+    """Validate each policy pack in POLICY_FILES_WITH_SCHEMAS in fixed order; CI must be deterministic."""
+    from labtrust_gym.policy.validate import POLICY_FILES_WITH_SCHEMAS, validate_policy_file_against_schema
+
+    root = _repo_root()
+    for policy_rel_path, schema_name in POLICY_FILES_WITH_SCHEMAS:
+        errs = validate_policy_file_against_schema(root, policy_rel_path, schema_name)
+        assert errs == [], f"{policy_rel_path} vs {schema_name}: {errs}"
+
+
+def test_policy_and_design_docs_contain_no_placeholder_string() -> None:
+    """Policy and related design docs must not contain the literal 'placeholder' (use demo/unset/redact as appropriate)."""
+    root = _repo_root()
+    policy_dir = root / "policy"
+    design_dir = root / "docs" / "design"
+    bad: list[tuple[str, int, str]] = []
+    for directory in (policy_dir, design_dir):
+        if not directory.is_dir():
+            continue
+        for path in directory.rglob("*"):
+            if path.suffix not in (".yaml", ".yml", ".json", ".md"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for i, line in enumerate(text.splitlines(), start=1):
+                if "placeholder" in line.lower():
+                    bad.append((str(path.relative_to(root)), i, line.strip()[:80]))
+    assert not bad, "Policy/design must not contain 'placeholder': " + str(bad)

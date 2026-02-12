@@ -88,14 +88,14 @@ Zones and devices use fixed lists aligned with the engine’s default layout (`D
 
 ## Action interface (MVP)
 
-- **Space:** `Discrete(NUM_ACTION_TYPES)` per agent (e.g. 3: NOOP, TICK, QUEUE_RUN placeholder).
+- **Space:** `Discrete(NUM_ACTION_TYPES)` per agent (e.g. 3: NOOP, TICK, QUEUE_RUN).
 - **Semantics:** Each action is a discrete index. The wrapper maps it to an engine event (action_type, args, token_refs, reason_code) via `_action_to_event`. Extended actions (e.g. device_id, work_id) can be passed later via a structured action space or `infos` without changing the engine.
 
 Current mapping:
 
 - `0` (NOOP): engine event `action_type="NOOP"`, empty args.
 - `1` (TICK): engine event `action_type="TICK"` (door timers, zone breach).
-- `2` (placeholder): `QUEUE_RUN` with a default device and placeholder work_id (for testing).
+- `2`: `QUEUE_RUN` with a default device and default work_id (for testing).
 
 Actions are deterministic given the same action indices.
 

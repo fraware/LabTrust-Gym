@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\allocation\__init__.py
+# hypothesis_version: 6.151.6
+
+['AuctionAllocator', 'BID_FORBIDDEN', 'PriceSignals', 'WorkItem', 'build_price_signals', 'compute_bid', 'gini_coefficient', 'run_auction']

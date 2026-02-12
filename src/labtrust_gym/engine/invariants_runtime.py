@@ -311,20 +311,41 @@ def _check_read_back_confirmed(
     return None
 
 
-_TEMPLATE_HANDLERS: dict[tuple[str, str], Callable[..., tuple[bool, str | None, dict[str, Any] | None] | None]] = {
-    ("state", "adjacency"): _check_adjacency,
-    ("state", "colocation"): _check_colocation,
-    ("state", "restricted_door_or_zone"): _check_restricted_door_or_zone,
-    ("temporal", "door_open_duration"): _check_door_open_duration,
-    ("state", "token_active"): _check_token_active,
-    ("state", "token_not_revoked"): _check_token_revoked,
-    ("state", "critical_acked"): _check_critical_acked,
-    ("state", "stability_pass"): _check_stability_pass,
-    ("state", "cold_chain_ok"): _check_cold_chain_ok,
-    ("state", "coag_fill_valid"): _check_coag_fill_valid,
-    ("state", "token_scope_ok"): _check_token_scope_ok,
-    ("state", "read_back_confirmed"): _check_read_back_confirmed,
-}
+# Registry: (logic_type, check_name) -> handler(env, event, params) -> (passed, reason_code, details) | None.
+# Built-in handlers are registered below; external packages can call register_invariant_handler().
+InvariantHandler = Callable[
+    [Any, dict[str, Any], dict[str, Any]],
+    tuple[bool, str | None, dict[str, Any] | None] | None,
+]
+_TEMPLATE_HANDLERS: dict[tuple[str, str], InvariantHandler] = {}
+
+
+def register_invariant_handler(
+    logic_type: str,
+    check_name: str,
+    handler: InvariantHandler,
+) -> None:
+    """Register an invariant logic handler for (logic_type, check_name). Overwrites if present."""
+    _TEMPLATE_HANDLERS[(logic_type, check_name)] = handler
+
+
+def _register_builtin_invariant_handlers() -> None:
+    """Populate registry with built-in handlers."""
+    register_invariant_handler("state", "adjacency", _check_adjacency)
+    register_invariant_handler("state", "colocation", _check_colocation)
+    register_invariant_handler("state", "restricted_door_or_zone", _check_restricted_door_or_zone)
+    register_invariant_handler("temporal", "door_open_duration", _check_door_open_duration)
+    register_invariant_handler("state", "token_active", _check_token_active)
+    register_invariant_handler("state", "token_not_revoked", _check_token_revoked)
+    register_invariant_handler("state", "critical_acked", _check_critical_acked)
+    register_invariant_handler("state", "stability_pass", _check_stability_pass)
+    register_invariant_handler("state", "cold_chain_ok", _check_cold_chain_ok)
+    register_invariant_handler("state", "coag_fill_valid", _check_coag_fill_valid)
+    register_invariant_handler("state", "token_scope_ok", _check_token_scope_ok)
+    register_invariant_handler("state", "read_back_confirmed", _check_read_back_confirmed)
+
+
+_register_builtin_invariant_handlers()
 
 
 class InvariantsRuntime:

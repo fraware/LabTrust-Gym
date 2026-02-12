@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\security\adversarial_detection.py
+# hypothesis_version: 6.151.6
+
+[100, 2000, 5000, 100000, '0', '0.1', '1', '2', '3', 'Content-Type', 'NOOP', 'POST', 'REQUIRE_HUMAN_REVIEW', 'THROTTLE_AGENT', 'application/json', 'content', 'flags', 'id', 'llm_messages', 'llm_output_text', 'max_text_length', 'pattern', 'patterns', 'policy', 're:', 'reason_code', 'scenario_notes', 'security', 'severity', 'severity_threshold', 'specimen_notes', 'suggested_actions', 'text', 'true', 'use_classifier', 'utf-8', 'version', 'yes']

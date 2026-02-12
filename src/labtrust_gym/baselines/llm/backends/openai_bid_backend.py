@@ -94,6 +94,7 @@ class OpenAIBidBackend:
         state_digest: dict[str, Any],
         step_id: int,
         method_id: str,
+        **kwargs: Any,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Return (proposal_dict with market[], meta). On error return minimal valid proposal and meta."""
         from labtrust_gym.pipeline import check_network_allowed

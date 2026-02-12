@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\policy\prompts_v02.py
+# hypothesis_version: 6.151.6
+
+['0.2', 'COORD', 'PREANALYTICS', 'RUNNER', 'TRANSPORT', '[]', 'coordinator', 'developer_prompt', 'explicit', 'llm', 'ops', 'policy', 'prompts.v0.2.yaml', 'rendering_rules', 'role_overlays', 'runner', 'samples', 'schema_version', 'system_prompt', 'untrusted_notes', 'user_template', 'utf-8', '{{now_ts_s}}', '{{partner_id}}', '{{role_id}}', '{{timing_mode}}', '{}']

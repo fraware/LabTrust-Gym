@@ -92,7 +92,7 @@ def _write_security_report(pack_dir: Path, out_dir: Path) -> bool:
     lines.extend([
         "## Artifacts",
         "",
-        f"- [pack_gate.md]({rel_gate}) – per-cell verdict (PASS / FAIL / not_supported).",
+        f"- [pack_gate.md]({rel_gate}) – per-cell verdict (PASS / FAIL / SKIP / not_supported).",
         f"- [SECURITY/coordination_risk_matrix.md]({rel_risk}) – method x injection outcomes (when present).",
         "",
         "This report ties the coordination decision and risk register to the security pack evidence.",
@@ -277,7 +277,7 @@ def build_lab_coordination_report(
         "",
         "## How to interpret",
         "",
-        "- **pack_gate.md**: Each row is a cell (scale, method, injection). Verdict PASS means the cell met the gate rule for that injection.",
+        "- **pack_gate.md**: Each row is a cell (scale, method, injection). PASS = threshold met; FAIL = threshold violated (with evidence); SKIP = not evaluated (not_applicable, no_data, or disabled_by_config); not_supported = capability not present.",
         "- **coordination_risk_matrix**: Security metrics (attack_success_rate, detection_latency_steps, verdict) per method and injection.",
         "- **SOTA leaderboard**: Methods ranked by aggregate metrics over all cells; use for throughput vs safety trade-offs.",
         "- **COORDINATION_DECISION**: The recommended method per scale under the selection policy (constraints + maximize_overall_score).",

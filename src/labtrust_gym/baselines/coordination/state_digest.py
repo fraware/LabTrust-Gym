@@ -3,7 +3,7 @@ Deterministic, bounded, non-sensitive state digest for LLM central planner.
 
 Builds a global state digest from obs (per-agent), infos, and step t:
 - per_agent: zone, task, last_action, local queue length
-- per_device: state, queue head, utilization (placeholder when no timing)
+- per_device: state, queue head, utilization (default when no timing)
 - per_specimen: stage, priority (STAT/ROUTINE), SLA remaining (bounded count)
 - comms_stats: msg_count, drop_rate
 """
