@@ -22,6 +22,92 @@ try:
 except ImportError:
     _HAS_MPL = False
 
+# Professional style: clean sans-serif, light grid, consistent palette
+_PLOT_STYLE = {
+    "figure.facecolor": "white",
+    "axes.facecolor": "#fafafa",
+    "axes.edgecolor": "#333333",
+    "axes.linewidth": 1.0,
+    "axes.grid": True,
+    "axes.grid.which": "both",
+    "grid.alpha": 0.28,
+    "grid.color": "#cccccc",
+    "axes.axisbelow": True,
+    "font.family": "sans-serif",
+    "font.sans-serif": ["DejaVu Sans", "Helvetica", "Arial", "sans-serif"],
+    "font.size": 10,
+    "axes.titlesize": 11,
+    "axes.labelsize": 10,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+    "legend.fontsize": 9,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "text.color": "#111111",
+    "axes.labelcolor": "#111111",
+    "xtick.color": "#333333",
+    "ytick.color": "#333333",
+}
+_PLOT_PALETTE = [
+    "#2e7d32", "#1565c0", "#c62828", "#6a1b9a",
+    "#ef6c00", "#00838f", "#7b1fa2", "#558b2f",
+]
+
+# Dark theme: dark background, light grid and text
+_PLOT_STYLE_DARK = {
+    "figure.facecolor": "#1e1e1e",
+    "axes.facecolor": "#2d2d2d",
+    "axes.edgecolor": "#b0b0b0",
+    "axes.linewidth": 1.0,
+    "axes.grid": True,
+    "axes.grid.which": "both",
+    "grid.alpha": 0.35,
+    "grid.color": "#505050",
+    "axes.axisbelow": True,
+    "font.family": "sans-serif",
+    "font.sans-serif": ["DejaVu Sans", "Helvetica", "Arial", "sans-serif"],
+    "font.size": 10,
+    "axes.titlesize": 11,
+    "axes.labelsize": 10,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+    "legend.fontsize": 9,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "text.color": "#e8e8e8",
+    "axes.labelcolor": "#e8e8e8",
+    "xtick.color": "#b0b0b0",
+    "ytick.color": "#b0b0b0",
+}
+_PLOT_PALETTE_DARK = [
+    "#81c784", "#64b5f6", "#e57373", "#ba68c8",
+    "#ffb74d", "#4dd0e1", "#ce93d8", "#aed581",
+]
+
+
+# Set by _apply_plot_style so plot functions use the active theme
+_CURRENT_PALETTE: list[str] = _PLOT_PALETTE.copy()
+_CURRENT_EDGE = "#333333"  # light theme default; dark theme uses lighter edge
+
+
+def _apply_plot_style(theme: str = "light") -> None:
+    """Apply a consistent, publication-ready style. theme: 'light' or 'dark'."""
+    global _CURRENT_PALETTE, _CURRENT_EDGE
+    if not _HAS_MPL:
+        return
+    if theme == "dark":
+        plt.rcParams.update(_PLOT_STYLE_DARK)
+        _CURRENT_PALETTE = _PLOT_PALETTE_DARK.copy()
+        _CURRENT_EDGE = "#b0b0b0"
+    else:
+        plt.rcParams.update(_PLOT_STYLE)
+        _CURRENT_PALETTE = _PLOT_PALETTE.copy()
+        _CURRENT_EDGE = "#333333"
+    try:
+        plt.rcParams["axes.prop_cycle"] = plt.cycler(color=_CURRENT_PALETTE)
+    except Exception:
+        pass
+
 
 def _load_study_results(
     out_dir: Path,
@@ -277,10 +363,25 @@ def _plot_throughput_vs_violations(
         if condition_labels and len(condition_labels) == len(condition_ids)
         else condition_ids
     )
-    plt.figure(figsize=(5, 4))
-    plt.scatter(xs, ys)
+    plt.figure(figsize=(5.5, 4.2))
+    plt.scatter(
+        xs, ys,
+        c=_CURRENT_PALETTE[0],
+        s=72,
+        alpha=0.85,
+        edgecolors=_CURRENT_EDGE,
+        linewidths=0.8,
+        zorder=2,
+    )
     for i, lab in enumerate(labels):
-        plt.annotate(lab, (xs[i], ys[i]), fontsize=8, alpha=0.8)
+        plt.annotate(
+            lab,
+            (xs[i], ys[i]),
+            fontsize=8,
+            alpha=0.9,
+            xytext=(4, 4),
+            textcoords="offset points",
+        )
     plt.xlabel("Violations (total)")
     plt.ylabel("Throughput (mean)")
     title = "Pareto: Throughput vs violations"
@@ -325,10 +426,25 @@ def _plot_trust_cost_vs_p95_tat(
         if condition_labels and len(condition_labels) == len(condition_ids)
         else condition_ids
     )
-    plt.figure(figsize=(5, 4))
-    plt.scatter(xs, ys)
+    plt.figure(figsize=(5.5, 4.2))
+    plt.scatter(
+        xs, ys,
+        c=_CURRENT_PALETTE[1],
+        s=72,
+        alpha=0.85,
+        edgecolors=_CURRENT_EDGE,
+        linewidths=0.8,
+        zorder=2,
+    )
     for i, lab in enumerate(labels):
-        plt.annotate(lab, (xs[i], ys[i]), fontsize=8, alpha=0.8)
+        plt.annotate(
+            lab,
+            (xs[i], ys[i]),
+            fontsize=8,
+            alpha=0.9,
+            xytext=(4, 4),
+            textcoords="offset points",
+        )
     plt.xlabel("p95 TAT (s)")
     plt.ylabel("Trust cost (tokens consumed + minted, mean)")
     title = "Pareto: Trust cost vs p95 TAT"
@@ -361,8 +477,15 @@ def _plot_violations_by_invariant_id(
     if not inv_ids:
         inv_ids = ["(none)"]
         counts = [0]
-    plt.figure(figsize=(8, 4))
-    plt.bar(range(len(inv_ids)), counts, tick_label=inv_ids)
+    plt.figure(figsize=(8, 4.2))
+    plt.bar(
+        range(len(inv_ids)),
+        counts,
+        tick_label=inv_ids,
+        color=_CURRENT_PALETTE[2],
+        edgecolor=_CURRENT_EDGE,
+        linewidth=0.6,
+    )
     plt.xticks(rotation=45, ha="right")
     plt.ylabel("Count")
     title = "Violations by invariant_id"
@@ -395,8 +518,15 @@ def _plot_blocked_top10(
     if not labels:
         labels = ["(none)"]
         counts = [0]
-    plt.figure(figsize=(8, 4))
-    plt.bar(range(len(labels)), counts, tick_label=labels)
+    plt.figure(figsize=(8, 4.2))
+    plt.bar(
+        range(len(labels)),
+        counts,
+        tick_label=labels,
+        color=_CURRENT_PALETTE[3],
+        edgecolor=_CURRENT_EDGE,
+        linewidth=0.6,
+    )
     plt.xticks(rotation=45, ha="right")
     plt.ylabel("Count")
     title = "Blocked by reason_code (top 10)"
@@ -429,8 +559,15 @@ def _plot_critical_compliance_by_condition(
         cc = agg_per_cond.get(cid) or {}
         v = cc.get("critical_compliance_mean")
         vals.append(v if v is not None else 0.0)
-    plt.figure(figsize=(6, 4))
-    plt.bar(range(len(condition_ids)), vals, tick_label=condition_ids)
+    plt.figure(figsize=(6, 4.2))
+    plt.bar(
+        range(len(condition_ids)),
+        vals,
+        tick_label=condition_ids,
+        color=_CURRENT_PALETTE[4],
+        edgecolor=_CURRENT_EDGE,
+        linewidth=0.6,
+    )
     plt.xticks(rotation=45, ha="right")
     plt.ylabel("Critical compliance rate")
     title = "Critical compliance rate by condition"
@@ -449,6 +586,102 @@ def _plot_critical_compliance_by_condition(
     plt.tight_layout()
     plt.savefig(fig_dir / "critical_compliance_by_condition.png", dpi=150)
     plt.savefig(fig_dir / "critical_compliance_by_condition.svg")
+    plt.close()
+
+
+def _plot_throughput_box_by_condition(
+    condition_ids: list[str],
+    results_list: list[dict[str, Any]],
+    fig_dir: Path,
+    condition_labels: list[str] | None = None,
+    subtitle: str | None = None,
+) -> None:
+    """Box plot: distribution of per-episode throughput per condition."""
+    data_by_cond: list[list[float]] = []
+    for results in results_list:
+        vals: list[float] = []
+        for ep in results.get("episodes") or []:
+            m = ep.get("metrics") or {}
+            vals.append(float(m.get("throughput", 0)))
+        data_by_cond.append(vals if vals else [0.0])
+    labels = (
+        condition_labels
+        if condition_labels and len(condition_labels) == len(condition_ids)
+        else condition_ids
+    )
+    fig, ax = plt.subplots(figsize=(max(6, len(condition_ids) * 0.8), 4.2))
+    bp = ax.boxplot(
+        data_by_cond,
+        tick_labels=labels,
+        patch_artist=True,
+        notch=False,
+        showmeans=True,
+    )
+    for patch in bp["boxes"]:
+        patch.set_facecolor(_CURRENT_PALETTE[0])
+        patch.set_alpha(0.7)
+        patch.set_edgecolor(_CURRENT_EDGE)
+    ax.set_ylabel("Throughput (per episode)")
+    title = "Throughput distribution by condition"
+    if subtitle:
+        title += f"\n{subtitle}"
+    ax.set_title(title, fontsize=10)
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    plt.savefig(fig_dir / "throughput_box_by_condition.png", dpi=150)
+    plt.savefig(fig_dir / "throughput_box_by_condition.svg")
+    plt.close()
+
+
+def _plot_metrics_overview(
+    condition_ids: list[str],
+    agg_per_cond: dict[str, dict[str, Any]],
+    fig_dir: Path,
+    condition_labels: list[str] | None = None,
+    subtitle: str | None = None,
+) -> None:
+    """Three horizontal bar charts: throughput mean, violations total, p95 TAT mean."""
+    labels = (
+        condition_labels
+        if condition_labels and len(condition_labels) == len(condition_ids)
+        else condition_ids
+    )
+    n = len(condition_ids)
+    y_pos = list(range(n))
+    thr = [agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids]
+    viol = [agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids]
+    p95_raw = [
+        agg_per_cond.get(cid, {}).get("p95_tat_mean") for cid in condition_ids
+    ]
+    p95 = [x if x is not None else 0.0 for x in p95_raw]
+
+    fig, (ax1, ax2, ax3) = plt.subplots(
+        1, 3, figsize=(12, max(4.2, n * 0.35)), sharey=True
+    )
+    ax1.barh(y_pos, thr, color=_CURRENT_PALETTE[0], edgecolor=_CURRENT_EDGE, height=0.7)
+    ax1.set_xlabel("Throughput (mean)")
+    ax1.set_yticks(y_pos)
+    ax1.set_yticklabels(labels, fontsize=8)
+    ax1.set_title("Throughput")
+    ax1.invert_yaxis()
+
+    ax2.barh(y_pos, viol, color=_CURRENT_PALETTE[2], edgecolor=_CURRENT_EDGE, height=0.7)
+    ax2.set_xlabel("Violations (total)")
+    ax2.set_title("Violations")
+    ax2.invert_yaxis()
+
+    ax3.barh(y_pos, p95, color=_CURRENT_PALETTE[1], edgecolor=_CURRENT_EDGE, height=0.7)
+    ax3.set_xlabel("p95 TAT (s)")
+    ax3.set_title("p95 turnaround")
+    ax3.invert_yaxis()
+
+    title = "Metrics overview by condition"
+    if subtitle:
+        title += f"\n{subtitle}"
+    fig.suptitle(title, fontsize=10, y=1.02)
+    plt.tight_layout()
+    plt.savefig(fig_dir / "metrics_overview.png", dpi=150)
+    plt.savefig(fig_dir / "metrics_overview.svg")
     plt.close()
 
 
@@ -547,16 +780,20 @@ def _plot_pack_gate_heatmap(
         for j, inj in enumerate(injections):
             v = agg.get((m, inj), "unknown")
             data[i, j] = color_val.get(v, 1)
-    plt.figure(figsize=(max(4, len(injections) * 0.6), max(3, len(methods) * 0.4)))
-    plt.imshow(data, aspect="auto", cmap="RdYlGn", vmin=0, vmax=2)
-    plt.colorbar(ticks=[0, 1, 2], label="Verdict").set_ticklabels(
-        ["PASS", "SKIP/not_supported", "FAIL"]
+    fig, ax = plt.subplots(
+        figsize=(max(5, len(injections) * 0.55), max(3.5, len(methods) * 0.45))
     )
-    plt.xticks(range(len(injections)), injections, rotation=45, ha="right")
-    plt.yticks(range(len(methods)), methods)
-    plt.xlabel("Injection")
-    plt.ylabel("Method")
-    plt.title("Coordination pack gate: method x injection")
+    im = ax.imshow(data, aspect="auto", cmap="RdYlGn", vmin=0, vmax=2)
+    cbar = plt.colorbar(im, ax=ax, ticks=[0, 1, 2], shrink=0.8)
+    cbar.set_label("Verdict", fontsize=10)
+    cbar.ax.set_yticklabels(["PASS", "SKIP / N/A", "FAIL"])
+    ax.set_xticks(range(len(injections)))
+    ax.set_xticklabels(injections, rotation=45, ha="right")
+    ax.set_yticks(range(len(methods)))
+    ax.set_yticklabels(methods)
+    ax.set_xlabel("Injection")
+    ax.set_ylabel("Method")
+    ax.set_title("Coordination pack gate: method x injection")
     plt.tight_layout()
     plt.savefig(fig_dir / "pack_gate_heatmap.png", dpi=150)
     plt.savefig(fig_dir / "pack_gate_heatmap.svg")
@@ -616,10 +853,24 @@ def _plot_resilience_vs_p95_tat(rows: list[dict[str, Any]], fig_dir: Path) -> No
             labels.append(f"{r.get('method_id', '')}/{r.get('injection_id', '')}")
     if not xs:
         return
-    plt.figure(figsize=(6, 4))
-    plt.scatter(xs, ys)
+    plt.figure(figsize=(6, 4.2))
+    plt.scatter(
+        xs, ys,
+        c=_CURRENT_PALETTE[0],
+        s=64,
+        alpha=0.85,
+        edgecolors=_CURRENT_EDGE,
+        linewidths=0.7,
+        zorder=2,
+    )
     for i, lab in enumerate(labels):
-        plt.annotate(lab, (xs[i], ys[i]), fontsize=7, alpha=0.8)
+        plt.annotate(
+            lab, (xs[i], ys[i]),
+            fontsize=7,
+            alpha=0.9,
+            xytext=(3, 3),
+            textcoords="offset points",
+        )
     plt.xlabel("p95 TAT (s)")
     plt.ylabel("Resilience score")
     plt.title("Resilience score vs p95 turnaround time")
@@ -652,8 +903,15 @@ def _plot_attack_success_rate_bar(rows: list[dict[str, Any]], fig_dir: Path) -> 
     if not keys:
         return
     x_labels = [f"{m}\n{i}" for m, i in keys]
-    plt.figure(figsize=(max(8, len(keys) * 0.5), 4))
-    plt.bar(range(len(rates)), rates, tick_label=x_labels)
+    plt.figure(figsize=(max(8, len(keys) * 0.5), 4.2))
+    plt.bar(
+        range(len(rates)),
+        rates,
+        tick_label=x_labels,
+        color=_CURRENT_PALETTE[5],
+        edgecolor=_CURRENT_EDGE,
+        linewidth=0.6,
+    )
     plt.xticks(rotation=45, ha="right")
     plt.ylabel("Attack success rate")
     plt.title("Attack success rate by method and injection")
@@ -711,6 +969,8 @@ def _write_run_report(
         "- `violations_by_invariant_id.png` / `.svg`: Which invariants were violated (aggregate).",
         "- `blocked_by_reason_code_top10.png` / `.svg`: Top reason codes for blocked actions.",
         "- `critical_compliance_by_condition.png` / `.svg`: Critical communication compliance per condition.",
+        "- `throughput_box_by_condition.png` / `.svg`: Per-episode throughput distribution by condition.",
+        "- `metrics_overview.png` / `.svg`: Dashboard: throughput, violations, p95 TAT by condition.",
         "",
         "## Data tables (figures/data_tables/)",
         "- `summary.csv`, `paper_table.md`: Per-condition aggregates (paper-ready).",
@@ -790,10 +1050,11 @@ def _write_run_summary(out_dir: Path, manifest: dict[str, Any]) -> None:
     summary_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def make_plots(out_dir: Path) -> Path:
+def make_plots(out_dir: Path, theme: str = "light") -> Path:
     """
     Read study out_dir, write data tables (CSV), summary table (summary.csv + paper_table.md),
     and figures (PNG + SVG) to out_dir/figures/ and out_dir/figures/data_tables/.
+    theme: 'light' (default) or 'dark' for figure style.
     Pareto scatter plots and summary table used in docs/paper_ready.md.
     If summary/summary_coord.csv exists (coordination study), also produce
     resilience vs p95_tat and attack_success_rate bar. If pack_summary.csv exists
@@ -802,6 +1063,7 @@ def make_plots(out_dir: Path) -> Path:
     """
     if not _HAS_MPL:
         raise ImportError("matplotlib required for make_plots; pip install matplotlib")
+    _apply_plot_style(theme=theme)
     out_dir = Path(out_dir)
     fig_dir = out_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
@@ -865,6 +1127,20 @@ def make_plots(out_dir: Path) -> Path:
         condition_ids,
         agg_per_cond,
         fig_dir,
+        subtitle=subtitle,
+    )
+    _plot_throughput_box_by_condition(
+        condition_ids,
+        results_list,
+        fig_dir,
+        condition_labels=condition_labels,
+        subtitle=subtitle,
+    )
+    _plot_metrics_overview(
+        condition_ids,
+        agg_per_cond,
+        fig_dir,
+        condition_labels=condition_labels,
         subtitle=subtitle,
     )
 

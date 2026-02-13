@@ -22,15 +22,15 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $Methods = $MethodsStr -split '\s+'
 
 foreach ($id in $Methods) {
-  Write-Host "Layer1 sanity: $id TaskG..."
-  & labtrust run-benchmark --task TaskG_COORD_SCALE --coord-method $id --scale small_smoke --episodes 3 --seed $TaskGSeed --out "$OutDir/${id}_taskg.json" --llm-backend deterministic
+  Write-Host "Layer1 sanity: $id coord_scale..."
+  & labtrust run-benchmark --task coord_scale --coord-method $id --scale small_smoke --episodes 3 --seed $TaskGSeed --out "$OutDir/${id}_taskg.json" --llm-backend deterministic
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  Write-Host "Layer1 sanity: $id TaskH $Injection..."
-  & labtrust run-benchmark --task TaskH_COORD_RISK --coord-method $id --injection $Injection --scale small_smoke --episodes 3 --seed $TaskHSeed --out "$OutDir/${id}_taskh_poison.json" --llm-backend deterministic
+  Write-Host "Layer1 sanity: $id coord_risk $Injection..."
+  & labtrust run-benchmark --task coord_risk --coord-method $id --injection $Injection --scale small_smoke --episodes 3 --seed $TaskHSeed --out "$OutDir/${id}_taskh_poison.json" --llm-backend deterministic
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   if ($env:LABTRUST_SANITY_FULL -eq "1") {
-    Write-Host "Layer1 sanity: $id TaskH baseline (none)..."
-    & labtrust run-benchmark --task TaskH_COORD_RISK --coord-method $id --scale small_smoke --episodes 1 --seed $TaskHSeed --out "$OutDir/${id}_taskh_none.json" --llm-backend deterministic
+    Write-Host "Layer1 sanity: $id coord_risk baseline (none)..."
+    & labtrust run-benchmark --task coord_risk --coord-method $id --scale small_smoke --episodes 1 --seed $TaskHSeed --out "$OutDir/${id}_taskh_none.json" --llm-backend deterministic
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   }
 }

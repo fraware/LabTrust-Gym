@@ -141,8 +141,23 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 - `policy_versions`: emits_vocab, catalogue_schema versions.
 - `git_commit_hash`: Current commit (if available).
 - `episodes`: List of `{ seed, metrics }` per episode.
-- **metadata** (optional, when `--llm-backend` is set): `llm_backend_id`, `llm_model_id`, `llm_error_rate`, `mean_llm_latency_ms`. See [Live LLM benchmark mode](llm_live.md).
+- **metadata**: Always includes `run_duration_wall_s`, `run_duration_episodes_per_s`, `python_version`, `platform`. When `--llm-backend` is set also includes `llm_backend_id`, `llm_model_id`, `llm_error_rate`, `mean_llm_latency_ms`. See [Metrics contract](metrics_contract.md#run-metadata-optional) and [Live LLM benchmark mode](llm_live.md).
 - **coordination** (optional, coord_scale/coord_risk): `comm.msg_count`, `comm.p95_latency_ms`, `comm.drop_rate`; `coordination.timing` (stale_action_rate, mean_view_age_ms, p95_view_age_ms); `coordination.route` (replan_rate, mean_plan_time_ms, deadlock_avoids); `coordination.alloc` (gini_work_distribution, mean_bid, rebid_rate). Summary CSV and Pareto report include **resilience.component_perf**, **resilience.component_safety**, **resilience.component_security**, **resilience.component_coordination** when resilience scoring policy is used.
+
+## Benchmark artifacts
+
+| Artifact | Produced by | Contract |
+|----------|-------------|----------|
+| results.json | run-benchmark, eval-agent, generate-official-baselines | results.v0.2 (policy/schemas/results.v0.2.schema.json) |
+| summary_v0.2.csv | summarize-results | CI-stable; mean/std per metric |
+| summary_v0.3.csv | summarize-results | Paper-grade; quantiles, 95% CI |
+| summary.csv | summarize-results | Same as summary_v0.2.csv |
+| summary.md | summarize-results | Markdown table from v0.2 aggregates; when run_info exists, includes a **Run info** section (table) and a footer. |
+| run_info.csv | summarize-results (when any result has metadata.run_duration_wall_s) | run_duration_wall_s, episodes_per_second per result |
+| determinism_report.json, determinism_report.md | determinism-report | Hashes and v0.2 metrics comparison; markdown includes a **Checks** summary (e.g. 4/4 passed), run configuration table, result status, and hash comparison table. |
+| pack_summary.csv, pack_gate.md | run-coordination-security-pack | Method x injection matrix; gate verdicts |
+
+See [Metrics contract](metrics_contract.md) for units and aggregation rules.
 
 ## CLI
 
@@ -183,6 +198,10 @@ labtrust run-benchmark --task throughput_sla --episodes 50 --seed 123 --out resu
 ## Determinism
 
 Episodes are deterministic for a given seed: same task and base_seed produce identical episode metrics across runs. The smoke test runs 2 episodes twice with the same seed and asserts identical metrics.
+
+## Long runs and profiling
+
+For Layer 3 or many-episode runs, benchmark harness memory and CPU are not recorded by default. To profile: run with Python's `tracemalloc` (e.g. `python -c "import tracemalloc; tracemalloc.start(); ..."`) or use an external profiler (e.g. py-spy, memory_profiler). Run duration and episodes-per-second are written to `metadata.run_duration_wall_s` and `metadata.run_duration_episodes_per_s` in results.json and to `run_info.csv` when using `summarize-results`.
 
 ## Golden suite (transport and export)
 

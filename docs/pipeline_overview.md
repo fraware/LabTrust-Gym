@@ -116,7 +116,7 @@ So: **run → receipts/FHIR/UI bundle**; **verify-bundle** checks one EvidenceBu
 
 ### 11. Plots, reproduce, and release
 
-- **make-plots**: Generate figures and data tables from a study run (e.g. coordination: resilience vs p95_tat, attack_success_rate).
+- **make-plots**: Generate figures and data tables from a study run (`--run <dir>`; optional `--theme light|dark`). Standard study: Pareto scatters, bar charts, throughput box by condition, metrics overview; coordination runs also get resilience vs p95_tat and attack_success_rate.
 - **reproduce**: Reproduce minimal (or full) results + figures with a fixed profile.
 - **package-release**: Build a **release candidate**: reproduce + receipts + FHIR + plots + MANIFEST + benchmark card + summary table. The **paper_v0.1** profile adds security suite, safety case, coordination card, and frozen coordination policy for a paper-ready artifact.
 

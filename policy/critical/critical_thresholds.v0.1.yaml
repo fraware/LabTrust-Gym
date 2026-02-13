@@ -1,6 +1,6 @@
-# Illustrative demo defaults; not clinically validated.
+# Reference defaults (RCPath 2017 style); not clinically validated.
 # Used by engine/critical.py to classify result_criticality: CRIT_A, CRIT_B, or none.
-# Units and codes consistent with RCPath 2017 style; replace with site-calibrated values for clinical use.
+# For production use site-calibrated policy (partner overlay or LABTRUST_POLICY_DIR). See docs/policy_pack.md#production-calibration-critical-thresholds.
 critical_thresholds:
   version: "0.1"
   defaults_rcpath2017:

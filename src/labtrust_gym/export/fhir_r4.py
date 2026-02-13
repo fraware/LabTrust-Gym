@@ -12,6 +12,8 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC
+
+from labtrust_gym.util.json_utils import canonical_json
 from pathlib import Path
 from typing import Any
 
@@ -46,10 +48,6 @@ def _observation_data_absent_reason() -> dict[str, Any]:
             }
         ]
     }
-
-
-def _canonical_json(obj: Any) -> str:
-    return json.dumps(obj, sort_keys=True)
 
 
 def _timestamp_to_fhir_datetime(t_s: int | None) -> str | None:
@@ -391,5 +389,5 @@ def export_fhir(
     if errs:
         raise ValueError("FHIR bundle validation failed: " + "; ".join(errs))
     out_path = out_dir / out_filename
-    out_path.write_text(_canonical_json(bundle) + "\n", encoding="utf-8")
+    out_path.write_text(canonical_json(bundle) + "\n", encoding="utf-8")
     return out_path

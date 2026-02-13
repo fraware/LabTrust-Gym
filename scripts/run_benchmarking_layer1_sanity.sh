@@ -31,13 +31,13 @@ fi
 mkdir -p "$OUT_DIR"
 
 for id in $METHODS; do
-  echo "Layer1 sanity: $id TaskG..."
-  labtrust run-benchmark --task TaskG_COORD_SCALE --coord-method "$id" --scale small_smoke --episodes 3 --seed "$TASKG_SEED" --out "$OUT_DIR/${id}_taskg.json" --llm-backend deterministic || exit 1
-  echo "Layer1 sanity: $id TaskH $INJECTION..."
-  labtrust run-benchmark --task TaskH_COORD_RISK --coord-method "$id" --injection "$INJECTION" --scale small_smoke --episodes 3 --seed "$TASKH_SEED" --out "$OUT_DIR/${id}_taskh_poison.json" --llm-backend deterministic || exit 1
+  echo "Layer1 sanity: $id coord_scale..."
+  labtrust run-benchmark --task coord_scale --coord-method "$id" --scale small_smoke --episodes 3 --seed "$TASKG_SEED" --out "$OUT_DIR/${id}_taskg.json" --llm-backend deterministic || exit 1
+  echo "Layer1 sanity: $id coord_risk $INJECTION..."
+  labtrust run-benchmark --task coord_risk --coord-method "$id" --injection "$INJECTION" --scale small_smoke --episodes 3 --seed "$TASKH_SEED" --out "$OUT_DIR/${id}_taskh_poison.json" --llm-backend deterministic || exit 1
   if [ "${LABTRUST_SANITY_FULL:-0}" = "1" ]; then
-    echo "Layer1 sanity: $id TaskH baseline (none)..."
-    labtrust run-benchmark --task TaskH_COORD_RISK --coord-method "$id" --scale small_smoke --episodes 1 --seed "$TASKH_SEED" --out "$OUT_DIR/${id}_taskh_none.json" --llm-backend deterministic || exit 1
+    echo "Layer1 sanity: $id coord_risk baseline (none)..."
+    labtrust run-benchmark --task coord_risk --coord-method "$id" --scale small_smoke --episodes 1 --seed "$TASKH_SEED" --out "$OUT_DIR/${id}_taskh_none.json" --llm-backend deterministic || exit 1
   fi
 done
 

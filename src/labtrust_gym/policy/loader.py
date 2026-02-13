@@ -14,7 +14,9 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeVar, cast
+
+T = TypeVar("T")
 
 import yaml
 
@@ -78,6 +80,22 @@ def load_yaml(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise PolicyLoadError(path, f"expected mapping, got {type(data).__name__}")
     return data
+
+
+def load_yaml_optional(path: Path, default: T) -> T:
+    """
+    Load a YAML file if it exists; otherwise return default.
+    Raises PolicyLoadError on parse/validation failure when the file exists.
+    """
+    path = Path(path)
+    if not path.exists():
+        return default
+    try:
+        return cast(T, load_yaml(path))
+    except PolicyLoadError:
+        raise
+    except Exception as e:
+        raise PolicyLoadError(path, str(e)) from e
 
 
 def load_policy_file(path: Path) -> dict[str, Any]:

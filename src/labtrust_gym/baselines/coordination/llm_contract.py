@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.util.json_utils import canonical_json as _canonical_json_impl
+
 try:
     import jsonschema
 except ImportError:
@@ -40,9 +42,9 @@ def _load_schema(schema_path: Path | None = None) -> dict[str, Any]:
 def canonical_json(proposal_dict: dict[str, Any]) -> str:
     """
     Canonical JSON string for proposal (deterministic hashing/fingerprinting).
-    sort_keys=True, separators=(',', ':'), no trailing whitespace.
+    Delegates to shared util for consistent format across the codebase.
     """
-    return json.dumps(proposal_dict, sort_keys=True, separators=(",", ":"))
+    return _canonical_json_impl(proposal_dict)
 
 
 def validate_proposal(

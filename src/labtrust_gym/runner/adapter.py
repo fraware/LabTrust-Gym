@@ -5,6 +5,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+from labtrust_gym.engine.event import StepEventDict
+from labtrust_gym.engine.state import InitialStateDict
+
 
 class LabTrustEnvAdapter(ABC):
     """
@@ -19,7 +22,7 @@ class LabTrustEnvAdapter(ABC):
     @abstractmethod
     def reset(
         self,
-        initial_state: dict[str, Any],
+        initial_state: InitialStateDict | dict[str, Any],
         *,
         deterministic: bool,
         rng_seed: int,
@@ -28,7 +31,7 @@ class LabTrustEnvAdapter(ABC):
         ...
 
     @abstractmethod
-    def step(self, event: dict[str, Any]) -> dict[str, Any]:
+    def step(self, event: StepEventDict | dict[str, Any]) -> dict[str, Any]:
         """
         Apply one event.
 

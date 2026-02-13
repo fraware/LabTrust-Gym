@@ -17,6 +17,7 @@ nav:
   - Overview: index.md
   - Installation: installation.md
   - Build your own agent: build_your_own_agent.md
+  - Example agents: example_agents.md
   - Repository structure: repository_structure.md
   - Architecture: architecture.md
   - Systems and threat model: systems_and_threat_model.md
@@ -43,6 +44,7 @@ nav:
     - Risk register (bundle, generate, review): risk_register.md
     - Risk register contract (v0.1): risk_register_contract.v0.1.md
     - Risk register viewer: risk_register_viewer.md
+    - Risk injections (extension contract): risk_injections.md
   - PettingZoo API: pettingzoo_api.md
   - Benchmarks, studies, plots:
     - Benchmarks: benchmarks.md
@@ -74,6 +76,7 @@ nav:
   - Testing strategy (fuzz and metamorphic): testing_strategy.md
   - CI: ci.md
   - STATUS: STATUS.md
+  - Current state and priorities: CURRENT_STATE_AND_PRIORITIES.md
   - Modular fork roadmap (platform and HSL core): MODULAR_FORK_ROADMAP.md
   - Workflow / domain spec: workflow_domain_spec.md
   - Forker guide: FORKER_GUIDE.md

@@ -1,6 +1,9 @@
 # Gate thresholds for the coordination security pack (internal regression).
 # Not the official release pack; used for coordination + security regression only.
 #
+# Supported rule types (see policy/gate_eval.py): attack_success_rate_zero,
+# violations_within_delta, detection_within_steps_or_not_supported.
+#
 # Verdict semantics:
 #   PASS: Rule evaluated and threshold met.
 #   FAIL: Rule evaluated and threshold violated; rationale includes evidence.

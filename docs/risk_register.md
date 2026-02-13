@@ -96,6 +96,12 @@ labtrust export-risk-register --out ./risk_register_out --runs release_paper --i
 6. **Reproduce commands**  
    For each evidence item, the bundle’s `reproduce[]` (and the viewer) show CLI commands to regenerate that evidence. Use them to verify or re-run specific parts of the run set.
 
+## Reserved and legacy injection IDs (out of scope for this release)
+
+Some injection IDs appear in study specs or the risk registry but are **not implemented as full injectors** in this release. They are registered as **NoOpInjector** (passthrough: no observation or action mutation) so that runs and the risk register do not fail when these IDs are referenced. For active fault injection use **INJ-*** IDs from `policy/coordination/injections.v0.2.yaml` (e.g. INJ-COMMS-POISON-001, INJ-COLLUSION-001, INJ-COORD-PROMPT-INJECT-001).
+
+**Reserved no-op IDs:** `none` (no-op baseline for coordination security pack), `inj_tool_selection_noise`, `inj_prompt_injection`, `inj_dos_flood`, `inj_device_fail`, `inj_msg_poison`, `inj_collusion_handoff`, `inj_untrusted_payload`, `inj_memory_tamper`, `inj_stuck_state`, `inj_jailbreak`, `inj_misparam_device`. The ID `inj_poison_obs` has a real implementation (observation poisoning); others use NoOpInjector. See [Risk injections (extension contract)](risk_injections.md) and `RESERVED_NOOP_INJECTION_IDS` in `src/labtrust_gym/security/risk_injections.py`. Implementing full injectors for the remaining reserved IDs is out of scope for this release.
+
 ## External reviewer workflow
 
 Run the dedicated script to produce a bundle from security and coordination smoke (or from provided dirs), validate schema and crosswalk, and optionally verify an evidence bundle:
@@ -122,6 +128,7 @@ See the script header for environment variables (e.g. `LABTRUST_STRICT_COVERAGE=
 
 - [Risk register contract](risk_register_contract.v0.1.md) — Bundle format, fields, validation, determinism
 - [Risk register viewer](risk_register_viewer.md) — Loader modes, UX, reproduce commands
+- [Risk injections (extension contract)](risk_injections.md) — How to implement and register injectors; reserved IDs
 - [Coordination studies](coordination_studies.md) — Coverage gate, study spec, external reviewer checks
 - [Security attack suite](security_attack_suite.md) — SECURITY/ outputs and securitization packet
 - [Official benchmark pack](official_benchmark_pack.md) — Pack layout and run command

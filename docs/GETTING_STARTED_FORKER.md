@@ -190,7 +190,7 @@ Tasks: `throughput_sla`, `stat_insertion`, `qc_cascade`, `adversarial_disruption
 | Command | Description |
 |---------|-------------|
 | `labtrust run-study --spec <yaml> --out <dir>` | Run study from spec. |
-| `labtrust make-plots --run <dir>` | Generate figures and tables from a study run. |
+| `labtrust make-plots --run <dir> [--theme light|dark]` | Generate figures and tables from a study run (light or dark theme). |
 
 ### 5.8 Reproducibility and release
 

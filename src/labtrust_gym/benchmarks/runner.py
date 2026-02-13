@@ -1,8 +1,12 @@
 """
 Benchmark runner: run N episodes for a task, record metrics, output JSON.
 
-Writes results.json with metadata: git commit, policy versions, seeds, config.
-When coordination is used, writes coord_decisions.jsonl (contract v0.1) per episode.
+Flow: run_benchmark builds env/agents, then for each episode calls run_episode;
+episode metrics are collected, then the results payload is built (with optional
+LLM/coordination metadata), validated against results.v0.2 schema, and written.
+Writes results.json with metadata: git commit, policy versions, seeds, config,
+run_duration_wall_s, python_version, platform. When coordination is used,
+writes coord_decisions.jsonl (contract v0.1) per episode.
 """
 
 from __future__ import annotations
@@ -11,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -18,7 +23,12 @@ from labtrust_gym.benchmarks.metrics import (
     compute_episode_metrics,
     get_metrics_aggregator,
 )
+from labtrust_gym.benchmarks.result_builder import normalize_llm_economics
 from labtrust_gym.benchmarks.tasks import BenchmarkTask, get_task
+from labtrust_gym.benchmarks.summarize import (
+    RESULTS_SCHEMA_VERSION,
+    validate_results_v02,
+)
 from labtrust_gym.baselines.coordination.llm_executor import (
     _proposal_hash,
     shield_outcome_hash_from_step_results,
@@ -45,92 +55,6 @@ def _git_commit_hash(cwd: Path | None = None) -> str | None:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     return None
-
-
-def _normalize_llm_economics(
-    raw_llm: dict[str, Any] | None,
-    raw_llm_repair: dict[str, Any] | None,
-    steps: int,
-) -> dict[str, Any]:
-    """
-    Build results.v0.2 canonical coordination.llm block: call_count, total_tokens,
-    tokens_per_step, mean_latency_ms, p95_latency_ms, error_rate, invalid_output_rate,
-    estimated_cost_usd. Fills 0 / null for missing or deterministic.
-    """
-    raw = raw_llm or {}
-    repair = raw_llm_repair or {}
-    steps = max(1, steps)
-
-    calls_main = (
-        raw.get("call_count")
-        if raw.get("call_count") is not None
-        else int(raw.get("proposal_total_count") or 0)
-    )
-    calls_repair = int(repair.get("repair_call_count") or 0)
-    call_count = calls_main + calls_repair
-
-    tokens_in = int(raw.get("tokens_in") or 0)
-    tokens_out = int(raw.get("tokens_out") or 0)
-    tokens_repair = int(repair.get("total_repair_tokens") or 0)
-    total_tokens = tokens_in + tokens_out + tokens_repair
-    tokens_per_step = round((total_tokens / steps), 4) if total_tokens else 0.0
-
-    lat_list = raw.get("latency_ms_list") or []
-    if repair.get("mean_repair_latency_ms") is not None and calls_repair:
-        lat_list = list(lat_list) + [
-            repair["mean_repair_latency_ms"],
-        ] * max(0, calls_repair - 1)
-    mean_latency_ms: float | None = raw.get("latency_ms")
-    if mean_latency_ms is None and repair.get("mean_repair_latency_ms") is not None:
-        mean_latency_ms = repair.get("mean_repair_latency_ms")
-    if mean_latency_ms is None and lat_list:
-        valid = [float(x) for x in lat_list if x is not None]
-        mean_latency_ms = round(sum(valid) / len(valid), 2) if valid else None
-    p95_latency_ms: float | None = None
-    if lat_list:
-        valid = sorted(float(x) for x in lat_list if x is not None)
-        if valid:
-            k = (len(valid) - 1) * 0.95
-            lo = int(k)
-            hi = min(lo + 1, len(valid) - 1)
-            p95_latency_ms = round(
-                valid[lo] + (k - lo) * (valid[hi] - valid[lo]), 2
-            )
-
-    invalid_main = 0
-    if calls_main and raw.get("proposal_total_count"):
-        valid_count = int(raw.get("proposal_valid_count") or 0)
-        invalid_main = max(0, int(raw.get("proposal_total_count") or 0) - valid_count)
-    invalid_repair = int(repair.get("repair_fallback_noop_count") or 0)
-    total_calls = call_count or 1
-    invalid_output_rate = round(
-        (invalid_main + invalid_repair) / total_calls, 4
-    )
-
-    cost = raw.get("estimated_cost_usd")
-    if cost is None:
-        cost = repair.get("estimated_cost_usd")
-    if cost is not None:
-        try:
-            cost = float(cost)
-        except (TypeError, ValueError):
-            cost = None
-
-    out = {
-        "call_count": call_count,
-        "total_tokens": total_tokens,
-        "tokens_per_step": tokens_per_step,
-        "mean_latency_ms": mean_latency_ms,
-        "p95_latency_ms": p95_latency_ms,
-        "error_rate": float(raw.get("error_rate") or 0.0),
-        "invalid_output_rate": invalid_output_rate,
-        "estimated_cost_usd": cost,
-    }
-    if repair.get("fault_injected_rate") is not None:
-        out["fault_injected_rate"] = repair["fault_injected_rate"]
-    if repair.get("fallback_rate") is not None:
-        out["fallback_rate"] = repair["fallback_rate"]
-    return out
 
 
 def _policy_versions(root: Path) -> dict[str, str]:
@@ -711,7 +635,7 @@ def run_episode(
             metrics.setdefault("coordination", {})["llm_repair"] = llm_repair_metrics
         if llm_metrics is not None or llm_repair_metrics is not None:
             steps_count = metrics.get("steps", 1)
-            metrics.setdefault("coordination", {})["llm"] = _normalize_llm_economics(
+            metrics.setdefault("coordination", {})["llm"] = normalize_llm_economics(
                 llm_metrics, llm_repair_metrics, steps_count
             )
         auction_metrics = getattr(
@@ -1946,6 +1870,7 @@ def run_benchmark(
     use_fresh_agents_per_episode = task_name == "adversarial_disruption"
     use_fresh_agents_taskf = task_name == "insider_key_misuse"
 
+    t0_wall = time.perf_counter()
     for ep_idx, ep_seed in enumerate(seeds):
         agents_map = scripted_agents_map
         if use_fresh_agents_per_episode and scripted_agents_map is not None:
@@ -2017,6 +1942,11 @@ def run_benchmark(
             ep_record["llm_episode"] = llm_backend_ref.snapshot_aggregate_metrics()
         episodes_metrics.append(ep_record)
 
+    run_duration_wall_s = time.perf_counter() - t0_wall
+    run_duration_episodes_per_s = (
+        num_episodes / run_duration_wall_s if run_duration_wall_s > 0 else None
+    )
+
     policy_versions = _policy_versions(repo_root)
     git_hash = _git_commit_hash(repo_root)
     partner_id_result = partner_id
@@ -2049,7 +1979,7 @@ def run_benchmark(
     results_llm_backend_id = get_llm_backend_id() or "none"
     non_deterministic = results_mode == "llm_live" and allow_network
     results: dict[str, Any] = {
-        "schema_version": "0.2",
+        "schema_version": RESULTS_SCHEMA_VERSION,
         "pipeline_mode": results_mode,
         "llm_backend_id": results_llm_backend_id,
         "llm_model_id": None,
@@ -2217,6 +2147,25 @@ def run_benchmark(
                 results["metadata"] = {}
             results["metadata"]["recorded_fixtures"] = n
             results["metadata"]["record_fixtures_path"] = str(record_fixtures_path)
+
+    if results.get("metadata") is None:
+        results["metadata"] = {}
+    results["metadata"]["run_duration_wall_s"] = round(run_duration_wall_s, 3)
+    if run_duration_episodes_per_s is not None:
+        results["metadata"]["run_duration_episodes_per_s"] = round(
+            run_duration_episodes_per_s, 4
+        )
+    results["metadata"]["python_version"] = sys.version.split()[0]
+    results["metadata"]["platform"] = sys.platform
+
+    schema_path = repo_root / "policy" / "schemas" / "results.v0.2.schema.json"
+    validation_errors = validate_results_v02(results, schema_path=schema_path)
+    if validation_errors:
+        for msg in validation_errors:
+            print(msg, file=sys.stderr)
+        raise ValueError(
+            f"Results failed schema validation ({len(validation_errors)} error(s)); see stderr"
+        )
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)

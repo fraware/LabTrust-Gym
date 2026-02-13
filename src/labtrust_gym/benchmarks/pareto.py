@@ -245,11 +245,22 @@ def write_pareto_md(
     If cost_data is provided, append a "Cost-aware Pareto front" section.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    objectives = data.get("objectives") or []
+    obj_rows = [f"| {key} | {dirn} |" for key, dirn in objectives]
+    obj_table = (
+        "| Objective | Direction |\n|------------|----------|\n"
+        + ("\n".join(obj_rows) if obj_rows else "| — | — |")
+    )
     lines = [
         "# Pareto evaluation (multi-objective)",
         "",
-        "Objectives: throughput (max), p95 TAT (min), violations (min), security success (max).",
-        "Per-method confidence intervals: 95% bootstrap (deterministic seed).",
+        "Nondominated solutions per scale and cost-aware front. Confidence intervals: 95% bootstrap (deterministic seed).",
+        "",
+        "## Objectives (quick reference)",
+        "",
+        obj_table,
+        "",
+        "---",
         "",
         "## Nondominated front per scale",
         "",
@@ -275,6 +286,8 @@ def write_pareto_md(
         lines.append("")
 
     if cost_data:
+        lines.append("---")
+        lines.append("")
         lines.append("## Cost-aware Pareto front")
         lines.append("")
         lines.append(
@@ -304,6 +317,8 @@ def write_pareto_md(
                 )
             lines.append("")
 
+    lines.append("---")
+    lines.append("")
     lines.append("## Per-method 95% bootstrap CI")
     lines.append("")
     ci = data.get("per_method_ci") or {}
@@ -326,9 +341,11 @@ def write_frontier_svg(
     summary_rows: list[dict[str, Any]],
     fronts_per_scale: dict[str, list[dict[str, Any]]],
     objectives: list[tuple[str, str]] | None = None,
+    theme: str = "light",
 ) -> None:
     """
     Write canonical frontier plot: throughput vs p95_tat, frontier points highlighted.
+    theme: 'light' (default) or 'dark'.
     """
     try:
         import matplotlib
@@ -368,26 +385,64 @@ def write_frontier_svg(
 
     if not xs:
         return
-    fig, ax = plt.subplots(figsize=(6, 4))
+    if theme == "dark":
+        style = {
+            "figure.facecolor": "#1e1e1e",
+            "axes.facecolor": "#2d2d2d",
+            "axes.edgecolor": "#b0b0b0",
+            "axes.grid": True,
+            "grid.alpha": 0.35,
+            "grid.color": "#505050",
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "text.color": "#e8e8e8",
+            "axes.labelcolor": "#e8e8e8",
+            "xtick.color": "#b0b0b0",
+            "ytick.color": "#b0b0b0",
+        }
+        dominated_c, dominated_e = "#606060", "#808080"
+        front_c, front_e = "#81c784", "#4caf50"
+        legend_edge = "#505050"
+    else:
+        style = {
+            "figure.facecolor": "white",
+            "axes.facecolor": "#fafafa",
+            "axes.grid": True,
+            "grid.alpha": 0.28,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+        }
+        dominated_c, dominated_e = "#bdbdbd", "#757575"
+        front_c, front_e = "#2e7d32", "#1b5e20"
+        legend_edge = "#e0e0e0"
+    plt.rcParams.update(style)
+    fig, ax = plt.subplots(figsize=(6.2, 4.2))
     ax.scatter(
         [x for x, f in zip(xs, is_front) if not f],
         [y for y, f in zip(ys, is_front) if not f],
-        c="lightgray",
-        s=24,
-        label="dominated",
+        c=dominated_c,
+        s=36,
+        alpha=0.8,
+        edgecolors=dominated_e,
+        linewidths=0.5,
+        label="Dominated",
+        zorder=1,
     )
     ax.scatter(
         [x for x, f in zip(xs, is_front) if f],
         [y for y, f in zip(ys, is_front) if f],
-        c="C0",
-        s=48,
+        c=front_c,
+        s=80,
         marker="s",
+        edgecolors=front_e,
+        linewidths=1.0,
         label="Pareto front",
+        zorder=2,
     )
     ax.set_xlabel("p95 TAT (s)")
     ax.set_ylabel("Throughput")
     ax.set_title("Pareto: Throughput vs p95 TAT")
-    ax.legend()
+    ax.legend(loc="best", frameon=True, fancybox=False, edgecolor=legend_edge)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
@@ -399,11 +454,12 @@ def write_pareto_artifacts(
     seed: int,
     spec: dict[str, Any] | None = None,
     objectives: list[tuple[str, str]] | None = None,
+    theme: str = "light",
 ) -> None:
     """
     Write PARETO/pareto.json, PARETO/pareto.md, PARETO/frontier.svg.
     Also writes PARETO/pareto_cost.json and adds a Cost-aware Pareto front section to pareto.md.
-    Deterministic given summary_rows and seed.
+    theme: 'light' (default) or 'dark' for frontier.svg. Deterministic given summary_rows and seed.
     """
     pareto_dir = Path(pareto_dir)
     obj = objectives or DEFAULT_OBJECTIVES
@@ -418,4 +474,5 @@ def write_pareto_artifacts(
         summary_rows,
         fronts,
         obj,
+        theme=theme,
     )

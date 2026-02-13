@@ -122,6 +122,8 @@ After a successful run, `<out>` contains:
   PACK_SUMMARY.md
 ```
 
+**Validation:** Each results JSON under `baselines/results/` conforms to `policy/schemas/results.v0.2.schema.json`. You can run `labtrust summarize-results --in <out>/baselines/results/ --out <dir>` and use the summarize module's `validate_results_v02()` (or the CLI validate path) to verify. The pack layout and filenames above are stable for tooling and scripts.
+
 - **baselines/results/**  
   One `results.v0.2`-semantics JSON per task (task name + baseline suffix). Produced by the same logic as `generate-official-baselines` but driven by the pack policy.
 

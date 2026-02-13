@@ -57,14 +57,14 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 ### MockDeterministicBackend
 
 - **Offline-safe**: No network; returns canned JSON keyed by hash of the user message (e.g. observation hash).
-- **Deterministic**: Same message → same response. Use for tests and demos.
+- **Deterministic**: Same message → same response. Use as deterministic baseline for reproducible evaluation and offline CI.
 - Constructor: `MockDeterministicBackend(canned=None, default_action_type=0)`. `canned` is a dict mapping `hash(user_content)[:16]` → action dict.
 
 ### MockDeterministicBackendV2
 
 - Returns **llm_action.schema.v0.2** format (string **action_type**, **args**, **rationale**, etc.).
 - **canned**: hash of user message (JSON with `obs_hash`, `allowed_actions`) → action dict. **default_action_type**: string (e.g. `"NOOP"`).
-- Use with **LLMAgentWithShield** for tests that supply canned actions (must include **rationale**).
+- Use with **LLMAgentWithShield** for reproducible evaluation with canned actions (must include **rationale**).
 
 ### FixtureBackend (deterministic, default for pipeline_mode=deterministic)
 
@@ -76,7 +76,7 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 
 - Chooses from **allowed_actions** using a **seeded RNG** (no API calls, no fixture files).
 - Constructor: `DeterministicConstrainedBackend(seed, default_action_type="NOOP")`. User message must be JSON with `allowed_actions` (list of action_type strings).
-- Same **seed** + same call order ⇒ same action sequence. Enable via CLI: `labtrust run-benchmark --llm-backend deterministic_constrained` (default when `--use-llm-safe-v1-ops` is used).
+- Same **seed** + same call order ⇒ same action sequence. Use as deterministic baseline for reproducible evaluation and offline CI. Enable via CLI: `labtrust run-benchmark --llm-backend deterministic_constrained` (default when `--use-llm-safe-v1-ops` is used).
 - Always returns **rationale**: `"deterministic baseline"`.
 
 ### OpenAIHostedBackend (OpenAI-hosted only)

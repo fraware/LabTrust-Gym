@@ -75,6 +75,18 @@ Common failures and how to fix or work around them.
 
 See [MARL baselines](marl_baselines.md).
 
+## Paths with special characters
+
+**Symptom:** Commands fail or produce wrong paths when the repo root or `--out` path contains spaces, parentheses, or non-ASCII characters.
+
+**Fix:** Quote paths in shell commands (e.g. `--out "/path/with spaces"`). On Windows use double quotes in PowerShell and Cmd. Prefer paths without special characters for `--out` and `LABTRUST_POLICY_DIR` when possible. If you hit encoding errors, set `PYTHONUTF8=1` (Python 3.7+) or use a repo path that is ASCII-only.
+
+## CLI error messages
+
+**Symptom:** A CLI command exits with a generic error or traceback that does not clearly say what went wrong.
+
+**Fix:** Check stderr for the first line that mentions a file, key, or constraint (e.g. "manifest: missing file", "Unknown injection_id"). Use `--help` on the subcommand for required arguments. For policy or schema errors, run `labtrust validate-policy` first. If the error is unclear, run with minimal args (e.g. one episode, one task) to isolate the failure. Report unclear errors with the exact command and stderr so we can improve messages.
+
 ## E2E artifacts chain fails
 
 **Symptom:** `make e2e-artifacts-chain` or `bash scripts/ci_e2e_artifacts_chain.sh` fails at package-release, verify-release, or export-risk-register.

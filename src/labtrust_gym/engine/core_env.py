@@ -50,17 +50,9 @@ from labtrust_gym.engine.qc import QCStore
 from labtrust_gym.engine.queueing import PriorityClass, QueueStore
 from labtrust_gym.engine.rbac import (
     RBAC_ACTION_DENY,
-)
-from labtrust_gym.engine.rbac import (
     check as rbac_check,
-)
-from labtrust_gym.engine.rbac import (
     get_agent_role as rbac_get_agent_role,
-)
-from labtrust_gym.engine.rbac import (
     get_allowed_actions as rbac_get_allowed_actions,
-)
-from labtrust_gym.engine.rbac import (
     load_rbac_policy as load_rbac_policy_path,
 )
 from labtrust_gym.engine.rng import RNG
@@ -70,10 +62,8 @@ from labtrust_gym.engine.signatures import (
     SIG_MISSING,
     SIG_ROLE_MISMATCH,
     is_mutating_action,
-    verify_action_signature,
-)
-from labtrust_gym.engine.signatures import (
     load_key_registry as load_key_registry_path,
+    verify_action_signature,
 )
 from labtrust_gym.engine.specimens import SpecimenStore
 from labtrust_gym.engine.tokens_runtime import TokenStore
@@ -94,6 +84,14 @@ from labtrust_gym.policy.tokens import (
     load_token_registry,
     validate_dual_approval,
 )
+from labtrust_gym.engine.errors import (
+    AUDIT_CHAIN_BROKEN,
+    INV_TOK_001,
+    RC_INJECT_SPECIMEN_DUPLICATE,
+)
+from labtrust_gym.engine.event import StepEventDict
+from labtrust_gym.engine.policy_resolution import load_policy_or_effective
+from labtrust_gym.engine.state import InitialStateDict
 from labtrust_gym.runner.adapter import LabTrustEnvAdapter
 from labtrust_gym.security.agent_capabilities import (
     check_capability,
@@ -122,7 +120,6 @@ from labtrust_gym.tools.sandbox import (
     load_tool_boundary_policy,
 )
 
-AUDIT_CHAIN_BROKEN = "AUDIT_CHAIN_BROKEN"
 TOOL_SELECTION_ERROR = "TOOL_SELECTION_ERROR"
 FORENSIC_FREEZE_LOG = "FORENSIC_FREEZE_LOG"
 RBAC_RESTRICTED_ENTRY_DENY = "RBAC_RESTRICTED_ENTRY_DENY"
@@ -183,7 +180,7 @@ class CoreEnv(LabTrustEnvAdapter):
 
     def reset(
         self,
-        initial_state: dict[str, Any],
+        initial_state: InitialStateDict | dict[str, Any],
         *,
         deterministic: bool,
         rng_seed: int,
@@ -371,21 +368,19 @@ class CoreEnv(LabTrustEnvAdapter):
         else:
             self._enforcement_engine = None
         # Key registry for signed actions
-        if effective_policy and isinstance(effective_policy.get("key_registry"), dict):
-            kr = effective_policy["key_registry"]
-            self._key_registry = {
-                "version": kr.get("version", "0.1"),
-                "keys": list(kr.get("keys") or []),
-            }
-        else:
-            key_path = Path("policy/keys/key_registry.v0.1.yaml")
-            if key_path.exists():
-                try:
-                    self._key_registry = load_key_registry_path(key_path)
-                except Exception:
-                    self._key_registry = {"version": "0.1", "keys": []}
-            else:
-                self._key_registry = {"version": "0.1", "keys": []}
+        _policy_root_for_resolution = initial_state.get("policy_root")
+        key_registry_raw = load_policy_or_effective(
+            effective_policy,
+            "key_registry",
+            _policy_root_for_resolution,
+            "policy/keys/key_registry.v0.1.yaml",
+            load_key_registry_path,
+            {"version": "0.1", "keys": []},
+        )
+        self._key_registry = {
+            "version": key_registry_raw.get("version", "0.1"),
+            "keys": list(key_registry_raw.get("keys") or []),
+        }
         import os
 
         self._strict_signatures = bool(
@@ -394,28 +389,20 @@ class CoreEnv(LabTrustEnvAdapter):
         )
         self._partner_id = initial_state.get("partner_id")
         self._policy_fingerprint = initial_state.get("policy_fingerprint")
-        if effective_policy and isinstance(effective_policy.get("rbac_policy"), dict):
-            rbac = effective_policy["rbac_policy"]
-            self._rbac_policy = {
-                "version": rbac.get("version", "0.1"),
-                "roles": dict(rbac.get("roles") or {}),
-                "agents": dict(rbac.get("agents") or {}),
-                "action_constraints": dict(rbac.get("action_constraints") or {}),
-            }
-        else:
-            _rp = initial_state.get("policy_root")
-            rbac_path = (
-                Path(_rp) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-                if _rp
-                else Path("policy/rbac/rbac_policy.v0.1.yaml")
-            )
-            if rbac_path.exists():
-                try:
-                    self._rbac_policy = load_rbac_policy_path(rbac_path)
-                except Exception:
-                    self._rbac_policy = {}
-            else:
-                self._rbac_policy = {}
+        rbac_raw = load_policy_or_effective(
+            effective_policy,
+            "rbac_policy",
+            _policy_root_for_resolution,
+            "policy/rbac/rbac_policy.v0.1.yaml",
+            load_rbac_policy_path,
+            {},
+        )
+        self._rbac_policy = {
+            "version": rbac_raw.get("version", "0.1"),
+            "roles": dict(rbac_raw.get("roles") or {}),
+            "agents": dict(rbac_raw.get("agents") or {}),
+            "action_constraints": dict(rbac_raw.get("action_constraints") or {}),
+        }
         if effective_policy and isinstance(
             effective_policy.get("agent_capabilities"), dict
         ):
@@ -462,8 +449,46 @@ class CoreEnv(LabTrustEnvAdapter):
                 self._episode_agent_override_count.get(agent_id, 0) + 1
             )
 
+    def _blocked_result(
+        self,
+        base: dict[str, Any],
+        reason_code: str,
+        hashchain_snap: dict[str, Any],
+        *,
+        emits: list[str] | None = None,
+        **extra: Any,
+    ) -> dict[str, Any]:
+        """Build step result dict for BLOCKED status. Caller must pass hashchain snapshot."""
+        out: dict[str, Any] = {
+            **base,
+            "status": "BLOCKED",
+            "emits": list(emits) if emits is not None else list(base.get("emits", [])),
+            "blocked_reason_code": reason_code,
+            "hashchain": hashchain_snap,
+        }
+        out.update(extra)
+        return out
+
+    def _accepted_result(
+        self,
+        base: dict[str, Any],
+        emits: list[str],
+        hashchain_dict: dict[str, Any],
+        **extra: Any,
+    ) -> dict[str, Any]:
+        """Build step result dict for ACCEPTED status. Caller must pass hashchain from audit.append."""
+        out: dict[str, Any] = {
+            **base,
+            "status": "ACCEPTED",
+            "emits": list(emits),
+            "blocked_reason_code": None,
+            "hashchain": hashchain_dict,
+        }
+        out.update(extra)
+        return out
+
     def _finalize_step(
-        self, event: dict[str, Any], result: dict[str, Any]
+        self, event: StepEventDict | dict[str, Any], result: dict[str, Any]
     ) -> dict[str, Any]:
         """Merge registry invariant violations; optionally apply enforcement and record to audit."""
         if getattr(self, "_emit_scale_config_at_step", False):
@@ -516,7 +541,7 @@ class CoreEnv(LabTrustEnvAdapter):
             result["signature_verification"] = self._step_signature_verification
         return result
 
-    def step(self, event: dict[str, Any]) -> dict[str, Any]:
+    def step(self, event: StepEventDict | dict[str, Any]) -> dict[str, Any]:
         """
         Apply one event. Returns contract: status, emits, violations,
         blocked_reason_code, token_consumed, hashchain.
@@ -546,13 +571,7 @@ class CoreEnv(LabTrustEnvAdapter):
 
         if self._system_state.get("log_frozen"):
             hashchain = self._audit.hashchain_snapshot()
-            return {
-                **base,
-                "status": "BLOCKED",
-                "emits": [],
-                "blocked_reason_code": AUDIT_CHAIN_BROKEN,
-                "hashchain": hashchain,
-            }
+            return self._blocked_result(base, AUDIT_CHAIN_BROKEN, hashchain)
 
         # Tool registry gate (B010): any event with tool_id must reference a registered, allowed tool.
         # When allowed_tools is set (e.g. tests), use allowlist; else use RBAC policy (audited authZ).
@@ -582,13 +601,7 @@ class CoreEnv(LabTrustEnvAdapter):
                 )
             if not allowed and tool_reason:
                 hashchain_tool = self._audit.hashchain_snapshot()
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": tool_reason,
-                    "hashchain": hashchain_tool,
-                }
+                return self._blocked_result(base, tool_reason, hashchain_tool)
             base["tool_call"] = True
             # Tool selection error (soft fail): allowed by registry & RBAC but inapplicable for current state.
             state_allowed = get_allowed_capabilities_for_state(
@@ -622,13 +635,10 @@ class CoreEnv(LabTrustEnvAdapter):
                 )
                 if not ok and arg_reason in (TOOL_ARG_SCHEMA_FAIL, TOOL_ARG_RANGE_FAIL):
                     hashchain_arg = self._audit.hashchain_snapshot()
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": list(base.get("emits", [])),
-                        "blocked_reason_code": arg_reason,
-                        "hashchain": hashchain_arg,
-                    }
+                    return self._blocked_result(
+                        base, arg_reason, hashchain_arg,
+                        emits=list(base.get("emits", [])),
+                    )
                 # Tool execution safety wrapper: run adapter, timeout, output validation, sandbox boundary.
                 sandbox_ctx: dict[str, Any] = {}
                 if getattr(self, "_tool_boundary_policy", None):
@@ -657,14 +667,11 @@ class CoreEnv(LabTrustEnvAdapter):
                         "reason_code": reason_code,
                         "message": msg,
                     }
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [reason_code],
-                        "violations": [violation],
-                        "blocked_reason_code": reason_code,
-                        "hashchain": hashchain_exec,
-                    }
+                    return self._blocked_result(
+                        base, reason_code, hashchain_exec,
+                        emits=[reason_code],
+                        violations=[violation],
+                    )
         # Runtime control: UPDATE_ROSTER, INJECT_SPECIMEN — always require SYSTEM + signature (trust skeleton).
         if action_type in RUNTIME_CONTROL_ACTION_TYPES:
             agent_id_here = str(event.get("agent_id", ""))
@@ -677,14 +684,10 @@ class CoreEnv(LabTrustEnvAdapter):
             if agent_id_here != "SYSTEM":
                 hashchain_snap = self._audit.hashchain_snapshot()
                 control_decision["reason_code"] = RBAC_ACTION_DENY
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": RBAC_ACTION_DENY,
-                    "hashchain": hashchain_snap,
-                    "control_decision": control_decision,
-                }
+                return self._blocked_result(
+                    base, RBAC_ACTION_DENY, hashchain_snap,
+                    control_decision=control_decision,
+                )
             rbac_allowed_rc, rbac_reason_rc, rbac_decision_rc = rbac_check(
                 "SYSTEM", action_type, {}, self._rbac_policy
             )
@@ -692,14 +695,10 @@ class CoreEnv(LabTrustEnvAdapter):
             if not rbac_allowed_rc and rbac_reason_rc:
                 hashchain_snap = self._audit.hashchain_snapshot()
                 control_decision["reason_code"] = rbac_reason_rc
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": rbac_reason_rc,
-                    "hashchain": hashchain_snap,
-                    "control_decision": control_decision,
-                }
+                return self._blocked_result(
+                    base, rbac_reason_rc, hashchain_snap,
+                    control_decision=control_decision,
+                )
             # Always verify signature for runtime control (no strict_signatures bypass).
             prev_hash_rc = self._audit.last_event_hash
             sig_passed_rc, sig_reason_rc, sig_info_rc = verify_action_signature(
@@ -714,41 +713,29 @@ class CoreEnv(LabTrustEnvAdapter):
             if not event.get("key_id") or not event.get("signature"):
                 hashchain_snap = self._audit.hashchain_snapshot()
                 control_decision["reason_code"] = SIG_MISSING
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": SIG_MISSING,
-                    "hashchain": hashchain_snap,
-                    "control_decision": control_decision,
-                    "signature_verification": sig_info_rc or {},
-                }
+                return self._blocked_result(
+                    base, SIG_MISSING, hashchain_snap,
+                    control_decision=control_decision,
+                    signature_verification=sig_info_rc or {},
+                )
             if not sig_passed_rc and sig_reason_rc:
                 hashchain_snap = self._audit.hashchain_snapshot()
                 control_decision["reason_code"] = sig_reason_rc
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": sig_reason_rc,
-                    "hashchain": hashchain_snap,
-                    "control_decision": control_decision,
-                    "signature_verification": sig_info_rc or {},
-                }
+                return self._blocked_result(
+                    base, sig_reason_rc, hashchain_snap,
+                    control_decision=control_decision,
+                    signature_verification=sig_info_rc or {},
+                )
             # Key must be SYSTEM / R_SYSTEM_CONTROL (role mismatch if wrong key).
             key_role = (sig_info_rc or {}).get("key_role_id")
             if key_role != R_SYSTEM_CONTROL_ROLE:
                 hashchain_snap = self._audit.hashchain_snapshot()
                 control_decision["reason_code"] = SIG_ROLE_MISMATCH
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": SIG_ROLE_MISMATCH,
-                    "hashchain": hashchain_snap,
-                    "control_decision": control_decision,
-                    "signature_verification": sig_info_rc or {},
-                }
+                return self._blocked_result(
+                    base, SIG_ROLE_MISMATCH, hashchain_snap,
+                    control_decision=control_decision,
+                    signature_verification=sig_info_rc or {},
+                )
             control_decision["allowed"] = True
             control_decision["reason_code"] = None
             base["control_decision"] = control_decision
@@ -788,13 +775,9 @@ class CoreEnv(LabTrustEnvAdapter):
                         },
                     )
                 hashchain_snap = self._audit.hashchain_snapshot()
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": "RC_INJECT_SPECIMEN_DUPLICATE",
-                    "hashchain": hashchain_snap,
-                }
+                return self._blocked_result(
+                    base, RC_INJECT_SPECIMEN_DUPLICATE, hashchain_snap,
+                )
 
         # Device colocation gate for START_RUN / START_RUN_OVERRIDE (before RBAC so domain reason is returned, e.g. GS-019)
         if action_type in ("START_RUN", "START_RUN_OVERRIDE"):
@@ -807,16 +790,10 @@ class CoreEnv(LabTrustEnvAdapter):
                 )
                 if device_zone and agent_zone is not None and agent_zone != device_zone:
                     hashchain_snap = self._audit.hashchain_snapshot()
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
-                        "violations": [
-                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}
-                        ],
-                        "hashchain": hashchain_snap,
-                    }
+                    return self._blocked_result(
+                        base, RC_DEVICE_NOT_COLOCATED, hashchain_snap,
+                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                    )
 
         # RBAC gate (first gate: before tokens, before domain logic)
         agent_id = str(event.get("agent_id", ""))
@@ -830,13 +807,7 @@ class CoreEnv(LabTrustEnvAdapter):
         base["rbac_decision"] = rbac_decision
         if not rbac_allowed and rbac_reason:
             hashchain_snap = self._audit.hashchain_snapshot()
-            return {
-                **base,
-                "status": "BLOCKED",
-                "emits": [],
-                "blocked_reason_code": rbac_reason,
-                "hashchain": hashchain_snap,
-            }
+            return self._blocked_result(base, rbac_reason, hashchain_snap)
 
         # Capability gate (B006): after RBAC, before domain mutation
         if self._capability_policy and self._capability_policy.get("profiles"):
@@ -861,19 +832,16 @@ class CoreEnv(LabTrustEnvAdapter):
             )
             if not cap_allowed and cap_reason:
                 hashchain_snap = self._audit.hashchain_snapshot()
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": ["AGENT_SCOPE_VIOLATION"],
-                    "blocked_reason_code": cap_reason,
-                    "hashchain": hashchain_snap,
-                    "capability_decision": {
+                return self._blocked_result(
+                    base, cap_reason, hashchain_snap,
+                    emits=["AGENT_SCOPE_VIOLATION"],
+                    capability_decision={
                         "allowed": False,
                         "reason_code": cap_reason,
                         "action_count": action_count,
                         "override_count": override_count,
                     },
-                }
+                )
 
         prev_hash = self._audit.last_event_hash
         sig_passed: bool | None = None
@@ -895,28 +863,20 @@ class CoreEnv(LabTrustEnvAdapter):
         if self._strict_signatures and is_mutating_action(action_type):
             if not event.get("key_id") or not event.get("signature"):
                 hashchain_snap = self._audit.hashchain_snapshot()
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": "SIG_MISSING",
-                    "hashchain": hashchain_snap,
-                    "signature_verification": {
+                return self._blocked_result(
+                    base, SIG_MISSING, hashchain_snap,
+                    signature_verification={
                         "passed": False,
                         "reason_code": "SIG_MISSING",
                         "key_id": event.get("key_id"),
                     },
-                }
+                )
             if sig_passed is False and sig_reason:
                 hashchain_snap = self._audit.hashchain_snapshot()
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": sig_reason,
-                    "hashchain": hashchain_snap,
-                    "signature_verification": sig_info,
-                }
+                return self._blocked_result(
+                    base, sig_reason, hashchain_snap,
+                    signature_verification=sig_info,
+                )
             # INV-SIG-002: key role must match RBAC role for agent_id
             if sig_passed is True and sig_info:
                 agent_role = rbac_get_agent_role(agent_id, self._rbac_policy)
@@ -927,14 +887,10 @@ class CoreEnv(LabTrustEnvAdapter):
                     and agent_role != key_role
                 ):
                     hashchain_snap = self._audit.hashchain_snapshot()
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": SIG_ROLE_MISMATCH,
-                        "hashchain": hashchain_snap,
-                        "signature_verification": sig_info,
-                    }
+                    return self._blocked_result(
+                        base, SIG_ROLE_MISMATCH, hashchain_snap,
+                        signature_verification=sig_info,
+                    )
 
         assert self._zones is not None, "zones not initialized"
 
@@ -990,80 +946,48 @@ class CoreEnv(LabTrustEnvAdapter):
                 )
             if not ok:
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": blocked_code,
-                    "violations": move_violations,
-                    "hashchain": hashchain_dict,
-                }
+                return self._blocked_result(
+                    base, blocked_code, hashchain_dict,
+                    violations=move_violations,
+                )
             if to_zone == Z_RESTRICTED_BIOHAZARD:
                 if not token_refs:
                     hashchain_dict, _ = self._audit.append(event)
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": RBAC_RESTRICTED_ENTRY_DENY,
-                        "violations": [
+                    return self._blocked_result(
+                        base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
+                        violations=[
                             {"invariant_id": "INV-ZONE-004", "status": "VIOLATION"},
                             {"invariant_id": "INV-TOK-003", "status": "VIOLATION"},
                         ],
-                        "hashchain": hashchain_dict,
-                    }
+                    )
                 for tid in token_refs:
                     v = self._tokens.validity_violation(tid, t_s)
                     if v:
                         hashchain_dict, _ = self._audit.append(event)
-                        return {
-                            **base,
-                            "status": "BLOCKED",
-                            "emits": [],
-                            "blocked_reason_code": RBAC_RESTRICTED_ENTRY_DENY,
-                            "violations": [{"invariant_id": v, "status": "VIOLATION"}],
-                            "hashchain": hashchain_dict,
-                        }
+                        return self._blocked_result(
+                            base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
+                            violations=[{"invariant_id": v, "status": "VIOLATION"}],
+                        )
                 for tid in token_refs:
                     self._tokens.consume_token(tid)
                 hashchain_dict, chain_broken = self._audit.append(event)
                 if chain_broken:
                     self._system_state["log_frozen"] = True
                     self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "blocked_reason_code": None,
-                        "token_consumed": list(token_refs),
-                        "hashchain": hashchain_dict,
-                    }
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": ["MOVE"],
-                    "blocked_reason_code": None,
-                    "token_consumed": list(token_refs),
-                    "hashchain": hashchain_dict,
-                }
+                    return self._accepted_result(
+                        base, [FORENSIC_FREEZE_LOG], hashchain_dict,
+                        token_consumed=list(token_refs),
+                    )
+                return self._accepted_result(
+                    base, ["MOVE"], hashchain_dict,
+                    token_consumed=list(token_refs),
+                )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["MOVE"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["MOVE"], hashchain_dict)
 
         # MINT_TOKEN
         if action_type == "MINT_TOKEN":
@@ -1078,19 +1002,15 @@ class CoreEnv(LabTrustEnvAdapter):
             )
             if not ok and dual_approval_violation:
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": dual_approval_violation or "",
-                    "violations": [
+                return self._blocked_result(
+                    base, dual_approval_violation or "", hashchain_dict,
+                    violations=[
                         {
                             "invariant_id": dual_approval_violation or "",
                             "status": "VIOLATION",
                         }
                     ],
-                    "hashchain": hashchain_dict,
-                }
+                )
             subject_type = args.get("subject_type", "")
             subject_id = args.get("subject_id", "")
             reason_code = args.get("reason_code")
@@ -1117,34 +1037,16 @@ class CoreEnv(LabTrustEnvAdapter):
                 )
             except ValueError:
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": "INV-TOK-001",
-                    "violations": [
-                        {"invariant_id": "INV-TOK-001", "status": "VIOLATION"}
-                    ],
-                    "hashchain": hashchain_dict,
-                }
+                return self._blocked_result(
+                    base, INV_TOK_001, hashchain_dict,
+                    violations=[{"invariant_id": INV_TOK_001, "status": "VIOLATION"}],
+                )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["MINT_TOKEN"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["MINT_TOKEN"], hashchain_dict)
 
         # REVOKE_TOKEN
         if action_type == "REVOKE_TOKEN":
@@ -1155,20 +1057,8 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["REVOKE_TOKEN"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["REVOKE_TOKEN"], hashchain_dict)
 
         # Actions that reference token_refs: validate then consume if required
         if token_refs:
@@ -1188,14 +1078,10 @@ class CoreEnv(LabTrustEnvAdapter):
                     v.get("invariant_id") == "INV-TOK-002" for v in token_violations
                 ):
                     blocked_code = "INV-TOK-002"
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": blocked_code,
-                    "violations": token_violations,
-                    "hashchain": hashchain_dict,
-                }
+                return self._blocked_result(
+                    base, blocked_code, hashchain_dict,
+                    violations=token_violations,
+                )
             # OPEN_DOOR D_RESTRICTED_AIRLOCK requires TOKEN_RESTRICTED_ENTRY; consume
             if (
                 action_type == "OPEN_DOOR"
@@ -1208,37 +1094,25 @@ class CoreEnv(LabTrustEnvAdapter):
                 if chain_broken:
                     self._system_state["log_frozen"] = True
                     self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "blocked_reason_code": None,
-                        "token_consumed": list(token_refs),
-                        "hashchain": hashchain_dict,
-                    }
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [action_type],
-                    "blocked_reason_code": None,
-                    "token_consumed": list(token_refs),
-                    "hashchain": hashchain_dict,
-                }
+                    return self._accepted_result(
+                        base, [FORENSIC_FREEZE_LOG], hashchain_dict,
+                        token_consumed=list(token_refs),
+                    )
+                return self._accepted_result(
+                    base, [action_type], hashchain_dict,
+                    token_consumed=list(token_refs),
+                )
 
         # OPEN_DOOR D_RESTRICTED_AIRLOCK without valid token
         if action_type == "OPEN_DOOR" and args.get("door_id") == "D_RESTRICTED_AIRLOCK":
             hashchain_dict, _ = self._audit.append(event)
-            return {
-                **base,
-                "status": "BLOCKED",
-                "emits": [],
-                "blocked_reason_code": RBAC_RESTRICTED_ENTRY_DENY,
-                "violations": [
+            return self._blocked_result(
+                base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
+                violations=[
                     {"invariant_id": "INV-ZONE-004", "status": "VIOLATION"},
                     {"invariant_id": "INV-TOK-003", "status": "VIOLATION"},
                 ],
-                "hashchain": hashchain_dict,
-            }
+            )
 
         # CENTRIFUGE_START (GS-001): co-location check; INV-ZONE-002 from invariants_runtime
         if action_type == "CENTRIFUGE_START":
@@ -1250,16 +1124,10 @@ class CoreEnv(LabTrustEnvAdapter):
                 agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
                 if device_zone and agent_zone is not None and agent_zone != device_zone:
                     hashchain_dict, _ = self._audit.append(event)
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
-                        "violations": [
-                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"},
-                        ],
-                        "hashchain": hashchain_dict,
-                    }
+                    return self._blocked_result(
+                        base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
+                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                    )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
@@ -1313,38 +1181,20 @@ class CoreEnv(LabTrustEnvAdapter):
             )
             if not device_id or not work_id:
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": RC_QUEUE_BAD_PAYLOAD,
-                    "hashchain": hashchain_dict,
-                }
+                return self._blocked_result(base, RC_QUEUE_BAD_PAYLOAD, hashchain_dict)
             if not self._queues.is_known_device(str(device_id)):
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": RC_DEVICE_UNKNOWN,
-                    "hashchain": hashchain_dict,
-                }
+                return self._blocked_result(base, RC_DEVICE_UNKNOWN, hashchain_dict)
             agent_id = str(event.get("agent_id", ""))
             if device_id and self._device_zone.get(str(device_id)) and agent_id:
                 device_zone = self._device_zone.get(str(device_id))
                 agent_zone = self._zones.get_agent_zone(agent_id)
                 if agent_zone is not None and device_zone != agent_zone:
                     hashchain_dict, _ = self._audit.append(event)
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
-                        "violations": [
-                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"},
-                        ],
-                        "hashchain": hashchain_dict,
-                    }
+                    return self._blocked_result(
+                        base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
+                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                    )
             ok = self._queues.enqueue(
                 str(device_id),
                 str(work_id),
@@ -1356,31 +1206,13 @@ class CoreEnv(LabTrustEnvAdapter):
             )
             if not ok:
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": RC_QUEUE_DUPLICATE_WORK_ID,
-                    "hashchain": hashchain_dict,
-                }
+                return self._blocked_result(base, RC_QUEUE_DUPLICATE_WORK_ID, hashchain_dict)
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["QUEUE_RUN"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["QUEUE_RUN"], hashchain_dict)
 
         # Reception: specimens (GS-003, GS-004, GS-005, GS-021)
         assert self._specimens is not None, "specimens not initialized"
@@ -1391,20 +1223,8 @@ class CoreEnv(LabTrustEnvAdapter):
                 if chain_broken:
                     self._system_state["log_frozen"] = True
                     self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "blocked_reason_code": None,
-                        "hashchain": hashchain_dict,
-                    }
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": ["CREATE_ACCESSION"],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
+                    return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+                return self._accepted_result(base, ["CREATE_ACCESSION"], hashchain_dict)
         if action_type == "CHECK_ACCEPTANCE_RULES":
             specimen_id = args.get("specimen_id")
             id_match = args.get("id_match")
@@ -1414,20 +1234,8 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["CHECK_ACCEPTANCE_RULES"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["CHECK_ACCEPTANCE_RULES"], hashchain_dict)
         if action_type == "ACCEPT_SPECIMEN":
             specimen_id = args.get("specimen_id")
             if specimen_id:
@@ -1466,43 +1274,19 @@ class CoreEnv(LabTrustEnvAdapter):
             specimen_id = args.get("specimen_id")
             if not specimen_id:
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": ["HOLD_SPECIMEN"],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
+                return self._accepted_result(base, ["HOLD_SPECIMEN"], hashchain_dict)
             ok, blocked_code = self._specimens.hold_specimen(
                 str(specimen_id), reason_code
             )
             if not ok and blocked_code == AUDIT_MISSING_REASON_CODE:
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": AUDIT_MISSING_REASON_CODE,
-                    "hashchain": hashchain_dict,
-                }
+                return self._blocked_result(base, AUDIT_MISSING_REASON_CODE, hashchain_dict)
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["HOLD_SPECIMEN"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["HOLD_SPECIMEN"], hashchain_dict)
         if action_type == "REJECT_SPECIMEN":
             specimen_id = args.get("specimen_id")
             reason_code = event.get("reason_code") or args.get("reason_code")
@@ -1513,20 +1297,8 @@ class CoreEnv(LabTrustEnvAdapter):
                 if chain_broken:
                     self._system_state["log_frozen"] = True
                     self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "blocked_reason_code": None,
-                        "hashchain": hashchain_dict,
-                    }
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": ["REJECT_SPECIMEN"],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
+                    return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+                return self._accepted_result(base, ["REJECT_SPECIMEN"], hashchain_dict)
 
         # CENTRIFUGE_END: update specimen separated_ts_s
         if action_type == "CENTRIFUGE_END":
@@ -1538,20 +1310,8 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["CENTRIFUGE_END"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["CENTRIFUGE_END"], hashchain_dict)
         # ALIQUOT_CREATE: record aliquot_id -> specimen_id
         if action_type == "ALIQUOT_CREATE":
             specimen_id = args.get("specimen_id")
@@ -1562,20 +1322,8 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["ALIQUOT_CREATE"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["ALIQUOT_CREATE"], hashchain_dict)
         # QC and results (GS-014, GS-015)
         assert self._qc is not None, "qc not initialized"
         if action_type == "START_RUN":
@@ -1587,16 +1335,10 @@ class CoreEnv(LabTrustEnvAdapter):
                 agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
                 if device_zone and agent_zone is not None and agent_zone != device_zone:
                     hashchain_dict, _ = self._audit.append(event)
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
-                        "violations": [
-                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"},
-                        ],
-                        "hashchain": hashchain_dict,
-                    }
+                    return self._blocked_result(
+                        base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
+                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                    )
             # Simulated timing: device must be IDLE to start a run (MAINT/FAULT/RUNNING)
             if (
                 self._timing_mode == "simulated"
@@ -1611,14 +1353,7 @@ class CoreEnv(LabTrustEnvAdapter):
                     else RC_DEVICE_FAULT if block_reason == "FAULT" else RC_DEVICE_BUSY
                 )
                 hashchain_dict, _ = self._audit.append(event)
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": reason_code,
-                    "violations": [],
-                    "hashchain": hashchain_dict,
-                }
+                return self._blocked_result(base, reason_code, hashchain_dict)
             # Queue: consume head if no explicit work/specimen/aliquot; else enforce head == work_id
             resolved_specimen_ids: list[str] | None = None
             if self._queues is not None and device_id:
@@ -1631,13 +1366,7 @@ class CoreEnv(LabTrustEnvAdapter):
                     work_id_from_queue = self._queues.consume_head(str(device_id))
                     if work_id_from_queue is None:
                         hashchain_dict, _ = self._audit.append(event)
-                        return {
-                            **base,
-                            "status": "BLOCKED",
-                            "emits": [],
-                            "blocked_reason_code": RC_QUEUE_EMPTY,
-                            "hashchain": hashchain_dict,
-                        }
+                        return self._blocked_result(base, RC_QUEUE_EMPTY, hashchain_dict)
                     resolved_specimen_ids = [work_id_from_queue]
                 elif resolved_from_args or explicit_work_id:
                     work_id = explicit_work_id or (
@@ -1647,13 +1376,9 @@ class CoreEnv(LabTrustEnvAdapter):
                         head = self._queues.queue_head(str(device_id))
                         if head is not None and head != str(work_id):
                             hashchain_dict, _ = self._audit.append(event)
-                            return {
-                                **base,
-                                "status": "BLOCKED",
-                                "emits": [],
-                                "blocked_reason_code": RC_QUEUE_HEAD_MISMATCH,
-                                "hashchain": hashchain_dict,
-                            }
+                            return self._blocked_result(
+                                base, RC_QUEUE_HEAD_MISMATCH, hashchain_dict,
+                            )
                         if head == str(work_id):
                             self._queues.consume_head(str(device_id))
                     resolved_specimen_ids = resolved_from_args or (
@@ -1685,16 +1410,10 @@ class CoreEnv(LabTrustEnvAdapter):
                 )
                 if not ok and not token_refs:
                     hashchain_dict, _ = self._audit.append(event)
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": reason or TIME_EXPIRED,
-                        "violations": [
-                            {"invariant_id": viol_id, "status": "VIOLATION"}
-                        ],
-                        "hashchain": hashchain_dict,
-                    }
+                    return self._blocked_result(
+                        base, reason or TIME_EXPIRED, hashchain_dict,
+                        violations=[{"invariant_id": viol_id, "status": "VIOLATION"}],
+                    )
                 if (
                     check_temp_out_of_band(
                         specimen_rec.get("storage_requirement"),
@@ -1703,16 +1422,10 @@ class CoreEnv(LabTrustEnvAdapter):
                     and not token_refs
                 ):
                     hashchain_dict, _ = self._audit.append(event)
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": TEMP_OUT_OF_BAND,
-                        "violations": [
-                            {"invariant_id": "INV-ZONE-006", "status": "VIOLATION"},
-                        ],
-                        "hashchain": hashchain_dict,
-                    }
+                    return self._blocked_result(
+                        base, TEMP_OUT_OF_BAND, hashchain_dict,
+                        violations=[{"invariant_id": "INV-ZONE-006", "status": "VIOLATION"}],
+                    )
                 # INV-STAB-BIOCHEM-001:PASS from invariants_runtime when stability ok
             first_panel_id: str | None = None
             if resolved_specimen_ids and self._specimens:
@@ -1731,14 +1444,9 @@ class CoreEnv(LabTrustEnvAdapter):
                     current = self._reagent_stock.get(reagent_id, 0.0)
                     if current < qty:
                         hashchain_dict, _ = self._audit.append(event)
-                        return {
-                            **base,
-                            "status": "BLOCKED",
-                            "emits": [],
-                            "blocked_reason_code": RC_REAGENT_STOCKOUT,
-                            "violations": [],
-                            "hashchain": hashchain_dict,
-                        }
+                        return self._blocked_result(
+                            base, RC_REAGENT_STOCKOUT, hashchain_dict,
+                        )
             device_id = args.get("device_id")
             run_id = args.get("run_id")
             if device_id and run_id:
@@ -1802,16 +1510,10 @@ class CoreEnv(LabTrustEnvAdapter):
                 agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
                 if device_zone and agent_zone is not None and agent_zone != device_zone:
                     hashchain_dict, _ = self._audit.append(event)
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": RC_DEVICE_NOT_COLOCATED,
-                        "violations": [
-                            {"invariant_id": "INV-ZONE-002", "status": "VIOLATION"},
-                        ],
-                        "hashchain": hashchain_dict,
-                    }
+                    return self._blocked_result(
+                        base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
+                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                    )
             specimen_ids = self._specimens.resolve_to_specimen_ids(
                 args.get("specimen_ids"),
                 args.get("aliquot_ids"),
@@ -1821,14 +1523,10 @@ class CoreEnv(LabTrustEnvAdapter):
                     v = self._tokens.validity_violation(tid, t_s)
                     if v:
                         hashchain_dict, _ = self._audit.append(event)
-                        return {
-                            **base,
-                            "status": "BLOCKED",
-                            "emits": [],
-                            "blocked_reason_code": TIME_EXPIRED,
-                            "violations": [{"invariant_id": v, "status": "VIOLATION"}],
-                            "hashchain": hashchain_dict,
-                        }
+                        return self._blocked_result(
+                            base, TIME_EXPIRED, hashchain_dict,
+                            violations=[{"invariant_id": v, "status": "VIOLATION"}],
+                        )
                 for tid in token_refs:
                     self._tokens.consume_token(tid)
                 device_id = args.get("device_id")
@@ -1876,20 +1574,8 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["QC_EVENT"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["QC_EVENT"], hashchain_dict)
         if action_type == "GENERATE_RESULT":
             result_id = args.get("result_id")
             run_id = args.get("run_id")
@@ -1931,20 +1617,8 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": emits_list,
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, emits_list, hashchain_dict)
         if action_type == "RELEASE_RESULT":
             result_id = args.get("result_id")
             if result_id:
@@ -1953,46 +1627,22 @@ class CoreEnv(LabTrustEnvAdapter):
                     crit = self._critical.result_criticality(rid)
                     if crit in ("CRIT_A", "CRIT_B") and not self._critical.has_ack(rid):
                         hashchain_dict, _ = self._audit.append(event)
-                        return {
-                            **base,
-                            "status": "BLOCKED",
-                            "emits": [],
-                            "blocked_reason_code": CRIT_NO_ACK,
-                            "violations": [
-                                {"invariant_id": "INV-CRIT-002", "status": "VIOLATION"},
-                            ],
-                            "hashchain": hashchain_dict,
-                        }
+                        return self._blocked_result(
+                            base, CRIT_NO_ACK, hashchain_dict,
+                            violations=[{"invariant_id": "INV-CRIT-002", "status": "VIOLATION"}],
+                        )
                 can_release, blocked_code = self._qc.can_release_result(rid)
                 if not can_release and blocked_code == QC_FAIL_ACTIVE:
                     self._qc.hold_result(rid)
                     hashchain_dict, _ = self._audit.append(event)
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": QC_FAIL_ACTIVE,
-                        "hashchain": hashchain_dict,
-                    }
+                    return self._blocked_result(base, QC_FAIL_ACTIVE, hashchain_dict)
                 self._qc.release_result(rid)
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["RELEASE_RESULT"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["RELEASE_RESULT"], hashchain_dict)
         if action_type == "HOLD_RESULT":
             result_id = args.get("result_id")
             if result_id:
@@ -2001,39 +1651,15 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["HOLD_RESULT"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["HOLD_RESULT"], hashchain_dict)
         if action_type == "RERUN_REQUEST":
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["RERUN_REQUEST"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["RERUN_REQUEST"], hashchain_dict)
         if action_type == "RELEASE_RESULT_OVERRIDE":
             result_id = args.get("result_id")
             if result_id and token_refs:
@@ -2041,14 +1667,10 @@ class CoreEnv(LabTrustEnvAdapter):
                     v = self._tokens.validity_violation(tid, t_s)
                     if v:
                         hashchain_dict, _ = self._audit.append(event)
-                        return {
-                            **base,
-                            "status": "BLOCKED",
-                            "emits": [],
-                            "blocked_reason_code": QC_FAIL_ACTIVE,
-                            "violations": [{"invariant_id": v, "status": "VIOLATION"}],
-                            "hashchain": hashchain_dict,
-                        }
+                        return self._blocked_result(
+                            base, QC_FAIL_ACTIVE, hashchain_dict,
+                            violations=[{"invariant_id": v, "status": "VIOLATION"}],
+                        )
                 for tid in token_refs:
                     self._tokens.consume_token(tid)
                 self._qc.release_result_override_with_drift_flag(str(result_id))
@@ -2056,24 +1678,14 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "token_consumed": (
-                        list(token_refs) if result_id and token_refs else []
-                    ),
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["RELEASE_RESULT"],
-                "blocked_reason_code": None,
-                "token_consumed": list(token_refs) if result_id and token_refs else [],
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(
+                    base, [FORENSIC_FREEZE_LOG], hashchain_dict,
+                    token_consumed=list(token_refs) if result_id and token_refs else [],
+                )
+            return self._accepted_result(
+                base, ["RELEASE_RESULT"], hashchain_dict,
+                token_consumed=list(token_refs) if result_id and token_refs else [],
+            )
         if action_type == "NOTIFY_CRITICAL_RESULT":
             result_id = args.get("result_id")
             channel = args.get("channel", "")
@@ -2090,31 +1702,16 @@ class CoreEnv(LabTrustEnvAdapter):
                     criticality_class=args.get("criticality_class"),
                 )
                 if block_reason == CRIT_MODE_NOT_ALLOWED:
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": CRIT_MODE_NOT_ALLOWED,
-                        "hashchain": base.get("hashchain", {}),
-                    }
+                    hashchain_snap = self._audit.hashchain_snapshot()
+                    return self._blocked_result(
+                        base, CRIT_MODE_NOT_ALLOWED, hashchain_snap,
+                    )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["NOTIFY_CRITICAL_RESULT"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["NOTIFY_CRITICAL_RESULT"], hashchain_dict)
         if action_type == "ACK_CRITICAL_RESULT":
             result_id = args.get("result_id")
             agent_id = event.get("agent_id", "")
@@ -2125,13 +1722,9 @@ class CoreEnv(LabTrustEnvAdapter):
                 )
                 if not ack_ok and ack_reason_code == CRIT_ACK_MISSING_FIELDS:
                     hashchain_snap = self._audit.hashchain_snapshot()
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": CRIT_ACK_MISSING_FIELDS,
-                        "hashchain": hashchain_snap,
-                    }
+                    return self._blocked_result(
+                        base, CRIT_ACK_MISSING_FIELDS, hashchain_snap,
+                    )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
@@ -2182,39 +1775,20 @@ class CoreEnv(LabTrustEnvAdapter):
                 )
                 if not ok_esc and esc_reason == CRIT_ESCALATION_OUT_OF_ORDER:
                     hashchain_snap = self._audit.hashchain_snapshot()
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": CRIT_ESCALATION_OUT_OF_ORDER,
-                        "hashchain": hashchain_snap,
-                    }
+                    return self._blocked_result(
+                        base, CRIT_ESCALATION_OUT_OF_ORDER, hashchain_snap,
+                    )
                 if not ok_esc and esc_reason:
-                    return {
-                        **base,
-                        "status": "BLOCKED",
-                        "emits": [],
-                        "blocked_reason_code": esc_reason,
-                        "hashchain": base.get("hashchain", {}),
-                    }
+                    hashchain_snap = self._audit.hashchain_snapshot()
+                    return self._blocked_result(base, esc_reason, hashchain_snap)
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["ESCALATE_CRITICAL_RESULT"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(
+                base, ["ESCALATE_CRITICAL_RESULT"], hashchain_dict,
+            )
 
         if action_type == "DISPATCH_TRANSPORT" and self._transport is not None:
             specimen_ids = args.get("specimen_ids") or []
@@ -2230,32 +1804,18 @@ class CoreEnv(LabTrustEnvAdapter):
             )
             if reason == TRANSPORT_ROUTE_FORBIDDEN:
                 hashchain_snap = self._audit.hashchain_snapshot()
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": TRANSPORT_ROUTE_FORBIDDEN,
-                    "hashchain": hashchain_snap,
-                }
+                return self._blocked_result(
+                    base, TRANSPORT_ROUTE_FORBIDDEN, hashchain_snap,
+                )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["DISPATCH_TRANSPORT"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-                "consignment_id": cid,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(
+                base, ["DISPATCH_TRANSPORT"], hashchain_dict,
+                consignment_id=cid,
+            )
 
         if action_type == "TRANSPORT_TICK" and self._transport is not None:
             excursions = self._transport.tick(t_s)
@@ -2273,22 +1833,14 @@ class CoreEnv(LabTrustEnvAdapter):
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "violations": violations_list,
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["TRANSPORT_TICK"],
-                "violations": violations_list,
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(
+                    base, [FORENSIC_FREEZE_LOG], hashchain_dict,
+                    violations=violations_list,
+                )
+            return self._accepted_result(
+                base, ["TRANSPORT_TICK"], hashchain_dict,
+                violations=violations_list,
+            )
 
         if action_type == "RECEIVE_TRANSPORT" and self._transport is not None:
             consignment_id = args.get("consignment_id", "")
@@ -2302,20 +1854,16 @@ class CoreEnv(LabTrustEnvAdapter):
             )
             if not ok and reason == TRANSPORT_TEMP_EXCURSION:
                 hashchain_snap = self._audit.hashchain_snapshot()
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": TRANSPORT_TEMP_EXCURSION,
-                    "violations": [
+                return self._blocked_result(
+                    base, TRANSPORT_TEMP_EXCURSION, hashchain_snap,
+                    violations=[
                         {
                             "invariant_id": "INV-TRANSPORT-001",
                             "status": "VIOLATION",
                             "reason_code": reason,
                         }
                     ],
-                    "hashchain": hashchain_snap,
-                }
+                )
             if not ok:
                 hashchain_snap = self._audit.hashchain_snapshot()
                 rc = reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN
@@ -2328,32 +1876,18 @@ class CoreEnv(LabTrustEnvAdapter):
                             "reason_code": rc,
                         }
                     )
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": rc,
-                    "violations": violations_list,
-                    "hashchain": hashchain_snap,
-                }
+                return self._blocked_result(
+                    base, rc, hashchain_snap,
+                    violations=violations_list,
+                )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["RECEIVE_TRANSPORT"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(
+                base, ["RECEIVE_TRANSPORT"], hashchain_dict,
+            )
 
         if action_type == "CHAIN_OF_CUSTODY_SIGN" and self._transport is not None:
             consignment_id = args.get("consignment_id", "")
@@ -2363,54 +1897,30 @@ class CoreEnv(LabTrustEnvAdapter):
             )
             if not ok:
                 hashchain_snap = self._audit.hashchain_snapshot()
-                return {
-                    **base,
-                    "status": "BLOCKED",
-                    "emits": [],
-                    "blocked_reason_code": reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN,
-                    "hashchain": hashchain_snap,
-                }
+                return self._blocked_result(
+                    base,
+                    reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN,
+                    hashchain_snap,
+                )
             hashchain_dict, chain_broken = self._audit.append(event)
             if chain_broken:
                 self._system_state["log_frozen"] = True
                 self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": [FORENSIC_FREEZE_LOG],
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                }
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": ["CHAIN_OF_CUSTODY_SIGN"],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(
+                base, ["CHAIN_OF_CUSTODY_SIGN"], hashchain_dict,
+            )
 
         # Default: append to audit, ACCEPTED
         hashchain_dict, chain_broken = self._audit.append(event)
         if chain_broken:
             self._system_state["log_frozen"] = True
             self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-            return {
-                **base,
-                "status": "ACCEPTED",
-                "emits": [FORENSIC_FREEZE_LOG],
-                "blocked_reason_code": None,
-                "hashchain": hashchain_dict,
-            }
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
         default_emits = list(base.get("emits", []))
         if action_type:
             default_emits.append(action_type)
-        return {
-            **base,
-            "status": "ACCEPTED",
-            "emits": default_emits,
-            "blocked_reason_code": None,
-            "hashchain": hashchain_dict,
-        }
+        return self._accepted_result(base, default_emits, hashchain_dict)
 
     def query(self, expr: str) -> Any:
         """

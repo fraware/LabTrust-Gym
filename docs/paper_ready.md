@@ -71,7 +71,7 @@ Registry: `benchmarks/baseline_registry.v0.1.yaml`. Regenerate with `labtrust ge
    - See [Implementation verification](implementation_verification.md).
 
 5. **FIGURES/**  
-   - 2–3 canonical plots from the insider_key_misuse study (e.g. throughput vs violations, trust cost vs p95 TAT).
+   - Canonical plots from the insider_key_misuse study: throughput vs violations, trust cost vs p95 TAT, throughput box by condition, metrics overview, plus violations/blocked/critical-compliance bar charts. Use `labtrust make-plots --run <study_dir> [--theme light|dark]` to regenerate.
 
 6. **RELEASE_NOTES.md**  
    - What ran, versions (git SHA, seed-base), deterministic timestamp note.

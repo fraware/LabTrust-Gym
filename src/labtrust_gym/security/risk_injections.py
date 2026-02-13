@@ -120,6 +120,11 @@ class RiskInjector:
         self._first_containment_step = None
         self._first_detection_step = None
         self._attack_success = False
+        self._reset_derived_state()
+
+    def _reset_derived_state(self) -> None:
+        """Override in subclasses to clear injector-specific state. Base: no-op."""
+        return None
 
     def mutate_obs(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         """Return (possibly mutated obs, optional audit entry). Checks application_phase first."""
@@ -599,8 +604,7 @@ class ClockSkewInjector(RiskInjector):
         self._skew_ppm: dict[str, float] = {}
         self._offset_ms: dict[str, float] = {}
 
-    def reset(self, seed: int, injection_config: InjectionConfig | None = None) -> None:
-        super().reset(seed, injection_config)
+    def _reset_derived_state(self) -> None:
         self._skew_ppm = {}
         self._offset_ms = {}
 
@@ -635,6 +639,9 @@ class MemoryPoisonInjector(RiskInjector):
     def __init__(self, config: InjectionConfig) -> None:
         super().__init__(config)
         self._corruption_step: int | None = None
+
+    def _reset_derived_state(self) -> None:
+        self._corruption_step = None
 
     def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if not self._rng or self._rng.random() > self._config.intensity:
@@ -674,8 +681,7 @@ class SlowRollPoisonInjector(RiskInjector):
         self._delay_steps = delay_steps
         self._effective_step: int | None = None
 
-    def reset(self, seed: int, injection_config: InjectionConfig | None = None) -> None:
-        super().reset(seed, injection_config)
+    def _reset_derived_state(self) -> None:
         self._effective_step = None
         if self._rng:
             self._delay_steps = max(5, int(10 + self._rng.random() * 30))
@@ -1374,6 +1380,45 @@ class BlameShiftInjector(RiskInjector):
         return extra
 
 
+# ---------------------------------------------------------------------------
+# inj_poison_obs: Observation poisoning (reserved ID with real implementation)
+# ---------------------------------------------------------------------------
+class PoisonObsInjector(RiskInjector):
+    """
+    With p=intensity corrupt one agent's observation (e.g. my_zone_idx).
+    Template for reserved IDs that get a real injector; deterministic via _rng.
+    """
+
+    def _mutate_obs_impl(self, obs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        if not self._rng or self._rng.random() > self._config.intensity:
+            return obs, None
+        obs = copy.deepcopy(obs)
+        agents = sorted(k for k, v in obs.items() if isinstance(v, dict))
+        if not agents:
+            return obs, None
+        victim = self._rng.choice(agents)
+        o = obs[victim]
+        if isinstance(o, dict) and "my_zone_idx" in o:
+            try:
+                val = o["my_zone_idx"]
+                idx = int(val) if not hasattr(val, "item") else int(val.item())
+                o = dict(o)
+                o["my_zone_idx"] = (idx + 1) % max(1, (idx + 2))
+                obs[victim] = o
+            except (TypeError, ValueError):
+                pass
+        self._applied_this_step = True
+        if self._first_application_step is None:
+            self._first_application_step = self._step
+        audit = _audit_entry(
+            EMIT_INJECTION_APPLIED,
+            self.injection_id,
+            self._step,
+            {"target": victim, "type": "obs_poison"},
+        )
+        return obs, audit
+
+
 class NoOpInjector(RiskInjector):
     """
     Passthrough injector for reserved injection IDs that are not implemented
@@ -1395,7 +1440,7 @@ class NoOpInjector(RiskInjector):
 
 
 # Reserved IDs (study spec / risk registry) not implemented as full injectors
-# in this release; NoOpInjector so runs do not fail. Prefer INJ-* from injections.v0.2.
+# in this release; NoOpInjector so runs do not fail. inj_poison_obs has real impl (PoisonObsInjector).
 RESERVED_NOOP_INJECTION_IDS = (
     "none",  # No-op baseline for coordination security pack (nominal cell).
     "inj_tool_selection_noise",
@@ -1406,7 +1451,6 @@ RESERVED_NOOP_INJECTION_IDS = (
     "inj_collusion_handoff",
     "inj_untrusted_payload",
     "inj_memory_tamper",
-    "inj_poison_obs",
     "inj_stuck_state",
     "inj_jailbreak",
     "inj_misparam_device",
@@ -1444,6 +1488,8 @@ INJECTION_REGISTRY: dict[str, type] = {
     "INJ-BLAME-SHIFT-001": BlameShiftInjector,
     # INJ-BID-SPOOF-001: currently mapped to CollusionInjector (bid/market manipulation).
     "INJ-BID-SPOOF-001": CollusionInjector,
+    # Reserved ID with real implementation (template for future reserved injectors).
+    "inj_poison_obs": PoisonObsInjector,
 }
 for _rid in RESERVED_NOOP_INJECTION_IDS:
     INJECTION_REGISTRY.setdefault(_rid, NoOpInjector)

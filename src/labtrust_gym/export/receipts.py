@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
+from labtrust_gym.util.json_utils import canonical_json
 from labtrust_gym.engine.signatures import (
     RECEIPT_SIGNATURE_ALGORITHM,
     canonical_for_signing,
@@ -38,11 +39,6 @@ def load_episode_log(path: Path) -> list[dict[str, Any]]:
             continue
         entries.append(json.loads(line))
     return entries
-
-
-def _canonical_json(obj: Any) -> str:
-    """Canonical JSON (sort_keys) for deterministic hashes."""
-    return json.dumps(obj, sort_keys=True)
 
 
 def _entity_ids_from_entries(
@@ -537,7 +533,7 @@ def write_evidence_bundle(
             policy_manifest = build_policy_pack_manifest(Path(policy_root), partner_id=partner_id)
             policy_root_hash = policy_manifest.get("root_hash")
             policy_manifest_path = bundle_dir / POLICY_PACK_MANIFEST_FILENAME
-            policy_manifest_path.write_text(_canonical_json(policy_manifest) + "\n", encoding="utf-8")
+            policy_manifest_path.write_text(canonical_json(policy_manifest) + "\n", encoding="utf-8")
         except Exception:
             policy_root_hash = None
 
@@ -577,14 +573,14 @@ def write_evidence_bundle(
         eid_str = _safe_filename(str(eid)) if eid is not None else "unknown"
         name = f"receipt_{etype}_{eid_str}.v0.1.json"
         p = bundle_dir / name
-        p.write_text(_canonical_json(rec) + "\n", encoding="utf-8")
+        p.write_text(canonical_json(rec) + "\n", encoding="utf-8")
         written_files.append(name)
 
     # episode_log_subset.jsonl: all entries (subset = full for single-episode log)
     subset_path = bundle_dir / "episode_log_subset.jsonl"
     with subset_path.open("w", encoding="utf-8") as f:
         for e in entries:
-            f.write(_canonical_json(e) + "\n")
+            f.write(canonical_json(e) + "\n")
     written_files.append("episode_log_subset.jsonl")
 
     # invariant_eval_trace.jsonl: one line per step with violations (t_s, step_index, violations)
@@ -594,7 +590,7 @@ def write_evidence_bundle(
             v = e.get("violations")
             if v:
                 row = {"step_index": i, "t_s": e.get("t_s"), "violations": v}
-                f.write(_canonical_json(row) + "\n")
+                f.write(canonical_json(row) + "\n")
     written_files.append("invariant_eval_trace.jsonl")
 
     # enforcement_actions.jsonl: one line per step with enforcements
@@ -605,19 +601,19 @@ def write_evidence_bundle(
             if enfs:
                 for enf in enfs:
                     row = {"step_index": i, "t_s": e.get("t_s"), **enf}
-                    f.write(_canonical_json(row) + "\n")
+                    f.write(canonical_json(row) + "\n")
     written_files.append("enforcement_actions.jsonl")
 
     # hashchain_proof.json: head/last_event from last entry; length = len(entries) so verifier passes
     hc = _hashchain_from_entries(entries)
     hc["length"] = len(entries)
     proof_path = bundle_dir / "hashchain_proof.json"
-    proof_path.write_text(_canonical_json(hc) + "\n", encoding="utf-8")
+    proof_path.write_text(canonical_json(hc) + "\n", encoding="utf-8")
     written_files.append("hashchain_proof.json")
 
     if prompt_fingerprint_inputs is not None and isinstance(prompt_fingerprint_inputs, dict):
         inp_path = bundle_dir / PROMPT_FINGERPRINT_INPUTS_FILENAME
-        inp_path.write_text(_canonical_json(prompt_fingerprint_inputs) + "\n", encoding="utf-8")
+        inp_path.write_text(canonical_json(prompt_fingerprint_inputs) + "\n", encoding="utf-8")
         written_files.append(PROMPT_FINGERPRINT_INPUTS_FILENAME)
 
     # manifest: policy_fingerprint (combined with tool_registry + rbac when present), optional fingerprints
@@ -668,7 +664,7 @@ def write_evidence_bundle(
                 }
 
     manifest_path = bundle_dir / "manifest.json"
-    manifest_path.write_text(_canonical_json(manifest) + "\n", encoding="utf-8")
+    manifest_path.write_text(canonical_json(manifest) + "\n", encoding="utf-8")
 
     return bundle_dir
 

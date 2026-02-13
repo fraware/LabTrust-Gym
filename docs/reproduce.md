@@ -91,6 +91,9 @@ runs/repro_minimal_<timestamp>/
       violations_by_invariant_id.png, .svg
       blocked_by_reason_code_top10.png, .svg
       critical_compliance_by_condition.png, .svg
+      throughput_box_by_condition.png, .svg
+      metrics_overview.png, .svg
+      RUN_REPORT.md
     figures/data_tables/
       throughput_vs_violations.csv
       trust_cost_vs_p95_tat.csv

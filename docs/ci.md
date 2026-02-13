@@ -8,7 +8,7 @@ CI runs on every push/PR to `main` and keeps the default pipeline **fast**. All 
 |-----------------|--------------------------------|----------------------------|
 | **lint-format** | Ruff format + check            | `ruff format --check .`    |
 | **typecheck**   | Mypy on `src/`                 | `mypy src/`                |
-| **test**        | Pytest (fast suite, excludes slow) | `pytest -q -m "not slow"` |
+| **test**        | Pytest (fast suite, excludes slow) | `pytest -q -m "not slow"`; slow tests (golden suite, package-release) are marked `@pytest.mark.slow` and use pytest-timeout (see pyproject.toml) |
 | **golden**      | Full golden suite (real engine)    | `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q` (timeout 30 min) |
 | **policy-validate** | Policy YAML/JSON vs schemas | `labtrust validate-policy` |
 | **risk-register-gate** | Risk register contract (schema, snapshot, crosswalk, coverage) | `labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures` then `pytest tests/test_risk_register_contract_gate.py -v` |
@@ -16,7 +16,7 @@ CI runs on every push/PR to `main` and keeps the default pipeline **fast**. All 
 | **baseline-regression** | Compare to canonical frozen v0.2 (exact metrics) | `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`; non-skipping when `benchmarks/baselines_official/v0.2/results/*.json` exist |
 | **docs**        | Build MkDocs site              | `pip install -e ".[docs]"` then `mkdocs build --strict` |
 
-The **golden suite** runs in a separate **golden** job on every push/PR and must stay green. It validates scenario correctness against the engine contract. Slow tests (golden, package-release, heavy CLI) are excluded from the default **test** job via `-m "not slow"` so CI stays bounded.
+The default **test** job excludes slow tests via `-m "not slow"` so CI stays fast. Long-running tests (e.g. package_release, full golden suite, benchmark multi_site_stat/insider_key_misuse, determinism-report) are marked with `@pytest.mark.slow` and run in the **golden** job or on demand. pytest-timeout is configured in `pyproject.toml` (default 120s per test); see `addopts` and `markers` in pyproject.toml. The **golden suite** runs in a separate **golden** job on every push/PR and must stay green. It validates scenario correctness against the engine contract. Slow tests (golden, package-release, heavy CLI) are excluded from the default **test** job via `-m "not slow"` so CI stays bounded.
 
 ## Optional: benchmark smoke
 
@@ -66,6 +66,17 @@ When **LABTRUST_EXTERNAL_REVIEWER_CHECKS=1**, an extra job **external-reviewer-c
 
 **Non-deterministic runs**: any run that uses a live LLM (e.g. `LABTRUST_RUN_LLM_LIVE=1`, `--llm-backend openai_live`, or `OPENAI_API_KEY` set and live calls made) or other external services. Outputs can vary between runs. In scripts and CI, non-deterministic runs must be clearly labeled (e.g. job name "llm_live smoke", env var in description) and should not be the default path for regression.
 
+## Pre-online hardening
+
+Before enabling online or non-deterministic runs in production:
+
+- **Deterministic baseline remains default:** CI and default CLI do not use live LLM or network; regression uses deterministic backends.
+- **Real LLM behind a flag:** Use `--llm-backend openai_live` / `ollama_live` / `anthropic_live` and `--allow-network` (or `LABTRUST_ALLOW_NETWORK=1`) explicitly; do not default to live backends.
+- **API keys from environment only:** No hardcoded keys; use `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc. from the process environment. If you use a `.env` file, load it explicitly before running (see [Installation](installation.md#loading-a-env-file-optional)).
+- **Non-deterministic runs clearly labeled:** CI jobs that run with live LLM or network must have distinct job names and document required secrets; see [Optional: LLM live E2E in CI](#optional-llm-live-e2e-in-ci).
+
+See [Contributing](contributing.md) for verification and audit steps.
+
 ## Optional: LLM live E2E in CI
 
 An optional CI job can run with a real LLM when the API key is set (e.g. as a repository secret). Such a job would run one or more benchmark episodes with `--llm-backend openai_live` (or `openai_responses`) and `--allow-network`, then assert that artifacts contain non-empty `llm_model_id`, latency/cost metadata (e.g. from `metadata.llm_attribution_summary` or episode LLM_DECISION meta), and that the run completed without fatal errors. This is **not** part of the default gate; add it only if you need to validate the live LLM path in CI. Document the job name and required secrets (e.g. `OPENAI_API_KEY`) in the workflow file and in this section when you add it.
@@ -77,7 +88,7 @@ An optional CI job can run with a real LLM when the API key is set (e.g. as a re
 **When it runs:**
 
 - **CI (main workflow):** Job **determinism-golden** runs only on **schedule** or **workflow_dispatch** (not on every push/PR), so default CI stays fast.
-- **PRs that touch core paths:** Workflow **`.github/workflows/determinism-golden.yml`** runs on pull requests when files under `src/labtrust_gym/engine/`, `src/labtrust_gym/runner/`, `src/labtrust_gym/benchmarks/runner.py`, or `src/labtrust_gym/studies/coordination_*` (or golden/determinism tests) change. You can add **determinism-golden** as a required status check for those PRs in branch protection.
+- **PRs that touch core paths:** Workflow **`.github/workflows/determinism-golden.yml`** runs on pull requests when files under `src/labtrust_gym/engine/`, `src/labtrust_gym/runner/`, `src/labtrust_gym/benchmarks/`, or `src/labtrust_gym/studies/coordination_*` (or golden/determinism tests) change. It runs `labtrust determinism-report` (throughput_sla, 3 episodes, seed 42) and asserts the report `passed` (v0.2 metrics and episode log hashes identical). You can add **determinism-golden** as a required status check for those PRs in branch protection.
 
 **To run locally:**
 

@@ -60,7 +60,7 @@ labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ -
 - **Output layout** (stable directory structure and filenames):
   - `results/throughput_sla_scripted_ops.json`, `results/stat_insertion_scripted_ops.json`, `results/qc_cascade_scripted_ops.json`, `results/adversarial_disruption_adversary.json`, `results/multi_site_stat_scripted_ops.json`, `results/insider_key_misuse_insider.json` (each validated against `policy/schemas/results.v0.2.schema.json` after write).
   - `summary_v0.2.csv`, `summary_v0.3.csv`, `summary.csv`, and `summary.md` (via the existing summarize-results pipeline).
-  - `metadata.json`: git_sha, policy_fingerprint, cli_args (out, episodes, seed, timing, partner, force), tasks, baseline_ids / agent_baseline_ids, timestamp (deterministic when seed is provided).
+  - `metadata.json`: version, baseline_version (e.g. v0.2), git_sha, policy_fingerprint, cli_args (out, episodes, seed, timing, partner, force), tasks, baseline_ids / agent_baseline_ids, timestamp (deterministic when seed is provided).
 - **Overwrite**: The command **refuses to overwrite** an existing output directory unless `--force` is passed.
 - **Determinism**: For fixed `--seed` and `--episodes` (and `--timing explicit`), a contributor can regenerate baselines locally and get the same episode metrics. Timestamp in metadata is deterministic when seed is set.
 - **CI**: The command is intended for manual or nightly runs (e.g. release prep); it is not part of the default CI pipeline. Tests use small episodes (e.g. 2) and fixed seed and run offline without network or GPU.

@@ -127,4 +127,4 @@ The **marl_ppo** coordination method uses a **shared PPO policy** with **agent_i
 - **Single-agent**: Only ops_0 is learned; runners are scripted. Multi-agent PPO would require a different setup (e.g. joint action space or independent learners).
 - **Observation**: The wrapper flattens the ops_0 observation dict to a Box for SB3. With `obs_history_len > 1`, the last N flat observations are concatenated (partial observability). QUEUE_RUN uses device_ids from train_config or env default; PPOAgent reads device_ids from train_config.json when available.
 - **Reward**: Uses the task’s reward_config (e.g. throughput_reward, schedule_reward, violation_penalty). Optional **reward_scale_schedule** in train_config (list of (step_frac, scale)) scales step reward for curriculum. See "Reward design" above.
-- **Stability**: Small networks and short runs are for smoke/demo; for serious results, increase timesteps and tune hyperparameters.
+- **Stability**: Small networks and short runs are for smoke and quick validation; for production-scale results, increase timesteps and tune hyperparameters.

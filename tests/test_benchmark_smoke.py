@@ -118,6 +118,7 @@ def test_initial_state_has_policy_root_and_reagent_stock_for_reset() -> None:
     ), "R_CHEM_CORE stock must be >= 14 (quantity_per_run for BIOCHEM_PANEL_CORE) for at least one START_RUN"
 
 
+@pytest.mark.slow
 def test_task_e_multisite_stat_runs() -> None:
     """multi_site_stat (MultiSiteSTAT) runs without crash; results have expected structure."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -142,6 +143,7 @@ def test_task_e_multisite_stat_runs() -> None:
             assert "steps" in ep["metrics"]
 
 
+@pytest.mark.slow
 def test_task_e_emits_dispatch_transport_at_least_once() -> None:
     """multi_site_stat scripted policy must emit DISPATCH_TRANSPORT at least once per episode."""
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
@@ -194,6 +196,7 @@ def test_task_e_emits_dispatch_transport_at_least_once() -> None:
     assert metrics.get("transport_consignment_count", 0) >= 1
 
 
+@pytest.mark.slow
 def test_task_e_determinism() -> None:
     """multi_site_stat: same seed => identical episode metrics (reproducible)."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -211,6 +214,7 @@ def test_task_e_determinism() -> None:
             ), f"multi_site_stat episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
 
 
+@pytest.mark.slow
 def test_task_e_deterministic_transport_path() -> None:
     """multi_site_stat: fixed seed => deterministic transport path (same transport_consignment_count, same order of transport emits)."""
     from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
@@ -283,6 +287,7 @@ def test_task_e_deterministic_transport_path() -> None:
     ), f"Transport emit sequence must be deterministic: {seq1} vs {seq2}"
 
 
+@pytest.mark.slow
 def test_task_f_insider_runs() -> None:
     """insider_key_misuse (InsiderAndKeyMisuse) runs without crash; results include containment/forensic metrics."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -312,6 +317,7 @@ def test_task_f_insider_runs() -> None:
             assert "forensic_quality_score" in m
 
 
+@pytest.mark.slow
 def test_task_f_determinism() -> None:
     """insider_key_misuse: same seed => identical episode metrics (deterministic scripted insider)."""
     with tempfile.TemporaryDirectory() as tmp:
