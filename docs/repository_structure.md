@@ -17,7 +17,7 @@ Canonical layout of the LabTrust-Gym repo. Keep the root minimal; put CLI and bu
 | `Makefile` | Shortcuts: test, lint, format, bench-smoke, policy-validate, **e2e-artifacts-chain** (package-release minimal → verify-bundle → export-risk-register; no network). |
 | `mkdocs.yml` | MkDocs site config. |
 | `.gitignore` | Ignore build artifacts, venvs, `labtrust_runs/`, root-level CLI outputs. |
-| `.github/workflows/` | CI: lint, typecheck, test, policy-validate, **risk-register-gate** (bundle from tests/fixtures/ui_fixtures, schema + contract gate tests), bench-smoke, coordination-smoke, quick-eval, docs; **e2e-artifacts-chain.yml** (e2e reproducible chain); **llm_live_optional_smoke.yml** (healthcheck + pack smoke when OPENAI_API_KEY set); **coordination-nightly.yml** (schedule + workflow_dispatch: coordination-security-pack, coordination-study smoke, minimal SOTA sanity; see [CI](ci.md)). |
+| `.github/workflows/` | CI: lint, typecheck, test, policy-validate, **risk-register-gate** (bundle from tests/fixtures/ui_fixtures, schema + contract gate tests), **risk-coverage-strict** (schedule/workflow_dispatch: validate-coverage --strict; see [CI](ci.md)), bench-smoke, coordination-smoke, quick-eval, docs; **e2e-artifacts-chain.yml** (e2e reproducible chain); **llm_live_optional_smoke.yml** (healthcheck + pack smoke when OPENAI_API_KEY set); **coordination-nightly.yml** (schedule + workflow_dispatch: coordination-security-pack, coordination-study smoke, SOTA sanity for kernel_whca, ripple_effect, consensus_paxos_lite, swarm_stigmergy_priority; Layer 3 corridor_heavy; see [CI](ci.md)). |
 | `.gitattributes` | Text/line-ending rules (e.g. `*.sh text eol=lf` so shell scripts use LF on all platforms). |
 
 Do not commit CLI outputs at the root (e.g. `results.json`, `out.json`, `bench_smoke_*.json`). Use `labtrust_runs/` or `--out <path>` so outputs stay out of the repo root.
@@ -49,7 +49,7 @@ Do not commit CLI outputs at the root (e.g. `results.json`, `out.json`, `bench_s
 | Path | Purpose |
 |------|---------|
 | `config.py` | Repo root resolution for policy paths. |
-| `engine/` | Core env, audit log, zones, specimens, QC, critical, queueing, devices, signatures, RBAC, transport, invariants, enforcement. |
+| `engine/` | Core env (**state.py** InitialStateDict, **event.py** StepEventDict for reset/step), audit log, zones, specimens, QC, critical, queueing, devices, signatures, RBAC, transport, invariants, enforcement. |
 | `coordination/` | Identity (Ed25519 key material, sign/verify), SignedMessageBus (replay protection, epoch binding). |
 | `memory/` | Validators (poison/instruction-override detection), store (authenticated writes, TTL, filter on retrieval). |
 | `tools/` | Registry, sandbox (egress/data-class limits), execution. |

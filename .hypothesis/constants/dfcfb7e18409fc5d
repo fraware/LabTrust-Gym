@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\benchmarks\determinism_report.py
+# hypothesis_version: 6.151.6
+
+[' See Errors below.', '# Determinism report', '## Hash comparison', '## Result', '## Run configuration', '### Errors', '**no**', '---', 'FAILED', 'PASSED', 'agent_baseline_id', 'base_seed', 'coord_method', 'coord_risk', 'coord_scale', 'episode_log.jsonl', 'episode_log_sha256', 'episodes', 'errors', 'explicit', 'labtrust_det_run1_', 'labtrust_det_run2_', 'manifest.json', 'metrics', 'num_episodes', 'partner_id', 'passed', 'receipts', 'results.json', 'results_identical', 'results_sha256', 'run1', 'run2', 'seed', 'seeds', 'task', 'timing_mode', 'utf-8', 'yes']

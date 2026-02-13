@@ -66,6 +66,12 @@ from labtrust_gym.baselines.coordination.methods.market_auction import (
 from labtrust_gym.baselines.coordination.methods.swarm_reactive import (
     SwarmReactive,
 )
+from labtrust_gym.baselines.coordination.methods.consensus_paxos_lite import (
+    ConsensusPaxosLite,
+)
+from labtrust_gym.baselines.coordination.methods.swarm_stigmergy_priority import (
+    SwarmStigmergyPriority,
+)
 from labtrust_gym.baselines.coordination.ripple_effect import (
     MESSAGE_TYPE_RIPPLE_INTENT,
     RippleEffectMethod,
@@ -95,6 +101,8 @@ _METHOD_CLASSES: dict[str, type] = {
     "market_auction": MarketAuction,
     "gossip_consensus": GossipConsensus,
     "swarm_reactive": SwarmReactive,
+    "consensus_paxos_lite": ConsensusPaxosLite,
+    "swarm_stigmergy_priority": SwarmStigmergyPriority,
     "llm_constrained": LLMConstrained,
 }
 
@@ -361,6 +369,8 @@ def _build_builtin(
 
     cls = _METHOD_CLASSES.get(method_id)
     if cls is None and method_id not in (
+        "consensus_paxos_lite",
+        "swarm_stigmergy_priority",
         "kernel_centralized_edf",
         "kernel_whca",
         "kernel_scheduler_or",
@@ -386,7 +396,8 @@ def _build_builtin(
             f"llm_hierarchical_allocator, llm_auction_bidder, llm_gossip_summarizer, "
             f"llm_local_decider_signed_bus, llm_repair_over_kernel_whca, "
             f"llm_detector_throttle_advisor, kernel_*, marl_ppo, ripple_effect, "
-            f"group_evolving_experience_sharing, group_evolving_study"
+            f"group_evolving_experience_sharing, group_evolving_study, "
+            f"consensus_paxos_lite, swarm_stigmergy_priority"
         )
     if method_id == "group_evolving_experience_sharing":
         from labtrust_gym.baselines.coordination.group_evolving.method import (
@@ -648,10 +659,24 @@ def _build_builtin(
         return cast(CoordinationMethod, cls(gossip_rounds=params.get("gossip_rounds", 3)))
     if method_id == "swarm_reactive":
         return cast(CoordinationMethod, cls())
+    if method_id == "consensus_paxos_lite":
+        return cast(
+            CoordinationMethod,
+            cls(max_rounds=params.get("max_rounds", 2)),
+        )
+    if method_id == "swarm_stigmergy_priority":
+        return cast(
+            CoordinationMethod,
+            cls(
+                decay=params.get("pheromone_decay", 0.95),
+                deposit=params.get("pheromone_deposit", 1.0),
+            ),
+        )
     return cast(CoordinationMethod, cls())
 
 BUILTIN_COORDINATION_METHOD_IDS: tuple[str, ...] = (
     'centralized_planner',
+    'consensus_paxos_lite',
     'gossip_consensus',
     'group_evolving_experience_sharing',
     'group_evolving_study',
@@ -676,6 +701,7 @@ BUILTIN_COORDINATION_METHOD_IDS: tuple[str, ...] = (
     'marl_ppo',
     'ripple_effect',
     'swarm_reactive',
+    'swarm_stigmergy_priority',
 )
 
 

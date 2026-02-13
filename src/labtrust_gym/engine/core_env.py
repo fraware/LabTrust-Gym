@@ -115,6 +115,7 @@ from labtrust_gym.tools.execution import (
 from labtrust_gym.tools.registry import (
     check_tool_allowed,
 )
+from labtrust_gym.logging.step_timing import timed_step_method
 from labtrust_gym.tools.sandbox import (
     ToolSandbox,
     load_tool_boundary_policy,
@@ -143,6 +144,87 @@ RC_DEVICE_FAULT = "RC_DEVICE_FAULT"
 _DEFAULT_TOKEN_TYPES = {
     "OVERRIDE_RISK_ACCEPTANCE": {"approvals_required": 2, "ttl_s": 3600},
     "TOKEN_RESTRICTED_ENTRY": {"approvals_required": 1, "ttl_s": 900},
+}
+
+# Query dispatch: compiled patterns for parameterized queries (one match per expr).
+_RE_QUERY_ZONE_STATE = re.compile(
+    r"zone_state\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_DOOR_STATE = re.compile(
+    r"door_state\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_SPECIMEN_STATUS = re.compile(
+    r"specimen_status\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_LAST_REASON_CODE = re.compile(
+    r"last_reason_code\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_RESULT_STATUS = re.compile(
+    r"result_status\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_RESULT_FLAGS = re.compile(
+    r"result_flags\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_RESULT_CRIT = re.compile(
+    r"result_criticality\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_COMM_EXISTS = re.compile(
+    r"comm_record_exists\s*\(\s*result_id\s*=\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_NOTIF_MODE = re.compile(
+    r"notification_mode_required\s*\(\s*['\"]([^'\"]+)['\"]\s*\)"
+)
+_RE_QUERY_QUEUE_HEAD = re.compile(
+    r"queue_head\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)"
+)
+_RE_QUERY_QUEUE_LENGTH = re.compile(
+    r"queue_length\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)"
+)
+_RE_QUERY_AGENT_ZONE = re.compile(
+    r"agent_zone\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)"
+)
+_RE_QUERY_DEVICE_QC = re.compile(
+    r"device_qc_state\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)"
+)
+_RE_QUERY_DEVICE_STATE = re.compile(
+    r"device_state\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)"
+)
+
+# Step dispatch: action_type -> handler method name. Handler takes (event, base), returns result dict.
+# Early dispatch (before token_refs block): TICK, MOVE, MINT_TOKEN, REVOKE_TOKEN.
+_STEP_DISPATCH: dict[str, str] = {
+    "TICK": "_step_tick",
+    "MOVE": "_step_move",
+    "MINT_TOKEN": "_step_mint_token",
+    "REVOKE_TOKEN": "_step_revoke_token",
+}
+# Late dispatch (after token_refs block): all other action types.
+_STEP_DISPATCH_LATE: dict[str, str] = {
+    "OPEN_DOOR": "_step_open_door",
+    "CENTRIFUGE_START": "_step_centrifuge_start",
+    "QUEUE_RUN": "_step_queue_run",
+    "CREATE_ACCESSION": "_step_create_accession",
+    "CHECK_ACCEPTANCE_RULES": "_step_check_acceptance_rules",
+    "ACCEPT_SPECIMEN": "_step_accept_specimen",
+    "HOLD_SPECIMEN": "_step_hold_specimen",
+    "REJECT_SPECIMEN": "_step_reject_specimen",
+    "CENTRIFUGE_END": "_step_centrifuge_end",
+    "ALIQUOT_CREATE": "_step_aliquot_create",
+    "START_RUN": "_step_start_run",
+    "START_RUN_OVERRIDE": "_step_start_run_override",
+    "QC_EVENT": "_step_qc_event",
+    "GENERATE_RESULT": "_step_generate_result",
+    "RELEASE_RESULT": "_step_release_result",
+    "HOLD_RESULT": "_step_hold_result",
+    "RERUN_REQUEST": "_step_rerun_request",
+    "RELEASE_RESULT_OVERRIDE": "_step_release_result_override",
+    "NOTIFY_CRITICAL_RESULT": "_step_notify_critical_result",
+    "ACK_CRITICAL_RESULT": "_step_ack_critical_result",
+    "ESCALATE_CRITICAL_RESULT": "_step_escalate_critical_result",
+    "DISPATCH_TRANSPORT": "_step_dispatch_transport",
+    "TRANSPORT_TICK": "_step_transport_tick",
+    "RECEIVE_TRANSPORT": "_step_receive_transport",
+    "CHAIN_OF_CUSTODY_SIGN": "_step_chain_of_custody_sign",
 }
 
 
@@ -541,6 +623,1124 @@ class CoreEnv(LabTrustEnvAdapter):
             result["signature_verification"] = self._step_signature_verification
         return result
 
+    def _step_tick(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        t_s = int(event.get("t_s", 0))
+        violations, emits = self._zones.tick(t_s)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._finalize_step(
+                event,
+                {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "violations": violations,
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                },
+            )
+        return self._finalize_step(
+            event,
+            {
+                **base,
+                "status": "ACCEPTED",
+                "emits": emits if emits else [],
+                "violations": violations,
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            },
+        )
+
+    def _step_move(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        args = event.get("args", {})
+        token_refs = event.get("token_refs", [])
+        from_zone = str(args.get("from_zone", ""))
+        to_zone = str(args.get("to_zone", ""))
+        entity_type = args.get("entity_type", "Agent")
+        agent_id = str(event.get("agent_id", ""))
+        t_s = int(event.get("t_s", 0))
+        if entity_type == "Specimen":
+            ok = self._zones.is_adjacent(from_zone, to_zone)
+            move_violations = (
+                []
+                if ok
+                else [{"invariant_id": "INV-ZONE-001", "status": "VIOLATION"}]
+            )
+            blocked_code = None if ok else "RC_ILLEGAL_MOVE"
+        else:
+            if not agent_id:
+                agent_id = str(args.get("entity_id", event.get("agent_id", "")))
+            ok, move_violations, blocked_code = self._zones.move(
+                agent_id, from_zone, to_zone
+            )
+        if not ok:
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(
+                base, blocked_code, hashchain_dict,
+                violations=move_violations,
+            )
+        if to_zone == Z_RESTRICTED_BIOHAZARD:
+            if not token_refs:
+                hashchain_dict, _ = self._audit.append(event)
+                return self._blocked_result(
+                    base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
+                    violations=[
+                        {"invariant_id": "INV-ZONE-004", "status": "VIOLATION"},
+                        {"invariant_id": "INV-TOK-003", "status": "VIOLATION"},
+                    ],
+                )
+            for tid in token_refs:
+                v = self._tokens.validity_violation(tid, t_s)
+                if v:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return self._blocked_result(
+                        base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
+                        violations=[{"invariant_id": v, "status": "VIOLATION"}],
+                    )
+            for tid in token_refs:
+                self._tokens.consume_token(tid)
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return self._accepted_result(
+                    base, [FORENSIC_FREEZE_LOG], hashchain_dict,
+                    token_consumed=list(token_refs),
+                )
+            return self._accepted_result(
+                base, ["MOVE"], hashchain_dict,
+                token_consumed=list(token_refs),
+            )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["MOVE"], hashchain_dict)
+
+    def _step_mint_token(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        approvals = args.get("approvals", [])
+        if not (isinstance(approvals, list) and approvals):
+            approvals = []
+        token_type = args.get("token_type", "")
+        ok, dual_approval_violation = validate_dual_approval(
+            approvals, token_type, self._token_registry
+        )
+        if not ok and dual_approval_violation:
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(
+                base, dual_approval_violation or "", hashchain_dict,
+                violations=[
+                    {"invariant_id": dual_approval_violation or "", "status": "VIOLATION"},
+                ],
+            )
+        subject_type = args.get("subject_type", "")
+        subject_id = args.get("subject_id", "")
+        reason_code = args.get("reason_code")
+        token_types = self._token_registry.get("token_types") or _DEFAULT_TOKEN_TYPES
+        meta = token_types.get(token_type, {})
+        ttl_s = int(meta.get("ttl_s", 3600))
+        token_id = (
+            f"T_OVR_{subject_id}"
+            if "OVERRIDE" in token_type
+            else f"T_{token_type}_{subject_id}"
+        )
+        try:
+            self._tokens.mint_token(
+                token_id=token_id,
+                token_type=token_type,
+                subject_type=subject_type,
+                subject_id=subject_id,
+                issued_at_ts_s=t_s,
+                expires_at_ts_s=t_s + ttl_s,
+                reason_code=reason_code,
+                approvals=approvals,
+            )
+        except ValueError:
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(
+                base, INV_TOK_001, hashchain_dict,
+                violations=[{"invariant_id": INV_TOK_001, "status": "VIOLATION"}],
+            )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["MINT_TOKEN"], hashchain_dict)
+
+    def _step_revoke_token(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        args = event.get("args", {})
+        token_id = args.get("token_id")
+        if token_id:
+            self._tokens.revoke_token(token_id)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["REVOKE_TOKEN"], hashchain_dict)
+
+    def _step_default(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        action_type = event.get("action_type", "")
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        default_emits = list(base.get("emits", []))
+        if action_type:
+            default_emits.append(action_type)
+        return self._accepted_result(base, default_emits, hashchain_dict)
+
+    def _step_open_door(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        args = event.get("args", {})
+        token_refs = event.get("token_refs", [])
+        t_s = int(event.get("t_s", 0))
+        if args.get("door_id") == "D_RESTRICTED_AIRLOCK" and not token_refs:
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(
+                base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
+                violations=[
+                    {"invariant_id": "INV-ZONE-004", "status": "VIOLATION"},
+                    {"invariant_id": "INV-TOK-003", "status": "VIOLATION"},
+                ],
+            )
+        door_id = args.get("door_id", "")
+        if door_id and self._zones is not None:
+            self._zones.open_door(door_id, t_s)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["OPEN_DOOR"], hashchain_dict)
+
+    def _step_centrifuge_start(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        args = event.get("args", {})
+        t_s = int(event.get("t_s", 0))
+        device_id = args.get("device_id")
+        agent_id = str(event.get("agent_id", ""))
+        violations_list: list[dict[str, Any]] = []
+        if device_id and self._zones is not None:
+            device_zone = self._device_zone.get(str(device_id))
+            agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
+            if device_zone and agent_zone is not None and agent_zone != device_zone:
+                hashchain_dict, _ = self._audit.append(event)
+                return self._blocked_result(
+                    base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
+                    violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._finalize_step(
+                event,
+                {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "violations": violations_list,
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                },
+            )
+        return self._finalize_step(
+            event,
+            {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["CENTRIFUGE_START"],
+                "violations": violations_list,
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            },
+        )
+
+    def _step_queue_run(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._queues is not None and self._zones is not None
+        args = event.get("args", {})
+        t_s = int(event.get("t_s", 0))
+        device_id = args.get("device_id")
+        work_id = args.get("work_id") or args.get("specimen_id")
+        if not work_id and args.get("accession_ids"):
+            ids = args["accession_ids"]
+            work_id = ids[0] if isinstance(ids, list) and ids else None
+        if not work_id and args.get("aliquot_ids") and self._specimens is not None:
+            resolved = self._specimens.resolve_to_specimen_ids(
+                None, args.get("aliquot_ids")
+            )
+            work_id = resolved[0] if resolved else None
+        if not work_id and args.get("aliquot_ids"):
+            ids = args["aliquot_ids"]
+            work_id = ids[0] if isinstance(ids, list) and ids else None
+        priority_raw = (
+            args.get("priority") or args.get("priority_class") or "ROUTINE"
+        )
+        priority_class = (
+            str(priority_raw).upper()
+            if str(priority_raw).upper() in ("STAT", "URGENT", "ROUTINE")
+            else "ROUTINE"
+        )
+        if not device_id or not work_id:
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(base, RC_QUEUE_BAD_PAYLOAD, hashchain_dict)
+        if not self._queues.is_known_device(str(device_id)):
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(base, RC_DEVICE_UNKNOWN, hashchain_dict)
+        agent_id = str(event.get("agent_id", ""))
+        if device_id and self._device_zone.get(str(device_id)) and agent_id:
+            device_zone = self._device_zone.get(str(device_id))
+            agent_zone = self._zones.get_agent_zone(agent_id)
+            if agent_zone is not None and device_zone != agent_zone:
+                hashchain_dict, _ = self._audit.append(event)
+                return self._blocked_result(
+                    base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
+                    violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                )
+        ok = self._queues.enqueue(
+            str(device_id),
+            str(work_id),
+            cast(PriorityClass, priority_class),
+            t_s,
+            agent_id,
+            event.get("reason_code") or args.get("reason_code"),
+            allow_duplicate_work_id=True,
+        )
+        if not ok:
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(base, RC_QUEUE_DUPLICATE_WORK_ID, hashchain_dict)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["QUEUE_RUN"], hashchain_dict)
+
+    def _step_create_accession(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._specimens is not None
+        args = event.get("args", {})
+        specimen_id = args.get("specimen_id")
+        if specimen_id and self._specimens.create_accession(str(specimen_id)):
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["CREATE_ACCESSION"], hashchain_dict)
+        return self._step_default(event, base)
+
+    def _step_check_acceptance_rules(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._specimens is not None
+        args = event.get("args", {})
+        specimen_id = args.get("specimen_id")
+        id_match = args.get("id_match")
+        if specimen_id:
+            self._specimens.check_acceptance_rules(str(specimen_id), id_match)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["CHECK_ACCEPTANCE_RULES"], hashchain_dict)
+
+    def _step_accept_specimen(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._specimens is not None
+        args = event.get("args", {})
+        specimen_id = args.get("specimen_id")
+        if specimen_id:
+            outcome, emits, blocked_code, _ = self._specimens.accept_specimen(
+                str(specimen_id)
+            )
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return self._finalize_step(
+                    event,
+                    {
+                        **base,
+                        "status": "ACCEPTED",
+                        "emits": [FORENSIC_FREEZE_LOG],
+                        "blocked_reason_code": None,
+                        "violations": [],
+                        "hashchain": hashchain_dict,
+                    },
+                )
+            return self._finalize_step(
+                event,
+                {
+                    **base,
+                    "status": outcome,
+                    "emits": emits,
+                    "blocked_reason_code": blocked_code,
+                    "violations": [],
+                    "hashchain": hashchain_dict,
+                },
+            )
+        return self._step_default(event, base)
+
+    def _step_hold_specimen(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._specimens is not None
+        args = event.get("args", {})
+        reason_code = event.get("reason_code") or args.get("reason_code")
+        specimen_id = args.get("specimen_id")
+        if not specimen_id:
+            hashchain_dict, _ = self._audit.append(event)
+            return self._accepted_result(base, ["HOLD_SPECIMEN"], hashchain_dict)
+        ok, blocked_code = self._specimens.hold_specimen(
+            str(specimen_id), reason_code
+        )
+        if not ok and blocked_code == AUDIT_MISSING_REASON_CODE:
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(base, AUDIT_MISSING_REASON_CODE, hashchain_dict)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["HOLD_SPECIMEN"], hashchain_dict)
+
+    def _step_reject_specimen(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._specimens is not None
+        args = event.get("args", {})
+        specimen_id = args.get("specimen_id")
+        reason_code = event.get("reason_code") or args.get("reason_code")
+        if specimen_id and self._specimens.reject_specimen(
+            str(specimen_id), reason_code
+        ):
+            hashchain_dict, chain_broken = self._audit.append(event)
+            if chain_broken:
+                self._system_state["log_frozen"] = True
+                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+            return self._accepted_result(base, ["REJECT_SPECIMEN"], hashchain_dict)
+        return self._step_default(event, base)
+
+    def _step_centrifuge_end(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._specimens is not None
+        args = event.get("args", {})
+        t_s = int(event.get("t_s", 0))
+        specimen_ids = args.get("specimen_ids") or []
+        separated_ts_s = args.get("separated_ts_s", t_s)
+        for sid in specimen_ids:
+            self._specimens.set_separated_ts(str(sid), int(separated_ts_s))
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["CENTRIFUGE_END"], hashchain_dict)
+
+    def _step_aliquot_create(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._specimens is not None
+        args = event.get("args", {})
+        specimen_id = args.get("specimen_id")
+        aliquot_id = args.get("aliquot_id")
+        if specimen_id and aliquot_id:
+            self._specimens.record_aliquot(str(aliquot_id), str(specimen_id))
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["ALIQUOT_CREATE"], hashchain_dict)
+
+    def _step_start_run(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._qc is not None and self._specimens is not None
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        token_refs = event.get("token_refs", [])
+        device_id = args.get("device_id")
+        agent_id = str(event.get("agent_id", ""))
+        if device_id and self._zones is not None:
+            device_zone = self._device_zone.get(str(device_id))
+            agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
+            if device_zone and agent_zone is not None and agent_zone != device_zone:
+                hashchain_dict, _ = self._audit.append(event)
+                return self._blocked_result(
+                    base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
+                    violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                )
+        if (
+            self._timing_mode == "simulated"
+            and self._device_store is not None
+            and device_id
+            and not self._device_store.can_start_run(str(device_id))
+        ):
+            block_reason = self._device_store.device_block_reason(str(device_id))
+            reason_code = (
+                RC_DEVICE_MAINT
+                if block_reason == "MAINT"
+                else RC_DEVICE_FAULT if block_reason == "FAULT" else RC_DEVICE_BUSY
+            )
+            hashchain_dict, _ = self._audit.append(event)
+            return self._blocked_result(base, reason_code, hashchain_dict)
+        resolved_specimen_ids: list[str] | None = None
+        if self._queues is not None and device_id:
+            resolved_from_args = self._specimens.resolve_to_specimen_ids(
+                args.get("specimen_ids"),
+                args.get("aliquot_ids"),
+            )
+            explicit_work_id = args.get("work_id")
+            if not resolved_from_args and not explicit_work_id:
+                work_id_from_queue = self._queues.consume_head(str(device_id))
+                if work_id_from_queue is None:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return self._blocked_result(base, RC_QUEUE_EMPTY, hashchain_dict)
+                resolved_specimen_ids = [work_id_from_queue]
+            elif resolved_from_args or explicit_work_id:
+                work_id = explicit_work_id or (
+                    resolved_from_args[0] if resolved_from_args else None
+                )
+                if work_id is not None:
+                    head = self._queues.queue_head(str(device_id))
+                    if head is not None and head != str(work_id):
+                        hashchain_dict, _ = self._audit.append(event)
+                        return self._blocked_result(
+                            base, RC_QUEUE_HEAD_MISMATCH, hashchain_dict,
+                        )
+                    if head == str(work_id):
+                        self._queues.consume_head(str(device_id))
+                resolved_specimen_ids = resolved_from_args or (
+                    [str(explicit_work_id)] if explicit_work_id else []
+                )
+        if resolved_specimen_ids is None:
+            resolved_specimen_ids = self._specimens.resolve_to_specimen_ids(
+                args.get("specimen_ids"),
+                args.get("aliquot_ids"),
+            )
+        start_violations: list[dict[str, Any]] = []
+        for sid in resolved_specimen_ids or []:
+            specimen_rec = self._specimens.get(sid)
+            if not specimen_rec:
+                continue
+            panel_id = specimen_rec.get("panel_id") or "BIOCHEM_PANEL_CORE"
+            collection_ts_s = int(specimen_rec.get("collection_ts_s", 0))
+            separated_ts_s = specimen_rec.get("separated_ts_s")
+            if separated_ts_s is not None:
+                separated_ts_s = int(separated_ts_s)
+            temp_band = specimen_rec.get("temp_band") or "AMBIENT_20_25"
+            ok, viol_id, reason, _ = check_stability(
+                collection_ts_s,
+                separated_ts_s,
+                t_s,
+                panel_id,
+                self._stability_policy,
+                temp_band,
+            )
+            if not ok and not token_refs:
+                hashchain_dict, _ = self._audit.append(event)
+                return self._blocked_result(
+                    base, reason or TIME_EXPIRED, hashchain_dict,
+                    violations=[{"invariant_id": viol_id, "status": "VIOLATION"}],
+                )
+            if (
+                check_temp_out_of_band(
+                    specimen_rec.get("storage_requirement"),
+                    specimen_rec.get("temp_exposure_log"),
+                )
+                and not token_refs
+            ):
+                hashchain_dict, _ = self._audit.append(event)
+                return self._blocked_result(
+                    base, TEMP_OUT_OF_BAND, hashchain_dict,
+                    violations=[{"invariant_id": "INV-ZONE-006", "status": "VIOLATION"}],
+                )
+        first_panel_id = None
+        if resolved_specimen_ids and self._specimens:
+            first_spec = (
+                self._specimens.get(resolved_specimen_ids[0])
+                if resolved_specimen_ids
+                else None
+            )
+            first_panel_id = first_spec.get("panel_id") if first_spec else None
+        if self._reagent_policy and first_panel_id:
+            req = get_panel_reagent_requirement(
+                self._reagent_policy, first_panel_id
+            )
+            if req is not None:
+                reagent_id, qty, _ = req
+                current = self._reagent_stock.get(reagent_id, 0.0)
+                if current < qty:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return self._blocked_result(
+                        base, RC_REAGENT_STOCKOUT, hashchain_dict,
+                    )
+        device_id = args.get("device_id")
+        run_id = args.get("run_id")
+        if device_id and run_id:
+            self._qc.register_run(str(run_id), str(device_id))
+        if self._reagent_policy and first_panel_id:
+            req = get_panel_reagent_requirement(
+                self._reagent_policy, first_panel_id
+            )
+            if req is not None:
+                reagent_id, qty, _ = req
+                self._reagent_stock[reagent_id] = (
+                    self._reagent_stock.get(reagent_id, 0.0) - qty
+                )
+        if (
+            self._timing_mode == "simulated"
+            and self._device_store is not None
+            and device_id
+            and run_id
+        ):
+            self._device_store.start_run(
+                str(device_id),
+                str(run_id),
+                t_s,
+                work_id=resolved_specimen_ids[0] if resolved_specimen_ids else None,
+                specimen_ids=resolved_specimen_ids or [],
+                panel_id=first_panel_id,
+            )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._finalize_step(
+                event,
+                {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "violations": start_violations,
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                },
+            )
+        return self._finalize_step(
+            event,
+            {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["START_RUN"],
+                "violations": start_violations,
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            },
+        )
+
+    def _step_start_run_override(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._specimens is not None and self._qc is not None
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        token_refs = event.get("token_refs", [])
+        device_id = args.get("device_id")
+        agent_id = str(event.get("agent_id", ""))
+        if device_id and self._zones is not None:
+            device_zone = self._device_zone.get(str(device_id))
+            agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
+            if device_zone and agent_zone is not None and agent_zone != device_zone:
+                hashchain_dict, _ = self._audit.append(event)
+                return self._blocked_result(
+                    base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
+                    violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
+                )
+        specimen_ids = self._specimens.resolve_to_specimen_ids(
+            args.get("specimen_ids"),
+            args.get("aliquot_ids"),
+        )
+        if specimen_ids and token_refs:
+            for tid in token_refs:
+                v = self._tokens.validity_violation(tid, t_s)
+                if v:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return self._blocked_result(
+                        base, TIME_EXPIRED, hashchain_dict,
+                        violations=[{"invariant_id": v, "status": "VIOLATION"}],
+                    )
+            for tid in token_refs:
+                self._tokens.consume_token(tid)
+            device_id = args.get("device_id")
+            run_id = args.get("run_id")
+            if device_id and run_id:
+                self._qc.register_run(str(run_id), str(device_id))
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._finalize_step(
+                event,
+                {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "blocked_reason_code": None,
+                    "token_consumed": (
+                        list(token_refs) if specimen_ids and token_refs else []
+                    ),
+                    "violations": [],
+                    "hashchain": hashchain_dict,
+                },
+            )
+        return self._finalize_step(
+            event,
+            {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["START_RUN"],
+                "blocked_reason_code": None,
+                "token_consumed": (
+                    list(token_refs) if specimen_ids and token_refs else []
+                ),
+                "violations": [],
+                "hashchain": hashchain_dict,
+            },
+        )
+
+    def _step_qc_event(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._qc is not None
+        args = event.get("args", {})
+        device_id = args.get("device_id")
+        qc_outcome = args.get("qc_outcome", "pass")
+        if device_id:
+            self._qc.set_device_qc_state(str(device_id), str(qc_outcome))
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["QC_EVENT"], hashchain_dict)
+
+    def _step_generate_result(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._qc is not None
+        args = event.get("args", {})
+        result_id = args.get("result_id")
+        run_id = args.get("run_id")
+        device_id = args.get("device_id")
+        qc_state = args.get("qc_state")
+        analyte_code = args.get("analyte_code")
+        value = args.get("value")
+        units = args.get("units", "")
+        if result_id:
+            self._qc.create_result(
+                str(result_id),
+                str(run_id) if run_id else None,
+                device_id=str(device_id) if device_id else None,
+                qc_state=str(qc_state) if qc_state else None,
+            )
+            if (
+                analyte_code is not None
+                and value is not None
+                and self._critical is not None
+            ):
+                self._critical.classify_and_set(
+                    str(result_id), str(analyte_code), value, str(units)
+                )
+                if self._system_state.get("downtime_active"):
+                    self._critical.set_notification_mode_required(
+                        str(result_id), "phone_or_bleep"
+                    )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        emits_list = ["GENERATE_RESULT"]
+        if args.get("analyte_code"):
+            emits_list.append("CLASSIFY_RESULT")
+        if (
+            result_id
+            and self._critical is not None
+            and self._critical.result_criticality(str(result_id)) != "none"
+            and self._system_state.get("downtime_active")
+        ):
+            emits_list.append("NOTIFY_CRITICAL_RESULT")
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, emits_list, hashchain_dict)
+
+    def _step_release_result(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._qc is not None
+        args = event.get("args", {})
+        result_id = args.get("result_id")
+        if result_id:
+            rid = str(result_id)
+            if self._critical is not None:
+                crit = self._critical.result_criticality(rid)
+                if crit in ("CRIT_A", "CRIT_B") and not self._critical.has_ack(rid):
+                    hashchain_dict, _ = self._audit.append(event)
+                    return self._blocked_result(
+                        base, CRIT_NO_ACK, hashchain_dict,
+                        violations=[{"invariant_id": "INV-CRIT-002", "status": "VIOLATION"}],
+                    )
+            can_release, blocked_code = self._qc.can_release_result(rid)
+            if not can_release and blocked_code == QC_FAIL_ACTIVE:
+                self._qc.hold_result(rid)
+                hashchain_dict, _ = self._audit.append(event)
+                return self._blocked_result(base, QC_FAIL_ACTIVE, hashchain_dict)
+            self._qc.release_result(rid)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["RELEASE_RESULT"], hashchain_dict)
+
+    def _step_hold_result(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._qc is not None
+        args = event.get("args", {})
+        result_id = args.get("result_id")
+        if result_id:
+            self._qc.hold_result(str(result_id))
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["HOLD_RESULT"], hashchain_dict)
+
+    def _step_rerun_request(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["RERUN_REQUEST"], hashchain_dict)
+
+    def _step_release_result_override(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        assert self._qc is not None
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        token_refs = event.get("token_refs", [])
+        result_id = args.get("result_id")
+        if result_id and token_refs:
+            for tid in token_refs:
+                v = self._tokens.validity_violation(tid, t_s)
+                if v:
+                    hashchain_dict, _ = self._audit.append(event)
+                    return self._blocked_result(
+                        base, QC_FAIL_ACTIVE, hashchain_dict,
+                        violations=[{"invariant_id": v, "status": "VIOLATION"}],
+                    )
+            for tid in token_refs:
+                self._tokens.consume_token(tid)
+            self._qc.release_result_override_with_drift_flag(str(result_id))
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(
+                base, [FORENSIC_FREEZE_LOG], hashchain_dict,
+                token_consumed=list(token_refs) if result_id and token_refs else [],
+            )
+        return self._accepted_result(
+            base, ["RELEASE_RESULT"], hashchain_dict,
+            token_consumed=list(token_refs) if result_id and token_refs else [],
+        )
+
+    def _step_notify_critical_result(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        result_id = args.get("result_id")
+        channel = args.get("channel", "")
+        receiver_role = args.get("receiver_role", "")
+        agent_id = event.get("agent_id", "")
+        if result_id and self._critical is not None:
+            _, block_reason = self._critical.record_notify(
+                str(result_id),
+                channel,
+                receiver_role,
+                str(agent_id),
+                t_s,
+                message_template_id=args.get("message_template_id"),
+                criticality_class=args.get("criticality_class"),
+            )
+            if block_reason == CRIT_MODE_NOT_ALLOWED:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return self._blocked_result(
+                    base, CRIT_MODE_NOT_ALLOWED, hashchain_snap,
+                )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(base, ["NOTIFY_CRITICAL_RESULT"], hashchain_dict)
+
+    def _step_ack_critical_result(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        result_id = args.get("result_id")
+        agent_id = event.get("agent_id", "")
+        ack_ok, ack_violation_id, ack_reason_code = True, None, None
+        if result_id and self._critical is not None:
+            ack_ok, ack_violation_id, ack_reason_code = self._critical.record_ack(
+                str(result_id), args, str(agent_id), t_s
+            )
+            if not ack_ok and ack_reason_code == CRIT_ACK_MISSING_FIELDS:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return self._blocked_result(
+                    base, CRIT_ACK_MISSING_FIELDS, hashchain_snap,
+                )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._finalize_step(
+                event,
+                {
+                    **base,
+                    "status": "ACCEPTED",
+                    "emits": [FORENSIC_FREEZE_LOG],
+                    "violations": [],
+                    "blocked_reason_code": None,
+                    "hashchain": hashchain_dict,
+                },
+            )
+        violations_list = list(base.get("violations") or [])
+        if not ack_ok and ack_violation_id:
+            violations_list.append(
+                {
+                    "invariant_id": ack_violation_id,
+                    "status": "VIOLATION",
+                    "reason_code": ack_reason_code or "CRIT_NO_READBACK",
+                }
+            )
+        return self._finalize_step(
+            event,
+            {
+                **base,
+                "status": "ACCEPTED",
+                "emits": ["ACK_CRITICAL_RESULT"],
+                "violations": violations_list,
+                "blocked_reason_code": None,
+                "hashchain": hashchain_dict,
+            },
+        )
+
+    def _step_escalate_critical_result(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        result_id = args.get("result_id")
+        next_role = args.get("next_role", "")
+        agent_id = event.get("agent_id", "")
+        if result_id and next_role and self._critical is not None:
+            ok_esc, esc_reason = self._critical.record_escalate(
+                str(result_id),
+                next_role,
+                str(agent_id),
+                t_s,
+                message_template_id=args.get("message_template_id"),
+                criticality_class=args.get("criticality_class"),
+            )
+            if not ok_esc and esc_reason == CRIT_ESCALATION_OUT_OF_ORDER:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return self._blocked_result(
+                    base, CRIT_ESCALATION_OUT_OF_ORDER, hashchain_snap,
+                )
+            if not ok_esc and esc_reason:
+                hashchain_snap = self._audit.hashchain_snapshot()
+                return self._blocked_result(base, esc_reason, hashchain_snap)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(
+            base, ["ESCALATE_CRITICAL_RESULT"], hashchain_dict,
+        )
+
+    def _step_dispatch_transport(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        if self._transport is None:
+            return self._step_default(event, base)
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        specimen_ids = args.get("specimen_ids") or []
+        origin_site = args.get("origin_site", "")
+        dest_site = args.get("dest_site", "")
+        agent_id = event.get("agent_id", "")
+        cid, reason = self._transport.dispatch(
+            [str(s) for s in specimen_ids],
+            str(origin_site),
+            str(dest_site),
+            t_s,
+            str(agent_id),
+        )
+        if reason == TRANSPORT_ROUTE_FORBIDDEN:
+            hashchain_snap = self._audit.hashchain_snapshot()
+            return self._blocked_result(
+                base, TRANSPORT_ROUTE_FORBIDDEN, hashchain_snap,
+            )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(
+            base, ["DISPATCH_TRANSPORT"], hashchain_dict,
+            consignment_id=cid,
+        )
+
+    def _step_transport_tick(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        if self._transport is None:
+            return self._step_default(event, base)
+        t_s = int(event.get("t_s", 0))
+        excursions = self._transport.tick(t_s)
+        hashchain_dict, chain_broken = self._audit.append(event)
+        violations_list = list(base.get("violations") or [])
+        for cid, rc in excursions:
+            if rc == TRANSPORT_TEMP_EXCURSION:
+                violations_list.append(
+                    {
+                        "invariant_id": "INV-TRANSPORT-001",
+                        "status": "VIOLATION",
+                        "reason_code": rc,
+                    }
+                )
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(
+                base, [FORENSIC_FREEZE_LOG], hashchain_dict,
+                violations=violations_list,
+            )
+        return self._accepted_result(
+            base, ["TRANSPORT_TICK"], hashchain_dict,
+            violations=violations_list,
+        )
+
+    def _step_receive_transport(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        if self._transport is None:
+            return self._step_default(event, base)
+        t_s = int(event.get("t_s", 0))
+        args = event.get("args", {})
+        consignment_id = args.get("consignment_id", "")
+        agent_id = event.get("agent_id", "")
+        if getattr(self, "_transport_fault_injection", {}).get(
+            "force_temp_excursion_on_next_receive"
+        ):
+            self._transport.inject_temp_excursion(str(consignment_id))
+        ok, reason = self._transport.receive(
+            str(consignment_id), t_s, str(agent_id)
+        )
+        if not ok and reason == TRANSPORT_TEMP_EXCURSION:
+            hashchain_snap = self._audit.hashchain_snapshot()
+            return self._blocked_result(
+                base, TRANSPORT_TEMP_EXCURSION, hashchain_snap,
+                violations=[
+                    {
+                        "invariant_id": "INV-TRANSPORT-001",
+                        "status": "VIOLATION",
+                        "reason_code": reason,
+                    }
+                ],
+            )
+        if not ok:
+            hashchain_snap = self._audit.hashchain_snapshot()
+            rc = reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN
+            violations_list = list(base.get("violations") or [])
+            if rc == TRANSPORT_CHAIN_OF_CUSTODY_BROKEN:
+                violations_list.append(
+                    {
+                        "invariant_id": "INV-COC-001",
+                        "status": "VIOLATION",
+                        "reason_code": rc,
+                    }
+                )
+            return self._blocked_result(
+                base, rc, hashchain_snap,
+                violations=violations_list,
+            )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(
+            base, ["RECEIVE_TRANSPORT"], hashchain_dict,
+        )
+
+    def _step_chain_of_custody_sign(
+        self, event: StepEventDict | dict[str, Any], base: dict[str, Any]
+    ) -> dict[str, Any]:
+        if self._transport is None:
+            return self._step_default(event, base)
+        args = event.get("args", {})
+        consignment_id = args.get("consignment_id", "")
+        agent_id = event.get("agent_id", "")
+        ok, reason = self._transport.chain_of_custody_sign(
+            str(consignment_id), str(agent_id)
+        )
+        if not ok:
+            hashchain_snap = self._audit.hashchain_snapshot()
+            return self._blocked_result(
+                base,
+                reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN,
+                hashchain_snap,
+            )
+        hashchain_dict, chain_broken = self._audit.append(event)
+        if chain_broken:
+            self._system_state["log_frozen"] = True
+            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
+            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
+        return self._accepted_result(
+            base, ["CHAIN_OF_CUSTODY_SIGN"], hashchain_dict,
+        )
+
+    @timed_step_method
     def step(self, event: StepEventDict | dict[str, Any]) -> dict[str, Any]:
         """
         Apply one event. Returns contract: status, emits, violations,
@@ -894,171 +2094,9 @@ class CoreEnv(LabTrustEnvAdapter):
 
         assert self._zones is not None, "zones not initialized"
 
-        # TICK: check door-open-too-long
-        if action_type == "TICK":
-            violations, emits = self._zones.tick(t_s)
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._finalize_step(
-                    event,
-                    {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "violations": violations,
-                        "blocked_reason_code": None,
-                        "hashchain": hashchain_dict,
-                    },
-                )
-            return self._finalize_step(
-                event,
-                {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": emits if emits else [],
-                    "violations": violations,
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                },
-            )
-
-        # MOVE: adjacency check; restricted zone requires token
-        if action_type == "MOVE":
-            from_zone = str(args.get("from_zone", ""))
-            to_zone = str(args.get("to_zone", ""))
-            entity_type = args.get("entity_type", "Agent")
-            agent_id = str(event.get("agent_id", ""))
-            if entity_type == "Specimen":
-                ok = self._zones.is_adjacent(from_zone, to_zone)
-                move_violations = (
-                    []
-                    if ok
-                    else [{"invariant_id": "INV-ZONE-001", "status": "VIOLATION"}]
-                )
-                blocked_code = None if ok else "RC_ILLEGAL_MOVE"
-            else:
-                if not agent_id:
-                    agent_id = str(args.get("entity_id", event.get("agent_id", "")))
-                ok, move_violations, blocked_code = self._zones.move(
-                    agent_id, from_zone, to_zone
-                )
-            if not ok:
-                hashchain_dict, _ = self._audit.append(event)
-                return self._blocked_result(
-                    base, blocked_code, hashchain_dict,
-                    violations=move_violations,
-                )
-            if to_zone == Z_RESTRICTED_BIOHAZARD:
-                if not token_refs:
-                    hashchain_dict, _ = self._audit.append(event)
-                    return self._blocked_result(
-                        base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
-                        violations=[
-                            {"invariant_id": "INV-ZONE-004", "status": "VIOLATION"},
-                            {"invariant_id": "INV-TOK-003", "status": "VIOLATION"},
-                        ],
-                    )
-                for tid in token_refs:
-                    v = self._tokens.validity_violation(tid, t_s)
-                    if v:
-                        hashchain_dict, _ = self._audit.append(event)
-                        return self._blocked_result(
-                            base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
-                            violations=[{"invariant_id": v, "status": "VIOLATION"}],
-                        )
-                for tid in token_refs:
-                    self._tokens.consume_token(tid)
-                hashchain_dict, chain_broken = self._audit.append(event)
-                if chain_broken:
-                    self._system_state["log_frozen"] = True
-                    self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return self._accepted_result(
-                        base, [FORENSIC_FREEZE_LOG], hashchain_dict,
-                        token_consumed=list(token_refs),
-                    )
-                return self._accepted_result(
-                    base, ["MOVE"], hashchain_dict,
-                    token_consumed=list(token_refs),
-                )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["MOVE"], hashchain_dict)
-
-        # MINT_TOKEN
-        if action_type == "MINT_TOKEN":
-            approvals = args.get("approvals", [])
-            if isinstance(approvals, list) and approvals:
-                pass
-            else:
-                approvals = []
-            token_type = args.get("token_type", "")
-            ok, dual_approval_violation = validate_dual_approval(
-                approvals, token_type, self._token_registry
-            )
-            if not ok and dual_approval_violation:
-                hashchain_dict, _ = self._audit.append(event)
-                return self._blocked_result(
-                    base, dual_approval_violation or "", hashchain_dict,
-                    violations=[
-                        {
-                            "invariant_id": dual_approval_violation or "",
-                            "status": "VIOLATION",
-                        }
-                    ],
-                )
-            subject_type = args.get("subject_type", "")
-            subject_id = args.get("subject_id", "")
-            reason_code = args.get("reason_code")
-            token_types = (
-                self._token_registry.get("token_types") or _DEFAULT_TOKEN_TYPES
-            )
-            meta = token_types.get(token_type, {})
-            ttl_s = int(meta.get("ttl_s", 3600))
-            token_id = (
-                f"T_OVR_{subject_id}"
-                if "OVERRIDE" in token_type
-                else f"T_{token_type}_{subject_id}"
-            )
-            try:
-                self._tokens.mint_token(
-                    token_id=token_id,
-                    token_type=token_type,
-                    subject_type=subject_type,
-                    subject_id=subject_id,
-                    issued_at_ts_s=t_s,
-                    expires_at_ts_s=t_s + ttl_s,
-                    reason_code=reason_code,
-                    approvals=approvals,
-                )
-            except ValueError:
-                hashchain_dict, _ = self._audit.append(event)
-                return self._blocked_result(
-                    base, INV_TOK_001, hashchain_dict,
-                    violations=[{"invariant_id": INV_TOK_001, "status": "VIOLATION"}],
-                )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["MINT_TOKEN"], hashchain_dict)
-
-        # REVOKE_TOKEN
-        if action_type == "REVOKE_TOKEN":
-            token_id = args.get("token_id")
-            if token_id:
-                self._tokens.revoke_token(token_id)
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["REVOKE_TOKEN"], hashchain_dict)
+        handler_name = _STEP_DISPATCH.get(action_type)
+        if handler_name is not None:
+            return getattr(self, handler_name)(event, base)
 
         # Actions that reference token_refs: validate then consume if required
         if token_refs:
@@ -1103,829 +2141,17 @@ class CoreEnv(LabTrustEnvAdapter):
                     token_consumed=list(token_refs),
                 )
 
-        # OPEN_DOOR D_RESTRICTED_AIRLOCK without valid token
-        if action_type == "OPEN_DOOR" and args.get("door_id") == "D_RESTRICTED_AIRLOCK":
-            hashchain_dict, _ = self._audit.append(event)
-            return self._blocked_result(
-                base, RBAC_RESTRICTED_ENTRY_DENY, hashchain_dict,
-                violations=[
-                    {"invariant_id": "INV-ZONE-004", "status": "VIOLATION"},
-                    {"invariant_id": "INV-TOK-003", "status": "VIOLATION"},
-                ],
-            )
+        handler_name = _STEP_DISPATCH_LATE.get(action_type)
+        if handler_name is not None:
+            return getattr(self, handler_name)(event, base)
+        return self._step_default(event, base)
 
-        # CENTRIFUGE_START (GS-001): co-location check; INV-ZONE-002 from invariants_runtime
-        if action_type == "CENTRIFUGE_START":
-            device_id = args.get("device_id")
-            agent_id = str(event.get("agent_id", ""))
-            violations_list: list[dict[str, Any]] = []
-            if device_id and self._zones is not None:
-                device_zone = self._device_zone.get(str(device_id))
-                agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
-                if device_zone and agent_zone is not None and agent_zone != device_zone:
-                    hashchain_dict, _ = self._audit.append(event)
-                    return self._blocked_result(
-                        base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
-                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
-                    )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._finalize_step(
-                    event,
-                    {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "violations": violations_list,
-                        "blocked_reason_code": None,
-                        "hashchain": hashchain_dict,
-                    },
-                )
-            return self._finalize_step(
-                event,
-                {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": ["CENTRIFUGE_START"],
-                    "violations": violations_list,
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                },
-            )
-
-        # QUEUE_RUN (GS-002): per-device queue, STAT/URGENT/ROUTINE ordering
-        if action_type == "QUEUE_RUN":
-            assert self._queues is not None and self._zones is not None
-            device_id = args.get("device_id")
-            work_id = args.get("work_id") or args.get("specimen_id")
-            if not work_id and args.get("accession_ids"):
-                ids = args["accession_ids"]
-                work_id = ids[0] if isinstance(ids, list) and ids else None
-            if not work_id and args.get("aliquot_ids") and self._specimens is not None:
-                resolved = self._specimens.resolve_to_specimen_ids(
-                    None, args.get("aliquot_ids")
-                )
-                work_id = resolved[0] if resolved else None
-            if not work_id and args.get("aliquot_ids"):
-                ids = args["aliquot_ids"]
-                work_id = ids[0] if isinstance(ids, list) and ids else None
-            priority_raw = (
-                args.get("priority") or args.get("priority_class") or "ROUTINE"
-            )
-            priority_class = (
-                str(priority_raw).upper()
-                if str(priority_raw).upper() in ("STAT", "URGENT", "ROUTINE")
-                else "ROUTINE"
-            )
-            if not device_id or not work_id:
-                hashchain_dict, _ = self._audit.append(event)
-                return self._blocked_result(base, RC_QUEUE_BAD_PAYLOAD, hashchain_dict)
-            if not self._queues.is_known_device(str(device_id)):
-                hashchain_dict, _ = self._audit.append(event)
-                return self._blocked_result(base, RC_DEVICE_UNKNOWN, hashchain_dict)
-            agent_id = str(event.get("agent_id", ""))
-            if device_id and self._device_zone.get(str(device_id)) and agent_id:
-                device_zone = self._device_zone.get(str(device_id))
-                agent_zone = self._zones.get_agent_zone(agent_id)
-                if agent_zone is not None and device_zone != agent_zone:
-                    hashchain_dict, _ = self._audit.append(event)
-                    return self._blocked_result(
-                        base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
-                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
-                    )
-            ok = self._queues.enqueue(
-                str(device_id),
-                str(work_id),
-                cast(PriorityClass, priority_class),
-                t_s,
-                agent_id,
-                event.get("reason_code") or args.get("reason_code"),
-                allow_duplicate_work_id=True,
-            )
-            if not ok:
-                hashchain_dict, _ = self._audit.append(event)
-                return self._blocked_result(base, RC_QUEUE_DUPLICATE_WORK_ID, hashchain_dict)
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["QUEUE_RUN"], hashchain_dict)
-
-        # Reception: specimens (GS-003, GS-004, GS-005, GS-021)
-        assert self._specimens is not None, "specimens not initialized"
-        if action_type == "CREATE_ACCESSION":
-            specimen_id = args.get("specimen_id")
-            if specimen_id and self._specimens.create_accession(str(specimen_id)):
-                hashchain_dict, chain_broken = self._audit.append(event)
-                if chain_broken:
-                    self._system_state["log_frozen"] = True
-                    self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-                return self._accepted_result(base, ["CREATE_ACCESSION"], hashchain_dict)
-        if action_type == "CHECK_ACCEPTANCE_RULES":
-            specimen_id = args.get("specimen_id")
-            id_match = args.get("id_match")
-            if specimen_id:
-                self._specimens.check_acceptance_rules(str(specimen_id), id_match)
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["CHECK_ACCEPTANCE_RULES"], hashchain_dict)
-        if action_type == "ACCEPT_SPECIMEN":
-            specimen_id = args.get("specimen_id")
-            if specimen_id:
-                outcome, emits, blocked_code, _ = self._specimens.accept_specimen(
-                    str(specimen_id)
-                )
-                hashchain_dict, chain_broken = self._audit.append(event)
-                if chain_broken:
-                    self._system_state["log_frozen"] = True
-                    self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return self._finalize_step(
-                        event,
-                        {
-                            **base,
-                            "status": "ACCEPTED",
-                            "emits": [FORENSIC_FREEZE_LOG],
-                            "blocked_reason_code": None,
-                            "violations": [],
-                            "hashchain": hashchain_dict,
-                        },
-                    )
-                return self._finalize_step(
-                    event,
-                    {
-                        **base,
-                        "status": outcome,
-                        "emits": emits,
-                        "blocked_reason_code": blocked_code,
-                        "violations": [],
-                        "hashchain": hashchain_dict,
-                    },
-                )
-            # no specimen_id: fall through to default
-        if action_type == "HOLD_SPECIMEN":
-            reason_code = event.get("reason_code") or args.get("reason_code")
-            specimen_id = args.get("specimen_id")
-            if not specimen_id:
-                hashchain_dict, _ = self._audit.append(event)
-                return self._accepted_result(base, ["HOLD_SPECIMEN"], hashchain_dict)
-            ok, blocked_code = self._specimens.hold_specimen(
-                str(specimen_id), reason_code
-            )
-            if not ok and blocked_code == AUDIT_MISSING_REASON_CODE:
-                hashchain_dict, _ = self._audit.append(event)
-                return self._blocked_result(base, AUDIT_MISSING_REASON_CODE, hashchain_dict)
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["HOLD_SPECIMEN"], hashchain_dict)
-        if action_type == "REJECT_SPECIMEN":
-            specimen_id = args.get("specimen_id")
-            reason_code = event.get("reason_code") or args.get("reason_code")
-            if specimen_id and self._specimens.reject_specimen(
-                str(specimen_id), reason_code
-            ):
-                hashchain_dict, chain_broken = self._audit.append(event)
-                if chain_broken:
-                    self._system_state["log_frozen"] = True
-                    self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                    return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-                return self._accepted_result(base, ["REJECT_SPECIMEN"], hashchain_dict)
-
-        # CENTRIFUGE_END: update specimen separated_ts_s
-        if action_type == "CENTRIFUGE_END":
-            specimen_ids = args.get("specimen_ids") or []
-            separated_ts_s = args.get("separated_ts_s", t_s)
-            for sid in specimen_ids:
-                self._specimens.set_separated_ts(str(sid), int(separated_ts_s))
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["CENTRIFUGE_END"], hashchain_dict)
-        # ALIQUOT_CREATE: record aliquot_id -> specimen_id
-        if action_type == "ALIQUOT_CREATE":
-            specimen_id = args.get("specimen_id")
-            aliquot_id = args.get("aliquot_id")
-            if specimen_id and aliquot_id:
-                self._specimens.record_aliquot(str(aliquot_id), str(specimen_id))
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["ALIQUOT_CREATE"], hashchain_dict)
-        # QC and results (GS-014, GS-015)
-        assert self._qc is not None, "qc not initialized"
-        if action_type == "START_RUN":
-            # Co-location: agent must be in device zone (GS-019)
-            device_id = args.get("device_id")
-            agent_id = str(event.get("agent_id", ""))
-            if device_id and self._zones is not None:
-                device_zone = self._device_zone.get(str(device_id))
-                agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
-                if device_zone and agent_zone is not None and agent_zone != device_zone:
-                    hashchain_dict, _ = self._audit.append(event)
-                    return self._blocked_result(
-                        base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
-                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
-                    )
-            # Simulated timing: device must be IDLE to start a run (MAINT/FAULT/RUNNING)
-            if (
-                self._timing_mode == "simulated"
-                and self._device_store is not None
-                and device_id
-                and not self._device_store.can_start_run(str(device_id))
-            ):
-                block_reason = self._device_store.device_block_reason(str(device_id))
-                reason_code = (
-                    RC_DEVICE_MAINT
-                    if block_reason == "MAINT"
-                    else RC_DEVICE_FAULT if block_reason == "FAULT" else RC_DEVICE_BUSY
-                )
-                hashchain_dict, _ = self._audit.append(event)
-                return self._blocked_result(base, reason_code, hashchain_dict)
-            # Queue: consume head if no explicit work/specimen/aliquot; else enforce head == work_id
-            resolved_specimen_ids: list[str] | None = None
-            if self._queues is not None and device_id:
-                resolved_from_args = self._specimens.resolve_to_specimen_ids(
-                    args.get("specimen_ids"),
-                    args.get("aliquot_ids"),
-                )
-                explicit_work_id = args.get("work_id")
-                if not resolved_from_args and not explicit_work_id:
-                    work_id_from_queue = self._queues.consume_head(str(device_id))
-                    if work_id_from_queue is None:
-                        hashchain_dict, _ = self._audit.append(event)
-                        return self._blocked_result(base, RC_QUEUE_EMPTY, hashchain_dict)
-                    resolved_specimen_ids = [work_id_from_queue]
-                elif resolved_from_args or explicit_work_id:
-                    work_id = explicit_work_id or (
-                        resolved_from_args[0] if resolved_from_args else None
-                    )
-                    if work_id is not None:
-                        head = self._queues.queue_head(str(device_id))
-                        if head is not None and head != str(work_id):
-                            hashchain_dict, _ = self._audit.append(event)
-                            return self._blocked_result(
-                                base, RC_QUEUE_HEAD_MISMATCH, hashchain_dict,
-                            )
-                        if head == str(work_id):
-                            self._queues.consume_head(str(device_id))
-                    resolved_specimen_ids = resolved_from_args or (
-                        [str(explicit_work_id)] if explicit_work_id else []
-                    )
-            if resolved_specimen_ids is None:
-                resolved_specimen_ids = self._specimens.resolve_to_specimen_ids(
-                    args.get("specimen_ids"),
-                    args.get("aliquot_ids"),
-                )
-            start_violations: list[dict[str, Any]] = []
-            for sid in resolved_specimen_ids or []:
-                specimen_rec: dict[str, Any] | None = self._specimens.get(sid)
-                if not specimen_rec:
-                    continue
-                panel_id = specimen_rec.get("panel_id") or "BIOCHEM_PANEL_CORE"
-                collection_ts_s = int(specimen_rec.get("collection_ts_s", 0))
-                separated_ts_s = specimen_rec.get("separated_ts_s")
-                if separated_ts_s is not None:
-                    separated_ts_s = int(separated_ts_s)
-                temp_band = specimen_rec.get("temp_band") or "AMBIENT_20_25"
-                ok, viol_id, reason, pass_inv = check_stability(
-                    collection_ts_s,
-                    separated_ts_s,
-                    t_s,
-                    panel_id,
-                    self._stability_policy,
-                    temp_band,
-                )
-                if not ok and not token_refs:
-                    hashchain_dict, _ = self._audit.append(event)
-                    return self._blocked_result(
-                        base, reason or TIME_EXPIRED, hashchain_dict,
-                        violations=[{"invariant_id": viol_id, "status": "VIOLATION"}],
-                    )
-                if (
-                    check_temp_out_of_band(
-                        specimen_rec.get("storage_requirement"),
-                        specimen_rec.get("temp_exposure_log"),
-                    )
-                    and not token_refs
-                ):
-                    hashchain_dict, _ = self._audit.append(event)
-                    return self._blocked_result(
-                        base, TEMP_OUT_OF_BAND, hashchain_dict,
-                        violations=[{"invariant_id": "INV-ZONE-006", "status": "VIOLATION"}],
-                    )
-                # INV-STAB-BIOCHEM-001:PASS from invariants_runtime when stability ok
-            first_panel_id: str | None = None
-            if resolved_specimen_ids and self._specimens:
-                first_spec = (
-                    self._specimens.get(resolved_specimen_ids[0])
-                    if resolved_specimen_ids
-                    else None
-                )
-                first_panel_id = first_spec.get("panel_id") if first_spec else None
-            if self._reagent_policy and first_panel_id:
-                req = get_panel_reagent_requirement(
-                    self._reagent_policy, first_panel_id
-                )
-                if req is not None:
-                    reagent_id, qty, _ = req
-                    current = self._reagent_stock.get(reagent_id, 0.0)
-                    if current < qty:
-                        hashchain_dict, _ = self._audit.append(event)
-                        return self._blocked_result(
-                            base, RC_REAGENT_STOCKOUT, hashchain_dict,
-                        )
-            device_id = args.get("device_id")
-            run_id = args.get("run_id")
-            if device_id and run_id:
-                self._qc.register_run(str(run_id), str(device_id))
-            if self._reagent_policy and first_panel_id:
-                req = get_panel_reagent_requirement(
-                    self._reagent_policy, first_panel_id
-                )
-                if req is not None:
-                    reagent_id, qty, _ = req
-                    self._reagent_stock[reagent_id] = (
-                        self._reagent_stock.get(reagent_id, 0.0) - qty
-                    )
-            # Simulated timing: schedule run completion (service time from RNG)
-            if (
-                self._timing_mode == "simulated"
-                and self._device_store is not None
-                and device_id
-                and run_id
-            ):
-                self._device_store.start_run(
-                    str(device_id),
-                    str(run_id),
-                    t_s,
-                    work_id=resolved_specimen_ids[0] if resolved_specimen_ids else None,
-                    specimen_ids=resolved_specimen_ids or [],
-                    panel_id=first_panel_id,
-                )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._finalize_step(
-                    event,
-                    {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "violations": start_violations,
-                        "blocked_reason_code": None,
-                        "hashchain": hashchain_dict,
-                    },
-                )
-            return self._finalize_step(
-                event,
-                {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": ["START_RUN"],
-                    "violations": start_violations,
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                },
-            )
-        if action_type == "START_RUN_OVERRIDE":
-            # Co-location: agent must be in device zone (GS-019)
-            device_id = args.get("device_id")
-            agent_id = str(event.get("agent_id", ""))
-            if device_id and self._zones is not None:
-                device_zone = self._device_zone.get(str(device_id))
-                agent_zone = self._zones.get_agent_zone(agent_id) if agent_id else None
-                if device_zone and agent_zone is not None and agent_zone != device_zone:
-                    hashchain_dict, _ = self._audit.append(event)
-                    return self._blocked_result(
-                        base, RC_DEVICE_NOT_COLOCATED, hashchain_dict,
-                        violations=[{"invariant_id": "INV-ZONE-002", "status": "VIOLATION"}],
-                    )
-            specimen_ids = self._specimens.resolve_to_specimen_ids(
-                args.get("specimen_ids"),
-                args.get("aliquot_ids"),
-            )
-            if specimen_ids and token_refs:
-                for tid in token_refs:
-                    v = self._tokens.validity_violation(tid, t_s)
-                    if v:
-                        hashchain_dict, _ = self._audit.append(event)
-                        return self._blocked_result(
-                            base, TIME_EXPIRED, hashchain_dict,
-                            violations=[{"invariant_id": v, "status": "VIOLATION"}],
-                        )
-                for tid in token_refs:
-                    self._tokens.consume_token(tid)
-                device_id = args.get("device_id")
-                run_id = args.get("run_id")
-                if device_id and run_id:
-                    self._qc.register_run(str(run_id), str(device_id))
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._finalize_step(
-                    event,
-                    {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "blocked_reason_code": None,
-                        "token_consumed": (
-                            list(token_refs) if specimen_ids and token_refs else []
-                        ),
-                        "violations": [],
-                        "hashchain": hashchain_dict,
-                    },
-                )
-            return self._finalize_step(
-                event,
-                {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": ["START_RUN"],
-                    "blocked_reason_code": None,
-                    "token_consumed": (
-                        list(token_refs) if specimen_ids and token_refs else []
-                    ),
-                    "violations": [],
-                    "hashchain": hashchain_dict,
-                },
-            )
-        if action_type == "QC_EVENT":
-            device_id = args.get("device_id")
-            qc_outcome = args.get("qc_outcome", "pass")
-            if device_id:
-                self._qc.set_device_qc_state(str(device_id), str(qc_outcome))
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["QC_EVENT"], hashchain_dict)
-        if action_type == "GENERATE_RESULT":
-            result_id = args.get("result_id")
-            run_id = args.get("run_id")
-            device_id = args.get("device_id")
-            qc_state = args.get("qc_state")
-            analyte_code = args.get("analyte_code")
-            value = args.get("value")
-            units = args.get("units", "")
-            if result_id:
-                self._qc.create_result(
-                    str(result_id),
-                    str(run_id) if run_id else None,
-                    device_id=str(device_id) if device_id else None,
-                    qc_state=str(qc_state) if qc_state else None,
-                )
-                if (
-                    analyte_code is not None
-                    and value is not None
-                    and self._critical is not None
-                ):
-                    crit = self._critical.classify_and_set(
-                        str(result_id), str(analyte_code), value, str(units)
-                    )
-                    if self._system_state.get("downtime_active") and crit != "none":
-                        self._critical.set_notification_mode_required(
-                            str(result_id), "phone_or_bleep"
-                        )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            emits_list = ["GENERATE_RESULT"]
-            if args.get("analyte_code"):
-                emits_list.append("CLASSIFY_RESULT")
-            if (
-                result_id
-                and self._critical is not None
-                and self._critical.result_criticality(str(result_id)) != "none"
-            ):
-                if self._system_state.get("downtime_active"):
-                    emits_list.append("NOTIFY_CRITICAL_RESULT")
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, emits_list, hashchain_dict)
-        if action_type == "RELEASE_RESULT":
-            result_id = args.get("result_id")
-            if result_id:
-                rid = str(result_id)
-                if self._critical is not None:
-                    crit = self._critical.result_criticality(rid)
-                    if crit in ("CRIT_A", "CRIT_B") and not self._critical.has_ack(rid):
-                        hashchain_dict, _ = self._audit.append(event)
-                        return self._blocked_result(
-                            base, CRIT_NO_ACK, hashchain_dict,
-                            violations=[{"invariant_id": "INV-CRIT-002", "status": "VIOLATION"}],
-                        )
-                can_release, blocked_code = self._qc.can_release_result(rid)
-                if not can_release and blocked_code == QC_FAIL_ACTIVE:
-                    self._qc.hold_result(rid)
-                    hashchain_dict, _ = self._audit.append(event)
-                    return self._blocked_result(base, QC_FAIL_ACTIVE, hashchain_dict)
-                self._qc.release_result(rid)
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["RELEASE_RESULT"], hashchain_dict)
-        if action_type == "HOLD_RESULT":
-            result_id = args.get("result_id")
-            if result_id:
-                self._qc.hold_result(str(result_id))
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["HOLD_RESULT"], hashchain_dict)
-        if action_type == "RERUN_REQUEST":
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["RERUN_REQUEST"], hashchain_dict)
-        if action_type == "RELEASE_RESULT_OVERRIDE":
-            result_id = args.get("result_id")
-            if result_id and token_refs:
-                for tid in token_refs:
-                    v = self._tokens.validity_violation(tid, t_s)
-                    if v:
-                        hashchain_dict, _ = self._audit.append(event)
-                        return self._blocked_result(
-                            base, QC_FAIL_ACTIVE, hashchain_dict,
-                            violations=[{"invariant_id": v, "status": "VIOLATION"}],
-                        )
-                for tid in token_refs:
-                    self._tokens.consume_token(tid)
-                self._qc.release_result_override_with_drift_flag(str(result_id))
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(
-                    base, [FORENSIC_FREEZE_LOG], hashchain_dict,
-                    token_consumed=list(token_refs) if result_id and token_refs else [],
-                )
-            return self._accepted_result(
-                base, ["RELEASE_RESULT"], hashchain_dict,
-                token_consumed=list(token_refs) if result_id and token_refs else [],
-            )
-        if action_type == "NOTIFY_CRITICAL_RESULT":
-            result_id = args.get("result_id")
-            channel = args.get("channel", "")
-            receiver_role = args.get("receiver_role", "")
-            agent_id = event.get("agent_id", "")
-            if result_id and self._critical is not None:
-                attempt_id, block_reason = self._critical.record_notify(
-                    str(result_id),
-                    channel,
-                    receiver_role,
-                    str(agent_id),
-                    t_s,
-                    message_template_id=args.get("message_template_id"),
-                    criticality_class=args.get("criticality_class"),
-                )
-                if block_reason == CRIT_MODE_NOT_ALLOWED:
-                    hashchain_snap = self._audit.hashchain_snapshot()
-                    return self._blocked_result(
-                        base, CRIT_MODE_NOT_ALLOWED, hashchain_snap,
-                    )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(base, ["NOTIFY_CRITICAL_RESULT"], hashchain_dict)
-        if action_type == "ACK_CRITICAL_RESULT":
-            result_id = args.get("result_id")
-            agent_id = event.get("agent_id", "")
-            ack_ok, ack_violation_id, ack_reason_code = True, None, None
-            if result_id and self._critical is not None:
-                ack_ok, ack_violation_id, ack_reason_code = self._critical.record_ack(
-                    str(result_id), args, str(agent_id), t_s
-                )
-                if not ack_ok and ack_reason_code == CRIT_ACK_MISSING_FIELDS:
-                    hashchain_snap = self._audit.hashchain_snapshot()
-                    return self._blocked_result(
-                        base, CRIT_ACK_MISSING_FIELDS, hashchain_snap,
-                    )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._finalize_step(
-                    event,
-                    {
-                        **base,
-                        "status": "ACCEPTED",
-                        "emits": [FORENSIC_FREEZE_LOG],
-                        "violations": [],
-                        "blocked_reason_code": None,
-                        "hashchain": hashchain_dict,
-                    },
-                )
-            violations_list = list(base.get("violations") or [])
-            if not ack_ok and ack_violation_id:
-                violations_list.append(
-                    {
-                        "invariant_id": ack_violation_id,
-                        "status": "VIOLATION",
-                        "reason_code": ack_reason_code or "CRIT_NO_READBACK",
-                    }
-                )
-            return self._finalize_step(
-                event,
-                {
-                    **base,
-                    "status": "ACCEPTED",
-                    "emits": ["ACK_CRITICAL_RESULT"],
-                    "violations": violations_list,
-                    "blocked_reason_code": None,
-                    "hashchain": hashchain_dict,
-                },
-            )
-        if action_type == "ESCALATE_CRITICAL_RESULT":
-            result_id = args.get("result_id")
-            next_role = args.get("next_role", "")
-            agent_id = event.get("agent_id", "")
-            if result_id and next_role and self._critical is not None:
-                ok_esc, esc_reason = self._critical.record_escalate(
-                    str(result_id),
-                    next_role,
-                    str(agent_id),
-                    t_s,
-                    message_template_id=args.get("message_template_id"),
-                    criticality_class=args.get("criticality_class"),
-                )
-                if not ok_esc and esc_reason == CRIT_ESCALATION_OUT_OF_ORDER:
-                    hashchain_snap = self._audit.hashchain_snapshot()
-                    return self._blocked_result(
-                        base, CRIT_ESCALATION_OUT_OF_ORDER, hashchain_snap,
-                    )
-                if not ok_esc and esc_reason:
-                    hashchain_snap = self._audit.hashchain_snapshot()
-                    return self._blocked_result(base, esc_reason, hashchain_snap)
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(
-                base, ["ESCALATE_CRITICAL_RESULT"], hashchain_dict,
-            )
-
-        if action_type == "DISPATCH_TRANSPORT" and self._transport is not None:
-            specimen_ids = args.get("specimen_ids") or []
-            origin_site = args.get("origin_site", "")
-            dest_site = args.get("dest_site", "")
-            agent_id = event.get("agent_id", "")
-            cid, reason = self._transport.dispatch(
-                [str(s) for s in specimen_ids],
-                str(origin_site),
-                str(dest_site),
-                t_s,
-                str(agent_id),
-            )
-            if reason == TRANSPORT_ROUTE_FORBIDDEN:
-                hashchain_snap = self._audit.hashchain_snapshot()
-                return self._blocked_result(
-                    base, TRANSPORT_ROUTE_FORBIDDEN, hashchain_snap,
-                )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(
-                base, ["DISPATCH_TRANSPORT"], hashchain_dict,
-                consignment_id=cid,
-            )
-
-        if action_type == "TRANSPORT_TICK" and self._transport is not None:
-            excursions = self._transport.tick(t_s)
-            hashchain_dict, chain_broken = self._audit.append(event)
-            violations_list = list(base.get("violations") or [])
-            for cid, rc in excursions:
-                if rc == TRANSPORT_TEMP_EXCURSION:
-                    violations_list.append(
-                        {
-                            "invariant_id": "INV-TRANSPORT-001",
-                            "status": "VIOLATION",
-                            "reason_code": rc,
-                        }
-                    )
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(
-                    base, [FORENSIC_FREEZE_LOG], hashchain_dict,
-                    violations=violations_list,
-                )
-            return self._accepted_result(
-                base, ["TRANSPORT_TICK"], hashchain_dict,
-                violations=violations_list,
-            )
-
-        if action_type == "RECEIVE_TRANSPORT" and self._transport is not None:
-            consignment_id = args.get("consignment_id", "")
-            agent_id = event.get("agent_id", "")
-            if self._transport_fault_injection.get(
-                "force_temp_excursion_on_next_receive"
-            ):
-                self._transport.inject_temp_excursion(str(consignment_id))
-            ok, reason = self._transport.receive(
-                str(consignment_id), t_s, str(agent_id)
-            )
-            if not ok and reason == TRANSPORT_TEMP_EXCURSION:
-                hashchain_snap = self._audit.hashchain_snapshot()
-                return self._blocked_result(
-                    base, TRANSPORT_TEMP_EXCURSION, hashchain_snap,
-                    violations=[
-                        {
-                            "invariant_id": "INV-TRANSPORT-001",
-                            "status": "VIOLATION",
-                            "reason_code": reason,
-                        }
-                    ],
-                )
-            if not ok:
-                hashchain_snap = self._audit.hashchain_snapshot()
-                rc = reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN
-                violations_list = list(base.get("violations") or [])
-                if rc == TRANSPORT_CHAIN_OF_CUSTODY_BROKEN:
-                    violations_list.append(
-                        {
-                            "invariant_id": "INV-COC-001",
-                            "status": "VIOLATION",
-                            "reason_code": rc,
-                        }
-                    )
-                return self._blocked_result(
-                    base, rc, hashchain_snap,
-                    violations=violations_list,
-                )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(
-                base, ["RECEIVE_TRANSPORT"], hashchain_dict,
-            )
-
-        if action_type == "CHAIN_OF_CUSTODY_SIGN" and self._transport is not None:
-            consignment_id = args.get("consignment_id", "")
-            agent_id = event.get("agent_id", "")
-            ok, reason = self._transport.chain_of_custody_sign(
-                str(consignment_id), str(agent_id)
-            )
-            if not ok:
-                hashchain_snap = self._audit.hashchain_snapshot()
-                return self._blocked_result(
-                    base,
-                    reason or TRANSPORT_CHAIN_OF_CUSTODY_BROKEN,
-                    hashchain_snap,
-                )
-            hashchain_dict, chain_broken = self._audit.append(event)
-            if chain_broken:
-                self._system_state["log_frozen"] = True
-                self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-                return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-            return self._accepted_result(
-                base, ["CHAIN_OF_CUSTODY_SIGN"], hashchain_dict,
-            )
-
-        # Default: append to audit, ACCEPTED
-        hashchain_dict, chain_broken = self._audit.append(event)
-        if chain_broken:
-            self._system_state["log_frozen"] = True
-            self._system_state["last_reason_code_system"] = AUDIT_CHAIN_BROKEN
-            return self._accepted_result(base, [FORENSIC_FREEZE_LOG], hashchain_dict)
-        default_emits = list(base.get("emits", []))
-        if action_type:
-            default_emits.append(action_type)
-        return self._accepted_result(base, default_emits, hashchain_dict)
 
     def query(self, expr: str) -> Any:
         """
         Query state for runner state_assertions.
         Supports: system_state('log_frozen'), last_reason_code_system, token_active.
+        Uses a dispatch table (exact match then compiled patterns) for consistent lookup.
         """
         expr = expr.strip()
         if expr == "last_reason_code_system":
@@ -1934,67 +2160,46 @@ class CoreEnv(LabTrustEnvAdapter):
             return "true" if self._system_state.get("log_frozen", False) else "false"
         if "token_active" in expr or expr == "token_active":
             return self._tokens.list_active_ids()
-        zone_state_match = re.match(r"zone_state\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr)
-        if zone_state_match and self._zones is not None:
-            return self._zones.zone_state(zone_state_match.group(1))
-        specimen_status_match = re.match(
-            r"specimen_status\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr
-        )
-        if specimen_status_match and self._specimens is not None:
-            return self._specimens.specimen_status(specimen_status_match.group(1))
-        last_reason_match = re.match(
-            r"last_reason_code\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr
-        )
-        if last_reason_match and self._specimens is not None:
-            return self._specimens.last_reason_code(last_reason_match.group(1))
-        result_status_match = re.match(
-            r"result_status\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr
-        )
-        if result_status_match and self._qc is not None:
-            return self._qc.result_status(result_status_match.group(1))
-        result_flags_match = re.match(
-            r"result_flags\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr
-        )
-        if result_flags_match and self._qc is not None:
-            return self._qc.result_flags(result_flags_match.group(1))
-        result_crit_match = re.match(
-            r"result_criticality\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr
-        )
-        if result_crit_match and self._critical is not None:
-            return self._critical.result_criticality(result_crit_match.group(1))
-        comm_exists_match = re.match(
-            r"comm_record_exists\s*\(\s*result_id\s*=\s*['\"]([^'\"]+)['\"]\s*\)",
-            expr,
-        )
-        if comm_exists_match and self._critical is not None:
+        m = _RE_QUERY_ZONE_STATE.match(expr)
+        if m and self._zones is not None:
+            return self._zones.zone_state(m.group(1))
+        m = _RE_QUERY_SPECIMEN_STATUS.match(expr)
+        if m and self._specimens is not None:
+            return self._specimens.specimen_status(m.group(1))
+        m = _RE_QUERY_LAST_REASON_CODE.match(expr)
+        if m and self._specimens is not None:
+            return self._specimens.last_reason_code(m.group(1))
+        m = _RE_QUERY_RESULT_STATUS.match(expr)
+        if m and self._qc is not None:
+            return self._qc.result_status(m.group(1))
+        m = _RE_QUERY_RESULT_FLAGS.match(expr)
+        if m and self._qc is not None:
+            return self._qc.result_flags(m.group(1))
+        m = _RE_QUERY_RESULT_CRIT.match(expr)
+        if m and self._critical is not None:
+            return self._critical.result_criticality(m.group(1))
+        m = _RE_QUERY_COMM_EXISTS.match(expr)
+        if m and self._critical is not None:
             return (
                 "true"
-                if self._critical.comm_record_exists(comm_exists_match.group(1))
+                if self._critical.comm_record_exists(m.group(1))
                 else "false"
             )
-        notif_mode_match = re.match(
-            r"notification_mode_required\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr
-        )
-        if notif_mode_match and self._critical is not None:
-            return self._critical.notification_mode_required(notif_mode_match.group(1))
-        queue_head_match = re.match(
-            r"queue_head\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
-        )
-        if queue_head_match and self._queues is not None:
-            return self._queues.queue_head(queue_head_match.group(1))
-        queue_length_match = re.match(
-            r"queue_length\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
-        )
-        if queue_length_match and self._queues is not None:
-            return self._queues.queue_length(queue_length_match.group(1))
-        agent_zone_match = re.match(
-            r"agent_zone\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
-        )
-        if agent_zone_match and self._zones is not None:
-            return self._zones.get_agent_zone(agent_zone_match.group(1))
-        door_state_match = re.match(r"door_state\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", expr)
-        if door_state_match and self._zones is not None:
-            door_id = door_state_match.group(1)
+        m = _RE_QUERY_NOTIF_MODE.match(expr)
+        if m and self._critical is not None:
+            return self._critical.notification_mode_required(m.group(1))
+        m = _RE_QUERY_QUEUE_HEAD.match(expr)
+        if m and self._queues is not None:
+            return self._queues.queue_head(m.group(1))
+        m = _RE_QUERY_QUEUE_LENGTH.match(expr)
+        if m and self._queues is not None:
+            return self._queues.queue_length(m.group(1))
+        m = _RE_QUERY_AGENT_ZONE.match(expr)
+        if m and self._zones is not None:
+            return self._zones.get_agent_zone(m.group(1))
+        m = _RE_QUERY_DOOR_STATE.match(expr)
+        if m and self._zones is not None:
+            door_id = m.group(1)
             is_open, open_since_ts = self._zones.get_door_state(door_id)
             duration_s = (
                 (self._now_ts - open_since_ts) if (open_since_ts is not None) else 0
@@ -2006,16 +2211,12 @@ class CoreEnv(LabTrustEnvAdapter):
             }
         if expr == "specimen_counts" and self._specimens is not None:
             return self._specimens.get_status_counts()
-        device_qc_match = re.match(
-            r"device_qc_state\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
-        )
-        if device_qc_match and self._qc is not None:
-            return self._qc.device_qc_state(device_qc_match.group(1))
-        device_state_match = re.match(
-            r"device_state\s*\(\s*['\"]?([^'\")\s]+)['\"]?\s*\)", expr
-        )
-        if device_state_match and self._device_store is not None:
-            return self._device_store.device_state(device_state_match.group(1))
+        m = _RE_QUERY_DEVICE_QC.match(expr)
+        if m and self._qc is not None:
+            return self._qc.device_qc_state(m.group(1))
+        m = _RE_QUERY_DEVICE_STATE.match(expr)
+        if m and self._device_store is not None:
+            return self._device_store.device_state(m.group(1))
         if expr == "transport_consignments" and self._transport is not None:
             return self._transport.list_consignments_info()
         if expr == "last_event_hash" and self._audit is not None:
@@ -2042,6 +2243,20 @@ class CoreEnv(LabTrustEnvAdapter):
                 out.append(rid)
             return out
         raise ValueError(f"Unsupported query: {expr!r}")
+
+    def query_many(self, exprs: list[str]) -> dict[str, Any]:
+        """
+        Evaluate multiple query expressions in one call. Returns a dict mapping each
+        expression to its result. Expressions that raise ValueError are omitted from
+        the result (caller can use defaults).
+        """
+        out: dict[str, Any] = {}
+        for expr in exprs:
+            try:
+                out[expr] = self.query(expr)
+            except ValueError:
+                pass
+        return out
 
     def get_agent_role(self, agent_id: str) -> str | None:
         """

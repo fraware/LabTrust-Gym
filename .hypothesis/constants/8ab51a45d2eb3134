@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\tools\no_placeholders.py
+# hypothesis_version: 6.151.6
+
+['"algorithm": "stub"', '"status": "stub"', "'algorithm': 'stub'", "'status': 'stub'", '*', '.cfg', '.css', '.egg-info', '.git', '.html', '.ini', '.js', '.json', '.jsonl', '.md', '.mypy_cache', '.py', '.pytest_cache', '.rst', '.ruff_cache', '.sh', '.toml', '.ts', '.txt', '.venv', '.yaml', '.yml', '/', '501 Not Implemented', 'NotImplementedError', 'OBS_PLACEHOLDER', '__main__', '__pycache__', 'algorithm: stub', 'build', 'dist', 'docs/', 'mkdocs.yml', 'node_modules', 'placeholder', 'policy/', 'secret_scrubber.py', 'site', 'src/', 'status: stub', 'status=stub', 'stub', 'tests/', 'utf-8', 'venv']

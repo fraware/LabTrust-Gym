@@ -108,6 +108,27 @@ coordination_methods:
       compatible_injections: ["inj_tool_selection_noise", "inj_dos_flood"]
       default_params: {}
 
+    - method_id: "consensus_paxos_lite"
+      name: "Consensus Paxos-lite (global digest, bounded rounds)"
+      coordination_class: decentralized
+      scaling_knobs: ["num_agents", "num_sites", "horizon_steps"]
+      known_weaknesses: ["R-COMMS-002", "R-DATA-003", "R-FLOW-002"]
+      required_controls: ["message_auth", "rate_limit"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "inj_msg_poison"]
+      default_params:
+        max_rounds: 2
+
+    - method_id: "swarm_stigmergy_priority"
+      name: "Swarm stigmergy (priority-weighted pheromone)"
+      coordination_class: swarm
+      scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
+      known_weaknesses: ["R-TOOL-001", "R-DATA-001", "R-FLOW-002"]
+      required_controls: ["RBAC", "rate_limit"]
+      compatible_injections: ["INJ-COMMS-POISON-001", "inj_msg_poison"]
+      default_params:
+        pheromone_decay: 0.95
+        pheromone_deposit: 1.0
+
     - method_id: "marl_ppo"
       name: "MARL PPO (shared policy with agent_id in obs)"
       coordination_class: learning

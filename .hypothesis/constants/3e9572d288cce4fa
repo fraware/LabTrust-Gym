@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\orchestrator\replay.py
+# hypothesis_version: 6.151.6
+
+['.', 'action_type', 'actual', 'agent_id', 'artifact_pointers', 'blocked_reason_code', 'config', 'coord_method', 'diff_summary', 'diffs', 'diverged', 'emits', 'episode_0.jsonl', 'episode_log.jsonl', 'expected', 'failed', 'field', 'hashchain', 'hashchain_head', 'head_hash', 'invariant_id', 'method_comparisons', 'method_ids', 'ok', 're_run_log', 'receipt_digest', 'recorded_run_dir', 'ref_receipt_digest', 'reference_log', 'replay_run_dir', 'replay_summary.json', 'results.json', 'results_replay.json', 'run_receipt_digest', 'seeds', 'status', 'step_count', 'step_index', 'steps_compared', 'summary_path', 't_s', 'task', 'timing_mode', 'utf-8', 'violations']

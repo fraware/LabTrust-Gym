@@ -295,6 +295,24 @@ This writes `<out>/<provider>/` for each provider (full pack output: baselines/,
 
 The repo includes contract tests (`tests/test_cross_provider_contract.py`) that assert **live_evaluation_metadata.json** and **TRANSPARENCY_LOG/llm_live.json** have the same top-level shape and canonical latency keys (e.g. mean_latency_ms) whether the run came from openai_live, anthropic_live, or ollama_live. They use synthetic result files (no network), so CI stays deterministic. This ensures the transparency aggregator and risk register accept all providers consistently.
 
+## LLM coordination entry points and standards-of-excellence checklist
+
+The following entry points use an LLM (or deterministic) backend for coordination. Each should satisfy the same design requirements as single-agent LLM backends (schema-valid decisions, hard-fail to NOOP, metadata, integration). See [LLM Coordination Protocol](llm_coordination_protocol.md) for proposal schema, shield semantics, and repair loop.
+
+| Entry point | Component | Schema-valid | Hard-fail NOOP | Metadata | Integration |
+|-------------|-----------|--------------|----------------|---------|-------------|
+| **llm_central_planner** | Central coordinator (state_digest -> backend -> proposal) | Yes: `validate_proposal` before use | Yes: invalid/error -> all NOOP | Yes: meta in proposal, results.metadata | prompt_fingerprint, policy_fingerprint, transparency log |
+| **llm_hierarchical_allocator** | Hub allocator + local controller | Yes: `validate_proposal` | Yes: invalid/error -> all NOOP | Yes | same |
+| **llm_auction_bidder** | Bid backend -> dispatcher | Yes: bid schema / proposal validation where used | Yes: safe_fallback -> all NOOP | Yes | same |
+| **llm_gossip_summarizer** | Summarizer backend -> per-agent actions | Yes: proposal validation before execution | Yes: error/empty -> NOOP | Yes | same |
+| **llm_repair_over_kernel_whca** | Repair backend (on shield block) | Yes: repair response validated; parse error -> NOOP | Yes: timeout/refusal/parse -> all NOOP, repair_fallback_noop_count | Yes: coordination.llm_repair metrics | repair_request_hash, shield_outcome_hash in audit |
+| **llm_local_decider_signed_bus** | Per-agent ActionProposal -> signed bus | Yes: ActionProposal schema per message | Yes: invalid/rejected -> NOOP for that agent | Yes: comm metrics, per-agent outcome | signed bus, reconciler |
+| **llm_constrained** | Constrained planner backend | Yes: `validate_proposal` | Yes: invalid -> all NOOP | Yes | same |
+| **llm_detector_throttle_advisor** | Detector/advisor LLM -> throttle or NOOP | Yes: advisor output validated | Yes: invalid -> safe_detector_fallback (NOOP) | Yes: assurance metrics | detector_advisor, simplex |
+| **Single-agent LLM** (throughput_sla, etc.) | baselines/llm/agent + backends | Yes: ActionProposal / single-step schema | Yes: RC_LLM_INVALID_OUTPUT, LLM_REFUSED -> NOOP | Yes: results.metadata | prompt/tool fingerprint, LLM_DECISION audit |
+
+**Gaps to fix (if any):** When adding a new LLM coordination method or backend, ensure (1) all responses pass through the same schema validation (`validate_proposal` for CoordinationProposal, or the appropriate ActionProposal schema), (2) on validation failure, timeout, or refusal the code path returns NOOP and does not pass invalid output through, (3) backend_id, model_id, latency (and optionally tokens) are recorded in proposal meta and results metadata, (4) prompt_fingerprint and policy_fingerprint are set and transparency log / episode log receive the expected audit entries.
+
 ## Anthropic backend (implemented)
 
 The **anthropic_live** backend is implemented in `baselines/llm/backends/anthropic_live.py` with the same contract guarantees as openai_live. The following checklist is satisfied; use it as a reference for adding further providers.

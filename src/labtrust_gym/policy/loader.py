@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
@@ -36,6 +37,18 @@ try:
     jsonschema: ModuleType | None = _jsonschema_module
 except ImportError:
     jsonschema = None
+
+# Process-level cache for load_effective_policy. Key: (root_resolved_str, partner_id).
+# Invalid if policy files change on disk during the process. Disable with LABTRUST_POLICY_CACHE=0.
+_EFFECTIVE_POLICY_CACHE: dict[tuple[str, str | None], tuple[dict[str, Any], str, str | None, str | None]] = {}
+
+
+def _policy_cache_enabled() -> bool:
+    return os.environ.get("LABTRUST_POLICY_CACHE", "1").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 class PolicyLoadError(Exception):
@@ -413,8 +426,15 @@ def load_effective_policy(
 
     effective_policy keys: critical_thresholds (list), stability_policy (dict), enforcement_map (dict),
     equipment_registry (dict). Used by engine when passed in initial_state["effective_policy"].
+
+    Result is cached per (root, partner_id) when LABTRUST_POLICY_CACHE is enabled (default).
+    Cache is process-scoped; do not rely on it if policy files change during the process.
     """
     root = Path(root)
+    if _policy_cache_enabled():
+        cache_key = (str(root.resolve()), partner_id)
+        if cache_key in _EFFECTIVE_POLICY_CACHE:
+            return _EFFECTIVE_POLICY_CACHE[cache_key]
     base_critical = _load_base_critical_list(root)
     base_stability = _load_base_stability(root)
     base_enforcement = _load_base_enforcement(root)
@@ -477,4 +497,7 @@ def load_effective_policy(
     }
     fingerprint = compute_policy_fingerprint(effective_policy)
     calibration_fingerprint = compute_calibration_fingerprint(calibration) if calibration else None
-    return effective_policy, fingerprint, partner_id, calibration_fingerprint
+    result = (effective_policy, fingerprint, partner_id, calibration_fingerprint)
+    if _policy_cache_enabled():
+        _EFFECTIVE_POLICY_CACHE[cache_key] = result
+    return result

@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\llm\shield.py
+# hypothesis_version: 6.151.6
+
+['; ', 'CRIT_A', 'CRIT_B', 'LLM_ACTION_FILTERED', 'NOOP', 'SIG_INVALID', 'SIG_MISSING', 'ack_required', 'action_type', 'agent_zone', 'allowed_actions', 'args', 'citation_anchors', 'class', 'critical', 'critical_thresholds', 'defaults_rcpath2017', 'device_id', 'doors', 'dual_approval_policy', 'from', 'graph_edges', 'id', 'intent', 'key_constraints', 'key_id', 'levels', 'log_frozen', 'pending_criticals', 'policy', 'queue_head', 'rationale', 'rbac', 'rbac_roles_summary', 'reason_code', 'requirement', 'requirements', 'requires_readback', 'requires_token', 'requires_token_type', 'restricted', 'restricted_zones', 'role', 'roles', 'rules', 'signature', 'signing_proxy', 'strict_signatures', 'tier_index', 'tiers', 'to', 'to_zone', 'token_refs', 'token_requirements', 'tokens', 'zone_graph', 'zone_id', 'zone_layout', 'zone_layout_policy', 'zones']

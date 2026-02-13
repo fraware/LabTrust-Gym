@@ -77,6 +77,10 @@ Before enabling online or non-deterministic runs in production:
 
 See [Contributing](contributing.md) for verification and audit steps.
 
+## Risk coverage (strict) — schedule / manual
+
+Job **risk-coverage-strict** runs **only on schedule or workflow_dispatch** (not on every push/PR). It builds the risk register bundle from `tests/fixtures/ui_fixtures` and runs **`labtrust validate-coverage --strict`**. The job fails if any required_bench cell in the method–risk matrix has no evidence in the bundle. To pass: add evidence (e.g. run the coordination security pack or study, then `labtrust export-risk-register --runs <pack_or_study_out> --out <dir>` and use that bundle; or add coordination matrix / run artifacts to the ui_fixtures so the fixture bundle covers all required cells). See [Risk register](risk_register.md) and [SOTA roadmap](SOTA_ROADMAP.md) section 6.1.
+
 ## Optional: LLM live E2E in CI
 
 An optional CI job can run with a real LLM when the API key is set (e.g. as a repository secret). Such a job would run one or more benchmark episodes with `--llm-backend openai_live` (or `openai_responses`) and `--allow-network`, then assert that artifacts contain non-empty `llm_model_id`, latency/cost metadata (e.g. from `metadata.llm_attribution_summary` or episode LLM_DECISION meta), and that the run completed without fatal errors. This is **not** part of the default gate; add it only if you need to validate the live LLM path in CI. Document the job name and required secrets (e.g. `OPENAI_API_KEY`) in the workflow file and in this section when you add it.
@@ -114,7 +118,10 @@ Workflow **`.github/workflows/coordination-nightly.yml`** runs a heavier coordin
    Small matrix (e.g. 3 methods x 4 injections, 1 ep/cell); produces summary_coord.csv and pareto.md.
 
 3. **SOTA sanity (minimal subset)**  
-   coord_scale and coord_risk at S scale (small_smoke), 1 episode each, for methods `kernel_whca` and `ripple_effect`; coord_risk with INJ-COMMS-POISON-001. Writes `labtrust_runs/coordination_nightly/sota_sanity/<id>_taskg.json` and `<id>_taskh_poison.json`.
+   coord_scale and coord_risk at S scale (small_smoke), 1 episode each, for methods `kernel_whca`, `ripple_effect`, `consensus_paxos_lite`, `swarm_stigmergy_priority`; coord_risk with INJ-COMMS-POISON-001. Writes `labtrust_runs/coordination_nightly/sota_sanity/<id>_taskg.json` and `<id>_taskh_poison.json`.
+
+4. **Layer 3 at-scale (one profile)**  
+   coord_scale with `kernel_whca`, scale `corridor_heavy`, 1 episode (seed 300). Writes `labtrust_runs/coordination_nightly/at_scale/kernel_whca_taskg_corridor_heavy.json`. See [Benchmarking plan](benchmarking_plan.md) Layer 2/3: full Layer 2 matrix is via coordination study spec; Layer 3 profile is covered here in nightly.
 
 No network, no secrets. To run the same locally:
 
