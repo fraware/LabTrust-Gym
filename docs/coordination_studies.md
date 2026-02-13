@@ -28,7 +28,7 @@ labtrust run-coordination-study --spec policy/coordination/coordination_study_sp
   - `summary/summary_coord.csv`: aggregated metrics per (method_id, scale_id, risk_id, injection_id).
   - `summary/pareto.md`: per-scale Pareto front and robust winner.
 
-With **`LABTRUST_REPRO_SMOKE=1`** in the environment, episodes per cell are capped to 1 for fast smoke runs. The study spec may include both **INJ-*** injection IDs (full injectors) and **legacy** IDs (e.g. `inj_tool_selection_noise`); legacy IDs use a passthrough NoOpInjector so all cells run without error.
+With **`LABTRUST_REPRO_SMOKE=1`** in the environment, episodes per cell are capped to 1 for fast smoke runs. The study spec may include both **INJ-*** injection IDs (full injectors from `policy/coordination/injections.v0.2.yaml`) and **legacy/reserved** IDs (e.g. `inj_tool_selection_noise`, `inj_prompt_injection`, `none`). Legacy and reserved IDs are **out of scope for this release**: they use a passthrough NoOpInjector so all cells run without error, but no fault is actually injected. For active injections use INJ-* IDs. The full list of reserved no-op IDs is documented in [Risk register – Reserved and legacy injection IDs](risk_register.md#reserved-and-legacy-injection-ids-out-of-scope-for-this-release).
 
 ### LLM-only with live backends
 
@@ -180,8 +180,8 @@ For each method, 95% bootstrap confidence intervals are computed for mean throug
 **Artifacts**  
 - **pareto.json**: Machine-readable fronts per scale (`fronts_per_scale`), per-method CIs (`per_method_ci`), and objective list. Version field `pareto_version: "0.1"` and `version: "0.3"` for the extension.
 - **pareto_cost.json**: Cost-aware Pareto front: same objectives plus **cost.total_tokens** (minimize). Separate file so the main front is unchanged.
-- **pareto.md**: Human-readable summary of nondominated front per scale, a **Cost-aware Pareto front** section (objectives plus cost.total_tokens), and per-method CI table.
-- **frontier.svg**: Canonical 2D plot of throughput vs p95 TAT; Pareto-front points are highlighted so you can see the trade-off and robustness under injected risks.
+- **pareto.md**: Human-readable summary: **Objectives (quick reference)** table at the top, nondominated front per scale, **Cost-aware Pareto front** section (objectives plus cost.total_tokens), and per-method CI table.
+- **frontier.svg**: Canonical 2D plot of throughput vs p95 TAT; Pareto-front points are highlighted. Supports light (default) or dark theme when generated via the study runner.
 
 **Determinism**  
 Same `seed_base` and same summary rows (same cell results) produce identical PARETO content. Use a fixed `seed_base` in the spec for reproducible figures and tables.
@@ -191,10 +191,10 @@ Same `seed_base` and same summary rows (same cell results) produce identical PAR
 After running a coordination study, generate plots (resilience vs p95_tat scatter, attack success rate by method and injection):
 
 ```bash
-labtrust make-plots --run <out_dir>
+labtrust make-plots --run <out_dir> [--theme light|dark]
 ```
 
-This writes `figures/resilience_vs_p95_tat.png`, `figures/resilience_vs_p95_tat.svg`, `figures/attack_success_rate_by_method_injection.png`, and `.svg` under `<out_dir>`. Matplotlib default colors are used (no seaborn).
+This writes `figures/resilience_vs_p95_tat.png`, `figures/resilience_vs_p95_tat.svg`, `figures/attack_success_rate_by_method_injection.png`, and `.svg` under `<out_dir>`. Use `--theme dark` for dark-background figures. All study figures use a consistent palette and style (see [Studies and plots](studies.md)).
 
 ## Determinism
 

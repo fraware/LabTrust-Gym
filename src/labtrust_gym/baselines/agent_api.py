@@ -68,6 +68,44 @@ class LabTrustAgent(Protocol):
 # Optional extensions (not part of Protocol): healthcheck() -> bool, warm_up(observation).
 # Wrapper exposes them and delegates to inner when present.
 
+
+class LabTrustAgentBase:
+    """
+    Base class with no-op defaults for optional methods. Subclass and implement
+    reset() and act(); override explain_last_action(), healthcheck(), warm_up()
+    only if needed. The loader and wrap_agent_for_runner support optional methods
+    whether you use this base or implement the Protocol directly.
+    """
+
+    contract_version: str = AGENT_CONTRACT_VERSION
+
+    def reset(
+        self,
+        seed: int,
+        policy_summary: dict[str, Any] | None = None,
+        partner_id: str | None = None,
+        timing_mode: str = "explicit",
+    ) -> None:
+        """Override to initialize per-episode state. Default: no-op."""
+        return None
+
+    def act(self, observation: dict[str, Any]) -> int | tuple[int, dict[str, Any]]:
+        """Override to return action (int) or (action, action_info). Required."""
+        raise NotImplementedError("Subclass must implement act(observation)")
+
+    def explain_last_action(self) -> dict[str, Any] | None:
+        """Override for logging. Default: None."""
+        return None
+
+    def healthcheck(self) -> bool:
+        """Override for pre-run checks. Default: True."""
+        return True
+
+    def warm_up(self, observation: dict[str, Any] | None = None) -> None:
+        """Override for one-shot warm-up. Default: no-op."""
+        return None
+
+
 # Pattern: module.path:ClassName or module.path:function_name
 _AGENT_SPEC_PATTERN = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_.]*):([a-zA-Z_][a-zA-Z0-9_]*)$")
 

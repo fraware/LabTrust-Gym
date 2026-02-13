@@ -13,6 +13,7 @@ import pytest
 from labtrust_gym.benchmarks.determinism_report import run_determinism_report
 
 
+@pytest.mark.slow
 def test_determinism_report_small_run_passes(tmp_path: Path) -> None:
     """Small run (TaskA, episodes=2, seed=42) should pass determinism in CI."""
     repo = Path(__file__).resolve().parent.parent
@@ -46,6 +47,7 @@ def test_determinism_report_small_run_passes(tmp_path: Path) -> None:
     assert l1["episode_log_sha256"] == l2["episode_log_sha256"]
 
 
+@pytest.mark.slow
 def test_determinism_report_cli(tmp_path: Path) -> None:
     """CLI determinism-report with TaskA/2/42 writes report and exits 0."""
     import subprocess
@@ -83,6 +85,7 @@ def test_determinism_report_cli(tmp_path: Path) -> None:
     assert data["passed"] is True
 
 
+@pytest.mark.slow
 def test_determinism_report_simulated_timing_passes(tmp_path: Path) -> None:
     """Determinism report with timing=simulated (device RNG seeded from --seed) passes."""
     repo = Path(__file__).resolve().parent.parent
@@ -102,6 +105,7 @@ def test_determinism_report_simulated_timing_passes(tmp_path: Path) -> None:
     assert report.get("timing_mode") == "simulated"
 
 
+@pytest.mark.slow
 def test_determinism_report_taskg_kernel_passes(tmp_path: Path) -> None:
     """Determinism report for coord_scale with composed method kernel_centralized_edf passes."""
     repo = Path(__file__).resolve().parent.parent

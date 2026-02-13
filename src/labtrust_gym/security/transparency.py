@@ -14,12 +14,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.util.json_utils import canonical_json
+
 DIGEST_VERSION = "0.1"
 LOG_VERSION = "0.1"
-
-
-def _canonical_json(obj: Any) -> str:
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"))
 
 
 def _sha256_hex(data: bytes) -> str:
@@ -49,7 +47,7 @@ def _evidence_bundle_manifest_hash(bundle_dir: Path) -> str | None:
     if not manifest_path.is_file():
         return None
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    return _sha256_string(_canonical_json(manifest))
+    return _sha256_string(canonical_json(manifest))
 
 
 def compute_episode_digest(
@@ -67,7 +65,7 @@ def compute_episode_digest(
     bundle_dir: EvidenceBundle.v0.1 directory (manifest.json); may be None (use empty hash).
     Returns {episode_id, digest, metadata} with metadata.results_episode_sha256, episodes_jsonl_sha256, evidence_bundle_manifest_sha256.
     """
-    results_block_sha = _sha256_string(_canonical_json(results_episode))
+    results_block_sha = _sha256_string(canonical_json(results_episode))
     episodes_sha = _episodes_jsonl_hash(episodes_path)
     bundle_sha = _evidence_bundle_manifest_hash(bundle_dir) if bundle_dir else ""
     if not bundle_sha:
@@ -231,7 +229,7 @@ def write_transparency_log(
         "root": root_hex,
         "entries": entries,
     }
-    (log_dir / "log.json").write_text(_canonical_json(log_artifact) + "\n", encoding="utf-8")
+    (log_dir / "log.json").write_text(canonical_json(log_artifact) + "\n", encoding="utf-8")
 
     for i, e in enumerate(entries):
         eid = e["episode_id"]
@@ -245,7 +243,7 @@ def write_transparency_log(
             "siblings": proof["siblings"],
             "root": root_hex,
         }
-        proof_path.write_text(_canonical_json(proof_data) + "\n", encoding="utf-8")
+        proof_path.write_text(canonical_json(proof_data) + "\n", encoding="utf-8")
 
     return log_dir
 
@@ -365,5 +363,5 @@ def write_llm_live_transparency_log(pack_out_dir: Path) -> Path:
     log_dir.mkdir(parents=True, exist_ok=True)
     payload = collect_llm_live_metadata_from_pack(pack_out_dir)
     out_path = log_dir / "llm_live.json"
-    out_path.write_text(_canonical_json(payload) + "\n", encoding="utf-8")
+    out_path.write_text(canonical_json(payload) + "\n", encoding="utf-8")
     return log_dir

@@ -347,8 +347,23 @@ def _csv_escape(s: str) -> str:
     return s
 
 
+def _is_numeric_column(key: str) -> bool:
+    """True if column is typically numeric (for right-align in markdown)."""
+    return (
+        key.endswith("_mean")
+        or key.endswith("_std")
+        or key == "n_episodes"
+        or key.startswith("p50_")
+        or key.startswith("p95_")
+        or "throughput" in key
+        or "violations" in key
+        or "rate" in key
+        or "compliance" in key
+    )
+
+
 def rows_to_markdown_table(rows: list[dict[str, Any]]) -> str:
-    """Convert rows to markdown table."""
+    """Convert rows to markdown table with right-aligned numeric columns."""
     if not rows:
         return ""
     all_keys: list[str] = []
@@ -359,7 +374,10 @@ def rows_to_markdown_table(rows: list[dict[str, Any]]) -> str:
                 seen.add(k)
                 all_keys.append(k)
     header = "| " + " | ".join(str(k) for k in all_keys) + " |"
-    sep = "| " + " | ".join("---" for _ in all_keys) + " |"
+    sep_parts = [
+        "---:" if _is_numeric_column(k) else ":---" for k in all_keys
+    ]
+    sep = "| " + " | ".join(sep_parts) + " |"
     lines = [header, sep]
     for r in rows:
         cells = []
@@ -368,7 +386,10 @@ def rows_to_markdown_table(rows: list[dict[str, Any]]) -> str:
             if v is None:
                 cells.append("")
             elif isinstance(v, float):
-                cells.append(f"{v:.4g}")
+                if abs(v) >= 1e4 or (v != 0 and abs(v) < 1e-3):
+                    cells.append(f"{v:.2e}")
+                else:
+                    cells.append(f"{v:.4g}")
             else:
                 cells.append(str(v))
         lines.append("| " + " | ".join(cells) + " |")
@@ -469,6 +490,28 @@ def _load_raw_results_with_metadata(in_paths: list[Path]) -> list[dict[str, Any]
     return raw_list
 
 
+def _build_run_info_rows(
+    raw_results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build one row per result that has metadata.run_duration_wall_s (for run_info.csv)."""
+    rows: list[dict[str, Any]] = []
+    for data in raw_results:
+        meta = data.get("metadata") or {}
+        if meta.get("run_duration_wall_s") is None:
+            continue
+        n_ep = len(data.get("episodes") or [])
+        row: dict[str, Any] = {
+            "task": data.get("task", ""),
+            "agent_baseline_id": data.get("agent_baseline_id", ""),
+            "partner_id": data.get("partner_id") or "",
+            "n_episodes": n_ep,
+            "run_duration_wall_s": meta.get("run_duration_wall_s"),
+            "episodes_per_second": meta.get("run_duration_episodes_per_s"),
+        }
+        rows.append(row)
+    return rows
+
+
 def _build_llm_economics_rows(
     raw_results: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -503,21 +546,27 @@ def _build_llm_economics_rows(
 
 SUMMARY_MD_HEADER = """# Benchmark summary
 
-## Metric definitions
+Aggregated results (mean and std) per task and baseline. Schema: results.v0.2.
+
+---
+
+## Metric reference
 
 | Metric | Description |
 |--------|-------------|
-| task | Benchmark task name (e.g. TaskA, TaskB). |
-| agent_baseline_id | Baseline or agent ID (e.g. scripted_ops_v1). |
-| partner_id | Partner overlay ID if used; empty otherwise. |
-| n_episodes | Number of episodes aggregated for this row. |
-| throughput_mean | Mean specimens released (RELEASE_RESULT) per episode. Higher is better. |
-| throughput_std | Std dev of throughput across episodes. |
-| p50_turnaround_s_mean | Mean 50th percentile turnaround (accept to release) in seconds. |
-| p95_turnaround_s_mean | Mean 95th percentile turnaround in seconds. Lower is better for SLA. |
-| on_time_rate_mean | Fraction of results released within SLA window. |
-| violations_total_mean | Mean total invariant violations per episode. Lower is better. |
-| critical_communication_compliance_rate_mean | Fraction of critical results with required notify/ack. |
+| **task** | Task id (e.g. throughput_sla, multi_site_stat). |
+| **agent_baseline_id** | Baseline or agent ID (e.g. scripted_ops_v1). |
+| **partner_id** | Partner overlay if used; empty otherwise. |
+| **n_episodes** | Number of episodes aggregated. |
+| **throughput_mean** | Mean specimens released per episode (higher is better). |
+| **throughput_std** | Std dev of throughput. |
+| **p50_turnaround_s_mean** | Mean 50th percentile accept-to-release (s). |
+| **p95_turnaround_s_mean** | Mean 95th percentile turnaround (s); lower is better for SLA. |
+| **on_time_rate_mean** | Fraction released within SLA window. |
+| **violations_total_mean** | Mean total invariant violations per episode (lower is better). |
+| **critical_communication_compliance_rate_mean** | Fraction of critical results with required notify/ack. |
+
+---
 
 ## Results
 
@@ -550,8 +599,18 @@ def run_summarize(
     csv_v03_path.write_text(rows_to_csv(rows_v03), encoding="utf-8")
     csv_path.write_text(rows_to_csv(rows_v02), encoding="utf-8")
     md_content = SUMMARY_MD_HEADER + rows_to_markdown_table(rows_v02)
-    md_path.write_text(md_content, encoding="utf-8")
     raw_list = _load_raw_results_with_metadata(in_paths)
+    run_info_rows = _build_run_info_rows(raw_list)
+    if run_info_rows:
+        run_info_csv = out_dir / "run_info.csv"
+        run_info_csv.write_text(rows_to_csv(run_info_rows), encoding="utf-8")
+        md_content += (
+            "\n\n---\n\n## Run info\n\n"
+            + rows_to_markdown_table(run_info_rows)
+            + "\n\n"
+        )
+    md_content += "\n---\n\n*Summary generated from results.v0.2.*\n"
+    md_path.write_text(md_content, encoding="utf-8")
     llm_rows = _build_llm_economics_rows(raw_list)
     if llm_rows:
         llm_csv = out_dir / "llm_economics.csv"

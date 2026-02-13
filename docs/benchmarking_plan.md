@@ -11,6 +11,17 @@ This document defines a three-layer benchmarking matrix so you can validate plum
 
 - **Timing**: Use `--timing simulated` for Layer 3 to get realistic latency/TAT metrics; Layer 1/2 can use defaults (explicit or per-scale).
 
+## Contributor benchmark checklist
+
+Before submitting changes that touch benchmarks or the engine, run these in order:
+
+1. **Smoke**: `pytest tests/test_benchmark_smoke.py -m "not slow"` — fast benchmark smoke (2 episodes throughput_sla, determinism). Excludes slow tests (multi_site_stat, insider_key_misuse).
+2. **Quick eval**: `labtrust quick-eval --seed 42` — one episode each of throughput_sla, adversarial_disruption, multi_site_stat; writes summary and logs.
+3. **Determinism (if you changed engine or benchmarks)**: `labtrust determinism-report` — runs the benchmark twice and asserts hashes and v0.2 metrics match. Run when `src/labtrust_gym/engine/`, `src/labtrust_gym/benchmarks/`, or `src/labtrust_gym/runner/` changed.
+4. **Baseline regression (if you changed tasks or baselines)**: Regenerate and compare: `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force`, then `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`. Only needed when task definitions, metrics, or official baselines change.
+
+See [CI](ci.md) for how these map to CI jobs.
+
 ---
 
 ## Layer 1 — Sanity (fast)
@@ -49,7 +60,7 @@ labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ -
 **Comparing your run to the baseline:**
 
 1. **Exact regression (CI):** Run `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`. This runs the same tasks (episodes=3, seed=123, timing=explicit) and compares metrics to the committed v0.2 results; fails on any difference.
-2. **Summary diff:** Generate a local baseline with the same args, then compare summary CSVs: `python scripts/compare_baseline_summary.py benchmarks/baselines_official/v0.2/summary.csv /path/to/your/summary.csv`. The script reports matching rows or differences in key columns.
+2. **Summary diff:** Generate a local baseline with the same args, then compare summary CSVs: `python scripts/compare_baseline_summary.py benchmarks/baselines_official/v0.2/summary_v0.2.csv /path/to/your/summary.csv`. Use `summary_v0.2.csv` for CI parity or `summary_v0.3.csv` for paper-grade comparison. The script compares the same metric set as the baseline regression guard (task, agent_baseline_id, n_episodes, throughput_mean, holds_count_mean, tokens_minted_mean, tokens_consumed_mean, steps_mean). Optional `--tolerance 1e-6` for float columns (human review only).
 
 **Publishing the baseline:** Run `./scripts/publish_baseline_artifact.sh` (or `.\scripts\publish_baseline_artifact.ps1` on Windows) to create a zip of `benchmarks/baselines_official/v0.2/`. Upload the zip to Zenodo or similar; record the DOI in this doc or in the repo README. The zip contains README.md with the regenerate command and repo citation.
 

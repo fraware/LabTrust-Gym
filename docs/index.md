@@ -54,7 +54,7 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `summarize-coordination` | Aggregate coordination results: read summary_coord.csv from `--in`, write SOTA leaderboard and method-class comparison to `--out`. See [Coordination studies](coordination_studies.md). |
 | `recommend-coordination-method` | Produce COORDINATION_DECISION.v0.1.json and COORDINATION_DECISION.md from run dir (`--run`, `--out`). |
 | `build-coordination-matrix` | Build CoordinationMatrix v0.1 from llm_live coordination run dir (`--run`, `--out`). |
-| `make-plots` | Generate figures and data tables from a study run; for coordination runs adds resilience vs p95_tat and attack_success_rate bar |
+| `make-plots` | Generate figures and data tables from a study run (`--run \<dir\>`; optional `--theme light\|dark`). Produces Pareto scatters, bar charts, throughput box by condition, metrics overview; for coordination runs adds resilience vs p95_tat and attack_success_rate bar. See [Studies and plots](studies.md). |
 | `reproduce --profile minimal \| full` | Reproduce minimal results + figures (throughput_sla & qc_cascade sweep + plots) |
 | `export-receipts --run \<log\> --out \<dir\>` | Export Receipt.v0.1 and EvidenceBundle.v0.1 from episode log |
 | `export-fhir --receipts \<dir\> --out \<dir\>` | Export valid HL7 FHIR R4 Bundle from receipts directory (data-absent-reason for missing specimen/value; no placeholder IDs). See [FHIR R4 export](fhir_export.md). |
@@ -70,8 +70,8 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `validate-coverage [--bundle \<path\>] [--out \<dir\>] [--strict]` | Validate risk register bundle coverage (required_bench evidenced or waived). With `--strict`, exit 1 if any required risk has missing evidence. |
 | `package-release --profile minimal \| full \| paper_v0.1 --out \<dir\>` | Release candidate: minimal/full = reproduce + receipts + FHIR + plots; paper_v0.1 = baselines + insider_key_misuse study + FIGURES/TABLES + receipts + SECURITY/ + COORDINATION_CARD.md + COORDINATION_LLM_CARD.md ([paper_ready](paper_ready.md)) |
 | `generate-official-baselines --out \<dir\>` | Run Tasks A–F with official baselines; write results/, summary, metadata (--episodes, --seed, --force) |
-| `summarize-results --in \<paths\> --out \<dir\>` | Aggregate results.json; write summary_v0.2.csv (CI-stable), summary_v0.3.csv (paper-grade), summary.csv + summary.md |
-| `determinism-report` | Run benchmark twice; produce determinism_report.md/.json; assert v0.2 metrics and log hash identical |
+| `summarize-results --in \<paths\> --out \<dir\>` | Aggregate results.json; write summary_v0.2.csv (CI-stable), summary_v0.3.csv (paper-grade), summary.csv + summary.md. When any result has run metadata, also writes run_info.csv and adds a Run info section to summary.md. |
+| `determinism-report` | Run benchmark twice; produce determinism_report.md (checks summary, run config, result, hash comparison) and determinism_report.json; assert v0.2 metrics and log hash identical |
 | `train-ppo`, `eval-ppo` | PPO training/eval (requires `.[marl]`). Training accepts `train_config` (net_arch, learning_rate, n_steps, obs_history_len, reward_scale_schedule) and writes `train_config.json`; eval-ppo auto-loads it from the model dir. Optional HPO: `.[marl_hpo]` for Optuna. Use `eval-agent` with `labtrust_gym.baselines.marl.ppo_agent:PPOAgent` and `LABTRUST_PPO_MODEL` to run benchmark with a trained model (PPOAgent loads device_ids and obs_history_len from train_config.json). See [MARL baselines](marl_baselines.md). |
 
 ## Layout
@@ -93,7 +93,7 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 
 - [Installation](installation.md) — pip, quick-eval, quickstart script, troubleshooting
 - [Build your own agent](build_your_own_agent.md) — install, quick-eval, implement agent, eval-agent, inspect results (5–10 min)
-- **Example agents** (`examples/`): scripted_ops_agent, scripted_runner_agent, minimal_random_policy_agent, llm_agent_mock_demo, external_agent_demo; run a custom agent with `labtrust eval-agent --agent 'module:Class' --task throughput_sla --episodes 2 --out out.json`
+- [Example agents](example_agents.md) — minimal_random_policy_agent, external_agent_demo, scripted_ops_agent, scripted_runner_agent, llm_agent_mock_demo; run commands for each
 - [Architecture](architecture.md)
 - [Systems and threat model](systems_and_threat_model.md) — system summary, threat model, applicability to other self-driving labs and cyber-physical settings
 - [Policy pack and schemas](policy_pack.md)

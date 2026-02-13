@@ -34,12 +34,12 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | summarize-coordination | `--in <dir> --out <dir>` | 0 | `<out>/summary/sota_leaderboard.csv`, `sota_leaderboard.md`, `method_class_comparison.csv`, `method_class_comparison.md` | coordination_studies.md |
 | recommend-coordination-method | `--run <dir> --out <dir>` | 0 | `<out>/COORDINATION_DECISION.v0.1.json`, `COORDINATION_DECISION.md` | howto_selection_policy.md |
 | build-coordination-matrix | `--run <dir> --out <path>` | 0 | `<path>` or `<path>/coordination_matrix.v0.1.json` | coordination studies |
-| make-plots | `--run <dir>` | 0 | `<run>/figures/` (plots and tables) | pipeline_overview.md |
+| make-plots | `--run <dir>` [--theme light\|dark] | 0 | `<run>/figures/` (PNG/SVG, data_tables/, RUN_REPORT.md) | studies.md, pipeline_overview.md |
 | reproduce | `--profile minimal --out <dir>` | 0 | `<dir>/` (sweep results, figures) | reproduce.md |
 | package-release | `--profile minimal --out <dir>` | 0 | `<dir>/MANIFEST.v0.1.json`, `_repr/`, `receipts/`, `FIGURES/` (paper_v0.1) | paper_ready.md, release_checklist.md |
 | generate-official-baselines | `--out <dir> --episodes 2 --seed 42 --force` | 0 | `<dir>/results/`, `summary.csv`, `summary.md`, `metadata.json` | baseline_registry.v0.1.yaml, metrics_contract |
-| summarize-results | `--in <dir_or_file> --out <dir> --basename summary` | 0 | `<out>/summary_v0.2.csv`, `summary_v0.3.csv`, `summary.csv`, `summary.md` | metrics_contract.md |
-| determinism-report | `--task throughput_sla --episodes 2 --seed 42 --out <dir>` | 0 | `<dir>/determinism_report.json`, `determinism_report.md` | reproducible_builds.md |
+| summarize-results | `--in <dir_or_file> --out <dir> --basename summary` | 0 | `<out>/summary_v0.2.csv`, `summary_v0.3.csv`, `summary.csv`, `summary.md`; when run metadata present: `run_info.csv`, Run info section in summary.md | metrics_contract.md |
+| determinism-report | `--task throughput_sla --episodes 2 --seed 42 --out <dir>` | 0 | `<dir>/determinism_report.json`, `determinism_report.md` (checks summary, run config, hash comparison) | reproducible_builds.md, benchmarks.md |
 | train-ppo | `--task throughput_sla --timesteps 100 --seed 42 --out <dir>` | 0 | `<dir>/model.zip` (or run dir with model) | marl_baselines.md |
 | eval-ppo | `--model <model.zip> --task throughput_sla --episodes 2 --seed 42 --out <path>` | 0 | `<path>` (metrics JSON) or stderr | marl_baselines.md |
 | serve | `--host 127.0.0.1 --port <port>` | 0 | (server runs; GET /v0/summary returns 200) | security_online.md, output_controls.md |

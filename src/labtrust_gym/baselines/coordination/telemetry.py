@@ -10,10 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-
-def _canonical_json(obj: Any) -> str:
-    """Canonical JSON (sort_keys, no extra whitespace) for deterministic hashes."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"))
+from labtrust_gym.util.json_utils import canonical_json
 
 
 def build_contract_record(
@@ -95,4 +92,4 @@ def validate_contract_record(
 
 def serialize_contract_record(record: dict[str, Any]) -> str:
     """One-line canonical JSON for coord_decisions.jsonl."""
-    return _canonical_json(record) + "\n"
+    return canonical_json(record) + "\n"

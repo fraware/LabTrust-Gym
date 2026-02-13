@@ -1,15 +1,7 @@
-# Design and legacy reference files
+# Design reference (not loaded by the engine)
 
-This directory holds **reference and legacy** YAML/JSON from earlier design or tooling. They are **not** loaded by the runtime; the single source of truth for policy is `policy/` at the repo root.
+This directory holds **reference design** documents only. Nothing here is loaded by the LabTrust-Gym engine at runtime.
 
-| File | Description |
-|------|--------------|
-| `aliases_v0.1.yaml` | Alias / naming reference |
-| `compiler_contract.yaml` | Compiler contract spec |
-| `invariants_generated.v0.1.yaml` | Generated invariants (reference) |
-| `override_matrix_v0.1.yaml` | Override matrix reference |
-| `policy_pack_hsl_blood_sciences_v0.1.yaml` | HSL blood sciences policy pack (reference) |
-| `reason_code_compiler_rules.v0.1.yaml` | Reason code compiler rules |
-| `runtime_enforcement_api.yaml` | Runtime enforcement API spec |
-
-Canonical policy lives under **`policy/`**: schemas, emits, invariants, tokens, reason_codes, zones, catalogue, stability, equipment, critical, golden.
+- **Purpose:** Design documentation and future policy alignment (e.g. HSL-like blood sciences MVP, analyte bands, rulesets).
+- **Demo bands and rulesets** in the YAML are **non-clinical**; they are for structure and illustration only.
+- For policy that the engine actually loads, see `policy/` at the repository root and [Policy pack](policy_pack.md).

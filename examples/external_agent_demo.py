@@ -9,12 +9,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from labtrust_gym.baselines.agent_api import LabTrustAgentBase
+
 # Action indices aligned with pz_parallel (NOOP=0, TICK=1, ...)
 ACTION_NOOP = 0
 ACTION_TICK = 1
 
 
-class SafeNoOpAgent:
+class SafeNoOpAgent(LabTrustAgentBase):
     """
     Trivial safe agent: reset(seed, ...) stores config; act(obs) returns NOOP or TICK.
 
@@ -23,6 +25,7 @@ class SafeNoOpAgent:
     """
 
     def __init__(self) -> None:
+        super().__init__()
         self._seed: int | None = None
         self._timing_mode: str = "explicit"
         self._last_action: int = ACTION_NOOP
@@ -64,6 +67,7 @@ class SafeNoOpAgent:
         return ACTION_NOOP
 
     def explain_last_action(self) -> dict[str, Any] | None:
+        """Override: return action info for logging."""
         return {
             "action_index": self._last_action,
             "action_type": "TICK" if self._last_action == ACTION_TICK else "NOOP",

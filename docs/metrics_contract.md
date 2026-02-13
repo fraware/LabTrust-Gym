@@ -2,6 +2,8 @@
 
 This document defines units, when each metric is meaningful (explicit vs simulated timing mode), and aggregation rules for benchmark results. Used by results.v0.2 (CI-stable) and results.v0.3 (paper-grade).
 
+**Schema alignment:** The per-episode metrics table below is the source of truth for result fields. The JSON schema `policy/schemas/results.v0.2.schema.json` (and v0.3) should stay aligned with this table when adding or changing metrics.
+
 ## Timing modes
 
 - **explicit**: Step timestamps only; no device completion times. p95 TAT is derived from step times. Device utilization and queue-length stats are not produced.
@@ -57,7 +59,7 @@ Summary outputs (from `labtrust summarize-results --in <paths> --out <dir> --bas
 - **summary_v0.2.csv** — CI-stable; backward compatible. Columns: task, agent_baseline_id, partner_id, n_episodes, plus for each metric only *_mean and *_std (e.g. throughput_mean, throughput_std, p95_turnaround_s_mean, p95_turnaround_s_std). No quantile or CI columns. Used for baseline regression guard.
 - **summary_v0.3.csv** — Same rows as v0.2; columns include v0.2 columns plus paper-grade: *_p50, *_p90, *_mean_ci_lower, *_mean_ci_upper (when computable). May contain empty/NaN for quantiles or CI when insufficient episodes.
 - **summary.csv** — Copy of summary_v0.2.csv (identical content).
-- **summary.md** — Markdown table derived from v0.2 aggregates only (same columns as summary_v0.2.csv). No quantile or CI columns in the table.
+- **summary.md** — Markdown table derived from v0.2 aggregates only (same columns as summary_v0.2.csv). No quantile or CI columns in the table. When any result has `metadata.run_duration_wall_s`, the markdown also includes a **Run info** section (table of run_duration_wall_s, episodes_per_second per result) and a short footer.
 
 Schema compatibility: every v0.2 top-level field and every v0.2 episode.metrics field exists in v0.3 with compatible types; v0.3 may add optional fields. Enforced by `tests/test_metrics_contract.py`.
 
@@ -77,6 +79,19 @@ For LLM-based coordination methods (planner, allocator, bidder, repairer, local-
 | **llm.estimated_cost_usd** | float or null | Estimated cost in USD when model pricing exists; null otherwise. |
 
 Aggregation (e.g. coordination study summary): **cost.total_tokens** is the sum of episode `llm.total_tokens`; **cost.estimated_cost_usd** is the sum of episode `llm.estimated_cost_usd`; **llm.error_rate** and **llm.invalid_output_rate** are means over episodes. For cells with no coordination.llm in any episode, these summary fields are 0 or null.
+
+## Run metadata (optional)
+
+The benchmark runner writes optional fields under **metadata** for harness observability and environment fingerprinting (auditability for papers and release):
+
+| Field | Type | Meaning |
+|-------|------|--------|
+| **metadata.run_duration_wall_s** | number | Wall-clock duration of the full run (all episodes) in seconds. |
+| **metadata.run_duration_episodes_per_s** | number | Episodes per second (num_episodes / run_duration_wall_s). |
+| **metadata.python_version** | string | Python version at run time (e.g. 3.11.0). |
+| **metadata.platform** | string | Platform identifier (e.g. win32, linux). |
+
+These do not affect reproducibility (seed + policy + git remain the source of truth). Used for performance regression and run comparison.
 
 ## Schema versions
 

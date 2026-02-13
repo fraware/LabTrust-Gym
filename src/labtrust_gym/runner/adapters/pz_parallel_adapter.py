@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from labtrust_gym.engine.event import StepEventDict
+from labtrust_gym.engine.state import InitialStateDict
 from labtrust_gym.runner.adapter import LabTrustEnvAdapter
 
 
@@ -26,7 +28,7 @@ class PZParallelAdapter(LabTrustEnvAdapter):
 
     def reset(
         self,
-        initial_state: dict[str, Any],
+        initial_state: InitialStateDict | dict[str, Any],
         *,
         deterministic: bool,
         rng_seed: int,
@@ -37,7 +39,7 @@ class PZParallelAdapter(LabTrustEnvAdapter):
             rng_seed=rng_seed,
         )
 
-    def step(self, event: dict[str, Any]) -> dict[str, Any]:
+    def step(self, event: StepEventDict | dict[str, Any]) -> dict[str, Any]:
         return self._engine.step(event)
 
     def query(self, expr: str) -> Any:

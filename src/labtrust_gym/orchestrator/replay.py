@@ -15,10 +15,7 @@ from labtrust_gym.export.receipts import (
     load_episode_log,
     build_receipts_from_log,
 )
-
-
-def _canonical_json(obj: Any) -> str:
-    return json.dumps(obj, sort_keys=True)
+from labtrust_gym.util.json_utils import canonical_json
 
 
 def _normalize_violations(entry: dict[str, Any]) -> list[tuple[str, str]]:
@@ -50,7 +47,7 @@ def _receipts_digest(entries: list[dict[str, Any]]) -> str:
     """Deterministic digest of receipts built from log (for comparison)."""
     try:
         receipts = build_receipts_from_log(entries)
-        return hashlib.sha256(_canonical_json(receipts).encode("utf-8")).hexdigest()
+        return hashlib.sha256(canonical_json(receipts).encode("utf-8")).hexdigest()
     except Exception:
         return ""
 

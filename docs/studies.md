@@ -121,10 +121,11 @@ A **deterministic plotting pipeline** converts a study run into data tables (CSV
 ### CLI
 
 ```bash
-labtrust make-plots --run runs/<id>
+labtrust make-plots --run runs/<id> [--theme light|dark]
 ```
 
 - `--run`: Path to a study output directory (must contain `manifest.json` and `results/<condition_id>/results.json`).
+- `--theme`: Figure theme: `light` (default) or `dark`. Applies to all PNG/SVG figures (face color, grid, palette).
 
 Requires matplotlib: `pip install -e ".[plots]"` (or `.[env,plots]`).
 
@@ -145,6 +146,9 @@ out_dir/figures/
   violations_by_invariant_id.png, .svg
   blocked_by_reason_code_top10.png, .svg
   critical_compliance_by_condition.png, .svg
+  throughput_box_by_condition.png, .svg
+  metrics_overview.png, .svg
+  RUN_REPORT.md          # Metric definitions and figure descriptions
 ```
 
 ### Figures
@@ -156,6 +160,8 @@ out_dir/figures/
 | **violations by invariant_id** | Bar: invariant_id vs total count (aggregated across all conditions/episodes). |
 | **blocked by reason_code (top 10)** | Bar: top 10 reason codes by blocked count (aggregated). |
 | **critical compliance by condition** | Bar: condition_id vs mean critical_communication_compliance_rate. |
+| **throughput box by condition** | Box plot: per-episode throughput distribution per condition (with mean). |
+| **metrics overview** | Three horizontal bar charts: throughput mean, violations total, p95 TAT mean by condition. |
 
 ### Determinism
 

@@ -472,6 +472,12 @@ def main() -> int:
         required=True,
         help="Study output directory (e.g. runs/<id>)",
     )
+    p_plots.add_argument(
+        "--theme",
+        choices=("light", "dark"),
+        default="light",
+        help="Figure theme: light (default) or dark.",
+    )
     p_plots.set_defaults(func=_run_make_plots)
     p_export_receipts = sub.add_parser(
         "export-receipts",
@@ -1506,7 +1512,7 @@ def _run_make_plots(args: argparse.Namespace) -> int:
     run_dir = Path(args.run)
     if not run_dir.is_absolute():
         run_dir = root / run_dir
-    make_plots(run_dir)
+    make_plots(run_dir, theme=getattr(args, "theme", "light"))
     fig_dir = run_dir / "figures"
     print(f"Figures and data tables written to {fig_dir}", file=sys.stderr)
     print(
@@ -2537,6 +2543,7 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     )
     metadata = {
         "version": "0.2",
+        "baseline_version": "v0.2",
         "description": "Official baseline results (frozen). Regenerate with: labtrust generate-official-baselines --out <dir> --episodes <n> --seed <s>. Use --force to overwrite.",
         "git_sha": git_sha,
         "policy_fingerprint": policy_fingerprint,

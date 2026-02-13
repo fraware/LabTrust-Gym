@@ -10,7 +10,7 @@ on:
     paths:
       - "src/labtrust_gym/engine/**"
       - "src/labtrust_gym/runner/**"
-      - "src/labtrust_gym/benchmarks/runner.py"
+      - "src/labtrust_gym/benchmarks/**"
       - "src/labtrust_gym/studies/coordination_*"
       - "src/labtrust_gym/studies/coordination_*/**"
       - "tests/test_golden_suite.py"
@@ -31,5 +31,6 @@ jobs:
           labtrust determinism-report --task throughput_sla --episodes 3 --seed 42 --out ./det_report
           test -f det_report/determinism_report.json
           test -f det_report/determinism_report.md
+          python -c "import json; d=json.load(open('det_report/determinism_report.json')); assert d.get('passed') is True, d.get('errors', ['unknown'])"
       - name: Full golden suite
         run: LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q

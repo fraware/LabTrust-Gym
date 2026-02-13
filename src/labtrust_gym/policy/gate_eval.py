@@ -2,6 +2,11 @@
 Gate evaluation for coordination security pack: load gate policy and evaluate
 summary rows. Verdicts: PASS, FAIL, SKIP, not_supported. No assume-pass for
 unimplemented logic; optional paths return SKIP with a reason.
+
+Supported rule types: attack_success_rate_zero, violations_within_delta,
+detection_within_steps_or_not_supported. Any other rule type in the policy
+yields SKIP (not_applicable). To add a new rule type, implement a branch in
+evaluate_gate and document it in coordination_security_pack_gate.v0.1.yaml.
 """
 
 from __future__ import annotations
@@ -37,6 +42,9 @@ def evaluate_gate(
 ) -> tuple[str, str]:
     """
     Evaluate gate for one summary row. Returns (verdict, rationale).
+
+    Supported rule types: attack_success_rate_zero, violations_within_delta,
+    detection_within_steps_or_not_supported. Other rule types yield SKIP (not_applicable).
 
     Verdict: PASS | FAIL | SKIP | not_supported.
     - PASS: rule evaluated and threshold met.
