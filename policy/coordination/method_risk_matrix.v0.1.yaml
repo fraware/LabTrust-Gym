@@ -61,6 +61,36 @@ method_risk_matrix:
       coverage: "partially_covered"
       rationale: "No central bottleneck but aggregate load can cause DoS."
       required_bench: true
+    - method_id: "consensus_paxos_lite"
+      risk_id: "R-COMMS-002"
+      coverage: "uncovered"
+      rationale: "Proposed value can be poisoned; message auth recommended."
+      required_bench: true
+    - method_id: "consensus_paxos_lite"
+      risk_id: "R-DATA-003"
+      coverage: "partially_covered"
+      rationale: "Digest consistency under memory/state poisoning."
+      required_bench: true
+    - method_id: "consensus_paxos_lite"
+      risk_id: "R-FLOW-002"
+      coverage: "partially_covered"
+      rationale: "Slow convergence under message drop."
+      required_bench: false
+    - method_id: "swarm_stigmergy_priority"
+      risk_id: "R-TOOL-001"
+      coverage: "uncovered"
+      rationale: "Wrong tool selection under noisy pheromone."
+      required_bench: true
+    - method_id: "swarm_stigmergy_priority"
+      risk_id: "R-DATA-001"
+      coverage: "uncovered"
+      rationale: "Poisoning of shared pheromone view."
+      required_bench: true
+    - method_id: "swarm_stigmergy_priority"
+      risk_id: "R-FLOW-002"
+      coverage: "partially_covered"
+      rationale: "Observability gaps affect gradient follow."
+      required_bench: false
     - method_id: "marl_ppo"
       risk_id: "R-DATA-002"
       coverage: "uncovered"

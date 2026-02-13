@@ -22,6 +22,8 @@ Before submitting changes that touch benchmarks or the engine, run these in orde
 
 See [CI](ci.md) for how these map to CI jobs.
 
+**Coordination metrics and baselines:** Definitions of each coordination metric (throughput_mean, violations_mean, resilience_score_mean, coordination.stale_action_rate, comm.*, etc.) and the set of baselines used for SOTA comparison (kernel_whca, market_auction, hierarchical_hub_rr, kernel_scheduler_or) are in [Coordination benchmark card](coordination_benchmark_card.md#metrics-definitions) and [Baselines for SOTA comparison](coordination_benchmark_card.md#baselines-for-sota-comparison). Algorithmic fidelity notes per method (algorithm reference, invariants, where checked) are in [coordination/fidelity_notes.md](coordination/fidelity_notes.md).
+
 ---
 
 ## Layer 1 — Sanity (fast)
@@ -63,6 +65,8 @@ labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ -
 2. **Summary diff:** Generate a local baseline with the same args, then compare summary CSVs: `python scripts/compare_baseline_summary.py benchmarks/baselines_official/v0.2/summary_v0.2.csv /path/to/your/summary.csv`. Use `summary_v0.2.csv` for CI parity or `summary_v0.3.csv` for paper-grade comparison. The script compares the same metric set as the baseline regression guard (task, agent_baseline_id, n_episodes, throughput_mean, holds_count_mean, tokens_minted_mean, tokens_consumed_mean, steps_mean). Optional `--tolerance 1e-6` for float columns (human review only).
 
 **Publishing the baseline:** Run `./scripts/publish_baseline_artifact.sh` (or `.\scripts\publish_baseline_artifact.ps1` on Windows) to create a zip of `benchmarks/baselines_official/v0.2/`. Upload the zip to Zenodo or similar; record the DOI in this doc or in the repo README. The zip contains README.md with the regenerate command and repo citation.
+
+**Published baseline (DOI):** When a baseline zip is published, record the artifact URL and DOI here and in the repo README/CITATION.cff for reproducibility. Placeholder: *[DOI to be added after Zenodo upload]*. See [CI](ci.md) for baseline regression guard (exact metrics vs committed v0.2).
 
 ---
 

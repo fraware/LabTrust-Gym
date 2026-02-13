@@ -34,7 +34,7 @@ jobs:
       - name: SOTA sanity (minimal subset)
         run: |
           mkdir -p ./labtrust_runs/coordination_nightly/sota_sanity
-          for id in kernel_whca ripple_effect; do
+          for id in kernel_whca ripple_effect consensus_paxos_lite swarm_stigmergy_priority; do
             labtrust run-benchmark --task coord_scale --coord-method "$id" \
               --scale small_smoke --episodes 1 --seed 100 \
               --out ./labtrust_runs/coordination_nightly/sota_sanity/"$id"_taskg.json

@@ -29,7 +29,7 @@ Use the committed `tests/fixtures/ui_fixtures/` run dir so the bundle is reprodu
 labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures
 ```
 
-The bundle is written to `./risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json`. Omit `--include-generated-at` (default) and leave the default `git_commit_hash` for provenance. CI runs the risk-register gate: generate from fixtures, validate schema, run contract gate tests (snapshot, crosswalk, coverage). See [CI](ci.md).
+The bundle is written to `./risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json`. Omit `--include-generated-at` (default) and leave the default `git_commit_hash` for provenance. CI runs the **risk-register-gate** job: generate from fixtures, validate schema, run contract gate tests (snapshot, crosswalk, coverage). A separate **risk-coverage-strict** job (schedule or workflow_dispatch) runs `labtrust validate-coverage --strict` and fails if any required_bench cell has no evidence; see [CI](ci.md).
 
 ### From a paper release
 
@@ -133,4 +133,4 @@ See the script header for environment variables (e.g. `LABTRUST_STRICT_COVERAGE=
 - [Security attack suite](security_attack_suite.md) — SECURITY/ outputs and securitization packet
 - [Official benchmark pack](official_benchmark_pack.md) — Pack layout and run command
 - [Paper-ready release](paper_ready.md) — paper_v0.1 profile and artifact layout
-- [CI](ci.md) — risk-register-gate job and contract tests
+- [CI](ci.md) — risk-register-gate job, risk-coverage-strict job (schedule/manual), and contract tests

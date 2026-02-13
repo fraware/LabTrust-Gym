@@ -5,9 +5,13 @@ runs post-step (ACCEPTED only), returns standardized violations.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+from labtrust_gym.logging.step_timing import is_enabled as step_timing_enabled
+from labtrust_gym.logging.step_timing import record_invariant_ms
 
 from labtrust_gym.engine.catalogue_runtime import (
     INV_STAB_BIOCHEM_001,
@@ -319,6 +323,23 @@ InvariantHandler = Callable[
 ]
 _TEMPLATE_HANDLERS: dict[tuple[str, str], InvariantHandler] = {}
 
+# Action-type index: (logic_type, check_name) -> frozenset of action_types the handler cares about, or None to call always.
+# Used in evaluate() to skip handlers that would return None for this action_type.
+_ACTION_TYPES_FOR_HANDLER: dict[tuple[str, str], frozenset[str] | None] = {
+    ("state", "adjacency"): frozenset({"MOVE"}),
+    ("state", "colocation"): None,  # uses params.action_types per entry
+    ("state", "restricted_door_or_zone"): frozenset({"OPEN_DOOR", "MOVE"}),
+    ("temporal", "door_open_duration"): frozenset({"TICK"}),
+    ("state", "token_active"): None,
+    ("state", "token_not_revoked"): None,
+    ("state", "critical_acked"): frozenset({"RELEASE_RESULT"}),
+    ("state", "stability_pass"): frozenset({"START_RUN"}),
+    ("state", "cold_chain_ok"): frozenset({"START_RUN"}),
+    ("state", "coag_fill_valid"): frozenset({"ACCEPT_SPECIMEN"}),
+    ("state", "token_scope_ok"): frozenset({"START_RUN_OVERRIDE"}),
+    ("state", "read_back_confirmed"): frozenset({"ACK_CRITICAL_RESULT"}),
+}
+
 
 def register_invariant_handler(
     logic_type: str,
@@ -370,12 +391,21 @@ class InvariantsRuntime:
         """
         if step_result.get("status") != "ACCEPTED":
             return []
+        t0 = time.perf_counter() if step_timing_enabled() else 0.0
+        action_type = event.get("action_type", "")
         violations: list[ViolationItem] = []
         for entry in self._entries:
             logic = entry.logic_template
             t = logic.get("type", "state")
             params = logic.get("parameters") or {}
             check_name = params.get("check", "")
+            allowed_types = _ACTION_TYPES_FOR_HANDLER.get((t, check_name))
+            if allowed_types is not None and action_type not in allowed_types:
+                continue
+            if (t, check_name) == ("state", "colocation"):
+                param_action_types = params.get("action_types") or []
+                if param_action_types and action_type not in param_action_types:
+                    continue
             handler = _TEMPLATE_HANDLERS.get((t, check_name))
             if not handler:
                 continue
@@ -396,6 +426,8 @@ class InvariantsRuntime:
             if details:
                 item["details"] = details
             violations.append(item)
+        if step_timing_enabled():
+            record_invariant_ms((time.perf_counter() - t0) * 1000)
         return violations
 
 

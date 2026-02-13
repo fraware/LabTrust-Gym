@@ -217,13 +217,13 @@ The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/gol
 
 ## Improvements before going online
 
-Before adding online APIs and non-deterministic runs, see **[docs/STATUS.md](docs/STATUS.md#improvements-before-online-checklist)** for the checklist: stability (tests/fixtures/ui_fixtures, long tests), code optimization (policy loading, large JSONL, summarize/export), testing (pytest timeout, coverage, CI), documentation, and pre-online readiness. Some items are done; others remain (e.g. golden suite in CI, determinism-report coverage, pytest timeout for long tests).
+Before adding online APIs and non-deterministic runs, see **[docs/STATUS.md](docs/STATUS.md#improvements-before-online-checklist)** for the checklist: stability (tests/fixtures/ui_fixtures, long tests), code optimization (policy loading, large JSONL, summarize/export), testing (pytest timeout, coverage, CI), documentation, and pre-online readiness. CI includes **risk-register-gate** (schema, snapshot, crosswalk) and **risk-coverage-strict** (schedule/manual: validate-coverage --strict). Some items are done; others remain (e.g. golden suite in CI, determinism-report coverage, pytest timeout for long tests).
 
 ---
 
 ## Current state
 
-See **docs/STATUS.md** for the full report. The test suite runs with `pytest -v` (1100+ tests; PettingZoo smoke, MARL smoke, golden suite, and optional-backend tests may be skipped depending on env). Implemented: policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2), transport, export, package-release, risk register, security (attack suite, safety case, **prompt-injection defense**), coordination red team, Official Benchmark Pack, online serve, PettingZoo wrappers (with `render_mode`), scripted/adversary/LLM/MARL baselines, PPO (train_config, obs_history_len, reward curriculum, Optuna HPO, PPOAgent with train_config.json), and docs site.
+See **docs/STATUS.md** for the full report. The test suite runs with `pytest -v` (1100+ tests; PettingZoo smoke, MARL smoke, golden suite, and optional-backend tests may be skipped depending on env). Implemented: policy validation, hashchain, tokens, zones, specimens, QC, critical results (v0.2), transport, export, package-release, risk register, security (attack suite, safety case, **prompt-injection defense**), coordination red team, Official Benchmark Pack, online serve, PettingZoo wrappers (with `render_mode`), scripted/adversary/LLM/MARL baselines, PPO (train_config, obs_history_len, reward curriculum, Optuna HPO, PPOAgent with train_config.json), **SOTA coordination methods** (consensus_paxos_lite, swarm_stigmergy_priority), **engine state/event** (state.py, event.py with InitialStateDict/StepEventDict), **risk-coverage-strict** CI job (schedule/manual), **paper provenance** (docs/paper/README.md), **LLM coordination standards-of-excellence** checklist (docs/llm_live.md), and docs site.
 
 ---
 

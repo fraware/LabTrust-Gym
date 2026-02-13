@@ -28,6 +28,7 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | ui-export | `--run <dir> --out <zip>` | 0 | `<out>` (zip: index.json, events.json, receipts_index.json, reason_codes.json) | ui_data_contract.md |
 | export-risk-register | `--out <dir>` or `--out <dir> --runs tests/fixtures/ui_fixtures` | 0 | `<out>/RISK_REGISTER_BUNDLE.v0.1.json` | risk_register_contract.v0.1.md |
 | build-risk-register-bundle | `--out <path>` | 0 | `<path>` (risk_register_bundle.v0.1.json) | risk_register_contract.v0.1.md |
+| validate-coverage | `--bundle <path>` or `--out <dir>` (bundle in dir) | 0 or 1 | (none; reports on stderr; exit 1 with `--strict` if any required_bench cell has no evidence) | risk_register.md |
 | run-study | `--spec <yaml> --out <dir>` | 0 | `<out>/` (condition dirs, results, manifest) | studies.md |
 | run-coordination-study | `--spec <yaml> --out <dir>` | 0 | `<out>/summary/summary_coord.csv`, `summary/pareto.md`, cells/ | coordination_studies.md |
 | run-coordination-security-pack | `--out <dir> --seed 42` | 0 | `<out>/pack_summary.csv`, `pack_gate.md`, `pack_results/` | security_attack_suite.md |

@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\state_digest.py
+# hypothesis_version: 6.151.6
+
+[0.0, 1.0, 'NOOP', 'ROUTINE', 'STAT', 'URGENT', 'Z_SORTING_LANES', '__len__', 'active', 'agent_id', 'busy', 'comm_drop_rate', 'comm_msg_count', 'comms_stats', 'device_id', 'drop_rate', 'flat', 'frozen', 'idle', 'item', 'last_action', 'last_action_type', 'local_queue_len', 'msg_count', 'per_agent', 'per_device', 'per_specimen', 'priority', 'queue_head', 'queue_len', 'sla_remaining', 'sla_remaining_steps', 'specimen_priority', 'specimen_stage', 'stage', 'state', 'step', 'task', 'unknown', 'utilization', 'zone', 'zone_id']

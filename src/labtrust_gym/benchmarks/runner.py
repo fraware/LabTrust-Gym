@@ -96,17 +96,20 @@ def run_episode(
     run_dir: Path | None = None,
     metrics_aggregator_id: str | None = None,
     repo_root: Path | None = None,
+    env: Any | None = None,
 ) -> tuple[dict[str, Any], list[list[dict[str, Any]]]]:
     """
     Run one episode. Returns (metrics_dict, step_results_per_step).
 
-    env_factory: callable(initial_state, reward_config, log_path=?) -> env.
+    env_factory: callable(initial_state, reward_config, log_path=?) -> env; used only when env is None.
     scripted_agents_map: agent_id -> agent with .act(obs, agent_id) -> (idx, info).
     log_path: optional JSONL path for episode step log (append mode).
     initial_state_overrides: optional dict merged into initial_state (e.g. timing_mode, ablations).
     coord_method: optional CoordinationMethod; when set, propose_actions drives all agents (coord_scale/coord_risk).
     run_dir: optional; when set, passed to coord_method.reset via scale_config for study-track artifacts.
     repo_root: optional policy root; when set, passed to task.get_initial_state as policy_root.
+    env: optional existing env instance; when provided, it is reset with this episode's initial_state instead of
+        creating a new env via env_factory. Use for benchmark throughput (same task/config across episodes).
     """
     calibration = (
         initial_state_overrides.get("calibration") if initial_state_overrides else None
@@ -116,15 +119,21 @@ def run_episode(
     )
     if initial_state_overrides:
         initial_state = {**initial_state, **initial_state_overrides}
-    env = env_factory(
-        initial_state=initial_state,
-        reward_config=task.reward_config,
-        log_path=log_path,
-    )
-    obs, _ = env.reset(
-        seed=episode_seed,
-        options={"initial_state": initial_state},
-    )
+    if env is not None:
+        obs, _ = env.reset(
+            seed=episode_seed,
+            options={"initial_state": initial_state},
+        )
+    else:
+        env = env_factory(
+            initial_state=initial_state,
+            reward_config=task.reward_config,
+            log_path=log_path,
+        )
+        obs, _ = env.reset(
+            seed=episode_seed,
+            options={"initial_state": initial_state},
+        )
     scripted_agents_map = scripted_agents_map or {}
     policy_summary = initial_state.get("policy_summary")
     partner_id = initial_state.get("partner_id")
@@ -1630,19 +1639,23 @@ def run_benchmark(
                     device_ids=DEFAULT_DEVICE_IDS,
                 ),
             }
+        rbac_policy_llm: dict[str, Any] | None = None
+        capability_policy_llm: dict[str, Any] | None = None
+        if not is_scale_task and llm_backend is not None:
+            from labtrust_gym.engine.rbac import load_rbac_policy
+            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
+
+            rbac_path_llm = (
+                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
+            )
+            rbac_policy_llm = load_rbac_policy(rbac_path_llm)
+            capability_policy_llm = load_agent_capabilities(repo_root or Path.cwd())
         if not is_scale_task and llm_backend == "deterministic":
             from labtrust_gym.baselines.llm.agent import (
                 FixtureBackend,
                 LLMAgentWithShield,
             )
-            from labtrust_gym.engine.rbac import load_rbac_policy
-            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
 
-            rbac_path = (
-                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            )
-            rbac_policy = load_rbac_policy(rbac_path)
-            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
@@ -1653,26 +1666,19 @@ def run_benchmark(
                     continue
                 scripted_agents_map[aid] = LLMAgentWithShield(
                     backend=backend,
-                    rbac_policy=rbac_policy,
+                    rbac_policy=rbac_policy_llm,
                     pz_to_engine=pz_to_engine,
                     strict_signatures=use_strict_signatures,
                     key_registry=key_registry_merged,
                     get_private_key=get_private_key_fn,
-                    capability_policy=capability_policy,
+                    capability_policy=capability_policy_llm,
                 )
         elif not is_scale_task and llm_backend == "deterministic_constrained":
             from labtrust_gym.baselines.llm.agent import (
                 DeterministicConstrainedBackend,
                 LLMAgentWithShield,
             )
-            from labtrust_gym.engine.rbac import load_rbac_policy
-            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
 
-            rbac_path = (
-                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            )
-            rbac_policy = load_rbac_policy(rbac_path)
-            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
@@ -1683,26 +1689,19 @@ def run_benchmark(
                     backend=DeterministicConstrainedBackend(
                         seed=base_seed, default_action_type="NOOP"
                     ),
-                    rbac_policy=rbac_policy,
+                    rbac_policy=rbac_policy_llm,
                     pz_to_engine=pz_to_engine,
                     strict_signatures=use_strict_signatures,
                     key_registry=key_registry_merged,
                     get_private_key=get_private_key_fn,
-                    capability_policy=capability_policy,
+                    capability_policy=capability_policy_llm,
                 )
         elif not is_scale_task and llm_backend == "openai_live":
             from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
             from labtrust_gym.baselines.llm.backends.openai_live import (
                 OpenAILiveBackend,
             )
-            from labtrust_gym.engine.rbac import load_rbac_policy
-            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
 
-            rbac_path = (
-                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            )
-            rbac_policy = load_rbac_policy(rbac_path)
-            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
@@ -1713,26 +1712,19 @@ def run_benchmark(
                     continue
                 scripted_agents_map[aid] = LLMAgentWithShield(
                     backend=backend,
-                    rbac_policy=rbac_policy,
+                    rbac_policy=rbac_policy_llm,
                     pz_to_engine=pz_to_engine,
                     strict_signatures=use_strict_signatures,
                     key_registry=key_registry_merged,
                     get_private_key=get_private_key_fn,
-                    capability_policy=capability_policy,
+                    capability_policy=capability_policy_llm,
                 )
         elif not is_scale_task and llm_backend == "openai_responses":
             from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
             from labtrust_gym.baselines.llm.backends.openai_responses import (
                 OpenAILiveResponsesBackend,
             )
-            from labtrust_gym.engine.rbac import load_rbac_policy
-            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
 
-            rbac_path = (
-                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            )
-            rbac_policy = load_rbac_policy(rbac_path)
-            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
@@ -1751,26 +1743,19 @@ def run_benchmark(
                     continue
                 scripted_agents_map[aid] = LLMAgentWithShield(
                     backend=backend,
-                    rbac_policy=rbac_policy,
+                    rbac_policy=rbac_policy_llm,
                     pz_to_engine=pz_to_engine,
                     strict_signatures=use_strict_signatures,
                     key_registry=key_registry_merged,
                     get_private_key=get_private_key_fn,
-                    capability_policy=capability_policy,
+                    capability_policy=capability_policy_llm,
                 )
         elif not is_scale_task and llm_backend == "ollama_live":
             from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
             from labtrust_gym.baselines.llm.backends.ollama_live import (
                 OllamaLiveBackend,
             )
-            from labtrust_gym.engine.rbac import load_rbac_policy
-            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
 
-            rbac_path = (
-                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            )
-            rbac_policy = load_rbac_policy(rbac_path)
-            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
@@ -1781,26 +1766,19 @@ def run_benchmark(
                     continue
                 scripted_agents_map[aid] = LLMAgentWithShield(
                     backend=backend,
-                    rbac_policy=rbac_policy,
+                    rbac_policy=rbac_policy_llm,
                     pz_to_engine=pz_to_engine,
                     strict_signatures=use_strict_signatures,
                     key_registry=key_registry_merged,
                     get_private_key=get_private_key_fn,
-                    capability_policy=capability_policy,
+                    capability_policy=capability_policy_llm,
                 )
         elif not is_scale_task and llm_backend == "anthropic_live":
             from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
             from labtrust_gym.baselines.llm.backends.anthropic_live import (
                 AnthropicLiveBackend,
             )
-            from labtrust_gym.engine.rbac import load_rbac_policy
-            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
 
-            rbac_path = (
-                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            )
-            rbac_policy = load_rbac_policy(rbac_path)
-            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
@@ -1811,12 +1789,12 @@ def run_benchmark(
                     continue
                 scripted_agents_map[aid] = LLMAgentWithShield(
                     backend=backend,
-                    rbac_policy=rbac_policy,
+                    rbac_policy=rbac_policy_llm,
                     pz_to_engine=pz_to_engine,
                     strict_signatures=use_strict_signatures,
                     key_registry=key_registry_merged,
                     get_private_key=get_private_key_fn,
-                    capability_policy=capability_policy,
+                    capability_policy=capability_policy_llm,
                 )
         elif not is_scale_task and llm_backend == "openai_hosted":
             from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
@@ -1824,14 +1802,7 @@ def run_benchmark(
                 OpenAIHostedBackend,
             )
             from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
-            from labtrust_gym.engine.rbac import load_rbac_policy
-            from labtrust_gym.security.agent_capabilities import load_agent_capabilities
 
-            rbac_path = (
-                (repo_root or Path.cwd()) / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
-            )
-            rbac_policy = load_rbac_policy(rbac_path)
-            capability_policy = load_agent_capabilities(repo_root or Path.cwd())
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
@@ -1847,12 +1818,12 @@ def run_benchmark(
                     continue
                 scripted_agents_map[aid] = LLMAgentWithShield(
                     backend=backend,
-                    rbac_policy=rbac_policy,
+                    rbac_policy=rbac_policy_llm,
                     pz_to_engine=pz_to_engine,
                     strict_signatures=use_strict_signatures,
                     key_registry=key_registry_merged,
                     get_private_key=get_private_key_fn,
-                    capability_policy=capability_policy,
+                    capability_policy=capability_policy_llm,
                 )
         if not is_scale_task and task_name == "adversarial_disruption":
             from labtrust_gym.baselines.adversary import AdversaryAgent
@@ -1869,6 +1840,26 @@ def run_benchmark(
 
     use_fresh_agents_per_episode = task_name == "adversarial_disruption"
     use_fresh_agents_taskf = task_name == "insider_key_misuse"
+
+    # Create one env for all episodes (same task/config) to avoid per-episode construction and policy reload.
+    _cal = (initial_state_overrides or {}).get("calibration")
+    _first_initial_state = task.get_initial_state(
+        seeds[0], calibration=_cal, policy_root=repo_root
+    )
+    if initial_state_overrides:
+        _first_initial_state = {**_first_initial_state, **initial_state_overrides}
+    shared_env = env_factory(
+        initial_state=_first_initial_state,
+        reward_config=task.reward_config,
+        log_path=log_path,
+    )
+
+    try:
+        from labtrust_gym.logging.step_timing import clear as step_timing_clear
+
+        step_timing_clear()
+    except ImportError:
+        pass
 
     t0_wall = time.perf_counter()
     for ep_idx, ep_seed in enumerate(seeds):
@@ -1934,6 +1925,7 @@ def run_benchmark(
             run_dir=run_dir_episodes,
             metrics_aggregator_id=metrics_aggregator_id,
             repo_root=repo_root,
+            env=shared_env,
         )
         ep_record: dict[str, Any] = {"seed": ep_seed, "metrics": metrics}
         if llm_backend_ref is not None and hasattr(
@@ -2157,6 +2149,14 @@ def run_benchmark(
         )
     results["metadata"]["python_version"] = sys.version.split()[0]
     results["metadata"]["platform"] = sys.platform
+    try:
+        from labtrust_gym.logging.step_timing import get_aggregates
+
+        step_agg = get_aggregates()
+        if step_agg:
+            results["metadata"]["step_timing"] = step_agg
+    except ImportError:
+        pass
 
     schema_path = repo_root / "policy" / "schemas" / "results.v0.2.schema.json"
     validation_errors = validate_results_v02(results, schema_path=schema_path)

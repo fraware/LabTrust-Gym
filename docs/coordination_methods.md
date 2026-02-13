@@ -145,6 +145,22 @@ Purely local rules; zero global state.
 
 ---
 
+### 5b. consensus_paxos_lite (decentralized)
+
+Leader-based agreement on a single global digest (e.g. device -> queue_head) in bounded rounds. Leader = `agents[t % n]`; leader proposes digest from `queue_by_device`; all agents use the digest for local actions (move toward device zones, START_RUN when colocated with head, QUEUE_RUN when at device with queue but no head). No central auctioneer; fits existing bus and identity.
+
+**Expected vulnerabilities**: R-COMMS-002 (poisoning of proposed value), R-DATA-003, R-FLOW-002. See [SOTA methods at scale](coordination/sota_methods_at_scale.md), [fidelity notes](coordination/fidelity_notes.md).
+
+---
+
+### 5c. swarm_stigmergy_priority (swarm)
+
+Priority-weighted stigmergy: pheromone per zone with decay; deposit on QUEUE_RUN/START_RUN. Agents follow gradient (move to adjacent zone with highest pheromone); if no gradient, fallback BFS toward device zones with work. Handles restricted zone (TICK when frozen). Params: pheromone_decay, pheromone_deposit.
+
+**Expected vulnerabilities**: R-TOOL-001, R-DATA-001, R-FLOW-002. See [SOTA methods at scale](coordination/sota_methods_at_scale.md), [fidelity notes](coordination/fidelity_notes.md).
+
+---
+
 ### 6. marl_ppo
 
 If Stable-Baselines3 (and gymnasium) is installed, reuses the existing PPO policy wrapper for evaluation. If not installed, a fallback raises a clear error and the method is skipped in studies unless the `[marl]` extra is present.
@@ -185,7 +201,7 @@ Acceptance gates for coordination work before UI/Lovable work starts. All items 
 
 - **Policy validation:** `labtrust validate-policy` — risk registry, method registry, method-risk matrix, and coordination study spec validate.
 - **Tasks runnable:** coord_scale with `--coord-method centralized_planner`; coord_risk with `--coord-method market_auction --injection INJ-COLLUSION-001`.
-- **At least 5 coordination methods:** centralized_planner, hierarchical_hub_rr, market_auction, gossip_consensus, swarm_reactive (optional: llm_constrained, marl_ppo). Verify with `labtrust run-benchmark --task coord_scale --episodes 1 --coord-method <method_id> --out /tmp/out.json` for each.
+- **At least 5 coordination methods:** centralized_planner, hierarchical_hub_rr, market_auction, gossip_consensus, swarm_reactive; SOTA: consensus_paxos_lite, swarm_stigmergy_priority (optional: llm_constrained, marl_ppo). Verify with `labtrust run-benchmark --task coord_scale --episodes 1 --coord-method <method_id> --out /tmp/out.json` for each.
 - **At least 5 injections:** INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-DOS-PLANNER-001, INJ-COLLUSION-001, INJ-TOOL-MISPARAM-001, INJ-MEMORY-POISON-001 (or equivalent). INJ-ID-SPOOF-001 must yield attack_success_rate=0 when strict_signatures=True.
 - **Determinism:** Scale generator and injections determinism (pytest tests/test_coordination_scale_determinism.py, tests/test_risk_injections_deterministic.py).
 - **Study runner:** run-coordination-study emits summary/pareto.md with Pareto front and robust winner.
@@ -198,6 +214,6 @@ To honestly claim SOTA, methods need **algorithmic fidelity** (implementation ma
 
 **Algorithmic fidelity:** Ripple protocol propagates via neighborhoods (neighbor graph, signed bus, conflict resolution in ripple_effect.py). Experience sharing changes policy/params (routing_weights from summaries in group_evolving). Evolution = selection + mutation + inheritance (evolution_loop.py: select_top_k, mutate_genome, recombine_genomes). Updates logged and seeded (checkpoints, mutation_log.jsonl, get_learning_metadata).
 
-**Evaluation fidelity:** coord_scale measures scale effects (comm.msg_count, comm.p95_latency_ms, coordination.stale_action_rate in summary_coord.csv). coord_risk measures robustness (sec.attack_success_rate, sec.stealth_success_rate, robustness.resilience_score). Baselines: kernel_whca, market_auction, hierarchical_hub_rr in study spec and Layer 1 scripts.
+**Evaluation fidelity:** coord_scale measures scale effects (comm.msg_count, comm.p95_latency_ms, coordination.stale_action_rate in summary_coord.csv). coord_risk measures robustness (sec.attack_success_rate, sec.stealth_success_rate, robustness.resilience_score). Baselines: kernel_whca, market_auction, hierarchical_hub_rr, consensus_paxos_lite, swarm_stigmergy_priority in study spec and Layer 1 / coordination-nightly scripts.
 
 See source: `src/labtrust_gym/baselines/coordination/ripple_effect.py`, `group_evolving/`, `coordination_study_runner.py`, `benchmarks/metrics.py`, `docs/benchmarking_plan.md`.

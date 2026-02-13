@@ -1,0 +1,4 @@
+# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\llm_executor.py
+# hypothesis_version: 6.151.6
+
+[',', ':', 'BLOCKED', 'MOVE', 'NOOP', 'OPEN_DOOR', 'QUEUE_RUN', 'START_RUN', 'TICK', '__iter__', '_shield_filtered', '_shield_reason_code', 'action_type', 'agent_id', 'agents', 'args', 'attempt', 'attempt_index', 'blocked', 'blocked_count', 'blocked_reason_code', 'blocked_reason_codes', 'comms', 'enforcements', 'executed', 'log_type', 'per_agent', 'possible_agents', 'proposal_hash', 'proposal_id', 'raw', 'reason_code', 'repair_request_hash', 'sha256:', 'shield_outcome_hash', 'state_digest', 'status', 'step', 'step_id', 'token_refs', 'utf-8', 'validation_failed', 'violation_count', 'violations']

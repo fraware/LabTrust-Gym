@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -18,6 +19,8 @@ import numpy as np
 
 from labtrust_gym.baselines.llm.shield import LLM_ACTION_FILTERED
 from labtrust_gym.engine.core_env import CoreEnv
+from labtrust_gym.logging.step_timing import is_enabled as step_timing_enabled
+from labtrust_gym.logging.step_timing import record_obs_ms
 from labtrust_gym.runner.adapter import LabTrustEnvAdapter
 from labtrust_gym.security.adversarial_detection import (
     detect_adversarial,
@@ -226,6 +229,10 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         self._step_count = 0
         self._seed_value: int | None = None
         self.agents = list(self.possible_agents)
+        # Observation cache: keyed by step index; invalidated on reset() and when step() advances.
+        # Only the current step is kept to avoid unbounded growth. Callers must not mutate the returned obs.
+        self._obs_cache_step: int | None = None
+        self._obs_cache_data: dict[str, Any] | None = None
 
     def seed(self, seed: int | None = None) -> None:
         """Set seed for deterministic behavior. Use with reset(seed=...)."""
@@ -240,6 +247,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             self._seed_value = seed
         rng_seed = self._seed_value if self._seed_value is not None else 0
         self._step_count = 0
+        self._obs_cache_step = None
+        self._obs_cache_data = None
 
         options = options or {}
         if options.get("initial_state"):
@@ -293,108 +302,128 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         return observations, infos
 
     def _collect_observations(self) -> dict[str, Any]:
-        obs = {}
-        for agent in self.agents:
-            engine_id = self._pz_to_engine.get(agent, agent)
-            zone = self._engine.query(f"agent_zone('{engine_id}')")
-            my_zone_idx = _zone_to_index(zone, self._zone_ids)
-
-            try:
-                door = self._engine.query(f"door_state('{RESTRICTED_DOOR_ID}')")
-            except ValueError:
-                door = {"open": False, "open_duration_s": 0}
-            door_open = 1 if door.get("open") else 0
-            door_duration = np.array(
-                [float(door.get("open_duration_s", 0))], dtype=np.float32
-            )
-
-            try:
-                zstate = self._engine.query(f"zone_state('{RESTRICTED_ZONE_ID}')")
-            except ValueError:
-                zstate = "normal"
-            restricted_frozen = 1 if (zstate == "frozen") else 0
-
-            queue_lengths = np.zeros(len(self._device_ids), dtype=np.int32)
-            queue_has_head = np.zeros(len(self._device_ids), dtype=np.int8)
-            queue_by_device: list[dict[str, Any]] = []
-            for i, dev in enumerate(self._device_ids):
+        """
+        Build observations for all agents. Uses a step-level cache: when called again
+        in the same step (same _step_count), returns the cached observation dict so
+        multiple consumers do not recompute. Cache is invalidated on reset() and when
+        step() advances (_step_count increments). Callers must not mutate the returned obs.
+        """
+        if self._obs_cache_step == self._step_count and self._obs_cache_data is not None:
+            return {a: dict(obs) for a, obs in self._obs_cache_data.items()}
+        t0 = time.perf_counter() if step_timing_enabled() else 0.0
+        status_order = [
+            "arrived_at_reception",
+            "accessioning",
+            "accepted",
+            "held",
+            "rejected",
+            "in_transit",
+            "separated",
+            "unknown",
+        ]
+        shared_exprs: list[str] = [
+            f"door_state('{RESTRICTED_DOOR_ID}')",
+            f"zone_state('{RESTRICTED_ZONE_ID}')",
+            "specimen_counts",
+            "system_state('log_frozen')",
+            "token_active",
+            "transport_consignments",
+            "last_event_hash",
+            "accepted_specimen_ids_not_in_queue",
+            "releasable_result_ids",
+        ]
+        for dev in self._device_ids:
+            shared_exprs.append(f"queue_length('{dev}')")
+            shared_exprs.append(f"queue_head('{dev}')")
+            shared_exprs.append(f"device_qc_state('{dev}')")
+        shared: dict[str, Any] = {}
+        if hasattr(self._engine, "query_many"):
+            shared = self._engine.query_many(shared_exprs)
+        else:
+            for expr in shared_exprs:
                 try:
-                    qlen = _safe_int(self._engine.query(f"queue_length('{dev}')"))
-                    queue_lengths[i] = qlen
-                    head = self._engine.query(f"queue_head('{dev}')")
-                    queue_has_head[i] = 1 if head else 0
-                    queue_by_device.append(
-                        {
-                            "device_id": dev,
-                            "queue_head": str(head) if head else "",
-                            "queue_len": qlen,
-                        }
-                    )
-                except ValueError:
-                    queue_by_device.append(
-                        {
-                            "device_id": dev,
-                            "queue_head": "",
-                            "queue_len": 0,
-                        }
-                    )
-
-            try:
-                counts = self._engine.query("specimen_counts")
-            except ValueError:
-                counts = {}
-            status_order = [
-                "arrived_at_reception",
-                "accessioning",
-                "accepted",
-                "held",
-                "rejected",
-                "in_transit",
-                "separated",
-                "unknown",
-            ]
-            specimen_counts = np.zeros(len(status_order), dtype=np.int32)
-            for i, st in enumerate(status_order):
-                specimen_counts[i] = _safe_int(counts.get(st, 0))
-
-            device_qc_pass = np.ones(len(self._device_ids), dtype=np.int8)
-            for i, dev in enumerate(self._device_ids):
-                try:
-                    qc = self._engine.query(f"device_qc_state('{dev}')")
-                    device_qc_pass[i] = 1 if (qc == "pass") else 0
+                    shared[expr] = self._engine.query(expr)
                 except ValueError:
                     pass
-
-            try:
-                log_frozen = self._engine.query("system_state('log_frozen')")
-            except ValueError:
-                log_frozen = "false"
-            log_frozen_int = 1 if (log_frozen == "true") else 0
-
-            try:
-                active = self._engine.query("token_active")
-            except ValueError:
-                active = []
-            if not isinstance(active, list):
-                active = [active] if active else []
-            token_count_override = sum(1 for t in active if "OVERRIDE" in str(t))
-            token_count_restricted = sum(1 for t in active if "RESTRICTED" in str(t))
-
-            t_s = self._step_count * self._dt_s
-            transport_required = list(
-                getattr(self, "_initial_state", {}).get("transport_required") or []
+        door = (
+            shared.get(f"door_state('{RESTRICTED_DOOR_ID}')")
+            or {"open": False, "open_duration_s": 0}
+        )
+        door_open = 1 if door.get("open") else 0
+        door_duration = np.array(
+            [float(door.get("open_duration_s", 0))], dtype=np.float32
+        )
+        zstate = shared.get(f"zone_state('{RESTRICTED_ZONE_ID}')", "normal")
+        restricted_frozen = 1 if (zstate == "frozen") else 0
+        counts = shared.get("specimen_counts") or {}
+        specimen_counts = np.zeros(len(status_order), dtype=np.int32)
+        for i, st in enumerate(status_order):
+            specimen_counts[i] = _safe_int(counts.get(st, 0))
+        queue_lengths = np.zeros(len(self._device_ids), dtype=np.int32)
+        queue_has_head = np.zeros(len(self._device_ids), dtype=np.int8)
+        queue_by_device: list[dict[str, Any]] = []
+        for i, dev in enumerate(self._device_ids):
+            qlen = _safe_int(shared.get(f"queue_length('{dev}')", 0))
+            queue_lengths[i] = qlen
+            head = shared.get(f"queue_head('{dev}')")
+            queue_has_head[i] = 1 if head else 0
+            queue_by_device.append(
+                {
+                    "device_id": dev,
+                    "queue_head": str(head) if head else "",
+                    "queue_len": qlen,
+                }
             )
+        device_qc_pass = np.ones(len(self._device_ids), dtype=np.int8)
+        for i, dev in enumerate(self._device_ids):
+            qc = shared.get(f"device_qc_state('{dev}')")
+            if qc == "pass":
+                device_qc_pass[i] = 1
+            else:
+                device_qc_pass[i] = 0
+        log_frozen = shared.get("system_state('log_frozen')", "false")
+        log_frozen_int = 1 if (log_frozen == "true") else 0
+        active = shared.get("token_active") or []
+        if not isinstance(active, list):
+            active = [active] if active else []
+        token_count_override = sum(1 for t in active if "OVERRIDE" in str(t))
+        token_count_restricted = sum(1 for t in active if "RESTRICTED" in str(t))
+        t_s = self._step_count * self._dt_s
+        transport_required = list(
+            getattr(self, "_initial_state", {}).get("transport_required") or []
+        )
+        transport_consignments = shared.get("transport_consignments") or []
+        prev_hash = shared.get("last_event_hash", "")
+        accepted_ids = shared.get("accepted_specimen_ids_not_in_queue") or []
+        default_dev = self._device_ids[0] if self._device_ids else ""
+        for d in self._device_ids or []:
+            if "CHEM" in d or "HAEM" in d or "COAG" in d:
+                default_dev = d
+                break
+        work_list_shared: list[dict[str, Any]] = []
+        for sid in accepted_ids:
+            work_list_shared.append(
+                {
+                    "work_id": str(sid),
+                    "device_id": default_dev,
+                    "priority": "ROUTINE",
+                    "deadline_s": 0,
+                    "stability_ok": True,
+                    "temp_ok": True,
+                }
+            )
+        releasable_result_ids_shared = list(
+            shared.get("releasable_result_ids") or []
+        )
+        obs: dict[str, Any] = {}
+        for agent in self.agents:
+            engine_id = self._pz_to_engine.get(agent, agent)
+            zone: str | None = None
             try:
-                transport_consignments = self._engine.query("transport_consignments")
+                zone = self._engine.query(f"agent_zone('{engine_id}')")
             except ValueError:
-                transport_consignments = []
-            try:
-                prev_hash = self._engine.query("last_event_hash")
-            except ValueError:
-                prev_hash = ""
-            next_step = self._step_count + 1
-            next_event_id = f"pz_{agent}_{next_step}"
-            next_t_s = next_step * self._dt_s
+                pass
+            my_zone_idx = _zone_to_index(zone, self._zone_ids)
             role_id_obs = ""
             try:
                 role_id_obs = (
@@ -404,48 +433,21 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 ) or ""
             except Exception:
                 pass
-            work_list: list[dict[str, Any]] = []
-            releasable_result_ids: list[str] = []
-            try:
-                accepted_ids = self._engine.query("accepted_specimen_ids_not_in_queue")
-                default_dev = ""
-                if self._device_ids:
-                    default_dev = self._device_ids[0]
-                    for d in self._device_ids:
-                        if "CHEM" in d or "HAEM" in d or "COAG" in d:
-                            default_dev = d
-                            break
-                for sid in accepted_ids or []:
-                    work_list.append(
-                        {
-                            "work_id": str(sid),
-                            "device_id": default_dev,
-                            "priority": "ROUTINE",
-                            "deadline_s": 0,
-                            "stability_ok": True,
-                            "temp_ok": True,
-                        }
-                    )
-            except ValueError:
-                pass
-            try:
-                releasable_result_ids = list(
-                    self._engine.query("releasable_result_ids") or []
-                )
-            except ValueError:
-                pass
+            next_step = self._step_count + 1
+            next_event_id = f"pz_{agent}_{next_step}"
+            next_t_s = next_step * self._dt_s
             obs[agent] = {
                 "my_zone_idx": my_zone_idx,
                 "door_restricted_open": door_open,
                 "door_restricted_duration_s": door_duration,
                 "restricted_zone_frozen": restricted_frozen,
-                "queue_lengths": queue_lengths,
-                "queue_has_head": queue_has_head,
-                "specimen_status_counts": specimen_counts,
-                "device_qc_pass": device_qc_pass,
+                "queue_lengths": queue_lengths.copy(),
+                "queue_has_head": queue_has_head.copy(),
+                "specimen_status_counts": specimen_counts.copy(),
+                "device_qc_pass": device_qc_pass.copy(),
                 "log_frozen": log_frozen_int,
-                "work_list": work_list,
-                "releasable_result_ids": releasable_result_ids,
+                "work_list": list(work_list_shared),
+                "releasable_result_ids": list(releasable_result_ids_shared),
                 "token_count_override": np.array(
                     [token_count_override], dtype=np.int32
                 ),
@@ -455,15 +457,18 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "t_s": t_s,
                 "transport_required": transport_required,
                 "transport_consignments": transport_consignments,
-                # State summary v0.2 (bounded, injection-hardened) for LLM
                 "zone_id": zone or "",
                 "site_id": getattr(self, "_site_id", None) or "SITE_HUB",
-                "queue_by_device": queue_by_device,
+                "queue_by_device": list(queue_by_device),
                 "prev_hash": prev_hash,
                 "next_event_id": next_event_id,
                 "next_t_s": np.array([next_t_s], dtype=np.int32),
                 "role_id": role_id_obs,
             }
+        if step_timing_enabled():
+            record_obs_ms((time.perf_counter() - t0) * 1000)
+        self._obs_cache_step = self._step_count
+        self._obs_cache_data = obs
         return obs
 
     def _action_to_event(
