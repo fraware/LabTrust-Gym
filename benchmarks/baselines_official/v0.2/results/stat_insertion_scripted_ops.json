@@ -1,5 +1,10 @@
 {
   "schema_version": "0.2",
+  "pipeline_mode": "deterministic",
+  "llm_backend_id": "none",
+  "llm_model_id": null,
+  "allow_network": false,
+  "non_deterministic": false,
   "task": "stat_insertion",
   "num_episodes": 3,
   "base_seed": 123,
@@ -19,14 +24,16 @@
       "throughput_reward": 1.0,
       "violation_penalty": 0.1
     },
-    "timing_mode": "explicit"
+    "timing_mode": "explicit",
+    "coord_method": null,
+    "injection_id": null
   },
   "policy_versions": {
     "emits_vocab": "0.1",
     "catalogue_schema": "unknown"
   },
-  "git_sha": "5a785120c68392b49dca973a8b0007d20bffd1be",
-  "git_commit_hash": "5a785120c68392b49dca973a8b0007d20bffd1be",
+  "git_sha": "d8a110a1dd9f07ad85b9bd527ae15be8b6ef1de1",
+  "git_commit_hash": "d8a110a1dd9f07ad85b9bd527ae15be8b6ef1de1",
   "partner_id": null,
   "policy_fingerprint": null,
   "agent_baseline_id": "scripted_ops_v1",
@@ -40,8 +47,12 @@
         "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
         "timing_mode": "explicit",
         "on_time_rate": null,
-        "violations_by_invariant_id": {},
-        "blocked_by_reason_code": {},
+        "violations_by_invariant_id": {
+          "INV-ZONE-002": 71
+        },
+        "blocked_by_reason_code": {
+          "RC_REAGENT_STOCKOUT": 47
+        },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
         "tokens_consumed": 0,
@@ -49,7 +60,10 @@
         "transport_consignment_count": 0,
         "transport_temp_excursions": 0,
         "coc_breaks_count": 0,
-        "steps": 120
+        "steps": 120,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "attribution_confidence_proxy": 1.0
       }
     },
     {
@@ -61,8 +75,12 @@
         "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
         "timing_mode": "explicit",
         "on_time_rate": null,
-        "violations_by_invariant_id": {},
-        "blocked_by_reason_code": {},
+        "violations_by_invariant_id": {
+          "INV-ZONE-002": 71
+        },
+        "blocked_by_reason_code": {
+          "RC_REAGENT_STOCKOUT": 49
+        },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
         "tokens_consumed": 0,
@@ -70,7 +88,10 @@
         "transport_consignment_count": 0,
         "transport_temp_excursions": 0,
         "coc_breaks_count": 0,
-        "steps": 120
+        "steps": 120,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "attribution_confidence_proxy": 1.0
       }
     },
     {
@@ -82,8 +103,12 @@
         "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
         "timing_mode": "explicit",
         "on_time_rate": null,
-        "violations_by_invariant_id": {},
-        "blocked_by_reason_code": {},
+        "violations_by_invariant_id": {
+          "INV-ZONE-002": 71
+        },
+        "blocked_by_reason_code": {
+          "RC_REAGENT_STOCKOUT": 47
+        },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
         "tokens_consumed": 0,
@@ -91,8 +116,18 @@
         "transport_consignment_count": 0,
         "transport_temp_excursions": 0,
         "coc_breaks_count": 0,
-        "steps": 120
+        "steps": 120,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "attribution_confidence_proxy": 1.0
       }
     }
-  ]
+  ],
+  "tool_registry_fingerprint": "03242dac72175c4bfeafa4c92ab888904b135e0f71af0cf68e62de89d5db844d",
+  "metadata": {
+    "run_duration_wall_s": 0.952,
+    "run_duration_episodes_per_s": 3.1519,
+    "python_version": "3.13.11",
+    "platform": "win32"
+  }
 }

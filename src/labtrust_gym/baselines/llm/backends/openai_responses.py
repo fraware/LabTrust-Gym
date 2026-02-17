@@ -439,7 +439,9 @@ class OpenAILiveResponsesBackend:
         if prompt_fingerprint_this_call is not None:
             self._last_metrics["prompt_fingerprint"] = prompt_fingerprint_this_call
         if self._trace_collector is not None:
-            self._trace_collector.record(messages, raw, prompt_sha256, usage)
+            usage_with_latency = dict(usage)
+            usage_with_latency["latency_ms"] = round(latency_ms, 2)
+            self._trace_collector.record(messages, raw, prompt_sha256, usage_with_latency)
         return _decision_to_action_proposal(decision)
 
     def _call_api(self, messages: list[dict[str, str]]) -> tuple[str, dict[str, int]]:

@@ -35,6 +35,7 @@ env/
 
 # Testing / coverage
 .pytest_cache/
+.hypothesis/
 .coverage
 htmlcov/
 .tox/
@@ -69,6 +70,7 @@ labtrust_runs/
 /external_reviewer_out/
 /external_reviewer_smoke_out/
 /risk_register_reviewer_out/
+/risk_register_out/
 /SAFETY_CASE/
 /SECURITY/
 
@@ -79,6 +81,9 @@ labtrust_runs/
 
 # MkDocs build output
 site/
+
+# Audit self-check output (labtrust audit-selfcheck --out audit_self_check)
+audit_self_check/
 
 # OS
 .DS_Store

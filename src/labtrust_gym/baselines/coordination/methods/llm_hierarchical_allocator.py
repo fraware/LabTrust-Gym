@@ -105,6 +105,8 @@ class DeterministicAssignmentsBackend:
                 "action_type": SET_INTENT,
                 "args": {"job_id": jid, "priority_weight": pw},
                 "reason_code": "COORD_HIER_ASSIGN",
+                "intent_confidence": 1.0,
+                "assumptions": [],
             }
             for aid, jid, pw in assignments
         ]
@@ -123,6 +125,8 @@ class DeterministicAssignmentsBackend:
             "per_agent": per_agent,
             "comms": [],
             "meta": meta,
+            "intent_confidence": 1.0,
+            "assumptions": [],
         }
         return proposal, meta
 
@@ -132,6 +136,9 @@ class LLMHierarchicalAllocator(CoordinationMethod):
     Hierarchical method: allocator backend produces CoordinationProposal with
     SET_INTENT per agent; local controller (greedy/edf/whca) translates to
     concrete actions. Shield applies to final actions.
+
+    Compute envelope: one proposal generation per step (cost depends on backend);
+    local controller is O(agents + devices) per step.
     """
 
     def __init__(
@@ -164,6 +171,7 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         self._seed = 0
         self._last_proposal: dict[str, Any] | None = None
         self._last_meta: dict[str, Any] | None = None
+        self._allowed_by_agent: dict[str, list[str]] = {}
 
     @property
     def method_id(self) -> str:
@@ -176,14 +184,17 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         scale_config: dict[str, Any],
     ) -> None:
         self._policy_summary = (policy or {}).get("policy_summary") or policy or {}
+        self._allowed_by_agent = {}
         if self._get_allowed_actions_fn and policy.get("pz_to_engine"):
+            for aid in (policy.get("pz_to_engine") or {}):
+                allowed = list(self._get_allowed_actions_fn(aid) or [])
+                if SET_INTENT not in allowed:
+                    allowed.append(SET_INTENT)
+                self._allowed_by_agent[aid] = allowed
             agents = list((policy.get("pz_to_engine") or {}).keys())
             if agents:
-                p2e = policy.get("pz_to_engine") or {}
-                first = p2e.get(agents[0], agents[0])
-                self._allowed_actions = list(
-                    self._get_allowed_actions_fn(first) or []
-                )
+                first = agents[0]
+                self._allowed_actions = list(self._allowed_by_agent.get(first, self._allowed_actions))
                 if SET_INTENT not in self._allowed_actions:
                     self._allowed_actions.append(SET_INTENT)
         self._seed = seed
@@ -235,7 +246,7 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         if not valid:
             return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
 
-        return intent_to_actions(
+        actions = intent_to_actions(
             proposal,
             obs,
             agent_ids,
@@ -249,6 +260,14 @@ class LLMHierarchicalAllocator(CoordinationMethod):
             use_whca=self._use_whca,
             whca_horizon=self._whca_horizon,
         )
+        # RBAC: only allow actions that are in this agent's allowed set
+        for aid in actions:
+            allowed = self._allowed_by_agent.get(aid, self._allowed_actions)
+            rec = actions.get(aid) or {}
+            action_type = (rec.get("action_type") or "NOOP").strip()
+            if allowed and action_type not in allowed:
+                actions[aid] = {"action_index": ACTION_NOOP, "action_type": "NOOP"}
+        return actions
 
     def get_llm_metrics(self) -> dict[str, Any]:
         """Return metrics for coordination+LLM: tokens, latency, backend_id, model_id, estimated_cost_usd."""

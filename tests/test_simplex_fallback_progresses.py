@@ -27,6 +27,30 @@ class _MinimalContext:
         self.device_zone = {}
 
 
+def test_validate_plan_rbac_rejects_start_run() -> None:
+    """Route with START_RUN for agent whose role disallows it is rejected by shield."""
+    from labtrust_gym.baselines.coordination.assurance.simplex import (
+        REASON_SHIELD_RBAC,
+        validate_plan,
+    )
+    from labtrust_gym.baselines.coordination.decision_types import RouteDecision
+
+    route = RouteDecision(
+        per_agent=(("a1", "START_RUN", (("device_id", "D1"), ("work_id", "W1"))),),
+        explain="test",
+    )
+    context = _MinimalContext(obs={"a1": {"zone_id": "Z_A"}})
+    context.policy = {
+        "rbac_policy": {
+            "agents": {"a1": "ROLE_NO_START"},
+            "roles": {"ROLE_NO_START": {"allowed_actions": ["NOOP", "MOVE"]}},
+        }
+    }
+    result = validate_plan(route, context)
+    assert not result.ok
+    assert any(REASON_SHIELD_RBAC in r for r in result.reasons)
+
+
 def test_fallback_route_produces_noop_per_agent() -> None:
     """_safe_fallback_route returns one NOOP per agent; deterministic."""
     context = _MinimalContext(obs={"a": {"zone_id": "Z_A"}, "b": {"zone_id": "Z_B"}})
@@ -35,6 +59,19 @@ def test_fallback_route_produces_noop_per_agent() -> None:
     per = {aid: (at, args) for (aid, at, args) in route.per_agent}
     assert per.get("a") == ("NOOP", ())
     assert per.get("b") == ("NOOP", ())
+
+
+def test_fallback_route_passes_validate_plan() -> None:
+    """Fallback route (safe_wait) is valid: no INV-ROUTE-001/002/SWAP violations, RBAC-respecting."""
+    from labtrust_gym.baselines.coordination.assurance.simplex import validate_plan
+
+    context = _MinimalContext(obs={"a": {"zone_id": "Z_A"}, "b": {"zone_id": "Z_B"}})
+    fallback = _safe_fallback_route(context)
+    result = validate_plan(fallback, context)
+    assert result.ok, f"Fallback should pass validate_plan: {result.reasons}"
+    assert result.counters.get("collision", 0) == 0
+    assert result.counters.get("restricted", 0) == 0
+    assert result.counters.get("swap", 0) == 0
 
 
 def test_select_controller_uses_fallback_when_rejected() -> None:

@@ -196,6 +196,9 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
     """
     Compose: kernel (WHCA) -> shield -> if blocked/flagged -> LLM repair
     -> re-shield -> execute (or NOOP). Emits coordination.llm_repair metrics.
+    Repair input includes constraint_summary with invariants INV-ROUTE-001, INV-ROUTE-002.
+    Backend may return multiple candidate repairs (list of per_agent lists); first that
+    passes shield is used (up to 3--10 candidates).
     """
 
     def __init__(
@@ -321,7 +324,11 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
             ),
         )
 
-        repaired_per_agent, meta = self._repair_backend.repair(repair_input, agent_ids)
+        repair_result = self._repair_backend.repair(repair_input, agent_ids)
+        repaired_per_agent, meta = (
+            repair_result[0],
+            repair_result[1] if len(repair_result) > 1 else {},
+        )
         lat = meta.get("latency_ms")
         if lat is not None:
             self._repair_latency_ms_list.append(float(lat))
@@ -329,10 +336,24 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
         to = int(meta.get("tokens_out", 0) or 0)
         self._repair_tokens_total += ti + to
 
-        repaired_route = _per_agent_to_route_decision(repaired_per_agent)
-        result2 = validate_plan(repaired_route, context)
+        candidates: list[list[tuple[str, str, dict[str, Any]]]] = []
+        if isinstance(repaired_per_agent, list) and len(repaired_per_agent) > 0:
+            first = repaired_per_agent[0]
+            if isinstance(first, list):
+                for cand in repaired_per_agent[:10]:
+                    if isinstance(cand, (list, tuple)) and cand:
+                        candidates.append(list(cand))
+            else:
+                candidates = [list(repaired_per_agent)]
 
-        if result2.ok:
+        repaired_route = None
+        for cand in candidates[:10]:
+            route = _per_agent_to_route_decision(cand)
+            if validate_plan(route, context).ok:
+                repaired_route = route
+                break
+
+        if repaired_route is not None:
             self._repair_success_count += 1
             out = {a: {"action_index": ACTION_NOOP} for a in agent_ids}
             for agent_id, action_type, args_tuple in repaired_route.per_agent:
@@ -378,6 +399,21 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
             )
             out["fallback_rate"] = round(fb / calls, 4) if calls > 0 else 0.0
         return out
+
+    def get_last_planned_path(
+        self,
+    ) -> (
+        tuple[
+            list[tuple[str, int, str]],
+            list[tuple[str, int, str, str]],
+            set[tuple[str, str]],
+            dict[str, bool],
+        ]
+        | None
+    ):
+        """Delegate to kernel so safety_invariants conformance can run on planned path."""
+        fn = getattr(self._kernel, "get_last_planned_path", None)
+        return fn() if callable(fn) else None
 
     def get_route_metrics(self) -> dict[str, Any] | None:
         fn = getattr(self._kernel, "get_route_metrics", lambda: None)

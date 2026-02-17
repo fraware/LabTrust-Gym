@@ -184,6 +184,76 @@ def test_coordination_security_pack_fixed_matrix_constants() -> None:
     assert "INJ-TIMING-QUEUE-001" in PACK_INJECTIONS
 
 
+def test_coordination_security_pack_disallows_reserved_injections_when_strict(
+    repo_root: Path, tmp_path: Path
+) -> None:
+    """When disallow_reserved_injections is true, pack fails fast if injection list includes reserved IDs (e.g. inj_device_fail)."""
+    import labtrust_gym.studies.coordination_security_pack as pack_mod
+
+    pack_config_strict = {
+        "disallow_reserved_injections": True,
+        "injection_ids": {"default": ["none", "inj_tool_selection_noise"]},
+        "method_ids": {"default": PACK_METHODS},
+        "scale_ids": {"default": PACK_SCALES},
+    }
+
+    with patch.object(pack_mod, "_load_pack_config", return_value=pack_config_strict):
+        with pytest.raises(ValueError) as exc_info:
+            run_coordination_security_pack(
+                out_dir=tmp_path / "pack_out",
+                repo_root=repo_root,
+                seed_base=42,
+                injections_from="fixed",
+            )
+        assert "Reserved injection IDs" in str(exc_info.value)
+        assert "inj_tool_selection_noise" in str(exc_info.value)
+
+
+def test_coordination_security_pack_allows_reserved_injections_when_disallow_false(
+    repo_root: Path, tmp_path: Path
+) -> None:
+    """When disallow_reserved_injections is false, pack runs even with reserved IDs in the list (NoOp)."""
+    def fake_run_benchmark(
+        task_name: str,
+        num_episodes: int,
+        base_seed: int,
+        out_path: Path,
+        repo_root: Path,
+        coord_method: str,
+        injection_id: str,
+        scale_config_override: Any,
+        **kwargs: Any,
+    ) -> None:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        cell_id = Path(out_path).parent.name
+        scale_id, method_id, inj_id = _parse_cell_id(cell_id)
+        if not method_id:
+            method_id = coord_method
+        if not inj_id:
+            inj_id = injection_id
+        data = _minimal_results_json(scale_id, method_id, inj_id)
+        Path(out_path).write_text(json.dumps(data), encoding="utf-8")
+
+    import labtrust_gym.studies.coordination_security_pack as pack_mod
+
+    pack_config_lenient = {
+        "disallow_reserved_injections": False,
+        "injection_ids": {"default": ["none", "inj_tool_selection_noise"]},
+        "method_ids": {"default": PACK_METHODS},
+        "scale_ids": {"default": PACK_SCALES},
+    }
+
+    with patch.object(pack_mod, "_load_pack_config", return_value=pack_config_lenient):
+        with patch.object(pack_mod, "run_benchmark", side_effect=fake_run_benchmark):
+            run_coordination_security_pack(
+                out_dir=tmp_path / "pack_out",
+                repo_root=repo_root,
+                seed_base=42,
+                injections_from="fixed",
+            )
+    assert (tmp_path / "pack_out" / "pack_summary.csv").is_file()
+
+
 def test_coordination_native_injection_discriminative_resistance(
     repo_root: Path, tmp_path: Path
 ) -> None:

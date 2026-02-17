@@ -1,0 +1,33 @@
+{
+  "scenario_id": "single_agent",
+  "focus": "Single agent baseline",
+  "policy": {
+    "zone_layout": {
+      "zones": [
+        { "zone_id": "Z_A", "name": "Zone A", "kind": "STAGING" },
+        { "zone_id": "Z_B", "name": "Zone B", "kind": "ANALYTICS" }
+      ],
+      "graph_edges": [
+        { "from": "Z_A", "to": "Z_B", "travel_s": 20 }
+      ],
+      "device_placement": [
+        { "device_id": "DEV_1", "zone_id": "Z_B" }
+      ]
+    },
+    "pz_to_engine": { "worker_0": "ops_0" },
+    "roles": {
+      "ROLE_RUNNER": {
+        "allowed_actions": ["NOOP", "TICK", "MOVE", "OPEN_DOOR", "START_RUN", "QUEUE_RUN"]
+      }
+    },
+    "agents": { "worker_0": "ROLE_RUNNER" },
+    "action_constraints": {}
+  },
+  "scale_config": { "num_agents_total": 1, "horizon_steps": 5, "seed": 42 },
+  "initial_state": {
+    "agent_ids": ["worker_0"],
+    "zone_for_agent": { "worker_0": "Z_A" },
+    "queue_by_device": [{ "queue_head": "", "queue_len": 0 }]
+  },
+  "expected": { "no_collision": true }
+}

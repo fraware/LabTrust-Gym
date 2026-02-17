@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.method_trace_event.v0.1",
+  "title": "Method trace event v0.1",
+  "description": "One decision-stage event for METHOD_TRACE.jsonl; one JSON object per line.",
+  "type": "object",
+  "required": ["method_id", "t_step", "stage"],
+  "additionalProperties": true,
+  "properties": {
+    "method_id": { "type": "string", "description": "Registry method identifier" },
+    "t_step": { "type": "integer", "description": "Simulation step index (0-based)" },
+    "stage": { "type": "string", "description": "Decision stage: allocate, schedule, route, validate, propose, etc." },
+    "duration_ms": { "type": "number", "description": "Optional duration for this stage" },
+    "outcome": { "type": "string", "description": "Optional outcome or status" },
+    "hash_or_summary": { "type": "string", "description": "Optional stable hash or short summary for diff" }
+  }
+}

@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.baselines.coordination.crdt_merges import lww_register_merge
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
     ACTION_NOOP,
@@ -86,10 +87,19 @@ def validate_message_payload(
     return True, ""
 
 
+# Risk ID for poison detection events (aligns with injections.v0.2 / gate).
+POISON_DETECTION_RISK_ID = "INJ-COMMS-POISON-001"
+
+
 def poison_heuristic(payload: dict[str, Any]) -> tuple[bool, str]:
     """
-    Simple poison detection: suspicious substrings in string fields, or abnormal length.
-    Returns (suspected, reason_code).
+    Poison detection heuristics. Triggers (any yields COORD_POISON_SUSPECTED):
+    - Suspicious substrings: "ignore" and ("previous" or "instruction") in payload.
+    - Out-of-range: payload size > 3000 with queue_summary and len(queue_summary) > 20.
+    - String field length > 512 for any top-level value.
+    - queue_summary item value string length > 128.
+    Log to detection_events with reason_code and risk_id (e.g. INJ-COMMS-POISON-001)
+    for audit. Returns (suspected, reason_code).
     """
     raw = json.dumps(payload)
     lower = raw.lower()
@@ -286,6 +296,7 @@ class LLMGossipSummarizer(CoordinationMethod):
             if suspected:
                 self._detection_events.append({
                     "reason_code": poison_reason,
+                    "risk_id": POISON_DETECTION_RISK_ID,
                     "agent_id": agent_id,
                     "step_id": t,
                 })
@@ -330,6 +341,27 @@ class LLMGossipSummarizer(CoordinationMethod):
                     "sender_id": env.get(KEY_SENDER_ID),
                     "step_id": t,
                 })
+        merged_queue_head_lww: dict[str, tuple[int, int, Any]] = {}
+        for sid in sorted(shared_view.keys()):
+            pl = shared_view[sid]
+            qh = pl.get("queue_head_by_device") or pl.get("queue_head") or {}
+            if isinstance(qh, dict):
+                for dev_id, head in qh.items():
+                    epoch = pl.get(KEY_EPOCH, t)
+                    clock = hash(sid) % (2**31)
+                    incoming = (int(epoch), clock, head)
+                    merged_queue_head_lww[dev_id] = lww_register_merge(
+                        merged_queue_head_lww.get(dev_id, (0, 0, None)),
+                        incoming,
+                    )
+            elif qh and isinstance(pl.get("device_id"), str):
+                dev_id = pl["device_id"]
+                epoch = pl.get(KEY_EPOCH, t)
+                clock = hash(sid) % (2**31)
+                merged_queue_head_lww[dev_id] = lww_register_merge(
+                    merged_queue_head_lww.get(dev_id, (0, 0, None)),
+                    (int(epoch), clock, qh),
+                )
 
         load: dict[str, tuple[str, int]] = {}
         for aid in agents:

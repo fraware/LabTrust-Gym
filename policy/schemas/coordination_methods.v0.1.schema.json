@@ -27,26 +27,15 @@
                 "type": "string",
                 "enum": ["centralized", "hierarchical", "market", "decentralized", "swarm", "learning", "llm"]
               },
-              "scaling_knobs": {
-                "type": "array",
-                "items": { "type": "string" }
+              "llm_based": {
+                "type": "boolean",
+                "description": "When true, method is LLM-based coordination for comparison; when false, kernel/baseline component."
               },
-              "known_weaknesses": {
-                "type": "array",
-                "items": { "type": "string" }
-              },
-              "required_controls": {
-                "type": "array",
-                "items": { "type": "string" }
-              },
-              "compatible_injections": {
-                "type": "array",
-                "items": { "type": "string" }
-              },
-              "default_params": {
-                "type": "object",
-                "additionalProperties": true
-              }
+              "scaling_knobs": { "type": "array", "items": { "type": "string" } },
+              "known_weaknesses": { "type": "array", "items": { "type": "string" } },
+              "required_controls": { "type": "array", "items": { "type": "string" } },
+              "compatible_injections": { "type": "array", "items": { "type": "string" } },
+              "default_params": { "type": "object", "additionalProperties": true }
             }
           }
         }

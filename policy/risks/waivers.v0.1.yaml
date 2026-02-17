@@ -1,0 +1,6 @@
+# Waivers for required_bench cells with missing evidence (validate-coverage --strict).
+# Each entry: risk_id, method_id, why, expires_on (YYYY-MM-DD), approved_by.
+# When --strict, missing evidence is allowed only if a non-expired waiver exists for (risk_id, method_id).
+
+version: "0.1"
+waivers: []

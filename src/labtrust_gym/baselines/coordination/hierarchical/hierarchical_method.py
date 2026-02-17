@@ -1,8 +1,9 @@
 """
 Hierarchical coordination method: HubPlanner (macro assign to regions) + LocalControllers
-(EDF + route per region). Handoff protocol for ACK/escalation. Integrates with blackboard/views:
-locals can use local view_snapshots; hub uses global obs or aggregated summary.
-Deterministic; no new deps.
+(EDF + route per region). Handoff contract: hub assigns work to regions; local controllers
+schedule and route within region; ACK deadline and escalation on missing ACK. Region
+partition: zones are partitioned into regions via partition_zones_into_regions(policy,
+scale_config). Deterministic; no new deps.
 """
 
 from __future__ import annotations
@@ -225,6 +226,19 @@ class HierarchicalHubLocal(CoordinationMethod):
             rng=rng,
         )
         actions, _ = self.step(ctx)
+        trace_path = scale_config.get("trace_path")
+        if trace_path is not None:
+            try:
+                from pathlib import Path
+                from labtrust_gym.baselines.coordination.trace import (
+                    append_trace_event,
+                    trace_from_contract_record,
+                )
+                path = Path(trace_path) if isinstance(trace_path, str) else trace_path
+                event = trace_from_contract_record(self.method_id, t, actions)
+                append_trace_event(path, event)
+            except Exception:
+                pass
         return actions
 
     def get_hierarchy_metrics(self) -> dict[str, Any]:

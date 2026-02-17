@@ -9,6 +9,7 @@ from __future__ import annotations
 import random
 from typing import Any
 
+from labtrust_gym.baselines.coordination.crdt_merges import pn_counter_merge
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
     ACTION_NOOP,
@@ -141,11 +142,12 @@ class GossipConsensus(CoordinationMethod):
             my_zone = get_zone_from_obs(o, self._zone_ids) or o.get("zone_id") or ""
             load[aid] = (my_zone, 0)
 
-        # Gossip rounds: share load; aggregate by mode (sum/median/trim_mean)
+        # Gossip rounds: share load; CRDT (PN-counter) merge for order independence when mode is sum
         for round_k in range(self._gossip_rounds):
             next_load: dict[str, tuple[str, int]] = {}
             for i, aid in enumerate(agents):
                 z_i, n_i = load.get(aid, ("", 0))
+                zone_counts: dict[str, int] = {z_i: n_i}
                 collected = [n_i]
                 for j, oid in enumerate(agents):
                     if i == j:
@@ -153,9 +155,14 @@ class GossipConsensus(CoordinationMethod):
                     if _message_lost(i, j, t, round_k, self._seed):
                         continue
                     z_j, n_j = load.get(oid, ("", 0))
+                    zone_counts = pn_counter_merge(zone_counts, {z_j: n_j})
                     if z_i == z_j:
                         collected.append(n_j)
-                n_new = _aggregate_load_values(collected, self._aggregation_mode)
+                n_new = (
+                    zone_counts.get(z_i, 0)
+                    if self._aggregation_mode == "sum"
+                    else _aggregate_load_values(collected, self._aggregation_mode)
+                )
                 next_load[aid] = (z_i, n_new)
             load = next_load
 

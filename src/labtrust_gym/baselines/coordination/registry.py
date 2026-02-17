@@ -24,6 +24,7 @@ from labtrust_gym.baselines.coordination.kernel_components import (
     TrivialRouter,
     WHCARouter,
 )
+from labtrust_gym.baselines.coordination.routing.mapf_backends import make_router
 from labtrust_gym.baselines.coordination.kernels.scheduler_or import ORScheduler
 from labtrust_gym.baselines.coordination.methods.centralized_planner import (
     CentralizedPlanner,
@@ -466,9 +467,14 @@ def _build_builtin(
             crit_slack_ce = {int(k): int(v) for k, v in crit_slack_ce.items()}
         else:
             crit_slack_ce = None
+        preemption_sla = params.get("preemption_sla_threshold")
+        if preemption_sla is not None:
+            preemption_sla = int(preemption_sla)
         sched = EDFScheduler(
             deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
             criticality_slack_steps=crit_slack_ce,
+            preemption_sla_threshold=preemption_sla,
+            aging_steps_per_boost=int(params.get("aging_steps_per_boost", 10)),
         )
         router = TrivialRouter()
         return compose_kernel(alloc, sched, router, "kernel_centralized_edf")
@@ -486,9 +492,8 @@ def _build_builtin(
             deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
             criticality_slack_steps=crit_slack,
         )
-        router = WHCARouter(
-            horizon=params.get("whca_horizon", 15),
-        )
+        router_backend = (scale_config or {}).get("router_backend", "whca")
+        router = make_router(router_backend, horizon=params.get("whca_horizon", 15))
         return compose_kernel(alloc, sched, router, "kernel_whca")
     if method_id == "kernel_scheduler_or":
         scheduler_policy = _load_scheduler_or_policy(repo_root)
@@ -504,9 +509,8 @@ def _build_builtin(
             compute_budget=params.get("compute_budget"),
         )
         sched = ORScheduler(policy=scheduler_policy)
-        router = WHCARouter(
-            horizon=params.get("whca_horizon", 15),
-        )
+        router_backend = (scale_config or {}).get("router_backend", "whca")
+        router = make_router(router_backend, horizon=params.get("whca_horizon", 15))
         return compose_kernel(alloc, sched, router, "kernel_scheduler_or_whca")
     if method_id == "kernel_auction_edf":
         alloc = AuctionAllocator(
@@ -538,9 +542,8 @@ def _build_builtin(
             deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
             criticality_slack_steps=crit_slack,
         )
-        router = WHCARouter(
-            horizon=params.get("whca_horizon", 15),
-        )
+        router_backend = (scale_config or {}).get("router_backend", "whca")
+        router = make_router(router_backend, horizon=params.get("whca_horizon", 15))
         return compose_kernel(alloc, sched, router, "kernel_auction_whca")
     if method_id == "kernel_auction_whca_shielded":
         from labtrust_gym.baselines.coordination.assurance import (
@@ -560,9 +563,8 @@ def _build_builtin(
             deadline_slack_steps=int(params.get("deadline_slack_steps", 20)),
             criticality_slack_steps=crit_slack,
         )
-        router = WHCARouter(
-            horizon=params.get("whca_horizon", 15),
-        )
+        router_backend = (scale_config or {}).get("router_backend", "whca")
+        router = make_router(router_backend, horizon=params.get("whca_horizon", 15))
         advanced = compose_kernel(alloc, sched, router, "kernel_auction_whca")
         return cast(CoordinationMethod, wrap_with_simplex_shield(advanced, None))
     if method_id == "llm_repair_over_kernel_whca":
@@ -575,7 +577,8 @@ def _build_builtin(
             compute_budget=params.get("compute_budget"),
         )
         sched = EDFScheduler()
-        router = WHCARouter(horizon=whca_horizon)
+        router_backend = (scale_config or {}).get("router_backend", "whca")
+        router = make_router(router_backend, horizon=whca_horizon)
         kernel = compose_kernel(alloc, sched, router, "kernel_whca")
         repair_backend = params.get("repair_backend")
         if repair_backend is None:
@@ -624,9 +627,8 @@ def _build_builtin(
             max_bids=params.get("compute_budget") or params.get("max_bids"),
         )
         sched = EDFScheduler()
-        router = WHCARouter(
-            horizon=params.get("whca_horizon", 15),
-        )
+        router_backend = (scale_config or {}).get("router_backend", "whca")
+        router = make_router(router_backend, horizon=params.get("whca_horizon", 15))
         advanced = compose_kernel(alloc, sched, router, "kernel_auction_whca")
         shielded = wrap_with_simplex_shield(advanced, None)
         detector_backend = params.get("detector_backend")

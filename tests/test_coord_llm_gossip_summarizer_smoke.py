@@ -104,6 +104,18 @@ def test_poison_heuristic_clean_payload() -> None:
     assert not suspected
 
 
+def test_lww_register_merge_order_independent() -> None:
+    """Two merge orderings (A then B vs B then A) yield same winning value for LWW."""
+    from labtrust_gym.baselines.coordination.crdt_merges import lww_register_merge
+
+    a = (0, 0, "queue_A")
+    b = (1, 0, "queue_B")
+    merged_ab = lww_register_merge(a, b)
+    merged_ba = lww_register_merge(b, a)
+    assert merged_ab == merged_ba
+    assert merged_ab[2] == "queue_B"
+
+
 def test_gossip_summarizer_propose_actions_returns_actions() -> None:
     """LLMGossipSummarizer.propose_actions returns action dict; uses SignedMessageBus."""
     from labtrust_gym.coordination.identity import build_key_store

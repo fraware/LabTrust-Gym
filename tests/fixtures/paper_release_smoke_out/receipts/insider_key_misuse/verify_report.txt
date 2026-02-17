@@ -1,0 +1,5 @@
+VERIFICATION REPORT
+  Bundle: C:\Users\mateo\LabTrust-Gym\tests\fixtures\paper_release_smoke_out\receipts\insider_key_misuse\EvidenceBundle.v0.1
+  Manifest files: 5
+  Receipts: 1
+  Result: PASS

@@ -1,0 +1,23 @@
+# Fast gate: verify-release --strict-fingerprints on the committed release fixture.
+# The fixture is the canonical regression anchor; any change that breaks release invariants fails here.
+
+name: Release fixture verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  release-fixture-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Run release fixture verify test
+        run: pytest tests/test_release_fixture_verify_release.py -v

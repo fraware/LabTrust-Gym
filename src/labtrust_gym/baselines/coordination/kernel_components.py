@@ -140,28 +140,45 @@ class CentralizedAllocator:
         return AllocationDecision(assignments=tuple(assignments), explain=explain)
 
 
+# Reason code when schedule deadlines are infeasible (plan 1.3)
+RC_SCHED_INFEASIBLE = "RC_SCHED_INFEASIBLE"
+
+
 class EDFScheduler:
     """
     Earliest-deadline-first: order by (deadline_step, priority). Deterministic.
-    deadline_slack_steps: default slack (deadline = context.t + slack).
-    criticality_slack_steps: optional map priority -> slack for criticality-aware
-    scheduling (e.g. STAT/CRIT_A gets 10, ROUTINE gets 20). When provided,
-    overrides deadline_slack_steps per priority.
+    Preemption: STAT can interrupt ROUTINE when STAT slack <= preemption_sla_threshold.
+    Aging: ROUTINE effective priority increases with wait_steps (from scale_config or infos)
+    to prevent starvation. Feasibility: if any deadline < t, explain includes RC_SCHED_INFEASIBLE.
     """
 
     def __init__(
         self,
         deadline_slack_steps: int = 20,
         criticality_slack_steps: dict[int, int] | None = None,
+        preemption_sla_threshold: int | None = None,
+        aging_steps_per_boost: int = 10,
     ) -> None:
         self._deadline_slack = max(1, min(200, deadline_slack_steps))
         self._criticality_slack = dict(criticality_slack_steps) if criticality_slack_steps else {}
+        self._preemption_sla = max(0, preemption_sla_threshold) if preemption_sla_threshold is not None else None
+        self._aging_steps_per_boost = max(1, min(200, aging_steps_per_boost))
 
     def _slack_for_priority(self, prio: int) -> int:
         """Slack steps for this priority (criticality-aware)."""
         if self._criticality_slack and prio in self._criticality_slack:
             return max(1, min(200, self._criticality_slack[prio]))
         return self._deadline_slack
+
+    def _work_wait_steps(self, context: KernelContext, work_id: str) -> int:
+        """Optional wait steps for aging (scale_config or infos)."""
+        cfg = (context.scale_config or {}).get("work_wait_steps")
+        if isinstance(cfg, dict) and work_id in cfg:
+            return int(cfg[work_id])
+        for info in (context.infos or {}).values():
+            if isinstance(info, dict) and "work_wait_steps" in info and work_id in info.get("work_wait_steps", {}):
+                return int(info["work_wait_steps"][work_id])
+        return 0
 
     def schedule(
         self,
@@ -172,13 +189,36 @@ class EDFScheduler:
         for agent_id, work_id, device_id, prio in allocation.assignments:
             slack = self._slack_for_priority(prio)
             deadline = context.t + slack
+            wait = self._work_wait_steps(context, work_id)
+            boost = min(2, wait // self._aging_steps_per_boost) if self._aging_steps_per_boost else 0
+            effective_prio = prio + boost
             if agent_id not in per_agent:
                 per_agent[agent_id] = []
-            per_agent[agent_id].append((work_id, deadline, prio))
+            per_agent[agent_id].append((work_id, deadline, effective_prio))
+        infeasible = False
         for aid in per_agent:
-            per_agent[aid].sort(key=lambda x: (x[1], -x[2], x[0]))
+            lst = per_agent[aid]
+            if self._preemption_sla is not None:
+                t = context.t
+                lst.sort(
+                    key=lambda x: (
+                        0 if (x[1] - t <= self._preemption_sla and x[2] >= 2) else 1,
+                        x[1],
+                        -x[2],
+                        x[0],
+                    ),
+                )
+            else:
+                lst.sort(key=lambda x: (x[1], -x[2], x[0]))
+            if any(d < context.t for (_, d, _) in lst):
+                infeasible = True
+        if (context.scale_config or {}).get("edf_force_infeasible"):
+            infeasible = True
         per_agent_tuple = tuple((aid, tuple(lst)) for aid, lst in sorted(per_agent.items()))
-        return ScheduleDecision(per_agent=per_agent_tuple, explain="edf")
+        explain = "edf"
+        if infeasible:
+            explain = f"edf {RC_SCHED_INFEASIBLE}"
+        return ScheduleDecision(per_agent=per_agent_tuple, explain=explain)
 
 
 class TrivialRouter:
@@ -269,6 +309,13 @@ class WHCARouter:
     Plans collision-free moves for horizon H; deadlock-safe fallback (wait-in-place).
     Deterministic: agent order sorted, tie-break via context.rng.
 
+    Horizon and reservation table:
+    - Planning window is horizon steps (1--64). Search is bounded by t in [t0, t0+horizon];
+      no separate timeout or iteration cap beyond this.
+    - Reservation table: at most one agent per (t, node) (INV-ROUTE-001). When no path
+      is found within the window, fallback is safe_wait (wait-in-place / NOOP) and the
+      (t, current_zone) is reserved to avoid swap collisions.
+
     Tuning (state-of-the-art):
     - horizon: planning window (1--64). Can be overridden per step via
       context.scale_config["whca_horizon"] for dynamic tuning.
@@ -284,6 +331,10 @@ class WHCARouter:
             "steps": 0,
             "deadlock_avoids": 0,
         }
+        self._last_planned_nodes: list[tuple[str, int, str]] = []
+        self._last_planned_moves: list[tuple[str, int, str, str]] = []
+        self._last_restricted_edges: set[tuple[str, str]] = set()
+        self._last_agent_has_token: dict[str, bool] = {}
 
     def _effective_horizon(self, context: KernelContext) -> int:
         """Horizon for this step: scale_config.whca_horizon or constructor default."""
@@ -318,6 +369,27 @@ class WHCARouter:
             "mean_plan_time_ms": 0.0,
             "deadlock_avoids": self._accumulated["deadlock_avoids"],
         }
+
+    def get_last_planned_path(
+        self,
+    ) -> tuple[
+        list[tuple[str, int, str]],
+        list[tuple[str, int, str, str]],
+        set[tuple[str, str]],
+        dict[str, bool],
+    ] | None:
+        """
+        Return (planned_nodes, planned_moves, restricted_edges, agent_has_token)
+        from the last route() call when expose_planned_path was True; else None.
+        """
+        if not self._last_planned_nodes and not self._last_planned_moves:
+            return None
+        return (
+            list(self._last_planned_nodes),
+            list(self._last_planned_moves),
+            set(self._last_restricted_edges),
+            dict(self._last_agent_has_token),
+        )
 
     def route(
         self,
@@ -375,6 +447,9 @@ class WHCARouter:
         no_path_count = 0
         deadlock_avoids = 0
         per_agent: list[tuple[str, str, tuple[tuple[str, Any], ...]]] = []
+        expose_path = (context.scale_config or {}).get("expose_planned_path") is True
+        paths_by_agent: dict[str, list[tuple[int, str]]] = {}
+        agent_has_token_map: dict[str, bool] = {}
 
         for agent_id in sorted(context.agent_ids):
             o = context.obs.get(agent_id) or {}
@@ -396,12 +471,21 @@ class WHCARouter:
                     )
                     reservations.reserve(context.t, my_zone, agent_id)
                     reservations.reserve(context.t + 1, my_zone, agent_id)
+                    if expose_path:
+                        paths_by_agent[agent_id] = [
+                            (context.t, my_zone),
+                            (context.t + 1, my_zone),
+                        ]
+                        agent_has_token_map[agent_id] = bool(
+                            (o.get("token_active") or {}).get("TOKEN_RESTRICTED_ENTRY")
+                        )
                     continue
                 goal = dev_zone
             else:
                 goal = my_zone
 
             has_token = bool((o.get("token_active") or {}).get("TOKEN_RESTRICTED_ENTRY"))
+            agent_has_token_map[agent_id] = has_token
             path = whca_route_and_reserve(
                 agent_id,
                 my_zone,
@@ -414,6 +498,8 @@ class WHCARouter:
                 has_restricted_token=has_token,
                 zone_order=zone_ids,
             )
+            if expose_path and path:
+                paths_by_agent[agent_id] = list(path)
             if path and len(path) >= 2:
                 next_zone = path[1][1]
                 per_agent.append(
@@ -429,6 +515,30 @@ class WHCARouter:
                 reservations.reserve(context.t + 1, my_zone, agent_id)
                 no_path_count += 1
                 deadlock_avoids += 1
+                if expose_path and agent_id not in paths_by_agent:
+                    paths_by_agent[agent_id] = [(context.t, my_zone), (context.t + 1, my_zone)]
+
+        if expose_path and paths_by_agent:
+            planned_nodes = []
+            planned_moves = []
+            for aid, path_list in paths_by_agent.items():
+                for t, node in path_list:
+                    planned_nodes.append((aid, t, node))
+                for i in range(len(path_list) - 1):
+                    t1, n1 = path_list[i]
+                    t2, n2 = path_list[i + 1]
+                    if t2 == t1 + 1:
+                        planned_moves.append((aid, t1, n1, n2))
+            self._last_planned_nodes = planned_nodes
+            self._last_planned_moves = planned_moves
+            re_set = getattr(graph, "restricted_edges_set", None)
+            self._last_restricted_edges = set(re_set) if re_set is not None else set()
+            self._last_agent_has_token = dict(agent_has_token_map)
+        else:
+            self._last_planned_nodes = []
+            self._last_planned_moves = []
+            self._last_restricted_edges = set()
+            self._last_agent_has_token = {}
 
         n_agents = len(context.agent_ids) or 1
         self._route_metrics = {

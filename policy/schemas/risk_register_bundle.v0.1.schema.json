@@ -38,6 +38,11 @@
       "type": "array",
       "items": { "$ref": "#/$defs/evidence_entry" }
     },
+    "injection_registry": {
+      "type": "array",
+      "description": "Injection IDs with status (reserved | implemented), reason, expected_effects; machine-legible so UI/coverage can render reserved as scaffolding.",
+      "items": { "$ref": "#/$defs/injection_registry_entry" }
+    },
     "links": {
       "type": "array",
       "items": { "$ref": "#/$defs/link_entry" }
@@ -92,6 +97,16 @@
         },
         "severity_hint": { "type": "string" },
         "complexity_hint": { "type": "string" }
+      }
+    },
+    "injection_registry_entry": {
+      "type": "object",
+      "required": ["injection_id", "status", "reason", "expected_effects"],
+      "properties": {
+        "injection_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["reserved", "implemented"] },
+        "reason": { "type": "string", "description": "compatibility | future_work | deprecated | empty" },
+        "expected_effects": { "type": "string", "description": "none for reserved; active or short description for implemented." }
       }
     },
     "control_entry": {

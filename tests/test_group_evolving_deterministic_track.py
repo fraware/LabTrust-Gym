@@ -52,6 +52,29 @@ def test_group_evolving_experience_sharing_deterministic_same_seed(tmp_path: Pat
     assert m1.get("steps") == m2.get("steps")
 
 
+def test_group_evolving_experience_sharing_injection_comms_poison_no_crash(tmp_path: Path) -> None:
+    """coord_risk with group_evolving_experience_sharing and INJ-COMMS-POISON-001: no crash, metrics present."""
+    pytest.importorskip("pettingzoo")
+    pytest.importorskip("gymnasium")
+    out = tmp_path / "coord_risk_out.json"
+    run_benchmark(
+        task_name="coord_risk",
+        num_episodes=1,
+        base_seed=42,
+        out_path=out,
+        repo_root=_repo_root(),
+        coord_method="group_evolving_experience_sharing",
+        injection_id="INJ-COMMS-POISON-001",
+        pipeline_mode="deterministic",
+    )
+    assert out.exists()
+    data = json.loads(out.read_text(encoding="utf-8"))
+    episodes = data.get("episodes") or []
+    assert len(episodes) >= 1
+    metrics = episodes[0].get("metrics") or {}
+    assert "throughput" in metrics or "coordination" in metrics
+
+
 def test_group_evolving_experience_sharing_contract_five_steps(tmp_path: Path) -> None:
     """Experience sharing method runs 5 steps without error and returns valid actions."""
     pytest.importorskip("pettingzoo")

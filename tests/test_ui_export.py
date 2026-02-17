@@ -167,6 +167,23 @@ def test_ui_export_cli(tmp_path: Path) -> None:
         assert "index.json" in zf.namelist()
 
 
+def test_ui_export_determinism(tmp_path: Path) -> None:
+    """Same run dir -> two ui-export runs produce identical zip content (namelist + file contents)."""
+    run_dir = _quick_eval_fixture_dir(tmp_path)
+    root = _repo_root()
+    out1 = tmp_path / "out1.zip"
+    out2 = tmp_path / "out2.zip"
+    for out_zip in (out1, out2):
+        subprocess.run(
+            [sys.executable, "-m", "labtrust_gym.cli.main", "ui-export", "--run", str(run_dir), "--out", str(out_zip)],
+            cwd=str(root), capture_output=True, text=True, timeout=30, check=True,
+        )
+    with zipfile.ZipFile(out1, "r") as z1, zipfile.ZipFile(out2, "r") as z2:
+        assert sorted(z1.namelist()) == sorted(z2.namelist())
+        for n in z1.namelist():
+            assert z1.read(n) == z2.read(n), f"Zip entry {n} must be byte-identical"
+
+
 def test_export_ui_bundle_unknown_layout(tmp_path: Path) -> None:
     """Unknown run layout raises ValueError."""  # noqa: E501
     empty = tmp_path / "empty"

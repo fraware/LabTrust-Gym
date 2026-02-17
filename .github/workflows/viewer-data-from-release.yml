@@ -1,0 +1,58 @@
+# Build viewer-data/latest/ from the release artifact chain so the viewer shows "latest release" bundle.
+# Runs package-release (minimal), export-risk-register, copies bundle + latest.json to viewer-data/latest/, validates schema + crosswalk.
+
+name: Viewer data from release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "viewer/**"
+      - "viewer-data/**"
+      - "policy/risks/**"
+      - "src/labtrust_gym/export/risk_register*"
+      - "src/labtrust_gym/studies/package_release*"
+  pull_request:
+    branches: [main]
+    paths:
+      - "viewer/**"
+      - "viewer-data/**"
+      - "policy/risks/**"
+      - "src/labtrust_gym/export/risk_register*"
+      - "src/labtrust_gym/studies/package_release*"
+  workflow_dispatch:
+
+jobs:
+  viewer-data-from-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install -e ".[dev,env,plots]"
+      - name: Build viewer-data from release chain
+        run: bash scripts/build_viewer_data_from_release.sh
+      - name: Schema and crosswalk check
+        run: |
+          python -c "
+          from pathlib import Path
+          import json
+          from labtrust_gym.export.risk_register_bundle import (
+            validate_bundle_against_schema,
+            check_crosswalk_integrity,
+          )
+          r = Path('.')
+          b = json.loads((r / 'viewer-data/latest/RISK_REGISTER_BUNDLE.v0.1.json').read_text(encoding='utf-8'))
+          err = validate_bundle_against_schema(b, r)
+          assert not err, err
+          err2 = check_crosswalk_integrity(b)
+          assert not err2, err2
+          print('Schema and crosswalk OK.')
+          "
+      - name: Upload viewer-data/latest
+        uses: actions/upload-artifact@v4
+        with:
+          name: viewer-data-latest
+          path: viewer-data/latest/

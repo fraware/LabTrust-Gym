@@ -2,6 +2,13 @@
 Market / contract net: tasks announce; agents bid by estimated cost/time;
 auctioneer selects winners. Optional collusion toggle for risk injection.
 Deterministic given seed and obs.
+
+RBAC: only START_RUN and MOVE are emitted when allowed by policy per agent.
+Optional scale_config["forbidden_edges"]: set of (agent_id, (device_id, work_id))
+to exclude (agent, task) pairs from winning (e.g. RBAC/token constraints).
+Collusion: collusion=True lowers first agent's bid for injection studies; in
+production use collusion=False. Bid caps and anomaly detector recommended when
+INJ-COLLUSION-001, INJ-BID-SPOOF-001, INJ-COORD-BID-SHILL-001 are in scope.
 """
 
 from __future__ import annotations
@@ -79,6 +86,8 @@ class MarketAuction(CoordinationMethod):
         self._device_ids: list[str] = []
         self._device_zone: dict[str, str] = {}
         self._adjacency: set[tuple[str, str]] = set()
+        self._allowed_by_agent: dict[str, list[str]] = {}
+        self._forbidden_edges: set[tuple[Any, Any]] = set()
 
     @property
     def method_id(self) -> str:
@@ -97,6 +106,20 @@ class MarketAuction(CoordinationMethod):
             self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
         else:
             self._adjacency = set()
+        self._allowed_by_agent = {}
+        try:
+            from labtrust_gym.engine.rbac import get_allowed_actions
+            for aid in (policy or {}).get("pz_to_engine") or {}:
+                allowed = get_allowed_actions(aid, policy)
+                if allowed:
+                    self._allowed_by_agent[aid] = list(allowed)
+        except ImportError:
+            pass
+        fe = scale_config.get("forbidden_edges")
+        if fe is not None and isinstance(fe, (set, list)):
+            self._forbidden_edges = set(tuple(x) if isinstance(x, (list, tuple)) else (x,) for x in fe)
+        else:
+            self._forbidden_edges = set()
 
     def propose_actions(
         self,
@@ -152,11 +175,15 @@ class MarketAuction(CoordinationMethod):
                 continue
             bids.sort(key=lambda x: (x[1], x[0]))
             winner_id = bids[0][0]
-            if out[winner_id].get("action_index") == ACTION_NOOP:
+            dev_id, work_id = bids[0][2], bids[0][3]
+            forbidden = (winner_id, (dev_id, work_id)) in self._forbidden_edges
+            allowed = self._allowed_by_agent.get(winner_id)
+            can_start = (not allowed or "START_RUN" in allowed) and not forbidden
+            if can_start and out[winner_id].get("action_index") == ACTION_NOOP:
                 out[winner_id] = {
                     "action_index": ACTION_START_RUN,
                     "action_type": "START_RUN",
-                    "args": {"device_id": bids[0][2], "work_id": bids[0][3]},
+                    "args": {"device_id": dev_id, "work_id": work_id},
                 }
 
         # Move toward zone with work
@@ -178,6 +205,9 @@ class MarketAuction(CoordinationMethod):
                         goal = z
                         break
             if my_zone != goal:
+                allowed = self._allowed_by_agent.get(agent_id)
+                if allowed and "MOVE" not in allowed:
+                    continue
                 next_z = _bfs_one_step(my_zone, goal, self._adjacency)
                 if next_z:
                     out[agent_id] = {

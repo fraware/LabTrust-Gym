@@ -29,6 +29,10 @@ from labtrust_gym.baselines.coordination.obs_utils import (
     queue_has_head,
     restricted_zone_frozen,
 )
+from labtrust_gym.baselines.coordination.methods.swarm_stability import (
+    congestion_penalty,
+    pheromone_diffusion as _pheromone_diffusion_fn,
+)
 from labtrust_gym.engine.zones import build_adjacency_set
 
 PHEROMONE_DECAY = 0.95
@@ -62,7 +66,9 @@ def _bfs_one_step(
 class SwarmStigmergyPriority(CoordinationMethod):
     """
     Priority-weighted stigmergy: pheromone per zone; deposit on work actions;
-    follow gradient toward higher pheromone. No central plan.
+    follow gradient toward higher pheromone. Stability knobs: inertia_weight,
+    congestion_penalty_scale, pheromone_diffusion_decay (spread from neighbors).
+    No central plan. Deterministic given seed and obs.
     """
 
     def __init__(
@@ -78,6 +84,10 @@ class SwarmStigmergyPriority(CoordinationMethod):
         self._device_zone: dict[str, str] = {}
         self._adjacency: set[tuple[str, str]] = set()
         self._restricted_zone_id = "Z_RESTRICTED_BIOHAZARD"
+        self._inertia_weight: float = 0.3
+        self._congestion_scale: float = 0.5
+        self._pheromone_diffusion_decay: float = 0.9
+        self._last_move: dict[str, tuple[str, str]] = {}
 
     @property
     def method_id(self) -> str:
@@ -90,6 +100,13 @@ class SwarmStigmergyPriority(CoordinationMethod):
         scale_config: dict[str, Any],
     ) -> None:
         self._pheromone = {}
+        self._last_move = {}
+        sc = scale_config or {}
+        self._inertia_weight = float(sc.get("inertia_weight", 0.3))
+        self._congestion_scale = float(sc.get("congestion_penalty_scale", 0.5))
+        self._pheromone_diffusion_decay = float(
+            sc.get("pheromone_diffusion_decay", 0.9)
+        )
         self._zone_ids, self._device_ids, self._device_zone = (
             extract_zone_and_device_ids(policy)
         )
@@ -129,6 +146,17 @@ class SwarmStigmergyPriority(CoordinationMethod):
             self._pheromone[z] *= self._decay
             if self._pheromone[z] < 0.01:
                 del self._pheromone[z]
+        # Diffusion from neighbors (stability)
+        if self._pheromone_diffusion_decay > 0 and self._adjacency:
+            prev = dict(self._pheromone)
+            for z in list(prev.keys()):
+                neighbors = [b for (a, b) in self._adjacency if a == z]
+                nvals = [prev.get(n, 0.0) for n in neighbors]
+                if nvals:
+                    diff = _pheromone_diffusion_fn(
+                        nvals, decay=self._pheromone_diffusion_decay
+                    )
+                    self._pheromone[z] = self._pheromone.get(z, 0) + diff
 
         # First pass: decide work actions and deposit pheromone
         for agent_id in agents:
@@ -180,16 +208,30 @@ class SwarmStigmergyPriority(CoordinationMethod):
             if out[agent_id].get("action_index") != ACTION_NOOP:
                 continue
 
-            # Follow gradient: move to adjacent zone with highest pheromone
+            # Follow gradient: move to adjacent zone with highest pheromone (minus congestion, plus inertia)
+            zone_agent_count: dict[str, int] = {}
+            for aid in agents:
+                z = get_zone_from_obs(obs.get(aid) or {}, self._zone_ids) or (obs.get(aid) or {}).get("zone_id") or ""
+                zone_agent_count[z] = zone_agent_count.get(z, 0) + 1
             my_pheromone = self._pheromone.get(my_zone, 0)
+            last_from_zone = None
+            if agent_id in self._last_move:
+                last_from_zone = self._last_move[agent_id][0]
             best_next: str | None = None
             best_val = my_pheromone
             for (a, b) in self._adjacency:
                 if a != my_zone:
                     continue
                 val = self._pheromone.get(b, 0)
-                if val > best_val:
-                    best_val = val
+                penalty = congestion_penalty(
+                    zone_agent_count.get(b, 0), scale=self._congestion_scale
+                )
+                inertia_bonus = (
+                    self._inertia_weight if (last_from_zone is None or b != last_from_zone) else 0.0
+                )
+                score = val - penalty + inertia_bonus
+                if score > best_val:
+                    best_val = score
                     best_next = b
             if best_next:
                 out[agent_id] = {
@@ -197,6 +239,7 @@ class SwarmStigmergyPriority(CoordinationMethod):
                     "action_type": "MOVE",
                     "args": {"from_zone": my_zone, "to_zone": best_next},
                 }
+                self._last_move[agent_id] = (my_zone, best_next)
             else:
                 # No gradient; move toward first device zone with work
                 goal = self._zone_ids[0] if self._zone_ids else my_zone
@@ -218,4 +261,5 @@ class SwarmStigmergyPriority(CoordinationMethod):
                             "action_type": "MOVE",
                             "args": {"from_zone": my_zone, "to_zone": next_z},
                         }
+                        self._last_move[agent_id] = (my_zone, next_z)
         return out

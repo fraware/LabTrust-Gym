@@ -1,6 +1,12 @@
 # Coordination method registry v0.1: methods to compare in coordination benchmarks.
 # method_id is referenced by method_risk_matrix and coordination_study_spec.
 # known_weaknesses and compatible_injections reference risk_id and injection_id from risk registry.
+#
+# Design: Coordination methods for comparison are LLM-based (llm_based: true). The goal of
+# having multiple coordination methods is to compare LLM-based coordination strategies on
+# the same baseline. Kernel and deterministic algorithms (llm_based: false) exist as
+# baseline components or as building blocks inside LLM methods (e.g. kernel inside
+# llm_repair_over_kernel_whca); they are not coordination methods for comparison.
 
 coordination_methods:
   version: "0.1"
@@ -8,15 +14,22 @@ coordination_methods:
     - method_id: "kernel_centralized_edf"
       name: "Kernel composed (centralized alloc + EDF sched + trivial router)"
       coordination_class: centralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
       compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
-      default_params: {}
+      default_params:
+        deadline_slack_steps: 20
+        criticality_slack_steps: {2: 3, 0: 20}
+        preemption_sla_threshold: 5
+        aging_steps_per_boost: 10
+      # SLA: STAT (prio 2), URGENT (1), ROUTINE (0); weights via criticality_slack_steps; replan per-step
 
     - method_id: "kernel_whca"
       name: "Kernel composed (centralized alloc + EDF sched + WHCA* reservation router)"
       coordination_class: centralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
@@ -27,34 +40,41 @@ coordination_methods:
     - method_id: "kernel_scheduler_or"
       name: "Kernel OR scheduler (centralized alloc + rolling-horizon OR sched + trivial router)"
       coordination_class: centralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
       compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
       default_params: {}
+      # horizon_steps, replan_cadence_steps, weights (tardiness, throughput, etc.); or_schedule_time_budget_ms in scale_config
 
     - method_id: "kernel_scheduler_or_whca"
       name: "Kernel OR scheduler + WHCA* (centralized alloc + OR sched + WHCA* router)"
       coordination_class: centralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
       compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
       default_params:
         whca_horizon: 15
+      # Same OR horizon/replan/weights as kernel_scheduler_or; path exposure and invariants as kernel_whca
 
     - method_id: "centralized_planner"
       name: "Centralized planner"
       coordination_class: centralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
       compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
       default_params: {}
+      # compute_envelope: O(agents*devices) per step; fallback: truncate assignments when over budget
 
     - method_id: "hierarchical_hub_rr"
       name: "Hierarchical hub with rapid response"
       coordination_class: hierarchical
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-SYS-002", "R-COMMS-002", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC", "message_auth"]
@@ -64,6 +84,7 @@ coordination_methods:
     - method_id: "hierarchical_hub_local"
       name: "Hierarchical hub with local controllers (EDF + route per region)"
       coordination_class: hierarchical
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_regions", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-SYS-002", "R-COMMS-002", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC", "message_auth", "handoff_ack_deadline"]
@@ -75,42 +96,51 @@ coordination_methods:
     - method_id: "market_auction"
       name: "Market / contract net (auction)"
       coordination_class: market
+      llm_based: false
       scaling_knobs: ["num_agents", "num_devices", "arrival_rate"]
       known_weaknesses: ["R-DATA-001", "R-COMMS-002", "R-TOOL-006"]
       required_controls: ["signed_actions", "RBAC", "rate_limit", "message_auth"]
-      compatible_injections: ["inj_untrusted_payload", "inj_msg_poison"]
+      compatible_injections: ["inj_untrusted_payload", "inj_msg_poison", "INJ-COLLUSION-001", "INJ-BID-SPOOF-001", "INJ-COORD-BID-SHILL-001"]
       default_params: {}
+      # mitigations: bid caps, anomaly detector when collusion/bid-spoof/bid-shill in scope
 
     - method_id: "gossip_consensus"
       name: "Gossip consensus"
       coordination_class: decentralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "horizon_steps"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-003", "R-FLOW-002"]
       required_controls: ["message_auth", "rate_limit"]
-      compatible_injections: ["inj_msg_poison", "inj_memory_tamper"]
+      compatible_injections: ["inj_msg_poison", "inj_memory_tamper", "INJ-COMMS-POISON-001", "INJ-CONSENSUS-POISON-001", "INJ-ID-SPOOF-001"]
       default_params: {}
+      # mitigations: gossip_aggregation=median|trim_mean reduces impact of Byzantine reports; signatures when in scope
 
     - method_id: "ripple_effect"
       name: "Ripple effect (local intent + signed bus, neighbor propagation)"
       coordination_class: decentralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-FLOW-002"]
       required_controls: ["message_auth", "replay_protection", "signed_actions"]
       compatible_injections: ["INJ-COMMS-POISON-001", "INJ-CONSENSUS-POISON-001", "INJ-ID-SPOOF-001"]
       default_params: {}
+      # compute envelope: per-step bounded by neighbor count and message size; evidence optional (no METHOD_TRACE)
 
     - method_id: "swarm_reactive"
       name: "Swarm reactive"
       coordination_class: swarm
+      llm_based: false
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-FLOW-001", "R-SYS-001"]
       required_controls: ["RBAC", "rate_limit"]
       compatible_injections: ["inj_tool_selection_noise", "inj_dos_flood"]
       default_params: {}
+      # stability_knobs: inertia_weight (0..1), congestion_penalty_scale; reduce oscillation and pile-ups
 
     - method_id: "consensus_paxos_lite"
       name: "Consensus Paxos-lite (global digest, bounded rounds)"
       coordination_class: decentralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "horizon_steps"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-003", "R-FLOW-002"]
       required_controls: ["message_auth", "rate_limit"]
@@ -121,6 +151,7 @@ coordination_methods:
     - method_id: "swarm_stigmergy_priority"
       name: "Swarm stigmergy (priority-weighted pheromone)"
       coordination_class: swarm
+      llm_based: false
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-DATA-001", "R-FLOW-002"]
       required_controls: ["RBAC", "rate_limit"]
@@ -128,10 +159,12 @@ coordination_methods:
       default_params:
         pheromone_decay: 0.95
         pheromone_deposit: 1.0
+      # stability_knobs: inertia_weight, congestion_penalty_scale, pheromone_diffusion_decay
 
     - method_id: "marl_ppo"
       name: "MARL PPO (shared policy with agent_id in obs)"
       coordination_class: learning
+      llm_based: false
       scaling_knobs: ["num_agents", "num_devices", "horizon_steps"]
       known_weaknesses: ["R-DATA-002", "R-FLOW-002", "R-TOOL-004"]
       required_controls: ["RBAC", "rate_limit"]
@@ -141,6 +174,7 @@ coordination_methods:
     - method_id: "llm_constrained"
       name: "LLM constrained (existing baseline)"
       coordination_class: llm
+      llm_based: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
@@ -150,6 +184,7 @@ coordination_methods:
     - method_id: "llm_central_planner"
       name: "LLM central planner (global state digest -> CoordinationProposal)"
       coordination_class: llm
+      llm_based: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
@@ -159,6 +194,7 @@ coordination_methods:
     - method_id: "llm_hierarchical_allocator"
       name: "LLM hierarchical allocator (assignments -> local controller greedy/EDF/WHCA)"
       coordination_class: llm
+      llm_based: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001", "R-COMMS-002"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
@@ -171,6 +207,7 @@ coordination_methods:
     - method_id: "llm_auction_bidder"
       name: "LLM auction bidder (typed bids -> deterministic auction -> dispatcher)"
       coordination_class: llm
+      llm_based: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-DATA-001", "R-COMMS-002", "R-TOOL-006"]
       required_controls: ["signed_actions", "RBAC", "rate_limit", "bid_validation"]
@@ -181,6 +218,7 @@ coordination_methods:
     - method_id: "llm_central_planner_shielded"
       name: "LLM central planner (shielded: strict validation, safe fallback on reject)"
       coordination_class: llm
+      llm_based: true
       base_method: "llm_central_planner"
       defense_profile: "shielded"
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
@@ -192,6 +230,7 @@ coordination_methods:
     - method_id: "llm_hierarchical_allocator_shielded"
       name: "LLM hierarchical allocator (shielded)"
       coordination_class: llm
+      llm_based: true
       base_method: "llm_hierarchical_allocator"
       defense_profile: "shielded"
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
@@ -203,6 +242,7 @@ coordination_methods:
     - method_id: "llm_auction_bidder_shielded"
       name: "LLM auction bidder (shielded)"
       coordination_class: llm
+      llm_based: true
       base_method: "llm_auction_bidder"
       defense_profile: "shielded"
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
@@ -214,6 +254,7 @@ coordination_methods:
     - method_id: "llm_central_planner_with_safe_fallback"
       name: "LLM central planner (explicit safe fallback on error)"
       coordination_class: llm
+      llm_based: true
       base_method: "llm_central_planner"
       defense_profile: "safe_fallback"
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
@@ -225,6 +266,7 @@ coordination_methods:
     - method_id: "llm_hierarchical_allocator_with_safe_fallback"
       name: "LLM hierarchical allocator (safe fallback)"
       coordination_class: llm
+      llm_based: true
       base_method: "llm_hierarchical_allocator"
       defense_profile: "safe_fallback"
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
@@ -236,6 +278,7 @@ coordination_methods:
     - method_id: "llm_auction_bidder_with_safe_fallback"
       name: "LLM auction bidder (safe fallback)"
       coordination_class: llm
+      llm_based: true
       base_method: "llm_auction_bidder"
       defense_profile: "safe_fallback"
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
@@ -247,6 +290,7 @@ coordination_methods:
     - method_id: "llm_gossip_summarizer"
       name: "LLM gossip summarizer (signed typed messages, deterministic consensus)"
       coordination_class: llm
+      llm_based: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-SYS-002"]
       required_controls: ["signed_actions", "RBAC", "message_auth", "replay_protection"]
@@ -256,6 +300,7 @@ coordination_methods:
     - method_id: "llm_repair_over_kernel_whca"
       name: "LLM repair over kernel WHCA (kernel plan, shield-only execute; LLM repair on block/flag/stale)"
       coordination_class: llm
+      llm_based: true
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-CAP-001", "R-SYS-002"]
       required_controls: ["signed_actions", "message_auth", "shield_execute", "repair_loop"]
@@ -268,6 +313,7 @@ coordination_methods:
     - method_id: "llm_local_decider_signed_bus"
       name: "LLM local decider over signed bus (per-agent ActionProposal, deterministic reconciler, shield)"
       coordination_class: llm
+      llm_based: true
       scaling_knobs: ["num_agents", "num_devices", "num_sites", "arrival_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-SYS-002"]
       required_controls: ["signed_actions", "message_auth", "replay_protection"]
@@ -277,6 +323,7 @@ coordination_methods:
     - method_id: "llm_detector_throttle_advisor"
       name: "LLM detector throttle advisor (wrapper over kernel_auction_whca_shielded; detect + policy-validated containment)"
       coordination_class: llm
+      llm_based: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-SYS-002"]
       required_controls: ["signed_actions", "RBAC", "detector_advisor", "enforcement_policy"]
@@ -287,17 +334,20 @@ coordination_methods:
     - method_id: "group_evolving_experience_sharing"
       name: "Group-Evolving experience sharing (deterministic track)"
       coordination_class: decentralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC"]
-      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "INJ-COMMS-POISON-001", "INJ-COLLUSION-001"]
       default_params:
         share_interval: 5
         summary_max_items: 50
+      # compute envelope: share_interval, summary_max_items; evidence optional (no METHOD_TRACE)
 
     - method_id: "group_evolving_study"
       name: "Group-Evolving study (population evolution across episodes)"
       coordination_class: decentralized
+      llm_based: false
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate", "episodes_per_generation"]
       known_weaknesses: ["R-COMMS-002", "R-DATA-001", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC"]

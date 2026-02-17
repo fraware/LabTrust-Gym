@@ -61,6 +61,32 @@ jobs:
             --seed-base 100
         timeout-minutes: 12
 
+      - name: Assert E2E real LLM (model, latency/cost in artifacts)
+        if: steps.check.outputs.skip != 'true' && success()
+        run: |
+          python -c "
+          import json
+          from pathlib import Path
+          llm_path = Path('llm_live_smoke_out/TRANSPARENCY_LOG/llm_live.json')
+          meta_path = Path('llm_live_smoke_out/live_evaluation_metadata.json')
+          errs = []
+          if llm_path.exists():
+              d = json.loads(llm_path.read_text(encoding='utf-8'))
+              mid = (d.get('model_version_identifiers') or {}).get('llm_model_id')
+              if not mid or not str(mid).strip():
+                  errs.append('llm_live.json: model_version_identifiers.llm_model_id missing or empty')
+              lc = d.get('latency_and_cost_statistics') or {}
+              if not lc.get('mean_latency_ms') and not lc.get('estimated_cost_usd') and not lc.get('total_tokens'):
+                  errs.append('llm_live.json: no latency/cost statistics (mean_latency_ms, estimated_cost_usd, or total_tokens)')
+          else:
+              errs.append('llm_live.json not found')
+          if meta_path.exists():
+              m = json.loads(meta_path.read_text(encoding='utf-8'))
+              if not m.get('model_id'):
+                  errs.append('live_evaluation_metadata.json: model_id missing or empty')
+          if errs:
+              raise SystemExit('E2E LLM assertions failed: ' + '; '.join(errs))
+          "
       - name: Upload llm_live artifacts (for regression inspection)
         if: steps.check.outputs.skip != 'true' && success()
         uses: actions/upload-artifact@v4

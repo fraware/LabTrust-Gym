@@ -21,6 +21,7 @@ T = TypeVar("T")
 
 import yaml
 
+from labtrust_gym.errors import PolicyLoadError
 from labtrust_gym.policy.overlay import (
     merge_critical_thresholds,
     merge_enforcement_map,
@@ -49,14 +50,6 @@ def _policy_cache_enabled() -> bool:
         "true",
         "yes",
     )
-
-
-class PolicyLoadError(Exception):
-    """Raised when a policy file cannot be loaded or validated. Message includes path."""
-
-    def __init__(self, path: Path | str, message: str) -> None:
-        self.path = Path(path) if isinstance(path, str) else path
-        super().__init__(f"{self.path}: {message}")
 
 
 def load_json(path: Path) -> dict[str, Any]:

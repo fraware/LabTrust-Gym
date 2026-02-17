@@ -3,7 +3,13 @@ Centralized planner: single global worklist, greedy assignment.
 
 Prioritizes STAT > URGENT > ROUTINE; respects colocation; prefers shortest queue.
 Compute budget knob limits assignments per step to simulate planner saturation.
-Deterministic given seed and obs.
+When over budget, worklist processing is truncated (remaining agents get NOOP);
+no crash. Deterministic given seed and obs.
+
+Compute envelope: O(agents * devices) per step for worklist build; assignment loop
+capped by compute_budget (max assignments per step). Optional timeout via
+scale_config["compute_budget_ms"] is not enforced in-process; use external
+timeout for hard real-time. Fallback: over budget truncates assignments only.
 """
 
 from __future__ import annotations
@@ -62,6 +68,8 @@ class CentralizedPlanner(CoordinationMethod):
         self._device_zone: dict[str, str] = {}
         self._adjacency: set[tuple[str, str]] = set()
         self._pz_to_engine: dict[str, str] = {}
+        self._allowed_by_agent: dict[str, list[str]] = {}
+        self._scale_config: dict[str, Any] = {}
 
     @property
     def method_id(self) -> str:
@@ -74,10 +82,20 @@ class CentralizedPlanner(CoordinationMethod):
         scale_config: dict[str, Any],
     ) -> None:
         self._rng = random.Random(seed)
+        self._scale_config = dict(scale_config or {})
         self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
         self._pz_to_engine = (policy or {}).get("pz_to_engine") or {}
+        self._allowed_by_agent = {}
+        try:
+            from labtrust_gym.engine.rbac import get_allowed_actions
+            for aid in self._pz_to_engine:
+                allowed = get_allowed_actions(aid, policy)
+                if allowed:
+                    self._allowed_by_agent[aid] = list(allowed)
+        except ImportError:
+            pass
 
     def propose_actions(
         self,
@@ -96,7 +114,11 @@ class CentralizedPlanner(CoordinationMethod):
 
         budget = self._compute_budget
         if budget is None:
-            budget = len(agents) * 2
+            sc = self._scale_config
+            if isinstance(sc.get("compute_budget_node_expansions"), (int, float)):
+                budget = max(1, int(sc["compute_budget_node_expansions"]))
+            else:
+                budget = len(agents) * 2
 
         worklist: list[tuple[int, str, str, str]] = []  # (prio, device_id, work_id, zone_id)
         for agent_id in agents:
@@ -125,6 +147,9 @@ class CentralizedPlanner(CoordinationMethod):
                 continue
             for agent_id in agents:
                 if agent_id in assigned:
+                    continue
+                allowed = self._allowed_by_agent.get(agent_id)
+                if allowed is not None and "START_RUN" not in allowed:
                     continue
                 o = obs.get(agent_id) or {}
                 my_zone = get_zone_from_obs(o, self._zone_ids) or o.get("zone_id") or ""
@@ -160,13 +185,17 @@ class CentralizedPlanner(CoordinationMethod):
                         break
             if my_zone == goal:
                 continue
-            next_z = _bfs_one_step(my_zone, goal, self._adjacency)
-            if next_z:
-                out[agent_id] = {
-                    "action_index": ACTION_MOVE,
-                    "action_type": "MOVE",
-                    "args": {"from_zone": my_zone, "to_zone": next_z},
-                }
+            allowed = self._allowed_by_agent.get(agent_id)
+            if allowed is not None and "MOVE" not in allowed:
+                pass
+            else:
+                next_z = _bfs_one_step(my_zone, goal, self._adjacency)
+                if next_z:
+                    out[agent_id] = {
+                        "action_index": ACTION_MOVE,
+                        "action_type": "MOVE",
+                        "args": {"from_zone": my_zone, "to_zone": next_z},
+                    }
 
         door_open = False
         for agent_id in agents:
@@ -180,6 +209,9 @@ class CentralizedPlanner(CoordinationMethod):
         if door_open and t > 0 and t % 3 == 0:
             for agent_id in agents:
                 if out[agent_id].get("action_index") == ACTION_NOOP:
+                    allowed = self._allowed_by_agent.get(agent_id)
+                    if allowed is not None and "TICK" not in allowed:
+                        continue
                     out[agent_id] = {"action_index": ACTION_TICK}
                     break
         return out

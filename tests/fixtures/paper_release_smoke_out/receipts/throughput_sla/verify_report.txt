@@ -1,0 +1,5 @@
+VERIFICATION REPORT
+  Bundle: C:\Users\mateo\LabTrust-Gym\tests\fixtures\paper_release_smoke_out\receipts\throughput_sla\EvidenceBundle.v0.1
+  Manifest files: 4
+  Receipts: 0
+  Result: PASS

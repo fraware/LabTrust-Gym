@@ -5,7 +5,10 @@ CoordinationProposal for all agents for the next step.
 Uses state_digest.build_state_digest, a proposal backend (deterministic or live),
 coordination_proposal schema validation, and converts proposal to actions_dict
 for the runner. Supports metrics: tokens, latency, proposal validity rate,
-blocked rate, repair rate.
+blocked rate, repair rate. Repair loop (invalid proposal -> retry with repair
+backend) is implemented in the executor/runner; max_repairs limits retries.
+When detector is used (wrap_with_detector_advisor), probability_threshold and
+cooldown_steps should be calibrated per deployment.
 """
 
 from __future__ import annotations
@@ -19,6 +22,24 @@ from labtrust_gym.baselines.coordination.interface import (
 from labtrust_gym.baselines.coordination.llm_contract import validate_proposal
 from labtrust_gym.baselines.coordination.llm_executor import ACTION_TYPE_TO_INDEX
 from labtrust_gym.baselines.coordination.state_digest import build_state_digest
+
+COMMITTEE_ROLES = ("Allocator", "Scheduler", "Router", "Safety reviewer")
+
+
+def _arbiter_validate_committee(
+    proposal_dict: dict[str, Any],
+    allowed_actions: list[str],
+) -> tuple[bool, list[str]]:
+    """
+    Deterministic arbiter: validate merged committee proposal.
+    Returns (valid, list of reason codes). Used when backend provides role outputs.
+    """
+    valid, errors = validate_proposal(
+        proposal_dict,
+        allowed_actions=allowed_actions,
+        strict_reason_codes=False,
+    )
+    return valid, errors
 
 
 def _proposal_to_actions_dict(
@@ -47,6 +68,12 @@ def _proposal_to_actions_dict(
         }
         if pa.get("token_refs"):
             out[agent_id]["token_refs"] = pa["token_refs"]
+        if pa.get("intent_confidence") is not None:
+            out[agent_id]["intent_confidence"] = pa["intent_confidence"]
+        if pa.get("assumptions") is not None:
+            out[agent_id]["assumptions"] = list(pa["assumptions"])
+        if pa.get("risk_flags") is not None:
+            out[agent_id]["risk_flags"] = list(pa["risk_flags"])
     return out
 
 
@@ -93,6 +120,9 @@ class DeterministicProposalBackend:
                 "action_type": at,
                 "args": {},
                 "reason_code": "COORD_STALE_VIEW",
+                "intent_confidence": 1.0,
+                "assumptions": [],
+                "risk_flags": [],
             }
             for aid in agent_ids
         ]
@@ -111,6 +141,9 @@ class DeterministicProposalBackend:
             "per_agent": per_agent,
             "comms": [],
             "meta": meta,
+            "intent_confidence": 1.0,
+            "assumptions": [],
+            "risk_flags": [],
         }
         return proposal, meta
 

@@ -274,6 +274,10 @@ class LLMAuctionBidder(CoordinationMethod):
     LLM produces typed bids only (market[] in CoordinationProposal). Deterministic
     auction clears; dispatcher produces actions. Strict bid validation. Metrics:
     bid_skew, gini_work_distribution, collusion_suspected_proxy.
+
+    Latency: one proposal generation per step (backend-dependent). Fallback: on
+    backend failure, safe_fallback profile returns NOOP for all agents; otherwise
+    raises. Same seed yields deterministic bids and assignments.
     """
 
     def __init__(

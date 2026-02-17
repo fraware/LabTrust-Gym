@@ -20,8 +20,25 @@ pytest.importorskip("gymnasium")
 
 from labtrust_gym.studies.package_release import (
     _deterministic_timestamp,
+    _write_env_provenance,
     run_package_release,
 )
+
+
+def test_env_provenance_files_present() -> None:
+    """_write_env_provenance creates ENV/ with deps_freeze.txt, python_runtime.json, git.json."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "env_out"
+        out.mkdir()
+        repo = Path(__file__).resolve().parent.parent
+        _write_env_provenance(out, repo)
+        assert (out / "ENV" / "deps_freeze.txt").is_file()
+        assert (out / "ENV" / "python_runtime.json").is_file()
+        assert (out / "ENV" / "git.json").is_file()
+        rt = json.loads((out / "ENV" / "python_runtime.json").read_text(encoding="utf-8"))
+        assert "version" in rt and "platform" in rt and "architecture" in rt
+        git_j = json.loads((out / "ENV" / "git.json").read_text(encoding="utf-8"))
+        assert "sha" in git_j and "dirty" in git_j
 
 
 def test_deterministic_timestamp() -> None:
@@ -61,7 +78,7 @@ def test_package_release_determinism() -> None:
         files1 = {f["path"]: f["sha256"] for f in (manifest1.get("files") or [])}
         files2 = {f["path"]: f["sha256"] for f in (manifest2.get("files") or [])}
         assert set(files1.keys()) == set(files2.keys()), "MANIFEST path list must be identical"
-        skip_paths = {"plots/", "results.json"}
+        skip_paths = {"plots/", "results.json", "ENV/"}
         for path in files1:
             if any(path.startswith(p) or path == p for p in skip_paths):
                 continue
@@ -87,6 +104,14 @@ def test_package_release_produces_expected_files() -> None:
         assert out / "tables"
         assert out / "receipts"
         assert out / "fhir"
+        env_dir = out / "ENV"
+        assert env_dir.is_dir(), "ENV/ provenance dir must exist"
+        assert (env_dir / "deps_freeze.txt").is_file()
+        assert (env_dir / "python_runtime.json").is_file()
+        assert (env_dir / "git.json").is_file()
+        git_info = json.loads((env_dir / "git.json").read_text(encoding="utf-8"))
+        assert "sha" in git_info
+        assert "dirty" in git_info
         meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
         assert "seed_base" in meta
         assert "profile" in meta
@@ -136,6 +161,9 @@ def test_package_release_paper_v01_smoke() -> None:
         assert (out / "TRANSPARENCY_LOG" / "proofs").is_dir()
         assert (out / "SAFETY_CASE" / "safety_case.json").exists()
         assert (out / "SAFETY_CASE" / "safety_case.md").exists()
+        assert (out / "ENV" / "deps_freeze.txt").exists()
+        assert (out / "ENV" / "python_runtime.json").exists()
+        assert (out / "ENV" / "git.json").exists()
 
         meta = json.loads((out / "metadata.json").read_text(encoding="utf-8"))
         assert meta["profile"] == "paper_v0.1"

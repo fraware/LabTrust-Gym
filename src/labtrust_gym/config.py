@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.errors import PolicyPathError
+
 
 def get_policy_dir(policy_root: Path) -> Path:
     """Return the policy directory (policy_root / "policy")."""
@@ -93,12 +95,21 @@ def get_repo_root() -> Path:
     """
     Return path P such that P / "policy" is the policy directory.
     Order: LABTRUST_POLICY_DIR (policy dir -> P = parent), package data, repo.
+    Raises PolicyPathError when LABTRUST_POLICY_DIR is set but invalid, or when
+    no policy directory is found (e.g. cwd is not inside a repo with policy/).
     """
     env_policy = os.environ.get("LABTRUST_POLICY_DIR")
     if env_policy:
         p = Path(env_policy).resolve()
-        if p.is_dir():
-            return p.parent
+        if not p.exists():
+            raise PolicyPathError(
+                f"LABTRUST_POLICY_DIR={env_policy!r} does not exist; set to a valid policy directory."
+            )
+        if not p.is_dir():
+            raise PolicyPathError(
+                f"LABTRUST_POLICY_DIR={env_policy!r} is not a directory; set to a valid policy directory."
+            )
+        return p.parent
     try:
         from importlib.resources import files
 
@@ -109,6 +120,9 @@ def get_repo_root() -> Path:
     except Exception:
         pass
     repo = _find_repo_root()
-    if (repo / "policy").is_dir():
+    if (repo / "policy").is_dir() and (repo / "policy" / "emits").exists():
         return repo
-    return repo
+    raise PolicyPathError(
+        "Policy directory not found: no policy/ with policy/emits/ under current or parent directory, "
+        "and LABTRUST_POLICY_DIR not set. Run from repo root or set LABTRUST_POLICY_DIR to the policy directory."
+    )

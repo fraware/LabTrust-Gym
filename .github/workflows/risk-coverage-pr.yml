@@ -1,0 +1,45 @@
+# Risk coverage (strict) on PRs that touch risk register or coordination/risks policy.
+# Runs validate-coverage --strict so required_bench coverage cannot regress on relevant changes.
+
+name: Risk coverage (PR)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "policy/coordination/**"
+      - "policy/risks/**"
+      - "tests/fixtures/ui_fixtures/**"
+      - "src/labtrust_gym/export/risk_register_bundle.py"
+      - "src/labtrust_gym/export/validate_coverage.py"
+      - "tests/test_risk_register_contract_gate.py"
+      - "tests/test_risk_register_bundle.py"
+      - "tests/fixtures/risk_register_bundle_ui_fixtures.v0.1.json"
+  push:
+    branches: [main]
+    paths:
+      - "policy/coordination/**"
+      - "policy/risks/**"
+      - "tests/fixtures/ui_fixtures/**"
+      - "src/labtrust_gym/export/risk_register_bundle.py"
+      - "src/labtrust_gym/export/validate_coverage.py"
+      - "tests/test_risk_register_contract_gate.py"
+      - "tests/test_risk_register_bundle.py"
+      - "tests/fixtures/risk_register_bundle_ui_fixtures.v0.1.json"
+
+jobs:
+  risk-coverage-strict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Required bench plan completeness
+        run: python scripts/required_bench_plan_runs.py > /dev/null
+      - name: Generate bundle from fixtures
+        run: labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures
+      - name: Validate coverage (strict)
+        run: labtrust validate-coverage --bundle ./risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json --strict

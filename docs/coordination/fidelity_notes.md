@@ -12,10 +12,11 @@ For each implemented coordination method, this document states which algorithm i
 
 - **INV-ROUTE-001:** No two agents occupy the same (time, node) over the planned horizon. Enforced by WHCARouter reservation table and path search that avoids reserved (t, node) slots.
 - **INV-ROUTE-002:** Restricted door edges are never planned without a valid token. Router checks token/zone policy before adding restricted-door edges to the graph.
+- **INV-ROUTE-SWAP** (swap-collision invariant): No two agents moving in opposite directions between the same two nodes at the same time. Checked in `routing/invariants.py` (check_swap_collision) and in the simplex shield when applied.
 
 **Where checked:**
 
-- Reservation consistency and collision freedom: `src/labtrust_gym/baselines/coordination/routing/` (WHCARouter, reservation table). Tests: `tests/test_coordination_kernel_determinism.py`, `tests/test_coordination_kernel_composition.py`; routing invariants in `routing/invariants.py` (evaluated in tests and optionally in study runner).
+- Reservation consistency and collision freedom: `src/labtrust_gym/baselines/coordination/routing/` (WHCARouter, reservation table). Invariant IDs and check functions are in `routing/invariants.py`; the simplex shield (assurance/simplex.py) validates plans against INV-ROUTE-001, INV-ROUTE-002, INV-ROUTE-SWAP, RBAC, and an optional schedule duplicate check. Tests: `tests/test_coordination_kernel_determinism.py`, `tests/test_coordination_kernel_composition.py`, `tests/test_routing_invariants.py`, `tests/coord_methods/conformance/test_safety_invariants.py`.
 
 **Fidelity claim:** Implementation matches WHCA*-style reservation-based pathfinding; same seed yields identical paths and decision hashes.
 
@@ -138,4 +139,4 @@ When adding a new coordination method:
 2. Add or extend tests that assert at least one invariant (e.g. propagation along edges, reservation consistency, auction rules).
 3. Ensure the method is listed in `coordination_methods.v0.1.yaml` and `method_risk_matrix.v0.1.yaml` with correct known_weaknesses and compatible_injections.
 
-See also: [SOTA fidelity checklist](../coordination_methods.md#sota-fidelity-checklist), [SOTA_ROADMAP.md](../SOTA_ROADMAP.md) section 3.
+See also: [SOTA fidelity checklist](coordination_methods.md#sota-fidelity-checklist), [Coordination methods](coordination_methods.md) and [SOTA methods at scale](sota_methods_at_scale.md).

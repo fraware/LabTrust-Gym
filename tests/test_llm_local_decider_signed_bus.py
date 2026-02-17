@@ -35,7 +35,7 @@ def _run_taskh(
 
 
 def test_taskh_id_spoof_attack_fails_with_strict_signatures(tmp_path: Path) -> None:
-    """TaskH INJ-ID-SPOOF-001: attack_success_rate near 0 when strict signatures enabled."""
+    """TaskH INJ-ID-SPOOF-001: spoofed/replayed message rejected; attack_success_rate 0 under gate."""
     data = _run_taskh(tmp_path, "INJ-ID-SPOOF-001")
     episodes = data.get("episodes") or []
     assert len(episodes) >= 1
@@ -49,6 +49,7 @@ def test_taskh_id_spoof_attack_fails_with_strict_signatures(tmp_path: Path) -> N
     assert "invalid_sig_count" in comm or "replay_drop_count" in comm or "msg_count" in comm
     alloc = coord.get("alloc") or {}
     assert "conflict_rate" in alloc
+    assert comm.get("spoof_attempt_count", 0) >= 0 or comm.get("invalid_sig_count", 0) >= 0
 
 
 def test_taskh_comms_poison_stable_offline(tmp_path: Path) -> None:

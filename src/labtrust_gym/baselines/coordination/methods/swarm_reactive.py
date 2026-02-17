@@ -1,10 +1,13 @@
 """
-Swarm reactive: purely local rules, zero global state.
+Swarm reactive: purely local rules with optional stability controls.
 
 - If near restricted door and alarm -> close/exit (TICK or MOVE away).
 - If device queue empty and specimens waiting -> QUEUE_RUN (when colocated).
 - If qc_fail -> rerun path (local heuristic).
-Deterministic given obs.
+- Stability (scale_config): inertia_weight dampens direction change (prefer not
+  reversing); congestion_penalty_scale reduces pile-ups by penalizing crowded zones.
+Deterministic given obs and seed. Fallback: when over budget, same local rules
+without stability terms.
 """
 
 from __future__ import annotations
@@ -18,6 +21,9 @@ from labtrust_gym.baselines.coordination.interface import (
     ACTION_START_RUN,
     ACTION_TICK,
     CoordinationMethod,
+)
+from labtrust_gym.baselines.coordination.methods.swarm_stability import (
+    congestion_penalty,
 )
 from labtrust_gym.baselines.coordination.obs_utils import (
     device_qc_pass,
@@ -55,7 +61,7 @@ def _bfs_one_step(
 
 
 class SwarmReactive(CoordinationMethod):
-    """Purely local rules; no global state or messaging."""
+    """Purely local rules with optional stability (inertia, congestion penalty)."""
 
     def __init__(self) -> None:
         self._zone_ids: list[str] = []
@@ -63,6 +69,9 @@ class SwarmReactive(CoordinationMethod):
         self._device_zone: dict[str, str] = {}
         self._adjacency: set[tuple[str, str]] = set()
         self._restricted_zone_id: str = "Z_RESTRICTED_BIOHAZARD"
+        self._inertia_weight: float = 0.3
+        self._congestion_scale: float = 0.5
+        self._last_move: dict[str, tuple[str, str]] = {}
 
     @property
     def method_id(self) -> str:
@@ -88,6 +97,10 @@ class SwarmReactive(CoordinationMethod):
             if zid and "RESTRICTED" in str(zid).upper():
                 self._restricted_zone_id = str(zid)
                 break
+        sc = scale_config or {}
+        self._inertia_weight = max(0.0, min(1.0, float(sc.get("inertia_weight", 0.3))))
+        self._congestion_scale = max(0.0, float(sc.get("congestion_penalty_scale", 0.5)))
+        self._last_move = {}
 
     def propose_actions(
         self,
@@ -172,7 +185,7 @@ class SwarmReactive(CoordinationMethod):
             if out[agent_id].get("action_index") != ACTION_NOOP:
                 continue
 
-            # 4) Move toward first zone with work
+            # 4) Move toward first zone with work; apply inertia and congestion if enabled
             goal = self._zone_ids[0] if self._zone_ids else my_zone
             for dev_id in self._device_ids:
                 z = self._device_zone.get(dev_id)
@@ -185,11 +198,31 @@ class SwarmReactive(CoordinationMethod):
                         goal = z
                         break
             if my_zone != goal:
-                next_z = _bfs_one_step(my_zone, goal, self._adjacency)
+                next_z: str | None = None
+                neighbors = sorted([b for (a, b) in self._adjacency if a == my_zone])
+                if neighbors and (self._congestion_scale > 0 or self._inertia_weight > 0):
+                    zone_agent_count: dict[str, int] = {}
+                    for aid in agents:
+                        z = get_zone_from_obs(obs.get(aid) or {}, self._zone_ids) or (obs.get(aid) or {}).get("zone_id") or ""
+                        zone_agent_count[z] = zone_agent_count.get(z, 0) + 1
+                    last = self._last_move.get(agent_id)
+                    best_score: float = -1e9
+                    for n in neighbors:
+                        pen = congestion_penalty(zone_agent_count.get(n, 0), self._congestion_scale)
+                        inertia_bonus = 0.0
+                        if last and last[1] == my_zone and n != last[0]:
+                            inertia_bonus = self._inertia_weight
+                        score = -pen + inertia_bonus
+                        if score > best_score:
+                            best_score = score
+                            next_z = n
+                if next_z is None:
+                    next_z = _bfs_one_step(my_zone, goal, self._adjacency)
                 if next_z:
                     out[agent_id] = {
                         "action_index": ACTION_MOVE,
                         "action_type": "MOVE",
                         "args": {"from_zone": my_zone, "to_zone": next_z},
                     }
+                    self._last_move[agent_id] = (my_zone, next_z)
         return out

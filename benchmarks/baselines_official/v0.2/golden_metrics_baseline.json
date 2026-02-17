@@ -1,0 +1,20 @@
+{
+  "version": "0.1",
+  "description": "Pinned baseline values for metric regression gate; fail if current regresses beyond threshold_pct (e.g. 5% worse).",
+  "metrics": [
+    {
+      "task_file_pattern": "throughput_sla_scripted_ops",
+      "metric_key": "throughput",
+      "baseline": 0,
+      "threshold_pct": 5,
+      "higher_is_better": true
+    },
+    {
+      "task_file_pattern": "adversarial_disruption_adversary",
+      "metric_key": "throughput",
+      "baseline": 0,
+      "threshold_pct": 5,
+      "higher_is_better": true
+    }
+  ]
+}

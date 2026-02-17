@@ -14,6 +14,7 @@ import pytest
 from labtrust_gym.policy.loader import PolicyLoadError, load_json, validate_against_schema
 from labtrust_gym.policy.validate import (
     validate_all_policy_schemas,
+    validate_coordination_security_pack_gate_rules_supported,
     validate_emits_vocab,
     validate_golden_scenarios,
     validate_policy,
@@ -98,6 +99,32 @@ def test_invalid_policy_file_against_schema_returns_errors() -> None:
         )
         assert len(errors) > 0, "Expected validation errors for missing canonical_set"
         assert any("canonical_set" in e.lower() or "schema" in e.lower() for e in errors)
+
+
+def test_gate_eval_supported_types_enforced_in_validation(tmp_path: Path) -> None:
+    """Gate YAML with unsupported rule type must fail validate_coordination_security_pack_gate_rules_supported; only supported types pass."""
+    root = _repo_root()
+    # Real repo gate has only supported types; full validate_policy passes.
+    errors = validate_coordination_security_pack_gate_rules_supported(root)
+    assert errors == [], f"Real gate should pass rules-supported check: {errors}"
+
+    # Temp gate with unsupported rule type must yield errors.
+    coord_dir = tmp_path / "policy" / "coordination"
+    coord_dir.mkdir(parents=True)
+    bad_gate = {
+        "version": "0.1",
+        "rules": [
+            {"injection_id": "INJ-FAKE-001", "rule": "unsupported_rule_type", "description": "Bad"},
+        ],
+    }
+    import yaml
+
+    (coord_dir / "coordination_security_pack_gate.v0.1.yaml").write_text(
+        yaml.dump(bad_gate), encoding="utf-8"
+    )
+    errs = validate_coordination_security_pack_gate_rules_supported(tmp_path)
+    assert len(errs) > 0, "Unsupported rule type must produce validation errors"
+    assert any("unsupported_rule_type" in e and "not supported" in e for e in errs)
 
 
 def test_validate_all_policy_schemas_includes_all_mapped_files() -> None:

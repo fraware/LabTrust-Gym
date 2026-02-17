@@ -1,0 +1,342 @@
+# Required-bench plan v0.1: one entry per required_bench cell from method_risk_matrix.
+# Evidence: coord_risk = run-benchmark coord_risk with method + injection; executor deduplicates runs.
+version: v0.1
+description: Maps each required_bench (method_id, risk_id) to one evidence action.
+cells:
+- method_id: centralized_planner
+  risk_id: R-TOOL-001
+  evidence:
+    kind: coord_risk
+    injection_id: inj_tool_selection_noise
+    cmd: labtrust run-benchmark --task coord_risk --coord-method centralized_planner
+      --injection inj_tool_selection_noise --scale small_smoke --episodes 1 --seed
+      42
+- method_id: centralized_planner
+  risk_id: R-SYS-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-DOS-PLANNER-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method centralized_planner
+      --injection INJ-DOS-PLANNER-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: centralized_planner
+  risk_id: R-COMMS-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-ID-SPOOF-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method centralized_planner
+      --injection INJ-ID-SPOOF-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: hierarchical_hub_rr
+  risk_id: R-SYS-002
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COLLUSION-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method hierarchical_hub_rr
+      --injection INJ-COLLUSION-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: hierarchical_hub_rr
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method hierarchical_hub_rr
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: market_auction
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method market_auction --injection
+      INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: gossip_consensus
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method gossip_consensus
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: gossip_consensus
+  risk_id: R-DATA-003
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-MEMORY-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method gossip_consensus
+      --injection INJ-MEMORY-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: swarm_reactive
+  risk_id: R-TOOL-001
+  evidence:
+    kind: coord_risk
+    injection_id: inj_tool_selection_noise
+    cmd: labtrust run-benchmark --task coord_risk --coord-method swarm_reactive --injection
+      inj_tool_selection_noise --scale small_smoke --episodes 1 --seed 42
+- method_id: swarm_reactive
+  risk_id: R-SYS-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-DOS-PLANNER-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method swarm_reactive --injection
+      INJ-DOS-PLANNER-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: consensus_paxos_lite
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method consensus_paxos_lite
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: consensus_paxos_lite
+  risk_id: R-DATA-003
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-MEMORY-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method consensus_paxos_lite
+      --injection INJ-MEMORY-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: swarm_stigmergy_priority
+  risk_id: R-TOOL-001
+  evidence:
+    kind: coord_risk
+    injection_id: inj_tool_selection_noise
+    cmd: labtrust run-benchmark --task coord_risk --coord-method swarm_stigmergy_priority
+      --injection inj_tool_selection_noise --scale small_smoke --episodes 1 --seed
+      42
+- method_id: swarm_stigmergy_priority
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method swarm_stigmergy_priority
+      --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: marl_ppo
+  risk_id: R-DATA-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_poison_obs
+    cmd: labtrust run-benchmark --task coord_risk --coord-method marl_ppo --injection
+      inj_poison_obs --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_constrained
+  risk_id: R-TOOL-001
+  evidence:
+    kind: coord_risk
+    injection_id: inj_tool_selection_noise
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_constrained --injection
+      inj_tool_selection_noise --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_constrained
+  risk_id: R-TOOL-005
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-TOOL-MISPARAM-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_constrained --injection
+      INJ-TOOL-MISPARAM-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_constrained
+  risk_id: R-CAP-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-LLM-PROMPT-INJECT-COORD-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_constrained --injection
+      INJ-LLM-PROMPT-INJECT-COORD-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_constrained
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_constrained --injection
+      INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_central_planner
+  risk_id: R-TOOL-001
+  evidence:
+    kind: coord_risk
+    injection_id: inj_tool_selection_noise
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_central_planner
+      --injection inj_tool_selection_noise --scale small_smoke --episodes 1 --seed
+      42
+- method_id: llm_central_planner
+  risk_id: R-TOOL-005
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-TOOL-MISPARAM-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_central_planner
+      --injection INJ-TOOL-MISPARAM-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_central_planner
+  risk_id: R-CAP-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-LLM-PROMPT-INJECT-COORD-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_central_planner
+      --injection INJ-LLM-PROMPT-INJECT-COORD-001 --scale small_smoke --episodes 1
+      --seed 42
+- method_id: llm_central_planner
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_central_planner
+      --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_hierarchical_allocator
+  risk_id: R-TOOL-001
+  evidence:
+    kind: coord_risk
+    injection_id: inj_tool_selection_noise
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_hierarchical_allocator
+      --injection inj_tool_selection_noise --scale small_smoke --episodes 1 --seed
+      42
+- method_id: llm_hierarchical_allocator
+  risk_id: R-TOOL-005
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-TOOL-MISPARAM-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_hierarchical_allocator
+      --injection INJ-TOOL-MISPARAM-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_hierarchical_allocator
+  risk_id: R-CAP-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-LLM-PROMPT-INJECT-COORD-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_hierarchical_allocator
+      --injection INJ-LLM-PROMPT-INJECT-COORD-001 --scale small_smoke --episodes 1
+      --seed 42
+- method_id: llm_hierarchical_allocator
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_hierarchical_allocator
+      --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_auction_bidder
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_auction_bidder
+      --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_auction_bidder
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_auction_bidder
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_gossip_summarizer
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_gossip_summarizer
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_gossip_summarizer
+  risk_id: R-SYS-002
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COLLUSION-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_gossip_summarizer
+      --injection INJ-COLLUSION-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: kernel_auction_edf
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method kernel_auction_edf
+      --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: kernel_auction_whca
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method kernel_auction_whca
+      --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_repair_over_kernel_whca
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_repair_over_kernel_whca
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_repair_over_kernel_whca
+  risk_id: R-CAP-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-LLM-PROMPT-INJECT-COORD-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_repair_over_kernel_whca
+      --injection INJ-LLM-PROMPT-INJECT-COORD-001 --scale small_smoke --episodes 1
+      --seed 42
+- method_id: llm_repair_over_kernel_whca
+  risk_id: R-SYS-002
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COLLUSION-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_repair_over_kernel_whca
+      --injection INJ-COLLUSION-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_local_decider_signed_bus
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_local_decider_signed_bus
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_local_decider_signed_bus
+  risk_id: R-SYS-002
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COLLUSION-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_local_decider_signed_bus
+      --injection INJ-COLLUSION-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_detector_throttle_advisor
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_detector_throttle_advisor
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_repair_over_kernel_whca
+  risk_id: R-CAP-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-LLM-PROMPT-INJECT-COORD-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_repair_over_kernel_whca
+      --injection INJ-LLM-PROMPT-INJECT-COORD-001 --scale small_smoke --episodes 1
+      --seed 42
+- method_id: llm_local_decider_signed_bus
+  risk_id: R-COMMS-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-ID-SPOOF-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_local_decider_signed_bus
+      --injection INJ-ID-SPOOF-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: llm_auction_bidder
+  risk_id: R-SYS-002
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COLLUSION-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method llm_auction_bidder
+      --injection INJ-COLLUSION-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: ripple_effect
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method ripple_effect --injection
+      inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: ripple_effect
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method ripple_effect --injection
+      INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: group_evolving_experience_sharing
+  risk_id: R-COMMS-002
+  evidence:
+    kind: coord_risk
+    injection_id: inj_msg_poison
+    cmd: labtrust run-benchmark --task coord_risk --coord-method group_evolving_experience_sharing
+      --injection inj_msg_poison --scale small_smoke --episodes 1 --seed 42
+- method_id: group_evolving_experience_sharing
+  risk_id: R-SYS-002
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COLLUSION-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method group_evolving_experience_sharing
+      --injection INJ-COLLUSION-001 --scale small_smoke --episodes 1 --seed 42
+- method_id: group_evolving_experience_sharing
+  risk_id: R-DATA-001
+  evidence:
+    kind: coord_risk
+    injection_id: INJ-COMMS-POISON-001
+    cmd: labtrust run-benchmark --task coord_risk --coord-method group_evolving_experience_sharing
+      --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42

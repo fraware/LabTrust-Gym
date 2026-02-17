@@ -1,0 +1,9 @@
+task: insider_key_misuse
+episodes: 2
+seed_base: 42
+timing_mode: explicit
+ablations:
+  strict_signatures:
+  - false
+  - true
+agent_config: scripted_runner
