@@ -1,0 +1,15 @@
+{
+  "row": {
+    "scale_id": "s",
+    "method_id": "m",
+    "injection_id": "INJ-ID-SPOOF-001",
+    "sec.attack_success_rate": 0.5,
+    "safety.violations_total": 0
+  },
+  "nominal_by_scale_method": {},
+  "gate_rules": [
+    {"injection_id": "INJ-ID-SPOOF-001", "rule": "attack_success_rate_zero", "description": "Spoof blocked"}
+  ],
+  "expected_verdict": "FAIL",
+  "expected_rationale_substring": "0.5"
+}

@@ -81,3 +81,25 @@ def test_shield_accepts_no_collision() -> None:
     result = validate_plan(route, context)
     assert result.ok is True
     assert result.counters.get("collision", 0) == 0
+
+
+def test_shield_rejects_swap_collision() -> None:
+    """Two agents swap Z_A <-> Z_B at same step => shield rejects with swap reason (INV-ROUTE-SWAP)."""
+    from labtrust_gym.baselines.coordination.assurance.simplex import REASON_SHIELD_SWAP
+
+    route = RouteDecision(
+        per_agent=(
+            ("runner_0", "MOVE", (("from_zone", "Z_A"), ("to_zone", "Z_B"))),
+            ("runner_1", "MOVE", (("from_zone", "Z_B"), ("to_zone", "Z_A"))),
+        ),
+        explain="swap_plan",
+    )
+    context = _MinimalContext(
+        obs={"runner_0": {"zone_id": "Z_A"}, "runner_1": {"zone_id": "Z_B"}},
+        policy={},
+        t=0,
+    )
+    result = validate_plan(route, context)
+    assert result.ok is False
+    assert result.counters.get("swap", 0) >= 1
+    assert any(REASON_SHIELD_SWAP in r or "INV-ROUTE-SWAP" in r for r in result.reasons)

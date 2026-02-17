@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.config import get_repo_root
 from labtrust_gym.studies.reproduce import run_reproduce
 
 MANIFEST_VERSION = "0.1"
@@ -38,6 +39,61 @@ def _git_commit_hash(cwd: Path | None = None) -> str | None:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     return None
+
+
+def _git_dirty(cwd: Path | None = None) -> bool:
+    """True if working tree has uncommitted changes."""
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=cwd or Path.cwd(),
+        )
+        return out.returncode == 0 and bool(out.stdout.strip())
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def _write_env_provenance(out_dir: Path, repo_root: Path) -> None:
+    """Write ENV/ with deps_freeze.txt, python_runtime.json, git.json for release provenance."""
+    import platform
+
+    env_dir = out_dir / "ENV"
+    env_dir.mkdir(parents=True, exist_ok=True)
+    cwd = Path(repo_root)
+    (env_dir / "deps_freeze.txt").write_text(
+        subprocess.run(
+            [sys.executable, "-m", "pip", "freeze"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(cwd),
+        ).stdout or "",
+        encoding="utf-8",
+    )
+    (env_dir / "python_runtime.json").write_text(
+        json.dumps(
+            {
+                "version": sys.version,
+                "platform": sys.platform,
+                "architecture": platform.machine(),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (env_dir / "git.json").write_text(
+        json.dumps(
+            {
+                "sha": _git_commit_hash(cwd),
+                "dirty": _git_dirty(cwd),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
 
 def _sha256_file(path: Path) -> str:
@@ -265,8 +321,13 @@ def run_package_release_paper(
     repr_dir.mkdir(parents=True, exist_ok=True)
     receipts_dir.mkdir(parents=True, exist_ok=True)
     from labtrust_gym.benchmarks.runner import run_benchmark
-    from labtrust_gym.export.receipts import export_receipts
+    from labtrust_gym.export.receipts import (
+        compute_bundle_fingerprints_required,
+        export_receipts,
+    )
     from labtrust_gym.export.verify import verify_bundle
+
+    paper_bundle_fingerprints = compute_bundle_fingerprints_required(Path(repo_root))
 
     for task in OFFICIAL_TASKS:
         task_repr = repr_dir / task
@@ -284,10 +345,15 @@ def run_package_release_paper(
         )
         rec_task = receipts_dir / task
         rec_task.mkdir(parents=True, exist_ok=True)
-        try:
-            export_receipts(log_path, rec_task)
-        except Exception:
-            pass
+        export_receipts(
+            log_path,
+            rec_task,
+            policy_root=repo_root,
+            tool_registry_fingerprint=paper_bundle_fingerprints.get("tool_registry_fingerprint"),
+            rbac_policy_fingerprint=paper_bundle_fingerprints.get("rbac_policy_fingerprint"),
+            coordination_policy_fingerprint=paper_bundle_fingerprints.get("coordination_policy_fingerprint"),
+            memory_policy_fingerprint=paper_bundle_fingerprints.get("memory_policy_fingerprint"),
+        )
         bundle_dir = rec_task / "EvidenceBundle.v0.1"
         if bundle_dir.exists():
             try:
@@ -503,6 +569,7 @@ The **Official Benchmark Pack** is defined in `policy/official/benchmark_pack.v0
     coord_policy_dir = out_dir / "_coordination_policy"
     copy_frozen_coordination_policy(Path(repo_root), coord_policy_dir)
 
+    _write_env_provenance(out_dir, Path(repo_root))
     files_with_hashes = _collect_files_with_hashes(out_dir, exclude_dirs=[])
     manifest = {"version": MANIFEST_VERSION, "files": files_with_hashes}
     (out_dir / "MANIFEST.v0.1.json").write_text(
@@ -530,7 +597,7 @@ def run_package_release(
     When include_coordination_pack is True (paper_v0.1), run coordination security pack and lab report.
     Returns release_out directory.
     """
-    repo_root = repo_root or Path.cwd()
+    repo_root = Path(repo_root) if repo_root is not None else get_repo_root()
     out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     seed_base = seed_base if seed_base is not None else 100
@@ -556,7 +623,12 @@ def run_package_release(
     )
 
     from labtrust_gym.export.fhir_r4 import export_fhir
-    from labtrust_gym.export.receipts import export_receipts
+    from labtrust_gym.export.receipts import (
+        compute_bundle_fingerprints_required,
+        export_receipts,
+    )
+
+    bundle_fingerprints = compute_bundle_fingerprints_required(Path(repo_root))
 
     receipts_out = out_dir / "receipts"
     fhir_out = out_dir / "fhir"
@@ -594,10 +666,15 @@ def run_package_release(
             label = f"{task}_{cid}"
             rec_dir = receipts_out / label
             rec_dir.mkdir(parents=True, exist_ok=True)
-            try:
-                export_receipts(log_path, rec_dir)
-            except Exception:
-                pass
+            export_receipts(
+                log_path,
+                rec_dir,
+                policy_root=repo_root,
+                tool_registry_fingerprint=bundle_fingerprints.get("tool_registry_fingerprint"),
+                rbac_policy_fingerprint=bundle_fingerprints.get("rbac_policy_fingerprint"),
+                coordination_policy_fingerprint=bundle_fingerprints.get("coordination_policy_fingerprint"),
+                memory_policy_fingerprint=bundle_fingerprints.get("memory_policy_fingerprint"),
+            )
             bundle_dir = rec_dir / "EvidenceBundle.v0.1"
             if bundle_dir.exists():
                 fhir_dir = fhir_out / label
@@ -672,6 +749,7 @@ def run_package_release(
     card_content = _render_benchmark_card_template(repo_root, metadata)
     (out_dir / "BENCHMARK_CARD.md").write_text(card_content, encoding="utf-8")
 
+    _write_env_provenance(out_dir, Path(repo_root))
     exclude = [] if include_repro_dir else [REPRO_DIR_NAME]
     files_with_hashes = _collect_files_with_hashes(out_dir, exclude_dirs=exclude)
     manifest = {

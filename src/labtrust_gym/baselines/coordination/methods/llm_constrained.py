@@ -14,6 +14,9 @@ class LLMConstrained(CoordinationMethod):
     """
     Wraps LLMAgentWithShield to implement CoordinationMethod.
     One LLM agent instance; propose_actions calls act(obs[agent_id], agent_id) per agent.
+    Constraints (RBAC, zone, device) are enforced by the wrapped LLMAgentWithShield via
+    rbac_policy and capability_policy: only actions allowed for the agent's role and
+    capability set are proposed; shield rejects others.
     """
 
     def __init__(

@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
@@ -278,12 +279,15 @@ def run_official_pack(
             (out_dir / "TRANSPARENCY_LOG" / "llm_live_error.txt").write_text(
                 str(e), encoding="utf-8"
             )
-        # Live evaluation metadata (required by v0.2 protocol): model_id, temperature, tool_registry_fingerprint, allow_network
+        # Live evaluation metadata (required by v0.2 protocol): model_id, temperature, tool_registry_fingerprint, allow_network.
+        # pipeline_mode and python_version for audit parity with deterministic metadata.
         live_meta: dict[str, Any] = {
             "model_id": None,
             "temperature": None,
             "tool_registry_fingerprint": None,
             "allow_network": allow_network,
+            "pipeline_mode": "llm_live",
+            "python_version": sys.version.split()[0] if sys.version else None,
         }
         for p in sorted(results_dir.glob("*.json")):
             try:

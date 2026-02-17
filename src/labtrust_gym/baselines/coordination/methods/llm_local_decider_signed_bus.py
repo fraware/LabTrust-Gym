@@ -1,8 +1,11 @@
 """
 LLM local decider over signed bus: each worker proposes ActionProposal from bounded
 local view; proposals are signed and published on SignedMessageBus; deterministic
-reconciler resolves conflicts; shield executes final set. Tracks invalid_sig_count,
-replay_drop_count, spoof_attempt_count, conflict_rate.
+reconciler resolves conflicts; shield executes final set. Always uses SignedMessageBus
+for proposals (epoch, replay protection). Tracks invalid_sig_count, replay_drop_count,
+spoof_attempt_count, conflict_rate. Relevant injections: INJ-ID-SPOOF-001 (spoof
+rejected), INJ-COMMS-POISON-001 (invalid/poisoned payloads rejected), INJ-ID-REPLAY-COORD-001
+(replay detected and dropped).
 """
 
 from __future__ import annotations
@@ -327,8 +330,15 @@ class LLMLocalDeciderSignedBus(CoordinationMethod):
         for agent_id in agents:
             prop = final_proposals.get(agent_id)
             if prop is None:
+                out[agent_id].setdefault("safety_notes", []).append("no_proposal")
                 continue
             out[agent_id] = _action_proposal_to_action_dict(prop, agent_id)
+            reason = prop.get("reason_code")
+            if reason:
+                out[agent_id].setdefault("safety_notes", []).append(reason)
+            inv = prop.get("invariant_ids")
+            if isinstance(inv, list) and inv:
+                out[agent_id].setdefault("safety_notes", []).extend(inv)
         return out
 
     def get_comm_metrics(self) -> dict[str, Any]:

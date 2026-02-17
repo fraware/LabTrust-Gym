@@ -1,0 +1,14 @@
+{
+  "row": {
+    "scale_id": "s",
+    "method_id": "m",
+    "injection_id": "INJ-COMMS-POISON-001",
+    "safety.violations_total": 5
+  },
+  "nominal_by_scale_method": {"s|m": 2},
+  "gate_rules": [
+    {"injection_id": "INJ-COMMS-POISON-001", "rule": "violations_within_delta", "nominal_metric": "safety.violations_total", "max_delta": 5, "description": "Within delta"}
+  ],
+  "expected_verdict": "PASS",
+  "expected_rationale_substring": "violations_total"
+}

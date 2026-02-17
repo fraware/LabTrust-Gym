@@ -26,7 +26,7 @@ def build_repair_input(
     - scale_config_snapshot: sanitized scale config (sorted keys when serialized).
     - last_accepted_plan_summary: e.g. {"route_hash": "...", "step_idx": N} (no wall-clock).
     - blocked_actions: list of {"agent_id", "action_type", "reason_code"} in stable order.
-    - constraint_summary: allowed_actions + invariants subset (e.g. INV-ROUTE-001/002).
+    - constraint_summary: allowed_actions and invariants (INV-ROUTE-001, INV-ROUTE-002).
     - red_team_flags: optional list e.g. ["comms_poison"]; sorted for stability.
     """
     # Snapshot with sorted keys for determinism

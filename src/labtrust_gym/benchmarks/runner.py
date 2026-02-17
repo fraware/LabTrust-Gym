@@ -29,6 +29,7 @@ from labtrust_gym.benchmarks.summarize import (
     RESULTS_SCHEMA_VERSION,
     validate_results_v02,
 )
+from labtrust_gym.util.json_utils import canonical_json
 from labtrust_gym.baselines.coordination.llm_executor import (
     _proposal_hash,
     shield_outcome_hash_from_step_results,
@@ -496,6 +497,17 @@ def run_episode(
                     if "agent_id" in p and "view_age_ms" in p
                 }
             shield_emits = getattr(coord_method, "last_shield_emits", None) or []
+            invariants_considered: list[str] = []
+            if shield_emits:
+                try:
+                    from labtrust_gym.baselines.coordination.routing.invariants import (
+                        INV_ROUTE_001,
+                        INV_ROUTE_002,
+                        INV_ROUTE_SWAP,
+                    )
+                    invariants_considered = [INV_ROUTE_001, INV_ROUTE_002, INV_ROUTE_SWAP]
+                except Exception:
+                    pass
             contract_record = build_contract_record(
                 method_id=coord_method.method_id,
                 t_step=step_t,
@@ -503,7 +515,7 @@ def run_episode(
                 view_age_ms=view_age_ms,
                 view_age_ms_per_agent=view_age_ms_per_agent,
                 plan_time_ms=None,
-                invariants_considered=[],
+                invariants_considered=invariants_considered or None,
                 safety_shield_applied=bool(shield_emits),
                 safety_shield_details=(
                     {"count": len(shield_emits)} if shield_emits else None
@@ -2142,21 +2154,26 @@ def run_benchmark(
 
     if results.get("metadata") is None:
         results["metadata"] = {}
-    results["metadata"]["run_duration_wall_s"] = round(run_duration_wall_s, 3)
-    if run_duration_episodes_per_s is not None:
-        results["metadata"]["run_duration_episodes_per_s"] = round(
-            run_duration_episodes_per_s, 4
-        )
+    # For deterministic runs, use fixed values so the written file is byte-identical across runs.
+    if results.get("non_deterministic"):
+        results["metadata"]["run_duration_wall_s"] = round(run_duration_wall_s, 3)
+        if run_duration_episodes_per_s is not None:
+            results["metadata"]["run_duration_episodes_per_s"] = round(
+                run_duration_episodes_per_s, 4
+            )
+        try:
+            from labtrust_gym.logging.step_timing import get_aggregates
+
+            step_agg = get_aggregates()
+            if step_agg:
+                results["metadata"]["step_timing"] = step_agg
+        except ImportError:
+            pass
+    else:
+        results["metadata"]["run_duration_wall_s"] = 0
+        results["metadata"]["run_duration_episodes_per_s"] = None
     results["metadata"]["python_version"] = sys.version.split()[0]
     results["metadata"]["platform"] = sys.platform
-    try:
-        from labtrust_gym.logging.step_timing import get_aggregates
-
-        step_agg = get_aggregates()
-        if step_agg:
-            results["metadata"]["step_timing"] = step_agg
-    except ImportError:
-        pass
 
     schema_path = repo_root / "policy" / "schemas" / "results.v0.2.schema.json"
     validation_errors = validate_results_v02(results, schema_path=schema_path)
@@ -2169,8 +2186,14 @@ def run_benchmark(
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
+    # Deterministic pipeline: write canonical JSON so file is byte-identical across runs
+    # (same seed => same content => same hash). Non-deterministic: human-readable indent.
+    if results.get("non_deterministic"):
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2)
+    else:
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(canonical_json(results) + "\n")
 
     return results
 

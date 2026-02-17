@@ -52,6 +52,8 @@
     <span class="muted">or</span>
     <input type="text" id="url" placeholder="URL to bundle JSON (optional)" size="40">
     <button type="button" id="load-btn">Load</button>
+    <span class="muted">or</span>
+    <button type="button" id="load-latest-btn" title="Load viewer-data/latest (release artifact bundle). Works when served over HTTP.">Load latest release</button>
     <div id="error"></div>
   </div>
 
@@ -92,6 +94,20 @@
           });
       }
 
+      function loadLatestRelease() {
+        var base = window.location.pathname.replace(/\/[^/]*$/, '');
+        if (base.endsWith('/viewer')) base = base.replace(/\/viewer$/, '');
+        var latestUrl = (base ? base + '/' : '') + 'viewer-data/latest/latest.json';
+        fetch(latestUrl)
+          .then(function (r) { if (!r.ok) throw new Error(latestUrl + ' ' + r.status); return r.json(); })
+          .then(function (meta) {
+            var bundleFile = meta.bundle_file || 'RISK_REGISTER_BUNDLE.v0.1.json';
+            var bundleUrl = (base ? base + '/' : '') + 'viewer-data/latest/' + encodeURIComponent(bundleFile);
+            load(bundleUrl);
+          })
+          .catch(function (e) { showError('Latest release: ' + (e && e.message ? e.message : String(e))); });
+      }
+
       loadBtn.addEventListener('click', function () {
         var url = (urlEl.value || '').trim();
         if (url) {
@@ -104,6 +120,10 @@
           return;
         }
         showError('Choose a file or enter a URL.');
+      });
+
+      document.getElementById('load-latest-btn').addEventListener('click', function () {
+        loadLatestRelease();
       });
 
       fileEl.addEventListener('change', function () {

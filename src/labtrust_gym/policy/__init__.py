@@ -2,6 +2,7 @@
 
 from labtrust_gym.policy.coordination import (
     get_required_bench_cells,
+    list_llm_coordination_method_ids,
     load_coordination_methods,
     load_coordination_study_spec,
     load_method_risk_matrix,
@@ -60,6 +61,7 @@ __all__ = [
     "RiskRegistry",
     "load_risk_registry",
     "get_risk",
+    "list_llm_coordination_method_ids",
     "load_coordination_methods",
     "load_method_risk_matrix",
     "load_coordination_study_spec",

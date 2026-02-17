@@ -116,6 +116,36 @@ def test_replay_rejected_deterministically() -> None:
     assert any(v.get("reason_code") == COORD_REPLAY_DETECTED for v in violation2.get("violations") or [])
 
 
+def test_replay_of_old_epoch_rejected() -> None:
+    """Message signed with old epoch is rejected when bus current epoch is different (epoch binding)."""
+    agents = ["A_OPS_0"]
+    store = build_key_store(agents, master_seed=4)
+    if not store:
+        pytest.skip("cryptography not available")
+    policy = {"allowed_message_types": ["BID"], "allowed_senders": None}
+    current_epoch = [1]
+
+    def epoch_fn():
+        return current_epoch[0]
+
+    bus = SignedMessageBus(key_store=store, identity_policy=policy, epoch_fn=epoch_fn)
+    env = sign_message(
+        message_type="BID",
+        payload={"value": 7},
+        sender_id="A_OPS_0",
+        nonce=200,
+        epoch=0,
+        key_store=store,
+    )
+    assert env is not None
+    accepted, delivered, violation = bus.receive(env)
+    assert accepted is False
+    assert delivered is None
+    assert violation is not None
+    assert violation.get("emits") == [COORD_SENDER_NOT_AUTHORIZED]
+    assert any(v.get("reason_code") == COORD_SENDER_NOT_AUTHORIZED for v in violation.get("violations") or [])
+
+
 def test_sender_not_authorized() -> None:
     """When allowed_senders is set, sender not in list gets COORD_SENDER_NOT_AUTHORIZED."""
     agents = ["A_OPS_0", "A_RUNNER_0"]

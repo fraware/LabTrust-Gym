@@ -5,12 +5,16 @@ Produces determinism_report.md and determinism_report.json with sha256 of episod
 results.json (canonical), and receipts bundle root hash. Asserts: v0.2 metrics identical;
 episode log hash identical. With timing=simulated, device service-time sampling is
 seeded only from the provided seed (engine RNG = base_seed + episode index per episode).
+
+Determinism budget (CI gate): hashchain must match exactly; throughput and p95 latency
+deltas must not exceed the thresholds below. Golden job fails if report passed=False.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -18,6 +22,11 @@ from typing import Any
 from labtrust_gym.benchmarks.runner import run_benchmark
 from labtrust_gym.benchmarks.summarize import _normalize_to_v02
 from labtrust_gym.util.json_utils import canonical_json
+
+# Determinism budget: thresholds for CI gate. Golden job fails if exceeded.
+# Hashchain (episode log) is always exact match; no tolerance.
+MAX_THROUGHPUT_DELTA = 0.0  # Max allowed absolute difference in per-episode throughput.
+MAX_P95_LATENCY_DELTA = 0.0  # Max allowed absolute difference in per-episode p95_turnaround_s (seconds).
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -49,6 +58,58 @@ def _v02_metrics_canonical(results: dict[str, Any]) -> str:
         ],
     }
     return canonical_json(out)
+
+
+def _extract_throughput_p95_lists(results: dict[str, Any]) -> tuple[list[float], list[float]]:
+    """Extract per-episode throughput and p95_turnaround_s from normalized v0.2. Returns (throughputs, p95s)."""
+    norm = _normalize_to_v02(results)
+    if not norm:
+        return ([], [])
+    throughputs: list[float] = []
+    p95s: list[float] = []
+    for ep in norm.get("episodes") or []:
+        metrics = ep.get("metrics") or {}
+        t = metrics.get("throughput")
+        p = metrics.get("p95_turnaround_s")
+        throughputs.append(float(t) if t is not None and isinstance(t, (int, float)) else float("nan"))
+        p95s.append(float(p) if p is not None and isinstance(p, (int, float)) else float("nan"))
+    return (throughputs, p95s)
+
+
+def _check_determinism_budget(
+    results1: dict[str, Any],
+    results2: dict[str, Any],
+    errors: list[str],
+) -> tuple[float, float]:
+    """
+    Append to errors if throughput or p95 deltas exceed MAX_* thresholds.
+    Returns (max_throughput_delta, max_p95_delta) for the report.
+    """
+    t1, p1 = _extract_throughput_p95_lists(results1)
+    t2, p2 = _extract_throughput_p95_lists(results2)
+    if len(t1) != len(t2) or len(p1) != len(p2):
+        errors.append(
+            "Per-episode metric list length mismatch; cannot compute determinism budget deltas"
+        )
+        return (float("nan"), float("nan"))
+    max_t_delta = 0.0
+    max_p_delta = 0.0
+    for i in range(len(t1)):
+        dt = abs(t1[i] - t2[i]) if t1[i] == t1[i] and t2[i] == t2[i] else float("nan")
+        dp = abs(p1[i] - p2[i]) if p1[i] == p1[i] and p2[i] == p2[i] else float("nan")
+        if dt == dt and dt > max_t_delta:
+            max_t_delta = dt
+        if dp == dp and dp > max_p_delta:
+            max_p_delta = dp
+    if max_t_delta > MAX_THROUGHPUT_DELTA:
+        errors.append(
+            f"Throughput jitter {max_t_delta} exceeds max_throughput_delta={MAX_THROUGHPUT_DELTA}"
+        )
+    if max_p_delta > MAX_P95_LATENCY_DELTA:
+        errors.append(
+            f"p95 latency jitter {max_p_delta}s exceeds max_p95_latency_delta={MAX_P95_LATENCY_DELTA}"
+        )
+    return (max_t_delta, max_p_delta)
 
 
 def _run_and_hash(
@@ -172,6 +233,8 @@ def run_determinism_report(
             "Receipts bundle export failed for one run; cannot compare bundle root"
         )
 
+    max_throughput_delta, max_p95_delta = _check_determinism_budget(results1, results2, errors)
+
     run1_payload = {
         "episode_log_sha256": log_sha1,
         "results_sha256": res_sha1,
@@ -183,6 +246,8 @@ def run_determinism_report(
         "receipts_bundle_root_hash": bundle_hash2,
     }
     passed = len(errors) == 0
+    python_version = sys.version.split()[0] if sys.version else None
+    platform_s = sys.platform
     report = {
         "task": task_name,
         "num_episodes": num_episodes,
@@ -190,6 +255,8 @@ def run_determinism_report(
         "partner_id": partner_id,
         "timing_mode": timing_mode or "explicit",
         "coord_method": coord_method,
+        "python_version": python_version,
+        "platform": platform_s,
         "run1": run1_payload,
         "run2": run2_payload,
         "passed": passed,
@@ -200,6 +267,14 @@ def run_determinism_report(
         "receipts_bundle_identical": (
             (bundle_hash1 == bundle_hash2) if (bundle_hash1 and bundle_hash2) else None
         ),
+        "determinism_budget": {
+            "max_throughput_delta": MAX_THROUGHPUT_DELTA,
+            "max_p95_latency_delta": MAX_P95_LATENCY_DELTA,
+        },
+        "actual_deltas": {
+            "max_throughput_delta": max_throughput_delta if max_throughput_delta == max_throughput_delta else None,
+            "max_p95_latency_delta": max_p95_delta if max_p95_delta == max_p95_delta else None,
+        },
     }
 
     status_label = "PASSED" if passed else "FAILED"
@@ -232,6 +307,8 @@ def run_determinism_report(
         f"| Seed | {base_seed} |",
         f"| Partner | {partner_id or '(none)'} |",
         f"| Timing | {report['timing_mode']} |",
+        f"| Python | {python_version or 'n/a'} |",
+        f"| Platform | {platform_s} |",
     ]
     if coord_method:
         md_lines.append(f"| Coord method | {coord_method} |")
@@ -282,11 +359,31 @@ def run_determinism_report(
             f"`{bundle_hash2[:16]}...` | {bundle_match} |"
         )
         md_lines.append("")
+    md_lines.append("## Determinism budget")
+    md_lines.append("")
+    md_lines.append("| Threshold | Max allowed | Actual (max delta across episodes) |")
+    md_lines.append("|-----------|-------------|-----------------------------------|")
+    t_act = max_throughput_delta if max_throughput_delta == max_throughput_delta else "—"
+    p_act = max_p95_delta if max_p95_delta == max_p95_delta else "—"
+    md_lines.append(f"| Throughput delta | {MAX_THROUGHPUT_DELTA} | {t_act} |")
+    md_lines.append(f"| p95 latency delta (s) | {MAX_P95_LATENCY_DELTA} | {p_act} |")
+    md_lines.append("")
+    md_lines.append("Hashchain (episode log): exact match required. Golden job fails if any threshold is exceeded.")
+    md_lines.append("")
     md_lines.append("---")
     md_lines.append("")
     md_lines.append(
         "When `timing=simulated`, device service-time sampling is seeded only from "
         "the provided seed (engine RNG per episode = base_seed + episode index)."
+    )
+    md_lines.extend(
+        [
+            "",
+            "## Determinism contract",
+            "",
+            "Guarantee: same task, same base_seed, same policy (and same Python version + platform when comparing hashes) yield identical episode log SHA-256, identical results canonical SHA-256, and identical v0.2 metrics. RNG is isolated per episode (task initial state and engine use seed = base_seed + episode index). Results JSON is written in canonical form (sort_keys, no indent) for deterministic runs so the file is byte-identical across runs. Cross-version or cross-platform comparison may differ due to floating-point or RNG implementation; for strict reproducibility use the same Python version and platform as the baseline.",
+            "",
+        ]
     )
     markdown_text = "\n".join(md_lines)
 

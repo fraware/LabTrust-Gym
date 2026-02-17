@@ -266,7 +266,7 @@ def main() -> int:
         "--methods-from",
         default="fixed",
         metavar="MODE_OR_PATH",
-        help="Methods: fixed (config default), full (all from policy except marl_ppo), or path to file (one method_id per line or YAML list).",
+        help="Methods: fixed (config default), full (all from policy except marl_ppo), full_llm (LLM-based coordination methods only), or path to file (one method_id per line or YAML list).",
     )
     p_coord_security_pack.add_argument(
         "--injections-from",
@@ -533,6 +533,11 @@ def main() -> int:
         action="store_true",
         help="Do not fail on files present but not in manifest (e.g. fhir_bundle.json)",
     )
+    p_verify_bundle.add_argument(
+        "--strict-fingerprints",
+        action="store_true",
+        help="Require coordination_policy_fingerprint, memory_policy_fingerprint, rbac_policy_fingerprint, tool_registry_fingerprint in manifest (default for releases)",
+    )
     p_verify_bundle.set_defaults(func=_run_verify_bundle)
     p_verify_release = sub.add_parser(
         "verify-release",
@@ -553,7 +558,22 @@ def main() -> int:
         action="store_true",
         help="Only print summary; stop on first failure",
     )
+    p_verify_release.add_argument(
+        "--strict-fingerprints",
+        action="store_true",
+        help="Require all bundle manifests to include coordination, memory, rbac, tool_registry fingerprints (default for releases)",
+    )
     p_verify_release.set_defaults(func=_run_verify_release)
+    p_build_release_manifest = sub.add_parser(
+        "build-release-manifest",
+        help="Write RELEASE_MANIFEST.v0.1.json with hashes of evidence bundles, MANIFEST, and risk register bundle (if present). Use before verify-release for full artifact verification.",
+    )
+    p_build_release_manifest.add_argument(
+        "--release-dir",
+        required=True,
+        help="Release directory (output of package-release; may contain RISK_REGISTER_BUNDLE.v0.1.json if export-risk-register was run with --out <release-dir>)",
+    )
+    p_build_release_manifest.set_defaults(func=_run_build_release_manifest)
     p_check_gate = sub.add_parser(
         "check-security-gate",
         help="Check coordination security pack gate: exit 0 if pack_gate.md has no FAIL, else exit 1.",
@@ -814,6 +834,16 @@ def main() -> int:
         help="Output directory; SECURITY/deps_inventory_runtime.json will be created under it",
     )
     p_deps_inventory.set_defaults(func=_run_deps_inventory)
+    p_audit_selfcheck = sub.add_parser(
+        "audit-selfcheck",
+        help="Run Phase A audit checks (no-placeholders, validate-policy, export-risk-register from fixtures, risk register contract gate); write AUDIT_SELF_CHECK.json for reviewer sharing.",
+    )
+    p_audit_selfcheck.add_argument(
+        "--out",
+        required=True,
+        help="Output directory; AUDIT_SELF_CHECK.json and risk_register_out/ written here",
+    )
+    p_audit_selfcheck.set_defaults(func=_run_audit_selfcheck)
     p_transparency_log = sub.add_parser(
         "transparency-log",
         help="Build global transparency log (TRANSPARENCY_LOG/) over episode digests with Merkle proofs.",
@@ -1393,27 +1423,41 @@ def _run_benchmark(args: argparse.Namespace) -> int:
             return 1
     metrics_aggregator_id = getattr(args, "metrics_aggregator_id", None)
     domain_id = getattr(args, "domain_id", None)
-    _run(
-        task_name=args.task,
-        num_episodes=args.episodes,
-        base_seed=args.seed,
-        out_path=Path(args.out),
-        repo_root=root,
-        log_path=Path(args.log) if getattr(args, "log", None) else None,
-        partner_id=partner_id,
-        llm_backend=llm_backend,
-        llm_agents=llm_agents,
-        llm_output_mode=getattr(args, "llm_output_mode", "json_schema"),
-        llm_model=getattr(args, "llm_model", None),
-        timing_mode=getattr(args, "timing", None),
-        coord_method=getattr(args, "coord_method", None),
-        injection_id=getattr(args, "injection", None),
-        scale_config_override=scale_config_override,
-        pipeline_mode=pipeline_mode,
-        allow_network=allow_network,
-        metrics_aggregator_id=metrics_aggregator_id,
-        domain_id=domain_id,
-    )
+    out_path = Path(args.out)
+    if not args.out or not str(args.out).strip():
+        print("run-benchmark requires a non-empty --out path (e.g. --out results.json).", file=sys.stderr)
+        return 1
+    try:
+        _run(
+            task_name=args.task,
+            num_episodes=args.episodes,
+            base_seed=args.seed,
+            out_path=out_path,
+            repo_root=root,
+            log_path=Path(args.log) if getattr(args, "log", None) else None,
+            partner_id=partner_id,
+            llm_backend=llm_backend,
+            llm_agents=llm_agents,
+            llm_output_mode=getattr(args, "llm_output_mode", "json_schema"),
+            llm_model=getattr(args, "llm_model", None),
+            timing_mode=getattr(args, "timing", None),
+            coord_method=getattr(args, "coord_method", None),
+            injection_id=getattr(args, "injection", None),
+            scale_config_override=scale_config_override,
+            pipeline_mode=pipeline_mode,
+            allow_network=allow_network,
+            metrics_aggregator_id=metrics_aggregator_id,
+            domain_id=domain_id,
+        )
+    except ValueError as e:
+        err = str(e)
+        if "Unknown task" in err or "task" in err.lower():
+            from labtrust_gym.benchmarks.tasks import list_tasks
+            known = list_tasks()
+            print(f"Task {args.task!r} not found. Known tasks: {', '.join(known)}", file=sys.stderr)
+        else:
+            print(f"run-benchmark failed: {e}", file=sys.stderr)
+        return 1
     print(f"Wrote {args.out}", file=sys.stderr)
     if getattr(args, "log", None):
         print(f"Episode log {args.log}", file=sys.stderr)
@@ -1567,10 +1611,12 @@ def _run_verify_bundle(args: argparse.Namespace) -> int:
         print(f"Bundle not found or not a directory: {bundle_path}", file=sys.stderr)
         return 1
     allow_extra = getattr(args, "allow_extra_files", False)
+    strict_fingerprints = getattr(args, "strict_fingerprints", False)
     passed, report, errors = verify_bundle(
         bundle_path,
         policy_root=root,
         allow_extra_files=allow_extra,
+        strict_fingerprints=strict_fingerprints,
     )
     print(report)
     if errors:
@@ -1599,12 +1645,17 @@ def _run_verify_release(args: argparse.Namespace) -> int:
         return 1
     allow_extra = getattr(args, "allow_extra_files", False)
     quiet = getattr(args, "quiet", False)
-    all_passed, results = verify_release(
+    strict_fingerprints = getattr(args, "strict_fingerprints", False)
+    all_passed, results, release_errors = verify_release(
         release_path,
         policy_root=root,
         allow_extra_files=allow_extra,
         quiet=quiet,
+        strict_fingerprints=strict_fingerprints,
     )
+    if release_errors:
+        for e in release_errors:
+            print(f"  Release: {e}", file=sys.stderr)
     for bundle_path, passed, report, errors in results:
         rel = bundle_path.relative_to(release_path) if bundle_path.is_relative_to(release_path) else bundle_path
         status = "PASS" if passed else "FAIL"
@@ -1624,8 +1675,26 @@ def _run_verify_release(args: argparse.Namespace) -> int:
     summary = f"verify-release: {n} bundle(s) checked, {'all passed' if all_passed else 'at least one failed'}."
     if not quiet and n < total:
         summary += f" (stopped after first failure; {total - n} remaining)"
+    if release_errors:
+        summary += f"; {len(release_errors)} release-level error(s)"
     print(summary)
     return 0 if all_passed else 1
+
+
+def _run_build_release_manifest(args: argparse.Namespace) -> int:
+    """Build RELEASE_MANIFEST.v0.1.json in release dir with hashes of key artifacts."""
+    from labtrust_gym.export.verify import build_release_manifest
+
+    root = get_repo_root()
+    release_path = Path(args.release_dir)
+    if not release_path.is_absolute():
+        release_path = root / release_path
+    if not release_path.is_dir():
+        print(f"Release directory not found or not a directory: {release_path}", file=sys.stderr)
+        return 1
+    out_path = build_release_manifest(release_path, policy_root=root)
+    print(f"Wrote {out_path}", file=sys.stderr)
+    return 0
 
 
 def _run_check_security_gate(args: argparse.Namespace) -> int:
@@ -1771,7 +1840,13 @@ def _run_validate_coverage(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"Failed to load bundle: {e}", file=sys.stderr)
         return 1
-    passed, missing_list = check_risk_register_coverage(bundle, root)
+    waived_cells = None
+    if getattr(args, "strict", False):
+        from labtrust_gym.export.risk_register_bundle import load_waivers
+        waived_cells = load_waivers(root)
+    passed, missing_list = check_risk_register_coverage(
+        bundle, root, waived_cells=waived_cells
+    )
     if passed:
         if getattr(args, "strict", False):
             print("Coverage OK: all required_bench cells evidenced or waived.", file=sys.stderr)
@@ -2004,6 +2079,121 @@ def _run_deps_inventory(args: argparse.Namespace) -> int:
     out_path = write_deps_inventory_runtime(out_dir, repo_root=root)
     print(f"Wrote {out_path}", file=sys.stderr)
     return 0
+
+
+def _run_audit_selfcheck(args: argparse.Namespace) -> int:
+    """Run Phase A audit checks and doctor-style env checks; write AUDIT_SELF_CHECK.json."""
+    import subprocess
+    import time
+
+    from labtrust_gym.export.risk_register_bundle import (
+        RISK_REGISTER_BUNDLE_FILENAME,
+        export_risk_register,
+    )
+
+    root = get_repo_root()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Doctor-style checks (Python path, venv, extras, filesystem, policy)
+    from labtrust_gym.cli.audit_checks import run_doctor_checks
+    doctor_checks, doctor_pass = run_doctor_checks(root)
+    all_pass = doctor_pass
+
+    risk_register_out = out_dir / "risk_register_out"
+    steps: list[dict[str, Any]] = []
+
+    # 1. no_placeholders
+    t0 = time.perf_counter()
+    try:
+        r = subprocess.run(
+            [sys.executable, str(root / "tools" / "no_placeholders.py"), str(root)],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        passed = r.returncode == 0
+    except Exception:
+        passed = False
+    steps.append({"name": "no_placeholders", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)})
+    if not passed:
+        all_pass = False
+
+    # 2. validate-policy (default partner)
+    t0 = time.perf_counter()
+    errs = validate_policy(root, partner_id=None)
+    passed = len(errs) == 0
+    steps.append({"name": "validate_policy", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)})
+    if not passed:
+        all_pass = False
+
+    # 3. validate-policy --partner hsl_like
+    t0 = time.perf_counter()
+    errs_partner = validate_policy(root, partner_id="hsl_like")
+    passed = len(errs_partner) == 0
+    steps.append({"name": "validate_policy_hsl_like", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)})
+    if not passed:
+        all_pass = False
+
+    # 4. export-risk-register --out <out>/risk_register_out --runs tests/fixtures/ui_fixtures
+    t0 = time.perf_counter()
+    try:
+        export_risk_register(
+            repo_root=root,
+            out_dir=risk_register_out,
+            run_specs=[str(root / "tests" / "fixtures" / "ui_fixtures")],
+            include_official_pack_dir=None,
+            partner_id=None,
+            include_generated_at=False,
+            include_git_hash=True,
+            validate=True,
+            inject_ui_export=False,
+        )
+        passed = True
+    except (ValueError, FileNotFoundError):
+        passed = False
+    steps.append({"name": "export_risk_register", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)})
+    if not passed:
+        all_pass = False
+
+    # 5. risk register contract gate (pytest)
+    t0 = time.perf_counter()
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "pytest", "tests/test_risk_register_contract_gate.py", "-v", "--tb=short"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        passed = r.returncode == 0
+    except Exception:
+        passed = False
+    steps.append({"name": "risk_register_contract_gate", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)})
+    if not passed:
+        all_pass = False
+
+    bundle_path = risk_register_out / RISK_REGISTER_BUNDLE_FILENAME
+    artifact_links: dict[str, str] = {}
+    if bundle_path.is_file():
+        artifact_links["risk_register_bundle"] = str(bundle_path)
+
+    payload = {
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "git_sha": _git_sha(),
+        "python_version": sys.version.split()[0],
+        "checks": doctor_checks,
+        "steps": steps,
+        "overall_pass": all_pass,
+        "artifact_links": artifact_links,
+    }
+    out_json = out_dir / "AUDIT_SELF_CHECK.json"
+    out_json.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(f"Wrote {out_json}", file=sys.stderr)
+    return 0 if all_pass else 1
 
 
 def _run_transparency_log(args: argparse.Namespace) -> int:

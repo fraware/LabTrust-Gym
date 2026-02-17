@@ -3,8 +3,9 @@
 Auto-generated from docstrings (mkdocstrings). Build the docs site with `pip install -e ".[docs]"` and `mkdocs build --strict`.
 
 - **Engine, policy, benchmarks, studies**: Core env, loader/validate, runner/tasks, study_runner, **coordination_scale**, **coordination_study_runner**, **security_runner**, **securitization**, **official_pack**, reproduce. Safety case generation: `labtrust_gym.security.safety_case` (emit_safety_case).
-- **LLM baselines**: `labtrust_gym.baselines.llm` (agent, backends deterministic/openai_live/ollama_live, signing proxy, parse utilities); see [LLM baselines](../llm_baselines.md) and [Live LLM](../llm_live.md).
-- **Coordination**: Scale generation and study runner; methods and kernel live under `labtrust_gym.baselines.coordination`; see [Coordination methods](../coordination_methods.md) and [Coordination studies](../coordination_studies.md).
+- **Errors and config**: `labtrust_gym.errors` (LabTrustError, PolicyLoadError, PolicyPathError); `labtrust_gym.config` (get_repo_root, policy_path, get_policy_dir). Policy path resolution raises PolicyPathError when the policy directory is not found or LABTRUST_POLICY_DIR is invalid; see [Installation](../getting-started/installation.md) and [Troubleshooting](../getting-started/troubleshooting.md#policy-directory-not-found-policypatherror).
+- **LLM baselines**: `labtrust_gym.baselines.llm` (agent, backends deterministic/openai_live/ollama_live, signing proxy, parse utilities); see [LLM baselines](../agents/llm_baselines.md) and [Live LLM](../agents/llm_live.md).
+- **Coordination**: Scale generation and study runner; methods and kernel live under `labtrust_gym.baselines.coordination`; see [Coordination methods](../coordination/coordination_methods.md) and [Coordination studies](../coordination/coordination_studies.md).
 
 ## Engine
 

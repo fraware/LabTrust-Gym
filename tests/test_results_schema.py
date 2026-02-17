@@ -16,9 +16,12 @@ from labtrust_gym.benchmarks.summarize import (
     _build_llm_economics_rows,
     _load_raw_results_with_metadata,
     _normalize_to_v02,
+    iter_results_from_path,
+    iter_results_and_metadata_from_paths,
     load_results_from_path,
     run_summarize,
     summarize_results,
+    summarize_results_streaming,
     summarize_results_v03,
     validate_results_v02,
     validate_results_v03,
@@ -354,3 +357,43 @@ def test_summarize_v03_has_quantiles_and_ci(tmp_path: Path) -> None:
     assert rows_v03[0]["throughput_p90"] is not None
     assert rows_v03[0]["throughput_mean_ci_lower"] is not None
     assert rows_v03[0]["throughput_mean_ci_upper"] is not None
+
+
+def test_summarize_streaming_large_result_dir_bounded_memory(tmp_path: Path) -> None:
+    """
+    run_summarize on a large-ish synthetic result dir (many files) completes and produces
+    correct aggregates. Previously would spike memory by loading all results at once;
+    streaming path keeps memory bounded (one file at a time + grouped episodes only).
+    """
+    n_files = 200
+    results_dir = tmp_path / "many_results"
+    results_dir.mkdir()
+    for i in range(n_files):
+        data = {
+            "task": "throughput_sla",
+            "seeds": [42 + i],
+            "episodes": [
+                {"seed": 42 + i, "metrics": {"throughput": 5 + (i % 3), "steps": 100}},
+            ],
+            "agent_baseline_id": "scripted_ops_v1",
+            "partner_id": None,
+        }
+        (results_dir / f"results_{i:04d}.json").write_text(
+            json.dumps(data), encoding="utf-8"
+        )
+    out_dir = tmp_path / "out"
+    csv_path, md_path = run_summarize([results_dir], out_dir, out_basename="summary")
+    assert csv_path.exists()
+    assert md_path.exists()
+    rows = summarize_results(load_results_from_path(results_dir))
+    assert len(rows) == 1
+    assert rows[0]["n_episodes"] == n_files
+    assert rows[0]["task"] == "throughput_sla"
+    stream_rows_v02, stream_rows_v03, _, _ = summarize_results_streaming(
+        iter_results_and_metadata_from_paths([results_dir])
+    )
+    assert len(stream_rows_v02) == 1
+    assert stream_rows_v02[0]["n_episodes"] == n_files
+    assert stream_rows_v02[0]["throughput_mean"] == rows[0]["throughput_mean"]
+    assert len(stream_rows_v03) == 1
+    assert stream_rows_v03[0]["n_episodes"] == n_files

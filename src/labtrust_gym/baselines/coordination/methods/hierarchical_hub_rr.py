@@ -1,6 +1,12 @@
 """
 Hierarchical hub with rapid response: hub assigns to cells; local RR handles exceptions.
 Message delay between hub and cells modeled deterministically from scale.
+
+Handoff contract: hub assigns (agent_id -> device_id, work_id, zone_id) and records
+assignment_step; cells execute START_RUN/MOVE locally. Region partition: zones/cells
+are derived from policy zone_layout (graph_edges, zones); each cell corresponds to
+a zone or site. When policy has zone_layout with graph_edges, adjacency is used for
+local BFS move; message_delay_steps(num_agents, num_sites, t, seed) models hub-cell latency.
 """
 
 from __future__ import annotations
@@ -66,6 +72,7 @@ class HierarchicalHubRR(CoordinationMethod):
         self._num_sites = 1
         self._hub_assignments: dict[str, tuple[str, str, str]] = {}
         self._assignment_step: dict[str, int] = {}
+        self._scale_config: dict[str, Any] = {}
 
     @property
     def method_id(self) -> str:
@@ -74,6 +81,7 @@ class HierarchicalHubRR(CoordinationMethod):
     def reset(self, seed: int, policy: dict[str, Any], scale_config: dict[str, Any]) -> None:
         self._rng = random.Random(seed)
         self._seed = seed
+        self._scale_config = dict(scale_config or {})
         self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         if isinstance(layout, dict):
@@ -216,4 +224,17 @@ class HierarchicalHubRR(CoordinationMethod):
                         "action_type": "MOVE",
                         "args": {"from_zone": my_zone, "to_zone": next_z},
                     }
+        trace_path = self._scale_config.get("trace_path")
+        if trace_path is not None:
+            try:
+                from pathlib import Path
+                from labtrust_gym.baselines.coordination.trace import (
+                    append_trace_event,
+                    trace_from_contract_record,
+                )
+                path = Path(trace_path) if isinstance(trace_path, str) else trace_path
+                event = trace_from_contract_record(self.method_id, t, out)
+                append_trace_event(path, event)
+            except Exception:
+                pass
         return out

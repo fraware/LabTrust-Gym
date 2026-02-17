@@ -586,7 +586,9 @@ class OpenAILiveBackend:
         if usage.get("cached_tokens") is not None:
             self._last_metrics["cached_tokens"] = usage["cached_tokens"]
         if self._trace_collector is not None:
-            self._trace_collector.record(messages, raw, prompt_sha256, usage)
+            usage_with_latency = dict(usage)
+            usage_with_latency["latency_ms"] = round(latency_ms, 2)
+            self._trace_collector.record(messages, raw, prompt_sha256, usage_with_latency)
         cache_enabled_after, request_cache_after = self._get_request_cache()
         if cache_enabled_after and request_cache_after is not None:
             request_cache_after.set(prompt_sha256, raw, usage)

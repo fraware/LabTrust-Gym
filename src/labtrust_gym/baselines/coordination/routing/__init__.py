@@ -16,8 +16,10 @@ from labtrust_gym.baselines.coordination.routing.graph import (
 from labtrust_gym.baselines.coordination.routing.invariants import (
     INV_ROUTE_001,
     INV_ROUTE_002,
+    INV_ROUTE_SWAP,
     check_inv_route_001,
     check_inv_route_002,
+    check_swap_collision,
 )
 from labtrust_gym.baselines.coordination.routing.reservations import (
     ReservationTable,
@@ -35,6 +37,8 @@ __all__ = [
     "priority_aging",
     "INV_ROUTE_001",
     "INV_ROUTE_002",
+    "INV_ROUTE_SWAP",
     "check_inv_route_001",
     "check_inv_route_002",
+    "check_swap_collision",
 ]

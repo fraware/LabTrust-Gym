@@ -45,6 +45,7 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-timeout>=2.0",
+    "pytest-cov>=4.0",
     "ruff>=0.1",
     "mypy>=1.0",
     "types-PyYAML>=6.0",
@@ -70,6 +71,10 @@ llm_anthropic = ["anthropic>=0.39"]
 online = []
 # OpenTelemetry OTLP export for LLM traces; install with: pip install -e ".[otel]"
 otel = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20", "opentelemetry-exporter-otlp-proto-http>=1.20"]
+# MAPF/TAPF solvers (CBS, ECBS, LNS, RHCR); WHCA remains default when not installed
+mapf = []
+# OR solvers (CP-SAT for ORScheduler when use_cp_sat in policy); optional
+or_solver = ["ortools>=9.0"]
 
 # Extension points: other packages may add entries to these groups.
 # See docs/extension_development.md for contracts.
@@ -121,9 +126,19 @@ module = [
 ]
 ignore_missing_imports = true
 
+[tool.coverage.run]
+source = ["src/labtrust_gym"]
+branch = false
+omit = ["*/tests/*", "*/test_*"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "def __repr__", "raise NotImplementedError"]
+# Coverage ratchet: PR-blocking. See docs/ci.md for cadence and target.
+fail_under = 60
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 addopts = "-q --timeout=120"
 markers = [
     "metamorphic: metamorphic property tests (deterministic relations).",

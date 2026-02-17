@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
 from labtrust_gym.baselines.coordination.coordination_kernel import (
@@ -146,11 +147,44 @@ def compose_kernel(
                 if agent_id not in actions:
                     actions[agent_id] = {"action_index": ACTION_NOOP}
 
+            trace_path = (context.scale_config or {}).get("trace_path")
+            if trace_path is not None:
+                try:
+                    from labtrust_gym.baselines.coordination.trace import (
+                        append_trace_event,
+                        trace_from_contract_record,
+                    )
+                    path = Path(trace_path) if isinstance(trace_path, str) else trace_path
+                    event = trace_from_contract_record(
+                        self._method_id, context.t, actions
+                    )
+                    append_trace_event(path, event)
+                except Exception:
+                    pass
+
             return actions, decision
 
         def get_route_metrics(self) -> dict[str, Any] | None:
             """Route metrics from router if available (e.g. WHCARouter)."""
             fn = getattr(self._router, "get_route_metrics", None)
+            return fn() if callable(fn) else None
+
+        def get_last_planned_path(
+            self,
+        ) -> (
+            tuple[
+                list[tuple[str, int, str]],
+                list[tuple[str, int, str, str]],
+                set[tuple[str, str]],
+                dict[str, bool],
+            ]
+            | None
+        ):
+            """
+            Return (planned_nodes, planned_moves, restricted_edges, agent_has_token)
+            from the last step when the router exposed planned path; else None.
+            """
+            fn = getattr(self._router, "get_last_planned_path", None)
             return fn() if callable(fn) else None
 
         def get_alloc_metrics(self) -> dict[str, Any] | None:

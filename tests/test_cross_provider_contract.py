@@ -148,3 +148,43 @@ def test_latency_fields_canonical_per_provider(tmp_path: Path, provider: str) ->
     assert agg["mean"] == 125.0
     # sum = sum of all collected values (aggregator may collect both mean_latency_ms and mean_llm_latency_ms per file)
     assert agg["sum"] >= 250.0
+
+
+# Cross-provider summary contract (docs/cross_provider_contract.md)
+SUMMARY_CROSS_PROVIDER_REQUIRED_KEYS = ("seed_base", "smoke", "providers", "runs")
+RUN_ENTRY_REQUIRED_KEYS = ("provider", "out_dir", "live_metadata", "llm_live_version", "latency_and_cost")
+
+
+def test_summary_cross_provider_contract_required_keys() -> None:
+    """summary_cross_provider.json must have required top-level keys and each run entry must have required keys (contract)."""
+    summary = {
+        "seed_base": 100,
+        "smoke": True,
+        "providers": ["openai_live"],
+        "runs": [
+            {
+                "provider": "openai_live",
+                "out_dir": "/out/openai_live",
+                "live_metadata": {"model_id": "gpt-4o-mini", "temperature": None, "tool_registry_fingerprint": "fp", "allow_network": True},
+                "llm_live_version": "0.1",
+                "latency_and_cost": {"mean_latency_ms": {"min": 50.0, "max": 200.0, "mean": 100.0, "sum": 300.0}},
+            }
+        ],
+    }
+    for key in SUMMARY_CROSS_PROVIDER_REQUIRED_KEYS:
+        assert key in summary, f"summary_cross_provider must have {key!r}"
+    assert isinstance(summary["runs"], list)
+    for run in summary["runs"]:
+        for key in RUN_ENTRY_REQUIRED_KEYS:
+            assert key in run, f"run entry must have {key!r}"
+        if run.get("live_metadata"):
+            assert "model_id" in run["live_metadata"]
+        if run.get("latency_and_cost"):
+            assert "mean_latency_ms" in run["latency_and_cost"]
+
+
+def test_summary_cross_provider_latency_shape() -> None:
+    """When latency_and_cost is present, mean_latency_ms must have min, max, mean, sum (normalization contract)."""
+    cost = {"mean_latency_ms": {"min": 0.0, "max": 100.0, "mean": 50.0, "sum": 100.0}}
+    for k in LATENCY_AGG_KEYS:
+        assert k in cost["mean_latency_ms"]

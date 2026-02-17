@@ -1,0 +1,9 @@
+agent_baseline_id,episodes_per_second,n_episodes,partner_id,run_duration_wall_s,task
+scripted_ops_v1,2.4773,3,,1.211,throughput_sla
+scripted_ops_v1,3.1519,3,,0.952,stat_insertion
+scripted_ops_v1,3.3922,3,,0.884,qc_cascade
+adversary_v1,3.5899,3,,0.836,adversarial_disruption
+scripted_ops_v1,1.8949,3,,1.583,multi_site_stat
+insider_v1,4.5549,3,,0.659,insider_key_misuse
+scripted_ops_v1,1.9186,3,,1.564,coord_scale
+scripted_ops_v1,1.3085,3,,2.293,coord_risk

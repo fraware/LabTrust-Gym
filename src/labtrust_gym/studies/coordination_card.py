@@ -133,8 +133,8 @@ def write_coordination_card(
     out_path.write_text(content, encoding="utf-8")
 
 
-# LLM coordination method_ids (coordination_class: llm in coordination_methods.v0.1.yaml)
-LLM_COORDINATION_METHOD_IDS = [
+# Fallback LLM method_ids when registry cannot be loaded (coordination_class: llm / llm_based: true)
+LLM_COORDINATION_METHOD_IDS_FALLBACK = [
     "llm_constrained",
     "llm_central_planner",
     "llm_hierarchical_allocator",
@@ -144,6 +144,18 @@ LLM_COORDINATION_METHOD_IDS = [
 
 # Backends for LLM coordination (CLI --llm-backend)
 LLM_BACKEND_IDS = ["deterministic", "openai_live", "ollama_live"]
+
+
+def _get_llm_coordination_method_ids(coord_dir: Path) -> list[str]:
+    """LLM method_ids from registry (llm_based or coordination_class llm); else fallback list."""
+    reg_path = coord_dir / "coordination_methods.v0.1.yaml"
+    if not reg_path.is_file():
+        return list(LLM_COORDINATION_METHOD_IDS_FALLBACK)
+    try:
+        from labtrust_gym.policy.coordination import list_llm_coordination_method_ids
+        return list_llm_coordination_method_ids(reg_path)
+    except Exception:
+        return list(LLM_COORDINATION_METHOD_IDS_FALLBACK)
 
 
 def _load_yaml_safe(path: Path) -> dict[str, Any]:
@@ -173,9 +185,10 @@ def render_coordination_llm_card(
     injections_cfg = _load_yaml_safe(coord_dir / "injections.v0.2.yaml")
     matrix_cfg = _load_yaml_safe(coord_dir / "method_risk_matrix.v0.1.yaml")
 
+    llm_method_ids = _get_llm_coordination_method_ids(coord_dir)
     method_rows: list[dict[str, Any]] = []
     for m in (methods_reg.get("coordination_methods") or {}).get("methods") or []:
-        if m.get("method_id") in LLM_COORDINATION_METHOD_IDS:
+        if m.get("method_id") in llm_method_ids:
             method_rows.append(m)
 
     injection_ids: list[str] = []
@@ -186,7 +199,7 @@ def render_coordination_llm_card(
 
     llm_risk_cells: list[dict[str, Any]] = []
     for c in (matrix_cfg.get("method_risk_matrix") or {}).get("cells") or []:
-        if c.get("method_id") in LLM_COORDINATION_METHOD_IDS:
+        if c.get("method_id") in llm_method_ids:
             llm_risk_cells.append(c)
 
     lines = [

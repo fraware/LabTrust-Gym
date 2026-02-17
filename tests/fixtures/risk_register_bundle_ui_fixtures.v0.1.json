@@ -309,6 +309,260 @@
       "type": "other"
     }
   ],
+  "injection_registry": [
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-BID-SPOOF-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-BLAME-SHIFT-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-CLOCK-SKEW-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COLLUSION-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COLLUSION-MARKET-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COMMS-DELAY-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COMMS-DROP-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COMMS-FLOOD-LLM-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COMMS-POISON-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COMMS-REORDER-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-CONSENSUS-POISON-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COORD-BID-SHILL-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COORD-PLAN-REPLAY-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-COORD-PROMPT-INJECT-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-DOS-PLANNER-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-ID-REPLAY-COORD-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-ID-SPOOF-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-LLM-PROMPT-INJECT-COORD-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-LLM-TOOL-ESCALATION-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-MEMORY-POISON-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-MEMORY-POISON-COORD-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-NET-DROP-SPIKE-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-NET-PARTITION-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-NET-REORDER-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-PARTIAL-OBS-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-REPLAY-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-SLOW-POISON-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-TIMING-QUEUE-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "INJ-TOOL-MISPARAM-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_collusion_handoff",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "inj_device_fail",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_dos_flood",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_jailbreak",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_memory_tamper",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_misparam_device",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "inj_msg_poison",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
+      "injection_id": "inj_poison_obs",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_prompt_injection",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_stuck_state",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_tool_selection_noise",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "inj_untrusted_payload",
+      "reason": "compatibility",
+      "status": "reserved"
+    },
+    {
+      "expected_effects": "none",
+      "injection_id": "none",
+      "reason": "compatibility",
+      "status": "reserved"
+    }
+  ],
   "links": [
     {
       "href": "policy/risks/risk_registry.v0.1.yaml",
@@ -342,7 +596,7 @@
     }
   ],
   "policy_fingerprints": {
-    "method_risk_matrix": "8f093ef402b1f24279e1c81e18bfbab6b5815590640aaae84b906b0c84bc8e25",
+    "method_risk_matrix": "664ab0fc76fd481d446d61d91c05e19e322e160e417a74fa4fc27c8db1d0ef14",
     "risk_registry": "dbb71ecd9ec0e5594bc2474ad91b46ddb3472ed226712db49a596e1a40de7988",
     "safety_case_claims": "a70f3ed5491cd0016924bb600d8d99016449432dbcbc55a117ac57f84941ed91",
     "security_attack_suite": "cef7ecf288152c387c5e6f474114d70bd101f3d05b5c162c9fd03bf079a6b50a"

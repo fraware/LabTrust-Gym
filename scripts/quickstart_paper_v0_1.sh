@@ -2,13 +2,16 @@
 # Quickstart: install, validate-policy, quick-eval, paper artifact, verify-bundle.
 # Run from repo root. For v0.1.0 release reproducibility.
 # Usage: bash scripts/quickstart_paper_v0_1.sh
+# Note: Paths with spaces or special characters may require quoting or a different workdir; see docs/GETTING_STARTED_FORKER.md.
 
 set -e
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$REPO_ROOT"
 
 echo "=== 1. Install ==="
+command -v pip >/dev/null 2>&1 || { echo "Error: pip not found. Install Python and ensure pip is on PATH."; exit 1; }
 pip install -e ".[dev,env,plots]" --quiet
+command -v labtrust >/dev/null 2>&1 || { echo "Error: labtrust not found after install. Try: python -m labtrust_gym.cli.main --version"; exit 1; }
 labtrust --version
 
 echo "=== 2. Validate policy ==="

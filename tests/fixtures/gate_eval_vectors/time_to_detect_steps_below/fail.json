@@ -1,0 +1,18 @@
+{
+  "row": {
+    "scale_id": "s",
+    "method_id": "m",
+    "injection_id": "INJ-DETECT-001",
+    "sec.detection_latency_steps": 20
+  },
+  "nominal_by_scale_method": {},
+  "gate_rules": [
+    {
+      "injection_id": "INJ-DETECT-001",
+      "rule": "time_to_detect_steps_below",
+      "max_steps": 15
+    }
+  ],
+  "expected_verdict": "FAIL",
+  "expected_rationale_substring": "20"
+}

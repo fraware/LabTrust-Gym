@@ -105,6 +105,7 @@ class ExecutionReport:
     proposal_hash: str = ""
     shield_outcome_hash: str = ""
     step_results: list[dict[str, Any]] = field(default_factory=list)
+    proposal_meta: dict[str, Any] = field(default_factory=dict)
 
 
 def _per_agent_list_to_dict(
@@ -264,6 +265,10 @@ def execute_proposal(
 
     proposal_hash_val = _proposal_hash(proposal_dict)
     shield_outcome_hash_val = _shield_outcome_hash(executed, blocked)
+    proposal_meta = {}
+    for key in ("intent_confidence", "assumptions", "risk_flags"):
+        if key in proposal_dict:
+            proposal_meta[key] = proposal_dict[key]
 
     return ExecutionReport(
         executed_actions=executed,
@@ -276,6 +281,7 @@ def execute_proposal(
         proposal_hash=proposal_hash_val,
         shield_outcome_hash=shield_outcome_hash_val,
         step_results=step_results,
+        proposal_meta=proposal_meta,
     )
 
 
@@ -309,6 +315,10 @@ def execute_proposal_shield_only(
     )
     proposal_hash_val = _proposal_hash(proposal_dict)
     shield_outcome_hash_val = _shield_outcome_hash(executed, blocked)
+    proposal_meta = {}
+    for key in ("intent_confidence", "assumptions", "risk_flags"):
+        if key in proposal_dict:
+            proposal_meta[key] = proposal_dict[key]
 
     comms = proposal_dict.get("comms") or []
     comms_attempted = len(comms)
@@ -324,6 +334,7 @@ def execute_proposal_shield_only(
         proposal_hash=proposal_hash_val,
         shield_outcome_hash=shield_outcome_hash_val,
         step_results=[],
+        proposal_meta=proposal_meta,
     )
 
 

@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import math
 import statistics
+from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 RESULTS_SCHEMA_VERSION = "0.2"
 RESULTS_SCHEMA_VERSION_V03 = "0.3"
@@ -216,7 +217,7 @@ def _aggregate_episodes_v03(episodes: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def load_results_from_path(path: Path) -> list[dict[str, Any]]:
-    """Load one or more results.json from a path (file or directory). Returns list of normalized v0.2 dicts."""
+    """Load one or more results.json from a path (file or directory). Returns list of normalized v0.2 dicts. Processes one file at a time; large directories may use significant memory (list of all results)."""
     path = Path(path).resolve()
     loaded: list[dict[str, Any]] = []
     if path.is_file():
@@ -248,6 +249,147 @@ def load_results_from_path(path: Path) -> list[dict[str, Any]]:
                 except Exception:
                     pass
     return loaded
+
+
+def iter_results_from_path(path: Path) -> Iterator[dict[str, Any]]:
+    """
+    Stream normalized v0.2 results from a path (file or directory), one result at a time.
+    Bounded memory: only one file is loaded at a time. Use for large result sets.
+    """
+    path = Path(path).resolve()
+    if path.is_file():
+        if path.suffix.lower() == ".json":
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("episodes") is not None:
+                    norm = _normalize_to_v02(data)
+                    if norm:
+                        yield norm
+                elif isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict):
+                            n = _normalize_to_v02(item)
+                            if n:
+                                yield n
+            except Exception:
+                pass
+        return
+    if path.is_dir():
+        for f in sorted(path.rglob("results*.json")):
+            if f.is_file():
+                try:
+                    data = json.loads(f.read_text(encoding="utf-8"))
+                    if isinstance(data, dict) and data.get("episodes") is not None:
+                        norm = _normalize_to_v02(data)
+                        if norm:
+                            yield norm
+                except Exception:
+                    pass
+
+
+def _metadata_slice(raw: dict[str, Any]) -> dict[str, Any]:
+    """Extract minimal dict for run_info/llm_economics so we do not retain full result in memory."""
+    episodes = raw.get("episodes") or []
+    return {
+        "task": raw.get("task", ""),
+        "agent_baseline_id": raw.get("agent_baseline_id", "scripted_ops_v1"),
+        "partner_id": raw.get("partner_id") or "",
+        "metadata": raw.get("metadata") or {},
+        "n_episodes": len(episodes),
+    }
+
+
+def iter_results_and_metadata_from_paths(
+    in_paths: list[Path],
+) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]:
+    """
+    Stream (normalized result, metadata_slice) from paths. One file in memory at a time.
+    metadata_slice is a small dict (task, agent_baseline_id, partner_id, metadata, n_episodes)
+    for run_info/llm_economics. Enables single-pass summarize with bounded memory.
+    """
+    for path_in in in_paths:
+        p = Path(path_in).resolve()
+        if p.is_file() and p.suffix.lower() == ".json":
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("episodes") is not None:
+                    norm = _normalize_to_v02(data)
+                    if norm:
+                        yield (norm, _metadata_slice(data))
+                elif isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict) and item.get("episodes") is not None:
+                            n = _normalize_to_v02(item)
+                            if n:
+                                yield (n, _metadata_slice(item))
+            except Exception:
+                pass
+        elif p.is_dir():
+            for f in sorted(p.rglob("results*.json")):
+                if f.is_file():
+                    try:
+                        data = json.loads(f.read_text(encoding="utf-8"))
+                        if isinstance(data, dict) and data.get("episodes") is not None:
+                            norm = _normalize_to_v02(data)
+                            if norm:
+                                yield (norm, _metadata_slice(data))
+                    except Exception:
+                        pass
+
+
+def _merge_groups_from_stream(
+    stream: Iterator[tuple[dict[str, Any], dict[str, Any]]],
+) -> tuple[dict[tuple[str, str, str], list[dict[str, Any]]], list[dict[str, Any]]]:
+    """
+    Consume (norm, metadata_slice) stream; merge into groups by (task, agent_baseline_id, partner_id).
+    Returns (groups, metadata_slices). groups: key -> list of episodes; metadata_slices: small dicts for run_info/llm.
+    Bounded memory: only one result in memory at a time; metadata_slices are small.
+    """
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    metadata_slices: list[dict[str, Any]] = []
+    for norm, meta_slice in stream:
+        metadata_slices.append(meta_slice)
+        task = norm.get("task") or "unknown"
+        baseline = norm.get("agent_baseline_id") or "scripted_ops_v1"
+        partner = norm.get("partner_id") or ""
+        key = (task, baseline, partner)
+        episodes = norm.get("episodes") or []
+        groups[key].extend(episodes)
+    return (dict(groups), metadata_slices)
+
+
+def summarize_results_streaming(
+    stream: Iterator[tuple[dict[str, Any], dict[str, Any]]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    """
+    Single-pass aggregation from (norm, raw) stream. Returns (rows_v02, rows_v03, run_info_rows, llm_rows).
+    Memory: bounded by number of (task, baseline, partner) groups and one result at a time.
+    """
+    groups, raw_list = _merge_groups_from_stream(stream)
+    rows_v02: list[dict[str, Any]] = []
+    rows_v03: list[dict[str, Any]] = []
+    for (task, baseline, partner), all_episodes in sorted(groups.items()):
+        agg = _aggregate_episodes(all_episodes)
+        agg_v03 = _aggregate_episodes_v03(all_episodes)
+        row: dict[str, Any] = {
+            "task": task,
+            "agent_baseline_id": baseline,
+            "partner_id": partner or None,
+            "n_episodes": len(all_episodes),
+        }
+        row.update(agg)
+        rows_v02.append(row)
+        row_v03 = {
+            "task": task,
+            "agent_baseline_id": baseline,
+            "partner_id": partner or None,
+            "n_episodes": len(all_episodes),
+        }
+        row_v03.update(agg_v03)
+        rows_v03.append(row_v03)
+    run_info_rows = _build_run_info_rows(raw_list)  # raw_list is list of metadata_slices
+    llm_rows = _build_llm_economics_rows(raw_list)
+    return (rows_v02, rows_v03, run_info_rows, llm_rows)
 
 
 def summarize_results(
@@ -493,13 +635,15 @@ def _load_raw_results_with_metadata(in_paths: list[Path]) -> list[dict[str, Any]
 def _build_run_info_rows(
     raw_results: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Build one row per result that has metadata.run_duration_wall_s (for run_info.csv)."""
+    """Build one row per result that has metadata.run_duration_wall_s (for run_info.csv). Accepts full raw or metadata_slice (with n_episodes)."""
     rows: list[dict[str, Any]] = []
     for data in raw_results:
         meta = data.get("metadata") or {}
         if meta.get("run_duration_wall_s") is None:
             continue
-        n_ep = len(data.get("episodes") or [])
+        n_ep = data.get("n_episodes")
+        if n_ep is None:
+            n_ep = len(data.get("episodes") or [])
         row: dict[str, Any] = {
             "task": data.get("task", ""),
             "agent_baseline_id": data.get("agent_baseline_id", ""),
@@ -579,18 +723,15 @@ def run_summarize(
     out_basename: str = "summary",
 ) -> tuple[Path, Path]:
     """
-    Load all results from in_paths (files or dirs), aggregate, write summary_v0.2.csv,
-    summary_v0.3.csv, summary.csv (copy of v0.2), and summary.md.
+    Stream results from in_paths (files or dirs), aggregate in one pass with bounded memory,
+    write summary_v0.2.csv, summary_v0.3.csv, summary.csv (copy of v0.2), and summary.md.
     When any result has metadata.llm_backend_id, also write llm_economics.csv and llm_economics.md.
     Returns (path_to_summary_v02_csv, path_to_md). v0.2 CSV is CI-stable; v0.3 CSV is paper-grade.
     """
     out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    all_results: list[dict[str, Any]] = []
-    for p in in_paths:
-        all_results.extend(load_results_from_path(Path(p)))
-    rows_v02 = summarize_results(all_results)
-    rows_v03 = summarize_results_v03(all_results)
+    stream = iter_results_and_metadata_from_paths([Path(p) for p in in_paths])
+    rows_v02, rows_v03, run_info_rows, llm_rows = summarize_results_streaming(stream)
     csv_v02_path = out_dir / f"{out_basename}_v0.2.csv"
     csv_v03_path = out_dir / f"{out_basename}_v0.3.csv"
     csv_path = out_dir / f"{out_basename}.csv"
@@ -599,8 +740,6 @@ def run_summarize(
     csv_v03_path.write_text(rows_to_csv(rows_v03), encoding="utf-8")
     csv_path.write_text(rows_to_csv(rows_v02), encoding="utf-8")
     md_content = SUMMARY_MD_HEADER + rows_to_markdown_table(rows_v02)
-    raw_list = _load_raw_results_with_metadata(in_paths)
-    run_info_rows = _build_run_info_rows(raw_list)
     if run_info_rows:
         run_info_csv = out_dir / "run_info.csv"
         run_info_csv.write_text(rows_to_csv(run_info_rows), encoding="utf-8")
@@ -611,7 +750,6 @@ def run_summarize(
         )
     md_content += "\n---\n\n*Summary generated from results.v0.2.*\n"
     md_path.write_text(md_content, encoding="utf-8")
-    llm_rows = _build_llm_economics_rows(raw_list)
     if llm_rows:
         llm_csv = out_dir / "llm_economics.csv"
         llm_md = out_dir / "llm_economics.md"

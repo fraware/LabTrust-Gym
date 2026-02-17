@@ -190,3 +190,52 @@ def test_marl_smoke_ppo_eval() -> None:
         assert "episode_rewards" in metrics
         assert len(metrics["episode_rewards"]) == 2
         assert (out / "eval_out.json").exists()
+
+
+def test_marl_ppo_propose_actions_scenario_no_crash() -> None:
+    """With checkpoint (model_path from env or from a just-trained run), propose_actions runs without crash. Skip if no checkpoint."""
+    if os.environ.get("LABTRUST_MARL_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_MARL_SMOKE=1 to run MARL smoke tests")
+    _require_sb3_or_skip()
+    if sys.platform == "win32" and os.environ.get("MARL_RUN_INLINE") != "1":
+        _run_test_in_subprocess("test_marl_ppo_propose_actions_scenario_no_crash")
+        return
+    checkpoint = os.environ.get("LABTRUST_MARL_PPO_CHECKPOINT")
+    if not checkpoint or not Path(checkpoint).exists():
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "ppo"
+            pytest.importorskip("gymnasium")
+            from labtrust_gym.baselines.marl.ppo_train import train_ppo
+
+            result = train_ppo(
+                task_name="throughput_sla",
+                timesteps=200,
+                seed=99,
+                out_dir=out,
+                verbose=0,
+            )
+            checkpoint = result.get("model_path") if result else None
+    if not checkpoint or not Path(checkpoint).exists():
+        pytest.skip("No marl_ppo checkpoint (train completed or set LABTRUST_MARL_PPO_CHECKPOINT)")
+    from labtrust_gym.baselines.coordination.registry import make_coordination_method
+
+    policy = {"zone_layout": {"zones": []}, "pz_to_engine": {"a0": "ops_0", "a1": "runner_0"}}
+    scale_config = {"model_path": str(checkpoint), "seed": 42}
+    coord = make_coordination_method(
+        "marl_ppo",
+        policy,
+        repo_root=Path(__file__).resolve().parent.parent,
+        scale_config=scale_config,
+        model_path=str(checkpoint),
+    )
+    coord.reset(42, policy, scale_config)
+    obs = {
+        "a0": {"zone_id": "Z_A", "queue_by_device": [], "queue_has_head": [0], "log_frozen": 0},
+        "a1": {"zone_id": "Z_B", "queue_by_device": [], "queue_has_head": [0], "log_frozen": 0},
+    }
+    actions = coord.propose_actions(obs, {}, 0)
+    assert isinstance(actions, dict)
+    assert set(actions.keys()) == {"a0", "a1"}
+    for rec in actions.values():
+        assert "action_index" in rec
+        assert 0 <= rec["action_index"] <= 5

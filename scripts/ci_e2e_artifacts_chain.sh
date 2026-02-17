@@ -79,25 +79,31 @@ if [ ! -f "$DET_OUT/determinism_report.json" ] || [ ! -f "$DET_OUT/determinism_r
   exit 1
 fi
 
-# 2) Verify all EvidenceBundles under the release
-if ! run_step verify-release "${LABTRUST_CLI[@]}" verify-release --release-dir "$RELEASE_DIR"; then
-  echo "E2E chain failed at verify-release"
-  exit 1
-fi
-
-# 3) Export risk register from release dir
-if ! run_step export-risk-register "${LABTRUST_CLI[@]}" export-risk-register --out "$RISK_OUT_DIR" --runs "$RELEASE_DIR"; then
+# 2) Export risk register into release dir (single release artifact)
+if ! run_step export-risk-register "${LABTRUST_CLI[@]}" export-risk-register --out "$RELEASE_DIR" --runs "$RELEASE_DIR"; then
   echo "E2E chain failed at export-risk-register"
   exit 1
 fi
 
-BUNDLE_PATH="$RISK_OUT_DIR/RISK_REGISTER_BUNDLE.v0.1.json"
+BUNDLE_PATH="$RELEASE_DIR/RISK_REGISTER_BUNDLE.v0.1.json"
 if [ ! -f "$BUNDLE_PATH" ]; then
   echo "Risk register bundle not written: $BUNDLE_PATH"
   exit 1
 fi
 
-# 4) Schema and crosswalk integrity (fail CI on crosswalk errors or missing refs)
+# 3) Build release manifest (hashes of evidence bundles, MANIFEST, risk register)
+if ! run_step build-release-manifest "${LABTRUST_CLI[@]}" build-release-manifest --release-dir "$RELEASE_DIR"; then
+  echo "E2E chain failed at build-release-manifest"
+  exit 1
+fi
+
+# 4) Verify release end-to-end (evidence bundles + risk register + release manifest hashes)
+if ! run_step verify-release "${LABTRUST_CLI[@]}" verify-release --release-dir "$RELEASE_DIR" --strict-fingerprints; then
+  echo "E2E chain failed at verify-release"
+  exit 1
+fi
+
+# 5) Schema and crosswalk integrity (fail CI on crosswalk errors or missing refs)
 echo "=== schema-and-crosswalk ==="
 export _BUNDLE_PATH="$BUNDLE_PATH" _REPO_ROOT="$REPO_ROOT"
 python -c "

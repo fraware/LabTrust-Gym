@@ -1,10 +1,14 @@
 """
 Replay-safe coordination message bus: verify-on-receive, nonce tracking, epoch binding.
 
-Enforces signature verification, rejects replays (nonce tracking), and binds messages
-to current epoch. Violations (COORD_SIGNATURE_INVALID, COORD_REPLAY_DETECTED,
-COORD_SENDER_NOT_AUTHORIZED) are returned as step-result fragments for runner logging
-without breaking the runner output contract.
+Epoch binding: messages carry KEY_EPOCH; the bus rejects any message whose epoch
+does not match the current epoch (from epoch_fn). Use a new epoch per episode or
+session so that old-session messages cannot be replayed. Replay protection: each
+(sender_id, nonce) is recorded; a second receive of the same nonce from the same
+sender is rejected with COORD_REPLAY_DETECTED. sign_message/verify_message (from
+identity) must be used on every path; envelope keys KEY_SENDER_ID, KEY_NONCE,
+KEY_EPOCH, KEY_MESSAGE_TYPE, KEY_PAYLOAD are canonical. Violations are returned as
+step-result fragments for runner logging.
 """
 
 from __future__ import annotations

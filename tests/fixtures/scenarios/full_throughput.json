@@ -1,0 +1,39 @@
+{
+  "scenario_id": "full_throughput",
+  "focus": "Full throughput (multiple agents, multiple devices)",
+  "policy": {
+    "zone_layout": {
+      "zones": [
+        { "zone_id": "Z_SORT", "name": "Sorting", "kind": "STAGING" },
+        { "zone_id": "Z_ANALYZER_A", "name": "Analyzer A", "kind": "ANALYTICS" },
+        { "zone_id": "Z_ANALYZER_B", "name": "Analyzer B", "kind": "ANALYTICS" }
+      ],
+      "graph_edges": [
+        { "from": "Z_SORT", "to": "Z_ANALYZER_A", "travel_s": 20 },
+        { "from": "Z_SORT", "to": "Z_ANALYZER_B", "travel_s": 20 }
+      ],
+      "device_placement": [
+        { "device_id": "DEV_A", "zone_id": "Z_ANALYZER_A" },
+        { "device_id": "DEV_B", "zone_id": "Z_ANALYZER_B" }
+      ]
+    },
+    "pz_to_engine": { "worker_0": "ops_0", "worker_1": "runner_0", "worker_2": "runner_1" },
+    "roles": {
+      "ROLE_RUNNER": {
+        "allowed_actions": ["NOOP", "TICK", "MOVE", "OPEN_DOOR", "START_RUN", "QUEUE_RUN"]
+      }
+    },
+    "agents": { "worker_0": "ROLE_RUNNER", "worker_1": "ROLE_RUNNER", "worker_2": "ROLE_RUNNER" },
+    "action_constraints": {}
+  },
+  "scale_config": { "num_agents_total": 3, "horizon_steps": 10, "seed": 42 },
+  "initial_state": {
+    "agent_ids": ["worker_0", "worker_1", "worker_2"],
+    "zone_for_agent": { "worker_0": "Z_SORT", "worker_1": "Z_ANALYZER_A", "worker_2": "Z_ANALYZER_B" },
+    "queue_by_device": [
+      { "queue_head": "S1", "queue_len": 1 },
+      { "queue_head": "", "queue_len": 0 }
+    ]
+  },
+  "expected": { "no_collision": true }
+}

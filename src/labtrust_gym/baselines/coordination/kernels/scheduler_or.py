@@ -2,8 +2,8 @@
 Rolling-horizon OR scheduler: weighted tardiness, throughput, violation penalties.
 
 Deterministic, fast, respects RBAC and token constraints (never proposes
-illegal START_RUN). Produces ScheduleDecision compatible with coordination
-output contract.
+illegal START_RUN). Optional CP-SAT (OR-Tools) when [or_solver] installed;
+strict time budget per step; fallback to heuristic on timeout/infeasible.
 """
 
 from __future__ import annotations
@@ -26,6 +26,66 @@ try:
 except ImportError:
     _restricted_zone_ids_from_policy = None  # type: ignore[assignment]
     agent_can_start_run_at_device = None  # type: ignore[assignment]
+
+
+OR_CPSAT_INFEASIBLE = "or_cpsat_infeasible"
+
+
+def _try_cp_sat_schedule(
+    context: KernelContext,
+    filtered: list[tuple[str, str, str, int]],
+    horizon: int,
+    time_budget_ms: float,
+) -> tuple[ScheduleDecision | None, str | None]:
+    """
+    Optional CP-SAT schedule; returns (None, reason) when [or_solver] missing,
+    infeasible (reason=or_cpsat_infeasible), or timeout (reason=None).
+    Caller falls back to heuristic. Respects time_budget_ms.
+    """
+    try:
+        from ortools.sat.python import cp_model
+    except ImportError:
+        return (None, None)
+    if not filtered:
+        return (None, None)
+    model = cp_model.CpModel()
+    t_max = context.t + horizon
+    # Decision vars: start time for each (agent, work_id, device_id, prio)
+    starts = {}
+    for i, (agent_id, work_id, device_id, prio) in enumerate(filtered):
+        key = (agent_id, work_id, device_id, i)
+        starts[key] = model.NewIntVar(context.t, t_max, f"s_{i}")
+    # Hard: no overlap per agent (optional: one at a time)
+    for agent_id in {a for a, _, _, _ in filtered}:
+        agent_vars = [starts[k] for k in starts if k[0] == agent_id]
+        for i, v1 in enumerate(agent_vars):
+            for v2 in agent_vars[i + 1 :]:
+                model.Add(v1 != v2)
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = max(0.001, time_budget_ms / 1000.0)
+    status = solver.Solve(model)
+    if status == cp_model.INFEASIBLE:
+        return (None, OR_CPSAT_INFEASIBLE)
+    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return (None, None)
+    per_agent: dict[str, list[tuple[str, int, int]]] = {}
+    for (agent_id, work_id, device_id, prio), var in starts.items():
+        if agent_id not in per_agent:
+            per_agent[agent_id] = []
+        s = int(solver.Value(var))
+        per_agent[agent_id].append((work_id, s + 1, prio))
+    for aid in per_agent:
+        per_agent[aid].sort(key=lambda x: (x[1], -x[2], x[0]))
+    per_agent_tuple = tuple(
+        (aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst
+    )
+    return (
+        ScheduleDecision(
+            per_agent=per_agent_tuple,
+            explain=f"or_cpsat_h{horizon}_n={len(filtered)}",
+        ),
+        None,
+    )
 
 
 def _default_policy() -> dict[str, Any]:
@@ -66,6 +126,12 @@ class ORScheduler:
     Rolling-horizon scheduler: H-step lookahead, objective = weighted tardiness
     + throughput + violation penalties + coordination overhead; fairness.
     Only schedules work for (agent, device) that pass RBAC and token checks.
+
+    Policy (scheduler_or or _policy): horizon_steps (default 15), replan_cadence_steps
+    (default 1), weights (tardiness, throughput, violation_penalty, coordination_overhead),
+    time_budget_ms (default 50), use_cp_sat (optional). When CP-SAT is infeasible or
+    times out, fallback heuristic is used; explain includes or_cpsat_infeasible when
+    CP-SAT returned INFEASIBLE.
     """
 
     def __init__(self, policy: dict[str, Any] | None = None) -> None:
@@ -92,6 +158,24 @@ class ORScheduler:
             return ScheduleDecision(per_agent=(), explain="or_empty")
 
         filtered = _filter_allocation_by_rbac(context, assignments)
+        time_budget_ms = float(
+            (context.scale_config or {}).get("or_schedule_time_budget_ms")
+            or policy.get("time_budget_ms", 50.0)
+        )
+        cp_infeasible_reason: str | None = None
+        if policy.get("use_cp_sat"):
+            cp_result, cp_reason = _try_cp_sat_schedule(
+                context, filtered, horizon, time_budget_ms
+            )
+            if cp_result is not None:
+                elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                self._plan_times_ms.append(elapsed_ms)
+                if self._steps % max(1, replan_cadence) == 0 and self._steps > 1:
+                    self._replan_count += 1
+                return cp_result
+            if cp_reason == OR_CPSAT_INFEASIBLE:
+                cp_infeasible_reason = cp_reason
+
         per_agent: dict[str, list[tuple[str, int, int]]] = {}
         for agent_id in context.agent_ids:
             o = context.obs.get(agent_id) or {}
@@ -109,12 +193,16 @@ class ORScheduler:
             lst = per_agent[aid]
             lst.sort(key=lambda x: (-x[2], x[1], x[0]))
 
-        per_agent_tuple = tuple((aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst)
+        per_agent_tuple = tuple(
+            (aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst
+        )
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         self._plan_times_ms.append(elapsed_ms)
         if self._steps % max(1, replan_cadence) == 0 and self._steps > 1:
             self._replan_count += 1
         explain = f"or_h{horizon}_n={len(filtered)}"
+        if cp_infeasible_reason:
+            explain = f"{cp_infeasible_reason} {explain}"
         return ScheduleDecision(per_agent=per_agent_tuple, explain=explain)
 
     def get_schedule_metrics(self) -> dict[str, Any]:

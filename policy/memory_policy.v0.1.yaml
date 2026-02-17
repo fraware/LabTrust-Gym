@@ -24,7 +24,7 @@ memory_policy:
       flags: "i"
     - pattern: "system:.*(override|ignore|bypass)"
       flags: "i"
-    - pattern: "\\<\|(im_start|im_end|system)\\>"
+    - pattern: '\<\|(im_start|im_end|system)\>'
       flags: "i"
   instruction_override_patterns:
     - pattern: "disregard (the )?(above|previous|initial) (instructions?|prompt)"

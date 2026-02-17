@@ -126,7 +126,16 @@ def _resolve_methods(
     methods_from: str,
     pack_config: dict[str, Any],
 ) -> list[str]:
-    """Resolve method list: fixed (config default), full (canonical list from config or policy), or path to file."""
+    """Resolve method list: fixed (config default), full (canonical list from config or policy), full_llm (LLM-based methods only), or path to file."""
+    if methods_from == "full_llm":
+        from labtrust_gym.policy.coordination import list_llm_coordination_method_ids
+
+        reg_path = (
+            repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
+        )
+        if not reg_path.is_file():
+            return PACK_METHODS
+        return list_llm_coordination_method_ids(reg_path)
     if methods_from == "full":
         full_list = (pack_config.get("method_ids") or {}).get("full")
         if isinstance(full_list, list) and full_list:
@@ -306,6 +315,21 @@ def run_coordination_security_pack(
         methods = _resolve_methods(root, methods_from or "fixed", pack_config)
         injections = _resolve_injections(root, injections_from or "fixed", pack_config)
         scales = _resolve_scales(root, pack_config)
+
+    disallow_reserved = pack_config.get("disallow_reserved_injections", True)
+    if disallow_reserved:
+        from labtrust_gym.security.risk_injections import RESERVED_NOOP_INJECTION_IDS
+
+        reserved_in_list = [
+            iid
+            for iid in injections
+            if iid != "none" and iid in RESERVED_NOOP_INJECTION_IDS
+        ]
+        if reserved_in_list:
+            raise ValueError(
+                "Reserved injection IDs are not allowed in security pack when "
+                "disallow_reserved_injections is true: " + ", ".join(sorted(reserved_in_list))
+            )
 
     pack_results_dir = out_dir / "pack_results"
     pack_results_dir.mkdir(parents=True, exist_ok=True)

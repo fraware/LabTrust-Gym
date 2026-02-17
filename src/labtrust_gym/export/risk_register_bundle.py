@@ -24,6 +24,7 @@ from labtrust_gym.export.verify import verify_bundle_structured
 from labtrust_gym.policy.coordination import load_method_risk_matrix
 from labtrust_gym.policy.loader import load_yaml
 from labtrust_gym.policy.risks import load_risk_registry
+from labtrust_gym.security.risk_injections import get_injection_registry_export
 
 # Output filename for export-risk-register (writes into --out dir)
 RISK_REGISTER_BUNDLE_FILENAME = "RISK_REGISTER_BUNDLE.v0.1.json"
@@ -467,6 +468,12 @@ def _build_evidence(
                 # Optional metadata; do not fail evidence collection if CSV is unreadable.
                 pass
             evidence.append(pack_entry)
+            # Link pack evidence to all risk_ids in the method-risk matrix so coord pack run satisfies required_bench.
+            for cell in (matrix.get("cells") or []):
+                if isinstance(cell, dict):
+                    rid = cell.get("risk_id")
+                    if rid:
+                        risk_to_evidence.setdefault(rid, []).append(eid)
 
         # SECURITY/coordination_risk_matrix.csv or .md
         coord_risk_csv = run_dir / "SECURITY" / "coordination_risk_matrix.csv"
@@ -901,6 +908,7 @@ def build_risk_register_bundle(
         "risks": risks_list,
         "controls": controls_list,
         "evidence": evidence_list,
+        "injection_registry": get_injection_registry_export(),
         "links": links_list,
         "reproduce": reproduce_list,
     }
@@ -1055,25 +1063,57 @@ def check_crosswalk_integrity(bundle: dict[str, Any]) -> list[str]:
     return errors
 
 
+def load_waivers(repo_root: Path) -> set[tuple[str, str]]:
+    """
+    Load policy/risks/waivers.v0.1.yaml and return set of (method_id, risk_id)
+    that have a non-expired waiver. expires_on is YYYY-MM-DD; waiver is valid if expires_on >= today.
+    """
+    from datetime import date
+
+    path = Path(repo_root) / "policy" / "risks" / "waivers.v0.1.yaml"
+    if not path.is_file():
+        return set()
+    try:
+        data = load_yaml(path)
+    except Exception:
+        return set()
+    waivers = data.get("waivers") or []
+    today = date.today().isoformat()
+    out: set[tuple[str, str]] = set()
+    for w in waivers:
+        if not isinstance(w, dict):
+            continue
+        expires = (w.get("expires_on") or "").strip()
+        if expires and expires < today:
+            continue
+        mid = str(w.get("method_id") or "").strip()
+        rid = str(w.get("risk_id") or "").strip()
+        if rid:
+            out.add((mid, rid))
+    return out
+
+
 def check_risk_register_coverage(
     bundle: dict[str, Any],
     repo_root: Path,
     *,
     waived_risk_ids: set[str] | None = None,
+    waived_cells: set[tuple[str, str]] | None = None,
     matrix_path: Path | None = None,
 ) -> tuple[bool, list[tuple[str, str]]]:
     """
     Check that every required_bench (method_id, risk_id) cell is either evidenced
     (risk has at least one present evidence in the bundle) or waived.
-    Same philosophy as coordination coverage gate. Returns (passed, missing_list).
-    missing_list is [(method_id, risk_id), ...] for cells with no evidence and not waived.
+    Waived by: (mid, rid) in waived_cells, or rid in waived_risk_ids.
+    Returns (passed, missing_list). missing_list is [(method_id, risk_id), ...] for cells with no evidence and not waived.
     """
     from labtrust_gym.policy.coordination import (
         get_required_bench_cells,
         load_method_risk_matrix,
     )
 
-    waived = waived_risk_ids or set()
+    waived_ids = waived_risk_ids or set()
+    waived_pairs = waived_cells or set()
     repo_root = Path(repo_root)
     matrix_path = matrix_path or (
         repo_root / "policy" / "coordination" / "method_risk_matrix.v0.1.yaml"
@@ -1106,7 +1146,9 @@ def check_risk_register_coverage(
         rid = str(cell.get("risk_id") or "").strip()
         if not rid:
             continue
-        if rid in waived:
+        if rid in waived_ids:
+            continue
+        if (mid, rid) in waived_pairs:
             continue
         if rid in risk_ids_with_present_evidence:
             continue

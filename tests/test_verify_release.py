@@ -14,8 +14,11 @@ from labtrust_gym.export.receipts import (
 )
 from labtrust_gym.export.verify import (
     EVIDENCE_BUNDLE_DIRNAME,
+    RELEASE_MANIFEST_FILENAME,
+    build_release_manifest,
     discover_evidence_bundles,
     verify_release,
+    verify_release_manifest,
 )
 
 
@@ -111,12 +114,13 @@ def test_verify_release_one_valid_bundle(tmp_path: Path) -> None:
     for f in bundle_dir.iterdir():
         if f.is_file():
             (dest_bundle / f.name).write_bytes(f.read_bytes())
-    all_passed, results = verify_release(
+    all_passed, results, release_errors = verify_release(
         release_dir,
         policy_root=root,
         allow_extra_files=False,
     )
     assert all_passed
+    assert len(release_errors) == 0
     assert len(results) == 1
     path, passed, report, errors = results[0]
     assert passed
@@ -127,12 +131,13 @@ def test_verify_release_one_valid_bundle(tmp_path: Path) -> None:
 
 def test_verify_release_no_bundles(tmp_path: Path) -> None:
     """verify_release on dir with no receipts -> vacuous pass (caller should check discover first)."""
-    all_passed, results = verify_release(
+    all_passed, results, release_errors = verify_release(
         tmp_path,
         policy_root=_repo_root(),
     )
     assert results == []
     assert all_passed  # vacuous: no bundle failed
+    assert isinstance(release_errors, list)
 
 
 def test_verify_release_cli_no_bundles(tmp_path: Path) -> None:
@@ -199,3 +204,50 @@ def test_verify_release_cli_one_valid_bundle(tmp_path: Path) -> None:
     )
     assert proc.returncode == 0, f"stdout={proc.stdout} stderr={proc.stderr}"
     assert "all passed" in proc.stdout or "PASS" in proc.stdout
+
+
+def test_build_and_verify_release_manifest(tmp_path: Path) -> None:
+    """build_release_manifest writes RELEASE_MANIFEST; verify_release_manifest passes when hashes match."""
+    root = _repo_root()
+    log_path = _tiny_episode_log(tmp_path)
+    entries = load_episode_log(log_path)
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "bundle_out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp_test",
+        partner_id=None,
+    )
+    release_dir = tmp_path / "release"
+    (release_dir / "receipts" / "cond_0" / EVIDENCE_BUNDLE_DIRNAME).mkdir(parents=True, exist_ok=True)
+    dest_bundle = release_dir / "receipts" / "cond_0" / EVIDENCE_BUNDLE_DIRNAME
+    for f in bundle_dir.iterdir():
+        if f.is_file():
+            (dest_bundle / f.name).write_bytes(f.read_bytes())
+    (release_dir / "MANIFEST.v0.1.json").write_text('{"version":"0.1","files":[]}', encoding="utf-8")
+    manifest_path = build_release_manifest(release_dir, policy_root=root)
+    assert manifest_path.exists()
+    assert manifest_path.name == RELEASE_MANIFEST_FILENAME
+    errors = verify_release_manifest(release_dir)
+    assert len(errors) == 0
+    all_passed, results, release_errors = verify_release(release_dir, policy_root=root)
+    assert len(release_errors) == 0
+    assert all_passed
+
+
+def test_build_release_manifest_determinism(tmp_path: Path) -> None:
+    """Same release dir -> two build-release-manifest runs produce identical RELEASE_MANIFEST."""
+    root = _repo_root()
+    release_dir = tmp_path / "release"
+    release_dir.mkdir(parents=True)
+    (release_dir / "receipts").mkdir(parents=True)
+    (release_dir / "metadata.json").write_text('{"profile":"minimal"}', encoding="utf-8")
+    manifest_path1 = build_release_manifest(release_dir, policy_root=root)
+    manifest_path2 = build_release_manifest(release_dir, policy_root=root)
+    assert manifest_path1.exists() and manifest_path2.exists()
+    c1 = manifest_path1.read_bytes()
+    c2 = manifest_path2.read_bytes()
+    assert c1 == c2, "Two build-release-manifest runs on same dir must yield identical RELEASE_MANIFEST"

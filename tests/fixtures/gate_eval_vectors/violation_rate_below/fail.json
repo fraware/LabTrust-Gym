@@ -1,0 +1,1 @@
+{"row": {"scale_id": "s", "method_id": "m", "injection_id": "INJ-RATE-001", "safety.violation_rate": 0.2}, "nominal_by_scale_method": {}, "gate_rules": [{"injection_id": "INJ-RATE-001", "rule": "violation_rate_below", "max_rate": 0.1}], "expected_verdict": "FAIL", "expected_rationale_substring": "0.2"}

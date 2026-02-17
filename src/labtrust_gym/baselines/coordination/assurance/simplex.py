@@ -2,6 +2,10 @@
 Simplex-like coordination-layer assurance: shield validates plan against hard
 constraints; on reject, fallback controller (safe_wait + local greedy) is used.
 Deterministic. Shield failures produce structured evidence (emit + reason_code + counters).
+
+Assurance evidence: COORD_SHIELD_DECISION emit includes assurance_evidence list with
+claim_id (e.g. SC-SECURITY-ROUTE-001), control_id (CTRL-COORD-SIMPLEX), invariant_id
+(INV-ROUTE-001, INV-ROUTE-002, INV-ROUTE-SWAP) for audit and safety-case traceability.
 """
 
 from __future__ import annotations
@@ -10,23 +14,30 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from labtrust_gym.baselines.coordination.decision_types import RouteDecision
+from labtrust_gym.baselines.coordination.routing.invariants import (
+    INV_ROUTE_001,
+    INV_ROUTE_002,
+    INV_ROUTE_SWAP,
+)
 
 # Reason codes (must exist in reason_code_registry)
 REASON_SHIELD_COLLISION = "COORD_SHIELD_REJECT_COLLISION"
 REASON_SHIELD_RESTRICTED = "COORD_SHIELD_REJECT_RESTRICTED"
+REASON_SHIELD_SWAP = "COORD_SHIELD_REJECT_SWAP"
 REASON_SHIELD_RBAC = "COORD_SHIELD_REJECT_RBAC"
 EMIT_COORD_SHIELD_DECISION = "COORD_SHIELD_DECISION"
 
-# Safety-case traceability: claim_id / control_id / invariant_id for evidence
+# Safety-case traceability: claim_id / control_id / invariant_id for evidence.
+# REASON_TO_EVIDENCE_MAP links each reject reason to (claim_id, control_id, invariant_id)
+# for COORD_SHIELD_DECISION assurance_evidence; see docs/risk-and-security/output_controls.md.
 SHIELD_CLAIM_ROUTE_SAFETY = "SC-SECURITY-ROUTE-001"
 SHIELD_CLAIM_RBAC = "SC-SECURITY-RBAC-001"
 SHIELD_CTRL_SIMPLEX = "CTRL-COORD-SIMPLEX"
-INV_ROUTE_001 = "INV-ROUTE-001"
-INV_ROUTE_002 = "INV-ROUTE-002"
 
 REASON_TO_EVIDENCE_MAP = {
     REASON_SHIELD_COLLISION: (SHIELD_CLAIM_ROUTE_SAFETY, SHIELD_CTRL_SIMPLEX, INV_ROUTE_001),
     REASON_SHIELD_RESTRICTED: (SHIELD_CLAIM_ROUTE_SAFETY, SHIELD_CTRL_SIMPLEX, INV_ROUTE_002),
+    REASON_SHIELD_SWAP: (SHIELD_CLAIM_ROUTE_SAFETY, SHIELD_CTRL_SIMPLEX, INV_ROUTE_SWAP),
     REASON_SHIELD_RBAC: (SHIELD_CLAIM_RBAC, SHIELD_CTRL_SIMPLEX, None),
 }
 
@@ -88,13 +99,17 @@ def validate_plan(
 ) -> ShieldResult:
     """
     Validate route against hard constraints: no collision (INV-ROUTE-001),
-    no restricted edge without token (INV-ROUTE-002), RBAC/allowed device/zone.
-    Returns ShieldResult(ok, reasons, counters). Deterministic.
+    no restricted edge without token (INV-ROUTE-002), swap (INV-ROUTE-SWAP),
+    RBAC/allowed device/zone. Optional: no duplicate (agent, device, start_time)
+    in schedule (when route includes START_RUN actions). device_zone and
+    policy.zone_layout / zone_layout_policy must be passed correctly from
+    compose/kernel. Returns ShieldResult(ok, reasons, counters). Deterministic.
     """
     from labtrust_gym.baselines.coordination.routing.graph import build_routing_graph
     from labtrust_gym.baselines.coordination.routing.invariants import (
         check_inv_route_001,
         check_inv_route_002,
+        check_swap_collision,
     )
 
     policy = getattr(context, "policy", None) or {}
@@ -106,7 +121,9 @@ def validate_plan(
     counters: dict[str, int] = {
         "collision": 0,
         "restricted": 0,
+        "swap": 0,
         "rbac": 0,
+        "schedule_duplicate": 0,
     }
 
     # Build planned occupancy: (agent_id, time_step, zone_id) for t and t+1
@@ -160,8 +177,15 @@ def validate_plan(
         reasons.extend(restricted_violations)
         counters["restricted"] = len(restricted_violations)
 
+    # INV-ROUTE-SWAP: swap collision (A->B and B->A at same t)
+    swap_violations = check_swap_collision(planned_moves)
+    if swap_violations:
+        reasons.extend(swap_violations)
+        counters["swap"] = len(swap_violations)
+
     # RBAC: START_RUN at device in restricted zone without token, or role disallows START_RUN
     restricted_zones = _restricted_zone_ids_from_policy(policy)
+    start_run_triples: list[tuple[str, str, int]] = []
     for agent_id, action_type, args_tuple in route.per_agent:
         if action_type != "START_RUN":
             continue
@@ -169,6 +193,7 @@ def validate_plan(
         device_id = args.get("device_id")
         if not device_id:
             continue
+        start_run_triples.append((agent_id, str(device_id), t))
         zone_id = device_zone.get(device_id, "")
         o = obs.get(agent_id) or {}
         if not _agent_role_allows_start_run(policy, agent_id):
@@ -177,6 +202,17 @@ def validate_plan(
         elif zone_id in restricted_zones and not _agent_has_restricted_token(o):
             reasons.append(f"{REASON_SHIELD_RBAC}: {agent_id} START_RUN in restricted zone {zone_id} without token")
             counters["rbac"] += 1
+
+    # Optional: no duplicate (agent, device, start_time) in schedule
+    if len(start_run_triples) != len(set(start_run_triples)):
+        seen: set[tuple[str, str, int]] = set()
+        for triple in start_run_triples:
+            if triple in seen:
+                reasons.append(
+                    f"COORD_SHIELD_SCHEDULE_DUPLICATE: duplicate (agent, device, start_time) {triple}"
+                )
+                counters["schedule_duplicate"] += 1
+            seen.add(triple)
 
     ok = len(reasons) == 0
     return ShieldResult(ok=ok, reasons=reasons, counters=counters)
@@ -230,6 +266,8 @@ def build_shield_payload(
         reason_codes.append(REASON_SHIELD_COLLISION)
     if counters.get("restricted", 0) > 0:
         reason_codes.append(REASON_SHIELD_RESTRICTED)
+    if counters.get("swap", 0) > 0:
+        reason_codes.append(REASON_SHIELD_SWAP)
     if counters.get("rbac", 0) > 0:
         reason_codes.append(REASON_SHIELD_RBAC)
     outcome = "passed" if accepted else "blocked"
@@ -247,6 +285,7 @@ def build_shield_payload(
     return {
         "emit": EMIT_COORD_SHIELD_DECISION,
         "accepted": accepted,
+        "shield_ok": accepted,
         "step_idx": step_idx,
         "reasons": reasons[:50],
         "reason_codes": reason_codes,
@@ -256,7 +295,12 @@ def build_shield_payload(
 
 
 def _safe_fallback_route(context: Any) -> RouteDecision:
-    """Fallback route: all NOOP (safe_wait). Deterministic."""
+    """
+    Fallback route: all NOOP (safe_wait). Deterministic.
+    Semantics: safe_wait keeps every agent in place; no MOVE, so no collision,
+    no restricted edge use, no swap. When fallback_router is provided to
+    wrap_with_simplex_shield, local greedy routing may be used instead.
+    """
     agent_ids = getattr(context, "agent_ids", None) or []
     if not agent_ids and hasattr(context, "obs"):
         agent_ids = sorted((context.obs or {}).keys())
@@ -270,9 +314,11 @@ def wrap_with_simplex_shield(
 ) -> Any:
     """
     Wrap a CoordinationMethod (advanced) with Simplex shield. When shield rejects
-    the advanced plan, fallback route (safe_wait = all NOOP, or fallback_router)
-    is used. Sets last_shield_emits on self for runner to append to step_results.
-    Returns a CoordinationMethod that implements step(), propose_actions(), etc.
+    the advanced plan, fallback route is used: safe_wait (all NOOP) or, if
+    fallback_router is provided, local greedy routing. Fallback is always valid
+    (no INV-ROUTE-001/002/SWAP violations; RBAC-respecting). Sets last_shield_emits
+    on self for runner to append to step_results. Payload includes shield_ok
+    for telemetry. Returns a CoordinationMethod that implements step(), propose_actions(), etc.
     """
     from labtrust_gym.baselines.coordination.compose import (
         _route_to_action_dict,

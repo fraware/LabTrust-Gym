@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.required_bench_plan.v0.1",
+  "title": "Required-bench plan v0.1",
+  "description": "Deterministic plan mapping each (method_id, risk_id) required_bench cell to one executable evidence action.",
+  "type": "object",
+  "required": ["version", "cells"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "v0.1" },
+    "cells": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["method_id", "risk_id", "evidence"],
+        "additionalProperties": true,
+        "properties": {
+          "method_id": { "type": "string" },
+          "risk_id": { "type": "string" },
+          "evidence": {
+            "type": "object",
+            "required": ["kind"],
+            "additionalProperties": true,
+            "properties": {
+              "kind": { "type": "string", "enum": ["coord_risk", "security_suite"] },
+              "injection_id": { "type": "string" },
+              "attack_id": { "type": "string" },
+              "cmd": { "type": "string" },
+              "task": { "type": "string" },
+              "scale": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

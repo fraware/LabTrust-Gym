@@ -1,0 +1,45 @@
+# Build viewer data (risk register bundle from fixtures) and validate against schema.
+# Runs when viewer, policy/risks, or risk_register export code changes.
+
+name: Viewer data
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "viewer/**"
+      - "policy/risks/**"
+      - "src/labtrust_gym/export/risk_register*"
+      - "src/labtrust_gym/export/validate_coverage*"
+  push:
+    branches: [main]
+    paths:
+      - "viewer/**"
+      - "policy/risks/**"
+      - "src/labtrust_gym/export/risk_register*"
+      - "src/labtrust_gym/export/validate_coverage*"
+
+jobs:
+  viewer-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Build viewer data
+        run: bash scripts/build_viewer_data.sh
+      - name: Assert bundle validates
+        run: |
+          test -f viewer/data/RISK_REGISTER_BUNDLE.v0.1.json
+          python -c "
+          from pathlib import Path
+          import json
+          from labtrust_gym.export.risk_register_bundle import validate_bundle_against_schema
+          r = Path('.')
+          b = json.loads((r / 'viewer/data/RISK_REGISTER_BUNDLE.v0.1.json').read_text(encoding='utf-8'))
+          err = validate_bundle_against_schema(b, r)
+          assert not err, err
+          "

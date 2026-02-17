@@ -3,16 +3,25 @@ Deterministic RNG wrapper for simulation.
 
 Single RNG used for all sampling (service times, failures, etc.).
 Seeded from scenario so same seed + actions => same outcomes.
+
+Algorithm: Python's random.Random (Mersenne Twister). Determinism is guaranteed
+for the same Python version and seed; cross-version reproducibility is not
+guaranteed by the language. Use the same Python version as the baseline when
+comparing hashes or running the determinism report.
 """
 
 from __future__ import annotations
 
 import random
 
+# For determinism contract (same algorithm as task get_initial_state).
+RNG_ALGORITHM = "random.Random (Mersenne Twister)"
+
 
 class RNG:
     """
     Deterministic RNG. Use this instead of random.* for all simulation sampling.
+    Seeded per episode (base_seed + episode index) so no global state.
     """
 
     def __init__(self, seed: int = 0) -> None:

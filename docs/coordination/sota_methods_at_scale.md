@@ -40,7 +40,7 @@ The matrix below maps **risk themes** (collusion, poisoning, identity spoof, rep
 
 ## C) Existing methods (summary)
 
-Existing methods in `policy/coordination/coordination_methods.v0.1.yaml` already have `method_id`, `coordination_class`, `known_weaknesses` (risk_id list), and `compatible_injections`. See [Coordination methods](../coordination_methods.md) and [Coordination policy](../coordination_policy.md) for full registry and method-risk matrix.
+Existing methods in `policy/coordination/coordination_methods.v0.1.yaml` already have `method_id`, `coordination_class`, `known_weaknesses` (risk_id list), and `compatible_injections`. See [Coordination methods](coordination_methods.md) and [Coordination policy](../policy/coordination_policy.md) for full registry and method-risk matrix.
 
 ---
 

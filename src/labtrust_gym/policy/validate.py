@@ -92,6 +92,10 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
         "policy/official/benchmark_pack.v0.1.yaml",
         "benchmark_pack.v0.1.schema.json",
     ),
+    (
+        "policy/official/benchmark_pack.v0.2.yaml",
+        "benchmark_pack.v0.2.schema.json",
+    ),
     ("policy/golden/golden_scenarios.v0.1.yaml", "golden_scenarios.v0.1.schema.json"),
     (
         "policy/enforcement/enforcement_map.v0.1.yaml",
@@ -116,6 +120,10 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
     ),
     ("policy/risks/risk_registry.v0.1.yaml", "risk_registry.v0.1.schema.json"),
     (
+        "policy/risks/required_bench_plan.v0.1.yaml",
+        "required_bench_plan.v0.1.schema.json",
+    ),
+    (
         "policy/coordination/coordination_methods.v0.1.yaml",
         "coordination_methods.v0.1.schema.json",
     ),
@@ -138,6 +146,10 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
     (
         "policy/coordination/coordination_matrix_spec.v0.1.yaml",
         "coordination_matrix_spec.v0.1.schema.json",
+    ),
+    (
+        "policy/coordination/coordination_security_pack_gate.v0.1.yaml",
+        "coordination_security_pack_gate.v0.1.schema.json",
     ),
     ("policy/tool_registry.v0.1.yaml", "tool_registry.v0.1.schema.json"),
     ("policy/capabilities.v0.1.yaml", "capabilities.v0.1.schema.json"),
@@ -207,6 +219,31 @@ def validate_all_policy_schemas(root: Path) -> list[str]:
     errors: list[str] = []
     for policy_rel_path, schema_name in POLICY_FILES_WITH_SCHEMAS:
         errors.extend(validate_policy_file_against_schema(root, policy_rel_path, schema_name))
+    return errors
+
+
+def validate_coordination_security_pack_gate_rules_supported(root: Path) -> list[str]:
+    """
+    Load coordination_security_pack_gate.v0.1.yaml and ensure every rule's
+    rule type is in the supported set (gate_eval). Returns list of error messages.
+    """
+    from labtrust_gym.policy.gate_eval import SUPPORTED_GATE_RULE_TYPES, load_gate_policy
+
+    errors: list[str] = []
+    root = Path(root)
+    gate = load_gate_policy(root)
+    rules = gate.get("rules") or []
+    path = root / "policy" / "coordination" / "coordination_security_pack_gate.v0.1.yaml"
+    for i, r in enumerate(rules):
+        if not isinstance(r, dict):
+            continue
+        rule_type = r.get("rule") or ""
+        if rule_type and rule_type not in SUPPORTED_GATE_RULE_TYPES:
+            inj = r.get("injection_id", "?")
+            errors.append(
+                f"{path}: rules[{i}] injection_id={inj!r} rule={rule_type!r} is not supported; "
+                f"supported: {sorted(SUPPORTED_GATE_RULE_TYPES)}"
+            )
     return errors
 
 
@@ -359,6 +396,7 @@ def validate_policy(root: Path, partner_id: str | None = None) -> list[str]:
     errors: list[str] = []
     errors.extend(validate_runner_output_contract_schema(root))
     errors.extend(validate_all_policy_schemas(root))
+    errors.extend(validate_coordination_security_pack_gate_rules_supported(root))
     errors.extend(validate_llm_schema_files(root))
     errors.extend(validate_tool_registry_capabilities_subset(root))
     if partner_id:

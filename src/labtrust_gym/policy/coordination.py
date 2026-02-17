@@ -46,6 +46,24 @@ def load_coordination_methods(path: Path | str) -> dict[str, dict[str, Any]]:
     return out
 
 
+def list_llm_coordination_method_ids(path: Path | str) -> list[str]:
+    """
+    Return method_ids that are LLM-based coordination methods (for comparison).
+    Uses llm_based if present, else coordination_class == "llm".
+    Path may be relative to cwd or absolute.
+    """
+    registry = load_coordination_methods(path)
+    out: list[str] = []
+    for method_id, entry in registry.items():
+        llm_based = entry.get("llm_based")
+        if llm_based is True:
+            out.append(method_id)
+        elif llm_based is None:
+            if entry.get("coordination_class") == "llm":
+                out.append(method_id)
+    return sorted(out)
+
+
 def resolve_method_variant(
     method_id: str,
     methods_registry: dict[str, dict[str, Any]],

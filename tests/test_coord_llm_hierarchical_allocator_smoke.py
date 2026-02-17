@@ -145,6 +145,58 @@ def test_llm_hierarchical_allocator_propose_actions_deterministic() -> None:
         assert a1[aid].get("action_type") == a2[aid].get("action_type")
 
 
+def test_llm_hierarchical_allocator_nominal_allocations_cover_work() -> None:
+    """Under nominal conditions (same zone as work, no frozen), allocations cover work."""
+    backend = DeterministicAssignmentsBackend(seed=0)
+    policy = {
+        "pz_to_engine": {"ops_0": "ops_0", "runner_0": "runner_0"},
+        "policy_summary": {},
+        "zone_layout": {
+            "zones": [{"zone_id": "Z_A"}],
+            "device_placement": [{"device_id": "D1", "zone_id": "Z_A"}, {"device_id": "D2", "zone_id": "Z_A"}],
+            "graph_edges": [],
+        },
+    }
+    get_allowed = lambda aid: ["NOOP", "TICK", "MOVE", "START_RUN", SET_INTENT]
+    allocator = LLMHierarchicalAllocator(
+        allocator_backend=backend,
+        rbac_policy={},
+        allowed_actions=["NOOP", "TICK", "MOVE", "START_RUN"],
+        get_allowed_actions_fn=get_allowed,
+        local_strategy="edf",
+    )
+    allocator.reset(seed=42, policy=policy, scale_config={})
+    obs = {
+        "ops_0": {
+            "my_zone_idx": 0,
+            "zone_id": "Z_A",
+            "queue_by_device": [
+                {"device_id": "D1", "queue_head": "W1", "queue_len": 1},
+                {"device_id": "D2", "queue_head": "W2", "queue_len": 1},
+            ],
+            "queue_has_head": [1, 1],
+        },
+        "runner_0": {
+            "my_zone_idx": 0,
+            "zone_id": "Z_A",
+            "queue_by_device": [
+                {"device_id": "D1", "queue_head": "W1", "queue_len": 1},
+                {"device_id": "D2", "queue_head": "W2", "queue_len": 1},
+            ],
+            "queue_has_head": [1, 1],
+        },
+    }
+    infos = {"ops_0": {}, "runner_0": {}}
+    actions = allocator.propose_actions(obs, infos, 0)
+    assert set(actions.keys()) == {"ops_0", "runner_0"}
+    valid_types = {"NOOP", "MOVE", "START_RUN"}
+    for aid, rec in actions.items():
+        assert rec.get("action_type") in valid_types
+    n_start_run = sum(1 for r in actions.values() if (r.get("action_type") or "") == "START_RUN")
+    assert n_start_run >= 1
+    assert n_start_run <= 2
+
+
 def test_registry_creates_llm_hierarchical_allocator() -> None:
     """Registry instantiates llm_hierarchical_allocator with deterministic backend."""
     from pathlib import Path

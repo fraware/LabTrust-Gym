@@ -310,12 +310,12 @@ def _check_tool_registry_fingerprint(
                 "manifest: tool_registry_fingerprint present but policy tool_registry.v0.1.yaml not found or empty"
             )
             return errors
+        path_used = policy_path(policy_root, "tool_registry.v0.1.yaml")
         actual = tool_registry_fingerprint(registry)
         if actual != expected:
-            errors.append(
-                f"manifest: tool_registry_fingerprint mismatch: "
-                f"expected {expected[:16]}..., recomputed {actual[:16]}..."
-            )
+            errors.append(_fingerprint_mismatch_message(
+                "tool_registry_fingerprint", expected, actual, path_used
+            ))
     except Exception as e:
         errors.append(f"tool_registry_fingerprint check: {e}")
     return errors
@@ -346,12 +346,20 @@ def _check_rbac_policy_fingerprint(
             return errors
         actual = rbac_policy_fingerprint(rbac_policy)
         if actual != expected:
-            errors.append(
-                f"manifest: rbac_policy_fingerprint mismatch: expected {expected[:16]}..., recomputed {actual[:16]}..."
-            )
+            errors.append(_fingerprint_mismatch_message(
+                "rbac_policy_fingerprint", expected, actual, rbac_path
+            ))
     except Exception as e:
         errors.append(f"rbac_policy_fingerprint check: {e}")
     return errors
+
+
+def _fingerprint_mismatch_message(key: str, expected: str, actual: str, path: Path) -> str:
+    """Standard message for manifest fingerprint mismatch (expected, actual, resolved path)."""
+    return (
+        f"manifest: {key} mismatch: expected {expected!r}, actual {actual!r}; "
+        f"resolved path for recomputation: {path}"
+    )
 
 
 def _policy_yaml_fingerprint(path: Path) -> str:
@@ -385,10 +393,9 @@ def _check_coordination_policy_fingerprint(
     try:
         actual = _policy_yaml_fingerprint(path)
         if actual != expected:
-            errors.append(
-                f"manifest: coordination_policy_fingerprint mismatch: "
-                f"expected {expected[:16]}..., recomputed {actual[:16]}..."
-            )
+            errors.append(_fingerprint_mismatch_message(
+                "coordination_policy_fingerprint", expected, actual, path
+            ))
     except Exception as e:
         errors.append(f"coordination_policy_fingerprint check: {e}")
     return errors
@@ -462,10 +469,9 @@ def _check_memory_policy_fingerprint(
     try:
         actual = _policy_yaml_fingerprint(path)
         if actual != expected:
-            errors.append(
-                f"manifest: memory_policy_fingerprint mismatch: "
-                f"expected {expected[:16]}..., recomputed {actual[:16]}..."
-            )
+            errors.append(_fingerprint_mismatch_message(
+                "memory_policy_fingerprint", expected, actual, path
+            ))
     except Exception as e:
         errors.append(f"memory_policy_fingerprint check: {e}")
     return errors
@@ -484,18 +490,20 @@ def _check_invariant_trace(bundle_dir: Path) -> list[str]:
         return errors
     entries = load_episode_log(log_path)
     trace_by_step: dict[int, list[dict[str, Any]]] = {}
-    for line in trace_path.read_text(encoding="utf-8").strip().splitlines():
-        if not line.strip():
-            continue
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError as e:
-            errors.append(f"invariant_eval_trace.jsonl: invalid JSON line: {e}")
-            return errors
-        idx = row.get("step_index")
-        if idx is None:
-            continue
-        trace_by_step.setdefault(idx, []).extend(row.get("violations") or [])
+    with trace_path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as e:
+                errors.append(f"invariant_eval_trace.jsonl: invalid JSON line: {e}")
+                return errors
+            idx = row.get("step_index")
+            if idx is None:
+                continue
+            trace_by_step.setdefault(idx, []).extend(row.get("violations") or [])
     for step_index, trace_violations in trace_by_step.items():
         if step_index >= len(entries):
             errors.append(
@@ -555,10 +563,29 @@ def _check_signatures(
     return errors
 
 
+REQUIRED_STRICT_FINGERPRINTS = [
+    "coordination_policy_fingerprint",
+    "memory_policy_fingerprint",
+    "rbac_policy_fingerprint",
+    "tool_registry_fingerprint",
+]
+
+
+def _check_strict_fingerprints_required(manifest: dict[str, Any]) -> list[str]:
+    """When strict_fingerprints is True, require all provenance fingerprints to be present. Returns list of errors."""
+    errors: list[str] = []
+    for key in REQUIRED_STRICT_FINGERPRINTS:
+        val = manifest.get(key)
+        if not val or not isinstance(val, str):
+            errors.append(f"manifest: strict-fingerprints requires {key!r} (missing or empty)")
+    return errors
+
+
 def verify_bundle(
     bundle_dir: Path,
     policy_root: Path | None = None,
     allow_extra_files: bool = False,
+    strict_fingerprints: bool = False,
 ) -> tuple[bool, str, list[str]]:
     """
     Run all verification checks on an EvidenceBundle.v0.1 directory.
@@ -568,6 +595,8 @@ def verify_bundle(
     - Schema validation: manifest and each receipt against policy schemas; FHIR bundle if present (best-effort structure).
     - Hashchain proof: must match last entry of episode_log_subset (head_hash, length, last_event_hash).
     - Invariant trace: violations in episode_log must be superset of invariant_eval_trace per step.
+    - When strict_fingerprints is True: coordination_policy_fingerprint, memory_policy_fingerprint,
+      rbac_policy_fingerprint, and tool_registry_fingerprint must be present in the manifest (for external trust).
     """
     bundle_dir = Path(bundle_dir)
     policy_root = policy_root or Path.cwd()
@@ -581,6 +610,9 @@ def verify_bundle(
         manifest = _load_json_file(manifest_path)
     except PolicyLoadError as e:
         return False, "FAIL", [str(e)]
+
+    if strict_fingerprints:
+        errors.extend(_check_strict_fingerprints_required(manifest))
 
     errors.extend(_check_manifest_integrity(bundle_dir, manifest, allow_extra_files))
     errors.extend(_check_schemas(bundle_dir, manifest, policy_root))
@@ -617,6 +649,71 @@ def verify_bundle(
 
 
 EVIDENCE_BUNDLE_DIRNAME = "EvidenceBundle.v0.1"
+RELEASE_MANIFEST_FILENAME = "RELEASE_MANIFEST.v0.1.json"
+RISK_REGISTER_BUNDLE_FILENAME = "RISK_REGISTER_BUNDLE.v0.1.json"
+
+
+def _sha256_file(path: Path) -> str:
+    """SHA-256 hex digest of file contents."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def build_release_manifest(
+    release_dir: Path,
+    policy_root: Path | None = None,
+) -> Path:
+    """
+    Build RELEASE_MANIFEST.v0.1.json in release_dir with hashes of key artifacts.
+    Includes: MANIFEST.v0.1.json, each receipts/*/EvidenceBundle.v0.1 (manifest.json hash),
+    RISK_REGISTER_BUNDLE.v0.1.json if present. Call after package-release and optionally
+    export-risk-register (into release_dir) to produce a single verifiable release artifact.
+    """
+    release_dir = Path(release_dir)
+    artifacts: list[dict[str, Any]] = []
+    manifest_path = release_dir / "MANIFEST.v0.1.json"
+    if manifest_path.exists():
+        artifacts.append({"path": "MANIFEST.v0.1.json", "sha256": _sha256_file(manifest_path)})
+    for bundle_path in discover_evidence_bundles(release_dir):
+        rel = bundle_path.relative_to(release_dir)
+        manifest_json = bundle_path / "manifest.json"
+        if manifest_json.exists():
+            path_str = (rel / "manifest.json").as_posix()
+            artifacts.append({"path": path_str, "sha256": _sha256_file(manifest_json)})
+    risk_bundle_path = release_dir / RISK_REGISTER_BUNDLE_FILENAME
+    if risk_bundle_path.exists():
+        artifacts.append({"path": RISK_REGISTER_BUNDLE_FILENAME, "sha256": _sha256_file(risk_bundle_path)})
+    out = {"version": "0.1", "artifacts": artifacts}
+    out_path = release_dir / RELEASE_MANIFEST_FILENAME
+    out_path.write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
+    return out_path
+
+
+def verify_release_manifest(release_dir: Path) -> list[str]:
+    """Verify RELEASE_MANIFEST.v0.1.json hashes match actual files. Returns list of errors."""
+    errors: list[str] = []
+    manifest_path = release_dir / RELEASE_MANIFEST_FILENAME
+    if not manifest_path.exists():
+        return errors
+    try:
+        manifest = _load_json_file(manifest_path)
+    except Exception as e:
+        return [f"RELEASE_MANIFEST load failed: {e}"]
+    for entry in manifest.get("artifacts") or []:
+        path_str = entry.get("path")
+        expected = entry.get("sha256")
+        if not path_str or not expected:
+            continue
+        full = release_dir / path_str
+        if not full.exists():
+            errors.append(f"RELEASE_MANIFEST artifact missing: {path_str}")
+            continue
+        if not full.is_file():
+            errors.append(f"RELEASE_MANIFEST artifact not a file: {path_str}")
+            continue
+        actual = _sha256_file(full)
+        if actual != expected:
+            errors.append(f"RELEASE_MANIFEST hash mismatch: {path_str} (expected {expected[:16]}..., got {actual[:16]}...)")
+    return errors
 
 
 def discover_evidence_bundles(release_dir: Path) -> list[Path]:
@@ -644,17 +741,22 @@ def verify_release(
     policy_root: Path | None = None,
     allow_extra_files: bool = False,
     quiet: bool = False,
-) -> tuple[bool, list[tuple[Path, bool, str, list[str]]]]:
+    strict_fingerprints: bool = False,
+) -> tuple[bool, list[tuple[Path, bool, str, list[str]]], list[str]]:
     """
-    Verify every EvidenceBundle.v0.1 under release_dir/receipts/.
+    Verify release end-to-end: every EvidenceBundle.v0.1, optional risk register bundle,
+    and optional RELEASE_MANIFEST.v0.1.json hashes. Offline: no network.
 
-    Returns (all_passed, results) where results is a list of
-    (bundle_path, passed, report, errors) for each bundle, in deterministic order.
-    If quiet is True, the caller may stop after first failure (results still
-    contain only bundles verified so far).
+    Returns (all_passed, results, release_errors).
+    - results: list of (bundle_path, passed, report, errors) for each EvidenceBundle.
+    - release_errors: risk register validation errors and/or RELEASE_MANIFEST hash mismatches.
+    When strict_fingerprints is True, each bundle manifest must include all required
+    provenance fingerprints (coordination, memory, rbac, tool_registry).
     """
     release_dir = Path(release_dir)
     policy_root = policy_root or Path.cwd()
+    release_errors: list[str] = []
+
     bundles = discover_evidence_bundles(release_dir)
     results: list[tuple[Path, bool, str, list[str]]] = []
     for bundle_path in bundles:
@@ -662,12 +764,31 @@ def verify_release(
             bundle_path,
             policy_root=policy_root,
             allow_extra_files=allow_extra_files,
+            strict_fingerprints=strict_fingerprints,
         )
         results.append((bundle_path, passed, report, errors))
         if quiet and not passed:
             break
-    all_passed = all(r[1] for r in results) and len(results) == len(bundles)
-    return all_passed, results
+
+    risk_bundle_path = release_dir / RISK_REGISTER_BUNDLE_FILENAME
+    if risk_bundle_path.exists():
+        try:
+            from labtrust_gym.export.risk_register_bundle import (
+                check_crosswalk_integrity,
+                validate_bundle_against_schema,
+            )
+
+            bundle_data = json.loads(risk_bundle_path.read_text(encoding="utf-8"))
+            release_errors.extend(validate_bundle_against_schema(bundle_data, policy_root))
+            release_errors.extend(check_crosswalk_integrity(bundle_data))
+        except Exception as e:
+            release_errors.append(f"Risk register bundle validation: {e}")
+
+    release_errors.extend(verify_release_manifest(release_dir))
+
+    bundles_passed = all(r[1] for r in results) and len(results) == len(bundles)
+    all_passed = bundles_passed and len(release_errors) == 0
+    return all_passed, results, release_errors
 
 
 def verify_bundle_structured(

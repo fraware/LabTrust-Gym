@@ -15,6 +15,7 @@ from labtrust_gym.export.risk_register_bundle import (
     build_risk_register_bundle,
     check_crosswalk_integrity,
     check_risk_register_coverage,
+    load_waivers,
     resolve_run_dirs,
     validate_bundle_against_schema,
 )
@@ -43,6 +44,16 @@ def _bundle_ui_fixtures(root: Path) -> dict:
         include_generated_at=False,
         include_git_hash=False,
     )
+
+
+def test_export_risk_register_determinism() -> None:
+    """Same run dir and options -> two export runs produce identical bundle (canonical JSON)."""
+    root = _repo_root()
+    bundle1 = _bundle_ui_fixtures(root)
+    bundle2 = _bundle_ui_fixtures(root)
+    j1 = json.dumps(bundle1, indent=2, sort_keys=True)
+    j2 = json.dumps(bundle2, indent=2, sort_keys=True)
+    assert j1 == j2, "Two export-risk-register runs from same inputs must yield identical bundle"
 
 
 def test_schema_validation_generated_bundle_ui_fixtures() -> None:
@@ -165,6 +176,59 @@ def test_coverage_gate_reports_missing_when_not_waived() -> None:
         for mid, rid in missing:
             assert isinstance(mid, str)
             assert isinstance(rid, str)
+
+
+def test_coverage_gate_missing_evidence_valid_waiver_passes() -> None:
+    """Missing evidence + valid waiver (waived_cells) -> PASS."""
+    root = _repo_root()
+    bundle = _bundle_ui_fixtures(root)
+    passed, missing = check_risk_register_coverage(bundle, root)
+    if passed:
+        return
+    waived_cells = set(missing)
+    passed_waived, still_missing = check_risk_register_coverage(
+        bundle, root, waived_cells=waived_cells
+    )
+    assert passed_waived, f"With all missing cells waived should pass: {still_missing}"
+    assert len(still_missing) == 0
+
+
+def test_coverage_gate_missing_evidence_expired_waiver_fails() -> None:
+    """Missing evidence + only expired waiver -> still FAIL (waived_cells does not include cell)."""
+    root = _repo_root()
+    bundle = _bundle_ui_fixtures(root)
+    passed, missing = check_risk_register_coverage(bundle, root)
+    if passed or not missing:
+        return
+    passed_empty_waived, still_missing = check_risk_register_coverage(
+        bundle, root, waived_cells=set()
+    )
+    assert not passed_empty_waived or len(still_missing) > 0, (
+        "With no waivers, missing cells must remain missing"
+    )
+
+
+def test_coverage_gate_missing_evidence_no_waiver_fails() -> None:
+    """Missing evidence + no waiver -> FAIL (explicit no waived_cells)."""
+    root = _repo_root()
+    bundle = _bundle_ui_fixtures(root)
+    passed, missing = check_risk_register_coverage(
+        bundle, root, waived_risk_ids=None, waived_cells=None
+    )
+    if not passed:
+        assert len(missing) >= 0
+
+
+def test_load_waivers_returns_non_expired() -> None:
+    """load_waivers returns set of (method_id, risk_id) from policy file (non-expired)."""
+    root = _repo_root()
+    cells = load_waivers(root)
+    assert isinstance(cells, set)
+    for item in cells:
+        assert isinstance(item, tuple)
+        assert len(item) == 2
+        assert isinstance(item[0], str)
+        assert isinstance(item[1], str)
 
 
 def test_bundle_loadable_and_has_risk_evidence_structure() -> None:

@@ -1,0 +1,12 @@
+{
+  "allow_network": false,
+  "git_sha": "d8a110a1dd9f07ad85b9bd527ae15be8b6ef1de1",
+  "llm_backend_id": "none",
+  "llm_model_id": null,
+  "partner_id": null,
+  "pipeline_mode": "deterministic",
+  "policy_fingerprint": null,
+  "profile": "minimal",
+  "seed_base": 100,
+  "timestamp": "1970-01-01T00:01:40Z"
+}

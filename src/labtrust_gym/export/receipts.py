@@ -12,8 +12,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from pathlib import Path
 from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 from labtrust_gym.util.json_utils import canonical_json
 from labtrust_gym.engine.signatures import (
@@ -25,19 +28,162 @@ from labtrust_gym.engine.signatures import (
 from labtrust_gym.tools.registry import combined_policy_fingerprint
 
 RECEIPT_VERSION = "0.1"
+
+
+def _policy_yaml_fingerprint(path: Path) -> str:
+    """Compute SHA-256 of canonical JSON of loaded YAML. Returns empty string if file missing or error."""
+    try:
+        from labtrust_gym.policy.loader import load_yaml
+
+        data = load_yaml(path)
+        payload = json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+    except Exception:
+        return ""
+
+
+def _compute_bundle_fingerprints_from_policy(policy_root: Path) -> dict[str, str]:
+    """
+    Compute coordination, memory, rbac, and tool_registry fingerprints from policy_root.
+    Returns dict with keys coordination_policy_fingerprint, memory_policy_fingerprint,
+    rbac_policy_fingerprint, tool_registry_fingerprint (value "" if not available).
+    Best-effort: missing files yield empty string. For release use compute_bundle_fingerprints_required.
+    """
+    from labtrust_gym.config import policy_path
+
+    out: dict[str, str] = {
+        "coordination_policy_fingerprint": "",
+        "memory_policy_fingerprint": "",
+        "rbac_policy_fingerprint": "",
+        "tool_registry_fingerprint": "",
+    }
+    path_coord = policy_path(policy_root, "coordination_identity_policy.v0.1.yaml")
+    if path_coord.exists():
+        out["coordination_policy_fingerprint"] = _policy_yaml_fingerprint(path_coord)
+    path_mem = policy_path(policy_root, "memory_policy.v0.1.yaml")
+    if path_mem.exists():
+        out["memory_policy_fingerprint"] = _policy_yaml_fingerprint(path_mem)
+    try:
+        from labtrust_gym.auth.authorize import rbac_policy_fingerprint
+        from labtrust_gym.engine.rbac import load_rbac_policy
+
+        rbac_path = policy_path(policy_root, "rbac", "rbac_policy.v0.1.yaml")
+        rbac_policy = load_rbac_policy(rbac_path)
+        if rbac_policy and rbac_policy.get("roles"):
+            out["rbac_policy_fingerprint"] = rbac_policy_fingerprint(rbac_policy)
+    except Exception:
+        pass
+    try:
+        from labtrust_gym.tools.registry import load_tool_registry, tool_registry_fingerprint
+
+        registry = load_tool_registry(policy_root)
+        if registry:
+            out["tool_registry_fingerprint"] = tool_registry_fingerprint(registry)
+    except Exception:
+        pass
+    return out
+
+
+def _required_yaml_fingerprint(
+    policy_root: Path,
+    path_suffix: str,
+    key: str,
+) -> str:
+    """
+    Resolve path via policy_path(policy_root, path_suffix), require file exists,
+    log path, compute YAML fingerprint; raise PolicyPathError if missing or empty.
+    """
+    from labtrust_gym.config import policy_path
+    from labtrust_gym.errors import PolicyPathError
+
+    path = policy_path(policy_root, path_suffix)
+    if not path.exists():
+        raise PolicyPathError(f"required for {key}: {path} not found")
+    logger.info("%s from %s", key, path)
+    fp = _policy_yaml_fingerprint(path)
+    if not fp:
+        raise PolicyPathError(f"failed to compute fingerprint from {path}")
+    return fp
+
+
+def compute_bundle_fingerprints_required(policy_root: Path) -> dict[str, str]:
+    """
+    Compute all four required bundle fingerprints for release. Raises PolicyPathError
+    if any required policy file is missing or unreadable. Use this from package_release
+    so EvidenceBundle manifests always include rbac, tool_registry, coordination, memory.
+    """
+    from labtrust_gym.config import policy_path
+    from labtrust_gym.errors import PolicyPathError
+
+    policy_root = Path(policy_root)
+    out: dict[str, str] = {}
+
+    out["coordination_policy_fingerprint"] = _required_yaml_fingerprint(
+        policy_root,
+        "coordination_identity_policy.v0.1.yaml",
+        "coordination_policy_fingerprint",
+    )
+    out["memory_policy_fingerprint"] = _required_yaml_fingerprint(
+        policy_root,
+        "memory_policy.v0.1.yaml",
+        "memory_policy_fingerprint",
+    )
+
+    rbac_path = policy_path(policy_root, "rbac", "rbac_policy.v0.1.yaml")
+    if not rbac_path.exists():
+        raise PolicyPathError(f"required for rbac_policy_fingerprint: {rbac_path} not found")
+    logger.info("rbac_policy_fingerprint from %s", rbac_path)
+    try:
+        from labtrust_gym.auth.authorize import rbac_policy_fingerprint as rbac_fp_fn
+        from labtrust_gym.engine.rbac import load_rbac_policy
+
+        rbac_policy = load_rbac_policy(rbac_path)
+        if not rbac_policy or not rbac_policy.get("roles"):
+            raise PolicyPathError(f"rbac policy at {rbac_path} has no roles")
+        out["rbac_policy_fingerprint"] = rbac_fp_fn(rbac_policy)
+    except PolicyPathError:
+        raise
+    except Exception as e:
+        raise PolicyPathError(f"rbac_policy_fingerprint from {rbac_path}: {e}") from e
+    if not out["rbac_policy_fingerprint"]:
+        raise PolicyPathError(f"failed to compute fingerprint from {rbac_path}")
+
+    path_tool = policy_path(policy_root, "tool_registry.v0.1.yaml")
+    if not path_tool.exists():
+        raise PolicyPathError(
+            f"required for tool_registry_fingerprint: {path_tool} not found"
+        )
+    logger.info("tool_registry_fingerprint from %s", path_tool)
+    try:
+        from labtrust_gym.tools.registry import load_tool_registry, tool_registry_fingerprint
+
+        registry = load_tool_registry(policy_root)
+        if not registry or not registry.get("tool_registry"):
+            raise PolicyPathError(f"tool registry at {path_tool} empty or invalid")
+        out["tool_registry_fingerprint"] = tool_registry_fingerprint(registry)
+    except PolicyPathError:
+        raise
+    except Exception as e:
+        raise PolicyPathError(f"tool_registry_fingerprint from {path_tool}: {e}") from e
+    if not out["tool_registry_fingerprint"]:
+        raise PolicyPathError(f"failed to compute fingerprint from {path_tool}")
+
+    return out
+
+
 MANIFEST_VERSION = "0.1"
 EVIDENCE_BUNDLE_DIR = "EvidenceBundle.v0.1"
 
 
 def load_episode_log(path: Path) -> list[dict[str, Any]]:
-    """Load episode log JSONL; one dict per line. Deterministic order."""
+    """Load episode log JSONL (one dict per line). Reads line-by-line to avoid loading whole file."""
     entries: list[dict[str, Any]] = []
-    text = path.read_text(encoding="utf-8")
-    for line in text.strip().splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        entries.append(json.loads(line))
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            entries.append(json.loads(line))
     return entries
 
 
@@ -507,6 +653,7 @@ def write_evidence_bundle(
     prompt_sha256: str | None = None,
     allowed_actions_payload_sha256: str | None = None,
     coordination_policy_fingerprint: str | None = None,
+    memory_policy_fingerprint: str | None = None,
     prompt_fingerprint_inputs: dict[str, Any] | None = None,
     get_private_key: Callable[[str], bytes | None] | None = None,
     sign_key_id: str | None = None,
@@ -641,6 +788,8 @@ def write_evidence_bundle(
         manifest["allowed_actions_payload_sha256"] = allowed_actions_payload_sha256
     if coordination_policy_fingerprint is not None:
         manifest["coordination_policy_fingerprint"] = coordination_policy_fingerprint
+    if memory_policy_fingerprint is not None:
+        manifest["memory_policy_fingerprint"] = memory_policy_fingerprint
     manifest["signature"] = None
 
     for rel in sorted(written_files):
@@ -677,6 +826,8 @@ def export_receipts(
     policy_root: Path | None = None,
     tool_registry_fingerprint: str | None = None,
     rbac_policy_fingerprint: str | None = None,
+    coordination_policy_fingerprint: str | None = None,
+    memory_policy_fingerprint: str | None = None,
 ) -> Path:
     """
     Load episode log from run_path (JSONL), build receipts, write EvidenceBundle.v0.1 to out_dir.
@@ -727,6 +878,36 @@ def export_receipts(
     pid = partner_id or (entries[0].get("partner_id") if entries else None)
     tr_fp = tool_registry_fingerprint or (entries[0].get("tool_registry_fingerprint") if entries else None)
     rbac_fp = rbac_policy_fingerprint or (entries[0].get("rbac_policy_fingerprint") if entries else None)
+    coord_fp = coordination_policy_fingerprint or (entries[0].get("coordination_policy_fingerprint") if entries else None)
+    mem_fp = memory_policy_fingerprint or (entries[0].get("memory_policy_fingerprint") if entries else None)
+
+    if policy_root is not None:
+        computed = _compute_bundle_fingerprints_from_policy(Path(policy_root))
+        if not tr_fp and computed.get("tool_registry_fingerprint"):
+            tr_fp = computed["tool_registry_fingerprint"]
+        if not rbac_fp and computed.get("rbac_policy_fingerprint"):
+            rbac_fp = computed["rbac_policy_fingerprint"]
+        if not coord_fp and computed.get("coordination_policy_fingerprint"):
+            coord_fp = computed["coordination_policy_fingerprint"]
+        if not mem_fp and computed.get("memory_policy_fingerprint"):
+            mem_fp = computed["memory_policy_fingerprint"]
+        # Fallback: if any fingerprint still missing, try get_repo_root() (e.g. when policy_root is relative or wrong cwd)
+        if (not tr_fp or not rbac_fp or not coord_fp or not mem_fp):
+            try:
+                from labtrust_gym.config import get_repo_root
+                alt_root = get_repo_root()
+                if alt_root != policy_root:
+                    alt_computed = _compute_bundle_fingerprints_from_policy(Path(alt_root))
+                    if not tr_fp and alt_computed.get("tool_registry_fingerprint"):
+                        tr_fp = alt_computed["tool_registry_fingerprint"]
+                    if not rbac_fp and alt_computed.get("rbac_policy_fingerprint"):
+                        rbac_fp = alt_computed["rbac_policy_fingerprint"]
+                    if not coord_fp and alt_computed.get("coordination_policy_fingerprint"):
+                        coord_fp = alt_computed["coordination_policy_fingerprint"]
+                    if not mem_fp and alt_computed.get("memory_policy_fingerprint"):
+                        mem_fp = alt_computed["memory_policy_fingerprint"]
+            except Exception:
+                pass
 
     run_dir = run_path.parent if run_path.is_file() else Path(run_path)
     coord_meta: dict[str, Any] = {}
@@ -760,6 +941,7 @@ def export_receipts(
         prompt_template_id=coord_meta.get("prompt_template_id"),
         prompt_sha256=coord_meta.get("prompt_sha256"),
         allowed_actions_payload_sha256=coord_meta.get("allowed_actions_payload_sha256"),
-        coordination_policy_fingerprint=coord_meta.get("coordination_policy_fingerprint"),
+        coordination_policy_fingerprint=coord_meta.get("coordination_policy_fingerprint") or coord_fp,
+        memory_policy_fingerprint=mem_fp,
         prompt_fingerprint_inputs=prompt_inputs,
     )

@@ -4,10 +4,13 @@
 
 version: "0.1"
 description: "Method, scale, and injection lists for coordination security pack; default = fixed (backward compatible)."
+# When true (default), pack fails if any injection_id is reserved (NoOp); "none" baseline always allowed.
+disallow_reserved_injections: true
 
 # Default fixed matrix (same as previous hardcoded PACK_*)
 # full: canonical list of coordination methods to security-stress (all from coordination_methods.v0.1 minus exclusions).
-# Exclusions: marl_ppo (no checkpoint in repo), group_evolving_study (study-only; excluded from pack).
+# full_llm: LLM-based coordination methods only (llm_based: true in coordination_methods.v0.1.yaml); use for comparing LLM coordination strategies.
+# Exclusions for full: marl_ppo (no checkpoint in repo), group_evolving_study (study-only; excluded from pack).
 method_ids:
   default:
     - kernel_auction_whca_shielded

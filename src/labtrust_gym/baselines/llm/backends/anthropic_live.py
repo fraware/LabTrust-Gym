@@ -353,7 +353,9 @@ class AnthropicLiveBackend:
             "action_proposal": out,
         }
         if self._trace_collector is not None:
-            self._trace_collector.record(messages, raw, prompt_sha256, usage)
+            usage_with_latency = dict(usage)
+            usage_with_latency["latency_ms"] = round(latency_ms, 2)
+            self._trace_collector.record(messages, raw, prompt_sha256, usage_with_latency)
         return out
 
     def generate(self, messages: list[dict[str, str]]) -> str:

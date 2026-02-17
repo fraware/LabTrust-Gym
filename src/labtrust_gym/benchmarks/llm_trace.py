@@ -77,15 +77,27 @@ class LLMTraceCollector:
             json.dump(aggregate, f, indent=2, sort_keys=True)
 
     def _aggregate_usage(self) -> dict[str, Any]:
-        """Aggregate usage across all calls."""
+        """Aggregate usage across all calls; include per-call latency when present."""
         total_prompt = sum(u.get("prompt_tokens", 0) for u in self._usage_list)
         total_completion = sum(u.get("completion_tokens", 0) for u in self._usage_list)
         total_tokens = sum(u.get("total_tokens", 0) for u in self._usage_list)
         n = len(self._usage_list)
-        return {
+        out: dict[str, Any] = {
             "num_calls": n,
             "total_prompt_tokens": total_prompt,
             "total_completion_tokens": total_completion,
             "total_tokens": total_tokens,
             "per_call": self._usage_list,
         }
+        latencies = [
+            u["latency_ms"] for u in self._usage_list
+            if u.get("latency_ms") is not None
+        ]
+        if latencies:
+            out["latency_ms"] = {
+                "min": min(latencies),
+                "max": max(latencies),
+                "mean": sum(latencies) / len(latencies),
+                "sum": sum(latencies),
+            }
+        return out

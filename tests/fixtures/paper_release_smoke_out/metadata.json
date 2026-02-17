@@ -1,0 +1,12 @@
+{
+  "allow_network": false,
+  "episodes_baselines": 1,
+  "episodes_study_taskf": 2,
+  "git_sha": "d8a110a1dd9f07ad85b9bd527ae15be8b6ef1de1",
+  "llm_backend_id": "none",
+  "llm_model_id": null,
+  "pipeline_mode": "deterministic",
+  "profile": "paper_v0.1",
+  "seed_base": 42,
+  "timestamp": "1970-01-01T00:00:42Z"
+}
