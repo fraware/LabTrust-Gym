@@ -25,6 +25,12 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Coordination methods audit](coordination_methods_audit.md) | Method audit. |
 | [Lab coordination report](lab_coordination_report.md) | Canonical hospital lab flow. |
 
+## Risk and coverage
+
+| Document | Description |
+|----------|-------------|
+| [Method and pack matrix](../risk-and-security/method_and_pack_matrix.md) | Method x risk coverage and pack (method x scale x injection) views; scale taxonomy (number of agents); CLI and CSV export. |
+
 ## How-to
 
 | Document | Description |

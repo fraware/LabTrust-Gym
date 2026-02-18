@@ -30,6 +30,9 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | export-risk-register | `--out <dir>` or `--out <dir> --runs tests/fixtures/ui_fixtures` | 0 | `<out>/RISK_REGISTER_BUNDLE.v0.1.json` | risk_register_contract.v0.1.md |
 | build-risk-register-bundle | `--out <path>` | 0 | `<path>` (risk_register_bundle.v0.1.json) | risk_register_contract.v0.1.md |
 | validate-coverage | `--bundle <path>` or `--out <dir>` (bundle in dir) | 0 or 1 | (none; reports on stderr; exit 1 with `--strict` if any required_bench cell has no evidence) | risk_register.md |
+| show-method-risk-matrix | (none) or `--format table\|csv\|markdown` `--out <path>` | 0 or 1 | stdout or `<path>` (method x risk table/csv/markdown from method_risk_matrix.v0.1.yaml) | method_and_pack_matrix.md |
+| show-pack-matrix | (none) or `--matrix-preset hospital_lab` `--format table\|csv\|markdown` `--out <path>` | 0 or 1 | stdout or `<path>` (method x scale x injection with scale taxonomy; from coordination_security_pack) | method_and_pack_matrix.md |
+| show-pack-results | `--run <dir>` (pack run with pack_summary.csv, SECURITY/coordination_risk_matrix.*) `--format markdown\|table\|csv` `--out <path>` | 0 or 1 | stdout or `<path>` (result matrix with real metrics and verdicts; no placeholders) | method_and_pack_matrix.md |
 | run-study | `--spec <yaml> --out <dir>` | 0 | `<out>/` (condition dirs, results, manifest) | studies.md |
 | run-coordination-study | `--spec <yaml> --out <dir>` | 0 | `<out>/summary/summary_coord.csv`, `summary/pareto.md`, cells/ | coordination_studies.md |
 | run-coordination-security-pack | `--out <dir> --seed 42` | 0 | `<out>/pack_summary.csv`, `pack_gate.md`, `pack_results/` | security_attack_suite.md |

@@ -275,6 +275,12 @@ def main() -> int:
         help="Injections: fixed (config default), critical (short list), policy (injections.v0.2 + registry), or path to file.",
     )
     p_coord_security_pack.add_argument(
+        "--scales-from",
+        default="default",
+        choices=("default", "full"),
+        help="Scales: default (2 scales), full (all 3 scales: small_smoke, medium_stress_signed_bus, corridor_heavy).",
+    )
+    p_coord_security_pack.add_argument(
         "--matrix-preset",
         default=None,
         metavar="NAME",
@@ -284,6 +290,25 @@ def main() -> int:
         "--partner",
         default=None,
         help="Partner overlay ID (e.g. hsl_like); effective policy merged for each pack cell.",
+    )
+    p_coord_security_pack.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Number of parallel workers for pack cells (default 1 = sequential). Use e.g. 4 or 8 to speed up large matrices.",
+    )
+    p_coord_security_pack.add_argument(
+        "--llm-backend",
+        default=None,
+        metavar="BACKEND",
+        choices=("deterministic", "openai_live", "openai_responses", "ollama_live", "anthropic_live", "openai_hosted"),
+        help="LLM backend for coordination/agents (default: deterministic). Use openai_live etc. to benchmark LLM methods with live API; requires --allow-network.",
+    )
+    p_coord_security_pack.add_argument(
+        "--allow-network",
+        action="store_true",
+        help="Allow network for live LLM backends (required when --llm-backend is openai_live, ollama_live, etc.).",
     )
     p_coord_security_pack.set_defaults(func=_run_coordination_security_pack)
     p_build_matrix = sub.add_parser(
@@ -693,6 +718,78 @@ def main() -> int:
         help="Fail (exit 1) if any required_bench (method_id, risk_id) has no present evidence and is not waived",
     )
     p_validate_cov.set_defaults(func=_run_validate_coverage)
+    p_show_risk_matrix = sub.add_parser(
+        "show-method-risk-matrix",
+        help="Print or export method x risk coverage matrix (from policy/coordination/method_risk_matrix.v0.1.yaml).",
+    )
+    p_show_risk_matrix.add_argument(
+        "--format",
+        choices=("table", "csv", "markdown"),
+        default="table",
+        help="Output format: table (terminal), csv (Excel), markdown.",
+    )
+    p_show_risk_matrix.add_argument(
+        "--out",
+        default=None,
+        metavar="PATH",
+        help="Write output to file (default: stdout).",
+    )
+    p_show_risk_matrix.add_argument(
+        "--policy-root",
+        default=None,
+        help="Policy root (default: repo root); matrix YAML path under policy/coordination/.",
+    )
+    p_show_risk_matrix.set_defaults(func=_run_show_method_risk_matrix)
+    p_show_pack_matrix = sub.add_parser(
+        "show-pack-matrix",
+        help="Print or export pack matrix (method x scale x injection) with scale taxonomy (num_agents).",
+    )
+    p_show_pack_matrix.add_argument(
+        "--format",
+        choices=("table", "csv", "markdown"),
+        default="table",
+        help="Output format: table (terminal), csv (Excel), markdown.",
+    )
+    p_show_pack_matrix.add_argument(
+        "--matrix-preset",
+        default=None,
+        help="Use matrix preset from coordination_security_pack (e.g. hospital_lab).",
+    )
+    p_show_pack_matrix.add_argument(
+        "--out",
+        default=None,
+        metavar="PATH",
+        help="Write output to file (default: stdout).",
+    )
+    p_show_pack_matrix.add_argument(
+        "--policy-root",
+        default=None,
+        help="Policy root (default: repo root).",
+    )
+    p_show_pack_matrix.set_defaults(func=_run_show_pack_matrix)
+    p_show_pack_results = sub.add_parser(
+        "show-pack-results",
+        help="Show result matrix from a completed pack run (real results from run-coordination-security-pack).",
+    )
+    p_show_pack_results.add_argument(
+        "--run",
+        required=True,
+        metavar="DIR",
+        help="Pack run directory containing pack_summary.csv and SECURITY/coordination_risk_matrix.*",
+    )
+    p_show_pack_results.add_argument(
+        "--format",
+        choices=("markdown", "table", "csv"),
+        default="markdown",
+        help="Output format: markdown (full matrix with verdicts), table (terminal), csv.",
+    )
+    p_show_pack_results.add_argument(
+        "--out",
+        default=None,
+        metavar="PATH",
+        help="Write output to file (default: stdout).",
+    )
+    p_show_pack_results.set_defaults(func=_run_show_pack_results)
     p_repro = sub.add_parser(
         "reproduce",
         help="Reproduce minimal results and figures (study sweep + plots)",
@@ -1860,6 +1957,79 @@ def _run_validate_coverage(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_show_method_risk_matrix(args: argparse.Namespace) -> int:
+    """Print or export method x risk matrix (table/csv/markdown)."""
+    from labtrust_gym.policy.coordination import load_method_risk_matrix
+    from labtrust_gym.studies.matrix_view import format_method_risk_matrix
+
+    root = Path(args.policy_root) if getattr(args, "policy_root", None) else get_repo_root()
+    if not root.is_absolute():
+        root = get_repo_root() / root
+    matrix_path = root / "policy" / "coordination" / "method_risk_matrix.v0.1.yaml"
+    if not matrix_path.is_file():
+        print(f"Matrix not found: {matrix_path}", file=sys.stderr)
+        return 1
+    try:
+        matrix = load_method_risk_matrix(matrix_path)
+    except Exception as e:
+        print(f"Failed to load matrix: {e}", file=sys.stderr)
+        return 1
+    out_fmt = getattr(args, "format", "table")
+    text = format_method_risk_matrix(matrix, output_format=out_fmt)
+    out_path = getattr(args, "out", None)
+    if out_path:
+        Path(out_path).write_text(text, encoding="utf-8")
+        print(f"Wrote {out_path}", file=sys.stderr)
+    else:
+        print(text)
+    return 0
+
+
+def _run_show_pack_matrix(args: argparse.Namespace) -> int:
+    """Print or export pack matrix (method x scale x injection) with scale taxonomy."""
+    from labtrust_gym.studies.matrix_view import format_pack_matrix
+
+    root = Path(args.policy_root) if getattr(args, "policy_root", None) else get_repo_root()
+    if not root.is_absolute():
+        root = get_repo_root() / root
+    preset = getattr(args, "matrix_preset", None)
+    out_fmt = getattr(args, "format", "table")
+    text = format_pack_matrix(
+        root,
+        matrix_preset=preset,
+        output_format=out_fmt,
+        include_scale_taxonomy=True,
+    )
+    out_path = getattr(args, "out", None)
+    if out_path:
+        Path(out_path).write_text(text, encoding="utf-8")
+        print(f"Wrote {out_path}", file=sys.stderr)
+    else:
+        print(text)
+    return 0
+
+
+def _run_show_pack_results(args: argparse.Namespace) -> int:
+    """Show result matrix from a completed pack run (real results)."""
+    from labtrust_gym.studies.matrix_view import format_pack_results_from_run
+
+    run_dir = Path(getattr(args, "run", ""))
+    if not run_dir.is_absolute():
+        run_dir = get_repo_root() / run_dir
+    if not run_dir.is_dir():
+        print(f"Run directory not found: {run_dir}", file=sys.stderr)
+        return 1
+    out_fmt = getattr(args, "format", "markdown")
+    text = format_pack_results_from_run(run_dir, output_format=out_fmt)
+    out_path = getattr(args, "out", None)
+    if out_path:
+        Path(out_path).write_text(text, encoding="utf-8")
+        print(f"Wrote {out_path}", file=sys.stderr)
+    else:
+        print(text)
+    return 0
+
+
 def _run_export_fhir(args: argparse.Namespace) -> int:
     """Export FHIR R4 Bundle from receipts directory."""
     from labtrust_gym.export.fhir_r4 import export_fhir
@@ -2320,16 +2490,24 @@ def _run_coordination_security_pack(args: argparse.Namespace) -> int:
     seed_base = getattr(args, "seed", 42)
     methods_from = getattr(args, "methods_from", "fixed")
     injections_from = getattr(args, "injections_from", "fixed")
+    scales_from = getattr(args, "scales_from", "default")
     matrix_preset = getattr(args, "matrix_preset", None)
     partner_id = _get_partner_id(args)
+    workers = max(1, int(getattr(args, "workers", 1)))
+    llm_backend = getattr(args, "llm_backend", None)
+    allow_network = getattr(args, "allow_network", False)
     run_coordination_security_pack(
         out_dir=out_dir,
         repo_root=root,
         seed_base=seed_base,
         methods_from=methods_from,
         injections_from=injections_from,
+        scales_from=scales_from,
         matrix_preset=matrix_preset,
         partner_id=partner_id,
+        workers=workers,
+        llm_backend=llm_backend,
+        allow_network=allow_network,
     )
     print(f"Coordination security pack written to {out_dir}", file=sys.stderr)
     return 0
