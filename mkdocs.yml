@@ -84,6 +84,8 @@ nav:
     - Prompt-injection defense: risk-and-security/prompt_injection_defense.md
     - Security controls (online): risk-and-security/security_online.md
     - Output controls: risk-and-security/output_controls.md
+    - Gate and required bench: risk-and-security/gate_and_required_bench.md
+    - Method and pack matrix: risk-and-security/method_and_pack_matrix.md
     - Partner calibration: risk-and-security/partner_calibration.md
   - Export:
     - export/index.md

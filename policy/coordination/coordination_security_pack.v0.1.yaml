@@ -11,6 +11,7 @@ disallow_reserved_injections: true
 # full: canonical list of coordination methods to security-stress (all from coordination_methods.v0.1 minus exclusions).
 # full_llm: LLM-based coordination methods only (llm_based: true in coordination_methods.v0.1.yaml); use for comparing LLM coordination strategies.
 # Exclusions for full: marl_ppo (no checkpoint in repo), group_evolving_study (study-only; excluded from pack).
+# full: all coordination methods built in the repo (kernels, deterministic baselines, LLM methods).
 method_ids:
   default:
     - kernel_auction_whca_shielded
@@ -18,10 +19,14 @@ method_ids:
     - llm_local_decider_signed_bus
   full:
     - centralized_planner
+    - consensus_paxos_lite
     - gossip_consensus
     - group_evolving_experience_sharing
     - hierarchical_hub_local
     - hierarchical_hub_rr
+    - kernel_auction_edf
+    - kernel_auction_whca
+    - kernel_auction_whca_shielded
     - kernel_centralized_edf
     - kernel_scheduler_or
     - kernel_scheduler_or_whca
@@ -43,14 +48,22 @@ method_ids:
     - market_auction
     - ripple_effect
     - swarm_reactive
+    - swarm_stigmergy_priority
 
+# Scales: default = 2 (fast); full = all 3 from scale_configs.v0.1.yaml.
 scale_ids:
   default:
     - small_smoke
     - medium_stress_signed_bus
+  full:
+    - small_smoke
+    - medium_stress_signed_bus
+    - corridor_heavy
 
 # Matrix presets: single flag runs a tailored matrix (scale_ids + method_ids + injection_ids).
-# hospital_lab: lab-suited scales, kernel + shielded LLM methods, critical injections.
+# hospital_lab: lab-suited scales, 4 methods, critical injections (fast regression).
+# hospital_lab_full: same scales and injections as hospital_lab but all coordination methods (full benchmark).
+# full_matrix: all scales, all methods, all injections (policy = injections.v0.2 + registry). Large run.
 matrix_presets:
   hospital_lab:
     scale_ids:
@@ -66,6 +79,85 @@ matrix_presets:
       - INJ-ID-SPOOF-001
       - INJ-COMMS-POISON-001
       - INJ-COORD-PROMPT-INJECT-001
+  hospital_lab_full:
+    scale_ids:
+      - small_smoke
+      - medium_stress_signed_bus
+    method_ids:
+      - centralized_planner
+      - consensus_paxos_lite
+      - gossip_consensus
+      - group_evolving_experience_sharing
+      - hierarchical_hub_local
+      - hierarchical_hub_rr
+      - kernel_auction_edf
+      - kernel_auction_whca
+      - kernel_auction_whca_shielded
+      - kernel_centralized_edf
+      - kernel_scheduler_or
+      - kernel_scheduler_or_whca
+      - kernel_whca
+      - llm_auction_bidder
+      - llm_auction_bidder_shielded
+      - llm_auction_bidder_with_safe_fallback
+      - llm_central_planner
+      - llm_central_planner_shielded
+      - llm_central_planner_with_safe_fallback
+      - llm_constrained
+      - llm_detector_throttle_advisor
+      - llm_gossip_summarizer
+      - llm_hierarchical_allocator
+      - llm_hierarchical_allocator_shielded
+      - llm_hierarchical_allocator_with_safe_fallback
+      - llm_local_decider_signed_bus
+      - llm_repair_over_kernel_whca
+      - market_auction
+      - ripple_effect
+      - swarm_reactive
+      - swarm_stigmergy_priority
+    injection_ids:
+      - none
+      - INJ-ID-SPOOF-001
+      - INJ-COMMS-POISON-001
+      - INJ-COORD-PROMPT-INJECT-001
+  full_matrix:
+    scale_ids:
+      - small_smoke
+      - medium_stress_signed_bus
+      - corridor_heavy
+    method_ids:
+      - centralized_planner
+      - consensus_paxos_lite
+      - gossip_consensus
+      - group_evolving_experience_sharing
+      - hierarchical_hub_local
+      - hierarchical_hub_rr
+      - kernel_auction_edf
+      - kernel_auction_whca
+      - kernel_auction_whca_shielded
+      - kernel_centralized_edf
+      - kernel_scheduler_or
+      - kernel_scheduler_or_whca
+      - kernel_whca
+      - llm_auction_bidder
+      - llm_auction_bidder_shielded
+      - llm_auction_bidder_with_safe_fallback
+      - llm_central_planner
+      - llm_central_planner_shielded
+      - llm_central_planner_with_safe_fallback
+      - llm_constrained
+      - llm_detector_throttle_advisor
+      - llm_gossip_summarizer
+      - llm_hierarchical_allocator
+      - llm_hierarchical_allocator_shielded
+      - llm_hierarchical_allocator_with_safe_fallback
+      - llm_local_decider_signed_bus
+      - llm_repair_over_kernel_whca
+      - market_auction
+      - ripple_effect
+      - swarm_reactive
+      - swarm_stigmergy_priority
+    injection_ids: "policy"
 
 # Injection list "default" = fixed set; "critical" = short high-signal subset; "policy" = all from injections.v0.2 that exist in INJECTION_REGISTRY (loaded at runtime).
 injection_ids:

@@ -27,4 +27,5 @@ Risk register, viewer, injections, security suite, monitoring, and controls.
 | [Security controls (online)](security_online.md) | Controls for online mode. |
 | [Output controls (B009)](output_controls.md) | Output controls. |
 | [Gate and required bench](gate_and_required_bench.md) | Coordination security pack gate thresholds and required benchmark plan (evidence coverage). |
+| [Method and pack matrix](method_and_pack_matrix.md) | Method x risk coverage and pack (method x scale x injection) views; result matrix with real results (show-pack-results); scale taxonomy; CLI and CSV export. |
 | [Partner calibration](partner_calibration.md) | Partner calibration. |
