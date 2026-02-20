@@ -1,9 +1,10 @@
 """
-Coordination result aggregation: SOTA leaderboard and method-class comparison.
+Coordination result aggregation: leaderboard and method-class comparison.
 
-Reads summary_coord.csv from a run directory, aggregates per method and per
-method class (centralized, ripple, evolving, auctions, kernel_schedulers),
-writes sota_leaderboard table and method_class_comparison table (CSV + MD).
+Reads summary_coord.csv from a coordination study run, aggregates per method
+and per method class (centralized, ripple, evolving, auctions, kernel_schedulers,
+LLM, etc.), and writes SOTA (state of the art) leaderboard and method-class
+comparison tables (CSV and markdown).
 """
 
 from __future__ import annotations

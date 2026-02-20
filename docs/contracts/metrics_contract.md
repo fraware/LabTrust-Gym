@@ -4,6 +4,8 @@ This document defines units, when each metric is meaningful (explicit vs simulat
 
 **Schema alignment:** The per-episode metrics table below is the source of truth for result fields. The JSON schema `policy/schemas/results.v0.2.schema.json` (and v0.3) should stay aligned with this table when adding or changing metrics.
 
+**Pipeline and audit:** Result and summary files are pipeline-agnostic in schema (same metrics regardless of pipeline mode). Every benchmark result file records **pipeline_mode** (`deterministic` | `llm_offline` | `llm_live`), **llm_backend_id**, **allow_network**, and **non_deterministic** for audit. Deterministic runs are required for baseline regression and for the canonical official baselines under `benchmarks/baselines_official/v0.2/results/`.
+
 ## Timing modes
 
 - **explicit**: Step timestamps only; no device completion times. p95 TAT is derived from step times. Device utilization and queue-length stats are not produced.

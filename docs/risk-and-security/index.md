@@ -2,6 +2,12 @@
 
 Risk register, viewer, injections, security suite, monitoring, and controls.
 
+## Trust and verification
+
+| Document | Description |
+|----------|-------------|
+| [Trust verification](trust_verification.md) | Verification chain, EvidenceBundles, risk register coverage, and artifact-to-concern mapping; what each step proves and how to run or inspect it. |
+
 ## Risk register
 
 | Document | Description |

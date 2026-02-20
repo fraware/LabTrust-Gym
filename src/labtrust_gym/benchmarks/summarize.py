@@ -1,7 +1,10 @@
 """
-Summarize benchmark results: load multiple results.json, aggregate by task + baseline + partner_id,
-output wide CSV + markdown table (mean/std for throughput, TAT, on_time_rate, violations, etc.).
-Emits summary_v0.2.csv (CI-stable, same semantics as before) and summary_v0.3.csv (paper-grade: quantiles, CI).
+Summarize benchmark results from multiple results.json files.
+
+Loads one or more results.json, aggregates by task, baseline, and partner_id,
+and writes wide CSV and markdown tables (mean, std, and optionally quantiles
+and confidence intervals). Emits summary_v0.2.csv (CI-stable) and
+summary_v0.3.csv (paper-grade with quantiles). Used by the CLI and release pipeline.
 """
 
 from __future__ import annotations
@@ -10,8 +13,9 @@ import json
 import math
 import statistics
 from collections import defaultdict
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 RESULTS_SCHEMA_VERSION = "0.2"
 RESULTS_SCHEMA_VERSION_V03 = "0.3"

@@ -1,8 +1,11 @@
 """
-Token store in env state: mint, consume, revoke, is_valid.
+In-engine token store: mint, consume, revoke, and validity checks.
 
-- Replay protection: consumed/expired/revoked invalid.
-- Lifecycle: ACTIVE -> CONSUMED, ACTIVE -> REVOKED, ACTIVE -> EXPIRED.
+Tokens represent authorizations or capabilities (e.g. dual approval, drift
+override). Once consumed or revoked, a token is invalid for replay
+protection; expired tokens are also invalid. Lifecycle: ACTIVE can become
+CONSUMED, REVOKED, or EXPIRED. The engine uses this store for token_refs
+on actions and for invariant checks.
 """
 
 from __future__ import annotations

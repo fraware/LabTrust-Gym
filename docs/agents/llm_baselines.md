@@ -79,6 +79,12 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 - Same **seed** + same call order ⇒ same action sequence. Use as deterministic baseline for reproducible evaluation and offline CI. Enable via CLI: `labtrust run-benchmark --llm-backend deterministic_constrained` (default when `--use-llm-safe-v1-ops` is used).
 - Always returns **rationale**: `"deterministic baseline"`.
 
+### DeterministicPolicyBackend (optional, preference-order policy)
+
+- **Optional** backend for llm_offline only; not required for CI. Chooses from **allowed_actions** using a fixed **preference order** (e.g. START_RUN, QUEUE_RUN, MOVE, TICK, NOOP); seeded RNG breaks ties.
+- Same interface as DeterministicConstrainedBackend. Use when you want a slightly more "productive" deterministic baseline without fixtures or live LLM. Enable via CLI: `labtrust run-benchmark --llm-backend deterministic_policy_v1 --pipeline-mode llm_offline`.
+- Module: `src/labtrust_gym/baselines/llm/deterministic_policy_backend.py`.
+
 ### OpenAIHostedBackend (OpenAI-hosted only)
 
 - **Real backend**: Uses official OpenAI SDK with `api_key` from env **OPENAI_API_KEY** only. No base_url or gateway; api.openai.com only.
@@ -109,9 +115,23 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 - **Deterministic**: **FixtureBackend** (offline lookup from fixtures; run **record-llm-fixtures** with network to populate) or **DeterministicConstrainedBackend(seed)** / **MockDeterministicBackendV2(canned=...)**. Same inputs ⇒ same actions. Required for CI; deterministic CI never performs network calls.
 - **Non-deterministic**: **OpenAIHostedBackend**, **OpenAILiveBackend**, or local Ollama. Use `--llm-backend openai_hosted` or `openai_live` with `--allow-network` for live runs. Do not compare metrics across runs without fixing seed/temperature on the provider side.
 
+## llm_offline in practice
+
+What **llm_offline** gives you in practice (no overselling):
+
+- **FixtureBackend:** Agent path only. Keyed by SHA-256 digest of the messages passed to `generate(messages)`. Coverage is one task (or a few) recorded manually via `record-llm-fixtures`. Coordination fixtures are optional: use `record-coordination-fixtures` to capture proposal/bid responses, then pass `coord_fixtures_path` to replay in llm_offline (see Coordination fixtures below).
+- **DeterministicConstrainedBackend:** Purpose is schema/CI and pipeline correctness, not policy quality. It picks a random allowed action (seeded RNG) with a fixed rationale. Use it when you need the LLM path to run in CI without fixtures or network; do not use it to evaluate "how good" the LLM is at the task.
+- **Fault injection:** Agent and coordination (proposal/bid) paths support the same fault model as repair (policy/llm/llm_fault_model.v0.1.yaml) in llm_offline. Replay-from-live: capture a live run into agent and (optionally) coordination fixtures, then replay with fixture backends and same seeds for regression and audit.
+
 ## Recording fixtures (offline-friendly design)
 
-- **record-llm-fixtures**: CLI command to populate `tests/fixtures/llm_responses/` from OpenAI responses. Run **manually** with network enabled (not in CI): `labtrust record-llm-fixtures --task insider_key_misuse --episodes 1`. Requires `OPENAI_API_KEY`. After recording, deterministic runs with `--llm-backend deterministic` use these fixtures and do not call the network.
+- **record-llm-fixtures**: CLI command to populate `tests/fixtures/llm_responses/` from live LLM responses. Run **manually** with network enabled (not in CI): `labtrust record-llm-fixtures --task insider_key_misuse --episodes 1 [--llm-backend openai_responses|openai_hosted|openai_live|anthropic_live|ollama_live]`. Use `--llm-backend` to record from any supported live backend; API keys required only for the chosen backend (e.g. `OPENAI_API_KEY` for OpenAI, `ANTHROPIC_API_KEY` for Anthropic). After recording, run with `--pipeline-mode llm_offline --llm-backend deterministic` to replay from fixtures with no network.
+
+## Coordination fixtures (optional)
+
+- Coordination fixtures let you record and replay **proposal** and **bid** backend responses for `llm_central_planner` and `llm_auction_bidder` in llm_offline. Keys are `method_id` plus SHA-256 of (state_digest, step_id, method_id, allowed_actions); stored in `tests/fixtures/llm_responses/coordination_fixtures.json`.
+- **Record:** Run once with network: `labtrust record-coordination-fixtures --task coord_risk --coord-method llm_central_planner [--llm-backend openai_live]`. This writes to `tests/fixtures/llm_responses/coordination_fixtures.json`. You can also record by passing `record_coord_fixtures_path` to `run_benchmark` when running a coord task.
+- **Replay:** Run with no network and the same fixtures dir: `labtrust run-benchmark --task coord_risk --coord-method llm_central_planner --pipeline-mode llm_offline --llm-backend deterministic` and pass `--coord-fixtures-path tests/fixtures/llm_responses` (or set `coord_fixtures_path` in the API). If a request key is missing, **FixtureMissingError** is raised with remediation to run record-coordination-fixtures.
 
 ## Safe usage
 

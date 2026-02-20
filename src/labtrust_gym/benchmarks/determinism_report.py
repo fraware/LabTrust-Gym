@@ -1,13 +1,12 @@
 """
-Determinism proof: run benchmark twice with identical args, compare hashes and v0.2 metrics.
+Determinism report: run the same benchmark twice and compare outputs.
 
-Produces determinism_report.md and determinism_report.json with sha256 of episode logs,
-results.json (canonical), and receipts bundle root hash. Asserts: v0.2 metrics identical;
-episode log hash identical. With timing=simulated, device service-time sampling is
-seeded only from the provided seed (engine RNG = base_seed + episode index per episode).
-
-Determinism budget (CI gate): hashchain must match exactly; throughput and p95 latency
-deltas must not exceed the thresholds below. Golden job fails if report passed=False.
+Runs the benchmark twice with identical arguments and produces
+determinism_report.md and determinism_report.json with SHA-256 hashes of
+episode logs, canonical results.json, and receipts. Asserts that v0.2
+metrics and episode log hashes are identical. Used as a CI gate: the golden
+job fails if the report indicates non-determinism. Thresholds (e.g. max
+throughput or p95 delta) are defined in this module.
 """
 
 from __future__ import annotations
@@ -121,6 +120,10 @@ def _run_and_hash(
     partner_id: str | None = None,
     timing_mode: str | None = None,
     coord_method: str | None = None,
+    pipeline_mode: str | None = None,
+    llm_backend: str | None = None,
+    injection_id: str | None = None,
+    allow_network: bool = False,
 ) -> tuple[dict[str, Any], str, str, str | None]:
     """
     Run benchmark once in run_dir; return (results, episode_log_sha256, results_sha256,
@@ -129,17 +132,25 @@ def _run_and_hash(
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = run_dir / "episode_log.jsonl"
     results_path = run_dir / "results.json"
-    run_benchmark(
-        task_name=task_name,
-        num_episodes=num_episodes,
-        base_seed=base_seed,
-        out_path=results_path,
-        repo_root=repo_root,
-        log_path=log_path,
-        partner_id=partner_id,
-        timing_mode=timing_mode,
-        coord_method=coord_method,
-    )
+    kwargs: dict[str, Any] = {
+        "task_name": task_name,
+        "num_episodes": num_episodes,
+        "base_seed": base_seed,
+        "out_path": results_path,
+        "repo_root": repo_root,
+        "log_path": log_path,
+        "partner_id": partner_id,
+        "timing_mode": timing_mode,
+        "coord_method": coord_method,
+        "allow_network": allow_network,
+    }
+    if pipeline_mode is not None:
+        kwargs["pipeline_mode"] = pipeline_mode
+    if llm_backend is not None:
+        kwargs["llm_backend"] = llm_backend
+    if injection_id is not None:
+        kwargs["injection_id"] = injection_id
+    run_benchmark(**kwargs)
     results = json.loads(results_path.read_text(encoding="utf-8"))
     episode_log_sha256 = _sha256_file(log_path)
     results_sha256 = _sha256_string(canonical_json(results))
@@ -173,6 +184,10 @@ def run_determinism_report(
     timing_mode: str | None = None,
     repo_root: Path | None = None,
     coord_method: str | None = None,
+    pipeline_mode: str | None = None,
+    llm_backend: str | None = None,
+    injection_id: str | None = None,
+    allow_network: bool = False,
 ) -> tuple[bool, dict[str, Any], str]:
     """
     Run benchmark twice in fresh temp dirs with identical args; compare hashes and v0.2.
@@ -181,6 +196,7 @@ def run_determinism_report(
     Asserts: episode log sha256 identical; results canonical sha256 identical;
     v0.2 metrics canonical identical; receipts bundle root identical (when export ok).
     For coord_scale/coord_risk, coord_method required (default: kernel_centralized_edf).
+    Optional pipeline_mode/llm_backend/injection_id forwarded to run_benchmark.
     """
     if repo_root is None:
         from labtrust_gym.config import get_repo_root
@@ -195,6 +211,19 @@ def run_determinism_report(
 
     errors: list[str] = []
 
+    run_kw: dict[str, Any] = {
+        "partner_id": partner_id,
+        "timing_mode": timing_mode,
+        "coord_method": coord_method,
+        "allow_network": allow_network,
+    }
+    if pipeline_mode is not None:
+        run_kw["pipeline_mode"] = pipeline_mode
+    if llm_backend is not None:
+        run_kw["llm_backend"] = llm_backend
+    if injection_id is not None:
+        run_kw["injection_id"] = injection_id
+
     with tempfile.TemporaryDirectory(prefix="labtrust_det_run1_") as td1:
         results1, log_sha1, res_sha1, bundle_hash1 = _run_and_hash(
             task_name,
@@ -202,9 +231,7 @@ def run_determinism_report(
             base_seed,
             Path(td1),
             repo_root,
-            partner_id=partner_id,
-            timing_mode=timing_mode,
-            coord_method=coord_method,
+            **run_kw,
         )
     with tempfile.TemporaryDirectory(prefix="labtrust_det_run2_") as td2:
         results2, log_sha2, res_sha2, bundle_hash2 = _run_and_hash(
@@ -213,9 +240,7 @@ def run_determinism_report(
             base_seed,
             Path(td2),
             repo_root,
-            partner_id=partner_id,
-            timing_mode=timing_mode,
-            coord_method=coord_method,
+            **run_kw,
         )
 
     if log_sha1 != log_sha2:
@@ -255,6 +280,9 @@ def run_determinism_report(
         "partner_id": partner_id,
         "timing_mode": timing_mode or "explicit",
         "coord_method": coord_method,
+        "pipeline_mode": pipeline_mode,
+        "llm_backend": llm_backend,
+        "injection_id": injection_id,
         "python_version": python_version,
         "platform": platform_s,
         "run1": run1_payload,
@@ -312,6 +340,12 @@ def run_determinism_report(
     ]
     if coord_method:
         md_lines.append(f"| Coord method | {coord_method} |")
+    if pipeline_mode is not None:
+        md_lines.append(f"| Pipeline mode | {pipeline_mode} |")
+    if llm_backend is not None:
+        md_lines.append(f"| LLM backend | {llm_backend} |")
+    if injection_id is not None:
+        md_lines.append(f"| Injection | {injection_id} |")
     md_lines.extend(
         [
             "",

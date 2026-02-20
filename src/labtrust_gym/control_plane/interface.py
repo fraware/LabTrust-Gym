@@ -1,9 +1,10 @@
 """
-Control-plane interface: gate_decision and enforcement_actions.
+Control-plane protocol: gate decision and enforcement.
 
-ControlPlane.apply(event, context) -> gate_decision, enforcement_actions.
-Used by the engine to run first gates (RBAC, tokens, signatures) and post-step enforcement
-without duplicating contract semantics.
+ControlPlane.apply(event, context) returns a GateDecision (allowed or blocked
+with reason). apply_enforcement(event, violations, ...) returns enforcement
+actions. The engine uses this to run RBAC, capability, and signature checks
+before mutating state and to apply enforcement after the step.
 """
 
 from __future__ import annotations

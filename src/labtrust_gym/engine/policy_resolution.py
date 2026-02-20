@@ -1,14 +1,18 @@
 """
-Resolve policy from effective_policy dict or from policy file path.
+Resolve a policy value from in-memory effective_policy or from disk.
 
-Used by core_env.reset() to unify "use effective_policy[key] if present,
-else load from policy_root/relative_path if exists, else default".
+Used by core_env.reset() when building initial state: for each policy key,
+use effective_policy[key] if present and valid, otherwise load from
+policy_root/relative_path if the file exists, otherwise use a default.
+This keeps scenario overrides (effective_policy) and file-based policy
+in one place.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -38,7 +42,7 @@ def load_policy_or_effective(
         else:
             valid = validate_value(val)
         if valid and val is not None:
-            return val  # type: ignore[return-value]
+            return cast(T, val)
     root = Path(policy_root) if policy_root is not None else Path(".")
     path = root / relative_path
     if not path.exists():

@@ -7,6 +7,7 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 - **Exit code:** 0 = success, 1 = failure. All commands use stderr for progress and errors; only `labtrust --version` prints to stdout.
 - **Output paths:** Commands write to explicit paths (e.g. `--out`, `--out-dir`, `--run` plus derived paths). Paths are relative to process CWD unless absolute.
 - **Schema refs:** Where applicable, output files conform to versioned schemas under `policy/schemas/` or contracts in `docs/`.
+- **Pipeline modes:** Benchmark result files (results.json and summaries built from them) always record **pipeline_mode**, **llm_backend_id**, **allow_network**, and **non_deterministic**. Regression and official baselines require deterministic pipelines. See [Outputs and results](../reference/outputs_and_results.md#11-pipeline-modes-and-result-audit) and [Metrics contract](metrics_contract.md).
 
 ## Contract table
 

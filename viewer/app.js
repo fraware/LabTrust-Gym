@@ -1,6 +1,10 @@
 /**
- * Risk Register Viewer — dataset-agnostic. Renders bundle: search, filters, risk list, risk detail.
- * No hardcoded content; swap datasets without changing this code.
+ * Risk Register Viewer — dataset-agnostic UI for RiskRegisterBundle.v0.1.
+ *
+ * Loads a risk register bundle (from file, zip, or URL) and renders search,
+ * filters, risk list, and risk detail. No hardcoded risks or evidence; swap
+ * datasets (e.g. "Load latest release") without changing this code. Bundle
+ * schema: policy/schemas/risk_register_bundle.v0.1.schema.json.
  */
 
 (function (global) {

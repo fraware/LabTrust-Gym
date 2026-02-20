@@ -1,15 +1,20 @@
-"""Security: adversarial detection, agent capabilities, secrets, fs safety (B002, B006, B008)."""
+"""
+Security controls: detection, capabilities, secrets, and path safety.
+
+Provides adversarial and prompt-injection detection, agent capability and
+override checks, secret scrubbing for logs, filesystem path checks (writes
+under runs dir, safe filename components), and risk injection for the
+coordination-risk benchmark. Re-exports the main public APIs from
+adversarial_detection, prompt_injection_defense, agent_capabilities, fs_safety,
+output_shaping, risk_injections, and secret_scrubber.
+"""
+
+from __future__ import annotations
 
 from labtrust_gym.security.adversarial_detection import (
     DetectionResult,
     detect_adversarial,
     load_adversarial_detection_policy,
-)
-from labtrust_gym.security.prompt_injection_defense import (
-    PreLLMResult,
-    load_prompt_injection_defense_policy,
-    output_consistency_check,
-    pre_llm_prompt_injection_check,
 )
 from labtrust_gym.security.agent_capabilities import (
     AGENT_CAPABILITY_DENY,
@@ -30,6 +35,12 @@ from labtrust_gym.security.output_shaping import (
     shape_llm_decision,
     shape_signature_verification,
     summary_contains_no_forbidden_fields,
+)
+from labtrust_gym.security.prompt_injection_defense import (
+    PreLLMResult,
+    load_prompt_injection_defense_policy,
+    output_consistency_check,
+    pre_llm_prompt_injection_check,
 )
 from labtrust_gym.security.risk_injections import (
     InjectionConfig,

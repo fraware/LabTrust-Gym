@@ -1,7 +1,9 @@
 /**
- * Risk Register Bundle loader — offline-first, dataset-agnostic.
- * Supports: (1) local JSON file, (2) file inside ui-export zip, (3) remote URL.
- * Default: load from local file. Remote URL is opt-in for future use.
+ * Risk Register Bundle loader for the viewer (offline-first, dataset-agnostic).
+ *
+ * Loading sources: (1) local JSON file, (2) file inside a ui-export zip,
+ * (3) remote URL, (4) "Load latest release" (viewer-data/latest/latest.json).
+ * Default: local file. Bundle schema: policy/schemas/risk_register_bundle.v0.1.schema.json.
  */
 
 (function (global) {

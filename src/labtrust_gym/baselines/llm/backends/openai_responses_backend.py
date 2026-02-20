@@ -412,6 +412,17 @@ class OpenAICoordinationProposalBackend:
             }
             return (fallback_proposal, fallback_meta)
 
+        tracer = None
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+        except Exception:
+            pass
+        if tracer is not None:
+            tracer.start_span("coord_proposal")
+            tracer.set_attribute("backend_id", BACKEND_ID)
+            tracer.set_attribute("model_id", self._model)
+
         prompt = json.dumps(
             {
                 "state_digest": state_digest,
@@ -432,6 +443,9 @@ class OpenAICoordinationProposalBackend:
                 conversation_history=conversation_history,
             )
         except Exception as e:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", 0)
+                tracer.end_span("error", str(e)[:200])
             self._error_count += 1
             self._last_metrics = {
                 "backend_id": BACKEND_ID,
@@ -441,6 +455,13 @@ class OpenAICoordinationProposalBackend:
             LOG.debug("Coordination proposal API error: %s", scrub_secrets(str(e)[:200]))
             return (fallback_proposal, fallback_meta)
 
+        if tracer is not None:
+            tracer.set_attribute("latency_ms", meta.get("latency_ms"))
+            tracer.set_attribute("prompt_tokens", meta.get("tokens_in"))
+            tracer.set_attribute("completion_tokens", meta.get("tokens_out"))
+            if meta.get("estimated_cost_usd") is not None:
+                tracer.set_attribute("estimated_cost_usd", meta["estimated_cost_usd"])
+            tracer.end_span()
         self._sum_latency_ms += meta.get("latency_ms", 0)
         self._total_tokens_in += meta.get("tokens_in", 0)
         self._total_tokens_out += meta.get("tokens_out", 0)

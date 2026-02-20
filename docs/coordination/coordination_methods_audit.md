@@ -30,6 +30,28 @@ Audit table for each coordination method with `coordination_class: llm`: runner 
 - **llm_repair_over_kernel_whca**: Accepts `repair_backend` with `generate(messages) -> str`. Registry defaults to DeterministicRepairBackend; runner does not pass live backend. Live path: build OpenAILiveBackend or equivalent and pass as repair_backend in params.
 - **llm_detector_throttle_advisor**: Built with `wrap_with_detector_advisor(inner, detector_backend)`. Registry accepts `detector_backend` from params; defaults to DeterministicDetectorBackend. Live path: runner passes LiveDetectorBackend(OpenAILiveBackend/OllamaLiveBackend/AnthropicLiveBackend) when llm_backend is openai_live, ollama_live, or anthropic_live.
 
+## Multi-backend configuration (per-role backends)
+
+When a run uses coordination methods that invoke multiple LLM roles (e.g. planner, bidder, repair, detector), you can assign different backends or models per role so that "planner = model A, bidder = model B" in one run.
+
+**Schema:**
+
+- **llm_backend** (existing): Default backend for all roles when per-role is not set. Values: `openai_live`, `ollama_live`, `anthropic_live`, `openai_responses`, `deterministic`, etc.
+- **llm_model** (existing): Default model id (e.g. `gpt-4o-mini`) when using a live backend; overrides env such as `LABTRUST_OPENAI_MODEL`.
+- **Per-role backend overrides** (optional): If set, the runner uses this backend for that role instead of `llm_backend`. If unset or `"inherit"`, the role uses `llm_backend`.
+  - `coord_planner_backend`: Backend for proposal/allocator (llm_central_planner, llm_hierarchical_allocator).
+  - `coord_bidder_backend`: Backend for bid (llm_auction_bidder).
+  - `coord_repair_backend`: Backend for repair (llm_repair_over_kernel_whca).
+  - `coord_detector_backend`: Backend for detector (llm_detector_throttle_advisor).
+  Values: same as `llm_backend` (e.g. `openai_live`, `anthropic_live`, `ollama_live`) or `"inherit"`.
+- **Per-role model overrides** (optional): If set, the runner uses this model for that role instead of `llm_model`.
+  - `coord_planner_model`, `coord_bidder_model`, `coord_repair_model`, `coord_detector_model`.
+  Values: model id string or `"inherit"`.
+
+**Backward compatibility:** When no per-role keys are set, behavior is unchanged: one `llm_backend` (and optionally `llm_model`) for the whole run. All coordinator roles share that backend and model.
+
+**Where config is read:** Runner and CLI. Use `run-benchmark` with `--coord-planner-backend`, `--coord-bidder-backend`, `--coord-repair-backend`, `--coord-detector-backend` (values: `inherit`, `openai_live`, `ollama_live`, `anthropic_live`, etc.) and optionally `--coord-planner-model`, `--coord-bidder-model`, `--coord-repair-model`, `--coord-detector-model`. See [Live LLM](../agents/llm_live.md).
+
 ## References
 
 - Runner: `src/labtrust_gym/benchmarks/runner.py` (coordination method branches ~1037–1310).

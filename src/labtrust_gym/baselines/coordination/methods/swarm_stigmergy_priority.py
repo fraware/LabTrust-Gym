@@ -6,6 +6,13 @@ Pheromone is stored per zone; decay each step. When an agent performs QUEUE_RUN
 or START_RUN, it deposits pheromone in its current zone (weighted by priority if
 available). Agents move toward adjacent zones with higher pheromone when not
 already doing work. Deterministic given seed and obs.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven.
+llm_calls_per_step: 0.
+fallback: N/A (deterministic).
+max_latency_ms: bounded (pheromone update + gradient per agent).
 """
 
 from __future__ import annotations

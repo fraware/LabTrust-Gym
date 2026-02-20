@@ -1,7 +1,10 @@
 """
-Per-episode metrics: throughput, turnaround, violations, blocked, trust proxies.
+Per-episode metrics computed from step results.
 
-Aggregates from _benchmark_step_results collected during episode.
+Aggregates throughput, turnaround time (e.g. p50, p95), violations, blocked
+counts, and trust-related proxies from the step results collected during an
+episode. Used by the benchmark runner to build the results payload. Constants
+for resilience scoring and security reason codes are defined here.
 """
 
 from __future__ import annotations

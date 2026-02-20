@@ -1,9 +1,11 @@
 """
-Per-device work queues with deterministic STAT/URGENT/ROUTINE ordering.
+Per-device work queues with fixed priority ordering.
 
-- DeviceQueueItem: work_id, priority_class, enqueued_ts_s, requested_by_agent, reason_code.
-- Ordering: priority_rank (STAT=0, URGENT=1, ROUTINE=2), then enqueued_ts_s, then tie_break.
-- QueueStore: enqueue, queue_head(device_id), consume_head(device_id).
+Each queue item has work_id, priority class (STAT, URGENT, or ROUTINE),
+enqueue time, requesting agent, and optional reason_code. Items are ordered
+by priority (STAT first, then URGENT, then ROUTINE), then by enqueue time,
+then by tie_break. QueueStore provides enqueue, queue_head(device_id), and
+consume_head(device_id) across all devices.
 """
 
 from __future__ import annotations

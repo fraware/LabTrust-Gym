@@ -476,6 +476,7 @@ def run_coordination_security_pack(
     injections_from: str = "fixed",
     scales_from: str = "default",
     matrix_preset: str | None = None,
+    scale_ids_filter: list[str] | None = None,
     partner_id: str | None = None,
     workers: int = 1,
     llm_backend: str | None = None,
@@ -490,6 +491,7 @@ def run_coordination_security_pack(
     scales_from: "default" (config default: 2 scales), "full" (all 3 scales from config).
     matrix_preset: when set (e.g. "hospital_lab"), resolve scales, methods, and injections from
         policy matrix_presets.<name>; overrides methods_from, injections_from, scales_from.
+    scale_ids_filter: when set, run only these scale_ids (e.g. ["small_smoke"]). Restricts the resolved scale list.
     partner_id: optional partner overlay ID; effective policy merged for each pack cell.
     workers: number of parallel workers (default 1 = sequential). Use >1 to run cells in parallel.
     llm_backend: backend for coordination/agents (default deterministic). Use openai_live, ollama_live, etc.
@@ -512,6 +514,16 @@ def run_coordination_security_pack(
             if isinstance(full_scales, list) and full_scales:
                 scale_ids_override = list(full_scales)
         scales = _resolve_scales(root, pack_config, scale_ids_override=scale_ids_override)
+
+    if scale_ids_filter:
+        allowed = set(scale_ids_filter)
+        before = list(scales)
+        scales = [s for s in scales if s in allowed]
+        if not scales:
+            raise ValueError(
+                f"scale_ids_filter {scale_ids_filter} did not match any resolved scale. "
+                f"Resolved scales: {before}"
+            )
 
     disallow_reserved = pack_config.get("disallow_reserved_injections", True)
     if disallow_reserved:

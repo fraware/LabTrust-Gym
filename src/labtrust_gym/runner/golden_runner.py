@@ -1,11 +1,12 @@
 """
-Golden runner: runs scenario suite against an env adapter and asserts contract.
+Golden runner: run scenario suite against an env adapter and assert the contract.
 
-Implements:
-- LabTrustEnvAdapter interface (see adapter.py).
-- GoldenRunner: scenario execution, oracle assertions, emits vocab enforcement.
-- Output structure matches policy/schemas/runner_output_contract.v0.1.schema.json.
-Unknown emits raise AssertionError (enforced in _run_step via validate_emits).
+Loads golden scenarios from policy/golden; for each scenario, resets the env
+to initial_state and replays steps (or runs an oracle). Asserts that step
+outputs match expectations (status, violations, state_assertions) and that all
+emits are in the policy emit vocabulary. Output shape matches
+policy/schemas/runner_output_contract.v0.1.schema.json. Unknown emits cause
+AssertionError in _run_step via validate_emits.
 """
 
 from __future__ import annotations

@@ -7,6 +7,15 @@ actions are applied; invalid recommendations become NOOP with a reason code.
 Gating uses probability_threshold and cooldown_steps on DetectResult.probability and
 DetectResult.abstain. Allowed enforcement actions (policy mapping): throttle,
 freeze_zone, kill_switch, none.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven (inner method).
+llm_calls_per_step: 0 (deterministic detector by default); 1 if live detector backend.
+fallback: safe_detector_fallback (none / no containment) on detector failure; inner
+  kernel_auction_whca_shielded fallback unchanged.
+max_latency_ms: N/A for live detector; bounded in offline/deterministic (detect + recommend
+  in O(agents) over obs snapshot).
 """
 
 from __future__ import annotations
@@ -26,13 +35,14 @@ ALLOWED_ENFORCEMENT_ACTIONS = frozenset({"throttle", "freeze_zone", "kill_switch
 
 @dataclass
 class DetectResult:
-    """Detection result from the detector."""
+    """Detection result from the detector. Gate enforcement on probability and abstain."""
 
     is_attack_suspected: bool
     suspected_risk_id: str = ""
     suspect_agent_ids: list[str] = field(default_factory=list)
     probability: float = 0.0
     abstain: bool = False
+    counterfactual: str | None = None  # optional explanation of what would change outcome
 
 
 @dataclass
@@ -421,10 +431,26 @@ class LiveDetectorBackend:
             },
             {"role": "user", "content": prompt},
         ]
+        tracer = None
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+        except Exception:
+            pass
+        if tracer is not None:
+            tracer.start_span("coord_detector")
+            tracer.set_attribute("backend_id", "live_detector")
+            tracer.set_attribute("model_id", "unknown")
         try:
             raw = self._backend.generate(messages)
-        except Exception:
+        except Exception as e:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", 0)
+                tracer.end_span("error", str(e)[:200])
             return _safe_detector_fallback()
+        if tracer is not None:
+            tracer.set_attribute("latency_ms", 0)
+            tracer.end_span()
         raw = (raw or "").strip()
         for part in (raw.split("```") if "```" in raw else [raw]):
             part = part.strip()

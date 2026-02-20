@@ -1,8 +1,11 @@
 """
-Network simulator for coordination: delay (p50/p95), drop, partition schedule, reorder.
+Network simulator for coordination messaging.
 
-Deterministic: all randomness from seeded RNG. SignedMessageBus (CommsModel) routes
-through NetworkModel when a network policy is provided.
+Models delay (p50/p95), packet drop, partition schedule, and reorder. All
+randomness comes from a seeded RNG so behavior is reproducible. When a network
+policy is provided, the SignedMessageBus (CommsModel) routes messages through
+NetworkModel so that coordination methods can be tested under realistic delays
+and failures.
 """
 
 from __future__ import annotations

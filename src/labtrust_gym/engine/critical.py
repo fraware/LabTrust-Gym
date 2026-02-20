@@ -1,10 +1,13 @@
 """
-Critical results classification and mandatory notify/ack record.
+Critical result classification and mandatory notify/ack flow.
 
-v0.1: Classify result to CRIT_A / CRIT_B / none; RELEASE_RESULT blocked until ACK with required fields.
-v0.2: Escalation ladder; NOTIFY creates attempt record (attempt_id, timestamp, caller_id, callee_role, mode,
-      message_template_id, criticality_class); ACK must reference attempt_id and satisfy required_fields + readback;
-      ESCALATE tier order and max_ack_wait_s enforced.
+Results are classified as CRIT_A, CRIT_B, or non-critical using threshold
+policy. RELEASE_RESULT for a critical result is blocked until an ACK is
+recorded with the required fields. v0.2 adds an escalation ladder: NOTIFY
+creates an attempt record (attempt_id, timestamp, caller, callee role, mode,
+message template, criticality); ACK must reference that attempt and include
+required fields and readback; ESCALATE must follow tier order and
+max_ack_wait_s is enforced.
 """
 
 from __future__ import annotations

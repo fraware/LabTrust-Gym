@@ -1,4 +1,12 @@
-"""Tool registry and argument validation: provably constrained, typed tool usage."""
+"""
+Tool registry, argument validation, and safe execution.
+
+Agents call tools defined in the policy tool registry (pinned versions,
+declared capabilities). This package provides loading and validation of the
+registry, argument validation against schemas, capability gating by state,
+sandboxed execution with timeout and egress limits, and output shaping for
+logs. Used by the engine when an agent invokes a tool.
+"""
 
 from labtrust_gym.tools.arg_validation import (
     TOOL_ARG_RANGE_FAIL,

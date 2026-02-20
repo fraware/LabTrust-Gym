@@ -30,13 +30,21 @@ class WorkItem:
 
 @dataclass
 class TypedBid:
-    """Single bid: agent, bundle, value, units, optional constraints."""
+    """
+    Single bid: agent, bundle, value, units, optional constraints.
+    Optional explainable decomposition (Phase 5): travel_time_estimate,
+    queue_delay_estimate, risk_penalty, fairness_penalty for recompute validation.
+    """
 
     agent_id: str
     bundle_id: str
     value: float
     units: str = "cost"
     constraints: dict[str, Any] = field(default_factory=dict)
+    travel_time_estimate: float | None = None
+    queue_delay_estimate: float | None = None
+    risk_penalty: float | None = None
+    fairness_penalty: float | None = None
 
 
 def validate_bid(

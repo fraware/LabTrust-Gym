@@ -1,8 +1,10 @@
 """
-Typed shapes for engine initial state (reset input).
+Typed shapes for the engine's initial state (reset input).
 
-Used for documentation and optional validation. The engine accepts
-dict[str, Any]; this module defines the expected keys for core_env.reset().
+The engine's reset() accepts a plain dict. This module defines the expected keys
+and types for that dict so that callers and tools can validate or document
+the reset payload. All keys are optional at the type level; the runtime
+fills defaults where needed.
 """
 
 from __future__ import annotations
@@ -11,7 +13,11 @@ from typing import Any, TypedDict
 
 
 class InitialStateDict(TypedDict, total=False):
-    """Keys for CoreEnv.reset(initial_state, ...). All optional at type level."""
+    """
+    Keys accepted by CoreEnv.reset(initial_state, ...).
+
+    All keys are optional. The engine uses defaults when a key is missing.
+    """
 
     audit_fault_injection: dict[str, Any] | None
     system: dict[str, Any]

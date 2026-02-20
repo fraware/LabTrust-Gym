@@ -117,7 +117,7 @@ def _scale_config_s():
 
 
 @pytest.mark.parametrize("method_id", _method_ids_for_matrix())
-@pytest.mark.parametrize("task_injection", TASK_CONFIGS, ids=["TaskG", "TaskH_INJ"])
+@pytest.mark.parametrize("task_injection", TASK_CONFIGS, ids=["CoordinationScale", "CoordinationRisk_INJ"])
 def test_coordination_matrix_smoke(
     tmp_path: Path,
     method_id: str,
@@ -127,7 +127,7 @@ def test_coordination_matrix_smoke(
     """
     Single matrix cell: run task with coord method on scale S.
     Assert: schema valid, no crash, coordination metrics present,
-    comm metrics non-negative, security metrics for TaskH, and determinism when applicable.
+    comm metrics non-negative, security metrics for CoordinationRisk, and determinism when applicable.
     """
     pytest.importorskip("pettingzoo")
     pytest.importorskip("gymnasium")

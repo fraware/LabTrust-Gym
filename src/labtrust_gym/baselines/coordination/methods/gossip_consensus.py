@@ -2,6 +2,17 @@
 Gossip consensus: local load balancing; agents share queue_head and load;
 converge to stable assignment in fixed K gossip rounds per step.
 Degrades gracefully under message loss (drop modeled deterministically).
+
+CRDT usage for merge-order independence: zone load counts per round are merged via
+pn_counter_merge (PN-counter) from crdt_merges; per-zone counts are max-aggregated
+so merge(A then B) == merge(B then A) for zone_counts.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven.
+llm_calls_per_step: 0.
+fallback: drop message / prior view (graceful degradation).
+max_latency_ms: bounded (K gossip rounds per step).
 """
 
 from __future__ import annotations

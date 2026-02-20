@@ -1,12 +1,12 @@
 """
-QC model and result gating.
+Quality control (QC) state and result release gating.
 
-- device_qc_state: device_id -> "pass" | "fail"
-- run_id -> device_id (from START_RUN)
-- results: result_id -> { status: generated|held|released, run_id, device_id?, flags: [] }
-- QC_EVENT: set device qc_state
-- RELEASE_RESULT: block with QC_FAIL_ACTIVE if device qc_state==fail; force result to held
-- RELEASE_RESULT_OVERRIDE with TOKEN_QC_DRIFT_OVERRIDE: add QC_DRIFT_DISCLAIMER_REQUIRED, release
+Each device has a QC state (pass or fail). Runs are associated with a device
+via START_RUN. Results have status (generated, held, released) and optional
+flags. QC_EVENT updates device QC state. RELEASE_RESULT is blocked with
+QC_FAIL_ACTIVE when the device is in fail state (result stays held).
+RELEASE_RESULT_OVERRIDE with the drift override token adds the
+QC_DRIFT_DISCLAIMER_REQUIRED flag and allows release despite fail state.
 """
 
 from __future__ import annotations

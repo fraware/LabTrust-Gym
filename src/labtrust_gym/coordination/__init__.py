@@ -1,9 +1,11 @@
 """
-Event-sourced blackboard and per-agent views for coordination under partial observability.
+Coordination layer: blackboard, views, and signed message bus.
 
-BlackboardLog: append-only facts, deterministic ordering, replayable.
-ViewReplica: per-agent local view; lags behind global log via CommsModel (delay/drop/reorder).
-SignedMessageBus: verify-on-receive, nonce tracking, epoch binding for coordination messages.
+BlackboardLog holds append-only facts with deterministic ordering (replayable).
+ViewReplica gives each agent a local view that may lag behind the global log
+via CommsModel (delay, drop, reorder). SignedMessageBus verifies messages on
+receive, tracks nonces, and binds messages to an epoch for replay-safe
+coordination traffic.
 """
 
 from labtrust_gym.coordination.blackboard import (

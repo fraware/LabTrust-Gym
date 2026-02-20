@@ -9,6 +9,13 @@ to exclude (agent, task) pairs from winning (e.g. RBAC/token constraints).
 Collusion: collusion=True lowers first agent's bid for injection studies; in
 production use collusion=False. Bid caps and anomaly detector recommended when
 INJ-COLLUSION-001, INJ-BID-SPOOF-001, INJ-COORD-BID-SHILL-001 are in scope.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven.
+llm_calls_per_step: 0.
+fallback: N/A (deterministic).
+max_latency_ms: bounded (O(agents*devices) bid/select).
 """
 
 from __future__ import annotations

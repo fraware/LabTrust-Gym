@@ -1,12 +1,25 @@
 """
-Minimal engine: reset, step (contract output), query.
+Core simulation engine: reset, step, and query.
 
-Supports GS-022: audit hashchain, fault injection, forensic freeze.
-Supports GS-010--013: token lifecycle, dual approval, replay protection.
-Supports GS-008, GS-009, GS-020: zones, doors, MOVE adjacency, OPEN_DOOR restricted, door-open-too-long.
-Supports GS-003, GS-004, GS-005, GS-021: reception acceptance (specimens, HOLD_SPECIMEN reason_code).
-Supports GS-014, GS-015: QC model, result gating, RELEASE_RESULT_OVERRIDE with drift token.
-Once log_frozen, all steps BLOCKED with blocked_reason_code AUDIT_CHAIN_BROKEN.
+This module implements the minimal engine that drives the lab simulation.
+It handles reset (initial state), step (one tick with actions and
+contract-shaped output), and query. Correctness is defined by golden
+scenarios in policy/golden/golden_scenarios.v0.1.yaml; the IDs below
+refer to those scenarios.
+
+Behavior covered:
+- Audit: append-only hash chain, optional fault injection for testing,
+  forensic freeze when the chain is broken (scenario GS-022).
+- Tokens: lifecycle, dual approval, replay protection (GS-010--013).
+- Zones and doors: movement adjacency, OPEN_DOOR restrictions,
+  door-open-too-long handling (GS-008, GS-009, GS-020).
+- Reception: specimen acceptance, HOLD_SPECIMEN and reason codes
+  (GS-003, GS-004, GS-005, GS-021).
+- Quality control (QC): result gating, RELEASE_RESULT_OVERRIDE with
+  drift token (GS-014, GS-015).
+
+When the audit log is frozen (log_frozen), every step is BLOCKED with
+blocked_reason_code AUDIT_CHAIN_BROKEN.
 """
 
 from __future__ import annotations
@@ -92,7 +105,7 @@ from labtrust_gym.engine.errors import (
 from labtrust_gym.engine.event import StepEventDict
 from labtrust_gym.engine.policy_resolution import load_policy_or_effective
 from labtrust_gym.engine.state import InitialStateDict
-from labtrust_gym.runner.adapter import LabTrustEnvAdapter
+from labtrust_gym.engine.env_adapter import LabTrustEnvAdapter
 from labtrust_gym.security.agent_capabilities import (
     check_capability,
     get_profile_for_agent,

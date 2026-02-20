@@ -1,12 +1,11 @@
 """
-Coordination policy loaders: methods registry, method-risk matrix, study spec.
+Coordination policy loaders: method registry, method-risk matrix, study spec.
 
-- load_coordination_methods(path) -> dict (method_id -> method entry).
-- load_method_risk_matrix(path) -> dict (matrix metadata + cells list).
-- load_coordination_study_spec(path) -> dict (study_id, scales, methods, risks,
-  injections, etc.).
-
-Deterministic: same file content yields same structure; no ambient randomness.
+Loads the coordination method registry (method_id -> method entry), the
+method-risk matrix (metadata and cells), and the coordination study spec
+(study_id, scales, methods, risks, injections). All reads are deterministic:
+same file content yields the same structure. Used by benchmarks and studies
+to resolve method variants and LLM-based method IDs (LLM = large language model).
 """
 
 from __future__ import annotations

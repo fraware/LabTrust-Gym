@@ -23,7 +23,7 @@ When installed from a wheel, policy files are bundled in the package. When devel
 
 ## Configuration (no .env file required)
 
-LabTrust-Gym **does not load a `.env` file**. All configuration is via **environment variables** (set in your shell or CI). You do **not** need to create a `.env` file for normal use.
+LabTrust-Gym **does not load a `.env` file**. All configuration is via **environment variables** (set in your shell or CI). You do **not** need to create a `.env` file for normal use. See `.env.example` in the repo root for a list of optional environment variables.
 
 Optional env vars (all have defaults or CLI overrides):
 

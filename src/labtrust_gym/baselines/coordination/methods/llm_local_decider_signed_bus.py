@@ -6,6 +6,12 @@ for proposals (epoch, replay protection). Tracks invalid_sig_count, replay_drop_
 spoof_attempt_count, conflict_rate. Relevant injections: INJ-ID-SPOOF-001 (spoof
 rejected), INJ-COMMS-POISON-001 (invalid/poisoned payloads rejected), INJ-ID-REPLAY-COORD-001
 (replay detected and dropped).
+
+Envelope (SOTA audit):
+  - Typical steps per episode: N/A; horizon-driven.
+  - LLM calls per step: 1 per agent (action proposal).
+  - Fallback on timeout/refusal: NOOP for that agent; reconciler uses others.
+  - max_latency_ms: N/A for live; bounded in llm_offline by deterministic backend.
 """
 
 from __future__ import annotations

@@ -58,7 +58,7 @@ def run_eval_agent(
         from labtrust_gym.baselines.adversary import AdversaryAgent
 
         scripted_agents_map["adversary_0"] = AdversaryAgent()
-    if task in ("TaskF", "TaskF_InsiderAndKeyMisuse"):
+    if task == "insider_key_misuse":
         from labtrust_gym.baselines.insider_adversary import InsiderAdversaryAgent
 
         scripted_agents_map["adversary_insider_0"] = InsiderAdversaryAgent()

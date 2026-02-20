@@ -1,10 +1,16 @@
 """
-Pipeline mode configuration: deterministic vs LLM offline vs LLM live.
+Pipeline mode configuration. Exactly three modes: deterministic | llm_offline |
+llm_live. Canonical semantics: docs/agents/llm_live.md.
 
-- deterministic: scripted agents only; no LLM interface; no network.
-- llm_offline: LLM agent interface with deterministic backend only; no network.
-- llm_live: allows network-backed LLM backends; requires explicit --allow-network
-  or LABTRUST_ALLOW_NETWORK=1.
+- deterministic: Scripted agents only; no LLM interface. No network. Same seed
+  yields same results. Default for CI, regression, quick-eval, run-benchmark.
+
+- llm_offline: LLM agent/coordination interface with deterministic backend only
+  (fixture lookup or seeded RNG). No network. Reproducible given seed or
+  fixtures. Use for offline LLM evaluation and tests without API calls.
+
+- llm_live: Network-backed LLM backends (OpenAI, Ollama, etc.). Requires
+  --allow-network or LABTRUST_ALLOW_NETWORK=1. Runs record non_deterministic=true.
 
 Network is forbidden in deterministic and llm_offline; call check_network_allowed()
 before any HTTP.
@@ -71,15 +77,15 @@ def check_network_allowed() -> None:
         "Network is not allowed in this pipeline mode. "
         f"Current mode: {mode!r}. "
         "To use live LLM backends (openai_live, ollama_live), set pipeline_mode "
-        "to 'llm_live' and pass --allow-network or set LABTRUST_ALLOW_NETWORK=1."
+        "to 'llm_live' and pass --allow-network or "
+        "LABTRUST_ALLOW_NETWORK=1."
     )
 
 
 def require_llm_live_allow_network() -> None:
     """
     Raise RuntimeError if pipeline_mode is llm_live but allow_network is False.
-    Call when user requests openai_live or ollama_live to enforce explicit
-    opt-in.
+    Call when user requests openai_live or ollama_live to enforce explicit opt-in.
     """
     if _state["pipeline_mode"] != "llm_live":
         return
@@ -96,14 +102,16 @@ def print_startup_banner() -> None:
     mode = _state["pipeline_mode"]
     backend = _state.get("llm_backend_id") or "none"
     net = "allowed" if _state["allow_network"] else "disabled"
-    line = f"[LabTrust] pipeline_mode={mode!r} llm_backend={backend!r} network={net}"
+    line = (
+        f"[LabTrust] pipeline_mode={mode!r} llm_backend={backend!r} network={net}"
+    )
     print(line, file=sys.stderr)
     if mode == "llm_live" and _state["allow_network"]:
         _print_llm_live_warning()
 
 
 def _print_llm_live_warning() -> None:
-    """Print red warning that this run will make network calls and may incur cost."""
+    """Print red warning: run will make network calls and may incur cost."""
     red = "\033[31m"
     reset = "\033[0m"
     msg = "WILL MAKE NETWORK CALLS / MAY INCUR COST"

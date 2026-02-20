@@ -598,6 +598,16 @@ class AnthropicCoordinationProposalBackend:
         except ImportError:
             self._error_count += 1
             return (fallback, fallback_meta)
+        tracer = None
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+        except Exception:
+            pass
+        if tracer is not None:
+            tracer.start_span("coord_proposal")
+            tracer.set_attribute("backend_id", "anthropic_live_coord")
+            tracer.set_attribute("model_id", self._model)
         state_payload = {
             "state_digest": state_digest,
             "allowed_actions": allowed_actions,
@@ -620,7 +630,10 @@ class AnthropicCoordinationProposalBackend:
                 messages=[{"role": "user", "content": prompt}],
                 timeout=float(self._timeout_s),
             )
-        except Exception:
+        except Exception as e:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round((time.perf_counter() - start) * 1000, 2))
+                tracer.end_span("error", str(e)[:200])
             self._error_count += 1
             fallback_meta["latency_ms"] = round((time.perf_counter() - start) * 1000, 2)
             return (fallback, fallback_meta)
@@ -635,6 +648,9 @@ class AnthropicCoordinationProposalBackend:
             from labtrust_gym.baselines.llm.parse_utils import extract_first_json_object
             extracted = extract_first_json_object(content)
             if not extracted:
+                if tracer is not None:
+                    tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                    tracer.end_span("error", "no JSON")
                 self._error_count += 1
                 fallback_meta["latency_ms"] = round(latency_ms, 2)
                 fallback_meta["tokens_in"] = usage.get("prompt_tokens", 0)
@@ -642,12 +658,23 @@ class AnthropicCoordinationProposalBackend:
                 return (fallback, fallback_meta)
             proposal = json.loads(extracted)
         except (json.JSONDecodeError, TypeError):
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "parse error")
             self._error_count += 1
             fallback_meta["latency_ms"] = round(latency_ms, 2)
             return (fallback, fallback_meta)
         if not isinstance(proposal, dict):
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "not dict")
             self._error_count += 1
             return (fallback, fallback_meta)
+        if tracer is not None:
+            tracer.set_attribute("latency_ms", round(latency_ms, 2))
+            tracer.set_attribute("prompt_tokens", usage.get("prompt_tokens", 0))
+            tracer.set_attribute("completion_tokens", usage.get("completion_tokens", 0))
+            tracer.end_span()
         proposal.setdefault("per_agent", [])
         proposal.setdefault("comms", [])
         proposal["per_agent"] = _normalize_per_agent(
@@ -732,6 +759,16 @@ class AnthropicBidBackend:
             import anthropic
         except ImportError:
             return (fallback, fallback_meta)
+        tracer = None
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+        except Exception:
+            pass
+        if tracer is not None:
+            tracer.start_span("coord_bid")
+            tracer.set_attribute("backend_id", "anthropic_live_bid")
+            tracer.set_attribute("model_id", self._model)
         state_payload = {
             "state_digest": state_digest,
             "step_id": step_id,
@@ -753,7 +790,13 @@ class AnthropicBidBackend:
                 messages=[{"role": "user", "content": prompt}],
                 timeout=float(self._timeout_s),
             )
-        except Exception:
+        except Exception as e:
+            if tracer is not None:
+                tracer.set_attribute(
+                    "latency_ms",
+                    round((time.perf_counter() - start) * 1000, 2),
+                )
+                tracer.end_span("error", str(e)[:200])
             fallback_meta["latency_ms"] = round((time.perf_counter() - start) * 1000, 2)
             return (fallback, fallback_meta)
         latency_ms = (time.perf_counter() - start) * 1000
@@ -767,15 +810,29 @@ class AnthropicBidBackend:
             from labtrust_gym.baselines.llm.parse_utils import extract_first_json_object
             extracted = extract_first_json_object(content)
             if not extracted:
+                if tracer is not None:
+                    tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                    tracer.end_span("error", "no JSON")
                 fallback_meta["latency_ms"] = round(latency_ms, 2)
                 fallback_meta["tokens_in"] = usage.get("prompt_tokens", 0)
                 fallback_meta["tokens_out"] = usage.get("completion_tokens", 0)
                 return (fallback, fallback_meta)
             proposal = json.loads(extracted)
         except (json.JSONDecodeError, TypeError):
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "parse error")
             return (fallback, fallback_meta)
         if not isinstance(proposal, dict):
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "not dict")
             return (fallback, fallback_meta)
+        if tracer is not None:
+            tracer.set_attribute("latency_ms", round(latency_ms, 2))
+            tracer.set_attribute("prompt_tokens", usage.get("prompt_tokens", 0))
+            tracer.set_attribute("completion_tokens", usage.get("completion_tokens", 0))
+            tracer.end_span()
         proposal.setdefault("market", [])
         proposal.setdefault("per_agent", [])
         proposal.setdefault("comms", [])

@@ -1,12 +1,12 @@
 """
-LLM agent interface: offline-safe and deterministic by default.
+LLM (large language model) agent interface: offline-safe and deterministic by default.
 
-- LLMBackend protocol: generate(messages) -> text
-- LLMAgent: system prompt, backend call, strict JSON parse + schema validation
-- MockDeterministicBackend: canned JSON from observation hash (deterministic)
-- MockDeterministicBackendV2: canned llm_action.schema.v0.2 (string action_type)
-- FixtureBackend: offline lookup from tests/fixtures/llm_responses/; raises FixtureMissingError when missing
-- LLMAgentWithShield: proposes action, applies safety shield (RBAC + signature), returns (idx, info, meta)
+LLMBackend protocol: generate(messages) -> text. LLMAgent uses a system prompt,
+calls the backend, and parses strict JSON with schema validation. Backends:
+MockDeterministicBackend (canned JSON from observation hash), FixtureBackend
+(offline lookup from tests/fixtures/llm_responses/), and live providers when
+pipeline mode is llm_live. LLMAgentWithShield proposes an action, applies a
+safety shield (RBAC and signature checks), and returns (action_idx, info, meta).
 """
 
 from __future__ import annotations
@@ -22,15 +22,16 @@ from labtrust_gym.baselines.llm.allowed_actions_payload import (
 )
 from labtrust_gym.baselines.llm.context_builder import build_state_summary_v0_2
 from labtrust_gym.baselines.llm.parse_utils import extract_first_json_object
-from labtrust_gym.baselines.llm.proposal_validator import (
-    RC_LLM_PROPOSED_INVALID,
-    validate_proposal_deterministic,
-)
 from labtrust_gym.baselines.llm.prompts import (
     SYSTEM_PROMPT_ACTION_PROPOSAL,
     build_user_payload_from_context,
 )
+from labtrust_gym.baselines.llm.proposal_validator import (
+    RC_LLM_PROPOSED_INVALID,
+    validate_proposal_deterministic,
+)
 from labtrust_gym.baselines.llm.provider import supports_structured_outputs
+from labtrust_gym.pipeline import get_pipeline_mode
 from labtrust_gym.policy.prompt_registry import (
     compute_prompt_fingerprint,
     get_prompt_id_for_role,
@@ -38,7 +39,6 @@ from labtrust_gym.policy.prompt_registry import (
     load_prompt,
     load_use_prompts_v02,
 )
-from labtrust_gym.pipeline import get_pipeline_mode
 from labtrust_gym.security.agent_capabilities import get_profile_for_agent
 
 # Cache for role-aware prompt templates (prompt_id -> templates dict)
@@ -814,6 +814,8 @@ class LLMAgentWithShield:
         if policy_summary is not None and isinstance(policy_summary, dict):
             self._policy_fingerprint = policy_summary.get("policy_fingerprint")
         self._conversation_history = []
+        if hasattr(self._backend, "reset") and callable(self._backend.reset):
+            self._backend.reset(seed)
         if hasattr(self, "_circuit_breaker") and self._circuit_breaker is not None:
             self._circuit_breaker.reset()
         if hasattr(self, "_rate_limiter") and self._rate_limiter is not None:
@@ -880,11 +882,11 @@ class LLMAgentWithShield:
             )
             defense_policy: dict[str, Any] | None = None
             try:
+                from labtrust_gym.config import get_repo_root as _get_repo
                 from labtrust_gym.security.prompt_injection_defense import (
                     load_prompt_injection_defense_policy,
                     pre_llm_prompt_injection_check,
                 )
-                from labtrust_gym.config import get_repo_root as _get_repo
                 _repo = _get_repo()
                 defense_policy = load_prompt_injection_defense_policy(repo_root=_repo)
                 pre_result = pre_llm_prompt_injection_check(

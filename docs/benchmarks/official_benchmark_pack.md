@@ -65,7 +65,7 @@ Report `model_id` and `temperature` (from `live_evaluation_metadata.json` or env
 
 ## Cross-provider pack (run once per backend)
 
-To run the same official pack with multiple LLM backends and get comparable outputs plus a merged summary:
+**Single entry point for cross-provider comparison:** Run the same official pack with multiple LLM backends and get comparable outputs plus a merged summary. No separate matrix script is required.
 
 ```bash
 labtrust run-cross-provider-pack --out <dir> --providers openai_live,anthropic_live,ollama_live [--seed-base N] [--smoke | --no-smoke]

@@ -1,12 +1,12 @@
 """
-Catalogue and stability policy for START_RUN gating.
+Test catalogue and stability policy used to gate START_RUN.
 
-- Panel lookup by panel_id (from catalogue or stability policy).
-- Stability limits: pre_separation max (collection to separation), post_separation max
-  (separation to run) per panel and temp band.
-- Reagent policy: per-panel reagent requirements; stockout gates START_RUN with
-  RC_REAGENT_STOCKOUT and hold/reroute per policy.
-- Used by core_env START_RUN to gate on TIME_EXPIRED, TEMP_OUT_OF_BAND, reagent.
+Looks up panels by panel_id from the catalogue or stability policy. Stability
+limits define maximum times: from collection to separation (pre_separation),
+and from separation to run (post_separation) per panel and temperature band.
+Reagent policy defines per-panel reagent needs; if stock is out, START_RUN
+is blocked with reason code RC_REAGENT_STOCKOUT. The core engine uses this
+module to gate START_RUN on time-expired, temperature out of band, and reagent.
 """
 
 from __future__ import annotations

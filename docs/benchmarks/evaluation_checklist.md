@@ -30,7 +30,7 @@ Run from repo root. Install once: `pip install -e ".[dev,env,docs]"`.
 | Step | Command | Purpose |
 |------|---------|---------|
 | Lint/format | `ruff format --check .` then `ruff check .` | Style and lint |
-| Typecheck | `mypy src/` | Types |
+| Typecheck | `mypy src/` (must pass) | Types |
 | No placeholders | `python tools/no_placeholders.py` | No stubs in non-test code |
 | Policy validate | `labtrust validate-policy` | Policy YAML/JSON vs schemas |
 | Verify bundle | `labtrust verify-bundle --bundle tests/fixtures/ui_fixtures/evidence_bundle/EvidenceBundle.v0.1` | Evidence bundle contract |

@@ -1,9 +1,10 @@
 """
-PettingZoo AEC (Agent-Environment Cycle) wrapper on top of the Parallel env.
+PettingZoo AEC (agent-environment cycle) wrapper on top of the Parallel env.
 
-Uses PettingZoo's parallel_to_aec conversion; no duplicated logic.
-Sequential stepping, agent_selection, observe/step semantics.
-Deterministic when used with same seed and action sequence.
+Provides sequential stepping: one agent at a time, observe then step. Uses
+PettingZoo's parallel_to_aec conversion over LabTrustParallelEnv so there is
+no duplicated logic. Deterministic for the same seed and action sequence.
+Requires pip install -e \".[env]\".
 """
 
 from __future__ import annotations

@@ -1,6 +1,12 @@
 """
 LLM constrained coordination: reuses existing baselines/llm/agent (LLMAgentWithShield)
 as a CoordinationMethod. Logs LLM_DECISION via meta passed into action_infos.
+
+Envelope (SOTA audit):
+  - Typical steps per episode: N/A; horizon-driven.
+  - LLM calls per step: 1 per agent (act per agent).
+  - Fallback on timeout/refusal: NOOP from shield.
+  - max_latency_ms: N/A for live; bounded in llm_offline by deterministic backend.
 """
 
 from __future__ import annotations

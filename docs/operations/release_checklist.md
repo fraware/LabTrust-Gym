@@ -52,6 +52,7 @@ This runs `labtrust package-release --profile paper_v0.1 --seed-base <default> -
 
 ## See also
 
+- [Trust verification](../risk-and-security/trust_verification.md) — What each step in the E2E chain attests and how to run or inspect each artifact.
 - [CI gates](ci.md) — What runs on push/PR and optional jobs
 - [Forker guide](../getting-started/forkers.md) — How forkers run the pipeline and interpret outputs
 - [Troubleshooting](../getting-started/troubleshooting.md) — Common failures (e.g. verify-bundle, policy validation)

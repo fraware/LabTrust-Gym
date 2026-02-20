@@ -26,3 +26,12 @@ A single tarball (e.g. from GitHub Release or Zenodo) should contain or point to
 - PAPER_CLAIMS: `docs/PAPER_CLAIMS.md`
 
 Verification: run quick-eval, package-release paper_v0.1, verify-bundle on the produced bundle.
+
+## Reference demonstration
+
+The paper profile is the **reference demonstration** for external reviewers: the same commands, seeds, and verification steps produce identical artifacts so anyone can "see the tools in action" and reproduce the result.
+
+1. Build the paper-ready artifact: `labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>`
+2. Verify the release: `labtrust verify-release --release-dir <dir> --strict-fingerprints`
+
+**Success:** `verify-release` exits 0; all EvidenceBundles and RELEASE_MANIFEST validate. See [Quick demos](../getting-started/quick_demos.md) and [Release checklist](../operations/release_checklist.md).

@@ -1,13 +1,13 @@
 """
-Specimen state machine and reception acceptance rules.
+Specimen lifecycle and reception acceptance rules.
 
-- States: arrived_at_reception, accessioning, accepted, held, rejected.
-- Actions: CREATE_ACCESSION, CHECK_ACCEPTANCE_RULES, ACCEPT_SPECIMEN,
-  REJECT_SPECIMEN, HOLD_SPECIMEN.
-- Rules: ID mismatch => reject (ID_MISMATCH); leaking => reject (INT_LEAKING);
-  citrate underfill => hold (CNT_CITRATE_FILL_INVALID); HOLD_SPECIMEN without
-  reason_code => BLOCKED (AUDIT_MISSING_REASON_CODE).
-- BLOCKED actions do not mutate specimen state.
+Specimens move through states: arrived_at_reception, accessioning, accepted,
+held, rejected. Actions include CREATE_ACCESSION, CHECK_ACCEPTANCE_RULES,
+ACCEPT_SPECIMEN, REJECT_SPECIMEN, HOLD_SPECIMEN. Rejection and hold reasons
+are encoded as reason codes: e.g. ID mismatch (ID_MISMATCH), leaking (INT_LEAKING),
+citrate underfill (CNT_CITRATE_FILL_INVALID). HOLD_SPECIMEN must include a
+reason_code or the action is BLOCKED (AUDIT_MISSING_REASON_CODE). BLOCKED
+actions do not change specimen state.
 """
 
 from __future__ import annotations

@@ -14,6 +14,7 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Coordination matrix contract (v0.1)](coordination_matrix_contract.md) | Matrix contract. |
 | [Fidelity notes](fidelity_notes.md) | Algorithm and invariant fidelity per method. |
 | [SOTA methods at scale](sota_methods_at_scale.md) | SOTA coordination methods roadmap. |
+| [SOTA method roles and checklist](sota_method_roles_and_checklist.md) | Primary / Experimental / Baselines / Legacy roles and per-method SOTA checklist (pass_budget, pass_evidence, strictly-better test, envelope). |
 | [Learning methods implementation strategy](learning_methods_implementation_strategy.md) | Implementation strategy for learning-based methods. |
 
 ## Studies and reports

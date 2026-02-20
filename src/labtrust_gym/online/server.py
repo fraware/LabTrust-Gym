@@ -1,9 +1,11 @@
 """
-HTTP server for labtrust serve: request/response protections and abuse telemetry.
+HTTP server for the labtrust serve command.
 
-- Optional API key or Bearer token (LABTRUST_API_TOKEN); when online_mode, token required.
-- Per-key and per-IP rate limits, body size and concurrency limits.
-- POST /v0/step: one environment step via adapter; works in deterministic mode without network.
+Handles request/response with optional API key or Bearer token; when online
+mode is enabled, a token is required. Enforces per-key and per-IP rate limits,
+body size and concurrency limits. POST /v0/step runs one environment step via
+the adapter (works in deterministic mode without network). Emits security
+telemetry for auth failures, rate limits, and abuse.
 """
 
 from __future__ import annotations

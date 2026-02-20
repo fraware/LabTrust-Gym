@@ -1,11 +1,11 @@
 """
-Bounded trace invariant checker for critical path safety.
+Bounded trace checker for critical-path safety.
 
-Evaluates invariants over recorded/explored event traces (no external tool).
-Consumes event traces as exported by the episode log or golden runner; loads
-invariant definitions from the policy invariant registry; returns safety result,
-trace, and violations with evidence. Emits model_check_report.json and
-model_check_report.md into output_dir.
+Evaluates invariants (safety rules from the policy registry) over recorded
+event traces. Input traces match the episode log or golden runner format.
+No external model checker is used. Outputs a safety result, the trace, and
+violations with evidence; writes model_check_report.json and
+model_check_report.md into the given output directory.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ from labtrust_gym.policy.invariants_registry import (
     InvariantEntry,
     load_invariant_registry,
 )
-
 
 # -----------------------------
 # Data contract: trace format

@@ -57,6 +57,7 @@ class CoordinationScaleConfig:
     horizon_steps: int
     timing_mode: str = "explicit"  # "explicit" | "simulated"
     partner_id: str | None = None
+    coord_auction_protocol: str | None = None  # "single_call" | "round_robin" for auction methods
 
     def __post_init__(self) -> None:
         total = sum(self.role_mix.values())
@@ -336,13 +337,14 @@ def load_scale_config_by_id(
                 horizon_steps=int(c.get("horizon_steps", 200)),
                 timing_mode=str(c.get("timing_mode", "explicit")),
                 partner_id=c.get("partner_id"),
+                coord_auction_protocol=c.get("coord_auction_protocol"),
             )
     raise KeyError(f"Scale config id {config_id!r} not found in {path}")
 
 
 def _sanitize_scale_config(scale: CoordinationScaleConfig) -> dict[str, Any]:
     """Return a JSON-serializable, sanitized copy for emit/log (no Path, stable)."""
-    return {
+    out: dict[str, Any] = {
         "num_agents_total": scale.num_agents_total,
         "role_mix": dict(scale.role_mix),
         "num_devices_per_type": dict(scale.num_devices_per_type),
@@ -352,6 +354,9 @@ def _sanitize_scale_config(scale: CoordinationScaleConfig) -> dict[str, Any]:
         "timing_mode": scale.timing_mode,
         "partner_id": scale.partner_id,
     }
+    if scale.coord_auction_protocol is not None:
+        out["coord_auction_protocol"] = scale.coord_auction_protocol
+    return out
 
 
 def generate_scaled_initial_state(

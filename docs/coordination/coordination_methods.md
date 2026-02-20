@@ -2,12 +2,39 @@
 
 Coordination methods produce per-agent actions for the PettingZoo Parallel env and are compared at scale in coord_scale and coord_risk. Each method implements the same interface and runs deterministically when using the deterministic backend. The registry is defined in `policy/coordination/coordination_methods.v0.1.yaml`; risk coverage is in `policy/coordination/method_risk_matrix.v0.1.yaml` and `policy/risks/risk_registry.v0.1.yaml`. For **learning-style methods** (e.g. MARL, evolution), see [Learning methods implementation strategy](learning_methods_implementation_strategy.md): deterministic track (CI-safe) vs study track (reproducible via seed-base and checkpoint hashing), and optional `metadata.coordination.learning` fields in results.
 
-For a **detailed description of how each method works** (algorithms, data flow, invariants, and design choices), see [How coordination methods work (detailed)](coordination_methods_how_they_work.md).
+For a **detailed description of how each method works** (algorithms, data flow, invariants, and design choices), see [How coordination methods work (detailed)](coordination_methods_how_they_work.md). For **per-method SOTA status** (conformance pass_budget/pass_evidence, strictly-better test, envelope), see [SOTA method roles and checklist](sota_method_roles_and_checklist.md); run `python scripts/refresh_sota_checklist.py` from repo root to regenerate the dashboard table.
 
 ## Interface
 
 - **CoordinationMethod**: `method_id`, `reset(seed, policy, scale_config)`, `propose_actions(obs, infos, t) -> dict[agent_id, action_dict]`, optional `on_step_result(step_outputs)`. Kernel-composed methods also implement `step(context) -> (actions, CoordinationDecision)` for decision tracing.
 - **action_dict**: At least `action_index` (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN); optionally `action_type`, `args`, `reason_code`, `token_refs` for engine events. Actions are schema-valid and do not bypass RBAC or signature rules.
+
+### Where coordination runs
+
+Coordination is **not** in the CLI. The CLI only parses arguments and invokes the runner (e.g. `run_benchmark`, `run_coordination_study`). The **runner** (`src/labtrust_gym/benchmarks/runner.py`) builds one `coord_method_instance` and a `scripted_agents_map`. The **episode loop** inside the runner (lines 213-387) does the following each step:
+
+- If the method has `step(context)`: calls `coord_method.step(context)` (kernel-composed).
+- Else if the method has repair and `_backend.generate_proposal`: runs `run_proposal_with_repair` with an internal `_propose_fn` that calls the coordinator backend's `generate_proposal(...)`.
+- Else: calls `coord_method.propose_actions(obs_for_step, infos, step_t)`.
+
+So one step = runner gets obs -> coord method calls backend(s) -> one or N LLM call(s) -> joint decision -> runner maps to per-agent actions -> env step. The CLI never sees per-step observations or LLM calls.
+
+```mermaid
+flowchart LR
+  CLI[CLI] --> Runner[Runner]
+  Runner --> Loop[Episode loop]
+  Loop --> CoordMethod[coord_method]
+  CoordMethod --> ProposalBackend[proposal_backend]
+  CoordMethod --> BidBackend[bid_backend]
+  CoordMethod --> RepairBackend[repair_backend]
+  CoordMethod --> DetectorBackend[detector_backend]
+  ProposalBackend --> CoordMethod
+  BidBackend --> CoordMethod
+  RepairBackend --> CoordMethod
+  DetectorBackend --> CoordMethod
+  CoordMethod --> Loop
+  Loop --> Env[Env step]
+```
 
 ## Coordination kernel (ALLOCATION, SCHEDULING, ROUTING)
 
@@ -209,6 +236,20 @@ Acceptance gates for coordination work before UI/Lovable work starts. All items 
 - **Study runner:** run-coordination-study emits summary/pareto.md with Pareto front and robust winner.
 - **Benchmark card updated:** coordination suite, methods, injections, metrics (see [Benchmark card](../benchmarks/benchmark_card.md)).
 - **CI smoke:** validate-policy, pytest coordination tests, one-episode coord_scale and coord_risk runs without secrets.
+
+## Coordinator guardrails and multi-LLM protocol tests
+
+This subsection lists which tests cover coordinator guardrails and multi-LLM (round_robin, debate, agentic) and how to run them.
+
+1. **Coordinator guardrails:** Unit tests in `tests/test_coordinator_guardrails.py` and `tests/test_coordinator_guardrails_e2e.py`. E2E: full episode (`test_e2e_coordinator_guardrails_full_episode`), round_robin through runner (`test_e2e_round_robin_through_runner`), attribution structure and by_backend (`test_e2e_attribution_structure_with_trace`). Unit tests trigger circuit open and rate limit and assert safe fallback (reason codes **CIRCUIT_BREAKER_OPEN**, **RATE_LIMITED**).
+
+2. **Multi-LLM protocol (round_robin):** `test_e2e_round_robin_through_runner` in `tests/test_coordinator_guardrails_e2e.py`, `test_llm_auction_bidder_round_robin_protocol` in `tests/test_coord_llm_auction_bidder_smoke.py`.
+
+3. **Debate and agentic:** Smoke tests in `tests/test_coord_llm_debate_smoke.py` and `tests/test_coord_llm_agentic_smoke.py`. Live (real API) tests in `tests/test_openai_live.py` when `LABTRUST_RUN_LLM_LIVE=1` and `OPENAI_API_KEY` are set.
+
+4. **How to run:** Offline: `pytest tests/test_coordinator_guardrails_e2e.py tests/test_coord_llm_auction_bidder_smoke.py tests/test_coord_llm_debate_smoke.py tests/test_coord_llm_agentic_smoke.py -v`. Live coord tests: `pytest tests/test_openai_live.py -m live -v`. To run only coordinator guardrails and multi-LLM tests: `pytest tests/ -k "guardrail or round_robin or attribution_structure or coord_llm_auction_bidder or coord_llm_debate or coord_llm_agentic or guardrail_trigger" -v`.
+
+Optionally, `pytest -q tests/test_coordination_*` (or the explicit list above) covers coordinator guardrails and multi-LLM; no separate CI job is required unless desired. In CI, the same `-k` subset can be used to run only these tests (e.g. Coordinator guardrails and multi-LLM: `test_coordinator_guardrails*`, `test_coord_llm_*`).
 
 ## SOTA fidelity checklist
 

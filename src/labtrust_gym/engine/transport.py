@@ -1,9 +1,12 @@
 """
-Multi-site transport: consignments, DISPATCH_TRANSPORT, TRANSPORT_TICK, RECEIVE_TRANSPORT, CHAIN_OF_CUSTODY_SIGN.
+Multi-site transport: consignments and chain of custody.
 
-- site_id for zones/devices/specimens (SITE_HUB, SITE_ACUTE).
-- Deterministic: transport_time sampled via RNG wrapper; temp_drift bounded.
-- Invariants: INV-COC-001 (dispatch must have receive or token), INV-TRANSPORT-001 (temp in band or OVERRIDE token).
+Handles DISPATCH_TRANSPORT, TRANSPORT_TICK, RECEIVE_TRANSPORT, and
+CHAIN_OF_CUSTODY_SIGN. Zones, devices, and specimens can be tagged with a
+site_id (e.g. SITE_HUB, SITE_ACUTE). Transport time is sampled from the
+deterministic RNG; temperature drift is bounded. Invariants enforced:
+dispatch must be followed by receive or a token (INV-COC-001); temperature
+must stay in band or an OVERRIDE token is required (INV-TRANSPORT-001).
 """
 
 from __future__ import annotations

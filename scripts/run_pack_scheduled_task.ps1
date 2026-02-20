@@ -1,39 +1,56 @@
-# Register a scheduled task to run the coordination security pack (no password).
-# The task runs when you are logged on. To run when your PC is off, use run_pack_on_remote_server.ps1.
-# Run from repo root or set REPO_ROOT. Usage:
-#   .\scripts\run_pack_scheduled_task.ps1
-#   .\scripts\run_pack_scheduled_task.ps1 -Workers 16
+# Run the coordination security pack: either in this terminal (-RunNow) or as a scheduled task (default).
+# Default 8 workers to avoid overloading the machine; use -Workers 4 if it still struggles, or raise for more speed.
+# Usage:
+#   .\scripts\run_pack_scheduled_task.ps1 -RunNow
+#   .\scripts\run_pack_scheduled_task.ps1 -RunNow -Workers 4
+#   .\scripts\run_pack_scheduled_task.ps1 -Workers 8
 
 param(
-    [int] $Workers = 16,
+    [int] $Workers = 8,
+    [switch] $RunNow,
     [string] $TaskName = "LabTrustPackRun",
     [string] $OutDir = ""
 )
 
 $ErrorActionPreference = "Stop"
+# ProcessPoolExecutor on Windows allows max_workers <= 61
+$Workers = [Math]::Min(61, [Math]::Max(1, $Workers))
 $RepoRoot = if ($env:REPO_ROOT) { $env:REPO_ROOT } else { (Get-Item $PSScriptRoot).Parent.FullName }
 if (-not $OutDir) { $OutDir = Join-Path $RepoRoot "pack_run_full_matrix" }
 
 $PythonExe = (Get-Command python -ErrorAction Stop).Source
 $PackArgs = "run-coordination-security-pack --out `"$OutDir`" --matrix-preset full_matrix --seed 42 --workers $Workers"
 $FullArgs = "-m labtrust_gym.cli.main $PackArgs"
+$LogFile = Join-Path $RepoRoot "pack_run.log"
 
-$Action = New-ScheduledTaskAction -Execute $PythonExe -Argument $FullArgs -WorkingDirectory $RepoRoot
+if ($RunNow) {
+    Write-Host "Running pack in this terminal (Workers: $Workers, Out: $OutDir) ..."
+    Push-Location $RepoRoot
+    try {
+        & $PythonExe -m labtrust_gym.cli.main run-coordination-security-pack --out $OutDir --matrix-preset full_matrix --seed 42 --workers $Workers
+        exit $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+}
+
+# Redirect pack output to a log file so you can watch with: Get-Content pack_run.log -Wait -Tail 30
+$CmdArg = "/c `"cd /d \`"$RepoRoot\`" && \`"$PythonExe\`" -m labtrust_gym.cli.main run-coordination-security-pack --out \`"$OutDir\`" --matrix-preset full_matrix --seed 42 --workers $Workers > \`"$LogFile\`" 2>&1`""
+$Action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument $CmdArg -WorkingDirectory $RepoRoot
 $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)
 $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 
-try {
-    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -ErrorAction Stop | Out-Null
-} catch {
-    Write-Host "Failed to register task: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
+$existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($existing) {
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
-Write-Host "Task '$TaskName' registered. It will run in 1 minute (while you stay logged on)."
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -ErrorAction Stop | Out-Null
+Write-Host "Task '$TaskName' registered. It will run in 1 minute (runs while you are logged on; lock the PC to keep it running)."
 Write-Host "Output directory: $OutDir"
 Write-Host "Workers: $Workers"
+Write-Host "Log file: $LogFile"
+Write-Host "To watch progress live: Get-Content '$LogFile' -Wait -Tail 30"
 Write-Host "To run the task now: Start-ScheduledTask -TaskName '$TaskName'"
 Write-Host "To view task: Get-ScheduledTask -TaskName '$TaskName'"
 Write-Host "To remove task: Unregister-ScheduledTask -TaskName '$TaskName'"
-Write-Host ""
-Write-Host "To run the pack when your PC is off, use: .\scripts\run_pack_on_remote_server.ps1 -Host <your-server>"

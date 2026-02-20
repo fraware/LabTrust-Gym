@@ -9,11 +9,20 @@ blocked rate, repair rate. Repair loop (invalid proposal -> retry with repair
 backend) is implemented in the executor/runner; max_repairs limits retries.
 When detector is used (wrap_with_detector_advisor), probability_threshold and
 cooldown_steps should be calibrated per deployment.
+
+Envelope (SOTA audit):
+  - Typical steps per episode: N/A; horizon-driven.
+  - LLM calls per step: 1 (single proposal per step).
+  - Fallback on timeout/refusal: NOOP for all agents.
+  - max_latency_ms: N/A for live; bounded in llm_offline by deterministic backend.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable
+
+_LOG = logging.getLogger(__name__)
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_NOOP,
@@ -24,6 +33,48 @@ from labtrust_gym.baselines.coordination.llm_executor import ACTION_TYPE_TO_INDE
 from labtrust_gym.baselines.coordination.state_digest import build_state_digest
 
 COMMITTEE_ROLES = ("Allocator", "Scheduler", "Router", "Safety reviewer")
+
+
+def _merge_committee_outputs(
+    role_outputs: dict[str, dict[str, Any]],
+    agent_ids: list[str],
+) -> dict[str, Any]:
+    """
+    Merge per-role outputs into one proposal. Allocator provides primary per_agent;
+    Scheduler/Router/Safety may override or veto. Deterministic merge order.
+    """
+    allocator = role_outputs.get("Allocator") or {}
+    scheduler = role_outputs.get("Scheduler") or {}
+    router = role_outputs.get("Router") or {}
+    safety = role_outputs.get("Safety reviewer") or {}
+    per_agent_alloc = allocator.get("per_agent") or []
+    per_agent_sched = scheduler.get("per_agent") or []
+    per_agent_router = router.get("per_agent") or []
+    safety_veto = safety.get("veto_agent_ids") or []
+    merged: list[dict[str, Any]] = []
+    by_agent: dict[str, dict[str, Any]] = {a: {} for a in agent_ids}
+    for pa in per_agent_alloc:
+        if isinstance(pa, dict) and pa.get("agent_id") in agent_ids:
+            by_agent[pa["agent_id"]] = dict(pa)
+    for pa in per_agent_sched:
+        if isinstance(pa, dict) and pa.get("agent_id") in by_agent:
+            by_agent[pa["agent_id"]].update(pa)
+    for pa in per_agent_router:
+        if isinstance(pa, dict) and pa.get("agent_id") in by_agent:
+            by_agent[pa["agent_id"]].update(pa)
+    for aid in agent_ids:
+        if aid in safety_veto:
+            by_agent[aid] = {"agent_id": aid, "action_type": "NOOP", "args": {}}
+        if by_agent[aid]:
+            merged.append(by_agent[aid])
+    return {
+        "per_agent": merged,
+        "proposal_id": allocator.get("proposal_id") or "committee",
+        "step_id": allocator.get("step_id", 0),
+        "method_id": allocator.get("method_id") or "llm_central_planner",
+        "horizon_steps": allocator.get("horizon_steps", 1),
+        "comms": [],
+    }
 
 
 def _arbiter_validate_committee(
@@ -77,6 +128,57 @@ def _proposal_to_actions_dict(
     return out
 
 
+class DeterministicCommitteeBackend:
+    """
+    Multi-role committee backend: produces Allocator, Scheduler, Router, Safety reviewer
+    outputs and merges them. For testing: golden committee trace and fault injection.
+    Same seed and step_id -> same merged proposal. Optional corrupt_role for fault-injection tests.
+    """
+
+    def __init__(
+        self,
+        seed: int = 0,
+        corrupt_role: str | None = None,
+    ) -> None:
+        self._seed = seed
+        self._step_counter = 0
+        self._corrupt_role = corrupt_role
+
+    def reset(self, seed: int) -> None:
+        self._seed = seed
+        self._step_counter = 0
+
+    def generate_proposal(
+        self,
+        state_digest: dict[str, Any],
+        allowed_actions: list[str],
+        step_id: int,
+        method_id: str,
+        **kwargs: Any,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        agent_ids = [p.get("agent_id") for p in state_digest.get("per_agent") or []]
+        if not agent_ids:
+            agent_ids = ["ops_0"]
+        at = "NOOP" if "NOOP" in allowed_actions else (allowed_actions[0] if allowed_actions else "NOOP")
+        rng = (self._seed + step_id) % (2**31)
+        per_agent_base = [
+            {"agent_id": aid, "action_type": at, "args": {}, "reason_code": "COORD_COMMITTEE"}
+            for aid in agent_ids
+        ]
+        if self._corrupt_role == "Allocator":
+            per_agent_base = [{"agent_id": aid, "action_type": "INVALID_ACTION", "args": {}} for aid in agent_ids]
+        allocator = {"per_agent": per_agent_base, "proposal_id": f"committee-{self._seed}-{step_id}", "step_id": step_id, "method_id": method_id, "horizon_steps": 1}
+        scheduler = {"per_agent": per_agent_base}
+        router = {"per_agent": per_agent_base}
+        safety = {"veto_agent_ids": []}
+        role_outputs = {"Allocator": allocator, "Scheduler": scheduler, "Router": router, "Safety reviewer": safety}
+        merged = _merge_committee_outputs(role_outputs, agent_ids)
+        merged["comms"] = []
+        meta = {"backend_id": "deterministic_committee", "model_id": "n/a", "latency_ms": 0.0, "tokens_in": 0, "tokens_out": 0}
+        merged["meta"] = meta
+        return merged, meta
+
+
 class DeterministicProposalBackend:
     """
     Deterministic backend that returns a valid CoordinationProposal from
@@ -84,10 +186,18 @@ class DeterministicProposalBackend:
     NOOP or TICK by default.
     """
 
-    def __init__(self, seed: int = 0, default_action_type: str = "NOOP") -> None:
+    DEFAULT_BACKEND_ID = "deterministic"
+
+    def __init__(
+        self,
+        seed: int = 0,
+        default_action_type: str = "NOOP",
+        backend_id: str | None = None,
+    ) -> None:
         self._seed = seed
         self._default_action_type = default_action_type
         self._step_counter = 0
+        self._backend_id = (backend_id or self.DEFAULT_BACKEND_ID).strip() or self.DEFAULT_BACKEND_ID
 
     def reset(self, seed: int) -> None:
         """Reset step counter and seed for new episode."""
@@ -127,12 +237,17 @@ class DeterministicProposalBackend:
             for aid in agent_ids
         ]
         meta = {
-            "backend_id": "deterministic",
+            "backend_id": self._backend_id,
             "model_id": "n/a",
             "latency_ms": 0.0,
             "tokens_in": 0,
             "tokens_out": 0,
         }
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import record_deterministic_coord_span
+            record_deterministic_coord_span("coord_proposal", self._backend_id)
+        except Exception as e:
+            _LOG.debug("Tracing coord_proposal span failed: %s", e)
         proposal = {
             "proposal_id": proposal_id,
             "step_id": step_id,
@@ -241,7 +356,8 @@ class LLMCentralPlanner(CoordinationMethod):
                 method_id=self.method_id,
                 conversation_history=self._conversation_history or None,
             )
-        except Exception:
+        except Exception as e:
+            _LOG.warning("Proposal generation failed, using fallback: %s", e)
             if safe_fallback:
                 return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
             raise

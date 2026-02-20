@@ -2,6 +2,13 @@
 Ripple Effect Protocol: local intent + signed broadcast to neighbors, conflict resolution
 without a central planner. Uses SignedMessageBus; neighbor graph from zone topology
 or scale config. Deterministic given seed and obs.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven.
+llm_calls_per_step: 0.
+fallback: N/A (deterministic).
+max_latency_ms: bounded (signed bus + local reconcile).
 """
 
 from __future__ import annotations

@@ -1,10 +1,12 @@
 """
-Zone graph and door semantics.
+Zone layout and door rules for the simulated lab.
 
-- Adjacency graph from policy graph_edges; MOVE must follow edges.
-- Doors with open_since_ts; restricted doors require TOKEN_RESTRICTED_ENTRY (enforced in core_env).
-- Door open beyond max_open_s => ALARM + KILL_SWITCH_ZONE => zone frozen.
-- query: zone_state(zone_id) -> 'frozen' | 'normal'.
+Zones are connected by an adjacency graph (from policy graph_edges). Agents can
+only MOVE along these edges. Doors track when they were opened (open_since_ts).
+Restricted doors require a specific token (TOKEN_RESTRICTED_ENTRY); this is
+enforced in core_env. If a door stays open longer than max_open_s seconds,
+an alarm is raised and the zone is frozen (KILL_SWITCH_ZONE). The query
+zone_state(zone_id) returns 'frozen' or 'normal'.
 """
 
 from __future__ import annotations

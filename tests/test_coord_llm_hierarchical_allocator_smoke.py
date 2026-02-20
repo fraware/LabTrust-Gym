@@ -197,6 +197,49 @@ def test_llm_hierarchical_allocator_nominal_allocations_cover_work() -> None:
     assert n_start_run <= 2
 
 
+def test_hierarchical_low_confidence_fallback() -> None:
+    """Low intent_confidence -> controller falls back to kernel (empty assignments)."""
+    backend = DeterministicAssignmentsBackend(seed=0, low_confidence=True)
+    policy = {
+        "pz_to_engine": {"a1": "r1"},
+        "policy_summary": {},
+        "zone_layout": {"zones": [{"zone_id": "Z_A"}], "device_placement": [{"device_id": "D1", "zone_id": "Z_A"}], "graph_edges": []},
+    }
+    allocator = LLMHierarchicalAllocator(
+        allocator_backend=backend,
+        rbac_policy={},
+        allowed_actions=["NOOP", "TICK", "MOVE", SET_INTENT],
+        local_strategy="edf",
+    )
+    allocator.reset(seed=0, policy=policy, scale_config={"confidence_threshold": 0.5})
+    obs = {
+        "a1": {"zone_id": "Z_A", "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}], "queue_has_head": [1]},
+    }
+    actions = allocator.propose_actions(obs, {}, 0)
+    assert "a1" in actions
+    assert actions["a1"].get("action_index") is not None
+
+
+def test_hierarchical_assumption_mismatch_reject() -> None:
+    """Wrong assumptions (e.g. agent in Z_WRONG) -> controller rejects and returns NOOP."""
+    backend = DeterministicAssignmentsBackend(seed=0, wrong_assumptions=True)
+    policy = {
+        "pz_to_engine": {"a1": "r1"},
+        "policy_summary": {},
+        "zone_layout": {"zones": [{"zone_id": "Z_A"}], "device_placement": [], "graph_edges": []},
+    }
+    allocator = LLMHierarchicalAllocator(
+        allocator_backend=backend,
+        rbac_policy={},
+        allowed_actions=["NOOP", "TICK", "MOVE", SET_INTENT],
+        local_strategy="edf",
+    )
+    allocator.reset(seed=0, policy=policy, scale_config={})
+    obs = {"a1": {"zone_id": "Z_A", "queue_by_device": []}}
+    actions = allocator.propose_actions(obs, {}, 0)
+    assert actions["a1"]["action_index"] == 0
+
+
 def test_registry_creates_llm_hierarchical_allocator() -> None:
     """Registry instantiates llm_hierarchical_allocator with deterministic backend."""
     from pathlib import Path

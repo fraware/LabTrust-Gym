@@ -207,6 +207,11 @@ jobs:
           test -f det_report/determinism_report.json
           test -f det_report/determinism_report.md
           python -c "import json; d=json.load(open('det_report/determinism_report.json')); assert d.get('passed') is True, d.get('errors', ['unknown'])"
+      - name: Determinism report (coord_risk, 2 episodes, seed 42)
+        run: |
+          labtrust determinism-report --task coord_risk --coord-method kernel_centralized_edf --episodes 2 --seed 42 --out ./det_report_coord
+          test -f det_report_coord/determinism_report.json
+          python -c "import json; d=json.load(open('det_report_coord/determinism_report.json')); assert d.get('passed') is True, d.get('errors', ['unknown'])"
       - name: Full golden suite
         run: LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q
         env:
@@ -228,6 +233,11 @@ jobs:
           test -f det_report/determinism_report.json
           test -f det_report/determinism_report.md
           python -c "import json; d=json.load(open('det_report/determinism_report.json')); assert d.get('passed') is True, d.get('errors', ['unknown'])"
+      - name: Determinism report (coord_risk, 2 episodes, seed 42)
+        run: |
+          labtrust determinism-report --task coord_risk --coord-method kernel_centralized_edf --episodes 2 --seed 42 --out ./det_report_coord
+          test -f det_report_coord/determinism_report.json
+          python -c "import json; d=json.load(open('det_report_coord/determinism_report.json')); assert d.get('passed') is True, d.get('errors', ['unknown'])"
       - name: Full golden suite
         run: LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q
 
@@ -243,6 +253,7 @@ jobs:
         run: pip install -e ".[dev,env]"
       - name: Validate policy
         run: labtrust validate-policy
+      # Coordinator guardrails and multi-LLM: test_coordinator_guardrails*, test_coord_llm_*; see docs/coordination/coordination_methods.md for -k subset
       - name: Coordination tests
         run: pytest -q tests/test_coordination_*
       - name: coord_scale (centralized_planner, 1 episode)

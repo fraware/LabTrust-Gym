@@ -34,8 +34,13 @@ Some tests skip when fixtures or environment are missing. To avoid unnecessary s
 | **Benchmark baselines (v0.2)** missing | `test_official_baselines_regression.py` | Run `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` and commit results; or accept skip when v0.2/results/ is empty. |
 | **Coordination / MARL / LLM** optional deps | Coordination interface tests, `train_ppo` / `eval_ppo` CLI smoke | Install `.[env]` for coordination; MARL/PPO tests skip without trained model or `LABTRUST_CLI_FULL`; live LLM tests skip without `OPENAI_API_KEY`. |
 | **Repo root / policy path** not found | Schema and policy tests | Run from repo root so `policy/` and `policy/schemas/` are found. |
+| **cryptography** not installed | Gossip/signed-bus tests (e.g. `llm_gossip_summarizer`, `llm_local_decider_signed_bus`) | Install `.[env]`; tests that build key_store or use SignedMessageBus skip when cryptography is missing. |
+| **kernel_whca / optional coordination deps** | Conformance and method tests for kernel_whca, llm_repair_over_kernel_whca, etc. | Install `.[env]`; some tests skip when optional coordination backends are not available. |
+| **CBS backend** | `test_mapf_property.py::test_mapf_cbs_equivalence` | Permanently skipped until [mapf] CBS backend is available; WHCA tests run. |
 
 CI jobs that depend on a fixture (e.g. **risk-register-gate** on ui_fixtures evidence bundle) fail with a clear error when the fixture is missing; use the "What to do" column to fix. See [Evaluation checklist](../benchmarks/evaluation_checklist.md) and this document for full CI and local commands.
+
+**Why did N tests skip?** Default `pytest` from repo root runs the fast suite (`-m "not slow"`). Many tests skip when optional deps are missing (e.g. `.[env]` for coordination), when fixtures are absent (ui_fixtures evidence bundle, baselines v0.2), or when env vars are unset (e.g. `LABTRUST_RUN_GOLDEN=1`, `LABTRUST_CHECK_BASELINES=1`, `LABTRUST_PAPER_SMOKE=1`). To reduce skips: install `.[dev,env,docs]`, run from repo root, and set the env vars for the suites you want (see table above). For the full list of steps see [Evaluation checklist](../benchmarks/evaluation_checklist.md).
 
 ### Verification battery (local)
 
@@ -48,9 +53,17 @@ make verification-battery
 
 Or run the script directly: `bash scripts/run_verification_battery.sh` (from repo root). The script sets `LABTRUST_RUN_GOLDEN=1` for the golden suite so it does not skip. **Required:** ui_fixtures evidence bundle at `tests/fixtures/ui_fixtures/evidence_bundle/EvidenceBundle.v0.1` (see [Test skip conditions and required fixtures](#test-skip-conditions-and-required-fixtures)). **Optional:** set `LABTRUST_BATTERY_E2E=1` to also run the e2e-artifacts-chain (package-release minimal → export-risk-register → build-release-manifest → verify-release --strict-fingerprints) at the end. The **release fixture** test (`test_release_fixture_verify_release.py`) runs as part of the default test suite when the fixture dir is present; it enforces verify-release --strict-fingerprints on the committed fixture. See [Evaluation checklist](../benchmarks/evaluation_checklist.md) for the full list of steps.
 
+**Windows:** Run the full verification battery with `powershell -File scripts/run_verification_battery.ps1` from repo root (or `.\scripts\run_verification_battery.ps1`). The script mirrors `scripts/run_verification_battery.sh`. Other PowerShell scripts: `scripts/build_release_fixture.ps1`, `scripts/run_llm_live_coord_checks.ps1`, `scripts/run_required_bench_matrix.ps1`.
+
 ## Coverage report and ratchet
 
 Job **coverage** runs on **every push/PR**. It runs `pytest -q -m "not slow" --cov=src/labtrust_gym --cov-report=xml --cov-report=term` and uploads **coverage.xml** as a workflow artifact. Configuration: `[tool.coverage.run]` and `[tool.coverage.report]` in `pyproject.toml` at repo root.
+
+**Coverage scope:** Coverage is measured only on the default test run (`pytest -m "not slow"`). Slow tests (golden suite, package-release, determinism-report) and env-gated tests (e.g. `LABTRUST_RUN_GOLDEN=1`, `LABTRUST_CHECK_BASELINES=1`, MARL smoke, live LLM) do not contribute to the same `fail_under` ratchet. So the reported line coverage reflects the fast suite only; raising coverage may require adding tests for previously untested code paths (including error-handling paths).
+
+| Scope | Included | Excluded |
+|-------|----------|----------|
+| Test run | `pytest -m "not slow"` (default) | Slow (`@pytest.mark.slow`), LABTRUST_* gated (golden, baselines, paper, MARL, live LLM) |
 
 **Coverage ratchet:** A **fail_under** value is set in pyproject.toml so that coverage regressions are **PR-blocking**. The coverage job fails when line coverage falls below that percentage. Start conservative to avoid churn; ratchet up over time.
 
@@ -284,6 +297,13 @@ Workflow **`.github/workflows/llm_live_optional_smoke.yml`** runs live-LLM healt
 - **When:** **workflow_dispatch** or nightly. **Skips** when `OPENAI_API_KEY` is not set (no failure).
 - **Steps:** `labtrust llm-healthcheck --backend openai_responses`; then official pack smoke with llm_live (`--pipeline-mode llm_live`, `--allow-network`). **E2E assertion:** non-empty model_id and latency/cost in TRANSPARENCY_LOG/llm_live.json and live_evaluation_metadata.json. Uploads those artifacts as workflow artifacts.
 - **Secrets:** Set `OPENAI_API_KEY` in repo secrets to enable the job; without it, the workflow exits successfully without running live calls.
+
+### Test policy: real LLM API vs mocks
+
+- **Real LLM API tests** (openai_responses, openai_live, anthropic_live, ollama_live) are **not** run on every push/PR. They require secrets or local services and are opt-in.
+- **Scheduled (nightly) and workflow_dispatch:** When `OPENAI_API_KEY` (and optionally `ANTHROPIC_API_KEY`, local Ollama) are configured, the optional LLM live smoke workflow runs healthcheck and a short pack run and uploads artifacts. No failure when keys are unset.
+- **Unit and integration tests that mock backends** (e.g. `test_network_guard_ci`, `test_ollama_live` with mocked urlopen, `test_llm_guardrails`) run in normal CI and **must pass**. They do not call real APIs.
+- **On release tag:** The release workflow does not run cross-provider or live-LLM smoke by default; a future step could run cross-provider smoke when keys are available.
 
 ## Viewer data from release (path-filtered)
 

@@ -1,8 +1,10 @@
 """
-First gates: RBAC, capability (B006), signature verification.
+First gates: RBAC, capability, and signature verification before state mutation.
 
-Deterministic given event and context. Returns GateDecision for the engine to merge
-into step output (or short-circuit return when allowed=False).
+Runs role-based access control, agent capability checks (e.g. override budget),
+and action signature verification. Deterministic given event and context.
+Returns a GateDecision for the engine to merge into step output; when
+allowed=False, the engine short-circuits and does not mutate state.
 """
 
 from __future__ import annotations

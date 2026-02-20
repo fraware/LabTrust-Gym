@@ -59,12 +59,12 @@ labtrust run-benchmark --task throughput_sla --episodes 5 --out results.json
 labtrust reproduce --profile minimal
 ```
 
-**New to the repo?** If you forked the repo and want to customize for your hospital lab and run all commands end-to-end, see [Forker guide](docs/getting-started/forkers.md).
+**New to the repo?** If you forked the repo and want to customize for your hospital lab and run all commands end-to-end, see [Forker guide](docs/getting-started/forkers.md) and [Quick demos](docs/getting-started/quick_demos.md).
 
 **Extending without forking**
 
 - **Option A:** Fork and customize via partner overlay and policy only. See [Forker guide](docs/getting-started/forkers.md).
-- **Option B:** Install `labtrust-gym` and ship your own pip package that registers domains, tasks, coordination methods, invariant handlers, or providers via `register_*` or entry_points; use `--profile` to set partner and provider IDs and `extension_packages`. See [Extension development](docs/agents/extension_development.md).
+- **Option B:** Install `labtrust-gym` and ship your own pip package that registers domains, tasks, coordination methods, invariant handlers, or providers via `register_*` or entry_points; use `--profile` to set partner and provider IDs and `extension_packages`. See [Extension development](docs/agents/extension_development.md#integration-pattern-option-b).
 
 | Extra | Purpose |
 |-------|---------|
@@ -78,7 +78,7 @@ labtrust reproduce --profile minimal
 
 ## Pipelines
 
-Benchmarks run in one of three pipeline modes. **Defaults are offline** (no network, no API cost).
+Benchmarks run in one of three pipeline modes: **deterministic** | **llm_offline** | **llm_live** (only these values; see [Live LLM](docs/agents/llm_live.md) for canonical definitions). **Defaults are offline** (no network, no API cost).
 
 | Mode | Network | Agents | Use case |
 |------|---------|--------|----------|
@@ -91,7 +91,7 @@ Set mode with `--pipeline-mode`; for live LLM also pass `--allow-network` or `LA
 > **Why you saw no OpenAI calls**  
 > Runs are **offline by default**. `quick-eval`, `run-benchmark`, `reproduce`, and `package-release` use `pipeline_mode=deterministic` unless you pass `--pipeline-mode llm_live` and `--allow-network`. No `.env` or `OPENAI_API_KEY` is read unless the pipeline is **llm_live** and network is allowed.  
 > To run with a live LLM: `--pipeline-mode llm_live --allow-network --llm-backend openai_live` (or `ollama_live`). The CLI prints: **WILL MAKE NETWORK CALLS / MAY INCUR COST**.  
-> Every run records `pipeline_mode`, `llm_backend_id`, `llm_model_id`, and `allow_network` in **results.json** (and UI export **index.json**) for audit.
+> Every run records `pipeline_mode`, `llm_backend_id`, `llm_model_id`, and `allow_network` in **results.json** (and UI export **index.json**) for audit. All benchmark result files also record **non_deterministic** so you can tell deterministic vs LLM runs when inspecting outputs.
 
 ---
 
@@ -104,6 +104,8 @@ labtrust quick-eval
 ```
 
 Output: markdown summary (throughput, violations, blocked counts) and logs under `./labtrust_runs/quick_eval_<timestamp>/`. Use `--seed` and `--out-dir` to customize.
+
+**Quick demos:** The canonical demo commands are `labtrust forker-quickstart`, `labtrust quick-eval`, and `labtrust run-official-pack` (use `--include-coordination-pack` when you want coordination and security evidence in one run). See [Quick demos](docs/getting-started/quick_demos.md) for a table of "if you want to see X, run Y."
 
 ### Example agents and notebooks
 
@@ -213,6 +215,8 @@ The golden runner (`labtrust_gym.runner`) runs scenario scripts from `policy/gol
 
 - **Reproduce:** `labtrust reproduce --profile minimal` — [Reproduce](docs/benchmarks/reproduce.md).
 - **Release artifact:** `labtrust package-release --profile minimal --out /tmp/labtrust_release` produces MANIFEST, BENCHMARK_CARD, metadata, results (v0.2), summary, plots, receipts, FHIR. For paper-ready: `--profile paper_v0.1` — [Paper provenance](docs/benchmarks/paper/README.md), [Security attack suite](docs/risk-and-security/security_attack_suite.md), [Coordination benchmark card](docs/coordination/coordination_benchmark_card.md).
+- **For research and audit:** Use the paper-ready artifact and verify-release so high-impact is linked to a verifiable, citable artifact: [Quick demos](docs/getting-started/quick_demos.md) and [Paper provenance](docs/benchmarks/paper/README.md).
+- **Standardized evaluation:** The [Benchmark card](docs/benchmarks/benchmark_card.md) and official baselines (v0.2) are the public contract for what we measure and how we compare. See [Use cases and impact](docs/reference/use_cases_and_impact.md).
 - **Official baselines:** v0.2 is canonical in `benchmarks/baselines_official/v0.2/`. Regenerate: `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force`. Compare: `labtrust summarize-results --in benchmarks/baselines_official/v0.2/results/ your_results.json --out /tmp/compare` — [Benchmark card](docs/benchmarks/benchmark_card.md).
 - **Cite:** [CITATION.cff](CITATION.cff) or *LabTrust-Gym: a multi-agent environment for a self-driving hospital lab with a trust skeleton*. https://github.com/fraware/LabTrust-Gym.
 

@@ -76,7 +76,7 @@ labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>
 labtrust verify-bundle --bundle <bundle_dir>   # passes when bundle is from export-receipts
 ```
 
-Use an EvidenceBundle path under `receipts/` (e.g. `receipts/taska_cond_0/EvidenceBundle.v0.1`), not the release root. To verify all bundles in a release: `labtrust verify-release --release-dir <path>`. See [Release checklist](../operations/release_checklist.md).
+Use an EvidenceBundle path under `receipts/` (e.g. `receipts/taska_cond_0/EvidenceBundle.v0.1`), not the release root. To verify all bundles in a release: `labtrust verify-release --release-dir <path>`. See [Release checklist](../operations/release_checklist.md) and [Trust verification](../risk-and-security/trust_verification.md) for the full trust story and how to run each verification step.
 
 ## Release artifacts (v0.1.0)
 

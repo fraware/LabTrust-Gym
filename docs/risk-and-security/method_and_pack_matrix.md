@@ -90,6 +90,23 @@ labtrust run-coordination-security-pack --out labtrust_runs/pack_full --matrix-p
 
 You can also use `--methods-from full` (and optionally `--injections-from critical` or `policy`) instead of a preset. Output directory: the path you pass to `--out`.
 
+### Run one scale at a time (shorter jobs)
+
+To reduce runtime per run, you can run the full matrix one scale at a time with `--scale-ids`. Each scale writes to its own `--out` directory; combine them later with `export-risk-register --runs <dir1> --runs <dir2> --runs <dir3>`.
+
+```bash
+# Scale 1: small_smoke (4 agents, fastest)
+labtrust run-coordination-security-pack --out pack_run_full_matrix/small_smoke --matrix-preset full_matrix --scale-ids small_smoke --seed 42 --workers 8
+
+# Scale 2: medium_stress_signed_bus (75 agents)
+labtrust run-coordination-security-pack --out pack_run_full_matrix/medium_stress_signed_bus --matrix-preset full_matrix --scale-ids medium_stress_signed_bus --seed 42 --workers 8
+
+# Scale 3: corridor_heavy (200 agents)
+labtrust run-coordination-security-pack --out pack_run_full_matrix/corridor_heavy --matrix-preset full_matrix --scale-ids corridor_heavy --seed 42 --workers 8
+```
+
+Scripts: `scripts/run_pack_by_scale.ps1` (Windows), `scripts/run_pack_by_scale.sh` (Unix/macOS).
+
 ### View the result matrix (real data)
 
 Use the pack run directory as input:

@@ -1,8 +1,9 @@
 """
-Engine-internal reason codes and error semantics.
+Reason codes and error semantics used inside the engine.
 
-Canonical reason codes for holds, blocks, and audit are in policy/reason_codes.
-This module holds codes used directly by the engine (e.g. forensic freeze).
+The full set of reason codes for holds, blocks, and audit is in policy/reason_codes.
+This module defines the small set of codes used directly by the engine, such as
+AUDIT_CHAIN_BROKEN for forensic freeze when the audit chain is invalid.
 """
 
 # Audit log frozen (chain broken); all subsequent steps BLOCKED.

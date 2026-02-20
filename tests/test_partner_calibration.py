@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.benchmarks.tasks import (
-    TaskA_ThroughputSLA,
+    ThroughputSla,
     _sample_arrival_and_n_from_calibration,
     _stat_rate_from_calibration,
 )
@@ -58,7 +58,7 @@ def test_missing_calibration_falls_back_to_defaults() -> None:
     assert effective.get("calibration") is None
     assert cal_fp is None
     # Task with no calibration uses default n and arrival range
-    task = TaskA_ThroughputSLA()
+    task = ThroughputSla()
     state = task.get_initial_state(42, calibration=None)
     specimens = state.get("specimens", [])
     assert 2 <= len(specimens) <= 6

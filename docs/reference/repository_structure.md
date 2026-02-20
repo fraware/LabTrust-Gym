@@ -20,7 +20,7 @@ Canonical layout of the LabTrust-Gym repo. Keep the root minimal; put CLI and bu
 | `.github/workflows/` | CI: lint, typecheck, **test** (matrix: ubuntu + Windows, Python 3.11/3.12), **golden** (determinism-report + full suite), policy-validate, **release-fixture-verify** (verify-release --strict-fingerprints on tests/fixtures/release_fixture_minimal), **risk-register-gate**, **risk-coverage-every-pr** (validate-coverage --strict with waivers), **coverage** (every PR), **audit-selfcheck.yml** (Phase A checks), **wheel-smoke.yml** (build wheel, install, validate-policy, quick-eval), **viewer-data-from-release.yml** (path-filtered: build viewer-data/latest from release), **risk-coverage-strict** (schedule/workflow_dispatch); **e2e-artifacts-chain.yml**; **llm_live_optional_smoke.yml** (healthcheck + pack smoke when OPENAI_API_KEY set); **coordination-nightly.yml** (schedule + workflow_dispatch). See [CI](../operations/ci.md). |
 | `.gitattributes` | Text/line-ending rules (e.g. `*.sh text eol=lf` so shell scripts use LF on all platforms). |
 
-Do not commit CLI outputs at the root (e.g. `results.json`, `out.json`, `bench_smoke_*.json`). Use `labtrust_runs/` or `--out <path>` so outputs stay out of the repo root.
+Root must contain only core files and directories. Do not commit CLI outputs or local run directories at the root (e.g. `results.json`, `out.json`, `det_*`, `release/`, `results/`, `determinism_report*/`, `audit_self_check/`). These are gitignored; use `labtrust_runs/` or `--out <path>` for all run outputs so they are never pushed.
 
 ## Directories
 

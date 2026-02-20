@@ -1,8 +1,11 @@
 """
-Memory hardening: authenticated writes, schema-limited content, TTL/decay, poison filtering.
+Memory store and validators for agent-accessible state.
 
-MemoryStore: put(entry, writer_agent_id, signature, ttl); get(query, role_id) with filtering.
-Validators: poison pattern detection, instruction-override detection.
+MemoryStore supports authenticated writes (signature when required), schema-
+limited content, and TTL (time-to-live). Retrieval filters expired entries
+and poison/instruction-override patterns. Validators detect poison patterns
+and instruction-override attempts. Used by coordination methods that need
+shared memory under policy.
 """
 
 from labtrust_gym.memory.store import (

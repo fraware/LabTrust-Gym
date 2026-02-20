@@ -1,9 +1,10 @@
 """
-Deterministic scripted operations agent baseline.
+Deterministic scripted operations agent baseline (e.g. for ops_0 / scheduler).
 
-Policy: STAT front-of-line, else EDF on stability deadline; conservative
-stability/temp (override only if configured); never restricted without token;
-QC fail => route to alternate device or hold. Purely deterministic given obs.
+Policy: STAT (stat-priority) work first, then EDF (earliest-deadline-first) on
+stability deadline; conservative stability and temperature (override only if
+configured); never use restricted doors without the required token; on QC
+fail, route to alternate device or hold. Purely deterministic given observations.
 """
 
 from __future__ import annotations

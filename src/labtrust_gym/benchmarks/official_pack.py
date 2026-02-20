@@ -1,10 +1,10 @@
 """
 Official Benchmark Pack runner (v0.1 and v0.2).
 
-Loads policy/official/benchmark_pack.v0.1.yaml or v0.2 when pipeline_mode is llm_live.
-Runs baselines, security suite, safety case, transparency log; writes a single folder
-ready to upload. For llm_live also writes TRANSPARENCY_LOG/llm_live.json and
-live_evaluation_metadata.json. Results semantics v0.2 canonical. Backward-compatible with existing CLI.
+Loads the pack policy (v0.1 or v0.2 when pipeline mode is llm_live). Runs
+baselines, security suite, safety case, and transparency log into a single
+output folder. For llm_live mode also writes transparency and live evaluation
+metadata. Results follow the v0.2 schema. Used by package-release and the CLI.
 """
 
 from __future__ import annotations
@@ -14,9 +14,10 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from labtrust_gym.config import policy_path
 from labtrust_gym.policy.loader import load_yaml
@@ -155,6 +156,7 @@ def _scale_config_to_coordination_scale_config(
         specimens_per_min=arrival_rate,
         horizon_steps=horizon_steps,
         timing_mode="explicit",
+        coord_auction_protocol=scale_row.get("coord_auction_protocol"),
     )
 
 
@@ -292,7 +294,8 @@ def run_official_pack(
         for p in sorted(results_dir.glob("*.json")):
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to load results JSON %s for live meta: %s", p.name, e)
                 continue
             meta = data.get("metadata") or {}
             if live_meta["model_id"] is None:
@@ -410,8 +413,8 @@ def run_official_pack(
         )
         if out.returncode == 0 and out.stdout:
             git_sha = out.stdout.strip()[:12]
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Git rev-parse failed for pack manifest: %s", e)
 
     manifest = {
         "version": pack_version,
@@ -509,7 +512,8 @@ def run_cross_provider_pack(
                 row["live_metadata"] = json.loads(
                     live_meta_path.read_text(encoding="utf-8")
                 )
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to load live_metadata from %s: %s", live_meta_path.name, e)
                 row["live_metadata"] = None
         llm_live_path = provider_dir / "TRANSPARENCY_LOG" / "llm_live.json"
         if llm_live_path.exists():
@@ -517,7 +521,8 @@ def run_cross_provider_pack(
                 data = json.loads(llm_live_path.read_text(encoding="utf-8"))
                 row["llm_live_version"] = data.get("version")
                 row["latency_and_cost"] = data.get("latency_and_cost_statistics")
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to load llm_live.json from %s: %s", provider_dir.name, e)
                 row["llm_live_version"] = None
                 row["latency_and_cost"] = None
         summary_rows.append(row)

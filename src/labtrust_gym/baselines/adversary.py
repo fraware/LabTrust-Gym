@@ -1,11 +1,9 @@
 """
-Deterministic adversary/sloppy agent baseline for TaskD.
+Deterministic adversary (sloppy) agent baseline for adversarial benchmarks.
 
-Policies (step-based, deterministic):
-- Misroute racks: QUEUE_RUN to wrong device (e.g. chem work to coag device).
-- Attempt unauthorized restricted door: OPEN_DOOR without token_refs.
-- Attempt token replay/expired: OPEN_DOOR with token_refs ["T_EXPIRED"].
-- Leave door open: OPEN_DOOR then NOOP (no TICK mitigation from this agent).
+Used to test containment and detection: misroutes work to the wrong device,
+attempts unauthorized restricted-door access without a token, attempts
+expired-token replay, and leaves doors open. Step-based and deterministic.
 """
 
 from __future__ import annotations

@@ -1,14 +1,13 @@
 """
-Security attack suite runner: execute golden security scenarios and emit attack_results.json.
+Security attack suite runner: run golden security scenarios and write results.
 
-Loads policy/golden/security_attack_suite.v0.1.yaml; for each attack (optionally filtered
-by smoke=True), runs the scenario (prompt-injection in-process or test_ref via pytest);
-writes SECURITY/attack_results.json with pass/fail and optional receipts.
-Deterministic when run with fixed seed; CI-runnable in smoke mode.
-
-LLM attacker mode (opt-in): attacks with llm_attacker=true are skipped unless
---llm-attacker and --allow-network are set; then a live LLM generates adversarial
-payloads and the system under test (shield) must block them.
+Loads policy/golden/security_attack_suite.v0.1.yaml. For each attack (optionally
+filtered by smoke=True), runs the scenario (e.g. prompt-injection in-process or
+via pytest test_ref) and writes SECURITY/attack_results.json with pass/fail and
+optional receipts. Deterministic with a fixed seed; CI uses smoke mode. Optional
+LLM (large language model) attacker mode: with --llm-attacker and --allow-network,
+attacks marked llm_attacker=true use a live LLM to generate adversarial payloads
+and the shield under test must block them.
 """
 
 from __future__ import annotations

@@ -1,9 +1,9 @@
 """
-Load official baseline registry: task -> baseline_id for generate-official-baselines.
+Load the official baseline registry (task -> baseline_id).
 
-Registry file: benchmarks/baseline_registry.v0.1.yaml
-Result filename suffix: baseline_id with _v1 stripped
-(e.g. scripted_ops_v1 -> scripted_ops).
+Reads benchmarks/baseline_registry.v0.1.yaml to map each task to a baseline
+agent (e.g. scripted_ops_v1, adversary_v1). Used when generating official
+baseline results; result filename suffix is baseline_id with _v1 stripped.
 """
 
 from __future__ import annotations

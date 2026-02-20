@@ -1,11 +1,13 @@
 """
-Signed actions: Ed25519 signature verification over canonical payload.
+Action signature verification (Ed25519 over a canonical payload).
 
-- Canonical payload: event_id, t_s, agent_id, action_type, action_params, token_refs,
-  partner_id, policy_fingerprint, prev_hash. Serialized with same canonicalization as audit log.
-- Key registry: key_id, public_key (base64), agent_id, role_id, status, not_before_ts_s, not_after_ts_s.
-- When strict_signatures enabled: mutating actions without valid signature are BLOCKED (SIG_MISSING, SIG_INVALID, etc.).
-- When strict off: verification result recorded in step output and receipts.
+The signed payload includes event_id, time, agent_id, action_type, action params,
+token refs, partner_id, policy fingerprint, and previous hash, serialized in the
+same canonical form as the audit log. The key registry holds key_id, public key
+(base64), agent_id, role_id, status, and validity window. When strict_signatures
+is enabled, mutating actions without a valid signature are BLOCKED (reason codes
+such as SIG_MISSING, SIG_INVALID). When strict is off, the verification result
+is still recorded in step output and receipts.
 """
 
 from __future__ import annotations

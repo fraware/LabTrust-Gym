@@ -1,10 +1,11 @@
 """
-PettingZoo Parallel API wrapper for LabTrust-Gym.
+PettingZoo Parallel API wrapper for the lab simulation.
 
-Uses the existing CoreEnv under the hood; deterministic seeding via seed() and reset(seed=).
-Agent set: ops_0 (scheduler), runner_0..runner_k, qc_0, supervisor_0.
-Observation: aggregated (zone, doors, queues, specimen counts, qc, alarms, token counts).
-Action: discrete action type + optional args; translation layer -> engine events.
+Wraps CoreEnv with the PettingZoo Parallel interface: multiple agents step
+together; observations are aggregated (zones, doors, queues, specimen counts,
+QC state, alarms, token counts); actions are discrete action type plus
+optional args, translated into engine events. Deterministic via seed() and
+reset(seed=). Requires pip install -e \".[env]\".
 """
 
 from __future__ import annotations
@@ -12,8 +13,9 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 

@@ -181,6 +181,17 @@ class OllamaCoordinationProposalBackend:
             self._model,
         )
 
+        tracer = None
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+        except Exception:
+            pass
+        if tracer is not None:
+            tracer.start_span("coord_proposal")
+            tracer.set_attribute("backend_id", BACKEND_ID_COORD)
+            tracer.set_attribute("model_id", self._model)
+
         prompt = (
             "Return a single JSON object: coordination proposal with keys "
             "proposal_id (string), step_id (int), method_id (string), "
@@ -203,6 +214,9 @@ class OllamaCoordinationProposalBackend:
                 prompt, self._base_url, self._model, self._timeout_s
             )
         except Exception as e:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", 0)
+                tracer.end_span("error", str(e)[:200])
             LOG.debug("Ollama coord backend error: %s", str(e)[:200])
             self._error_count += 1
             self._last_metrics = fallback_meta
@@ -211,6 +225,9 @@ class OllamaCoordinationProposalBackend:
         latency_ms = (time.perf_counter() - start) * 1000
         extracted = extract_first_json_object(raw)
         if not extracted:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "no JSON object")
             LOG.debug("Ollama coord: no JSON object in response")
             self._error_count += 1
             fallback_meta["latency_ms"] = round(latency_ms, 2)
@@ -219,12 +236,18 @@ class OllamaCoordinationProposalBackend:
         try:
             proposal = json.loads(extracted)
         except json.JSONDecodeError:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "invalid JSON")
             LOG.debug("Ollama coord: invalid JSON")
             self._error_count += 1
             fallback_meta["latency_ms"] = round(latency_ms, 2)
             self._last_metrics = fallback_meta
             return (fallback_proposal, fallback_meta)
         if not isinstance(proposal, dict):
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "not dict")
             self._error_count += 1
             fallback_meta["latency_ms"] = round(latency_ms, 2)
             self._last_metrics = fallback_meta
@@ -250,6 +273,11 @@ class OllamaCoordinationProposalBackend:
             "tokens_out": 0,
             "prompt_fingerprint": _sha256(prompt),
         }
+        if tracer is not None:
+            tracer.set_attribute("latency_ms", meta["latency_ms"])
+            tracer.set_attribute("prompt_tokens", 0)
+            tracer.set_attribute("completion_tokens", 0)
+            tracer.end_span()
         self._sum_latency_ms += latency_ms
         self._latency_ms_list.append(latency_ms)
         self._last_metrics = meta
@@ -355,6 +383,17 @@ class OllamaBidBackend:
             "tokens_out": 0,
         }
 
+        tracer = None
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+        except Exception:
+            pass
+        if tracer is not None:
+            tracer.start_span("coord_bid")
+            tracer.set_attribute("backend_id", BACKEND_ID_BID)
+            tracer.set_attribute("model_id", self._model)
+
         prompt = (
             "Return a single JSON object with: proposal_id (string), step_id (int), "
             "method_id (string), per_agent (array, can be empty), comms (array, "
@@ -378,6 +417,9 @@ class OllamaBidBackend:
                 self._timeout_s,
             )
         except Exception as e:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", 0)
+                tracer.end_span("error", str(e)[:200])
             LOG.debug("Ollama bid backend error: %s", str(e)[:200])
             self._error_count += 1
             self._last_metrics = fallback_meta
@@ -386,6 +428,9 @@ class OllamaBidBackend:
         latency_ms = (time.perf_counter() - start) * 1000
         extracted = extract_first_json_object(raw)
         if not extracted:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "no JSON")
             self._error_count += 1
             fallback_meta["latency_ms"] = round(latency_ms, 2)
             self._last_metrics = fallback_meta
@@ -393,16 +438,27 @@ class OllamaBidBackend:
         try:
             proposal = json.loads(extracted)
         except json.JSONDecodeError:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "invalid JSON")
             self._error_count += 1
             fallback_meta["latency_ms"] = round(latency_ms, 2)
             self._last_metrics = fallback_meta
             return (fallback, fallback_meta)
         if not isinstance(proposal, dict):
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", round(latency_ms, 2))
+                tracer.end_span("error", "not dict")
             self._error_count += 1
             fallback_meta["latency_ms"] = round(latency_ms, 2)
             self._last_metrics = fallback_meta
             return (fallback, fallback_meta)
 
+        if tracer is not None:
+            tracer.set_attribute("latency_ms", round(latency_ms, 2))
+            tracer.set_attribute("prompt_tokens", 0)
+            tracer.set_attribute("completion_tokens", 0)
+            tracer.end_span()
         if not isinstance(proposal.get("market"), list):
             proposal["market"] = []
         proposal.setdefault("per_agent", [])

@@ -12,10 +12,13 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.baselines.coordination.methods.llm_gossip_summarizer import (
+    COORD_HASH_MISMATCH,
     COORD_PAYLOAD_INVALID,
     COORD_PAYLOAD_TOO_LARGE,
     COORD_POISON_SUSPECTED,
     MESSAGE_TYPE_GOSSIP_SUMMARY,
+    _compute_hash_commitment,
+    _verify_hash_commitment,
     poison_heuristic,
     validate_message_payload,
 )
@@ -70,13 +73,28 @@ def test_validate_message_payload_rejects_unknown_fields() -> None:
 
 
 def test_validate_message_payload_rejects_too_large() -> None:
-    """Rejects payload exceeding max_bytes."""
+    """Rejects payload exceeding max_bytes (overlong -> reject + fallback)."""
     payload = {"agent_id": "x", "step_id": 0, "zone_id": "Z", "big": "x" * 5000}
     ok, reason = validate_message_payload(
         payload, {}, max_bytes=1024
     )
     assert not ok
     assert COORD_PAYLOAD_TOO_LARGE in reason
+
+
+def test_gossip_hash_commitment_poisoned_rejected() -> None:
+    """Poisoned summary (tampered counts) -> hash mismatch -> rejected."""
+    payload = {
+        "agent_id": "a1",
+        "step_id": 0,
+        "zone_id": "Z_A",
+        "queue_summary": [{"device_id": "D1", "queue_len": 1, "queue_head": "W1"}],
+        "task": "active",
+    }
+    payload["hash_commitment"] = _compute_hash_commitment(payload)
+    assert _verify_hash_commitment(payload) is True
+    payload["queue_summary"][0]["queue_len"] = 999
+    assert _verify_hash_commitment(payload) is False
 
 
 def test_poison_heuristic_suspected_substring() -> None:

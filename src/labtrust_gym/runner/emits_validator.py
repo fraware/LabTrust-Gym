@@ -1,8 +1,9 @@
 """
-Load and validate emits against the canonical vocabulary. Unknown emits fail tests.
+Load and validate step emits against the policy emit vocabulary.
 
-Re-exports from policy.emits so the runner uses the same loader and validator
-(policy/emits/emits_vocab.v0.1.yaml canonical_set, PolicyLoadError on invalid files).
+Re-exports load_emits_vocab and validate_emits from policy.emits. The golden
+runner and engine use this so that every emit string in step output is checked
+against policy/emits/emits_vocab.v0.1.yaml; unknown emits cause validation failure.
 """
 
 from __future__ import annotations

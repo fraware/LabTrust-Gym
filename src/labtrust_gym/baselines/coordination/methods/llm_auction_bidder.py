@@ -3,12 +3,22 @@ Market-based coordinator: LLM produces typed bids only (value, units, constraint
 deterministic auction clears assignments; deterministic dispatcher produces actions.
 Strict bid validation. Metrics: bid_skew, gini_work_distribution,
 collusion_suspected_proxy. Evaluated under collusion and comms poison injection.
+
+Envelope (SOTA audit):
+  - Typical steps per episode: N/A; horizon-driven.
+  - LLM calls per step: 1 per agent (bid round), then deterministic clear.
+  - Fallback on timeout/refusal: NOOP or minimal valid bid per agent.
+  - max_latency_ms: N/A for live; bounded in llm_offline by deterministic backend.
 """
 
 from __future__ import annotations
 
+import logging
+import os
 import random
 from typing import Any, Callable
+
+_LOG = logging.getLogger(__name__)
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
@@ -121,9 +131,17 @@ def _proposal_market_to_typed_bids(
             errors.append(f"market[{i}] missing bundle or bundle_id")
             continue
         raw_value = m.get("bid")
+        travel_time_estimate = None
+        queue_delay_estimate = None
+        risk_penalty = None
+        fairness_penalty = None
         if isinstance(raw_value, dict):
             value = raw_value.get("value", raw_value.get("cost", 0.0))
             units = raw_value.get("units", "cost")
+            travel_time_estimate = raw_value.get("travel_time_estimate")
+            queue_delay_estimate = raw_value.get("queue_delay_estimate")
+            risk_penalty = raw_value.get("risk_penalty")
+            fairness_penalty = raw_value.get("fairness_penalty")
         else:
             value = raw_value
             units = m.get("units", "cost")
@@ -134,6 +152,13 @@ def _proposal_market_to_typed_bids(
         if not ok:
             errors.append(f"market[{i}] {err}")
             continue
+        def _float_or_none(x: Any) -> float | None:
+            if x is None:
+                return None
+            try:
+                return float(x)
+            except (TypeError, ValueError):
+                return None
         bids.append(
             TypedBid(
                 agent_id=str(agent_id),
@@ -141,9 +166,78 @@ def _proposal_market_to_typed_bids(
                 value=float(value),
                 units=str(units).strip().lower(),
                 constraints=dict(constraints),
+                travel_time_estimate=_float_or_none(travel_time_estimate),
+                queue_delay_estimate=_float_or_none(queue_delay_estimate),
+                risk_penalty=_float_or_none(risk_penalty),
+                fairness_penalty=_float_or_none(fairness_penalty),
             )
         )
     return bids, errors
+
+
+def _expected_bid_from_digest(
+    digest: dict[str, Any],
+    agent_id: str,
+    bundle_id: str,
+) -> float:
+    """
+    Compute expected bid value from digest (travel proxy + queue proxy).
+    Used to reject bids that are inconsistent with observable state.
+    """
+    per_agent = digest.get("per_agent") or []
+    per_device = digest.get("per_device") or []
+    device_zone = digest.get("device_zone") or {}
+    agent_zone = ""
+    for p in per_agent:
+        if isinstance(p, dict) and p.get("agent_id") == agent_id:
+            agent_zone = (p.get("zone") or "").strip()
+            break
+    if ":" in bundle_id:
+        dev_id, _work = bundle_id.split(":", 1)
+        device_zone_id = device_zone.get(dev_id, "")
+        travel = 0.0 if (agent_zone and device_zone_id and agent_zone == device_zone_id) else 1.0
+    else:
+        travel = 1.0
+    queue_proxy = 0.0
+    for d in per_device:
+        if not isinstance(d, dict):
+            continue
+        dev_id = str(d.get("device_id") or "")
+        if bundle_id.startswith(dev_id + ":"):
+            queue_proxy = float(d.get("queue_len", 0) or 0) * 0.1
+            break
+    return travel + queue_proxy
+
+
+def _reject_inconsistent_bids(
+    bids: list[TypedBid],
+    digest: dict[str, Any],
+    tolerance: float,
+) -> tuple[list[TypedBid], list[str]]:
+    """
+    Drop bids whose value is inconsistent with recomputed expected range
+    (travel + queue + risk + fairness) beyond tolerance.
+    """
+    kept: list[TypedBid] = []
+    errors: list[str] = []
+    for b in bids:
+        base = _expected_bid_from_digest(digest, b.agent_id, b.bundle_id)
+        risk = b.risk_penalty if b.risk_penalty is not None else 0.0
+        fair = b.fairness_penalty if b.fairness_penalty is not None else 0.0
+        travel_b = b.travel_time_estimate if b.travel_time_estimate is not None else None
+        queue_b = b.queue_delay_estimate if b.queue_delay_estimate is not None else None
+        if travel_b is not None and queue_b is not None:
+            expected = travel_b + queue_b + risk + fair
+        else:
+            expected = base + risk + fair
+        if abs(b.value - expected) > tolerance:
+            errors.append(
+                f"bid {b.agent_id} {b.bundle_id} value {b.value} outside tolerance "
+                f"of expected {expected}"
+            )
+            continue
+        kept.append(b)
+    return kept, errors
 
 
 def _assignments_to_actions(
@@ -211,13 +305,22 @@ def _assignments_to_actions(
 
 class DeterministicBidBackend:
     """
-    Deterministic backend that returns CoordinationProposal with market[] bids
-    derived from state (cost = distance proxy + priority). No LLM; for testing
-    and deterministic benchmarking.
+    Deterministic backend: market[] bids with typed decomposition for recompute
+    validation. Optional inconsistent_bid for tests (value != sum).
     """
 
-    def __init__(self, seed: int = 0) -> None:
+    DEFAULT_BACKEND_ID = "deterministic_bid"
+
+    def __init__(
+        self,
+        seed: int = 0,
+        backend_id: str | None = None,
+        *,
+        inconsistent_bid: bool = False,
+    ) -> None:
         self._seed = seed
+        self._backend_id = (backend_id or self.DEFAULT_BACKEND_ID).strip() or self.DEFAULT_BACKEND_ID
+        self._inconsistent_bid = inconsistent_bid
 
     def reset(self, seed: int) -> None:
         self._seed = seed
@@ -228,7 +331,7 @@ class DeterministicBidBackend:
         step_id: int,
         method_id: str,
     ) -> dict[str, Any]:
-        """Proposal with market[] bids; bid value = priority bonus - distance proxy."""
+        """Proposal with market[] bids; bid value = sum of decomposition or forced inconsistent."""
         per_agent = state_digest.get("per_agent") or []
         per_device = state_digest.get("per_device") or []
         device_zone = state_digest.get("device_zone") or {}
@@ -237,7 +340,7 @@ class DeterministicBidBackend:
             if not isinstance(p, dict):
                 continue
             agent_id = p.get("agent_id")
-            zone = p.get("zone") or ""
+            zone = (p.get("zone") or "").strip()
             for d in per_device:
                 if not isinstance(d, dict):
                     continue
@@ -249,14 +352,43 @@ class DeterministicBidBackend:
                 prio = 2 if "STAT" in queue_head.upper() else (
                     1 if "URGENT" in queue_head.upper() else 0
                 )
-                value = max(0.0, 10.0 - prio * 3.0)
+                travel = 0.0 if (zone and z and zone == z) else 1.0
+                queue_proxy = float(d.get("queue_len", 0) or 0) * 0.1
+                risk_penalty = 0.0
+                fairness_penalty = max(0.0, 2.0 - prio * 0.5)
+                if self._inconsistent_bid:
+                    value = 100.0
+                    bid_payload = {
+                        "value": value,
+                        "units": "cost",
+                        "travel_time_estimate": 1.0,
+                        "queue_delay_estimate": 1.0,
+                        "risk_penalty": 0.0,
+                        "fairness_penalty": 0.0,
+                    }
+                else:
+                    value = travel + queue_proxy + risk_penalty + fairness_penalty
+                    bid_payload = {
+                        "value": value,
+                        "units": "cost",
+                        "travel_time_estimate": travel,
+                        "queue_delay_estimate": queue_proxy,
+                        "risk_penalty": risk_penalty,
+                        "fairness_penalty": fairness_penalty,
+                    }
                 market.append({
                     "agent_id": agent_id,
-                    "bid": value,
+                    "bid": bid_payload,
                     "bundle": {"device_id": dev_id, "work_id": queue_head},
                     "units": "cost",
                     "constraints": {},
                 })
+        meta = {"backend_id": self._backend_id, "model_id": "n/a", "latency_ms": 0.0}
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import record_deterministic_coord_span
+            record_deterministic_coord_span("coord_bid", self._backend_id)
+        except Exception as e:
+            _LOG.debug("Tracing coord_bid span failed: %s", e)
         return {
             "proposal_id": f"auction-det-{self._seed}-{step_id}",
             "step_id": step_id,
@@ -265,7 +397,7 @@ class DeterministicBidBackend:
             "per_agent": [],
             "comms": [],
             "market": market,
-            "meta": {"backend_id": "deterministic_bid", "model_id": "n/a"},
+            "meta": meta,
         }
 
 
@@ -341,30 +473,92 @@ class LLMAuctionBidder(CoordinationMethod):
             return out
         digest = build_state_digest(obs, infos or {}, t, policy)
         digest["device_zone"] = device_zone
+        protocol = (self._scale_config.get("coord_auction_protocol") or
+                    os.environ.get("COORD_AUCTION_PROTOCOL", "single_call"))
         safe_fallback = self._defense_profile == "safe_fallback"
-        try:
-            raw = gen(
-                state_digest=digest,
-                step_id=t,
-                method_id=self.method_id,
-            )
-        except Exception:
-            if safe_fallback:
-                self._last_metrics = {}
-                return out
-            raise
-        if isinstance(raw, tuple):
-            proposal, meta = raw[0], raw[1]
+        market: list[dict[str, Any]] = []
+
+        if protocol == "round_robin":
+            for agent_id in agent_ids:
+                digest_single = dict(digest)
+                per_agent_full = digest_single.get("per_agent") or []
+                digest_single["per_agent"] = [
+                    p for p in per_agent_full
+                    if isinstance(p, dict) and p.get("agent_id") == agent_id
+                ]
+                if not digest_single["per_agent"] and per_agent_full:
+                    digest_single["per_agent"] = [
+                        {**p, "agent_id": agent_id}
+                        for p in per_agent_full[:1]
+                        if isinstance(p, dict)
+                    ]
+                try:
+                    raw_single = gen(
+                        state_digest=digest_single,
+                        step_id=t,
+                        method_id=self.method_id,
+                    )
+                except Exception as e:
+                    _LOG.warning("Bid generation failed for agent %s, using fallback: %s", agent_id, e)
+                    if safe_fallback:
+                        continue
+                    raise
+                if isinstance(raw_single, tuple):
+                    prop_single, _ = raw_single[0], raw_single[1]
+                else:
+                    prop_single = raw_single
+                single_market = prop_single.get("market") or []
+                for m in single_market:
+                    if isinstance(m, dict) and (m.get("agent_id") == agent_id or not m.get("agent_id")):
+                        market.append({**m, "agent_id": m.get("agent_id") or agent_id})
+                    elif isinstance(m, dict):
+                        market.append(m)
+            proposal = {
+                "proposal_id": f"round_robin_{t}",
+                "step_id": t,
+                "method_id": self.method_id,
+                "per_agent": [],
+                "comms": [],
+                "market": market,
+                "meta": {},
+            }
+            meta = {}
         else:
-            proposal = raw
-            meta = proposal.get("meta") or {}
+            try:
+                raw = gen(
+                    state_digest=digest,
+                    step_id=t,
+                    method_id=self.method_id,
+                )
+            except Exception as e:
+                _LOG.warning("Proposal generation failed, using fallback: %s", e)
+                if safe_fallback:
+                    self._last_metrics = {}
+                    return out
+                raise
+            if isinstance(raw, tuple):
+                proposal, meta = raw[0], raw[1]
+            else:
+                proposal = raw
+                meta = proposal.get("meta") or {}
+            market = proposal.get("market") or []
+
         self._last_proposal = proposal
         self._last_meta = meta
-        market = proposal.get("market") or []
         typed_bids, val_errors = _proposal_market_to_typed_bids(
             market, set(agent_ids)
         )
         self._last_validation_errors = list(val_errors)
+        tolerance = self._scale_config.get("bid_consistency_tolerance")
+        if tolerance is not None:
+            try:
+                tol = float(tolerance)
+                typed_bids, consistency_errors = _reject_inconsistent_bids(
+                    typed_bids, digest, tol
+                )
+                self._last_validation_errors.extend(consistency_errors)
+            except (TypeError, ValueError):
+                pass
         rng = random.Random(self._seed + t)
         assignments, bids_used, metrics = clear_auction(
             work_items,

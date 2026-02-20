@@ -1,9 +1,10 @@
 """
-Online serve mode: HTTP API with abuse controls (B004).
+Online serve mode: HTTP API for remote step/query with abuse controls.
 
-- Optional API key, per-key and per-IP rate limits, body size and concurrency limits.
-- Consistent error responses (no info leaks). SECURITY_ALERT telemetry for abuse events.
-- Default: local-only binding; auth off unless LABTRUST_ONLINE_API_KEY is set.
+Optional API key; per-key and per-IP rate limits; body size and concurrency
+limits. Error responses are consistent and do not leak internal details.
+Security telemetry records abuse events. Default: local-only binding; auth
+required only when LABTRUST_ONLINE_API_KEY or LABTRUST_API_TOKEN is set.
 """
 
 from __future__ import annotations

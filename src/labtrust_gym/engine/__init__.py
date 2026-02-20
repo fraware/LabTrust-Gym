@@ -1,4 +1,11 @@
-"""Core simulator: state, events, clock, zones, devices, audit log, tokens."""
+"""
+Core simulation engine: state, events, clock, zones, devices, audit log, tokens.
+
+This package holds the minimal engine (CoreEnv), typed shapes for reset/step
+(InitialStateDict, StepEventDict), and supporting stores (AuditLog, TokenStore).
+Other engine submodules (zones, specimens, queueing, qc, critical, etc.) are
+used by CoreEnv but not re-exported here.
+"""
 
 from labtrust_gym.engine.audit_log import (
     AuditLog,

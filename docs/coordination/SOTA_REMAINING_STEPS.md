@@ -19,15 +19,15 @@ This document lists gaps between the current implementation and the full plan so
 
 | Step | Status | Action |
 |------|--------|--------|
-| MAPF property-based test | Not done | Plan: "30 graphs + 200 start/goal pairs; assert collision-free for each backend." Add property-based test for WHCA (and for CBS/ECBS when [mapf] provides them). |
-| MAPF backend equivalence | Not done | "On tiny graphs, CBS and WHCA both collision-free; CBS cost <= WHCA cost." Requires real CBS implementation in [mapf]. |
-| Min-cost flow: brute-force vs MCF | Not done | Plan: "Small N (<=6) brute-force optimum vs min-cost flow." Add test comparing MCF result to brute-force optimum on tiny instances. |
-| Min-cost flow: forbidden edges | Partial | Forbidden_edges exist in API; add test that RBAC-forbidden (agent, task) pairs are never selected. |
-| Min-cost flow: Gini vs baseline | Not done | "Fairness regularizer -> Gini decreases vs baseline." Add test comparing Gini with fairness_weight=0 vs >0. |
-| EDF: STAT preemption test | Partial | Preemption logic and SLA threshold exist; add explicit test "STAT arrives mid-episode -> preemption occurs" (e.g. two tasks, STAT with tight slack ordered first). |
-| EDF: aging starvation test | Partial | work_wait_steps and aging_steps_per_boost exist; add test "one ROUTINE would starve -> aging eventually schedules it" (e.g. inject work_wait_steps and assert ROUTINE gets scheduled). |
-| ORScheduler: infeasibility report | Not done | When CP-SAT is used and constraints are impossible, return valid fallback and document infeasibility (e.g. in explain or reason code). |
-| ORScheduler: timeout test | Not done | When [or_solver] installed, test that time_budget_ms is respected (solver returns within budget or fallback). |
+| MAPF property-based test | Done | test_mapf_property_whca_collision_free: 30 graphs, 7 pairs per graph (210 total); WHCA collision-free via check_inv_route_001 and check_swap_collision. CBS/ECBS skipped until [mapf]. |
+| MAPF backend equivalence | Blocked | On tiny graphs, CBS and WHCA both collision-free; CBS cost <= WHCA cost. **Blocked on [mapf] CBS backend.** Placeholder test in tests/test_mapf_property.py::test_mapf_cbs_equivalence skips until CBS is available. |
+| Min-cost flow: brute-force vs MCF | Done | test_min_cost_flow_brute_force_vs_mcf: _brute_force_optimal_cost enumerates assignments (N,M<=6), asserts MCF cost equals optimum. |
+| Min-cost flow: forbidden edges | Done | test_min_cost_flow_forbidden_edges: forbidden_edges (agent, (dev_id, work_id)) asserted never in MCF assignments. |
+| Min-cost flow: Gini vs baseline | Done | test_min_cost_flow_gini_fairness: fairness_weight=0.2 yields Gini <= fairness_weight=0. |
+| EDF: STAT preemption test | Done | test_edf_stat_preemption: STAT (slack 3) scheduled before ROUTINE (slack 20) when preemption_sla_threshold=5. |
+| EDF: aging starvation test | Done | test_edf_aging_starvation: ROUTINE with work_wait_steps boosted scheduled first. |
+| ORScheduler: infeasibility report | Done | Fallback explain includes or_cpsat_infeasible; test_orscheduler_cp_sat_infeasible_returns_fallback_with_reason (horizon=0, two tasks same agent). |
+| ORScheduler: timeout test | Done | test_orscheduler_timeout_returns_fallback_no_hang and test_or_scheduler_time_budget_fallback: time_budget_ms respected, fallback used. |
 
 ---
 
@@ -35,9 +35,9 @@ This document lists gaps between the current implementation and the full plan so
 
 | Step | Status | Action |
 |------|--------|--------|
-| Bundle: bundle wins vs two bids | Not done | Plan: "One agent near two tasks -> bundle bid wins vs two separate far bids." Add scenario or unit test with distance/cost that demonstrates bundle winning. |
-| Learning-to-bid: training determinism | Not done | "Same seed/data -> same model checksum." Add minimal regressor or stub that has a checksum and test determinism. |
-| Learning-to-bid: calibration | Not done | "Predicted vs observed error decreases over epochs." Requires experience buffer and calibration metric. |
+| Bundle: bundle wins vs two bids | Done | test_bundle_wins_vs_two_bids_a1_near, test_bundle_wins_both_when_bundle_cheaper_than_split: bundle bid wins. |
+| Learning-to-bid: training determinism | Done | MinimalRegressor with get_checksum(); test_learning_to_bid_training_determinism. |
+| Learning-to-bid: calibration | Done | calibration_mae with MinimalRegressor; test_calibration_mae_decreases_with_more_data. |
 
 ---
 
@@ -45,9 +45,9 @@ This document lists gaps between the current implementation and the full plan so
 
 | Step | Status | Action |
 |------|--------|--------|
-| CRDT in gossip methods | Partial | crdt_merges.py provides LWW, PN-counter, OR-set; plan asks to use them in llm_gossip_summarizer and gossip_consensus for shared-view merge. Wire these merges into the methods. |
-| Merge order independence test | Not done | Test that merging (A then B) vs (B then A) yields same result. |
-| Byzantine: inject k reports | Not done | "Inject k adversarial reports; assert assignment quality degrades gracefully up to k." Add test that uses byzantine_aggregate and injects bad values. |
+| CRDT in gossip methods | Done | llm_gossip_summarizer: LWW for queue_head_by_device; gossip_consensus: PN-counter for zone_counts. Docstrings list CRDT per field. |
+| Merge order independence test | Done | test_crdt_merge_order_independence: LWW, PN-counter, OR-set (A then B) == (B then A). |
+| Byzantine: inject k reports | Done | test_byzantine_inject_k_trim_mean, test_byzantine_inject_k_graceful_degradation. |
 
 ---
 
@@ -55,9 +55,9 @@ This document lists gaps between the current implementation and the full plan so
 
 | Step | Status | Action |
 |------|--------|--------|
-| Wire stability into swarm | Not done | swarm_stability.py has inertia_term, congestion_penalty, pheromone_diffusion; swarm_stigmergy_priority.py has its own pheromone logic. Integrate stability helpers into swarm_stigmergy_priority / swarm_reactive (e.g. use congestion_penalty to reduce pile-ups). |
-| Oscillation test | Not done | "Symmetric corridor -> no infinite ping-pong." Add scenario or test that asserts no infinite A/B oscillation. |
-| Herding test | Not done | "Congestion penalty reduces pile-ups." Add test or scenario. |
+| Wire stability into swarm | Done | swarm_reactive uses inertia_term for zone choice; swarm_stigmergy_priority already uses congestion_penalty and pheromone_diffusion. |
+| Oscillation test | Done | test_swarm_symmetric_corridor_no_infinite_pingpong: zone state simulated, ping-pong count bounded. |
+| Herding test | Done | test_swarm_herding_congestion_reduces_pileup: congestion_penalty_scale>0, move_count >= 1. |
 
 ---
 
@@ -65,7 +65,7 @@ This document lists gaps between the current implementation and the full plan so
 
 | Step | Status | Action |
 |------|--------|--------|
-| 5.1–5.6 implementation | Not done | phase5_llm_upgrades.md documents definition of done; the actual code changes (multi-role committee, intent_confidence, explainable bids, codec checks, repair candidate set, detector calibration) are not implemented. Each requires method-specific changes and tests. |
+| 5.1–5.6 implementation | Done | Done (5.1–5.6): committee backend + tests, hierarchical confidence/assumptions + fallback tests, auction explainable bids + recompute + tests, gossip hash commitments + validation + tests, repair 3–10 candidates + validator + tests, detector probability/abstain/counterfactual + tool wiring + tests. See phase5_llm_upgrades.md for definition of done. |
 
 ---
 
@@ -79,15 +79,23 @@ For any method to be marked "state of the art":
 - Produces METHOD_TRACE.jsonl (stable to diff).
 - Documented compute/latency envelope and fallback (docstring or policy YAML).
 
-Currently no method has all of these; conformance skip/xfail and pass_budget/pass_evidence are used to phase upgrades.
+Several methods now satisfy the full checklist (pass_budget, pass_evidence, strictly-better test, envelope). See [SOTA method roles and checklist](sota_method_roles_and_checklist.md). Regenerate the dashboard with `python scripts/refresh_sota_checklist.py` from repo root. Conformance skip/xfail and pass_budget/pass_evidence in conformance_config.yaml phase remaining upgrades.
+
+**Checklist per method (maintainers):**
+
+| Criterion | How to verify |
+|-----------|----------------|
+| All 5 contracts pass | No skip in [conformance_config.yaml](tests/coord_methods/conformance/conformance_config.yaml) for that method; run conformance matrix. |
+| Property tests exist | Method-specific test file or test_* in tests/; core invariant covered. |
+| Scenario strictly better than baseline | At least one test in [test_coord_strictly_better.py](../tests/test_coord_strictly_better.py) asserts method outperforms baseline on a defined scenario. |
+| METHOD_TRACE emission and stability | Runner or test sets trace_path / trace_from_contract_record; same seed yields same trace_event_hash. |
+| Compute/latency and fallback documented | Method docstring or policy YAML describes envelope and fallback strategy. |
+
+**Methods meeting definition of done:** See [SOTA method roles and checklist](sota_method_roles_and_checklist.md) and `python scripts/refresh_sota_checklist.py` for the current table (pass_budget, pass_evidence, strictly_better_test, envelope per method_id).
 
 ---
 
 ## Suggested priority order
 
 1. **Trace emission in runner** – Enables evidence contract and diff-stable artifacts; small change in runner/compose.
-2. **Min-cost flow tests** – Forbidden edges, Gini vs baseline, brute-force comparison.
-3. **EDF preemption/aging tests** – STAT preemption scenario, ROUTINE starvation + aging.
-4. **CRDT wired into gossip** – Use LWW/PN/OR-set in gossip_consensus and llm_gossip_summarizer.
-5. **Swarm stability integration** – Use inertia/congestion/pheromone helpers in swarm methods; add oscillation/herding tests.
-6. **Phase 5 LLM upgrades** – Implement 5.1–5.6 per phase5_llm_upgrades.md.
+2. **Definition of done per method** – For each coordination method, run checklist above; remove skips where contracts pass; add property/scenario tests and docs; then add to "Methods meeting definition of done."

@@ -11,12 +11,16 @@ labtrust --version   # optional: check version + git SHA
 
 For a full verification command sequence, see [Evaluation checklist](docs/benchmarks/evaluation_checklist.md). To test and audit the repo (lint, format, typecheck, tests, benchmarks, quick-eval, coordination, reproduce, docs), run the steps there or use `make verify`.
 
+## Documentation
+
+Comments and docstrings should be clear and free of unexplained jargon. See [Documentation standards](docs/reference/documentation_standards.md) for module/class/function docstrings, structure, and style. New or modified public modules, classes, or functions must have docstrings that meet those standards (module purpose, no unexplained jargon, and for functions: summary and Args/Returns where applicable). Existing code is being brought up to standard incrementally; see [Documentation mission checklist](docs/reference/documentation_mission_checklist.md).
+
 ## Code quality
 
 Before opening a PR:
 
-- `ruff format` and `ruff check`
-- `mypy src/`
+- `ruff format` and `ruff check` (lines must not exceed 120 characters; E501 is enforced). For naming exceptions (N802, N806), see [Code style and lint](docs/reference/code_style_and_lint.md).
+- `mypy src/` (must pass; CI fails on type errors)
 - `pytest -q`
 - `labtrust validate-policy`
 
@@ -40,6 +44,7 @@ The golden scenarios in `policy/golden/golden_scenarios.v0.1.yaml` define correc
 - New emit types added to `policy/emits/emits_vocab.v0.1.yaml` (or none)
 - Golden suite impact explained
 - Tests added or updated
+- New or modified public functions/methods have docstrings in Google style (summary + Args/Returns/Raises where applicable)
 
 Preferred PR size: under 400 lines where practical.
 

@@ -1,12 +1,10 @@
 """
-Policy loader: load YAML/JSON from policy/ and validate against schemas.
+Load and validate policy files from the policy directory.
 
-- JSON files: validated against JSON Schema in policy/schemas/ when a schema exists.
-- YAML files: loaded with safe_load; optionally converted to JSON and validated
-  against a schema, or structurally validated (required keys) where schemas
-  do not exist yet.
-
-All errors include the file path for clear reporting.
+Loads YAML and JSON from policy/ (and partner overlays). When a schema exists
+in policy/schemas/, files are validated against it; otherwise structural checks
+(required keys) are applied where needed. All load/validation errors include
+the file path for clear reporting.
 """
 
 from __future__ import annotations
