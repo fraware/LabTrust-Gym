@@ -1,10 +1,13 @@
 """
-Audit log: append-only hash chain with deterministic serialization and fault injection.
+Append-only audit log implemented as a hash chain.
 
-- Canonical deterministic serialization of event dict (sorted keys, stable encoding).
-- SHA-256 hash chaining: hash(prev_hash || canonical(event)).
-- Fault injection: break_hash_prev_on_event_id (from scenario initial_state).
-- When chain break is detected: system sets log_frozen=True, reason_code AUDIT_CHAIN_BROKEN.
+Events are serialized in a canonical way (sorted keys, stable encoding), then
+chained with SHA-256: each event's hash depends on the previous hash and the
+event bytes. This supports integrity checks and forensic freeze: if the chain
+is broken, the system sets log_frozen=True and uses reason code AUDIT_CHAIN_BROKEN.
+
+Fault injection for tests: when initial_state includes break_hash_prev_on_event_id,
+the chain is deliberately broken at that event so that freeze behavior can be verified.
 """
 
 from __future__ import annotations

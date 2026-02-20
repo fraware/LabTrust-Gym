@@ -1,7 +1,10 @@
 """
-Benchmark tasks: initial_state generator, episode length, scripted vs external, reward_config.
+Benchmark task definitions: initial state, episode length, and reward config.
 
-Each task is deterministic given seed for reproducibility.
+Each task supplies a deterministic initial_state generator (given seed),
+episode length, and whether agents are scripted or external. Used by the
+benchmark runner to run N episodes per task and collect metrics.
+Reproducibility: same seed yields the same initial state and episode layout.
 """
 
 from __future__ import annotations
@@ -122,7 +125,7 @@ def _stat_rate_from_calibration(calibration: dict[str, Any] | None) -> float:
 
 
 def _default_scale_config() -> CoordinationScaleConfig:
-    """Small default scale for TaskG smoke (10 agents, 2 CHEM, 1 site)."""
+    """Small default scale for CoordinationScale smoke (10 agents, 2 CHEM, 1 site)."""
     return CoordinationScaleConfig(
         num_agents_total=10,
         role_mix={
@@ -151,15 +154,15 @@ class BenchmarkTask:
     reward_config: dict[str, Any]
     sla_turnaround_s: int | None = None  # for on-time rate (accept->release)
     attack_start_step: int | None = (
-        None  # TaskD: first adversarial action step for detection_latency_s
+        None  # AdversarialDisruption: first adversarial action step for detection_latency_s
     )
     insider_attack_steps: list[int] | None = (
-        None  # TaskF: step indices of insider attack attempts for containment metrics
+        None  # InsiderAndKeyMisuse: step indices of insider attack attempts for containment metrics
     )
     timing_mode: str | None = (
         None  # "explicit" | "simulated"; None => use CLI/spec override
     )
-    scale_config: CoordinationScaleConfig | None = None  # TaskG/TaskH
+    scale_config: CoordinationScaleConfig | None = None  # CoordinationScale / CoordinationRisk
 
     def get_initial_state(
         self,
@@ -206,7 +209,7 @@ class BenchmarkTask:
         }
 
 
-class TaskA_ThroughputSLA(BenchmarkTask):
+class ThroughputSla(BenchmarkTask):
     """Throughput under SLA: routine load, measure released count and turnaround."""
 
     def __init__(self) -> None:
@@ -258,7 +261,7 @@ class TaskA_ThroughputSLA(BenchmarkTask):
         }
 
 
-class TaskB_STATInsertionUnderLoad(BenchmarkTask):
+class StatInsertionUnderLoad(BenchmarkTask):
     """STAT under load; measure prioritization."""
 
     def __init__(self) -> None:
@@ -310,7 +313,7 @@ class TaskB_STATInsertionUnderLoad(BenchmarkTask):
         }
 
 
-class TaskC_QCFailCascade(BenchmarkTask):
+class QcFailCascade(BenchmarkTask):
     """QC fail on one device; routing and cascade."""
 
     def __init__(self) -> None:
@@ -362,13 +365,13 @@ class TaskC_QCFailCascade(BenchmarkTask):
 def _make_agents_with_adversary(
     zone_overrides: dict[str, str] | None = None,
 ) -> list[dict[str, str]]:
-    """Agents for TaskD: ops, runners, qc, supervisor, adversary_0."""
+    """Agents for AdversarialDisruption: ops, runners, qc, supervisor, adversary_0."""
     base = _make_agents(zone_overrides)
     base.append({"agent_id": "A_ADVERSARY_0", "zone_id": "Z_SORTING_LANES"})
     return base
 
 
-class TaskD_AdversarialDisruption(BenchmarkTask):
+class AdversarialDisruption(BenchmarkTask):
     """Adversarial disruption: scripted_ops + scripted_runner + adversary_0.
     Metrics: time-to-detection, blast radius, attribution (audit has agent_id + action chain).
     """
@@ -421,7 +424,7 @@ class TaskD_AdversarialDisruption(BenchmarkTask):
 def _make_agents_with_insider(
     zone_overrides: dict[str, str] | None = None,
 ) -> list[dict[str, str]]:
-    """Agents for TaskF: ops, runner_0, qc, supervisor, adversary_insider_0 (A_INSIDER_0 with limited RBAC)."""
+    """Agents for InsiderAndKeyMisuse: ops, runner_0, qc, supervisor, adversary_insider_0 (A_INSIDER_0 with limited RBAC)."""
     zone_overrides = zone_overrides or {}
     out = [
         {
@@ -448,7 +451,7 @@ def _make_agents_with_insider(
     return out
 
 
-class TaskF_InsiderAndKeyMisuse(BenchmarkTask):
+class InsiderAndKeyMisuse(BenchmarkTask):
     """Insider + key misuse: adversary_insider_0 with limited RBAC; phases: forbidden action, forged sig, replay, token misuse.
     Metrics: time_to_first_detected_security_violation, fraction_of_attacks_contained, forensic_quality_score.
     """
@@ -506,7 +509,7 @@ class TaskF_InsiderAndKeyMisuse(BenchmarkTask):
         }
 
 
-class TaskG_COORD_SCALE(BenchmarkTask):
+class CoordinationScale(BenchmarkTask):
     """Coordination at scale under nominal conditions. Uses scale_config for agents/devices/sites."""
 
     def __init__(self) -> None:
@@ -522,7 +525,7 @@ class TaskG_COORD_SCALE(BenchmarkTask):
         )
 
 
-class TaskH_COORD_RISK(BenchmarkTask):
+class CoordinationRisk(BenchmarkTask):
     """Coordination under injected risks. Uses scale_config; risk injection via study spec."""
 
     def __init__(self) -> None:
@@ -542,7 +545,7 @@ class TaskH_COORD_RISK(BenchmarkTask):
         )
 
 
-class TaskE_MultiSiteSTAT(BenchmarkTask):
+class MultiSiteStat(BenchmarkTask):
     """Multi-site: acute node STAT specimens, hub routine queue; transport mandatory and audited.
     At least one specimen originates at SITE_ACUTE and requires dispatch to SITE_HUB.
     Scripted policy: DISPATCH_TRANSPORT -> TRANSPORT_TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE_TRANSPORT.
@@ -599,7 +602,7 @@ class TaskE_MultiSiteSTAT(BenchmarkTask):
         }
 
 
-class TaskI_DeviceOutageSurge(BenchmarkTask):
+class DeviceOutageSurge(BenchmarkTask):
     """
     Surge workload + one analyzer outage (maintenance window).
     failure_models.v0.1 defines maintenance; timing_mode simulated.
@@ -661,7 +664,7 @@ class TaskI_DeviceOutageSurge(BenchmarkTask):
         }
 
 
-class TaskJ_ReagentStockout(BenchmarkTask):
+class ReagentStockout(BenchmarkTask):
     """
     Forced reagent shortage: low initial stock causes RC_REAGENT_STOCKOUT,
     hold or reroute per reagent_policy; measures delays and violations.
@@ -723,16 +726,16 @@ class TaskJ_ReagentStockout(BenchmarkTask):
 
 
 _TASK_REGISTRY: dict[str, type] = {
-    "throughput_sla": TaskA_ThroughputSLA,
-    "stat_insertion": TaskB_STATInsertionUnderLoad,
-    "qc_cascade": TaskC_QCFailCascade,
-    "adversarial_disruption": TaskD_AdversarialDisruption,
-    "multi_site_stat": TaskE_MultiSiteSTAT,
-    "insider_key_misuse": TaskF_InsiderAndKeyMisuse,
-    "coord_scale": TaskG_COORD_SCALE,
-    "coord_risk": TaskH_COORD_RISK,
-    "device_outage_surge": TaskI_DeviceOutageSurge,
-    "reagent_stockout": TaskJ_ReagentStockout,
+    "throughput_sla": ThroughputSla,
+    "stat_insertion": StatInsertionUnderLoad,
+    "qc_cascade": QcFailCascade,
+    "adversarial_disruption": AdversarialDisruption,
+    "multi_site_stat": MultiSiteStat,
+    "insider_key_misuse": InsiderAndKeyMisuse,
+    "coord_scale": CoordinationScale,
+    "coord_risk": CoordinationRisk,
+    "device_outage_surge": DeviceOutageSurge,
+    "reagent_stockout": ReagentStockout,
 }
 
 

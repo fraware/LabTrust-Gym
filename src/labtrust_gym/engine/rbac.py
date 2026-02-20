@@ -1,11 +1,12 @@
 """
-RBAC policy evaluator: gates actions before state mutation.
+Role-based access control (RBAC) policy evaluator.
 
-- roles: role_id -> allowed_actions, allowed_zones (optional), allowed_devices (optional)
-- agents: agent_id -> role_id
-- action_constraints: action_type -> required_role_id (optional)
-- Given agent_id + action_type + context (zone_id, device_id), returns allow/deny + reason_code.
-- Record RBAC decision in step output for receipts/forensics.
+Gates actions before the engine mutates state. Policy maps roles to allowed
+actions (and optionally allowed zones and devices), and agents to roles.
+Optional action_constraints require a specific role for an action type. Given
+agent_id, action_type, and context (e.g. zone_id, device_id), the checker
+returns allow/deny and a reason code. The decision is recorded in step output
+for receipts and forensics.
 """
 
 from __future__ import annotations

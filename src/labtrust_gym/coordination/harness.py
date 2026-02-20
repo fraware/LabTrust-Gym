@@ -1,8 +1,10 @@
 """
-Blackboard + view replicas harness for TaskG/TaskH.
+Blackboard and view replicas harness for coordination tasks.
 
-Derives facts from engine step outputs and optional env queries; appends to BlackboardLog;
-delivers to ViewReplicas via CommsModel. KernelContext can read global_log and view_snapshots.
+Derives facts from engine step outputs and optional environment queries, appends
+them to BlackboardLog, and delivers updates to ViewReplicas via CommsModel.
+KernelContext exposes global_log and view_snapshots for coordination methods
+that need a shared view of lab state.
 """
 
 from __future__ import annotations

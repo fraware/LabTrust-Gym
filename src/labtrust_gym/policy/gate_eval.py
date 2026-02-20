@@ -1,18 +1,15 @@
 """
-Gate evaluation for coordination security pack: load gate policy and evaluate
-summary rows. Verdicts: PASS, FAIL, SKIP, not_supported. No assume-pass for
-unimplemented logic; optional paths return SKIP with a reason.
+Gate evaluation for the coordination security pack.
 
-Supported rule types: attack_success_rate_zero, violations_within_delta,
-detection_within_steps_or_not_supported, max_violations,
-time_to_detect_steps_below, violation_rate_below. Any other rule type yields
-SKIP (not_applicable). Document new rules in coordination_security_pack_gate.v0.1.yaml.
-
-Metric sources (summary row): safety.violations_total and sec.attack_success_rate
-come from study/benchmark output (e.g. coord_risk task); nominal_by_scale_method
-is (scale_id, method_id) -> baseline violations for violations_within_delta.
-max_violations uses row["safety.violations_total"]; max_delta is from the gate
-rule and compared to nominal + max_delta. See coordination_security_pack_gate.v0.1.yaml.
+Loads the gate policy and evaluates summary rows (one verdict per row). A gate
+is a pass/fail threshold check; verdicts are PASS, FAIL, SKIP, or not_supported.
+Unimplemented logic never returns PASS; optional or missing data yields SKIP
+with a reason. Supported rule types include attack_success_rate_zero,
+violations_within_delta, detection_within_steps_or_not_supported, max_violations,
+time_to_detect_steps_below, violation_rate_below; others yield SKIP
+(not_applicable). Metrics come from study/benchmark output (e.g. coord_risk);
+nominal baselines are (scale_id, method_id) -> violation count. See
+policy/coordination/coordination_security_pack_gate.v0.1.yaml for rule definitions.
 """
 
 from __future__ import annotations

@@ -11,9 +11,70 @@ import pytest
 from labtrust_gym.baselines.coordination.allocation.min_cost_flow import (
     MinCostFlowAllocator,
     min_cost_flow_allocate,
+    _build_task_list,
+    _agent_zone,
 )
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import AllocationDecision
+
+
+def _brute_force_optimal_cost(
+    context: KernelContext,
+    tasks_per_agent_cap: int,
+    fairness_weight: float = 0.0,
+) -> float:
+    """
+    Enumerate all valid assignments for N agents x M tasks (N, M <= 6); return minimum total cost
+    among assignments that assign the maximum possible number of tasks (same as MCF).
+    Cost per (agent, task) = (2 - prio) * 1000 + fairness_weight * (current work count of agent).
+    Same zone only; each task at most once; each agent at most tasks_per_agent_cap.
+    """
+    worklist = _build_task_list(context)
+    agents = list(context.agent_ids)
+    if not worklist or not agents:
+        return 0.0
+    n_tasks = len(worklist)
+    max_assignable = min(n_tasks, len(agents) * tasks_per_agent_cap)
+    if max_assignable == 0:
+        return 0.0
+    agent_zone_map = {a: _agent_zone(context, a) for a in agents}
+
+    def recurse(
+        task_i: int,
+        agent_counts: dict[str, int],
+        current_cost: float,
+        remaining_to_assign: int,
+    ) -> float:
+        if remaining_to_assign == 0:
+            return current_cost
+        if task_i >= n_tasks:
+            return float("inf")
+        prio, _dev_id, _work_id, zone_id = worklist[task_i]
+        best = float("inf")
+        if n_tasks - task_i > remaining_to_assign:
+            best = recurse(
+                task_i + 1, dict(agent_counts), current_cost, remaining_to_assign
+            )
+        for a_idx, a in enumerate(agents):
+            if agent_zone_map[a] != zone_id:
+                continue
+            if agent_counts.get(a, 0) >= tasks_per_agent_cap:
+                continue
+            new_counts = dict(agent_counts)
+            new_counts[a] = new_counts.get(a, 0) + 1
+            edge_cost = (2 - prio) * 1000 + fairness_weight * (agent_counts.get(a, 0))
+            best = min(
+                best,
+                recurse(
+                    task_i + 1,
+                    new_counts,
+                    current_cost + edge_cost,
+                    remaining_to_assign - 1,
+                ),
+            )
+        return best
+
+    return recurse(0, {}, 0.0, max_assignable)
 
 
 def _minimal_context(
@@ -126,7 +187,7 @@ def test_min_cost_flow_allocator_interface() -> None:
 
 
 def test_min_cost_flow_brute_force_vs_mcf() -> None:
-    """N<=6 agents, small task list: MCF cost <= brute-force optimum (or same)."""
+    """Small N (<=6) agents and tasks: MCF total cost equals brute-force optimum."""
     pytest.importorskip("networkx")
     agent_ids = ["a1", "a2", "a3"]
     zone_ids = ["Z_A"]
@@ -165,17 +226,18 @@ def test_min_cost_flow_brute_force_vs_mcf() -> None:
         device_zone=device_zone,
         obs_with_tasks=obs,
     )
+    brute_opt = _brute_force_optimal_cost(ctx, tasks_per_agent_cap=2, fairness_weight=0.0)
     decision = min_cost_flow_allocate(
         ctx, tasks_per_agent_cap=2, fairness_weight=0.0
     )
     if not decision.assignments or "greedy" in (decision.explain or ""):
         pytest.skip("networkx not used or zero flow")
-    task_list = [(0, "D1", "W1", "Z_A"), (0, "D2", "W2", "Z_A")]
-    best_cost = sum((2 - p) * 1000 for p, _d, _w, _ in task_list)
     mcf_cost = sum(
         (2 - p) * 1000 for _a, _w, _d, p in decision.assignments
     )
-    assert mcf_cost <= best_cost + 1
+    assert mcf_cost == brute_opt, (
+        f"MCF cost {mcf_cost} should equal brute-force optimum {brute_opt}"
+    )
     for agent_id, work_id, device_id, _ in decision.assignments:
         assert agent_id in agent_ids
         assert (device_id, work_id) in {("D1", "W1"), ("D2", "W2")}

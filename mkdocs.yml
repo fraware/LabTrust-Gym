@@ -22,6 +22,7 @@ nav:
     - Example agents: getting-started/example_agents.md
     - Example experiments: getting-started/example_experiments.md
     - Forker guide: getting-started/forkers.md
+    - Quick demos: getting-started/quick_demos.md
     - Troubleshooting: getting-started/troubleshooting.md
   - Architecture:
     - architecture/index.md
@@ -75,6 +76,7 @@ nav:
     - Cross-provider contract: contracts/cross_provider_contract.md
   - Risk and security:
     - risk-and-security/index.md
+    - Trust verification: risk-and-security/trust_verification.md
     - Risk register: risk-and-security/risk_register.md
     - Risk register viewer: risk-and-security/risk_register_viewer.md
     - Risk injections: risk-and-security/risk_injections.md
@@ -109,11 +111,18 @@ nav:
     - "How-to: Security and gate failures": operations/howto_security_gate_failures.md
   - Reference:
     - reference/index.md
+    - Use cases and impact: reference/use_cases_and_impact.md
+    - LabTrust Portal context: labtrust-portal-context.md
     - Repository structure: reference/repository_structure.md
+    - Documentation standards: reference/documentation_standards.md
+    - Code style and lint: reference/code_style_and_lint.md
+    - Documentation mission checklist: reference/documentation_mission_checklist.md
+    - Outputs and results: reference/outputs_and_results.md
     - Lab profile reference: reference/lab_profile_reference.md
     - Observability: reference/observability.md
     - Online mode: reference/online_mode.md
     - Testing strategy: reference/testing_strategy.md
+    - Deterministic and llm_offline battery: testing/deterministic_and_llm_offline_battery.md
   - API Reference: api/index.md
 
 plugins:

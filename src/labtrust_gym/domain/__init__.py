@@ -1,9 +1,9 @@
 """
-Domain adapter layer: map workflow/domain spec to engine or env adapter.
+Domain adapter layer: pluggable domains (lab, warehouse, etc.) as env adapters.
 
-Forkers can add new domains (e.g. warehouse, factory) by registering
-a domain_id and a factory that returns a LabTrustEnvAdapter-compatible
-environment. The hospital lab is the reference implementation.
+Register a domain_id and a factory that returns a LabTrustEnvAdapter-compatible
+environment. The hospital lab is the built-in domain; forkers can add others
+(e.g. warehouse, factory) without changing the runner or benchmarks.
 """
 
 from labtrust_gym.domain.registry import (

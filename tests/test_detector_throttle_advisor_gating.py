@@ -94,3 +94,39 @@ def test_detector_gate_probability_threshold() -> None:
     assert out
     for aid in obs:
         assert out[aid]["action_index"] == 1
+
+
+def test_tool_get_detector_recommendation_no_backend_returns_abstain() -> None:
+    """get_detector_recommendation with no detector in method_state returns abstain=True, probability=0."""
+    from labtrust_gym.baselines.coordination.methods.coord_agentic_tools import (
+        tool_get_detector_recommendation,
+    )
+
+    obs = {"a1": {"queue_has_head": [0]}}
+    result = tool_get_detector_recommendation(obs, {}, 0, {})
+    assert result.get("abstain") is True
+    assert result.get("probability") == 0.0
+    assert result.get("enforcement_action") == "none"
+
+
+def test_tool_get_detector_recommendation_with_backend_returns_probability_abstain() -> None:
+    """get_detector_recommendation with DeterministicDetectorBackend returns probability and abstain from detector."""
+    from labtrust_gym.baselines.coordination.assurance.detector_advisor import (
+        DeterministicDetectorBackend,
+    )
+    from labtrust_gym.baselines.coordination.methods.coord_agentic_tools import (
+        tool_get_detector_recommendation,
+    )
+
+    backend = DeterministicDetectorBackend(seed=0, latency_bound_steps=1)
+    method_state = {"detector_backend": backend}
+    clean_obs = {"a1": {"queue_has_head": [1, 1]}, "a2": {"queue_has_head": [1, 1]}}
+    result = tool_get_detector_recommendation(clean_obs, {}, 2, method_state)
+    assert "probability" in result
+    assert "abstain" in result
+    assert result["probability"] >= 0.0
+    assert isinstance(result["abstain"], bool)
+    anomaly_obs = {"a1": {"queue_has_head": [1, 0]}, "a2": {"queue_has_head": [0, 1]}}
+    result2 = tool_get_detector_recommendation(anomaly_obs, {}, 2, method_state)
+    assert result2.get("is_attack_suspected") is True
+    assert result2.get("probability", 0) > 0

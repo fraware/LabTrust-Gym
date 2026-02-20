@@ -1,4 +1,12 @@
-"""LabTrust-Gym baselines (scripted ops, scripted runner, MARL, etc.)."""
+"""
+Agent baselines: scripted, adversary, LLM, and MARL.
+
+ScriptedOpsAgent and ScriptedRunnerAgent are deterministic policy baselines.
+AdversaryAgent is a sloppy/adversarial baseline for security benchmarks.
+LLM (large language model) and MARL (multi-agent reinforcement learning)
+baselines live in baselines/llm and baselines/marl. Coordination methods
+are in baselines/coordination.
+"""
 
 from __future__ import annotations
 

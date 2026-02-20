@@ -1,10 +1,12 @@
 """
-Resolve repo root and policy root for dev (repo) vs installed (package data).
+Resolve repository root and policy directory paths.
 
-- get_repo_root(): path P such that P / "policy" contains policy files (emits/, schemas/, ...).
-  Used by loader/validate and runner. When installed from wheel, P is the package policy parent.
-- Policy can be: (1) LABTRUST_POLICY_DIR env (path to policy dir), (2) package data labtrust_gym/policy, (3) repo policy/.
-- policy_path(policy_root, *parts): single place to build paths under policy dir; policy_root is the repo root (P).
+Used in both development (repo) and installed (package data) setups.
+get_repo_root() returns a path P such that P / "policy" contains the policy
+files (emits/, schemas/, etc.); the loader, validator, and runner use it.
+Policy location: (1) LABTRUST_POLICY_DIR env, (2) package data labtrust_gym/policy,
+(3) repo policy/. policy_path(policy_root, *parts) builds paths under the
+policy directory from the repo root and segment names.
 """
 
 from __future__ import annotations

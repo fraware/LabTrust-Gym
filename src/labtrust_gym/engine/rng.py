@@ -52,7 +52,7 @@ class RNG:
         return self._rng.uniform(low_s, high_s)
 
     def sample_lognormal_s(self, mu: float, sigma: float) -> float:
-        """Sample from lognormal(mu, sigma); result in seconds (e.g. MTTR)."""
+        """Sample from lognormal(mu, sigma); result in seconds (e.g. mean time to repair)."""
         import math
 
         z = self._rng.gauss(0.0, 1.0)

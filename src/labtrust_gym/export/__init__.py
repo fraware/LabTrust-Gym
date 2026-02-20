@@ -1,4 +1,10 @@
-"""Export: receipts, evidence bundles, FHIR R4, bundle verification, UI export."""
+"""
+Export of run artifacts: receipts, evidence bundles, FHIR R4, and UI data.
+
+Builds receipts and evidence bundles from episode logs, exports to FHIR R4
+format, verifies bundle structure, and produces UI export bundles for the
+viewer. Used by the CLI (export-risk-register, etc.) and by the release pipeline.
+"""
 
 from labtrust_gym.export.fhir_r4 import (
     export_fhir,

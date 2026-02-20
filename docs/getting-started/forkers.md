@@ -2,7 +2,7 @@
 
 This guide is for organizations that fork LabTrust-Gym to run coordination benchmarks, security and safety suites, and determine the best coordination technique at scale. It covers (1) getting started: clone, customize policy, run everything; and (2) pipeline and extension: out-of-the-box flow, partner overlays, and how to extend.
 
-**One-command quickstart:** From a clean clone, run `labtrust forker-quickstart --out <dir>` (or `bash scripts/forker_quickstart.sh [<dir>]` / `scripts/forker_quickstart.ps1` on Windows). This runs validate-policy, coordination security pack, build-lab-coordination-report, and export-risk-register. See [Troubleshooting](troubleshooting.md) if something fails.
+**One-command quickstart:** From a clean clone, run `labtrust forker-quickstart --out <dir>` (or `bash scripts/forker_quickstart.sh [<dir>]` / `scripts/forker_quickstart.ps1` on Windows). This runs validate-policy, coordination security pack, build-lab-coordination-report, and export-risk-register. See [Troubleshooting](troubleshooting.md) if something fails. For a table of canonical demo commands and minimal end-to-end stories, see [Quick demos](quick_demos.md).
 
 **How-to guides:** [Add a coordination method](../operations/howto_add_coordination_method.md), [add a risk injection](../operations/howto_add_injection.md), [tune the selection policy](../operations/howto_selection_policy.md), [interpret security/gate failures](../operations/howto_security_gate_failures.md).
 
@@ -72,7 +72,48 @@ labtrust forker-quickstart --out labtrust_runs/forker_quickstart
 
 Outputs go to `labtrust_runs/` or `--out`. Key commands: `validate-policy`, `quick-eval`, `bench-smoke`, `run-benchmark`, `eval-agent`, `export-receipts`, `export-fhir`, `verify-bundle`, `verify-release`, `run-security-suite`, `safety-case`, `export-risk-register`, `run-coordination-security-pack`, `build-lab-coordination-report`, `run-coordination-study`, `summarize-coordination`, `run-study`, `make-plots`, `reproduce`, `package-release`, `run-official-pack`. See the main [index](../index.md) CLI table for full list.
 
-### 1.6 Troubleshooting
+### 1.6 End-to-end demo stories (<15 min)
+
+Two minimal sequences you can run from a clean clone to reproduce a full pipeline in under 15 minutes.
+
+**Story 1 (default policy)**
+
+Run from repo root:
+
+1. `labtrust validate-policy`
+2. `labtrust quick-eval --seed 42 --out-dir labtrust_runs/demo`
+3. `labtrust run-coordination-security-pack --out labtrust_runs/demo/pack --matrix-preset hospital_lab`
+4. `labtrust export-risk-register --out labtrust_runs/demo/risk_out --runs labtrust_runs/demo/pack`
+
+**Expected outputs:** Exit 0 at each step. You should see: `labtrust_runs/demo/quick_eval_*/summary.md`; `labtrust_runs/demo/pack/pack_summary.csv` and `pack_gate.md`; `labtrust_runs/demo/risk_out/RISK_REGISTER_BUNDLE.v0.1.json`. Optional: if a run produced receipts, run `labtrust verify-bundle --bundle <path>` on one EvidenceBundle under `receipts/.../EvidenceBundle.v0.1`.
+
+**Story 2 (HSL-like partner)**
+
+Same flow with `--partner hsl_like` on every command: `validate-policy --partner hsl_like`, `quick-eval --seed 42 --out-dir labtrust_runs/demo --partner hsl_like`, `run-coordination-security-pack --out labtrust_runs/demo/pack --matrix-preset hospital_lab --partner hsl_like`, `export-risk-register --out labtrust_runs/demo/risk_out --runs labtrust_runs/demo/pack`. The only difference is that the partner overlay is used; outputs have the same structure, with `partner_id` present in the bundle where applicable.
+
+### 1.7 Demo scenarios by partner
+
+Treat each partner as a concrete lab instance; run the same pipeline with `--partner <id>`.
+
+| Partner | Commands to run | Tasks/scales | Success looks like |
+|---------|-----------------|--------------|--------------------|
+| **hsl_like** | `labtrust validate-policy --partner hsl_like`; `labtrust quick-eval --partner hsl_like --seed 42 --out-dir <dir>`; `labtrust run-coordination-security-pack --out <pack_dir> --matrix-preset hospital_lab --partner hsl_like`; `labtrust export-risk-register --out <risk_dir> --runs <pack_dir>` | Default from pack (hospital_lab) | (a) **verify-release passes** when run on the produced release (e.g. after building a release from that dir or running package-release and pointing to it). (b) **Gate verdicts** visible in `pack_gate.md`: PASS / FAIL / not_supported as expected per cell. |
+
+### 1.8 Forker journey (case study)
+
+A partner lab cloned the repo, added the HSL-like partner overlay (already present in the repo), and ran the forker path to produce benchmarks and a risk register. Outcome: benchmarks ran, the coordination pack produced `pack_gate.md` with verdicts per cell, and the risk register bundle was generated and validated.
+
+**Commands (synthetic journey):**
+
+1. Clone and install: `git clone ...`, `pip install -e ".[dev,env,plots]"`, `labtrust --version`
+2. `labtrust validate-policy --partner hsl_like`
+3. `labtrust forker-quickstart --out labtrust_runs/forker_quickstart`
+4. `labtrust run-official-pack --out labtrust_runs/official_pack --seed-base 100 --include-coordination-pack`
+5. `labtrust export-risk-register --out labtrust_runs/risk_out --runs labtrust_runs/official_pack`
+
+Result: one output tree with baselines, SECURITY/, coordination pack outputs, and `RISK_REGISTER_BUNDLE.v0.1.json` suitable for audit or further verification.
+
+### 1.9 Troubleshooting
 
 See [Troubleshooting](troubleshooting.md) and [Installation](installation.md#troubleshooting).
 

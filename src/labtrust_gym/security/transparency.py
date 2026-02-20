@@ -284,6 +284,7 @@ def collect_llm_live_metadata_from_pack(pack_out_dir: Path) -> dict[str, Any]:
         "estimated_cost_usd": "estimated_cost_usd",
     }
     per_task: dict[str, dict[str, Any]] = {}
+    attribution_by_backend: dict[str, dict[str, Any]] = {}
 
     for p in sorted(results_dir.glob("*.json")):
         try:
@@ -304,6 +305,25 @@ def collect_llm_live_metadata_from_pack(pack_out_dir: Path) -> dict[str, Any]:
             model_version_identifiers["llm_backend_id"] = str(bid)
         if mid:
             model_version_identifiers["llm_model_id"] = str(mid)
+        summary = meta.get("llm_attribution_summary") or {}
+        by_backend = summary.get("by_backend") or {}
+        for backend_id, stats in by_backend.items():
+            if backend_id and isinstance(stats, dict):
+                if backend_id not in attribution_by_backend:
+                    attribution_by_backend[backend_id] = {
+                        "latency_ms_sum": 0.0,
+                        "cost_usd_sum": 0.0,
+                        "call_count": 0,
+                    }
+                attribution_by_backend[backend_id]["latency_ms_sum"] += float(
+                    stats.get("latency_ms_sum") or 0
+                )
+                attribution_by_backend[backend_id]["cost_usd_sum"] += float(
+                    stats.get("cost_usd_sum") or 0
+                )
+                attribution_by_backend[backend_id]["call_count"] += int(
+                    stats.get("call_count") or 0
+                )
         for meta_key, agg_key in meta_to_agg.items():
             v = meta.get(meta_key)
             if v is not None and agg_key in latency_cost_agg:
@@ -343,7 +363,7 @@ def collect_llm_live_metadata_from_pack(pack_out_dir: Path) -> dict[str, Any]:
             latency_cost_agg["estimated_cost_usd"]
         )
 
-    return {
+    out: dict[str, Any] = {
         "version": LLM_LIVE_TRANSPARENCY_VERSION,
         "prompt_hashes": sorted(prompt_hashes),
         "tool_registry_fingerprint": tool_registry_fingerprint,
@@ -351,6 +371,9 @@ def collect_llm_live_metadata_from_pack(pack_out_dir: Path) -> dict[str, Any]:
         "latency_and_cost_statistics": latency_and_cost_statistics,
         "per_task": per_task,
     }
+    if attribution_by_backend:
+        out["attribution_by_backend"] = attribution_by_backend
+    return out
 
 
 def write_llm_live_transparency_log(pack_out_dir: Path) -> Path:

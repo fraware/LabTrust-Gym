@@ -1,7 +1,9 @@
 """
 Online serve configuration from environment (safe defaults).
 
-Supports B007 auth modes: off, api_key, multi_key. Default binding is local-only.
+Auth modes: off, api_key (single key), or multi_key (key registry with roles).
+Default binding is local-only (127.0.0.1). Rate limits, body size, and
+concurrency limits are configurable via env or config file.
 """
 
 from __future__ import annotations

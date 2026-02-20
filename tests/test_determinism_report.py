@@ -81,13 +81,15 @@ def test_determinism_report_cli(tmp_path: Path) -> None:
     assert proc.returncode == 0, err
     assert (out_dir / "determinism_report.json").exists()
     assert (out_dir / "determinism_report.md").exists()
-    data = json.loads((out_dir / "determinism_report.json").read_text(encoding="utf-8"))
+    data = json.loads(
+        (out_dir / "determinism_report.json").read_text(encoding="utf-8")
+    )
     assert data["passed"] is True
 
 
 @pytest.mark.slow
 def test_determinism_report_simulated_timing_passes(tmp_path: Path) -> None:
-    """Determinism report with timing=simulated (device RNG seeded from --seed) passes."""
+    """Determinism with timing=simulated (device RNG from --seed) passes."""
     repo = Path(__file__).resolve().parent.parent
     if not (repo / "policy").is_dir():
         pytest.skip("repo root not found")
@@ -107,7 +109,7 @@ def test_determinism_report_simulated_timing_passes(tmp_path: Path) -> None:
 
 @pytest.mark.slow
 def test_determinism_report_taskg_kernel_passes(tmp_path: Path) -> None:
-    """Determinism report for coord_scale with composed method kernel_centralized_edf passes."""
+    """Determinism for coord_scale + kernel_centralized_edf passes."""
     repo = Path(__file__).resolve().parent.parent
     if not (repo / "policy").is_dir():
         pytest.skip("repo root not found")
@@ -127,3 +129,61 @@ def test_determinism_report_taskg_kernel_passes(tmp_path: Path) -> None:
     assert report.get("episode_log_identical") is True
     assert report.get("results_identical") is True
     assert report.get("v02_metrics_identical") is True
+
+
+@pytest.mark.slow
+def test_determinism_report_coord_risk_deterministic(tmp_path: Path) -> None:
+    """Determinism for coord_risk + kernel_centralized_edf (deterministic)."""
+    repo = Path(__file__).resolve().parent.parent
+    if not (repo / "policy").is_dir():
+        pytest.skip("repo root not found")
+    passed, report, _ = run_determinism_report(
+        task_name="coord_risk",
+        num_episodes=2,
+        base_seed=42,
+        out_dir=tmp_path,
+        partner_id=None,
+        timing_mode="explicit",
+        repo_root=repo,
+        coord_method="kernel_centralized_edf",
+        pipeline_mode="deterministic",
+    )
+    errs = report.get("errors", [])
+    assert passed, f"coord_risk determinism failed: {errs}"
+    assert report.get("coord_method") == "kernel_centralized_edf"
+    assert report.get("pipeline_mode") == "deterministic"
+    assert report.get("episode_log_identical") is True
+    assert report.get("results_identical") is True
+    assert report.get("v02_metrics_identical") is True
+    r1, r2 = report["run1"], report["run2"]
+    assert r1["episode_log_sha256"] == r2["episode_log_sha256"]
+    assert r1["results_sha256"] == r2["results_sha256"]
+
+
+@pytest.mark.slow
+def test_determinism_report_llm_offline_passes(tmp_path: Path) -> None:
+    """throughput_sla llm_offline + deterministic_constrained is bit-level deterministic."""
+    repo = Path(__file__).resolve().parent.parent
+    if not (repo / "policy").is_dir():
+        pytest.skip("repo root not found")
+    passed, report, _ = run_determinism_report(
+        task_name="throughput_sla",
+        num_episodes=2,
+        base_seed=42,
+        out_dir=tmp_path,
+        partner_id=None,
+        timing_mode="explicit",
+        repo_root=repo,
+        pipeline_mode="llm_offline",
+        llm_backend="deterministic_constrained",
+    )
+    errs = report.get("errors", [])
+    assert passed, f"llm_offline determinism failed: {errs}"
+    assert report.get("pipeline_mode") == "llm_offline"
+    assert report.get("llm_backend") == "deterministic_constrained"
+    assert report.get("episode_log_identical") is True
+    assert report.get("results_identical") is True
+    assert report.get("v02_metrics_identical") is True
+    r1, r2 = report["run1"], report["run2"]
+    assert r1["episode_log_sha256"] == r2["episode_log_sha256"]
+    assert r1["results_sha256"] == r2["results_sha256"]

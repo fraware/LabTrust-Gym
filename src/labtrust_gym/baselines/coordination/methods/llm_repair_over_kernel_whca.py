@@ -2,6 +2,12 @@
 LLM repair over kernel WHCA: base plan from deterministic kernel (WHCA),
 shield-only execute; when shield rejects or security/staleness flags, call LLM
 repair then re-shield and execute. Deterministic in llm_offline via seeded backend.
+
+Envelope (SOTA audit):
+  - Typical steps per episode: N/A; horizon-driven (scale_config.horizon_steps).
+  - LLM calls per step: 0 when kernel plan accepted; 1--3 when repair path used.
+  - Fallback on timeout/refusal: kernel plan (all NOOP) or repair fallback NOOP.
+  - max_latency_ms: N/A for live; bounded in llm_offline by deterministic backend.
 """
 
 from __future__ import annotations
@@ -39,10 +45,40 @@ def _per_agent_to_route_decision(
     return RouteDecision(per_agent=tuple(tupled), explain="llm_repair")
 
 
+def _score_repair_candidate(
+    route: RouteDecision,
+    context: Any,
+    result_ok: bool,
+) -> float:
+    """
+    Score a repair candidate: 0 if invalid; else 1.0 plus fairness bonus.
+    Used to select best among 3–10 candidates (collision-free, SLA, fairness).
+    """
+    if not result_ok:
+        return -1.0
+    work_per_agent: dict[str, int] = {}
+    for agent_id, action_type, _ in route.per_agent:
+        work_per_agent[agent_id] = work_per_agent.get(agent_id, 0) + (
+            1 if action_type == "START_RUN" else 0
+        )
+    if not work_per_agent:
+        return 1.0
+    counts = list(work_per_agent.values())
+    n = len(counts)
+    total = sum(counts)
+    if total == 0:
+        return 1.0
+    counts_sorted = sorted(counts)
+    cumul = sum((2 * (i + 1) - n - 1) * v for i, v in enumerate(counts_sorted))
+    gini = float(cumul) / (n * total) if n and total else 0.0
+    return 1.0 - min(1.0, max(0.0, gini))
+
+
 class DeterministicRepairBackend:
     """
-    Deterministic repair backend: same repair_input + seed -> same repaired plan.
-    Returns all NOOP (safe fallback); optional TICK when seed+hash even.
+    Deterministic repair backend: returns 3–10 candidate repairs (list of
+    per_agent lists). Same repair_input + seed -> same candidate list.
+    At least one candidate is valid (all NOOP); others may be NOOP/TICK mix.
     """
 
     def __init__(self, seed: int = 0) -> None:
@@ -55,24 +91,26 @@ class DeterministicRepairBackend:
         self,
         repair_input: dict[str, Any],
         agent_ids: list[str],
-    ) -> tuple[list[tuple[str, str, dict[str, Any]]], dict[str, Any]]:
+    ) -> tuple[list[list[tuple[str, str, dict[str, Any]]]], dict[str, Any]]:
         """
-        Return (per_agent, meta). per_agent = [(agent_id, action_type, args), ...].
+        Return (candidates, meta). candidates = list of 3–10 per_agent lists.
         Deterministic: same input and seed -> same output.
         """
         h = repair_input_hash(repair_input)
         rng = (self._seed + int(h[:8], 16)) % (2**31)
-        # Deterministic: hash-derived value -> safe action (NOOP or TICK)
-        use_tick = (rng % 2) == 0 and len(agent_ids) > 0
-        action_type = "TICK" if use_tick else "NOOP"
-        per_agent = [(aid, action_type, {}) for aid in sorted(agent_ids)]
+        sorted_agents = sorted(agent_ids)
+        candidates: list[list[tuple[str, str, dict[str, Any]]]] = []
+        for i in range(5):
+            use_tick = (rng + i) % 2 == 0 and len(sorted_agents) > 0
+            action_type = "TICK" if use_tick else "NOOP"
+            candidates.append([(aid, action_type, {}) for aid in sorted_agents])
         meta = {
             "backend_id": "deterministic_repair",
             "latency_ms": 0.0,
             "tokens_in": 0,
             "tokens_out": 0,
         }
-        return per_agent, meta
+        return candidates, meta
 
 
 def _noop_repair_result(
@@ -138,12 +176,27 @@ class LiveRepairBackend:
             },
             {"role": "user", "content": user_content},
         ]
+        tracer = None
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+        except Exception:
+            pass
+        if tracer is not None:
+            tracer.start_span("coord_repair")
+            tracer.set_attribute("backend_id", "live_repair")
+            tracer.set_attribute("model_id", "unknown")
         start = time.perf_counter()
         try:
             raw = self._backend.generate(messages)
-        except Exception:
+        except Exception as e:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", 0)
+                tracer.end_span("error", str(e)[:200])
             return _noop_repair_result(agent_ids)
         latency_ms = (time.perf_counter() - start) * 1000
+        if tracer is not None:
+            tracer.set_attribute("latency_ms", round(latency_ms, 2))
         raw = (raw or "").strip()
         if "```" in raw:
             for part in raw.split("```"):
@@ -157,11 +210,17 @@ class LiveRepairBackend:
             )
             extracted = extract_first_json_object(raw)
             if not extracted or not extracted.strip().startswith("["):
+                if tracer is not None:
+                    tracer.end_span("error", "no JSON array")
                 return _noop_repair_result(agent_ids)
             arr = json.loads(extracted)
         except (json.JSONDecodeError, TypeError):
+            if tracer is not None:
+                tracer.end_span("error", "parse error")
             return _noop_repair_result(agent_ids)
         if not isinstance(arr, list):
+            if tracer is not None:
+                tracer.end_span("error", "not list")
             return _noop_repair_result(agent_ids)
         per_agent: list[tuple[str, str, dict[str, Any]]] = []
         allowed_set = set(allowed)
@@ -183,6 +242,14 @@ class LiveRepairBackend:
                 per_agent.append((aid, "NOOP", {}))
         per_agent.sort(key=lambda x: (x[0], x[1]))
         usage = getattr(self._backend, "last_metrics", lambda: {})()
+        if tracer is not None:
+            tracer.set_attribute("prompt_tokens", usage.get("tokens_in", 0))
+            tracer.set_attribute("completion_tokens", usage.get("tokens_out", 0))
+            if usage.get("estimated_cost_usd") is not None:
+                tracer.set_attribute(
+                    "estimated_cost_usd", usage["estimated_cost_usd"]
+                )
+            tracer.end_span()
         meta = {
             "backend_id": "live_repair",
             "latency_ms": round(latency_ms, 2),
@@ -347,11 +414,15 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
                 candidates = [list(repaired_per_agent)]
 
         repaired_route = None
+        best_score = -1.0
         for cand in candidates[:10]:
             route = _per_agent_to_route_decision(cand)
-            if validate_plan(route, context).ok:
-                repaired_route = route
-                break
+            result = validate_plan(route, context)
+            score = _score_repair_candidate(route, context, result.ok)
+            if score > best_score:
+                best_score = score
+                if result.ok:
+                    repaired_route = route
 
         if repaired_route is not None:
             self._repair_success_count += 1

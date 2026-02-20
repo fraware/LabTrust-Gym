@@ -32,5 +32,10 @@ jobs:
           test -f det_report/determinism_report.json
           test -f det_report/determinism_report.md
           python -c "import json; d=json.load(open('det_report/determinism_report.json')); assert d.get('passed') is True, d.get('errors', ['unknown'])"
+      - name: Determinism report (coord_risk, 2 episodes, seed 42)
+        run: |
+          labtrust determinism-report --task coord_risk --coord-method kernel_centralized_edf --episodes 2 --seed 42 --out ./det_report_coord
+          test -f det_report_coord/determinism_report.json
+          python -c "import json; d=json.load(open('det_report_coord/determinism_report.json')); assert d.get('passed') is True, d.get('errors', ['unknown'])"
       - name: Full golden suite
         run: LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q

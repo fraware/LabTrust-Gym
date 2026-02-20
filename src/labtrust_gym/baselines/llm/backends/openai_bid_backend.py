@@ -135,6 +135,17 @@ class OpenAIBidBackend:
             self._last_metrics = fallback_meta
             return (fallback, fallback_meta)
 
+        tracer = None
+        try:
+            from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+            tracer = get_llm_tracer()
+        except Exception:
+            pass
+        if tracer is not None:
+            tracer.start_span("coord_bid")
+            tracer.set_attribute("backend_id", BACKEND_ID)
+            tracer.set_attribute("model_id", self._model)
+
         prompt = _build_bid_prompt(state_digest, step_id, method_id)
         try:
             proposal, meta = generate_coordination_proposal(
@@ -146,11 +157,21 @@ class OpenAIBidBackend:
                 api_key=self._api_key,
             )
         except Exception as e:
+            if tracer is not None:
+                tracer.set_attribute("latency_ms", 0)
+                tracer.end_span("error", str(e)[:200])
             LOG.debug("OpenAI bid backend error: %s", scrub_secrets(str(e)[:200]))
             self._error_count += 1
             self._last_metrics = fallback_meta
             return (fallback, fallback_meta)
 
+        if tracer is not None:
+            tracer.set_attribute("latency_ms", meta.get("latency_ms"))
+            tracer.set_attribute("prompt_tokens", meta.get("tokens_in"))
+            tracer.set_attribute("completion_tokens", meta.get("tokens_out"))
+            if meta.get("estimated_cost_usd") is not None:
+                tracer.set_attribute("estimated_cost_usd", meta["estimated_cost_usd"])
+            tracer.end_span()
         if not isinstance(proposal.get("market"), list):
             proposal["market"] = []
         self._sum_latency_ms += meta.get("latency_ms") or 0

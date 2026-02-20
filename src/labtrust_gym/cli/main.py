@@ -1,4 +1,12 @@
-"""labtrust CLI: validate-policy and future commands."""
+"""
+LabTrust-Gym command-line interface.
+
+Entry point for all labtrust commands: validate-policy, run-benchmark,
+quick-eval, package-release, export-risk-register, and many others. Subcommands
+and options are registered via add_subparsers; each command has a handler that
+returns an exit code. Use --profile to load a lab profile; use --partner or
+LABTRUST_PARTNER for partner overlay validation.
+"""
 
 from __future__ import annotations
 
@@ -103,6 +111,7 @@ def main() -> int:
         choices=[
             "deterministic",
             "deterministic_constrained",
+            "deterministic_policy_v1",
             "openai_live",
             "openai_hosted",
             "openai_responses",
@@ -110,7 +119,7 @@ def main() -> int:
             "anthropic_live",
         ],
         default=None,
-        help="LLM backend: deterministic (fixture-based, record fixtures first), deterministic_constrained (seeded RNG, no API), openai_live, openai_responses, ollama_live, anthropic_live.",
+        help="LLM backend: deterministic (fixtures), deterministic_constrained (seeded RNG), deterministic_policy_v1 (preference-order policy, optional), openai_live, openai_responses, ollama_live, anthropic_live.",
     )
     p_bench.add_argument(
         "--llm-model",
@@ -158,12 +167,76 @@ def main() -> int:
         "--pipeline-mode",
         choices=["deterministic", "llm_offline", "llm_live"],
         default=None,
-        help="Pipeline mode: deterministic (scripted only), llm_offline (LLM with deterministic backend), llm_live (network LLM; requires --allow-network)",
+        help="Pipeline mode: deterministic (scripted only) | llm_offline (LLM interface, deterministic backend only) | llm_live (network LLM; requires --allow-network). See docs/agents/llm_live.md.",
+    )
+    p_bench.add_argument(
+        "--coord-fixtures-path",
+        type=Path,
+        default=None,
+        help="Path to coordination_fixtures.json dir for replay (llm_offline). Omit to use deterministic backend.",
+    )
+    p_bench.add_argument(
+        "--record-coord-fixtures-path",
+        type=Path,
+        default=None,
+        help="Path to write coordination_fixtures.json when running coord task (record mode).",
     )
     p_bench.add_argument(
         "--allow-network",
         action="store_true",
         help="Allow network for live LLM backends (required for --llm-backend openai_live/ollama_live); also LABTRUST_ALLOW_NETWORK=1",
+    )
+    _coord_backend_choices = [
+        "inherit",
+        "openai_live",
+        "ollama_live",
+        "anthropic_live",
+        "openai_responses",
+        "deterministic",
+    ]
+    p_bench.add_argument(
+        "--coord-planner-backend",
+        choices=_coord_backend_choices,
+        default=None,
+        help="Backend for coordinator planner role (proposal/allocator). Default: inherit (use --llm-backend).",
+    )
+    p_bench.add_argument(
+        "--coord-bidder-backend",
+        choices=_coord_backend_choices,
+        default=None,
+        help="Backend for coordinator bidder role (auction). Default: inherit (use --llm-backend).",
+    )
+    p_bench.add_argument(
+        "--coord-repair-backend",
+        choices=_coord_backend_choices,
+        default=None,
+        help="Backend for coordinator repair role. Default: inherit (use --llm-backend).",
+    )
+    p_bench.add_argument(
+        "--coord-detector-backend",
+        choices=_coord_backend_choices,
+        default=None,
+        help="Backend for coordinator detector role. Default: inherit (use --llm-backend).",
+    )
+    p_bench.add_argument(
+        "--coord-planner-model",
+        default=None,
+        help="Model for coordinator planner role. Default: inherit (use --llm-model).",
+    )
+    p_bench.add_argument(
+        "--coord-bidder-model",
+        default=None,
+        help="Model for coordinator bidder role. Default: inherit (use --llm-model).",
+    )
+    p_bench.add_argument(
+        "--coord-repair-model",
+        default=None,
+        help="Model for coordinator repair role. Default: inherit (use --llm-model).",
+    )
+    p_bench.add_argument(
+        "--coord-detector-model",
+        default=None,
+        help="Model for coordinator detector role. Default: inherit (use --llm-model).",
     )
     p_bench.add_argument(
         "--profile",
@@ -285,6 +358,13 @@ def main() -> int:
         default=None,
         metavar="NAME",
         help="Use matrix preset from policy (e.g. hospital_lab): overrides scale/method/injection lists.",
+    )
+    p_coord_security_pack.add_argument(
+        "--scale-ids",
+        nargs="+",
+        default=None,
+        metavar="SCALE",
+        help="Run only these scale_ids (e.g. small_smoke). Use with --matrix-preset full_matrix to run one scale at a time.",
     )
     p_coord_security_pack.add_argument(
         "--partner",
@@ -842,7 +922,7 @@ def main() -> int:
         "--pipeline-mode",
         choices=["deterministic", "llm_offline", "llm_live"],
         default="deterministic",
-        help="Pipeline mode (default: deterministic); CI uses deterministic",
+        help="Pipeline mode: deterministic | llm_offline | llm_live (default: deterministic). See docs/agents/llm_live.md.",
     )
     p_package_release.add_argument(
         "--allow-network",
@@ -1052,7 +1132,7 @@ def main() -> int:
         "--pipeline-mode",
         choices=["deterministic", "llm_offline", "llm_live"],
         default="deterministic",
-        help="Pipeline mode (default: deterministic); CI uses deterministic",
+        help="Pipeline mode: deterministic | llm_offline | llm_live (default: deterministic). See docs/agents/llm_live.md.",
     )
     p_official_pack.add_argument(
         "--allow-network",
@@ -1153,6 +1233,22 @@ def main() -> int:
         default=None,
         help="Coordination method for coord_scale / coord_risk (e.g. kernel_centralized_edf). Defaults to kernel_centralized_edf when task is coord_scale or coord_risk.",
     )
+    p_determinism.add_argument(
+        "--pipeline-mode",
+        choices=["deterministic", "llm_offline"],
+        default=None,
+        help="Pipeline mode: deterministic or llm_offline. Omit to use runner default (deterministic for throughput_sla).",
+    )
+    p_determinism.add_argument(
+        "--llm-backend",
+        default=None,
+        help="LLM backend when --pipeline-mode llm_offline (e.g. deterministic, deterministic_constrained).",
+    )
+    p_determinism.add_argument(
+        "--injection",
+        default=None,
+        help="Risk injection id for coord_risk (e.g. none).",
+    )
     p_determinism.set_defaults(func=_run_determinism_report)
     p_quick_eval = sub.add_parser(
         "quick-eval",
@@ -1179,7 +1275,7 @@ def main() -> int:
         "--pipeline-mode",
         choices=["deterministic", "llm_offline", "llm_live"],
         default="deterministic",
-        help="Pipeline mode (default: deterministic); llm_live requires --allow-network",
+        help="Pipeline mode: deterministic | llm_offline | llm_live (default: deterministic). llm_live requires --allow-network. See docs/agents/llm_live.md.",
     )
     p_quick_eval.add_argument(
         "--allow-network",
@@ -1193,7 +1289,7 @@ def main() -> int:
     )
     p_llm_health.add_argument(
         "--backend",
-        choices=["openai_live", "openai_responses", "anthropic_live"],
+        choices=["openai_live", "openai_responses", "anthropic_live", "ollama_live"],
         default="openai_responses",
         help="Backend to check (default: openai_responses). openai_live uses legacy Chat Completions; openai_responses uses Responses API; anthropic_live uses Anthropic Messages API.",
     )
@@ -1210,7 +1306,18 @@ def main() -> int:
     p_llm_health.set_defaults(func=_run_llm_healthcheck)
     p_record_fixtures = sub.add_parser(
         "record-llm-fixtures",
-        help="Run a short benchmark with OpenAI-hosted backend and record (message_digest, response) to tests/fixtures/llm_responses/. Run manually with network; not for CI.",
+        help="Run a short benchmark with a live LLM backend and record (message_digest, response) to tests/fixtures/llm_responses/. Run manually with network; not for CI.",
+    )
+    p_record_fixtures.add_argument(
+        "--llm-backend",
+        default="openai_hosted",
+        choices=["openai_hosted", "openai_live", "openai_responses", "anthropic_live", "ollama_live"],
+        help="Live backend to use for recording (default: openai_hosted).",
+    )
+    p_record_fixtures.add_argument(
+        "--llm-model",
+        default=None,
+        help="Optional model override (e.g. gpt-4o-mini, llama3.2). Backend-specific env vars apply when unset.",
     )
     p_record_fixtures.add_argument(
         "--task",
@@ -1241,6 +1348,96 @@ def main() -> int:
         help="Repo root; default from get_repo_root().",
     )
     p_record_fixtures.set_defaults(func=_run_record_llm_fixtures)
+    p_record_coord_fixtures = sub.add_parser(
+        "record-coordination-fixtures",
+        help="Run coord_risk (or coord_scale) with a live coordination backend and record proposal/bid responses to coordination_fixtures.json. Manual use with network; not for CI.",
+    )
+    p_record_coord_fixtures.add_argument(
+        "--coord-method",
+        default="llm_central_planner",
+        choices=["llm_central_planner", "llm_auction_bidder"],
+        help="Coordination method to record (default: llm_central_planner).",
+    )
+    p_record_coord_fixtures.add_argument(
+        "--task",
+        default="coord_risk",
+        choices=["coord_risk", "coord_scale"],
+        help="Task (default: coord_risk).",
+    )
+    p_record_coord_fixtures.add_argument(
+        "--llm-backend",
+        default="openai_live",
+        choices=["openai_live", "ollama_live", "anthropic_live"],
+        help="Live backend for coordination (default: openai_live).",
+    )
+    p_record_coord_fixtures.add_argument(
+        "--episodes",
+        type=int,
+        default=1,
+        help="Number of episodes (default: 1).",
+    )
+    p_record_coord_fixtures.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Base seed (default: 42).",
+    )
+    p_record_coord_fixtures.add_argument(
+        "--out",
+        default="runs/record_coord_fixtures/results.json",
+        help="Output path for run results.",
+    )
+    p_record_coord_fixtures.add_argument(
+        "--repo-root",
+        type=Path,
+        default=None,
+        help="Repo root; default from get_repo_root().",
+    )
+    p_record_coord_fixtures.set_defaults(func=_run_record_coordination_fixtures)
+    p_replay_fixtures = sub.add_parser(
+        "replay-from-fixtures",
+        help="Replay a benchmark from recorded fixtures (no network). Uses llm_offline + deterministic + coord-fixtures-path for coord tasks.",
+    )
+    p_replay_fixtures.add_argument(
+        "--task",
+        required=True,
+        help="Task name (e.g. insider_key_misuse, coord_risk).",
+    )
+    p_replay_fixtures.add_argument(
+        "--episodes",
+        type=int,
+        default=1,
+        help="Number of episodes (default: 1).",
+    )
+    p_replay_fixtures.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Base seed (default: 42). Must match the seed used when recording.",
+    )
+    p_replay_fixtures.add_argument(
+        "--coord-method",
+        default=None,
+        help="Coordination method for coord_risk/coord_scale (e.g. llm_central_planner). Required when task is coord_risk or coord_scale.",
+    )
+    p_replay_fixtures.add_argument(
+        "--coord-fixtures-path",
+        type=Path,
+        default=None,
+        help="Path to dir containing coordination_fixtures.json (default: repo tests/fixtures/llm_responses).",
+    )
+    p_replay_fixtures.add_argument(
+        "--out",
+        default=None,
+        help="Output results path (default: runs/replay_from_fixtures/<task>_results.json).",
+    )
+    p_replay_fixtures.add_argument(
+        "--repo-root",
+        type=Path,
+        default=None,
+        help="Repo root; default from get_repo_root().",
+    )
+    p_replay_fixtures.set_defaults(func=_run_replay_from_fixtures)
     p_serve = sub.add_parser(
         "serve",
         help="Start online HTTP API (local-only by default; rate limits and optional API key).",
@@ -1545,6 +1742,22 @@ def _run_benchmark(args: argparse.Namespace) -> int:
             allow_network=allow_network,
             metrics_aggregator_id=metrics_aggregator_id,
             domain_id=domain_id,
+            coord_fixtures_path=getattr(args, "coord_fixtures_path", None),
+            record_coord_fixtures_path=getattr(
+                args, "record_coord_fixtures_path", None
+            ),
+            coord_planner_backend=getattr(
+                args, "coord_planner_backend", None
+            ),
+            coord_bidder_backend=getattr(args, "coord_bidder_backend", None),
+            coord_repair_backend=getattr(args, "coord_repair_backend", None),
+            coord_detector_backend=getattr(
+                args, "coord_detector_backend", None
+            ),
+            coord_planner_model=getattr(args, "coord_planner_model", None),
+            coord_bidder_model=getattr(args, "coord_bidder_model", None),
+            coord_repair_model=getattr(args, "coord_repair_model", None),
+            coord_detector_model=getattr(args, "coord_detector_model", None),
         )
     except ValueError as e:
         err = str(e)
@@ -2492,6 +2705,7 @@ def _run_coordination_security_pack(args: argparse.Namespace) -> int:
     injections_from = getattr(args, "injections_from", "fixed")
     scales_from = getattr(args, "scales_from", "default")
     matrix_preset = getattr(args, "matrix_preset", None)
+    scale_ids = getattr(args, "scale_ids", None)
     partner_id = _get_partner_id(args)
     workers = max(1, int(getattr(args, "workers", 1)))
     llm_backend = getattr(args, "llm_backend", None)
@@ -2504,6 +2718,7 @@ def _run_coordination_security_pack(args: argparse.Namespace) -> int:
         injections_from=injections_from,
         scales_from=scales_from,
         matrix_preset=matrix_preset,
+        scale_ids_filter=scale_ids,
         partner_id=partner_id,
         workers=workers,
         llm_backend=llm_backend,
@@ -2801,6 +3016,9 @@ def _run_determinism_report(args: argparse.Namespace) -> int:
         timing_mode=timing,
         repo_root=root,
         coord_method=getattr(args, "coord_method", None),
+        pipeline_mode=getattr(args, "pipeline_mode", None),
+        llm_backend=getattr(args, "llm_backend", None),
+        injection_id=getattr(args, "injection", None),
     )
     print(f"Wrote {out_dir / 'determinism_report.json'}", file=sys.stderr)
     print(f"Wrote {out_dir / 'determinism_report.md'}", file=sys.stderr)
@@ -3043,12 +3261,19 @@ def _run_bench_smoke(args: argparse.Namespace) -> int:
 
 
 def _run_record_llm_fixtures(args: argparse.Namespace) -> int:
-    """Run a short benchmark with OpenAI-hosted backend and record fixtures. Manual use only; not for CI."""
+    """Run a short benchmark with a live LLM backend and record fixtures. Manual use only; not for CI."""
     repo_root = getattr(args, "repo_root", None) or get_repo_root()
     repo_root = Path(repo_root)
-    if not os.environ.get("OPENAI_API_KEY"):
+    llm_backend = getattr(args, "llm_backend", "openai_hosted") or "openai_hosted"
+    if llm_backend in ("openai_hosted", "openai_live", "openai_responses") and not os.environ.get("OPENAI_API_KEY"):
         print(
-            "record-llm-fixtures requires OPENAI_API_KEY. Set it and run with network enabled.",
+            "record-llm-fixtures with --llm-backend openai_hosted/openai_live/openai_responses requires OPENAI_API_KEY.",
+            file=sys.stderr,
+        )
+        return 1
+    if llm_backend == "anthropic_live" and not os.environ.get("ANTHROPIC_API_KEY"):
+        print(
+            "record-llm-fixtures with --llm-backend anthropic_live requires ANTHROPIC_API_KEY.",
             file=sys.stderr,
         )
         return 1
@@ -3066,7 +3291,8 @@ def _run_record_llm_fixtures(args: argparse.Namespace) -> int:
         base_seed=seed,
         out_path=out_path,
         repo_root=repo_root,
-        llm_backend="openai_hosted",
+        llm_backend=llm_backend,
+        llm_model=getattr(args, "llm_model", None),
         pipeline_mode="llm_live",
         allow_network=True,
         record_fixtures_path=fixtures_dir,
@@ -3080,6 +3306,103 @@ def _run_record_llm_fixtures(args: argparse.Namespace) -> int:
         except (json.JSONDecodeError, OSError):
             pass
     print(f"Recorded {n} fixture(s) to {fixtures_dir}", file=sys.stderr)
+    return 0
+
+
+def _run_record_coordination_fixtures(args: argparse.Namespace) -> int:
+    """Run coord_risk/coord_scale with live coord backend and record coordination fixtures."""
+    repo_root = getattr(args, "repo_root", None) or get_repo_root()
+    repo_root = Path(repo_root)
+    llm_backend = getattr(args, "llm_backend", "openai_live") or "openai_live"
+    if llm_backend in ("openai_live",) and not os.environ.get("OPENAI_API_KEY"):
+        print(
+            "record-coordination-fixtures with --llm-backend openai_live requires OPENAI_API_KEY.",
+            file=sys.stderr,
+        )
+        return 1
+    if llm_backend == "anthropic_live" and not os.environ.get("ANTHROPIC_API_KEY"):
+        print(
+            "record-coordination-fixtures with anthropic_live requires ANTHROPIC_API_KEY.",
+            file=sys.stderr,
+        )
+        return 1
+    from labtrust_gym.benchmarks.runner import run_benchmark
+
+    task = getattr(args, "task", "coord_risk")
+    coord_method = getattr(args, "coord_method", "llm_central_planner")
+    episodes = getattr(args, "episodes", 1)
+    seed = getattr(args, "seed", 42)
+    out_path = Path(getattr(args, "out", "runs/record_coord_fixtures/results.json"))
+    coord_fixtures_dir = repo_root / "tests" / "fixtures" / "llm_responses"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    run_benchmark(
+        task_name=task,
+        num_episodes=episodes,
+        base_seed=seed,
+        out_path=out_path,
+        repo_root=repo_root,
+        coord_method=coord_method,
+        injection_id="none",
+        llm_backend=llm_backend,
+        llm_model=getattr(args, "llm_model", None),
+        pipeline_mode="llm_live",
+        allow_network=True,
+        record_coord_fixtures_path=coord_fixtures_dir,
+    )
+    n = 0
+    if out_path.exists():
+        try:
+            data = json.loads(out_path.read_text(encoding="utf-8"))
+            meta = data.get("metadata") or {}
+            n = meta.get("recorded_coord_fixtures", 0)
+        except (json.JSONDecodeError, OSError):
+            pass
+    print(f"Recorded {n} coordination fixture(s) to {coord_fixtures_dir}", file=sys.stderr)
+    return 0
+
+
+def _run_replay_from_fixtures(args: argparse.Namespace) -> int:
+    """Replay benchmark from fixtures (llm_offline, deterministic, no network)."""
+    repo_root = getattr(args, "repo_root", None) or get_repo_root()
+    repo_root = Path(repo_root)
+    task = getattr(args, "task", None)
+    if not task:
+        print("replay-from-fixtures requires --task.", file=sys.stderr)
+        return 1
+    episodes = getattr(args, "episodes", 1)
+    seed = getattr(args, "seed", 42)
+    coord_method = getattr(args, "coord_method", None)
+    if task in ("coord_risk", "coord_scale") and not coord_method:
+        print(
+            f"replay-from-fixtures for {task} requires --coord-method "
+            "(e.g. llm_central_planner).",
+            file=sys.stderr,
+        )
+        return 1
+    coord_fixtures_path = getattr(args, "coord_fixtures_path", None)
+    if coord_fixtures_path is None and task in ("coord_risk", "coord_scale"):
+        coord_fixtures_path = repo_root / "tests" / "fixtures" / "llm_responses"
+    out_path = getattr(args, "out", None)
+    if not out_path:
+        out_path = repo_root / "runs" / "replay_from_fixtures" / f"{task}_results.json"
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    from labtrust_gym.benchmarks.runner import run_benchmark
+
+    run_benchmark(
+        task_name=task,
+        num_episodes=episodes,
+        base_seed=seed,
+        out_path=out_path,
+        repo_root=repo_root,
+        coord_method=coord_method,
+        injection_id="none" if task == "coord_risk" else None,
+        llm_backend="deterministic",
+        pipeline_mode="llm_offline",
+        coord_fixtures_path=coord_fixtures_path,
+    )
+    print(f"Replay written to {out_path}", file=sys.stderr)
     return 0
 
 
@@ -3113,6 +3436,10 @@ def _run_llm_healthcheck(args: argparse.Namespace) -> int:
         )
 
         backend = AnthropicLiveBackend(model=model_override)
+    elif backend_name == "ollama_live":
+        from labtrust_gym.baselines.llm.backends.ollama_live import OllamaLiveBackend
+
+        backend = OllamaLiveBackend(model=model_override)
     else:
         from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
 

@@ -1,10 +1,11 @@
 """
-Equipment capacity and cycle-time models v0.1.
+Equipment and device run model (v0.1).
 
-- Device state machine: IDLE / RUNNING / FAULT / MAINT.
-- Per-device active run: run_id, end_ts; completions drive END_RUN semantics.
-- Service times sampled via single RNG wrapper (deterministic).
-- Integrates with queues: START_RUN consumes queue head and schedules completion.
+Each device has a state: IDLE, RUNNING, FAULT, or MAINT. At most one active run
+per device (run_id, end time). When the simulation clock reaches the run end
+time, the run completes and END_RUN semantics apply. Service times are sampled
+from policy using the shared deterministic RNG. START_RUN takes the head of the
+device queue and schedules a completion at current time plus service time.
 """
 
 from __future__ import annotations

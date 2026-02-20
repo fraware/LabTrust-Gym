@@ -7,6 +7,13 @@ assignment_step; cells execute START_RUN/MOVE locally. Region partition: zones/c
 are derived from policy zone_layout (graph_edges, zones); each cell corresponds to
 a zone or site. When policy has zone_layout with graph_edges, adjacency is used for
 local BFS move; message_delay_steps(num_agents, num_sites, t, seed) models hub-cell latency.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven.
+llm_calls_per_step: 0.
+fallback: N/A (deterministic).
+max_latency_ms: bounded (hub assign + local BFS).
 """
 
 from __future__ import annotations

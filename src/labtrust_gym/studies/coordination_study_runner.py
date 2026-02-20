@@ -1,12 +1,11 @@
 """
-Policy-driven coordination study runner: executes (scale x method x injection) matrix,
-writes per-cell results, aggregated summary CSV, and Pareto front report.
+Coordination study runner: (scale x method x injection) matrix with summary and Pareto report.
 
-Reuses study_runner patterns and benchmarks.runner.run_benchmark with scale_config_override.
-Output: <out>/cells/<cell_id>/results.json, <out>/summary/summary_coord.csv, <out>/summary/pareto.md.
-
-Supports LLM coordination methods via --llm-backend (deterministic | live) and --llm-model.
-When llm_backend is not set, only non-LLM methods from the spec are run (backward compatible).
+Runs the benchmark for each cell of the coordination study spec (scale, method,
+injection), writes per-cell results, aggregated summary CSV, and Pareto front
+markdown. Reuses study_runner patterns and run_benchmark with scale overrides.
+Supports LLM (large language model) coordination methods via --llm-backend and
+--llm-model; when unset, only non-LLM methods from the spec are run.
 """
 
 from __future__ import annotations

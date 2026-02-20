@@ -1,12 +1,12 @@
 """
-Signed agent identity for coordination messages: deterministic key material per agent,
-sign_message and verify_message for authentic, attributable coordination traffic.
+Signed agent identity for coordination messages.
 
-Key store format: dict agent_id -> (private_key, public_key_b64). private_key is an
-Ed25519 private key object; public_key_b64 is base64-encoded raw 32-byte public key.
-Keys are derived from master_seed and agent_id via SHA-256 for reproducibility.
-Rotation: use a new key_store (e.g. new master_seed or loaded from policy) and
-epoch_fn that advances epoch so old keys no longer valid in new epoch.
+Provides deterministic key material per agent and sign_message/verify_message
+so that coordination traffic is authentic and attributable. Key store format:
+agent_id -> (private_key, public_key_b64), with Ed25519 keys. Keys are derived
+from master_seed and agent_id via SHA-256 so the same seed and agent list yield
+the same keys. To rotate: use a new key_store (e.g. new master_seed or policy)
+and an epoch_fn that advances the epoch so old keys are not valid in the new epoch.
 """
 
 from __future__ import annotations

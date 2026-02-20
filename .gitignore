@@ -51,18 +51,20 @@ dmypy.json
 # Ruff
 .ruff_cache/
 
-# Quick-eval and run outputs
+# Quick-eval and run outputs (use labtrust_runs/ or --out; do not push)
 labtrust_runs/
 
-# CLI and build artifacts (keep repo root clean; use labtrust_runs/ or --out for outputs)
+# Root: only core dirs. All run outputs go in labtrust_runs/ or --out <path>. Do not push results or local output folders.
 /results*.json
 /out.json
 /bench_smoke_*.json
 /ep.jsonl
 /quick_eval_*/
 /ui_bundle.zip
-
-# Run and review outputs (keep root clean; use labtrust_runs/ or --out)
+/results/
+/release/
+/determinism_report/
+/determinism_report_*/
 /artifact/
 /out/
 /runs/
@@ -82,7 +84,7 @@ labtrust_runs/
 # MkDocs build output
 site/
 
-# Audit self-check output (labtrust audit-selfcheck --out audit_self_check)
+# Audit self-check output (labtrust audit-selfcheck; do not push)
 audit_self_check/
 
 # OS

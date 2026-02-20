@@ -1,8 +1,11 @@
 """
-Deterministic risk injection harness for TaskH_COORD_RISK.
+Deterministic risk injection harness for the coordination-risk benchmark.
 
-Injections are deterministic under seed, auditable (SECURITY_INJECTION_* emits),
-and do not require online mode. No secrets leaked; output shaping respected.
+Introduces adversarial events (e.g. spoofing, schema violations) in a
+reproducible way for testing detection and containment. Injections are
+deterministic given seed, auditable via SECURITY_INJECTION_* emits, and do
+not require network or online mode. No secrets are leaked; output shaping
+for logs is respected.
 """
 
 from __future__ import annotations

@@ -228,3 +228,51 @@ class OllamaLiveBackend:
         if content is None:
             return "{}"
         return str(content).strip()
+
+    def healthcheck(self) -> dict[str, Any]:
+        """
+        One minimal request; returns dict with ok, model_id, latency_ms, usage, error.
+        Same contract as openai_live/anthropic_live. Caller must ensure pipeline_mode=llm_live
+        and allow_network (e.g. via CLI).
+        """
+        from labtrust_gym.pipeline import check_network_allowed
+
+        check_network_allowed()
+        messages = [
+            {
+                "role": "user",
+                "content": "Return a single JSON object: action_type=NOOP, args={}, reason_code=null, token_refs=[], rationale=Health check, confidence=1.0, safety_notes=.",
+            },
+        ]
+        start = time.perf_counter()
+        try:
+            raw = self._call_api(messages)
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+        except Exception as e:
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            return {
+                "ok": False,
+                "model_id": self._model,
+                "latency_ms": latency_ms,
+                "usage": {},
+                "error": str(e)[:400],
+            }
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict) and data.get("action_type") == "NOOP":
+                return {
+                    "ok": True,
+                    "model_id": self._model,
+                    "latency_ms": latency_ms,
+                    "usage": {},
+                    "error": None,
+                }
+        except json.JSONDecodeError:
+            pass
+        return {
+            "ok": False,
+            "model_id": self._model,
+            "latency_ms": latency_ms,
+            "usage": {},
+            "error": "Response did not match expected NOOP schema",
+        }

@@ -1,4 +1,10 @@
-"""LabTrust-Gym environment wrappers (PettingZoo Parallel, AEC, etc.)."""
+"""
+Environment wrappers for Gym/PettingZoo-style APIs.
+
+Provides LabTrustParallelEnv (PettingZoo Parallel API) and labtrust_aec_env
+(agent-environment cycle). Both wrap the core engine; require optional
+dependency: pip install -e \".[env]\".
+"""
 
 from __future__ import annotations
 

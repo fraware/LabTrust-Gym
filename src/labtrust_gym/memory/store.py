@@ -1,8 +1,10 @@
 """
-Memory store: authenticated writes, schema-limited content, TTL/decay, poison filtering.
+In-memory store for agent entries with auth, schema, and TTL.
 
-put(entry, writer_agent_id, signature, ttl) enforces: signature (when required), schema, no poison.
-get(query, role_id) returns only non-expired entries and filters poison/instruction-override.
+put() enforces signature when required, schema validation, and poison checks.
+get() returns only non-expired entries and filters out poison and
+instruction-override content. Used by coordination methods that need
+shared, policy-governed memory.
 """
 
 from __future__ import annotations

@@ -1,9 +1,10 @@
 """
-Control-plane: coordination decisions, RBAC, tokens, signatures, enforcement, audit.
+Control-plane: gate decisions and enforcement for the engine.
 
-Narrow interface: ControlPlane.apply(event, context) -> gate_decision + enforcement_actions.
-First gates (RBAC, capability, signature) and post-step enforcement flow through here.
-Does not modify results contract; refactor is incremental.
+Runs first gates (RBAC, capability, signature) before mutation and post-step
+enforcement (throttle, kill_switch, etc.). ControlPlane.apply(event, context)
+returns a gate decision; apply_enforcement runs after the step. Keeps
+authorization and enforcement in one place without changing the step result contract.
 """
 
 from __future__ import annotations

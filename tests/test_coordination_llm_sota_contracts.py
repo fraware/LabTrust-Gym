@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
     COMMITTEE_ROLES,
+    DeterministicCommitteeBackend,
     DeterministicProposalBackend,
     LLMCentralPlanner,
     _arbiter_validate_committee,
@@ -41,6 +42,31 @@ def test_llm_central_planner_arbiter_validates_proposal() -> None:
     valid, errors = _arbiter_validate_committee(proposal, ["NOOP", "TICK"])
     assert isinstance(valid, bool)
     assert isinstance(errors, list)
+
+
+def test_llm_central_planner_committee_golden_trace() -> None:
+    """Committee backend: deterministic merge of four roles; same seed -> same actions."""
+    backend = DeterministicCommitteeBackend(seed=42)
+    policy = {"pz_to_engine": {"a1": "r1"}, "policy_summary": {"allowed_actions": ["NOOP", "TICK"]}}
+    planner = LLMCentralPlanner(proposal_backend=backend, rbac_policy={}, allowed_actions=["NOOP", "TICK"])
+    planner.reset(42, policy, {"seed": 42})
+    obs = {"a1": {"zone_id": "Z_A", "queue_by_device": []}}
+    out1 = planner.propose_actions(obs, {}, 0)
+    planner.reset(42, policy, {"seed": 42})
+    out2 = planner.propose_actions(obs, {}, 0)
+    assert out1 == out2
+    assert out1["a1"].get("action_type") in ("NOOP", "TICK")
+
+
+def test_llm_central_planner_committee_corrupt_allocator_rejected() -> None:
+    """Fault injection: corrupt Allocator output -> arbiter rejects -> NOOP for all."""
+    backend = DeterministicCommitteeBackend(seed=42, corrupt_role="Allocator")
+    policy = {"pz_to_engine": {"a1": "r1"}, "policy_summary": {"allowed_actions": ["NOOP", "TICK"]}}
+    planner = LLMCentralPlanner(proposal_backend=backend, rbac_policy={}, allowed_actions=["NOOP", "TICK"])
+    planner.reset(42, policy, {})
+    obs = {"a1": {"zone_id": "Z_A", "queue_by_device": []}}
+    out = planner.propose_actions(obs, {}, 0)
+    assert out["a1"]["action_index"] == 0
 
 
 def test_llm_central_planner_golden_trace_deterministic_backend() -> None:

@@ -159,3 +159,42 @@ def test_llm_repair_multi_candidate_validator_selects_first_valid() -> None:
     from labtrust_gym.baselines.coordination.interface import ACTION_TICK
     assert actions["a1"].get("action_index") == ACTION_TICK
     assert actions["a2"].get("action_index") == ACTION_TICK
+
+
+def test_llm_repair_deterministic_backend_same_chosen_repair() -> None:
+    """Deterministic backend: same seed and input -> same chosen repair (identical actions)."""
+    from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca import (
+        DeterministicRepairBackend,
+        LLMRepairOverKernelWHCA,
+    )
+    from labtrust_gym.baselines.coordination.registry import make_coordination_method
+
+    repo_root = Path(__file__).resolve().parents[1]
+    policy = {
+        "zone_layout": {
+            "zones": [{"zone_id": "Z_A"}],
+            "device_placement": [{"device_id": "D1", "zone_id": "Z_A"}],
+            "graph_edges": [],
+        },
+        "pz_to_engine": {"a1": "ops_0"},
+    }
+    scale_config = {"seed": 99}
+    kernel = make_coordination_method(
+        "kernel_whca",
+        policy,
+        repo_root=repo_root,
+        scale_config=scale_config,
+    )
+    if kernel is None:
+        pytest.skip("kernel_whca not available")
+    repair_backend = DeterministicRepairBackend(seed=99)
+    method = LLMRepairOverKernelWHCA(kernel=kernel, repair_backend=repair_backend)
+    method.reset(seed=99, policy=policy, scale_config=scale_config)
+    obs = {
+        "a1": {"zone_id": "Z_A", "queue_by_device": [], "queue_has_head": [0], "log_frozen": 0},
+    }
+    infos = {"_coord_repair_triggers": ["comms_poison"]}
+    actions1 = method.propose_actions(obs, infos, 0)
+    method.reset(seed=99, policy=policy, scale_config=scale_config)
+    actions2 = method.propose_actions(obs, infos, 0)
+    assert actions1 == actions2

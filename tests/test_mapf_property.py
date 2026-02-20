@@ -192,7 +192,7 @@ def test_mapf_property_whca_multi_agent_collision_free(
         assert not v003, f"INV-ROUTE-SWAP: {v003}"
 
 
-@pytest.mark.skip(reason="CBS not in [mapf]; add when CBS backend available")
+@pytest.mark.skip(reason="CBS not in [mapf]; add when CBS backend available. See SOTA_REMAINING_STEPS.md Phase 1 MAPF backend equivalence.")
 def test_mapf_cbs_equivalence() -> None:
-    """Placeholder: when CBS is available, same instance WHCA vs CBS, CBS cost <= WHCA, both collision-free."""
+    """Placeholder: when CBS is available, same instance WHCA vs CBS, CBS cost <= WHCA, both collision-free. Blocked on [mapf] CBS backend."""
     pass

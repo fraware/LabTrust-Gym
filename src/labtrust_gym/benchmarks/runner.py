@@ -12,12 +12,15 @@ writes coord_decisions.jsonl (contract v0.1) per episode.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Any, cast
+
+_LOG = logging.getLogger(__name__)
 
 from labtrust_gym.benchmarks.metrics import (
     compute_episode_metrics,
@@ -53,8 +56,8 @@ def _git_commit_hash(cwd: Path | None = None) -> str | None:
         )
         if out.returncode == 0 and out.stdout:
             return out.stdout.strip()
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        _LOG.debug("Git rev-parse failed: %s", e)
     return None
 
 
@@ -71,14 +74,16 @@ def _policy_versions(root: Path) -> dict[str, str]:
                         line.split("version:")[-1].strip().strip('"')
                     )
                     break
-        except Exception:
+        except Exception as e:
+            _LOG.warning("Failed to read emits_vocab version, using unknown: %s", e)
             versions["emits_vocab"] = "unknown"
     catalogue_path = root / "policy" / "schemas" / "test_catalogue.schema.v0.1.json"
     if catalogue_path.exists():
         try:
             data = json.loads(catalogue_path.read_text(encoding="utf-8"))
             versions["catalogue_schema"] = data.get("schema_version", "unknown")
-        except Exception:
+        except Exception as e:
+            _LOG.warning("Failed to read catalogue_schema version, using unknown: %s", e)
             versions["catalogue_schema"] = "unknown"
     return versions
 
@@ -292,7 +297,8 @@ def run_episode(
                                 policy=policy_summary_repair,
                                 repo_root=None,
                             )
-                        except Exception:
+                        except Exception as e:
+                            _LOG.debug("Repair fingerprint update failed, clearing: %s", e)
                             coord_method._prompt_fingerprints = {}
                     gen = getattr(backend_repair, "generate_proposal", None)
                     if not callable(gen):
@@ -385,6 +391,18 @@ def run_episode(
                         else ["id_spoof"]
                     )
                 actions_dict = coord_method.propose_actions(obs_for_step, infos, step_t)
+            if run_dir is not None:
+                try:
+                    from labtrust_gym.baselines.coordination.trace import (
+                        append_trace_event,
+                        trace_from_contract_record,
+                    )
+                    trace_path = Path(run_dir) / "METHOD_TRACE.jsonl"
+                    method_id = getattr(coord_method, "method_id", "unknown")
+                    event = trace_from_contract_record(method_id, step_t, actions_dict)
+                    append_trace_event(trace_path, event)
+                except Exception as e:
+                    _LOG.debug("METHOD_TRACE append skipped: %s", e)
             if risk_injector is not None:
                 actions_dict, audit_actions = risk_injector.mutate_actions(actions_dict)
             else:
@@ -506,8 +524,8 @@ def run_episode(
                         INV_ROUTE_SWAP,
                     )
                     invariants_considered = [INV_ROUTE_001, INV_ROUTE_002, INV_ROUTE_SWAP]
-                except Exception:
-                    pass
+                except Exception as e:
+                    _LOG.warning("Failed to load invariants_considered, using None: %s", e)
             contract_record = build_contract_record(
                 method_id=coord_method.method_id,
                 t_step=step_t,
@@ -759,6 +777,17 @@ def run_benchmark(
     metrics_aggregator_id: str | None = None,
     domain_id: str | None = None,
     record_fixtures_path: Path | None = None,
+    record_coord_fixtures_path: Path | None = None,
+    coord_fixtures_path: Path | None = None,
+    coord_planner_backend: str | None = None,
+    coord_bidder_backend: str | None = None,
+    coord_repair_backend: str | None = None,
+    coord_detector_backend: str | None = None,
+    coord_planner_model: str | None = None,
+    coord_bidder_model: str | None = None,
+    coord_repair_model: str | None = None,
+    coord_detector_model: str | None = None,
+    coord_proposal_backend_override: Any | None = None,
 ) -> dict[str, Any]:
     """
     Run N episodes for the task, write results.json.
@@ -800,7 +829,7 @@ def run_benchmark(
         llm_agents = ["ops_0"]
     llm_agents = llm_agents or []
 
-    # Resolve pipeline_mode and allow_network (caller may pass explicitly; otherwise infer from llm_backend)
+    # Resolve pipeline_mode and allow_network. Only three valid modes: deterministic | llm_offline | llm_live (see pipeline.py and docs/agents/llm_live.md).
     if pipeline_mode is not None and pipeline_mode not in (
         "deterministic",
         "llm_offline",
@@ -920,8 +949,8 @@ def run_benchmark(
                 state_map = load_state_tool_capability_map(repo_root)
                 if state_map:
                     overrides["state_tool_capability_map"] = state_map
-            except Exception:
-                pass
+            except Exception as e:
+                _LOG.warning("Failed to load state_tool_capability_map, skipping: %s", e)
             try:
                 from labtrust_gym.auth.authorize import rbac_policy_fingerprint
                 from labtrust_gym.engine.rbac import load_rbac_policy
@@ -932,10 +961,10 @@ def run_benchmark(
                     overrides["rbac_policy_fingerprint"] = rbac_policy_fingerprint(
                         rbac_policy
                     )
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                _LOG.warning("Failed to load rbac_policy_fingerprint, skipping: %s", e)
+    except Exception as e:
+        _LOG.warning("Failed to load tool_registry / tool_registry_fingerprint, skipping: %s", e)
     key_registry_merged: dict[str, Any] | None = None
     get_private_key_fn: Any | None = None
     if llm_backend and use_strict_signatures:
@@ -967,6 +996,7 @@ def run_benchmark(
     is_scale_task = task_name in ("coord_scale", "coord_risk")
     scale_probe_state: dict[str, Any] | None = None
     coord_method_instance: Any | None = None
+    coord_records: dict[str, str] = {}
     if is_scale_task:
         if scale_config_override is not None:
             from labtrust_gym.benchmarks.coordination_scale import (
@@ -1015,8 +1045,8 @@ def run_benchmark(
                     base_id, _ = resolve_method_variant(coord_method, _reg)
                     if base_id != coord_method:
                         coord_method_for_branch = base_id
-            except Exception:
-                pass
+            except Exception as e:
+                _LOG.warning("Failed to resolve coordination method variant, using method as-is: %s", e)
         if coord_method == "llm_constrained":
             from labtrust_gym.baselines.llm.agent import (
                 DeterministicConstrainedBackend,
@@ -1092,8 +1122,21 @@ def run_benchmark(
             scale_config_dict.setdefault("seed", base_seed)
             policy_for_coord = (policy_for_coord or {}).copy()
             policy_for_coord.setdefault("pz_to_engine", pz_to_engine_central)
+            planner_backend = (
+                coord_planner_backend
+                if (coord_planner_backend and coord_planner_backend != "inherit")
+                else llm_backend
+            )
+            planner_model = (
+                coord_planner_model
+                if (coord_planner_model and coord_planner_model != "inherit")
+                else llm_model
+            )
             proposal_backend = None
-            if llm_backend == "openai_live":
+            if coord_proposal_backend_override is not None:
+                proposal_backend = coord_proposal_backend_override
+                llm_backend_ref = coord_proposal_backend_override
+            elif planner_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
                     OpenAICoordinationProposalBackend,
                     require_openai_api_key,
@@ -1101,38 +1144,83 @@ def run_benchmark(
                 api_key = require_openai_api_key()
                 proposal_backend = OpenAICoordinationProposalBackend(
                     api_key=api_key,
-                    model=llm_model,
+                    model=planner_model,
                     repo_root=repo_root,
                 )
                 llm_backend_ref = proposal_backend
-            elif llm_backend == "ollama_live":
+            elif planner_backend == "ollama_live":
                 from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
                     OllamaCoordinationProposalBackend,
                 )
-                proposal_backend = OllamaCoordinationProposalBackend()
+                proposal_backend = OllamaCoordinationProposalBackend(
+                    model=planner_model,
+                )
                 llm_backend_ref = proposal_backend
-            elif llm_backend == "anthropic_live":
+            elif planner_backend == "anthropic_live":
                 from labtrust_gym.baselines.llm.backends.anthropic_live import (
                     AnthropicCoordinationProposalBackend,
                 )
                 proposal_backend = AnthropicCoordinationProposalBackend(
-                    model=llm_model,
+                    model=planner_model,
                     repo_root=repo_root,
                 )
                 llm_backend_ref = proposal_backend
             if proposal_backend is None and repo_root is not None:
-                from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
-                    DeterministicProposalBackend,
-                )
-                seed = int(scale_config_dict.get("seed", base_seed))
-                proposal_backend = DeterministicProposalBackend(
-                    seed=seed,
-                    default_action_type="NOOP",
-                )
+                if coord_fixtures_path is not None:
+                    from labtrust_gym.baselines.llm.record_fixtures_coord import (
+                        FixtureProposalBackend,
+                    )
+
+                    proposal_backend = FixtureProposalBackend(
+                        coord_fixtures_path,
+                        "llm_central_planner",
+                    )
+                else:
+                    from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
+                        DeterministicProposalBackend,
+                    )
+                    seed = int(scale_config_dict.get("seed", base_seed))
+                    proposal_backend = DeterministicProposalBackend(
+                        seed=seed,
+                        default_action_type="NOOP",
+                    )
             if proposal_backend is None:
                 raise ValueError(
                     "llm_central_planner requires proposal_backend= or repo_root "
                     "for deterministic backend"
+                )
+            if pipeline_mode == "llm_offline" and repo_root is not None:
+                from labtrust_gym.baselines.llm.fault_model import load_llm_fault_model
+                from labtrust_gym.baselines.llm.fault_model_coord import (
+                    LLMFaultModelCoordWrapper,
+                )
+
+                coord_fault_cfg = load_llm_fault_model(repo_root)
+                if coord_fault_cfg:
+                    seed = int(scale_config_dict.get("seed", base_seed))
+                    proposal_backend = LLMFaultModelCoordWrapper(
+                        proposal_backend,
+                        coord_fault_cfg,
+                        seed=seed,
+                        method_id="llm_central_planner",
+                    )
+            if record_coord_fixtures_path is not None:
+                from labtrust_gym.baselines.llm.record_fixtures_coord import (
+                    RecordingProposalBackend,
+                )
+
+                proposal_backend = RecordingProposalBackend(
+                    proposal_backend,
+                    "llm_central_planner",
+                    coord_records,
+                )
+            if pipeline_mode == "llm_live":
+                from labtrust_gym.baselines.llm.coordinator_throttle import (
+                    CoordinatorGuardrailProposalBackend,
+                )
+
+                proposal_backend = CoordinatorGuardrailProposalBackend(
+                    proposal_backend
                 )
             coord_method_instance = make_coordination_method(
                 coord_method,
@@ -1153,8 +1241,18 @@ def run_benchmark(
             scale_config_dict.setdefault("seed", base_seed)
             policy_for_coord = (policy_for_coord or {}).copy()
             policy_for_coord.setdefault("pz_to_engine", pz_to_engine_hier)
+            alloc_planner_backend = (
+                coord_planner_backend
+                if (coord_planner_backend and coord_planner_backend != "inherit")
+                else llm_backend
+            )
+            alloc_planner_model = (
+                coord_planner_model
+                if (coord_planner_model and coord_planner_model != "inherit")
+                else llm_model
+            )
             allocator_backend = None
-            if llm_backend == "openai_live":
+            if alloc_planner_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
                     OpenAICoordinationProposalBackend,
                     require_openai_api_key,
@@ -1162,22 +1260,24 @@ def run_benchmark(
                 api_key = require_openai_api_key()
                 allocator_backend = OpenAICoordinationProposalBackend(
                     api_key=api_key,
-                    model=llm_model,
+                    model=alloc_planner_model,
                     repo_root=repo_root,
                 )
                 llm_backend_ref = allocator_backend
-            elif llm_backend == "ollama_live":
+            elif alloc_planner_backend == "ollama_live":
                 from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
                     OllamaCoordinationProposalBackend,
                 )
-                allocator_backend = OllamaCoordinationProposalBackend()
+                allocator_backend = OllamaCoordinationProposalBackend(
+                    model=alloc_planner_model,
+                )
                 llm_backend_ref = allocator_backend
-            elif llm_backend == "anthropic_live":
+            elif alloc_planner_backend == "anthropic_live":
                 from labtrust_gym.baselines.llm.backends.anthropic_live import (
                     AnthropicCoordinationProposalBackend,
                 )
                 allocator_backend = AnthropicCoordinationProposalBackend(
-                    model=llm_model,
+                    model=alloc_planner_model,
                     repo_root=repo_root,
                 )
                 llm_backend_ref = allocator_backend
@@ -1191,6 +1291,14 @@ def run_benchmark(
                 raise ValueError(
                     "llm_hierarchical_allocator requires allocator_backend= or repo_root "
                     "for deterministic backend"
+                )
+            if pipeline_mode == "llm_live":
+                from labtrust_gym.baselines.llm.coordinator_throttle import (
+                    CoordinatorGuardrailProposalBackend,
+                )
+
+                allocator_backend = CoordinatorGuardrailProposalBackend(
+                    allocator_backend
                 )
             coord_method_instance = make_coordination_method(
                 coord_method,
@@ -1213,8 +1321,18 @@ def run_benchmark(
                 scale_config_dict["injection_id"] = injection_id
             policy_for_coord = (policy_for_coord or {}).copy()
             policy_for_coord.setdefault("pz_to_engine", pz_to_engine_auc)
+            bidder_backend = (
+                coord_bidder_backend
+                if (coord_bidder_backend and coord_bidder_backend != "inherit")
+                else llm_backend
+            )
+            bidder_model = (
+                coord_bidder_model
+                if (coord_bidder_model and coord_bidder_model != "inherit")
+                else llm_model
+            )
             bid_backend = None
-            if llm_backend == "openai_live":
+            if bidder_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_bid_backend import (
                     OpenAIBidBackend,
                 )
@@ -1224,33 +1342,76 @@ def run_benchmark(
                 api_key = require_openai_api_key()
                 bid_backend = OpenAIBidBackend(
                     api_key=api_key,
-                    model=llm_model,
+                    model=bidder_model,
                     repo_root=repo_root,
                 )
                 llm_backend_ref = bid_backend
-            elif llm_backend == "ollama_live":
+            elif bidder_backend == "ollama_live":
                 from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
                     OllamaBidBackend,
                 )
-                bid_backend = OllamaBidBackend()
+                bid_backend = OllamaBidBackend(model=bidder_model)
                 llm_backend_ref = bid_backend
-            elif llm_backend == "anthropic_live":
+            elif bidder_backend == "anthropic_live":
                 from labtrust_gym.baselines.llm.backends.anthropic_live import (
                     AnthropicBidBackend,
                 )
-                bid_backend = AnthropicBidBackend(model=llm_model, repo_root=repo_root)
+                bid_backend = AnthropicBidBackend(
+                    model=bidder_model, repo_root=repo_root
+                )
                 llm_backend_ref = bid_backend
             if bid_backend is None and repo_root is not None:
-                from labtrust_gym.baselines.coordination.methods.llm_auction_bidder import (
-                    DeterministicBidBackend,
-                )
-                seed = int(scale_config_dict.get("seed", base_seed))
-                bid_backend = DeterministicBidBackend(seed=seed)
+                if coord_fixtures_path is not None:
+                    from labtrust_gym.baselines.llm.record_fixtures_coord import (
+                        FixtureProposalBackend,
+                    )
+
+                    bid_backend = FixtureProposalBackend(
+                        coord_fixtures_path,
+                        "llm_auction_bidder",
+                    )
+                else:
+                    from labtrust_gym.baselines.coordination.methods.llm_auction_bidder import (
+                        DeterministicBidBackend,
+                    )
+                    seed = int(scale_config_dict.get("seed", base_seed))
+                    bid_backend = DeterministicBidBackend(seed=seed)
             if bid_backend is None:
                 raise ValueError(
                     "llm_auction_bidder requires bid_backend= or repo_root "
                     "for deterministic backend"
                 )
+            if pipeline_mode == "llm_offline" and repo_root is not None:
+                from labtrust_gym.baselines.llm.fault_model import load_llm_fault_model
+                from labtrust_gym.baselines.llm.fault_model_coord import (
+                    LLMFaultModelCoordWrapper,
+                )
+
+                coord_fault_cfg = load_llm_fault_model(repo_root)
+                if coord_fault_cfg:
+                    seed = int(scale_config_dict.get("seed", base_seed))
+                    bid_backend = LLMFaultModelCoordWrapper(
+                        bid_backend,
+                        coord_fault_cfg,
+                        seed=seed,
+                        method_id="llm_auction_bidder",
+                    )
+            if record_coord_fixtures_path is not None:
+                from labtrust_gym.baselines.llm.record_fixtures_coord import (
+                    RecordingProposalBackend,
+                )
+
+                bid_backend = RecordingProposalBackend(
+                    bid_backend,
+                    "llm_auction_bidder",
+                    coord_records,
+                )
+            if pipeline_mode == "llm_live":
+                from labtrust_gym.baselines.llm.coordinator_throttle import (
+                    CoordinatorGuardrailBidBackend,
+                )
+
+                bid_backend = CoordinatorGuardrailBidBackend(bid_backend)
             coord_method_instance = make_coordination_method(
                 coord_method,
                 policy_for_coord,
@@ -1355,8 +1516,18 @@ def run_benchmark(
                 fault_model_config = load_llm_fault_model(repo_root)
                 if fault_model_config:
                     scale_config_dict["fault_model_config"] = fault_model_config
+            repair_role_backend = (
+                coord_repair_backend
+                if (coord_repair_backend and coord_repair_backend != "inherit")
+                else llm_backend
+            )
+            repair_role_model = (
+                coord_repair_model
+                if (coord_repair_model and coord_repair_model != "inherit")
+                else llm_model
+            )
             repair_backend_param = None
-            if llm_backend == "openai_live":
+            if repair_role_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_live import (
                     OpenAILiveBackend,
                 )
@@ -1368,10 +1539,10 @@ def run_benchmark(
                 )
                 api_key = require_openai_api_key()
                 repair_backend_param = LiveRepairBackend(
-                    OpenAILiveBackend(api_key=api_key, model=llm_model)
+                    OpenAILiveBackend(api_key=api_key, model=repair_role_model)
                 )
                 llm_backend_ref = repair_backend_param._backend
-            elif llm_backend == "ollama_live":
+            elif repair_role_backend == "ollama_live":
                 from labtrust_gym.baselines.llm.backends.ollama_live import (
                     OllamaLiveBackend,
                 )
@@ -1379,10 +1550,10 @@ def run_benchmark(
                     LiveRepairBackend,
                 )
                 repair_backend_param = LiveRepairBackend(
-                    OllamaLiveBackend(model=llm_model)
+                    OllamaLiveBackend(model=repair_role_model)
                 )
                 llm_backend_ref = repair_backend_param._backend
-            elif llm_backend == "anthropic_live":
+            elif repair_role_backend == "anthropic_live":
                 from labtrust_gym.baselines.llm.backends.anthropic_live import (
                     AnthropicLiveBackend,
                 )
@@ -1390,9 +1561,17 @@ def run_benchmark(
                     LiveRepairBackend,
                 )
                 repair_backend_param = LiveRepairBackend(
-                    AnthropicLiveBackend(model=llm_model)
+                    AnthropicLiveBackend(model=repair_role_model)
                 )
                 llm_backend_ref = repair_backend_param._backend
+            if pipeline_mode == "llm_live" and repair_backend_param is not None:
+                from labtrust_gym.baselines.llm.coordinator_throttle import (
+                    CoordinatorGuardrailRepairBackend,
+                )
+
+                repair_backend_param = CoordinatorGuardrailRepairBackend(
+                    repair_backend_param
+                )
             coord_method_instance = make_coordination_method(
                 coord_method,
                 policy_for_coord,
@@ -1403,7 +1582,17 @@ def run_benchmark(
         elif coord_method == "llm_detector_throttle_advisor":
             scale_config_dict = dict(scale_config_dict)
             scale_config_dict.setdefault("seed", base_seed)
-            if llm_backend == "openai_live":
+            detector_role_backend = (
+                coord_detector_backend
+                if (coord_detector_backend and coord_detector_backend != "inherit")
+                else llm_backend
+            )
+            detector_role_model = (
+                coord_detector_model
+                if (coord_detector_model and coord_detector_model != "inherit")
+                else llm_model
+            )
+            if detector_role_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_live import (
                     OpenAILiveBackend,
                 )
@@ -1414,41 +1603,200 @@ def run_benchmark(
                     LiveDetectorBackend,
                 )
                 api_key = require_openai_api_key()
-                live_backend = OpenAILiveBackend(api_key=api_key, model=llm_model)
+                live_backend = OpenAILiveBackend(
+                    api_key=api_key, model=detector_role_model
+                )
                 scale_config_dict["detector_backend"] = LiveDetectorBackend(
                     live_backend
                 )
                 llm_backend_ref = live_backend
-            elif llm_backend == "ollama_live":
+            elif detector_role_backend == "ollama_live":
                 from labtrust_gym.baselines.llm.backends.ollama_live import (
                     OllamaLiveBackend,
                 )
                 from labtrust_gym.baselines.coordination.assurance import (
                     LiveDetectorBackend,
                 )
-                live_backend = OllamaLiveBackend(model=llm_model)
+                live_backend = OllamaLiveBackend(model=detector_role_model)
                 scale_config_dict["detector_backend"] = LiveDetectorBackend(
                     live_backend
                 )
                 llm_backend_ref = live_backend
-            elif llm_backend == "anthropic_live":
+            elif detector_role_backend == "anthropic_live":
                 from labtrust_gym.baselines.llm.backends.anthropic_live import (
                     AnthropicLiveBackend,
                 )
                 from labtrust_gym.baselines.coordination.assurance import (
                     LiveDetectorBackend,
                 )
-                live_backend = AnthropicLiveBackend(model=llm_model)
+                live_backend = AnthropicLiveBackend(model=detector_role_model)
                 scale_config_dict["detector_backend"] = LiveDetectorBackend(
                     live_backend
                 )
                 llm_backend_ref = live_backend
+            if (
+                pipeline_mode == "llm_live"
+                and scale_config_dict.get("detector_backend") is not None
+            ):
+                from labtrust_gym.baselines.llm.coordinator_throttle import (
+                    CoordinatorGuardrailDetectorBackend,
+                )
+
+                scale_config_dict["detector_backend"] = (
+                    CoordinatorGuardrailDetectorBackend(
+                        scale_config_dict["detector_backend"]
+                    )
+                )
             coord_method_instance = make_coordination_method(
                 coord_method,
                 policy_for_coord,
                 repo_root=repo_root,
                 scale_config=scale_config_dict,
             )
+        elif coord_method_for_branch == "llm_central_planner_debate":
+            scale_agents = (scale_probe_state or {}).get("agents") or []
+            pz_to_engine_central = {
+                f"worker_{i}": scale_agents[i]["agent_id"]
+                for i in range(len(scale_agents))
+                if i < len(scale_agents)
+            }
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            policy_for_coord = (policy_for_coord or {}).copy()
+            policy_for_coord.setdefault("pz_to_engine", pz_to_engine_central)
+            planner_backend = (
+                coord_planner_backend
+                if (coord_planner_backend and coord_planner_backend != "inherit")
+                else llm_backend
+            )
+            planner_model = (
+                coord_planner_model
+                if (coord_planner_model and coord_planner_model != "inherit")
+                else llm_model
+            )
+            n_proposers = int(scale_config_dict.get("coord_debate_proposers", 2))
+            n_proposers = max(1, min(n_proposers, 5))
+            proposal_backends_list: list[Any] = []
+            if planner_backend == "openai_live":
+                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
+                    OpenAICoordinationProposalBackend,
+                    require_openai_api_key,
+                )
+                api_key = require_openai_api_key()
+                for _ in range(n_proposers):
+                    proposal_backends_list.append(
+                        OpenAICoordinationProposalBackend(
+                            api_key=api_key,
+                            model=planner_model,
+                            repo_root=repo_root,
+                        )
+                    )
+                llm_backend_ref = proposal_backends_list[0] if proposal_backends_list else None
+            elif planner_backend == "ollama_live":
+                from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
+                    OllamaCoordinationProposalBackend,
+                )
+                for _ in range(n_proposers):
+                    proposal_backends_list.append(
+                        OllamaCoordinationProposalBackend(model=planner_model)
+                    )
+                llm_backend_ref = proposal_backends_list[0] if proposal_backends_list else None
+            elif planner_backend == "anthropic_live":
+                from labtrust_gym.baselines.llm.backends.anthropic_live import (
+                    AnthropicCoordinationProposalBackend,
+                )
+                for _ in range(n_proposers):
+                    proposal_backends_list.append(
+                        AnthropicCoordinationProposalBackend(
+                            model=planner_model,
+                            repo_root=repo_root,
+                        )
+                    )
+                llm_backend_ref = proposal_backends_list[0] if proposal_backends_list else None
+            if proposal_backends_list:
+                if pipeline_mode == "llm_live":
+                    from labtrust_gym.baselines.llm.coordinator_throttle import (
+                        CoordinatorGuardrailProposalBackend,
+                    )
+                    proposal_backends_list = [
+                        CoordinatorGuardrailProposalBackend(b) for b in proposal_backends_list
+                    ]
+                coord_method_instance = make_coordination_method(
+                    coord_method,
+                    policy_for_coord,
+                    repo_root=repo_root,
+                    scale_config=scale_config_dict,
+                    pz_to_engine=pz_to_engine_central,
+                    proposal_backend=proposal_backends_list,
+                )
+            else:
+                coord_method_instance = make_coordination_method(
+                    coord_method,
+                    policy_for_coord,
+                    repo_root=repo_root,
+                    scale_config=scale_config_dict,
+                    pz_to_engine=pz_to_engine_central,
+                )
+        elif coord_method_for_branch == "llm_central_planner_agentic":
+            scale_agents = (scale_probe_state or {}).get("agents") or []
+            pz_to_engine_central = {
+                f"worker_{i}": scale_agents[i]["agent_id"]
+                for i in range(len(scale_agents))
+                if i < len(scale_agents)
+            }
+            scale_config_dict = dict(scale_config_dict)
+            scale_config_dict.setdefault("seed", base_seed)
+            policy_for_coord = (policy_for_coord or {}).copy()
+            policy_for_coord.setdefault("pz_to_engine", pz_to_engine_central)
+            planner_backend = (
+                coord_planner_backend
+                if (coord_planner_backend and coord_planner_backend != "inherit")
+                else llm_backend
+            )
+            planner_model = (
+                coord_planner_model
+                if (coord_planner_model and coord_planner_model != "inherit")
+                else llm_model
+            )
+            agentic_proposal_backend: Any = None
+            if planner_backend == "openai_live":
+                from labtrust_gym.baselines.llm.backends.openai_agentic_coord_backend import (
+                    OpenAIAgenticProposalBackend,
+                )
+                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
+                    require_openai_api_key,
+                )
+                api_key = require_openai_api_key()
+                agentic_proposal_backend = OpenAIAgenticProposalBackend(
+                    api_key=api_key,
+                    model=planner_model,
+                    repo_root=repo_root,
+                )
+                llm_backend_ref = agentic_proposal_backend
+            if agentic_proposal_backend is not None:
+                if pipeline_mode == "llm_live":
+                    from labtrust_gym.baselines.llm.coordinator_throttle import (
+                        CoordinatorGuardrailProposalBackend,
+                    )
+                    agentic_proposal_backend = CoordinatorGuardrailProposalBackend(
+                        agentic_proposal_backend
+                    )
+                coord_method_instance = make_coordination_method(
+                    coord_method,
+                    policy_for_coord,
+                    repo_root=repo_root,
+                    scale_config=scale_config_dict,
+                    pz_to_engine=pz_to_engine_central,
+                    proposal_backend=agentic_proposal_backend,
+                )
+            else:
+                coord_method_instance = make_coordination_method(
+                    coord_method,
+                    policy_for_coord,
+                    repo_root=repo_root,
+                    scale_config=scale_config_dict,
+                    pz_to_engine=pz_to_engine_central,
+                )
         else:
             coord_method_instance = make_coordination_method(
                 coord_method,
@@ -1494,8 +1842,8 @@ def run_benchmark(
                             lm = inj.get("late_step_min")
                             late_step_min_spec = int(lm) if lm is not None else None
                             break
-                except Exception:
-                    pass
+                except Exception as e:
+                    _LOG.warning("Failed to load injection spec from coordination_study_spec, using fallback: %s", e)
             # Fallback: load application_phase / step bounds from injections.v0.2.yaml
             if (application_phase is None or early_step_cap_spec is None or late_step_min_spec is None) and repo_root:
                 inj_policy_path = repo_root / "policy" / "coordination" / "injections.v0.2.yaml"
@@ -1514,8 +1862,8 @@ def run_benchmark(
                                     lm = inj.get("late_step_min")
                                     late_step_min_spec = int(lm) if lm is not None else None
                                 break
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _LOG.warning("Failed to load injection policy for step bounds: %s", e)
             phase = injection_phase if injection_phase is not None else application_phase
             risk_injector_instance = make_injector(
                 injection_id,
@@ -1672,6 +2020,15 @@ def run_benchmark(
                 num_runners=num_runners, num_insiders=num_insiders
             )
             backend = FixtureBackend(repo_root=repo_root)
+            if pipeline_mode == "llm_offline" and repo_root is not None:
+                from labtrust_gym.baselines.llm.fault_model import load_llm_fault_model
+                from labtrust_gym.baselines.llm.fault_model_agent import (
+                    LLMFaultModelAgentWrapper,
+                )
+
+                fault_cfg = load_llm_fault_model(repo_root)
+                if fault_cfg:
+                    backend = LLMFaultModelAgentWrapper(backend, fault_cfg, base_seed)
             llm_backend_ref = cast(Any, backend)
             for aid in llm_agents:
                 if aid not in scripted_agents_map:
@@ -1694,13 +2051,64 @@ def run_benchmark(
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
+            agent_fault_cfg: dict[str, Any] = {}
+            if pipeline_mode == "llm_offline" and repo_root is not None:
+                from labtrust_gym.baselines.llm.fault_model import load_llm_fault_model
+
+                agent_fault_cfg = load_llm_fault_model(repo_root) or {}
             for aid in llm_agents:
                 if aid not in scripted_agents_map:
                     continue
+                inner_backend = DeterministicConstrainedBackend(
+                    seed=base_seed, default_action_type="NOOP"
+                )
+                if agent_fault_cfg:
+                    from labtrust_gym.baselines.llm.fault_model_agent import (
+                        LLMFaultModelAgentWrapper,
+                    )
+
+                    inner_backend = LLMFaultModelAgentWrapper(
+                        inner_backend, agent_fault_cfg, base_seed
+                    )
                 scripted_agents_map[aid] = LLMAgentWithShield(
-                    backend=DeterministicConstrainedBackend(
-                        seed=base_seed, default_action_type="NOOP"
-                    ),
+                    backend=inner_backend,
+                    rbac_policy=rbac_policy_llm,
+                    pz_to_engine=pz_to_engine,
+                    strict_signatures=use_strict_signatures,
+                    key_registry=key_registry_merged,
+                    get_private_key=get_private_key_fn,
+                    capability_policy=capability_policy_llm,
+                )
+        elif not is_scale_task and llm_backend == "deterministic_policy_v1":
+            from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
+            from labtrust_gym.baselines.llm.deterministic_policy_backend import (
+                DeterministicPolicyBackend,
+            )
+
+            pz_to_engine = _default_pz_to_engine(
+                num_runners=num_runners, num_insiders=num_insiders
+            )
+            policy_fault_cfg: dict[str, Any] = {}
+            if pipeline_mode == "llm_offline" and repo_root is not None:
+                from labtrust_gym.baselines.llm.fault_model import load_llm_fault_model
+
+                policy_fault_cfg = load_llm_fault_model(repo_root) or {}
+            for aid in llm_agents:
+                if aid not in scripted_agents_map:
+                    continue
+                inner_backend = DeterministicPolicyBackend(
+                    seed=base_seed, default_action_type="NOOP"
+                )
+                if policy_fault_cfg:
+                    from labtrust_gym.baselines.llm.fault_model_agent import (
+                        LLMFaultModelAgentWrapper,
+                    )
+
+                    inner_backend = LLMFaultModelAgentWrapper(
+                        inner_backend, policy_fault_cfg, base_seed
+                    )
+                scripted_agents_map[aid] = LLMAgentWithShield(
+                    backend=inner_backend,
                     rbac_policy=rbac_policy_llm,
                     pz_to_engine=pz_to_engine,
                     strict_signatures=use_strict_signatures,
@@ -1713,11 +2121,17 @@ def run_benchmark(
             from labtrust_gym.baselines.llm.backends.openai_live import (
                 OpenAILiveBackend,
             )
+            from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
 
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
-            backend = OpenAILiveBackend(trace_collector=llm_trace_collector)
+            base_backend = OpenAILiveBackend(trace_collector=llm_trace_collector)
+            backend = (
+                RecordingBackend(base_backend)
+                if record_fixtures_path is not None
+                else base_backend
+            )
             llm_backend_ref = cast(Any, backend)
             for aid in llm_agents:
                 if aid not in scripted_agents_map:
@@ -1736,6 +2150,7 @@ def run_benchmark(
             from labtrust_gym.baselines.llm.backends.openai_responses import (
                 OpenAILiveResponsesBackend,
             )
+            from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
 
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
@@ -1743,11 +2158,16 @@ def run_benchmark(
             from labtrust_gym.policy.prompt_registry import load_use_prompts_v02
 
             prompts_policy = "v0.2" if load_use_prompts_v02(repo_root) else "v0.1"
-            backend = OpenAILiveResponsesBackend(
+            base_backend = OpenAILiveResponsesBackend(
                 repo_root=repo_root,
                 output_mode=llm_output_mode,
                 prompts_policy=prompts_policy,
                 trace_collector=llm_trace_collector,
+            )
+            backend = (
+                RecordingBackend(base_backend)
+                if record_fixtures_path is not None
+                else base_backend
             )
             llm_backend_ref = cast(Any, backend)
             for aid in llm_agents:
@@ -1767,12 +2187,18 @@ def run_benchmark(
             from labtrust_gym.baselines.llm.backends.ollama_live import (
                 OllamaLiveBackend,
             )
+            from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
 
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
-            backend = cast(Any, OllamaLiveBackend())
-            llm_backend_ref = backend
+            base_backend = OllamaLiveBackend(model=llm_model)
+            backend = (
+                RecordingBackend(base_backend)
+                if record_fixtures_path is not None
+                else base_backend
+            )
+            llm_backend_ref = cast(Any, backend)
             for aid in llm_agents:
                 if aid not in scripted_agents_map:
                     continue
@@ -1790,11 +2216,17 @@ def run_benchmark(
             from labtrust_gym.baselines.llm.backends.anthropic_live import (
                 AnthropicLiveBackend,
             )
+            from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
 
             pz_to_engine = _default_pz_to_engine(
                 num_runners=num_runners, num_insiders=num_insiders
             )
-            backend = AnthropicLiveBackend(trace_collector=llm_trace_collector)
+            base_backend = AnthropicLiveBackend(trace_collector=llm_trace_collector)
+            backend = (
+                RecordingBackend(base_backend)
+                if record_fixtures_path is not None
+                else base_backend
+            )
             llm_backend_ref = cast(Any, backend)
             for aid in llm_agents:
                 if aid not in scripted_agents_map:
@@ -1870,8 +2302,8 @@ def run_benchmark(
         from labtrust_gym.logging.step_timing import clear as step_timing_clear
 
         step_timing_clear()
-    except ImportError:
-        pass
+    except ImportError as e:
+        _LOG.debug("Step timing clear not available: %s", e)
 
     t0_wall = time.perf_counter()
     for ep_idx, ep_seed in enumerate(seeds):
@@ -1979,12 +2411,12 @@ def run_benchmark(
         )
 
     effective_timing = (initial_state_overrides or {}).get("timing_mode", "explicit")
-    results_mode = get_pipeline_mode()
+    results_mode = get_pipeline_mode()  # One of: deterministic | llm_offline | llm_live (see pipeline.py)
     results_llm_backend_id = get_llm_backend_id() or "none"
-    non_deterministic = results_mode == "llm_live" and allow_network
+    non_deterministic = results_mode == "llm_live" and allow_network  # True only for llm_live + network
     results: dict[str, Any] = {
         "schema_version": RESULTS_SCHEMA_VERSION,
-        "pipeline_mode": results_mode,
+        "pipeline_mode": results_mode,  # Always recorded for audit (deterministic | llm_offline | llm_live)
         "llm_backend_id": results_llm_backend_id,
         "llm_model_id": None,
         "allow_network": allow_network,
@@ -2137,8 +2569,8 @@ def run_benchmark(
                     results["metadata"] = {}
                 results["metadata"]["llm_attribution_summary"] = summary
                 tracer.clear()
-        except Exception:
-            pass
+        except Exception as e:
+            _LOG.warning("Failed to collect LLM trace/attribution: %s", e)
 
     if record_fixtures_path is not None and llm_backend_ref is not None:
         records = getattr(llm_backend_ref, "records", None)
@@ -2151,6 +2583,20 @@ def run_benchmark(
                 results["metadata"] = {}
             results["metadata"]["recorded_fixtures"] = n
             results["metadata"]["record_fixtures_path"] = str(record_fixtures_path)
+
+    if record_coord_fixtures_path is not None and coord_records:
+        from labtrust_gym.baselines.llm.record_fixtures_coord import (
+            merge_and_write_coord_fixtures,
+        )
+        n_coord = merge_and_write_coord_fixtures(
+            coord_records, Path(record_coord_fixtures_path)
+        )
+        if results.get("metadata") is None:
+            results["metadata"] = {}
+        results["metadata"]["recorded_coord_fixtures"] = n_coord
+        results["metadata"]["record_coord_fixtures_path"] = str(
+            record_coord_fixtures_path
+        )
 
     if results.get("metadata") is None:
         results["metadata"] = {}
@@ -2167,8 +2613,8 @@ def run_benchmark(
             step_agg = get_aggregates()
             if step_agg:
                 results["metadata"]["step_timing"] = step_agg
-        except ImportError:
-            pass
+        except ImportError as e:
+            _LOG.debug("Step timing get_aggregates not available: %s", e)
     else:
         results["metadata"]["run_duration_wall_s"] = 0
         results["metadata"]["run_duration_episodes_per_s"] = None

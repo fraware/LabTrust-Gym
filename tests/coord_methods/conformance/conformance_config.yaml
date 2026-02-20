@@ -8,7 +8,7 @@
 skip_determinism: [marl_ppo]
 skip_legality: [marl_ppo]
 skip_safety_invariants: []  # only routing methods are tested; others skip by scope
-# Methods that pass budget contract (empty = all skip until upgraded)
+# Methods that pass budget contract (under tight compute_budget_ms/node_expansions)
 pass_budget:
   - centralized_planner
   - llm_central_planner
@@ -25,6 +25,15 @@ pass_budget:
   - kernel_scheduler_or_whca
   - swarm_reactive
   - swarm_stigmergy_priority
+  - gossip_consensus
+  - llm_gossip_summarizer
+  - consensus_paxos_lite
+  - llm_repair_over_kernel_whca
+  - llm_local_decider_signed_bus
+  - llm_constrained
+  - ripple_effect
+  - group_evolving_experience_sharing
+  - llm_detector_throttle_advisor
 # Methods that pass evidence contract (empty = all skip until they emit METHOD_TRACE)
 pass_evidence:
   - centralized_planner
@@ -45,6 +54,7 @@ pass_evidence:
   - group_evolving_experience_sharing
   - swarm_reactive
   - swarm_stigmergy_priority
+  - llm_detector_throttle_advisor
 
 xfail_determinism: []
 xfail_legality: []
@@ -60,6 +70,7 @@ routing_method_ids:
   - llm_repair_over_kernel_whca
 
 # Methods that require optional deps (skip entire conformance if not installed)
+# marl_ppo: requires model_path (trained checkpoint). group_evolving_study: study track only.
 optional_deps_methods:
   - marl_ppo
   - group_evolving_study

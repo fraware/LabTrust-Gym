@@ -8,6 +8,13 @@ Swarm reactive: purely local rules with optional stability controls.
   reversing); congestion_penalty_scale reduces pile-ups by penalizing crowded zones.
 Deterministic given obs and seed. Fallback: when over budget, same local rules
 without stability terms.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven.
+llm_calls_per_step: 0.
+fallback: same local rules without stability terms when over budget.
+max_latency_ms: bounded (local rules only).
 """
 
 from __future__ import annotations
@@ -24,6 +31,7 @@ from labtrust_gym.baselines.coordination.interface import (
 )
 from labtrust_gym.baselines.coordination.methods.swarm_stability import (
     congestion_penalty,
+    inertia_term,
 )
 from labtrust_gym.baselines.coordination.obs_utils import (
     device_qc_pass,
@@ -209,9 +217,9 @@ class SwarmReactive(CoordinationMethod):
                     best_score: float = -1e9
                     for n in neighbors:
                         pen = congestion_penalty(zone_agent_count.get(n, 0), self._congestion_scale)
-                        inertia_bonus = 0.0
-                        if last and last[1] == my_zone and n != last[0]:
-                            inertia_bonus = self._inertia_weight
+                        current_dir = (1.0, 0.0) if (last and n != last[0]) else (0.0, 0.0)
+                        damped = inertia_term(current_dir, self._inertia_weight)
+                        inertia_bonus = damped[0]
                         score = -pen + inertia_bonus
                         if score > best_score:
                             best_score = score

@@ -65,7 +65,7 @@ Optional extras: `.[env]` (PettingZoo/Gymnasium), `.[plots]` (matplotlib), `.[ma
 | `safety-case --out \<dir\>` | Generate safety case (claim to control, test, artifact, command) to SAFETY_CASE/safety_case.json and .md |
 | `run-official-pack --out \<dir\> [--seed-base N] [--pipeline-mode llm_live] [--allow-network] [--llm-backend \<backend\>]` | Run Official Benchmark Pack (v0.1 default, v0.2 when `--pipeline-mode llm_live`); single output dir with baselines, SECURITY/, SAFETY_CASE/, transparency log; llm_live adds TRANSPARENCY_LOG/llm_live.json and live_evaluation_metadata.json ([Official benchmark pack](benchmarks/official_benchmark_pack.md)) |
 | `run-cross-provider-pack --out \<dir\> --providers \<list\>` | Run official pack once per provider (llm_live); per-provider dirs plus summary_cross_provider.json/.md ([Official benchmark pack](benchmarks/official_benchmark_pack.md), [Live LLM](agents/llm_live.md)) |
-| `llm-healthcheck --backend \<openai_responses\|openai_live\|anthropic_live\> [--allow-network]` | One minimal request to live backend; reports ok, model_id, latency_ms ([Live LLM](agents/llm_live.md)) |
+| `llm-healthcheck --backend \<openai_responses\|openai_live\|anthropic_live\|ollama_live\> [--allow-network]` | One minimal request to live backend; reports ok, model_id, latency_ms ([Live LLM](agents/llm_live.md)) |
 | `ui-export --run \<dir\> --out \<zip\>` | Export UI-ready zip (index, events, receipts_index, reason_codes) from run dir; see [UI data contract](contracts/ui_data_contract.md) |
 | `export-risk-register --out \<dir\> [--runs \<dir_or_glob\> ...]` | Export RiskRegisterBundle.v0.1 into \<dir\>/RISK_REGISTER_BUNDLE.v0.1.json. Evidence gaps (status=missing) are first-class. CI runs contract gate (schema, snapshot, crosswalk, coverage). Optional `--include-official-pack \<dir\>`, `--inject-ui-export`. See [Risk register](risk-and-security/risk_register.md), [Risk register contract](contracts/risk_register_contract.v0.1.md). |
 | `build-risk-register-bundle --out \<path\> [--run \<dir\> ...]` | Build same bundle to an explicit file path (alternative to export-risk-register). |
@@ -96,7 +96,9 @@ Contracts and schema versions that define correctness (anti-regression backbone)
 
 | Section | Description |
 |--------|-------------|
-| [Getting started](getting-started/index.md) | Installation, build your own agent, example agents, forker guide, troubleshooting. |
+| [Getting started](getting-started/index.md) | Installation, build your own agent, example agents, forker guide, [Quick demos](getting-started/quick_demos.md), troubleshooting. |
+| [Trust verification](risk-and-security/trust_verification.md) | Verification chain, EvidenceBundles, risk register coverage, and artifact-to-concern mapping; what each step proves and how to run or inspect it. |
+| [Use cases and impact](reference/use_cases_and_impact.md) | Task and pack mapping to high-impact lab operations; capability metrics. |
 | [Architecture](architecture/index.md) | System design, threat model, diagrams, workflow spec. |
 | [Policy](policy/index.md) | Policy pack, coordination policy, invariants, enforcement. |
 | [Coordination](coordination/index.md) | Methods, scale, matrix, studies, benchmark card. |

@@ -39,7 +39,7 @@ def test_byzantine_aggregate_trim_mean() -> None:
 
 
 def test_crdt_merge_order_independence() -> None:
-    """Merge (A then B) and (B then A) yield same final state."""
+    """Merge (A then B) and (B then A) yield same final state for LWW, PN-counter, OR-set."""
     a_pn = {"z1": 2, "z2": 1}
     b_pn = {"z1": 1, "z2": 3}
     ab = pn_counter_merge(pn_counter_merge({}, a_pn), b_pn)
@@ -53,6 +53,13 @@ def test_crdt_merge_order_independence() -> None:
     ba_lww = lww_register_merge(lww_register_merge((0, 0, None), b_lww), a_lww)
     assert ab_lww == ba_lww
     assert ab_lww == (2, 1, "b")
+
+    a_adds, a_tomb = {"i", "j"}, set()
+    b_adds, b_tomb = {"j", "k"}, {"i"}
+    ab_adds, ab_tomb = or_set_merge(a_adds, a_tomb, b_adds, b_tomb)
+    ba_adds, ba_tomb = or_set_merge(b_adds, b_tomb, a_adds, a_tomb)
+    assert ab_adds == ba_adds and ab_tomb == ba_tomb
+    assert ab_adds == {"i", "j", "k"} - ab_tomb
 
 
 def test_byzantine_inject_k_trim_mean() -> None:

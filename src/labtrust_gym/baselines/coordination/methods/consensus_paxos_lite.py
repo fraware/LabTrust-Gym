@@ -5,6 +5,13 @@ for use by local policies; bounded rounds. Decentralized class; no central plann
 Leader-based proposal in round 1; all agents adopt the leader's digest. Local
 policies then use the agreed digest to choose actions (which device has which head).
 Deterministic given seed and obs.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven.
+llm_calls_per_step: 0.
+fallback: N/A (deterministic; max_rounds caps work).
+max_latency_ms: bounded (max_rounds per step).
 """
 
 from __future__ import annotations

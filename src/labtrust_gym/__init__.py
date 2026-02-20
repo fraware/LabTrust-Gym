@@ -1,8 +1,11 @@
 """
-LabTrust-Gym: A multi-agent environment for a self-driving hospital lab.
+LabTrust-Gym: multi-agent simulation for a self-driving hospital lab.
 
-Policy-first: invariants, tokens, reason codes, zones, and golden scenarios
-are versioned under policy/. The golden runner defines correctness.
+This package provides a Gym/PettingZoo-style environment where multiple agents
+(coordination, operations, runners) act in a simulated lab. Behavior is driven by
+versioned policy under policy/: invariants, tokens, reason codes, zones, and
+golden scenarios. Correctness is defined by the golden test suite and related
+contracts; see docs/ and policy/golden/.
 """
 
 from labtrust_gym.version import __version__

@@ -1,9 +1,11 @@
 """
-Policy-driven enforcement: throttle_agent, kill_switch, freeze_zone, forensic_freeze.
+Policy-driven enforcement actions in response to invariant violations.
 
-Consumes violations from invariants_runtime; matches rules by invariant_id/severity/scope;
-applies actions with optional escalation (first -> throttle, repeated -> kill_switch).
-Records enforcement events into audit log when audit_callback is provided.
+Takes violations produced by the invariant runtime and matches them against
+the enforcement map (by invariant_id, severity, scope). Applies actions such
+as throttle_agent, kill_switch, freeze_zone, or forensic_freeze. Rules can
+escalate (e.g. first violation -> throttle, repeated -> kill_switch). When
+an audit callback is provided, enforcement events are recorded in the audit log.
 """
 
 from __future__ import annotations
@@ -14,7 +16,8 @@ from typing import Any, cast
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
 
-EnforcementItem = dict[str, Any]  # type, target?, duration_s?, reason_code?, rule_id?
+# One enforcement action: type (e.g. throttle_agent), target?, duration_s?, reason_code?, rule_id?
+EnforcementItem = dict[str, Any]
 
 
 def load_enforcement_map(path: Path | None = None) -> dict[str, Any]:

@@ -7,6 +7,7 @@ Repository layout, lab profile, observability, and testing strategy.
 | Document | Description |
 |----------|-------------|
 | [Repository structure](repository_structure.md) | Canonical layout and where to put outputs. |
+| [Outputs and results](outputs_and_results.md) | Where CLI and CI write results, schemas, and quick reference. |
 | [Lab profile reference](lab_profile_reference.md) | Lab profile and provider IDs. |
 | [Observability](observability.md) | Observability and logging. |
 | [Online mode](online_mode.md) | Online mode and server. |

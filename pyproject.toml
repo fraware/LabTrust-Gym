@@ -104,10 +104,9 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = [
-    "E501",  # Line length; line-length=120. Shorten incrementally (see docs/AUDIT_COMMANDS.md).
-    "N801",  # Task class names (TaskA_ThroughputSLA, etc.) are intentional identifiers
-    "N802",  # do_GET, do_POST are stdlib HTTP handler names
-    "N806",  # UPPER_CASE in functions used as constant sets/tuples
+    "E501",  # Line length 120: new code only; backlog incremental. See docs/reference/documentation_standards.md.
+    "N802",  # invalid-function-name: do_GET/do_POST etc. (stdlib BaseHTTPRequestHandler) only. See docs/reference/code_style_and_lint.md.
+    "N806",  # non-lowercase-variable-in-function: constant-like names in function scope only. See docs/reference/code_style_and_lint.md.
 ]
 
 [tool.ruff.format]

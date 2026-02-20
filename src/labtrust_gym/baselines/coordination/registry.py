@@ -1,16 +1,17 @@
 """
-Coordination method factory: load registry from policy YAML and instantiate methods.
+Coordination method factory: load registry from policy and instantiate methods.
 
-Extension: register_coordination_method(method_id, factory) and entry_points
-labtrust_gym.coordination_methods allow external packages to add methods without editing this file.
+Reads the coordination method registry from policy YAML and builds the
+requested method (e.g. centralized_planner, llm_auction_bidder). External
+packages can add methods via register_coordination_method() or the
+labtrust_gym.coordination_methods entry point without editing this file.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, cast
-
-from labtrust_gym.config import policy_path
+from typing import Any, cast
 
 from labtrust_gym.baselines.coordination.allocation.auction import (
     AuctionAllocator,
@@ -22,12 +23,13 @@ from labtrust_gym.baselines.coordination.kernel_components import (
     CentralizedAllocator,
     EDFScheduler,
     TrivialRouter,
-    WHCARouter,
 )
-from labtrust_gym.baselines.coordination.routing.mapf_backends import make_router
 from labtrust_gym.baselines.coordination.kernels.scheduler_or import ORScheduler
 from labtrust_gym.baselines.coordination.methods.centralized_planner import (
     CentralizedPlanner,
+)
+from labtrust_gym.baselines.coordination.methods.consensus_paxos_lite import (
+    ConsensusPaxosLite,
 )
 from labtrust_gym.baselines.coordination.methods.gossip_consensus import (
     GossipConsensus,
@@ -35,20 +37,30 @@ from labtrust_gym.baselines.coordination.methods.gossip_consensus import (
 from labtrust_gym.baselines.coordination.methods.hierarchical_hub_rr import (
     HierarchicalHubRR,
 )
-from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
-    DeterministicProposalBackend,
-    LLMCentralPlanner,
-)
-from labtrust_gym.baselines.coordination.methods.llm_hierarchical_allocator import (
-    DeterministicAssignmentsBackend,
-    LLMHierarchicalAllocator,
-)
 from labtrust_gym.baselines.coordination.methods.llm_auction_bidder import (
     DeterministicBidBackend,
     LLMAuctionBidder,
 )
+from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
+    DeterministicProposalBackend,
+    LLMCentralPlanner,
+)
+from labtrust_gym.baselines.coordination.methods.llm_central_planner_agentic import (
+    DeterministicAgenticProposalBackend,
+    LLMCentralPlannerAgentic,
+)
+from labtrust_gym.baselines.coordination.methods.llm_central_planner_debate import (
+    LLMCentralPlannerDebate,
+)
+from labtrust_gym.baselines.coordination.methods.llm_constrained import (
+    LLMConstrained,
+)
 from labtrust_gym.baselines.coordination.methods.llm_gossip_summarizer import (
     LLMGossipSummarizer,
+)
+from labtrust_gym.baselines.coordination.methods.llm_hierarchical_allocator import (
+    DeterministicAssignmentsBackend,
+    LLMHierarchicalAllocator,
 )
 from labtrust_gym.baselines.coordination.methods.llm_local_decider_signed_bus import (
     DeterministicLocalProposalBackend,
@@ -58,17 +70,11 @@ from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca imp
     DeterministicRepairBackend,
     LLMRepairOverKernelWHCA,
 )
-from labtrust_gym.baselines.coordination.methods.llm_constrained import (
-    LLMConstrained,
-)
 from labtrust_gym.baselines.coordination.methods.market_auction import (
     MarketAuction,
 )
 from labtrust_gym.baselines.coordination.methods.swarm_reactive import (
     SwarmReactive,
-)
-from labtrust_gym.baselines.coordination.methods.consensus_paxos_lite import (
-    ConsensusPaxosLite,
 )
 from labtrust_gym.baselines.coordination.methods.swarm_stigmergy_priority import (
     SwarmStigmergyPriority,
@@ -77,6 +83,8 @@ from labtrust_gym.baselines.coordination.ripple_effect import (
     MESSAGE_TYPE_RIPPLE_INTENT,
     RippleEffectMethod,
 )
+from labtrust_gym.baselines.coordination.routing.mapf_backends import make_router
+from labtrust_gym.config import policy_path
 
 
 def _load_scheduler_or_policy(repo_root: Path | None) -> dict[str, Any]:
@@ -196,6 +204,59 @@ def _build_builtin(
             ),
         )
 
+    if method_id == "llm_central_planner_debate":
+        from labtrust_gym.engine.rbac import get_allowed_actions
+        from labtrust_gym.engine.rbac import load_rbac_policy as load_rbac
+
+        sc = scale_config or {}
+        seed = int(sc.get("seed", 0))
+        n_proposers = int(sc.get("coord_debate_proposers", 2))
+        n_proposers = max(1, min(n_proposers, 5))
+        backends: list[Any] = []
+        if params.get("proposal_backend") is not None:
+            pb = params["proposal_backend"]
+            backends = [pb] if not isinstance(pb, list) else list(pb)
+        else:
+            for i in range(n_proposers):
+                backends.append(
+                    DeterministicProposalBackend(
+                        seed=seed + i,
+                        default_action_type="NOOP",
+                    )
+                )
+        rbac_path = (
+            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml")
+            if repo_root
+            else None
+        )
+        rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
+        pz_to_engine_map = params.get("pz_to_engine") or {}
+        first_engine = (
+            next(iter(pz_to_engine_map.values()), None)
+            if pz_to_engine_map
+            else None
+        )
+        allowed = (
+            get_allowed_actions(first_engine, rbac_policy)
+            if first_engine
+            else ["NOOP", "TICK", "QUEUE_RUN", "MOVE", "OPEN_DOOR", "START_RUN"]
+        )
+        aggregator = str(sc.get("coord_debate_aggregator", "majority")).lower()
+        return cast(
+            CoordinationMethod,
+            LLMCentralPlannerDebate(
+                proposal_backend=backends,
+                rbac_policy=rbac_policy,
+                allowed_actions=allowed,
+                policy_summary=params.get("policy_summary") or policy,
+                get_allowed_actions_fn=(
+                    lambda aid: get_allowed_actions(aid, rbac_policy)
+                ),
+                aggregator=aggregator,
+                method_id_override=params.get("method_id_override"),
+            ),
+        )
+
     if method_id == "llm_hierarchical_allocator":
         from labtrust_gym.engine.rbac import get_allowed_actions
         from labtrust_gym.engine.rbac import load_rbac_policy as load_rbac
@@ -242,6 +303,52 @@ def _build_builtin(
                 whca_horizon=int(params.get("whca_horizon", 10)),
                 method_id_override=params.get("method_id_override"),
                 defense_profile=params.get("defense_profile"),
+            ),
+        )
+
+    if method_id == "llm_central_planner_agentic":
+        from labtrust_gym.engine.rbac import get_allowed_actions
+        from labtrust_gym.engine.rbac import load_rbac_policy as load_rbac
+
+        backend = params.get("proposal_backend")
+        if backend is None and repo_root is not None:
+            seed = int((scale_config or {}).get("seed", 0))
+            backend = DeterministicAgenticProposalBackend(seed=seed)
+        if backend is None:
+            raise ValueError(
+                "llm_central_planner_agentic requires proposal_backend= or repo_root"
+            )
+        rbac_path = (
+            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml")
+            if repo_root
+            else None
+        )
+        rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
+        pz_to_engine_map = params.get("pz_to_engine") or {}
+        first_engine = (
+            next(iter(pz_to_engine_map.values()), None)
+            if pz_to_engine_map
+            else None
+        )
+        allowed = (
+            get_allowed_actions(first_engine, rbac_policy)
+            if first_engine
+            else ["NOOP", "TICK", "QUEUE_RUN", "MOVE", "OPEN_DOOR", "START_RUN"]
+        )
+        sc = scale_config or {}
+        max_rounds = int(sc.get("coord_agentic_max_rounds", 5))
+        return cast(
+            CoordinationMethod,
+            LLMCentralPlannerAgentic(
+                proposal_backend=backend,
+                rbac_policy=rbac_policy,
+                allowed_actions=allowed,
+                policy_summary=params.get("policy_summary") or policy,
+                get_allowed_actions_fn=(
+                    lambda aid: get_allowed_actions(aid, rbac_policy)
+                ),
+                max_tool_rounds=max_rounds,
+                method_id_override=params.get("method_id_override"),
             ),
         )
 
@@ -622,9 +729,11 @@ def _build_builtin(
             wrap_with_simplex_shield,
         )
 
-        seed = int((scale_config or {}).get("seed", 0))
+        sc = params.get("scale_config") or scale_config or {}
+        seed = int(sc.get("seed", 0))
+        compute_budget = params.get("compute_budget") or params.get("max_bids") or sc.get("compute_budget_node_expansions")
         alloc = AuctionAllocator(
-            max_bids=params.get("compute_budget") or params.get("max_bids"),
+            max_bids=compute_budget or params.get("max_bids"),
         )
         sched = EDFScheduler()
         router_backend = (scale_config or {}).get("router_backend", "whca")
@@ -693,6 +802,8 @@ BUILTIN_COORDINATION_METHOD_IDS: tuple[str, ...] = (
     'kernel_whca',
     'llm_auction_bidder',
     'llm_central_planner',
+    'llm_central_planner_debate',
+    'llm_central_planner_agentic',
     'llm_constrained',
     'llm_detector_throttle_advisor',
     'llm_gossip_summarizer',

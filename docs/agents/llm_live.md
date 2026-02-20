@@ -4,13 +4,15 @@ This document describes pipeline modes (deterministic vs LLM offline vs LLM live
 
 ## Pipeline modes
 
-LabTrust-Gym uses a first-class **pipeline_mode** to separate deterministic/offline runs from live-LLM runs:
+LabTrust-Gym uses exactly three **pipeline_mode** values: **deterministic** | **llm_offline** | **llm_live**. The code and CLI accept only these literals (see `src/labtrust_gym/pipeline.py` and `--pipeline-mode` choices).
 
-| Mode | Description | Network |
-|------|-------------|---------|
-| **deterministic** | Scripted agents only; no LLM interface is invoked. | Forbidden (fail-fast if any HTTP is attempted). |
-| **llm_offline** | Uses the LLM agent interface but only with the deterministic, offline backend (seeded; no API). | Forbidden. |
-| **llm_live** | Allows network-backed LLM backends (OpenAI, Ollama). | Allowed only when explicitly opted in (see below). |
+### Canonical definitions
+
+| Mode | Description | Network | Reproducibility | Typical use |
+|------|-------------|---------|----------------|-------------|
+| **deterministic** | Scripted agents only; no LLM interface is invoked. | Forbidden (fail-fast if any HTTP is attempted). | Same seed yields same results; byte-identical outputs when not using non-deterministic features. | CI, regression, reproduce, paper artifact, default for most commands. |
+| **llm_offline** | Uses the LLM agent/coordination interface but only with a deterministic backend (fixture lookup or seeded RNG). No real API calls. | Forbidden. | Reproducible given same seed or same fixtures. | Offline LLM evaluation, tests without API cost, tasks that use LLM-shaped agents (e.g. llm_safe_v1) in CI. |
+| **llm_live** | Allows network-backed LLM backends (OpenAI, Ollama, Anthropic). | Allowed only when explicitly opted in (`--allow-network` or `LABTRUST_ALLOW_NETWORK=1`). | No; runs record `non_deterministic: true`. | Interactive or cost-accepting runs; live model comparison. |
 
 **Defaults:** `run-benchmark`, `quick-eval`, `run-official-pack`, and `package-release` default to **deterministic** (no LLM, no network). CI and regression runs stay offline by default.
 
@@ -142,6 +144,57 @@ labtrust run-benchmark --task throughput_sla --episodes 5 --llm-backend determin
 
 Legacy flag `--use-llm-live-openai` is equivalent to `--llm-backend openai_live`.
 
+**Per-role coordinator backends:** You can use different backends or models per coordination role (planner, bidder, repair, detector) in one run. Use `--coord-planner-backend`, `--coord-bidder-backend`, `--coord-repair-backend`, `--coord-detector-backend` (values: `inherit`, `openai_live`, `ollama_live`, `anthropic_live`, etc.) and optionally `--coord-planner-model`, `--coord-bidder-model`, `--coord-repair-model`, `--coord-detector-model`. When unset or `inherit`, the role uses `--llm-backend` and `--llm-model`. See [Coordination methods audit](../coordination/coordination_methods_audit.md#multi-backend-configuration-per-role-backends).
+
+### Running coordinator tasks with live LLM
+
+To run **coordinator** tasks (`coord_scale`, `coord_risk`) with a live LLM backend, use `run-benchmark` with `--task coord_scale` or `--task coord_risk`, `--coord-method`, `--pipeline-mode llm_live`, `--allow-network`, and `--llm-backend openai_live` (or `anthropic_live`, `ollama_live`). Example:
+
+```bash
+labtrust run-benchmark --task coord_scale --episodes 1 --seed 42 --out results.json \
+  --pipeline-mode llm_live --allow-network --llm-backend openai_live \
+  --coord-method llm_central_planner
+```
+
+Supported coordinator methods with live backends include `llm_central_planner`, `llm_auction_bidder`, `llm_central_planner_debate`, and `llm_central_planner_agentic`. For `llm_auction_bidder` with round-robin protocol, the scale config must set `coord_auction_protocol: round_robin` (task or pack policy may provide this).
+
+**Attribution and cost:** Full attribution and cost aggregation require `LABTRUST_LLM_TRACE=1` (or an equivalent trace collector). See [Observability](../reference/observability.md).
+
+**Tests and commands:** Live integration tests for both the agent path and the coordinator path live in `tests/test_openai_live.py`. They run only when `LABTRUST_RUN_LLM_LIVE=1` and `OPENAI_API_KEY` are set. To run all OPENAI_API_KEY-gated tests and the trials script in one go, use the runner scripts; see [Tests requiring OPENAI_API_KEY](#tests-requiring-openai_api_key). The optional CI workflow (LLM live optional smoke) runs a coord live smoke step when the OpenAI key is present.
+
+### Running full LLM coordinator trials (OpenAI)
+
+To run **all four** LLM coordinator methods (llm_central_planner, llm_auction_bidder, llm_central_planner_debate, llm_central_planner_agentic) with real OpenAI and gather results into a single report, use the trials script:
+
+```bash
+LABTRUST_LLM_TRACE=1 python scripts/run_llm_coord_trials_openai.py --out-dir labtrust_runs/llm_coord_trials_openai
+```
+
+**Requirements:** `OPENAI_API_KEY` must be set. Set `LABTRUST_LLM_TRACE=1` (or pass `--trace`) so the report includes attribution (by_backend call_count, latency_ms_sum, cost_usd_sum).
+
+**Output:** Per-method `results.json` files and `llm_coord_trials_report.json` / `llm_coord_trials_report.md` with duration and attribution per method. See [LLM coordinator trials](../reference/llm_coord_trials.md) for the report schema and reproduce steps.
+
+The same lab policies (RBAC, shield, invariants) apply to these runs as to the deterministic pipeline.
+
+### Tests requiring OPENAI_API_KEY
+
+The following tests and commands use `OPENAI_API_KEY` and (where noted) `LABTRUST_RUN_LLM_LIVE=1`. Running them all confirms that agent path, coordinator methods, prompt-injection live check, and trials work with your key.
+
+| Gate | Test or command | Notes |
+|------|-----------------|--------|
+| `LABTRUST_RUN_LLM_LIVE=1` + `OPENAI_API_KEY` | `tests/test_openai_live.py -m live` | All 7 tests: one_episode_task_a, central_planner, auction_bidder, debate, central_planner_two_episodes, agentic, per_role_backends. Per-role test also needs `ANTHROPIC_API_KEY` or it is skipped. |
+| Same | `tests/test_llm_prompt_injection_golden.py::test_openai_live_prompt_injection_schema_valid_and_constrained` | Live prompt-injection schema and constraint check. |
+| Same | `scripts/run_llm_coord_trials_openai.py` | All four coord methods, 1 episode each (or more with `--episodes`). |
+| `RUN_ONLINE_TESTS=1` + `OPENAI_API_KEY` | `tests/test_llm_backends.py::test_openai_hosted_backend_integration` | Hosted backend integration; different env from live tests. |
+| `LABTRUST_RUN_LLM_ATTACKER` + `OPENAI_API_KEY` | `tests/test_security_attack_suite.py` (tests marked `@pytest.mark.live`) | Red-team / attacker regression; separate purpose. |
+
+**One-command runners (recommended):** These run the test_openai_live.py live tests, the prompt-injection openai_live test, and the trials script. Set `OPENAI_API_KEY` and `LABTRUST_RUN_LLM_LIVE=1` first.
+
+- **PowerShell:** `.\scripts\run_llm_live_coord_checks.ps1`
+- **Bash:** `LABTRUST_RUN_LLM_LIVE=1 OPENAI_API_KEY=sk-... ./scripts/run_llm_live_coord_checks.sh`
+
+They do not run `RUN_ONLINE_TESTS=1` or `LABTRUST_RUN_LLM_ATTACKER` tests; run those separately if needed.
+
 ## Environment variables (openai_live)
 
 | Variable | Description | Default |
@@ -163,6 +216,52 @@ Live OpenAI backends use **Structured Outputs** (OpenAI response_format with JSO
 - **openai_responses**: Uses a single-step decision schema: `action`, `args`, `reason_code`, `confidence`, `explanation_short` (maxLength 280). The backend maps this to the internal ActionProposal format. If the model returns invalid JSON or a value outside the schema (e.g. confidence not in [0,1], explanation_short > 280 chars), the backend returns **NOOP** with reason code **RC_LLM_INVALID_OUTPUT** and does not pass the response through. This keeps runs machine-safe and auditable.
 
 Deterministic and llm_offline runs **never** call the live backend; pipeline gating ensures no network is used unless pipeline_mode is **llm_live** and **allow_network** is set.
+
+## Offline replay and fault injection
+
+**Fault model (llm_offline):** Today the LLM fault model applies only to the **repair** backend of `llm_repair_over_kernel_whca`. Configuration is in `policy/llm/llm_fault_model.v0.1.yaml` (invalid_output, empty_output, high_latency, inconsistent_plan). When enabled, the repair path injects seeded failures and records fallback counts and reason codes. Planned improvements extend the fault model to the **agent** path and to **proposal/bid** backends (llm_central_planner, llm_auction_bidder) so fallbacks and metrics can be tested offline for all LLM entry points.
+
+### Capture and replay (first-class workflow)
+
+**Step 1 — Capture:** Run once with network enabled to record request/response pairs.
+
+- **Agent path:** Use **record-llm-fixtures**; it populates `tests/fixtures/llm_responses/fixtures.json` (and merges into existing keys).
+
+```bash
+labtrust record-llm-fixtures --task insider_key_misuse --episodes 1 --llm-backend openai_responses
+```
+
+- **Coordination path (optional):** For coord_risk or coord_scale with llm_central_planner or llm_auction_bidder, run **record-coordination-fixtures** to write `tests/fixtures/llm_responses/coordination_fixtures.json`.
+
+```bash
+labtrust record-coordination-fixtures --task coord_risk --coord-method llm_central_planner --llm-backend openai_live --episodes 1 --seed 42
+```
+
+Use `--llm-backend openai_hosted`, `openai_live`, `openai_responses`, `anthropic_live`, or `ollama_live` for agent; for coordination use `openai_live`, `ollama_live`, or `anthropic_live`. Set the corresponding API key; for Ollama ensure the local server is running.
+
+**Step 2 — Replay:** Run the same task with **llm_offline**, **deterministic** (FixtureBackend for agents), and (for coord tasks) **--coord-fixtures-path** pointing at the fixtures dir. Use the same `--task`, `--seed`, and `--episodes`. No network is used.
+
+```bash
+# Agent-only replay
+labtrust run-benchmark --task insider_key_misuse --episodes 1 --seed 42 --out replay_out.json --pipeline-mode llm_offline --llm-backend deterministic
+
+# Coord replay (same seed and task as capture)
+labtrust run-benchmark --task coord_risk --coord-method llm_central_planner --episodes 1 --seed 42 --out replay_coord.json --pipeline-mode llm_offline --llm-backend deterministic --coord-fixtures-path tests/fixtures/llm_responses
+```
+
+Alternatively use **replay-from-fixtures** (see below) to replay from a previous run directory or with explicit task/seed/fixtures.
+
+**Acceptance:** Same seed and task yield comparable results (throughput, violation counts) between the live run and the offline replay, with no network on replay. Pipeline mode and `llm_backend_id` in results identify the run as offline replay. Use for regression (decoder/shield changes) and audit (exact replay of a past live run).
+
+### replay-from-fixtures
+
+To replay a prior capture without remembering all flags, use:
+
+```bash
+labtrust replay-from-fixtures --task <task> --episodes <n> --seed <s> [--coord-method <method>] [--out <path>]
+```
+
+This runs the benchmark with `--pipeline-mode llm_offline`, `--llm-backend deterministic`, and (for coord_risk/coord_scale) `--coord-fixtures-path tests/fixtures/llm_responses`. Omit `--coord-method` for non-coord tasks. If a fixture is missing (e.g. you did not record coordination), the run fails with a clear remediation message.
 
 ## Live LLM plumbing checks (per provider)
 
@@ -194,7 +293,13 @@ labtrust llm-healthcheck --backend anthropic_live --allow-network
 
 Requires `ANTHROPIC_API_KEY` and `pip install -e ".[llm_anthropic]"`. Default model from `LABTRUST_ANTHROPIC_MODEL`.
 
-**Ollama:** The CLI does not currently expose an `ollama_live` healthcheck. Use a 1-episode smoke run (e.g. `run-benchmark --episodes 1 --llm-backend ollama_live --allow-network`) to confirm the local backend.
+**Ollama:**
+
+```bash
+labtrust llm-healthcheck --backend ollama_live --allow-network
+```
+
+Optional `--model` overrides `LABTRUST_LOCAL_LLM_MODEL`. Requires local Ollama (e.g. `LABTRUST_LOCAL_LLM_URL`, default `http://localhost:11434`). Exit code 0 and `model_id`, `latency_ms` on stderr when the minimal request succeeds and the response matches the expected NOOP schema.
 
 **Acceptance (per backend):**
 
@@ -315,6 +420,8 @@ To run the official pack once per backend and get comparable outputs and a merge
 labtrust run-cross-provider-pack --out ./cross_provider_out --providers openai_live,anthropic_live,ollama_live --seed-base 100
 ```
 
+**Entry point for cross-provider comparison:** Use **`labtrust run-cross-provider-pack --out <dir> --providers openai_live,anthropic_live,ollama_live`** to run the same (full) official pack once per provider with the same seeds; the command emits per-provider output dirs and a merged **`summary_cross_provider.json`** and **`summary_cross_provider.md`** for comparison. No separate script or manual matrix is required.
+
 This writes `<out>/<provider>/` for each provider (full pack output: baselines/, SECURITY/, SAFETY_CASE/, TRANSPARENCY_LOG/, llm_live.json, live_evaluation_metadata.json) and `<out>/summary_cross_provider.json` plus `summary_cross_provider.md` with model_id and mean_latency_ms per run. Use `--no-smoke` to run the full pack per provider.
 
 ### Contract tests (same schema across providers)
@@ -433,8 +540,12 @@ The live backend respects `LABTRUST_LLM_TIMEOUT_S` and `LABTRUST_LLM_RETRIES`. O
 
 When **pipeline_mode=llm_live**, the LLM agent uses optional **circuit breaker** and **rate limiter** so repeated blocks or high call volume do not hammer the API.
 
-- **Circuit breaker**: After a configurable number of consecutive blocks (pre-LLM or shield), the circuit opens and LLM calls are skipped (NOOP with **CIRCUIT_BREAKER_OPEN**) for a cooldown number of calls. Resets on first successful (non-blocked) decision.
-- **Rate limiter**: Caps LLM calls to a maximum per sliding time window. If the limit is reached, the next call is skipped (NOOP with **RATE_LIMITED**) until the window slides.
+### Guardrails contract
+
+- **Circuit breaker:** When the pre-LLM or shield path blocks consecutively at least `LABTRUST_CIRCUIT_BREAKER_THRESHOLD` times, the circuit opens. The next `LABTRUST_CIRCUIT_BREAKER_COOLDOWN` LLM calls are skipped: the agent returns NOOP with reason_code **CIRCUIT_BREAKER_OPEN** and no live call is made. The circuit resets on the first successful (non-blocked) decision (i.e. when the LLM is invoked and the returned action is accepted).
+- **Rate limiter:** At most `LABTRUST_RATE_LIMIT_MAX_CALLS` LLM calls are allowed per sliding window of `LABTRUST_RATE_LIMIT_WINDOW_SECONDS` seconds. When the limit is reached, the next call is skipped (NOOP with reason_code **RATE_LIMITED**) until the window slides and a slot frees.
+
+Provider-level errors (e.g. HTTP 429, timeouts) are handled by each backend (NOOP fallback, optional retries) and do **not** by default open the circuit. The circuit is driven only by shield or pre-LLM blocks (e.g. prompt-injection defense). A future enhancement could wire provider 429 into the circuit.
 
 Both are configured via environment variables (defaults are applied if unset):
 
@@ -446,6 +557,18 @@ Both are configured via environment variables (defaults are applied if unset):
 | `LABTRUST_RATE_LIMIT_WINDOW_SECONDS` | Sliding window length (seconds). | 60.0 |
 
 Use lower thresholds or smaller windows for cost control or to avoid provider rate limits (e.g. 429). Reset happens at episode start so limits apply per episode.
+
+### Coordinator guardrails
+
+The **coordinator path** is any call to `proposal_backend.generate_proposal`, `bid_backend.generate_proposal`, `repair_backend.repair` (or its inner `generate`), and `detector_backend` when it uses an LLM. These run inside the runner's episode loop when a coordination method uses a live LLM backend; they are not in the CLI.
+
+**Contract:** The same idea as the agent path applies to the coordinator path when guardrails are enabled:
+
+- **Circuit breaker:** After K consecutive failures or 429s from the coordinator backend, the circuit opens for N steps. During cooldown, the coordinator returns a safe fallback (e.g. all NOOP or last valid proposal) and does not call the live backend.
+- **Rate limit:** At most M coordinator LLM calls per sliding window of W seconds. When the limit is reached, the next call is skipped and the coordinator returns the same safe fallback.
+- **Timeout:** Existing `LABTRUST_LLM_TIMEOUT_S` applies to coordinator calls where the backend supports it.
+
+On circuit open or rate limit, the coordinator returns a safe fallback (all NOOP for proposal/bid/repair) and a **reason code** in meta: **CIRCUIT_BREAKER_OPEN** or **RATE_LIMITED**. The runner wraps coordinator backends (proposal, bid, repair) with a guardrail layer that uses the same environment variables as the agent (`LABTRUST_CIRCUIT_BREAKER_THRESHOLD`, `LABTRUST_CIRCUIT_BREAKER_COOLDOWN`, `LABTRUST_RATE_LIMIT_MAX_CALLS`, `LABTRUST_RATE_LIMIT_WINDOW_SECONDS`) unless dedicated `LABTRUST_COORD_*` overrides are set. Reset happens at episode start so limits apply per episode.
 
 ## Cost accounting
 
@@ -499,6 +622,12 @@ The pack then loads **v0.2** policy (`policy/official/benchmark_pack.v0.2.yaml`)
 - **live_evaluation_metadata.json** — Required protocol fields: model_id, temperature, tool_registry_fingerprint, allow_network.
 
 Report model_id and temperature (from this file or env) for reproducibility. The validator and risk-register exporter accept pack output that includes these artifacts; they are linked in the risk register when present. See [Official benchmark pack](../benchmarks/official_benchmark_pack.md).
+
+### Test policy (real API vs mocks)
+
+- **Real LLM API tests** (openai_responses, anthropic_live, ollama_live) are **not** run on every push/PR; they require secrets or local services and are opt-in.
+- **Scheduled (nightly) and workflow_dispatch:** When API keys are configured, the optional smoke workflow runs healthcheck and a short pack run; see [CI](../operations/ci.md#llm-live-optional-smoke-nightly--manual).
+- **Unit and integration tests that mock backends** (e.g. `test_network_guard_ci`, `test_ollama_live` with mocked urlopen, `test_llm_guardrails`) run in normal CI and must pass.
 
 ## Deterministic and LLM live: standalone use and interoperability
 

@@ -1,6 +1,10 @@
 """
-Invariant runtime: compiles registry templates into callable checks,
-runs post-step (ACCEPTED only), returns standardized violations.
+Invariant checks executed after each accepted step.
+
+The invariant registry (policy) defines check templates. This module compiles
+them into callable checks and runs them only after steps that were ACCEPTED.
+Results are returned as a standard list of violations (invariant_id, status,
+reason_code, details).
 """
 
 from __future__ import annotations

@@ -31,4 +31,14 @@ Add or extend tests so the new method is exercised:
 - **Security pack:** The pack loads methods from policy (fixed set or full). If you use `--methods-from full`, your new method is included automatically when listed in the methods policy. For a custom list, use `--methods-from path/to/file` with one `method_id` per line (or YAML list).
 - **Study spec:** To include the method in `run-coordination-study`, add its `method_id` to the spec’s `methods` list in `policy/coordination/coordination_study_spec.v0.1.yaml` (or partner overlay).
 
+## 5. Conformance and SOTA checklist
+
+To bring the method to the full SOTA bar:
+
+- **Conformance:** When the method passes the budget and evidence contracts under the conformance scale_config (tight compute_budget_ms / compute_budget_node_expansions), add its `method_id` to `pass_budget` and `pass_evidence` in `tests/coord_methods/conformance/conformance_config.yaml`. Run the conformance matrix: `pytest tests/coord_methods/conformance/ -v`.
+- **Strictly-better scenario:** Add at least one test in `tests/test_coord_strictly_better.py` that runs the same scale/seed/injection for a baseline and for your method, then asserts your method is at least as good on a chosen metric (e.g. throughput or violations). Use `_run_coord_one_episode` and `_throughput_from_results` (or `_violations_count_from_results`). For LLM methods use `pipeline_mode="llm_offline"` and `llm_backend="deterministic_constrained"` for CI.
+- **Envelope:** Document compute/latency in a module or class docstring section "Envelope (SOTA audit)" (steps, llm_calls_per_step, fallback, max_latency_ms) and add a `# compute_envelope: ...` comment in the method's block in `policy/coordination/coordination_methods.v0.1.yaml`.
+
+See [SOTA method roles and checklist](../coordination/sota_method_roles_and_checklist.md) and `python scripts/refresh_sota_checklist.py` for the per-method dashboard.
+
 After adding the method, run `labtrust validate-policy` and at least the coordination interface contract test; then run a short pack or study to confirm the method appears and completes without error.

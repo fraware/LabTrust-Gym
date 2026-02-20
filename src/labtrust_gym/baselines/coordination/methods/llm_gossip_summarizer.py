@@ -4,15 +4,27 @@ deterministic consensus merges messages into a shared view. Uses SignedMessageBu
 (epoch binding, replay protection). Max message size, typed fields only,
 deterministic validator, poison detection heuristics. Logs detection events and
 reason-coded drops for invalid messages.
+
+CRDT usage for merge-order independence: queue_head_by_device (per device) is merged
+via lww_register_merge (LWW register) from crdt_merges; (epoch, clock, value) wins by
+(epoch, clock) so merge(A then B) == merge(B then A) for final queue head per device.
+
+Envelope (SOTA audit):
+  - Typical steps per episode: N/A; horizon-driven.
+  - LLM calls per step: 1 per agent (summary message).
+  - Fallback on timeout/refusal: drop message / use prior view; NOOP if no valid merge.
+  - max_latency_ms: N/A for live; bounded in llm_offline by deterministic backend.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 from labtrust_gym.baselines.coordination.crdt_merges import lww_register_merge
+from labtrust_gym.baselines.coordination.llm_contract import canonical_json
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
     ACTION_NOOP,
@@ -43,6 +55,25 @@ MAX_MESSAGE_PAYLOAD_BYTES = 4096
 COORD_PAYLOAD_INVALID = "COORD_PAYLOAD_INVALID"
 COORD_PAYLOAD_TOO_LARGE = "COORD_PAYLOAD_TOO_LARGE"
 COORD_POISON_SUSPECTED = "COORD_POISON_SUSPECTED"
+COORD_HASH_MISMATCH = "COORD_HASH_MISMATCH"
+
+# Fields included in hash commitment (recomputed on receive to detect tampering)
+_RAW_COMMITMENT_KEYS = ("agent_id", "step_id", "zone_id", "queue_summary", "task")
+
+
+def _compute_hash_commitment(payload: dict[str, Any]) -> str:
+    """Hash of canonical JSON of raw fields for commitment. Detects poisoned summaries."""
+    raw = {k: payload[k] for k in _RAW_COMMITMENT_KEYS if k in payload}
+    return hashlib.sha256(canonical_json(raw).encode("utf-8")).hexdigest()
+
+
+def _verify_hash_commitment(payload: dict[str, Any]) -> bool:
+    """Return True if hash_commitment is missing (legacy) or matches recomputed hash."""
+    stored = payload.get("hash_commitment")
+    if not stored or not isinstance(stored, str):
+        return True
+    computed = _compute_hash_commitment(payload)
+    return stored.strip() == computed
 
 
 def _load_message_schema(repo_root: Path | None) -> dict[str, Any]:
@@ -152,13 +183,15 @@ def _build_local_summary(
             "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
             "queue_head": str(d.get("queue_head", ""))[:64],
         })
-    return {
+    out: dict[str, Any] = {
         "agent_id": agent_id[:64],
         "step_id": t,
         "zone_id": zone[:64],
         "queue_summary": queue_summary,
         "task": task,
     }
+    out["hash_commitment"] = _compute_hash_commitment(out)
+    return out
 
 
 def _bfs_one_step(
@@ -325,7 +358,14 @@ class LLMGossipSummarizer(CoordinationMethod):
                 sid = delivered.get(KEY_SENDER_ID)
                 pl = delivered.get(KEY_PAYLOAD)
                 if sid and isinstance(pl, dict):
-                    shared_view[sid] = pl
+                    if not _verify_hash_commitment(pl):
+                        self._drop_reasons.append({
+                            "reason_code": COORD_HASH_MISMATCH,
+                            "sender_id": sid,
+                            "step_id": t,
+                        })
+                    else:
+                        shared_view[sid] = pl
             elif violation:
                 self._drop_reasons.append({
                     "reason_code": (

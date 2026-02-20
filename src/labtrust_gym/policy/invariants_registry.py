@@ -1,25 +1,36 @@
 """
-Invariant registry loader: loads policy/invariants/invariant_registry.v1.0.yaml
-and returns typed InvariantEntry objects for runtime compilation.
+Invariant registry loader for the engine and model checker.
+
+Invariants are safety rules (e.g. zone adjacency, token validity) checked at
+runtime. This module loads policy/invariants/invariant_registry.v1.0.yaml and
+returns a list of InvariantEntry objects used by the invariant runtime and
+by the bounded trace checker. Each entry includes id, title, severity, scope,
+signals, logic_template, and exception/enforcement hints.
 """
 
 from __future__ import annotations
 
-import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 @dataclass
 class InvariantEntry:
-    """Single invariant from the registry (machine-readable)."""
+    """
+    Single invariant (safety rule) from the registry.
+
+    severity: info | low | med | high | critical.
+    scope: specimen | result | device | zone | agent | system.
+    """
 
     invariant_id: str
     title: str
     description: str
-    severity: str  # info | low | med | high | critical
-    scope: str  # specimen | result | device | zone | agent | system
+    severity: str
+    scope: str
     signals: list[str]
     logic_template: dict[str, Any]  # type + parameters
     exception_hooks: dict[str, Any]  # override_token_types, allow_when

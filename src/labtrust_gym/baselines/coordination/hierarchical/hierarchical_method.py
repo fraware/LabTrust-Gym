@@ -4,6 +4,13 @@ Hierarchical coordination method: HubPlanner (macro assign to regions) + LocalCo
 schedule and route within region; ACK deadline and escalation on missing ACK. Region
 partition: zones are partitioned into regions via partition_zones_into_regions(policy,
 scale_config). Deterministic; no new deps.
+
+Envelope (SOTA audit)
+--------------------
+steps: N/A; horizon-driven.
+llm_calls_per_step: 0.
+fallback: N/A (deterministic); escalation on missing ACK.
+max_latency_ms: bounded (hub assign + local EDF/route per region).
 """
 
 from __future__ import annotations

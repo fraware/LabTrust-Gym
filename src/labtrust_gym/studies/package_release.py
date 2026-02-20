@@ -1,10 +1,10 @@
 """
-Release candidate research artifact: reproduce + export-receipts + export-fhir + make-plots,
-then MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json.
+Build a release candidate research artifact (reproduce, export, manifest, card).
 
-Profiles: minimal | full | paper_v0.1 (benchmark-first: baselines + insider_key_misuse study + summarize + receipts + FIGURES/TABLES).
-
-Single command: labtrust package-release --profile minimal|full|paper_v0.1 --out <dir> [--seed-base N]
+Runs reproduce, export-receipts, export-fhir, and optional plots; writes
+MANIFEST.v0.1.json, BENCHMARK_CARD.md, and metadata. Profiles: minimal,
+full, or paper_v0.1 (baselines plus insider_key_misuse study, summarize,
+receipts, figures). Used by: labtrust package-release --profile <name> --out <dir>.
 """
 
 from __future__ import annotations

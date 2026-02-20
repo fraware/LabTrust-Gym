@@ -1,14 +1,10 @@
 """
-Research-grade study runner: expands Cartesian product of ablations,
-runs benchmark per condition with deterministic seeds, writes reproducible
-artifact dir.
+Research-grade study runner: Cartesian product of conditions, then run benchmark per condition.
 
-Output layout:
-  out_dir/
-    manifest.json
-    conditions.jsonl
-    results/<condition_id>/results.json
-    logs/<condition_id>/episodes.jsonl
+Expands ablations (e.g. task x baseline x partner) into a full set of conditions,
+runs the benchmark for each with deterministic seeds, and writes a reproducible
+artifact directory. Output layout: out_dir/manifest.json, conditions.jsonl,
+results/<condition_id>/results.json, logs/<condition_id>/episodes.jsonl.
 """
 
 from __future__ import annotations

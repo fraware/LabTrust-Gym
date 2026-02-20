@@ -92,8 +92,8 @@ class _Span:
                     self._otel_span.set_attribute(key, value)
                 else:
                     self._otel_span.set_attribute(key, str(value))
-            except Exception:
-                pass
+            except Exception as e:
+                LOG.debug("Tracing set_attribute failed: %s", e)
 
     def end(
         self, status: str = "ok", error_message: str | None = None
@@ -112,8 +112,8 @@ class _Span:
                 else:
                     self._otel_span.set_status(Status(StatusCode.OK))
                 self._otel_span.end()
-            except Exception:
-                pass
+            except Exception as e:
+                LOG.debug("Tracing span end failed: %s", e)
             self._otel_span = None
 
     def to_export_dict(self, redact: bool = True) -> dict[str, Any]:
@@ -149,8 +149,8 @@ class LLMTracer:
         if self._otel_tracer is not None:
             try:
                 otel_span = self._otel_tracer.start_span(name)
-            except Exception:
-                pass
+            except Exception as e:
+                LOG.debug("OTEL start_span failed: %s", e)
         self._current = _Span(name, otel_span=otel_span)
 
     def set_attribute(self, key: str, value: Any) -> None:
@@ -168,8 +168,8 @@ class LLMTracer:
                     with open(self._trace_file, "a", encoding="utf-8") as f:
                         line = json.dumps(self._current.to_export_dict()) + "\n"
                         f.write(line)
-                except Exception:
-                    pass
+                except Exception as e:
+                    LOG.debug("Trace file write failed: %s", e)
             self._current = None
 
     def get_spans(self) -> list[dict[str, Any]]:
@@ -241,3 +241,22 @@ def get_llm_tracer() -> LLMTracer | None:
     if _global_tracer is None:
         _global_tracer = LLMTracer()
     return _global_tracer
+
+
+def record_deterministic_coord_span(
+    span_name: str,
+    backend_id: str,
+    model_id: str = "n/a",
+    latency_ms: float = 0.0,
+    estimated_cost_usd: float = 0.0,
+) -> None:
+    """Record a span for a deterministic coord backend so attribution by_backend includes it."""
+    tracer = get_llm_tracer()
+    if tracer is None:
+        return
+    tracer.start_span(span_name)
+    tracer.set_attribute("backend_id", backend_id)
+    tracer.set_attribute("model_id", model_id)
+    tracer.set_attribute("latency_ms", latency_ms)
+    tracer.set_attribute("estimated_cost_usd", estimated_cost_usd)
+    tracer.end_span()

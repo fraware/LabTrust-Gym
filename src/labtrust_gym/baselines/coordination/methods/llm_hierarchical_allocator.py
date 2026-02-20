@@ -7,6 +7,12 @@ Security: LLM cannot directly issue privileged ops; shield still blocks unsafe
 concrete actions. Proposals wrapped in CoordinationProposal with per-agent
 action_type SET_INTENT (non-mutating); local controller produces NOOP, TICK,
 MOVE, QUEUE_RUN, START_RUN, OPEN_DOOR.
+
+Envelope (SOTA audit):
+  - Typical steps per episode: N/A; horizon-driven.
+  - LLM calls per step: 1 (single assignment proposal per step).
+  - Fallback on timeout/refusal: NOOP or local controller default.
+  - max_latency_ms: N/A for live; bounded in llm_offline by deterministic backend.
 """
 
 from __future__ import annotations
@@ -28,6 +34,50 @@ from labtrust_gym.baselines.coordination.state_digest import build_state_digest
 # Allowed action for hierarchical proposal validation (LLM outputs SET_INTENT only)
 SET_INTENT = "SET_INTENT"
 
+# Default below which controller falls back to kernel (no LLM assignments)
+DEFAULT_CONFIDENCE_THRESHOLD = 0.3
+
+
+def _check_assumptions_match(
+    proposal: dict[str, Any],
+    obs: dict[str, Any],
+) -> bool:
+    """
+    Return True if stated assumptions are consistent with current obs.
+    Assumption strings: "agent:<agent_id>:<zone_id>" meaning agent must be in that zone.
+    Mismatch -> reject proposal (controller will fall back to NOOP).
+    """
+    per_agent = proposal.get("per_agent") or []
+    for pa in per_agent:
+        if not isinstance(pa, dict):
+            continue
+        assumptions = pa.get("assumptions")
+        if not isinstance(assumptions, list):
+            continue
+        agent_id = pa.get("agent_id")
+        if not agent_id or agent_id not in obs:
+            continue
+        agent_obs = obs[agent_id] if isinstance(obs[agent_id], dict) else {}
+        current_zone = (agent_obs.get("zone_id") or "").strip()
+        for raw in assumptions:
+            s = (raw if isinstance(raw, str) else str(raw)).strip()
+            if s.startswith("agent:") and ":" in s[6:]:
+                parts = s.split(":", 2)
+                if len(parts) >= 3 and parts[1] == agent_id and parts[2] != current_zone:
+                    return False
+    top = proposal.get("assumptions") or []
+    if isinstance(top, list):
+        for raw in top:
+            s = (raw if isinstance(raw, str) else str(raw)).strip()
+            if s.startswith("agent:") and ":" in s[6:]:
+                parts = s.split(":", 2)
+                if len(parts) >= 3:
+                    aid, z = parts[1], parts[2]
+                    if aid in obs and isinstance(obs[aid], dict):
+                        if (obs[aid].get("zone_id") or "").strip() != z:
+                            return False
+    return True
+
 
 class DeterministicAssignmentsBackend:
     """
@@ -35,10 +85,19 @@ class DeterministicAssignmentsBackend:
     args {job_id, priority_weight}. Builds available jobs from state digest
     (per_device + device_zone); assigns greedily by priority. Same digest and
     step_id yield same proposal (stable for benchmarking).
+    Optional low_confidence / wrong_assumptions for tests (fallback and reject paths).
     """
 
-    def __init__(self, seed: int = 0) -> None:
+    def __init__(
+        self,
+        seed: int = 0,
+        *,
+        low_confidence: bool = False,
+        wrong_assumptions: bool = False,
+    ) -> None:
         self._seed = seed
+        self._low_confidence = low_confidence
+        self._wrong_assumptions = wrong_assumptions
 
     def reset(self, seed: int) -> None:
         self._seed = seed
@@ -99,17 +158,36 @@ class DeterministicAssignmentsBackend:
                 break
 
         proposal_id = f"hier-det-{self._seed}-{step_id}"
+        conf = 0.1 if self._low_confidence else 1.0
+        assump: list[str] = []
+        if self._wrong_assumptions and agent_list:
+            first_agent = agent_list[0][0]
+            assump = [f"agent:{first_agent}:Z_WRONG"]
         per_agent = [
             {
                 "agent_id": aid,
                 "action_type": SET_INTENT,
                 "args": {"job_id": jid, "priority_weight": pw},
                 "reason_code": "COORD_HIER_ASSIGN",
-                "intent_confidence": 1.0,
-                "assumptions": [],
+                "intent_confidence": conf,
+                "assumptions": assump if assump and aid == (agent_list[0][0] if agent_list else "") else [],
+                "risk_flags": [],
             }
             for aid, jid, pw in assignments
         ]
+        if self._wrong_assumptions and not per_agent and agent_list:
+            first_agent = agent_list[0][0]
+            per_agent = [
+                {
+                    "agent_id": first_agent,
+                    "action_type": SET_INTENT,
+                    "args": {},
+                    "reason_code": "COORD_HIER_ASSIGN",
+                    "intent_confidence": 1.0,
+                    "assumptions": [f"agent:{first_agent}:Z_WRONG"],
+                    "risk_flags": [],
+                }
+            ]
         meta = {
             "backend_id": "deterministic_assignments",
             "model_id": "n/a",
@@ -125,8 +203,9 @@ class DeterministicAssignmentsBackend:
             "per_agent": per_agent,
             "comms": [],
             "meta": meta,
-            "intent_confidence": 1.0,
-            "assumptions": [],
+            "intent_confidence": conf,
+            "assumptions": list(assump) if assump else [],
+            "risk_flags": [],
         }
         return proposal, meta
 
@@ -169,6 +248,7 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         self._method_id_override = method_id_override
         self._defense_profile = defense_profile or ""
         self._seed = 0
+        self._confidence_threshold = DEFAULT_CONFIDENCE_THRESHOLD
         self._last_proposal: dict[str, Any] | None = None
         self._last_meta: dict[str, Any] | None = None
         self._allowed_by_agent: dict[str, list[str]] = {}
@@ -198,6 +278,11 @@ class LLMHierarchicalAllocator(CoordinationMethod):
                 if SET_INTENT not in self._allowed_actions:
                     self._allowed_actions.append(SET_INTENT)
         self._seed = seed
+        if isinstance(scale_config, dict) and "confidence_threshold" in scale_config:
+            try:
+                self._confidence_threshold = float(scale_config["confidence_threshold"])
+            except (TypeError, ValueError):
+                pass
         reset_fn = getattr(self._backend, "reset", None)
         if callable(reset_fn):
             reset_fn(seed)
@@ -244,6 +329,16 @@ class LLMHierarchicalAllocator(CoordinationMethod):
             strict_reason_codes=strict_reason,
         )
         if not valid:
+            return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
+
+        confidence = proposal.get("intent_confidence")
+        if confidence is None:
+            per = proposal.get("per_agent") or []
+            confs = [p.get("intent_confidence") for p in per if isinstance(p, dict) and p.get("intent_confidence") is not None]
+            confidence = min(confs) if confs else 1.0
+        if isinstance(confidence, (int, float)) and float(confidence) < self._confidence_threshold:
+            proposal = {**proposal, "per_agent": []}
+        elif not _check_assumptions_match(proposal, obs):
             return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
 
         actions = intent_to_actions(

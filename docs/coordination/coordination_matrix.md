@@ -6,6 +6,20 @@ The Coordination at Scale x Resilience Matrix is built from llm_live coordinatio
 
 ---
 
+## Input contract (build-coordination-matrix)
+
+The builder expects a **run directory** produced by an llm_live coordination run (e.g. coordination study or official pack with coordination). It does **not** accept arbitrary single-run output without the expected layout.
+
+**Run directory (`--run`):**
+
+- **Pipeline mode:** Must be **llm_live**. The builder reads `pipeline_mode` from the first available of `metadata.json`, `index.json`, or `results.json` under the run dir (direct children, then `summary/`, then any `results.json` under the tree). If not llm_live, the builder raises an explicit error (matrix is llm_live-only).
+- **Source tables:** The run dir must contain at least one of the **clean** sources (e.g. `summary_coord.csv`, `summary_v0.2.csv`, or `results.json` in a structure the column map can use) and at least one of the **attacked** sources (e.g. `pack_summary.csv`, `summary_attack.csv`). Exact filenames and column names are defined in **policy/coordination/coordination_matrix_column_map.v0.1.yaml**. Rows are keyed by `(scale_id, method_id)` for clean metrics and may include `injection_id` for attacked metrics.
+- **Single run today:** A "single run" that can be fed to the builder is one that already produced these summary files (e.g. one `run-coordination-study` with one or more scales/methods, or one pack run that wrote `pack_summary.csv`). There is no separate "emit one matrix row from one results.json" CLI; to add a single run to a matrix you run a study or pack that writes the expected CSVs, then point `build-coordination-matrix --run` at that output.
+
+**Policy root:** The builder loads Phase 1 policies from `policy_root` (default: repo root): `coordination_matrix_inputs.v0.1.yaml`, `coordination_matrix_column_map.v0.1.yaml`, `coordination_matrix_spec.v0.1.yaml`. These must exist and be valid.
+
+---
+
 ## How to run
 
 **Build matrix from an existing run directory:**

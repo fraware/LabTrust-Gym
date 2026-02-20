@@ -1,11 +1,12 @@
 """
-Receipt and Evidence Bundle export from episode log (JSONL).
+Receipt and evidence bundle export from episode log (JSONL).
 
-- Receipt.v0.1: per specimen/result with identifiers, timestamps, decision,
-  reason_codes, tokens, critical comm, invariant/enforcement summary, hashchain.
-- EvidenceBundle.v0.1: directory with receipt(s), episode_log_subset, manifest,
-  invariant_eval_trace, enforcement_actions, hashchain_proof.
-Deterministic: same input log => identical outputs (canonical JSON, stable filenames).
+A receipt is a per-specimen or per-result audit record (identifiers, timestamps,
+decisions, reason codes, tokens, critical communication, invariant and
+enforcement summary, hashchain). EvidenceBundle.v0.1 is a directory containing
+receipts, a subset of the episode log, manifest, invariant eval trace,
+enforcement actions, and hashchain proof. Same input log yields identical
+outputs (canonical JSON, stable filenames).
 """
 
 from __future__ import annotations

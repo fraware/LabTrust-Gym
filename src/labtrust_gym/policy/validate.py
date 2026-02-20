@@ -1,14 +1,13 @@
 """
-Policy validation used by the CLI.
+Policy validation used by the CLI (validate-policy command).
 
-Validates:
-- runner_output_contract schema file exists and parses (valid JSON).
-- All policy YAML/JSON files against their JSON schemas in policy/schemas/.
-- If partner_id given: overlay files (only those present) against same schemas;
-  merged policy consistency (enforcement rules reference valid invariant_ids, etc.).
-
-Policy file -> schema mapping is in loader.POLICY_FILE_SCHEMA_MAP.
-All error messages include file paths. Does not change policy semantics; only validates.
+Checks that the runner output contract schema exists and is valid JSON; that
+all policy YAML/JSON files validate against their JSON schemas in
+policy/schemas/; and, when a partner_id is given, that overlay files (where
+present) validate and that merged policy is consistent (e.g. enforcement rules
+reference valid invariant_ids). The policy-file-to-schema mapping lives in
+loader.POLICY_FILE_SCHEMA_MAP. All errors include file paths. Validation only;
+does not change policy content or semantics.
 """
 
 from __future__ import annotations

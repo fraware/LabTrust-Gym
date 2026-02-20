@@ -2,6 +2,25 @@
 
 This guide describes how to extend LabTrust-Gym with your own domains, coordination methods, tasks, invariant handlers, security/safety suites, and metrics without forking the core repository.
 
+## Integration pattern (Option B)
+
+Installing `labtrust-gym` and shipping your own pip package (using `register_*` or entry_points, `--profile`, and `extension_packages`) is the **integration pattern** for using the stack as a platform rather than a fixed app. One minimal worked example—e.g. a package that adds a single task or coordination method—demonstrates that the stack is reusable.
+
+**Minimal worked example (in-doc):** Create a package that declares one task or one coordination method via entry_point. In `pyproject.toml`:
+
+```toml
+[project.entry-points."labtrust_gym.tasks"]
+my_custom_task = "mylab.tasks:MyBenchmarkTask"
+```
+
+(or for a coordination method: `"labtrust_gym.coordination_methods"` with `my_method = "mylab.coordination:my_factory"`). Create a lab profile that lists your package in `extension_packages`, then run:
+
+```bash
+labtrust --profile my_lab run-benchmark --task my_custom_task --episodes 2 --out out.json
+```
+
+The CLI loads your plugin and your task (or coordination method) is available. This pattern shows the stack is used as a platform, not only as a fixed application.
+
 ## Overview
 
 The core exposes **registries** and optional **setuptools entry_points**. You can either:

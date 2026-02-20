@@ -1,9 +1,11 @@
 """
-Policy-driven RBAC for tool invocation: is_tool_allowed, rbac_policy_fingerprint.
+Policy-driven authorization for tool invocation.
 
-- is_tool_allowed(role_id, tool_id, registry, rbac_policy, context) -> (ok, reason_code)
-  Uses TOOL_NOT_IN_REGISTRY and TOOL_NOT_ALLOWED_FOR_ROLE from tools.registry.
-- rbac_policy_fingerprint(rbac_policy) -> SHA-256 hex for EvidenceBundle and combined_policy_fingerprint.
+is_tool_allowed checks whether a role may call a tool: the tool must be in the
+registry and the RBAC (role-based access control) policy must allow it for that
+role. Returns (allowed, reason_code); reason_code is TOOL_NOT_IN_REGISTRY or
+TOOL_NOT_ALLOWED_FOR_ROLE when blocked. rbac_policy_fingerprint computes a
+SHA-256 hex digest of the RBAC policy for evidence bundles and reproducibility.
 """
 
 from __future__ import annotations
