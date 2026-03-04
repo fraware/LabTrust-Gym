@@ -24,6 +24,8 @@ nav:
     - Forker guide: getting-started/forkers.md
     - Quick demos: getting-started/quick_demos.md
     - Troubleshooting: getting-started/troubleshooting.md
+    - Demo readiness: getting-started/demo_readiness.md
+    - Windows setup: getting-started/windows_setup.md
     - Presentation and demo guide: presentation_labtrust_gym.md
   - Architecture:
     - architecture/index.md
@@ -32,11 +34,16 @@ nav:
     - Threat model: architecture/threat_model.md
     - Diagrams: architecture/diagrams.md
     - Workflow and domain spec: architecture/workflow_domain_spec.md
+    - Design choices: architecture/design_choices.md
+    - Hospital lab workflow: architecture/hospital_lab_workflow.md
+    - Simulation and LLM agentic: architecture/simulation_llm_agentic.md
+    - System overview: architecture/system_overview.md
     - Design artifacts: architecture/design/README.md
   - Policy and invariants:
     - policy/index.md
     - Policy pack and schemas: policy/policy_pack.md
     - Coordination policy: policy/coordination_policy.md
+    - Calibration guide: policy/calibration_guide.md
     - Invariant registry: policy/invariants_registry.md
     - Enforcement: policy/enforcement.md
   - Coordination:
@@ -49,6 +56,11 @@ nav:
     - Coordination studies: coordination/coordination_studies.md
     - Coordination benchmark card: coordination/coordination_benchmark_card.md
     - Generalization and limits: coordination/generalization_and_limits.md
+    - Coordination and env: coordination/coordination_and_env.md
+    - Coordination methods how they work: coordination/coordination_methods_how_they_work.md
+    - Handoff protocol: coordination/handoff_protocol.md
+    - Multi-LLM protocols: coordination/multi_llm_protocols.md
+    - Phase 5 LLM upgrades: coordination/phase5_llm_upgrades.md
     - Coordination methods audit: coordination/coordination_methods_audit.md
     - Lab coordination report: coordination/lab_coordination_report.md
     - Fidelity notes: coordination/fidelity_notes.md
@@ -59,6 +71,8 @@ nav:
     - Benchmark card: benchmarks/benchmark_card.md
     - Official benchmark pack: benchmarks/official_benchmark_pack.md
     - Hospital lab full pipeline: benchmarks/hospital_lab_full_pipeline.md
+    - Hospital lab full pipeline results: benchmarks/hospital_lab_full_pipeline_results_report.md
+    - Determinism contract: benchmarks/determinism_contract.md
     - Studies and plots: benchmarks/studies.md
     - Scale and operational limits: benchmarks/scale_operational_limits.md
     - Uncertainty quantification: benchmarks/uncertainty_quantification.md
@@ -70,6 +84,8 @@ nav:
   - Contracts:
     - contracts/index.md
     - Frozen contracts: contracts/frozen_contracts.md
+    - Injector get_metrics contract: contracts/injector_get_metrics_contract.md
+    - Scripted baseline contract: contracts/scripted_baseline_contract.md
     - UI data contract: contracts/ui_data_contract.md
     - Risk register contract: contracts/risk_register_contract.v0.1.md
     - Queue contract: contracts/queue_contract.v0.1.md
@@ -89,6 +105,10 @@ nav:
     - Security controls (online): risk-and-security/security_online.md
     - Output controls: risk-and-security/output_controls.md
     - Gate and required bench: risk-and-security/gate_and_required_bench.md
+    - LLM live security testing: risk-and-security/llm_live_security_testing.md
+    - Security flows and entry points: risk-and-security/security_flows_and_entry_points.md
+    - Supply chain integrity: risk-and-security/supply_chain_integrity.md
+    - Tool registry SBOM attestation: risk-and-security/tool_registry_sbom_attestation.md
     - Method and pack matrix: risk-and-security/method_and_pack_matrix.md
     - Partner calibration: risk-and-security/partner_calibration.md
   - Export:
@@ -101,6 +121,7 @@ nav:
     - MARL baselines: agents/marl_baselines.md
     - MARL multi-agent design: agents/marl_multi_agent_design.md
     - PettingZoo API: agents/pettingzoo_api.md
+    - Scripted baselines: agents/scripted_baselines.md
     - Extension development: agents/extension_development.md
   - Operations:
     - operations/index.md
@@ -110,6 +131,9 @@ nav:
     - "How-to: Add risk injection": operations/howto_add_injection.md
     - "How-to: Tune selection policy": operations/howto_selection_policy.md
     - "How-to: Security and gate failures": operations/howto_security_gate_failures.md
+    - Operators summary: operations/operators_summary.md
+    - Production runbook: operations/production_runbook.md
+    - Reviewer runbook: operations/reviewer_runbook.md
   - Reference:
     - reference/index.md
     - Glossary: reference/glossary.md
@@ -120,6 +144,10 @@ nav:
     - Code style and lint: reference/code_style_and_lint.md
     - State of the art and limits: reference/state_of_the_art_and_limits.md
     - Outputs and results: reference/outputs_and_results.md
+    - Episode viewer: reference/episode_viewer.md
+    - LLM coord trials: reference/llm_coord_trials.md
+    - Plan results coordination: reference/plan_results_coordination.md
+    - Public API: reference/public_api.md
     - Lab profile reference: reference/lab_profile_reference.md
     - Observability: reference/observability.md
     - Online mode: reference/online_mode.md

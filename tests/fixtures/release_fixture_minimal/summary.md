@@ -35,14 +35,14 @@ Aggregated results (mean and std) per task and baseline. Schema: results.v0.2.
 
 | agent_baseline_id | episodes_per_second | n_episodes | partner_id | run_duration_wall_s | task |
 | :--- | :--- | ---: | :--- | :--- | :--- |
-| scripted_ops_v1 | 3.234 | 2 |  | 0.618 | qc_cascade |
-| scripted_ops_v1 | 2.581 | 2 |  | 0.775 | qc_cascade |
-| scripted_ops_v1 | 2.804 | 2 |  | 0.713 | qc_cascade |
-| scripted_ops_v1 | 2.718 | 2 |  | 0.736 | qc_cascade |
-| scripted_ops_v1 | 1.62 | 2 |  | 1.235 | throughput_sla |
-| scripted_ops_v1 | 2.81 | 2 |  | 0.712 | throughput_sla |
-| scripted_ops_v1 | 2.791 | 2 |  | 0.716 | throughput_sla |
-| scripted_ops_v1 | 2.709 | 2 |  | 0.738 | throughput_sla |
+| scripted_ops_v1 |  | 2 |  | 0 | qc_cascade |
+| scripted_ops_v1 |  | 2 |  | 0 | qc_cascade |
+| scripted_ops_v1 |  | 2 |  | 0 | qc_cascade |
+| scripted_ops_v1 |  | 2 |  | 0 | qc_cascade |
+| scripted_ops_v1 |  | 2 |  | 0 | throughput_sla |
+| scripted_ops_v1 |  | 2 |  | 0 | throughput_sla |
+| scripted_ops_v1 |  | 2 |  | 0 | throughput_sla |
+| scripted_ops_v1 |  | 2 |  | 0 | throughput_sla |
 
 
 ---

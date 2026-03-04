@@ -69,7 +69,7 @@ When adding a **new** LLM coordination method or live backend, the following mus
 | **Metadata** | Every run records **llm_backend_id**, **llm_model_id**, and (when available) **mean_llm_latency_ms**, **llm_error_rate**, token usage, **estimated_cost_usd** in the same shape as existing backends. |
 | **Integration** | Prompt fingerprint and transparency log (when enabled) include the new backend; redaction and secret scrubbing apply. |
 
-Confirm this checklist when contributing a new method or backend; see [CONTRIBUTING](../../CONTRIBUTING.md) for the reference link.
+Confirm this checklist when contributing a new method or backend; see [CONTRIBUTING](https://github.com/fraware/LabTrust-Gym/blob/main/CONTRIBUTING.md) for the reference link.
 
 ## Pre-flight checklist
 

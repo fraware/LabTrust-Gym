@@ -64,7 +64,7 @@ Schema for `policy/sites/sites_policy.v0.1.yaml`: sites, site_graph, routes (tra
 
 ## Action contract (v0.1)
 
-Per-step action: `action_index` in 0..5 (see [envs/action_contract.py](../../src/labtrust_gym/envs/action_contract.py)); optional `action_type`, `args`, `reason_code`, `token_refs`. All coordination methods and risk injectors must use these indices. The runner converts action dicts to `(actions, action_infos)` and passes them to `env.step(actions, action_infos)`.
+Per-step action: `action_index` in 0..5 (see [envs/action_contract.py](https://github.com/fraware/LabTrust-Gym/blob/main/src/labtrust_gym/envs/action_contract.py)); optional `action_type`, `args`, `reason_code`, `token_refs`. All coordination methods and risk injectors must use these indices. The runner converts action dicts to `(actions, action_infos)` and passes them to `env.step(actions, action_infos)`.
 
 ## Env contract (BenchmarkEnv) (v0.1)
 

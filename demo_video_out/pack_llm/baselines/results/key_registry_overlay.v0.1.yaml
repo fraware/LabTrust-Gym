@@ -1,0 +1,11 @@
+key_registry:
+  keys:
+  - agent_id: A_OPS_0
+    key_id: ed25519_run_A_OPS_0_ROLE_ANALYTICS
+    not_after_ts_s: null
+    not_before_ts_s: null
+    public_key: T7HOsq67Kk+PUn+9uK5/QRjSX8kxfFpC9XJYQgscbmI=
+    role_id: ROLE_ANALYTICS
+    rotation_of_key_id: null
+    status: ACTIVE
+  version: '0.1'

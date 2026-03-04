@@ -47,12 +47,12 @@ See [Risk register](../risk-and-security/risk_register.md) for bundle structure 
 ## How to interpret the security gate
 
 - **Security suite:** `labtrust run-security-suite` produces SECURITY/ (attack_results.json, coverage, reason codes). Pass/fail is per attack scenario; the suite defines which controls are tested and how success is measured.
-- **Coordination security pack:** When the run includes coordination pack output (pack_summary.csv, pack_gate.md), the pack gate summarizes pass/fail per cell (method, scale, injection). See [How to handle security gate failures](../risk-and-security/howto_security_gate_failures.md).
+- **Coordination security pack:** When the run includes coordination pack output (pack_summary.csv, pack_gate.md), the pack gate summarizes pass/fail per cell (method, scale, injection). See [How to handle security gate failures](howto_security_gate_failures.md).
 - **Reason codes:** Blocked or held actions carry reason codes (e.g. RBAC_ACTION_DENY, SIG_MISSING); these appear in results and logs and indicate why an action was not applied.
 
 ## See also
 
 - [Risk register](../risk-and-security/risk_register.md) — Bundle content, generation from fixtures/release/pack, evidence semantics.
 - [Risk register contract](../contracts/risk_register_contract.v0.1.md) — Schema and formal contract.
-- [How to handle security gate failures](../risk-and-security/howto_security_gate_failures.md) — Interpreting security and coordination gate failures.
+- [How to handle security gate failures](howto_security_gate_failures.md) — Interpreting security and coordination gate failures.
 - [CI](ci.md) — Risk-register-gate and risk-coverage-every-pr jobs.

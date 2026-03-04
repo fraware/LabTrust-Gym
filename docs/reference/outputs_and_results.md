@@ -30,7 +30,7 @@ Canonical baseline result files used for regression live in `benchmarks/baseline
 
 ## 1.1 Pipeline modes and result audit
 
-Benchmarks run in exactly three **pipeline modes**: **deterministic** | **llm_offline** | **llm_live** (see [Pipelines in the README](../../README.md#pipelines) and [Live LLM — Pipeline modes](../agents/llm_live.md#pipeline-modes) for canonical definitions).
+Benchmarks run in exactly three **pipeline modes**: **deterministic** | **llm_offline** | **llm_live** (see [Pipelines in the README](https://github.com/fraware/LabTrust-Gym/blob/main/README.md#pipelines) and [Live LLM — Pipeline modes](../agents/llm_live.md#pipeline-modes) for canonical definitions).
 
 - **deterministic** — Scripted agents only; no LLM interface. Default for CI, regression, and most CLI commands. Same seed yields same results; no network.
 - **llm_offline** — LLM agent/coordination interface with a deterministic backend only (fixture lookup or seeded RNG). No network; reproducible given seed or fixtures.

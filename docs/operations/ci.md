@@ -289,7 +289,7 @@ Then run `labtrust summarize-results --in benchmarks/baselines_official/v0.2/res
   - `make e2e-artifacts-chain` — full e2e reproducible chain (package-release → determinism-report → verify-release → export-risk-register; no network). See [E2E artifacts chain](#e2e-artifacts-chain) below.
 
 - **Release fixture (regression anchor):**  
-  `pytest tests/test_release_fixture_verify_release.py -v` runs verify-release --strict-fingerprints on `tests/fixtures/release_fixture_minimal`. Build the fixture with `scripts/build_release_fixture.sh` (or `.ps1`); commit the fixture so the gate stays green. See [Trust verification](../risk-and-security/trust_verification.md).
+  `pytest tests/test_release_fixture_verify_release.py -v` runs verify-release --strict-fingerprints on `tests/fixtures/release_fixture_minimal`. Build the fixture with `scripts/build_release_fixture.sh` (or `.ps1`); commit the fixture so the gate stays green. **If the test fails with "RELEASE_MANIFEST hash mismatch":** policy or code changes have changed receipt/manifest content; run `scripts/build_release_fixture.sh` (or `.ps1`) and commit the updated `tests/fixtures/release_fixture_minimal/` so MANIFEST and receipt hashes match. See [Trust verification](../risk-and-security/trust_verification.md).
 
 - **Required-bench coverage pack (deterministic evidence):**  
   `scripts/run_required_bench_matrix.sh --out runs/required_bench_pack` (or `.ps1` with `-OutDir`) runs security suite smoke + coordination security pack, **calls verify_run_evidence on run dirs before export**, then export-risk-register and validate-coverage --strict. Coverage becomes a build product. The plan includes **R-SYS-001** cells for centralized_planner and swarm_reactive (INJ-DOS-PLANNER-001); the matrix produces **real** pack evidence for those cells. The workflow `.github/workflows/required_bench_matrix.yml` runs on schedule (and workflow_dispatch) and uploads the bundle artifact; use that bundle to supplement or replace fixture-based evidence for R-SYS-001 when desired. See [Risk register](../risk-and-security/risk_register.md#required-bench-coverage-pack-deterministic).
@@ -310,6 +310,8 @@ Then run `labtrust summarize-results --in benchmarks/baselines_official/v0.2/res
 - **Run locally:** `make e2e-artifacts-chain` or `bash scripts/ci_e2e_artifacts_chain.sh` (deterministic; same seed-base as script default).
 
 ## LLM live optional smoke (nightly / manual)
+
+<span id="llm-live-optional-smoke-nightly--manual"></span>
 
 Workflow **`.github/workflows/llm_live_optional_smoke.yml`** runs live-LLM healthcheck and official-pack smoke when API keys are available:
 
