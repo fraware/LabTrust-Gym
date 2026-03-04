@@ -42,7 +42,7 @@ The bundle (episode_bundle.v0.1) contains `version`, `lab_design`, `agents`, and
    - **Episode log** JSONL (required) plus optional METHOD_TRACE.jsonl and coord_decisions.jsonl.
 3. Views: lab pipeline strip (all 10 zones), step x agent grid (sticky header), zone-centric table, detail panel (click a cell). Filters: agent, action type, status. The UI is desktop-optimized (full-height layout, clear typography).
 
-See [viewer-episode/README.md](../../viewer-episode/README.md) for details.
+See [viewer-episode/README.md](https://github.com/fraware/LabTrust-Gym/blob/main/viewer-episode/README.md) for details.
 
 ## Lab design (single source of truth)
 

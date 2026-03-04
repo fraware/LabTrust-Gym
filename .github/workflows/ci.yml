@@ -173,7 +173,7 @@ jobs:
 
   bench-smoke:
     runs-on: ubuntu-latest
-    if: env.LABTRUST_BENCH_SMOKE == '1'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_bench_smoke == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -252,7 +252,7 @@ jobs:
 
   coordination-smoke:
     runs-on: ubuntu-latest
-    if: env.LABTRUST_COORDINATION_SMOKE == '1'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_coordination_smoke == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -278,7 +278,7 @@ jobs:
 
   external-reviewer-checks:
     runs-on: ubuntu-latest
-    if: env.LABTRUST_EXTERNAL_REVIEWER_CHECKS == '1'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_external_reviewer_checks == 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

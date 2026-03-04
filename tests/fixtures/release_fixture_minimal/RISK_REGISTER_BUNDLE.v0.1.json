@@ -94,10 +94,11 @@
       "artifacts": [
         {
           "path": "MANIFEST.v0.1.json",
-          "sha256": "b01eee96383933dd848a2e91c0d4871da6111e6ec12c835be6292306abea2973"
+          "sha256": "4ed8194b38ae3727cf780cba8394a4aaba3b10eb9393a8dea1a2c8c2bd8edd63"
         }
       ],
       "evidence_id": "ev-manifest-0",
+      "evidence_strength": "medium",
       "label": "Run manifest (hashes)",
       "path": "MANIFEST.v0.1.json",
       "status": "present",
@@ -159,6 +160,19 @@
       "type": "other"
     },
     {
+      "evidence_id": "ev-missing-R-COORD-001",
+      "expected_sources": [
+        "security suite smoke"
+      ],
+      "label": "Evidence gap: R-COORD-001",
+      "path": "",
+      "risk_ids": [
+        "R-COORD-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
       "evidence_id": "ev-missing-R-DATA-001",
       "expected_sources": [
         "security suite smoke",
@@ -175,6 +189,7 @@
     {
       "evidence_id": "ev-missing-R-DATA-002",
       "expected_sources": [
+        "security suite smoke",
         "coordination study required_bench"
       ],
       "label": "Evidence gap: R-DATA-002",
@@ -202,7 +217,7 @@
     {
       "evidence_id": "ev-missing-R-FLOW-001",
       "expected_sources": [
-        "policy or run evidence"
+        "security suite smoke"
       ],
       "label": "Evidence gap: R-FLOW-001",
       "path": "",
@@ -215,6 +230,7 @@
     {
       "evidence_id": "ev-missing-R-FLOW-002",
       "expected_sources": [
+        "security suite smoke",
         "coordination study required_bench"
       ],
       "label": "Evidence gap: R-FLOW-002",
@@ -255,6 +271,7 @@
     {
       "evidence_id": "ev-missing-R-TOOL-001",
       "expected_sources": [
+        "security suite smoke",
         "coordination study required_bench"
       ],
       "label": "Evidence gap: R-TOOL-001",
@@ -268,7 +285,7 @@
     {
       "evidence_id": "ev-missing-R-TOOL-002",
       "expected_sources": [
-        "policy or run evidence"
+        "security suite smoke"
       ],
       "label": "Evidence gap: R-TOOL-002",
       "path": "",
@@ -281,7 +298,7 @@
     {
       "evidence_id": "ev-missing-R-TOOL-003",
       "expected_sources": [
-        "policy or run evidence"
+        "security suite smoke"
       ],
       "label": "Evidence gap: R-TOOL-003",
       "path": "",
@@ -294,7 +311,7 @@
     {
       "evidence_id": "ev-missing-R-TOOL-004",
       "expected_sources": [
-        "policy or run evidence"
+        "security suite smoke"
       ],
       "label": "Evidence gap: R-TOOL-004",
       "path": "",
@@ -307,6 +324,7 @@
     {
       "evidence_id": "ev-missing-R-TOOL-005",
       "expected_sources": [
+        "security suite smoke",
         "coordination study required_bench"
       ],
       "label": "Evidence gap: R-TOOL-005",
@@ -332,7 +350,8 @@
       "type": "other"
     }
   ],
-  "git_commit_hash": "d8a110a1dd9f07ad85b9bd527ae15be8b6ef1de1",
+  "evidence_level": "deterministic_only",
+  "git_commit_hash": "4d269077b3feffcf6eeb3617b4691ef661f2619c",
   "injection_registry": [
     {
       "expected_effects": "active",
@@ -509,10 +528,16 @@
       "status": "implemented"
     },
     {
-      "expected_effects": "none",
+      "expected_effects": "active",
+      "injection_id": "INJ-TOOL-MISUSE-001",
+      "reason": "",
+      "status": "implemented"
+    },
+    {
+      "expected_effects": "active",
       "injection_id": "inj_collusion_handoff",
-      "reason": "compatibility",
-      "status": "reserved"
+      "reason": "",
+      "status": "implemented"
     },
     {
       "expected_effects": "active",
@@ -521,10 +546,10 @@
       "status": "implemented"
     },
     {
-      "expected_effects": "none",
+      "expected_effects": "active",
       "injection_id": "inj_dos_flood",
-      "reason": "compatibility",
-      "status": "reserved"
+      "reason": "",
+      "status": "implemented"
     },
     {
       "expected_effects": "none",
@@ -533,16 +558,16 @@
       "status": "reserved"
     },
     {
-      "expected_effects": "none",
+      "expected_effects": "active",
       "injection_id": "inj_memory_tamper",
-      "reason": "compatibility",
-      "status": "reserved"
+      "reason": "",
+      "status": "implemented"
     },
     {
-      "expected_effects": "none",
+      "expected_effects": "active",
       "injection_id": "inj_misparam_device",
-      "reason": "compatibility",
-      "status": "reserved"
+      "reason": "",
+      "status": "implemented"
     },
     {
       "expected_effects": "active",
@@ -557,10 +582,10 @@
       "status": "implemented"
     },
     {
-      "expected_effects": "none",
+      "expected_effects": "active",
       "injection_id": "inj_prompt_injection",
-      "reason": "compatibility",
-      "status": "reserved"
+      "reason": "",
+      "status": "implemented"
     },
     {
       "expected_effects": "none",
@@ -569,10 +594,10 @@
       "status": "reserved"
     },
     {
-      "expected_effects": "none",
+      "expected_effects": "active",
       "injection_id": "inj_tool_selection_noise",
-      "reason": "compatibility",
-      "status": "reserved"
+      "reason": "",
+      "status": "implemented"
     },
     {
       "expected_effects": "none",
@@ -609,21 +634,16 @@
       "type": "repo_local"
     },
     {
-      "href": "docs/risk_register_contract.v0.1.md",
-      "label": "Risk register contract",
-      "type": "repo_local"
-    },
-    {
       "href": "tests/fixtures/release_fixture_minimal/MANIFEST.v0.1.json",
       "label": "Manifest",
       "type": "run_local"
     }
   ],
   "policy_fingerprints": {
-    "method_risk_matrix": "664ab0fc76fd481d446d61d91c05e19e322e160e417a74fa4fc27c8db1d0ef14",
-    "risk_registry": "dbb71ecd9ec0e5594bc2474ad91b46ddb3472ed226712db49a596e1a40de7988",
-    "safety_case_claims": "a70f3ed5491cd0016924bb600d8d99016449432dbcbc55a117ac57f84941ed91",
-    "security_attack_suite": "cef7ecf288152c387c5e6f474114d70bd101f3d05b5c162c9fd03bf079a6b50a"
+    "method_risk_matrix": "8a44089fce4ac7e95cdc1040987fc5bddfd7d4b4fc6348dbc7fc851a753fd195",
+    "risk_registry": "74c6a81361dd50e0d291e8d21cdb21ce0d2996bbf5f56ae93501d8dc51280b45",
+    "safety_case_claims": "8de856fa7fb6b2b3a1aed725971cb2fc9cfd20b2210dc9a1565e6445a998d749",
+    "security_attack_suite": "b994010c6d13810b66621a8c3169d13aed8cc144584af50ef66976d7bc18c1e0"
   },
   "reproduce": [
     {
@@ -648,6 +668,11 @@
       "commands": [],
       "evidence_id": "ev-missing-R-COMMS-002",
       "label": "Evidence gap: R-COMMS-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-COORD-001",
+      "label": "Evidence gap: R-COORD-001"
     },
     {
       "commands": [],
@@ -828,6 +853,40 @@
         "coordination"
       ],
       "claimed_controls": [
+        "CTRL-COORD-IDENTITY"
+      ],
+      "complexity_hint": "medium",
+      "coverage_status": "not_applicable",
+      "description": "Coordination methods under attack when using the combine path (N > N_max).",
+      "evidence_refs": [
+        "ev-missing-R-COORD-001"
+      ],
+      "mitigation_options": [
+        "Signed bus",
+        "Shield",
+        "Detector advisor"
+      ],
+      "name": "Coordination security pack (multi-agentic combine path)",
+      "primary_metrics": [
+        "sec.attack_success_rate",
+        "safety.violations_total"
+      ],
+      "risk_domain": "system",
+      "risk_id": "R-COORD-001",
+      "severity_hint": "high",
+      "suggested_injections": [
+        "INJ-ID-SPOOF-001",
+        "INJ-COMMS-POISON-001",
+        "INJ-COORD-PLAN-REPLAY-001"
+      ],
+      "typical_failure_mode": "Coord pack gate failure; combine path not exercised or not resilient."
+    },
+    {
+      "applies_to": [
+        "engine",
+        "coordination"
+      ],
+      "claimed_controls": [
         "CTRL-OBSERVABILITY"
       ],
       "complexity_hint": "medium",
@@ -859,7 +918,9 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-MEMORY"
+      ],
       "complexity_hint": "high",
       "coverage_status": "uncovered",
       "description": "Training or runtime data is corrupted to degrade model or decision quality.",
@@ -924,7 +985,9 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-OBSERVABILITY"
+      ],
       "complexity_hint": "medium",
       "coverage_status": "not_applicable",
       "description": "Agent achieves goal but with unnecessary steps, delays, or resource use.",
@@ -955,7 +1018,9 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-OBSERVABILITY"
+      ],
       "complexity_hint": "high",
       "coverage_status": "partially_covered",
       "description": "Agent fails to make progress toward goal (deadlock, livelock, or repeated failures).",
@@ -1054,7 +1119,9 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-TOOL-SANDBOX"
+      ],
       "complexity_hint": "low",
       "coverage_status": "partially_covered",
       "description": "Agent selects wrong tool or action type for the current state; leads to wasted steps or incorrect workflow.",
@@ -1084,7 +1151,9 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-TOOL-SANDBOX"
+      ],
       "complexity_hint": "low",
       "coverage_status": "not_applicable",
       "description": "Tool or device action fails at execution (e.g. device busy, queue empty, hardware error).",
@@ -1116,7 +1185,9 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-TOOL-SANDBOX"
+      ],
       "complexity_hint": "medium",
       "coverage_status": "not_applicable",
       "description": "Tool or action executed without verification that preconditions or policy constraints hold.",
@@ -1146,7 +1217,9 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-TOOL-SANDBOX"
+      ],
       "complexity_hint": "medium",
       "coverage_status": "not_applicable",
       "description": "Tool used in correct type but wrong context (wrong specimen, wrong device, wrong order).",
@@ -1177,7 +1250,9 @@
         "engine",
         "coordination"
       ],
-      "claimed_controls": [],
+      "claimed_controls": [
+        "CTRL-TOOL-SANDBOX"
+      ],
       "complexity_hint": "low",
       "coverage_status": "partially_covered",
       "description": "Structured call has wrong or out-of-range parameters (e.g. wrong device_id, invalid zone).",

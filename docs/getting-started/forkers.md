@@ -148,7 +148,9 @@ Partner overlays can also provide risk registry, security attack suite, benchmar
 - **Study matrix:** `policy/coordination/coordination_study_spec.v0.1.yaml`.
 - **Best method at scale:** Decided by `recommend-coordination-method` using `policy/coordination/coordination_selection_policy.v0.1.yaml` (objective, constraints, per-scale rules).
 
-### 2.4 Security and safety gates {#security-and-safety-gates}
+### 2.4 Security and safety gates
+
+<span id="security-and-safety-gates"></span>
 
 The coordination security pack produces **pack_gate.md** (PASS/FAIL/not_supported per cell). Gate rules: `policy/coordination/coordination_security_pack_gate.v0.1.yaml`.
 
@@ -162,7 +164,9 @@ The coordination security pack produces **pack_gate.md** (PASS/FAIL/not_supporte
 - **pack_gate.md**: Pass/fail per cell.
 - **SECURITY/coordination_risk_matrix.csv** (and .md): Method x injection outcomes.
 
-### 2.6 Coordination selection policy {#coordination-selection-policy}
+### 2.6 Coordination selection policy
+
+<span id="coordination-selection-policy"></span>
 
 `policy/coordination/coordination_selection_policy.v0.1.yaml`: **objective** (e.g. maximize_overall_score), **constraints** (violations, attack success rate, cost ceiling), **per_scale_rules**. Copy and edit for your risk appetite.
 

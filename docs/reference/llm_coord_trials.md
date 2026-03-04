@@ -4,7 +4,7 @@ This document describes the artifact produced when running the full LLM coordina
 
 ## What is run
 
-The script [scripts/run_llm_coord_trials_openai.py](../../scripts/run_llm_coord_trials_openai.py) runs **coord_scale** (default) or **coord_risk** (with `--task coord_risk --injection <id>`) with each of the four LLM coord methods:
+The script [scripts/run_llm_coord_trials_openai.py](https://github.com/fraware/LabTrust-Gym/blob/main/scripts/run_llm_coord_trials_openai.py) runs **coord_scale** (default) or **coord_risk** (with `--task coord_risk --injection <id>`) with each of the four LLM coord methods:
 
 - llm_central_planner
 - llm_auction_bidder

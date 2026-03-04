@@ -174,7 +174,7 @@ This document is the **reference log of design choices** for LabTrust-Gym. It re
 
 **Rationale:** The combine path and multi-agentic driver are exercised under attack; gate thresholds (attack_success_rate_zero, etc.) apply unchanged.
 
-**References:** `_run_coord_pack_ref_attack` in `security_runner.py`; `run_coordination_security_pack(multi_agentic=...)`; [coordination_security_pack_gate.v0.1.yaml](../../policy/coordination/coordination_security_pack_gate.v0.1.yaml).
+**References:** `_run_coord_pack_ref_attack` in `security_runner.py`; `run_coordination_security_pack(multi_agentic=...)`; [coordination_security_pack_gate.v0.1.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coordination/coordination_security_pack_gate.v0.1.yaml).
 
 ### 5.4 Step semantics for gates
 

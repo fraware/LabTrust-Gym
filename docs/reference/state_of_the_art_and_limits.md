@@ -43,7 +43,7 @@ This document tracks what is state of the art (SOTA), what is deployment ready, 
 - **Critical thresholds:** Shipped thresholds are reference defaults (e.g. RCPath 2017 style), not clinically validated. For production, calibrate per [Policy pack](../policy/policy_pack.md) and production calibration.
 - **Default .env loading:** The CLI loads `.env` at startup from the current directory (or `LABTRUST_DOTENV_PATH`), so API keys in `.env` are available for live LLM without sourcing manually. See [Installation](../getting-started/installation.md).
 - **CI and production:** CI is described for merge gates; production use of live LLM/network is left to operators. See [CI](../operations/ci.md).
-- **Security gate:** No method is recommended for deployment until the coordination security gate passes. See [How to handle security gate failures](../risk-and-security/howto_security_gate_failures.md).
+- **Security gate:** No method is recommended for deployment until the coordination security gate passes. See [How to handle security gate failures](../operations/howto_security_gate_failures.md).
 - **Scale / long runs:** Checkpoint and resume are implemented. Use `--log` and `--checkpoint-every N` when running; resume with `--resume-from <run_dir>`. For production-like or very long runs, persistence and checkpointing are recommended. See [Scale and operational limits](../benchmarks/scale_operational_limits.md).
 - **labtrust serve:** Request-level protections and multi-key roles are described for production-style use; key management and deployment topology are integrator responsibility. See [Security online](../risk-and-security/security_online.md).
 

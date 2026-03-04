@@ -6,7 +6,7 @@ What was tested, what was not, and how to compare with other benchmarks.
 
 ### Scale grid
 
-The coordination benchmark uses scale configs defined in [policy/coordination/scale_configs.v0.1.yaml](../../policy/coordination/scale_configs.v0.1.yaml). The study spec ([policy/coordination/coordination_study_spec.v0.1.yaml](../../policy/coordination/coordination_study_spec.v0.1.yaml)) and pack presets ([policy/coordination/coordination_security_pack.v0.1.yaml](../../policy/coordination/coordination_security_pack.v0.1.yaml)) define which scale IDs are run. Results are defined only for these scale configs and for cells (scale_id, method_id, injection_id) in the study or pack matrix.
+The coordination benchmark uses scale configs defined in [policy/coordination/scale_configs.v0.1.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coordination/scale_configs.v0.1.yaml). The study spec ([policy/coordination/coordination_study_spec.v0.1.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coordination/coordination_study_spec.v0.1.yaml)) and pack presets ([policy/coordination/coordination_security_pack.v0.1.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coordination/coordination_security_pack.v0.1.yaml)) define which scale IDs are run. Results are defined only for these scale configs and for cells (scale_id, method_id, injection_id) in the study or pack matrix.
 
 | scale_id | num_agents_total | num_sites | horizon_steps |
 |----------|------------------|-----------|---------------|
@@ -17,7 +17,7 @@ The coordination benchmark uses scale configs defined in [policy/coordination/sc
 
 ### Injection list
 
-The study spec's `injections` list and [policy/coordination/injections.v0.2.yaml](../../policy/coordination/injections.v0.2.yaml) define which risk injections are applied. Only listed injection IDs with configured intensity and application_phase (when applicable) are used. Injection families include:
+The study spec's `injections` list and [policy/coordination/injections.v0.2.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coordination/injections.v0.2.yaml) define which risk injections are applied. Only listed injection IDs with configured intensity and application_phase (when applicable) are used. Injection families include:
 
 - **Identity:** INJ-ID-SPOOF-001
 - **Replay:** INJ-REPLAY-001, INJ-COORD-PLAN-REPLAY-001, INJ-ID-REPLAY-COORD-001

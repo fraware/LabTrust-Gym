@@ -4,7 +4,7 @@ This page lists the **stable surface** intended for external use. Use these entr
 
 ## CLI
 
-All subcommands of `labtrust` are part of the public API. See the [CLI output contract](contracts/cli_contract.md) for exit codes, minimal smoke args, and output paths. Commands are listed in the [README](../../README.md#cli) and smoke-tested in `tests/test_cli_smoke_matrix.py`.
+All subcommands of `labtrust` are part of the public API. See the [CLI output contract](../contracts/cli_contract.md) for exit codes, minimal smoke args, and output paths. Commands are listed in the [README](https://github.com/fraware/LabTrust-Gym/blob/main/README.md#cli) and smoke-tested in `tests/test_cli_smoke_matrix.py`.
 
 ## Programmatic entry points
 
@@ -34,7 +34,7 @@ Implement these protocols and types when extending the platform:
 | **LabTrustEnvAdapter** | Used by golden runner / online server | reset, step, query; step return shape must satisfy runner output contract. |
 | **Action contract** | `labtrust_gym.envs.action_contract` | Per-step action_index in 0..5; optional action_type, args, reason_code, token_refs. All coordination methods and risk injectors must use these indices. |
 
-See [Frozen contracts](contracts/frozen_contracts.md) for the full list of versioned contracts and schema stability.
+See [Frozen contracts](../contracts/frozen_contracts.md) for the full list of versioned contracts and schema stability.
 
 ## Registries
 
@@ -45,6 +45,6 @@ Register extensions via `register_*` functions or setuptools entry_point groups.
 Do **not** rely on runner internals, engine internals, or private attributes of envs. Rely on **BenchmarkEnv** and the documented entry points above. The following are **not** part of the public API and may change without notice:
 
 - Concrete implementations inside `labtrust_gym.engine`, `labtrust_gym.benchmarks.runner` (internal step loop, timing logic), and private attributes of env classes (e.g. `_engine`, `_device_ids`).
-- Any module or symbol not listed on this page or in [Frozen contracts](contracts/frozen_contracts.md) and [Extension development](../agents/extension_development.md).
+- Any module or symbol not listed on this page or in [Frozen contracts](../contracts/frozen_contracts.md) and [Extension development](../agents/extension_development.md).
 
 When in doubt, use the CLI or the programmatic entry points and contracts listed here.

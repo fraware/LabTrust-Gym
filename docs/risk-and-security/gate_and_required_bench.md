@@ -21,7 +21,7 @@ Every (method_id, risk_id) that has required_bench in method_risk_matrix must ha
 
 **Evidence verification before use:** Run dirs produced by run_required_bench_matrix (or any script that uses run dirs as evidence) must pass verification before their outputs are consumed. The script runs `scripts/verify_run_evidence.py` after all runs and before export-risk-register: for each run dir it verifies every EvidenceBundle under `run_dir/receipts/` with `labtrust verify-bundle`, and when `SECURITY/attack_results.json` exists it verifies the companion `.sha256` file. If any check fails, the script exits 1 with a clear message so evidence is not used for validate-coverage or release until verification passes.
 
-**CI and R-SYS-001 real evidence:** The job **risk-coverage-every-pr** (see [CI](ci.md)) runs two R-SYS-001 cells (centralized_planner and swarm_reactive with INJ-DOS-PLANNER-001) and includes those run dirs in the export, so the bundle has real evidence for R-SYS-001; other required_bench cells may use fixture. No waivers are used in that job.
+**CI and R-SYS-001 real evidence:** The job **risk-coverage-every-pr** (see [CI](../operations/ci.md)) runs two R-SYS-001 cells (centralized_planner and swarm_reactive with INJ-DOS-PLANNER-001) and includes those run dirs in the export, so the bundle has real evidence for R-SYS-001; other required_bench cells may use fixture. No waivers are used in that job.
 
 ## Policy alignment
 

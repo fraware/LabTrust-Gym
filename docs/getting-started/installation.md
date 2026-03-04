@@ -40,7 +40,9 @@ When installed from a wheel, policy files are bundled in the package (package da
 
 **Reproducibility:** For byte-identical baselines, use the same Python version and OS as CI; pin dependencies; avoid env vars that change behavior. See the [Determinism contract](../benchmarks/determinism_contract.md). Different Python versions or platforms can change RNG or float behavior.
 
-**Paths with spaces or special characters:** If your repo or policy path contains spaces or special characters, use quoted paths in scripts (e.g. `"C:\My Lab\LabTrust-Gym"`) or set `REPO_ROOT` / `LABTRUST_POLICY_DIR` in the environment. On Windows, avoid accented characters in the path; clone to a simple path like `C:\LabTrust-Gym` if needed. See [Recommended Windows setup](windows_setup.md) and [Forker guide](forkers.md).
+### Paths with spaces or special characters
+
+If your repo or policy path contains spaces or special characters, use quoted paths in scripts (e.g. `"C:\My Lab\LabTrust-Gym"`) or set `REPO_ROOT` / `LABTRUST_POLICY_DIR` in the environment. On Windows, avoid accented characters in the path; clone to a simple path like `C:\LabTrust-Gym` if needed. See [Recommended Windows setup](windows_setup.md) and [Forker guide](forkers.md).
 
 ## Configuration (environment variables and .env)
 
@@ -64,7 +66,7 @@ Optional env vars (all have defaults or CLI overrides):
 | `LABTRUST_LOCAL_LLM_TIMEOUT` | Request timeout in seconds for local LLM. Default: 60. |
 | `LABTRUST_DOTENV_PATH` | Path to `.env` file to load (default: `.env` in cwd). |
 
-### Loading a .env file manually
+### Loading a .env file (optional)
 
 If you run the CLI from a different directory than where your `.env` file lives, set `LABTRUST_DOTENV_PATH` to the full path of the `.env` file, or load it in your shell before running:
 
