@@ -2,6 +2,13 @@
 Group-Evolving coordination: Variant A (Experience Sharing Deterministic) and
 Variant B (Group-Evolving Study). Both use experience buffer + sharing protocol;
 Variant B adds evolution loop and checkpoints.
+
+Envelope (SOTA audit)
+--------------------
+steps: horizon-driven; share_interval, summary_max_items bound sharing.
+llm_calls_per_step: 0.
+fallback: N/A (deterministic).
+max_latency_ms: bounded (local compute + neighbor message size).
 """
 
 from __future__ import annotations
@@ -12,6 +19,21 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.baselines.coordination.group_evolving.evolution_loop import (
+    default_genome,
+    fitness_from_metrics,
+    mutate_genome,
+    recombine_genomes,
+    save_checkpoint,
+    select_top_k,
+)
+from labtrust_gym.baselines.coordination.group_evolving.experience_buffer import (
+    ExperienceBuffer,
+)
+from labtrust_gym.baselines.coordination.group_evolving.sharing_protocol import (
+    build_experience_message,
+    summaries_to_routing_weights,
+)
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
     ACTION_NOOP,
@@ -27,22 +49,6 @@ from labtrust_gym.baselines.coordination.obs_utils import (
     queue_has_head,
 )
 from labtrust_gym.engine.zones import build_adjacency_set
-
-from labtrust_gym.baselines.coordination.group_evolving.experience_buffer import (
-    ExperienceBuffer,
-)
-from labtrust_gym.baselines.coordination.group_evolving.evolution_loop import (
-    default_genome,
-    fitness_from_metrics,
-    recombine_genomes,
-    save_checkpoint,
-    select_top_k,
-    mutate_genome,
-)
-from labtrust_gym.baselines.coordination.group_evolving.sharing_protocol import (
-    build_experience_message,
-    summaries_to_routing_weights,
-)
 
 
 def _bfs_one_step(
@@ -220,9 +226,7 @@ class ExperienceSharingDeterministic(CoordinationMethod):
         agents = sorted(obs.keys())
         if not self._zone_ids and obs:
             sample = obs.get(agents[0]) if agents else {}
-            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(
-                {}, obs_sample=sample
-            )
+            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         self._last_agent_order = agents
         self._last_obs = dict(obs)
         self._step = t
@@ -248,7 +252,9 @@ class ExperienceSharingDeterministic(CoordinationMethod):
         for aid, ad in out.items():
             idx = ad.get("action_index", ACTION_NOOP)
             self._last_actions[aid] = (
-                "START_RUN" if idx == ACTION_START_RUN else ("MOVE" if idx == ACTION_MOVE else ("TICK" if idx == ACTION_TICK else "NOOP"))
+                "START_RUN"
+                if idx == ACTION_START_RUN
+                else ("MOVE" if idx == ACTION_MOVE else ("TICK" if idx == ACTION_TICK else "NOOP"))
             )
         return out
 
@@ -335,18 +341,14 @@ class GroupEvolvingStudy(CoordinationMethod):
         self._last_actions = {}
         self._last_agent_order = []
         self._step = 0
-        run_dir = (
-            scale_config.get("run_dir")
-            or (scale_config.get("log_path") and str(Path(scale_config["log_path"]).parent))
+        run_dir = scale_config.get("run_dir") or (
+            scale_config.get("log_path") and str(Path(scale_config["log_path"]).parent)
         )
         if run_dir is None:
             run_dir = os.environ.get("LABTRUST_GROUP_EVOLVING_RUN_DIR")
         self._run_dir = Path(run_dir) if run_dir else None
         if self._generation == 0 and not self._population:
-            self._population = [
-                default_genome(self._zone_ids)
-                for _ in range(self._population_size)
-            ]
+            self._population = [default_genome(self._zone_ids) for _ in range(self._population_size)]
             self._current_genome_idx = 0
         self._buffer.clear()
         self._shared_summaries = []
@@ -366,9 +368,7 @@ class GroupEvolvingStudy(CoordinationMethod):
         agents = sorted(obs.keys())
         if not self._zone_ids and obs:
             sample = obs.get(agents[0]) if agents else {}
-            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(
-                {}, obs_sample=sample
-            )
+            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         self._last_agent_order = agents
         self._last_obs = dict(obs)
         self._step = t
@@ -382,13 +382,20 @@ class GroupEvolvingStudy(CoordinationMethod):
             for z, w in self._routing_weights().items():
                 weights[z] = weights.get(z, 1.0) * 0.5 + w * 0.5
         out = _propose_actions_with_weights(
-            obs, t, self._zone_ids, self._device_ids, self._device_zone,
-            self._adjacency, weights,
+            obs,
+            t,
+            self._zone_ids,
+            self._device_ids,
+            self._device_zone,
+            self._adjacency,
+            weights,
         )
         for aid, ad in out.items():
             idx = ad.get("action_index", ACTION_NOOP)
             self._last_actions[aid] = (
-                "START_RUN" if idx == ACTION_START_RUN else ("MOVE" if idx == ACTION_MOVE else ("TICK" if idx == ACTION_TICK else "NOOP"))
+                "START_RUN"
+                if idx == ACTION_START_RUN
+                else ("MOVE" if idx == ACTION_MOVE else ("TICK" if idx == ACTION_TICK else "NOOP"))
             )
         return out
 
@@ -445,7 +452,11 @@ class GroupEvolvingStudy(CoordinationMethod):
         self._generation += 1
         self._update_count += 1
         mutation_log_entries = [
-            {"gen": self._generation, "episode_id": episode_id, "fitness_sample": population_with_fitness[0][1] if population_with_fitness else 0}
+            {
+                "gen": self._generation,
+                "episode_id": episode_id,
+                "fitness_sample": population_with_fitness[0][1] if population_with_fitness else 0,
+            }
         ]
         if self._run_dir and self._run_dir.is_dir():
             self._checkpoint_sha = save_checkpoint(

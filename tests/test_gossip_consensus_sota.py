@@ -22,8 +22,18 @@ def test_gossip_consensus_same_seed_same_actions() -> None:
     method = GossipConsensus(gossip_rounds=3)
     method.reset(seed=42, policy=policy, scale_config={})
     obs = {
-        "a1": {"zone_id": "Z_A", "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}], "queue_has_head": [1], "log_frozen": 0},
-        "a2": {"zone_id": "Z_A", "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}], "queue_has_head": [1], "log_frozen": 0},
+        "a1": {
+            "zone_id": "Z_A",
+            "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}],
+            "queue_has_head": [1],
+            "log_frozen": 0,
+        },
+        "a2": {
+            "zone_id": "Z_A",
+            "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}],
+            "queue_has_head": [1],
+            "log_frozen": 0,
+        },
     }
     infos = {}
     out1 = method.propose_actions(obs, infos, 0)
@@ -45,7 +55,11 @@ def test_gossip_consensus_median_aggregation_bounds_inflated_load() -> None:
 def test_gossip_consensus_byzantine_mode_runs() -> None:
     """With scale_config gossip_aggregation=median method runs and produces valid actions."""
     policy = {
-        "zone_layout": {"zones": [{"zone_id": "Z_A"}], "device_placement": [{"device_id": "D1", "zone_id": "Z_A"}], "graph_edges": []},
+        "zone_layout": {
+            "zones": [{"zone_id": "Z_A"}],
+            "device_placement": [{"device_id": "D1", "zone_id": "Z_A"}],
+            "graph_edges": [],
+        },
     }
     method = GossipConsensus(gossip_rounds=2)
     method.reset(seed=0, policy=policy, scale_config={"gossip_aggregation": "median"})

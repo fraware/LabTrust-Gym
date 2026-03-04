@@ -12,11 +12,9 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.baselines.coordination.methods.llm_gossip_summarizer import (
-    COORD_HASH_MISMATCH,
     COORD_PAYLOAD_INVALID,
     COORD_PAYLOAD_TOO_LARGE,
     COORD_POISON_SUSPECTED,
-    MESSAGE_TYPE_GOSSIP_SUMMARY,
     _compute_hash_commitment,
     _verify_hash_commitment,
     poison_heuristic,
@@ -75,9 +73,7 @@ def test_validate_message_payload_rejects_unknown_fields() -> None:
 def test_validate_message_payload_rejects_too_large() -> None:
     """Rejects payload exceeding max_bytes (overlong -> reject + fallback)."""
     payload = {"agent_id": "x", "step_id": 0, "zone_id": "Z", "big": "x" * 5000}
-    ok, reason = validate_message_payload(
-        payload, {}, max_bytes=1024
-    )
+    ok, reason = validate_message_payload(payload, {}, max_bytes=1024)
     assert not ok
     assert COORD_PAYLOAD_TOO_LARGE in reason
 
@@ -136,10 +132,10 @@ def test_lww_register_merge_order_independent() -> None:
 
 def test_gossip_summarizer_propose_actions_returns_actions() -> None:
     """LLMGossipSummarizer.propose_actions returns action dict; uses SignedMessageBus."""
-    from labtrust_gym.coordination.identity import build_key_store
     from labtrust_gym.baselines.coordination.methods.llm_gossip_summarizer import (
         LLMGossipSummarizer,
     )
+    from labtrust_gym.coordination.identity import build_key_store
 
     agent_ids = ["ops_0", "runner_0"]
     key_store = build_key_store(agent_ids, 42)
@@ -160,10 +156,10 @@ def test_gossip_summarizer_propose_actions_returns_actions() -> None:
 
 def test_gossip_summarizer_detection_events_and_drop_reasons() -> None:
     """get_detection_events and get_drop_reasons return lists (logged by runner)."""
-    from labtrust_gym.coordination.identity import build_key_store
     from labtrust_gym.baselines.coordination.methods.llm_gossip_summarizer import (
         LLMGossipSummarizer,
     )
+    from labtrust_gym.coordination.identity import build_key_store
 
     agent_ids = ["ops_0", "runner_0"]
     key_store = build_key_store(agent_ids, 0)
@@ -202,10 +198,10 @@ def test_registry_creates_llm_gossip_summarizer() -> None:
 
 def test_runner_merge_gossip_comms_metrics() -> None:
     """Runner merges get_detection_events and get_drop_reasons into metrics."""
-    from labtrust_gym.coordination.identity import build_key_store
     from labtrust_gym.baselines.coordination.methods.llm_gossip_summarizer import (
         LLMGossipSummarizer,
     )
+    from labtrust_gym.coordination.identity import build_key_store
 
     agent_ids = ["ops_0", "runner_0"]
     key_store = build_key_store(agent_ids, 0)

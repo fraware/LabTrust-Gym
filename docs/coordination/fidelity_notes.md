@@ -139,4 +139,4 @@ When adding a new coordination method:
 2. Add or extend tests that assert at least one invariant (e.g. propagation along edges, reservation consistency, auction rules).
 3. Ensure the method is listed in `coordination_methods.v0.1.yaml` and `method_risk_matrix.v0.1.yaml` with correct known_weaknesses and compatible_injections.
 
-See also: [SOTA fidelity checklist](coordination_methods.md#sota-fidelity-checklist), [Coordination methods](coordination_methods.md) and [SOTA methods at scale](sota_methods_at_scale.md).
+See also: [SOTA fidelity checklist](coordination_methods.md#sota-fidelity-checklist), [Coordination methods](coordination_methods.md).

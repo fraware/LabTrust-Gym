@@ -1,9 +1,10 @@
 """Smoke test for p3: structured output retry and llm_tracer."""
+
+from labtrust_gym.baselines.llm.llm_tracer import LLMTracer, get_llm_tracer
 from labtrust_gym.baselines.llm.structured_output_retry import (
     normalize_to_action_proposal,
     parse_and_normalize_raw,
 )
-from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer, LLMTracer
 
 
 def test_normalize_to_action_proposal():

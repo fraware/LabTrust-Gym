@@ -8,7 +8,8 @@ or benchmarks against that domain without forking the engine.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from labtrust_gym.domain.lab_adapter import lab_domain_adapter_factory
 from labtrust_gym.runner.adapter import LabTrustEnvAdapter

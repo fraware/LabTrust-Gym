@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.terminology_value_set.v0.1",
+  "title": "Terminology value set v0.1",
+  "description": "Value sets for validate-fhir: map system URI to allowed codes. Used to validate Observation.code, Observation.interpretation, and other coded elements.",
+  "type": "object",
+  "required": ["value_sets"],
+  "properties": {
+    "version": { "type": "string", "default": "0.1" },
+    "value_sets": {
+      "type": "object",
+      "description": "Map system URI to list of allowed codes. Keys are code system URIs; values are arrays of code strings.",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  }
+}

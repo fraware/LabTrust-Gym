@@ -26,6 +26,7 @@ def _conformance_config() -> dict[str, Any]:
         return {}
     try:
         import yaml
+
         with path.open("r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except Exception:
@@ -48,6 +49,7 @@ def _minimal_policy() -> dict[str, Any]:
     zone_path = repo / "policy" / "zones" / "zone_layout_policy.v0.1.yaml"
     if zone_path.exists():
         from labtrust_gym.policy.loader import load_yaml
+
         data = load_yaml(zone_path)
         layout = data.get("zone_layout") or data
     else:
@@ -120,6 +122,7 @@ def make_coord_method_for_conformance(
         capability_policy = {}
         try:
             from labtrust_gym.security.agent_capabilities import load_agent_capabilities
+
             capability_policy = load_agent_capabilities(repo_root)
         except Exception:
             pass

@@ -11,6 +11,8 @@ LABTRUST_LLM_TRACE=1.
 
 Requirements:
   - OPENAI_API_KEY must be set (script exits with clear message if missing).
+    When python-dotenv is installed, the script loads .env from the current
+    directory (or LABTRUST_DOTENV_PATH); run from repo root if .env is there.
   - Set LABTRUST_LLM_TRACE=1 to include attribution (or use --trace).
 
 Usage:
@@ -40,10 +42,20 @@ DEFAULT_METHODS = [
 ]
 
 
+def _load_dotenv_if_available() -> None:
+    """Load .env from cwd or LABTRUST_DOTENV_PATH so OPENAI_API_KEY etc. are set (when python-dotenv is installed)."""
+    try:
+        from dotenv import load_dotenv
+
+        path = os.environ.get("LABTRUST_DOTENV_PATH", "").strip() or ".env"
+        load_dotenv(path)
+    except ImportError:
+        pass
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run LLM coordinator trials with real OpenAI (coord_scale)"
-    )
+    _load_dotenv_if_available()
+    parser = argparse.ArgumentParser(description="Run LLM coordinator trials with real OpenAI (coord_scale)")
     parser.add_argument(
         "--out-dir",
         type=Path,
@@ -182,19 +194,15 @@ def main() -> int:
         report_entries.append(entry)
         print(f"Wrote {results_path}")
 
-    scenario = (
-        f"{task_name} LLM coordinator trials (openai_live)"
-        + (f", injection={injection_id}" if injection_id else "")
+    scenario = f"{task_name} LLM coordinator trials (openai_live)" + (
+        f", injection={injection_id}" if injection_id else ""
     )
     report_data = {
         "scenario": scenario,
         "task": task_name,
         "scale_id": args.scale,
         "base_seed": args.seed,
-        "attribution_present": (
-            os.environ.get("LABTRUST_LLM_TRACE", "").strip().lower()
-            in ("1", "true", "yes")
-        ),
+        "attribution_present": (os.environ.get("LABTRUST_LLM_TRACE", "").strip().lower() in ("1", "true", "yes")),
         "methods": report_entries,
     }
     if injection_id:
@@ -206,21 +214,21 @@ def main() -> int:
     md_lines = [
         "# LLM coordinator trials report (OpenAI)",
         "",
-        "Scenario: {}, pipeline_mode=llm_live, openai_live, scale={}.".format(
-            task_name, args.scale
-        ),
+        f"Scenario: {task_name}, pipeline_mode=llm_live, openai_live, scale={args.scale}.",
     ]
     if injection_id:
-        md_lines.append("Injection: {}.".format(injection_id))
-    md_lines.extend([
-        f"Episodes per run: {args.episodes}, base_seed: {args.seed}.",
-        "Attribution in report: {} (set LABTRUST_LLM_TRACE=1 for attribution).".format(
-            report_data["attribution_present"]
-        ),
-        "",
-        "| method_id | task | num_episodes | pipeline_mode | llm_backend_id | run_duration_wall_s |",
-        "|-----------|------|--------------|---------------|----------------|---------------------|",
-    ])
+        md_lines.append(f"Injection: {injection_id}.")
+    md_lines.extend(
+        [
+            f"Episodes per run: {args.episodes}, base_seed: {args.seed}.",
+            "Attribution in report: {} (set LABTRUST_LLM_TRACE=1 for attribution).".format(
+                report_data["attribution_present"]
+            ),
+            "",
+            "| method_id | task | num_episodes | pipeline_mode | llm_backend_id | run_duration_wall_s |",
+            "|-----------|------|--------------|---------------|----------------|---------------------|",
+        ]
+    )
     for e in report_entries:
         dur = e.get("run_duration_wall_s")
         dur_s = str(round(dur, 3)) if isinstance(dur, (int, float)) else str(dur)
@@ -256,10 +264,7 @@ def main() -> int:
     md_lines.append("## Reproduce")
     md_lines.append("")
     md_lines.append("```")
-    md_lines.append(
-        "LABTRUST_LLM_TRACE=1 python scripts/run_llm_coord_trials_openai.py "
-        "--out-dir " + str(out_dir)
-    )
+    md_lines.append("LABTRUST_LLM_TRACE=1 python scripts/run_llm_coord_trials_openai.py --out-dir " + str(out_dir))
     md_lines.append("```")
     report_md_path = out_dir / "llm_coord_trials_report.md"
     report_md_path.write_text("\n".join(md_lines), encoding="utf-8")
@@ -299,8 +304,7 @@ def main() -> int:
             if by_backend:
                 for bid, stats in by_backend.items():
                     interp_lines.append(
-                        "  - {}: call_count={}, latency_ms_sum={}, "
-                        "cost_usd_sum={}".format(
+                        "  - {}: call_count={}, latency_ms_sum={}, cost_usd_sum={}".format(
                             bid,
                             stats.get("call_count"),
                             stats.get("latency_ms_sum"),
@@ -312,21 +316,14 @@ def main() -> int:
             interp_lines.append("")
     interp_lines.append("## Conclusions")
     interp_lines.append("")
-    interp_lines.append(
-        "(Edit: relative cost/latency across methods, caveats, reproducibility.)"
-    )
+    interp_lines.append("(Edit: relative cost/latency across methods, caveats, reproducibility.)")
     interp_lines.append("")
     interp_lines.append("## Artifacts and reproduce")
     interp_lines.append("")
-    interp_lines.append(
-        f"- `{report_json_path.name}`, `{report_md_path.name}`"
-    )
+    interp_lines.append(f"- `{report_json_path.name}`, `{report_md_path.name}`")
     interp_lines.append("")
     interp_lines.append("```")
-    interp_lines.append(
-        "LABTRUST_LLM_TRACE=1 python scripts/run_llm_coord_trials_openai.py "
-        "--out-dir " + str(out_dir)
-    )
+    interp_lines.append("LABTRUST_LLM_TRACE=1 python scripts/run_llm_coord_trials_openai.py --out-dir " + str(out_dir))
     interp_lines.append("```")
     interp_path = out_dir / "llm_coord_trials_interpretation.md"
     interp_path.write_text("\n".join(interp_lines), encoding="utf-8")

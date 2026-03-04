@@ -89,10 +89,7 @@ class LLMTraceCollector:
             "total_tokens": total_tokens,
             "per_call": self._usage_list,
         }
-        latencies = [
-            u["latency_ms"] for u in self._usage_list
-            if u.get("latency_ms") is not None
-        ]
+        latencies = [u["latency_ms"] for u in self._usage_list if u.get("latency_ms") is not None]
         if latencies:
             out["latency_ms"] = {
                 "min": min(latencies),

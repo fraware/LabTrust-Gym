@@ -15,6 +15,7 @@ from labtrust_gym.policy.loader import (
     get_partner_overlay_dir,
     load_effective_policy,
     load_partners_index,
+    load_policy_for_domain,
 )
 from labtrust_gym.policy.overlay import (
     merge_critical_thresholds,
@@ -137,6 +138,31 @@ def test_load_effective_policy_with_partner_determinism() -> None:
     assert effective1["critical_thresholds"] != [] or "BIOCHEM_POTASSIUM_K" in str(effective1)
 
 
+def test_load_policy_for_domain_none_or_missing_returns_empty_overrides() -> None:
+    """load_policy_for_domain with domain_id=None or missing path returns empty domain_overrides."""
+    root = _repo_root()
+    _, _, _, _, overrides_none = load_policy_for_domain(root, domain_id=None)
+    assert overrides_none == {}
+    _, _, _, _, overrides_missing = load_policy_for_domain(root, domain_id="nonexistent_domain_xyz")
+    assert overrides_missing == {}
+
+
+def test_load_policy_for_domain_with_domain_dir(tmp_path: Path) -> None:
+    """When policy/domains/<domain_id>/ exists and has YAML, domain_overrides contains loaded files."""
+    domain_dir = tmp_path / "policy" / "domains" / "warehouse"
+    domain_dir.mkdir(parents=True)
+    (domain_dir / "reason_codes.yaml").write_text(
+        "version: '0.1'\nreason_codes:\n  - code: DOMAIN_EXTRA\n    description: Domain-specific\n",
+        encoding="utf-8",
+    )
+    try:
+        _, _, _, _, domain_overrides = load_policy_for_domain(tmp_path, domain_id="warehouse")
+    except PolicyLoadError:
+        pytest.skip("base policy under tmp_path incomplete for load_effective_policy")
+    assert "reason_codes" in domain_overrides
+    assert isinstance(domain_overrides["reason_codes"], dict)
+
+
 def test_validate_policy_base_and_partner() -> None:
     root = _repo_root()
     errors = validate_policy(root, partner_id=None)
@@ -233,3 +259,12 @@ def test_validate_merged_consistency() -> None:
     if (root / "policy" / "partners" / "hsl_like").is_dir():
         errors2 = validate_merged_policy_consistency(root, partner_id="hsl_like")
         assert errors2 == [], f"merged consistency (hsl_like) failed: {errors2}"
+
+
+def test_validate_policy_with_domain_id_nonexistent_dir() -> None:
+    """validate_policy with domain_id pointing to missing policy/domains/<id>/ reports an error."""
+    root = _repo_root()
+    errors = validate_policy(root, domain_id="nonexistent_domain_xyz_123")
+    assert any("not found" in e.lower() or "nonexistent_domain_xyz" in e for e in errors), (
+        f"Expected domain dir not found error, got: {errors}"
+    )

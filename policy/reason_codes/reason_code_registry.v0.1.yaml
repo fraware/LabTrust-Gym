@@ -295,6 +295,20 @@ reason_code_registry:
       triggers: ["START_RUN"]
       default_actions: ["BLOCK_ACTION"]
 
+    - code: "ROUTE_DEVICE_UNAVAILABLE"
+      namespace: "ROUTE"
+      severity: "P2_HOLD_REVIEW"
+      description: "No device with QC pass available (including alternates); scripted ops holds."
+      triggers: ["QUEUE_RUN", "SCRIPTED_BASELINE_DECISION"]
+      default_actions: ["HOLD"]
+
+    - code: "ROUTE_QUEUE_FULL"
+      namespace: "ROUTE"
+      severity: "P2_HOLD_REVIEW"
+      description: "Device queue at max_queue_len; scripted ops holds."
+      triggers: ["QUEUE_RUN", "SCRIPTED_BASELINE_DECISION"]
+      default_actions: ["HOLD"]
+
     # -----------------------------
     # QC cascade
     # -----------------------------
@@ -604,6 +618,13 @@ reason_code_registry:
       triggers: ["LLM_FAULT_MODEL"]
       default_actions: ["LOG_ONLY"]
 
+    - code: "RC_LLM_LOW_CONFIDENCE_REFUSAL"
+      namespace: "LLM"
+      severity: "P3_WARN"
+      description: "Uncertainty-aware refusal: LLM-reported confidence below configured threshold; NOOP returned without executing proposed action."
+      triggers: ["LLM_ACTION_DECODE"]
+      default_actions: ["LOG_ONLY"]
+
     # -----------------------------
     # Adversarial input detection (defensive monitoring)
     # -----------------------------
@@ -682,6 +703,13 @@ reason_code_registry:
       description: "Agent exceeded max_override_tokens for the episode (e.g. RELEASE_RESULT_OVERRIDE)."
       triggers: ["AGENT_SCOPE_VIOLATION"]
       default_actions: ["BLOCK_ACTION", "LOG_ONLY"]
+
+    - code: "AGENT_SCRIPTED_NOOP"
+      namespace: "AGENT"
+      severity: "P4_METRIC"
+      description: "Scripted baseline chose no action (log frozen, no eligible work, hold no alternate, queue full, or stability/temp without override). Used for explainability in scripted ops/runner."
+      triggers: ["SCRIPTED_BASELINE_DECISION"]
+      default_actions: ["LOG_ONLY"]
 
     # -----------------------------
     # Security risk injection (TaskH harness)

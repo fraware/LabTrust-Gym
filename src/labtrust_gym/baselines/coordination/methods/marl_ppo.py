@@ -10,6 +10,7 @@ marl_ppo from full pack unless a checkpoint is supplied).
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -80,9 +81,9 @@ class MarlPPOCoordination(CoordinationMethod):
         if agent_id not in self._agent_obs_histories:
             self._agent_obs_histories[agent_id] = [flat] * self._obs_history_len
         else:
-            self._agent_obs_histories[agent_id] = (
-                self._agent_obs_histories[agent_id] + [flat]
-            )[-self._obs_history_len:]
+            self._agent_obs_histories[agent_id] = (self._agent_obs_histories[agent_id] + [flat])[
+                -self._obs_history_len :
+            ]
         stacked = np.concatenate(self._agent_obs_histories[agent_id], axis=0)
         if self._include_agent_id and self._num_agents >= 1:
             idx = min(agent_index, self._num_agents - 1)
@@ -118,6 +119,20 @@ class MarlPPOCoordination(CoordinationMethod):
             except Exception:
                 out[agent_id] = {"action_index": 0}
         return out
+
+    def get_learning_metadata(self) -> dict[str, Any] | None:
+        """Return study-track learning metadata when a model is loaded (inference-only)."""
+        if self._policy is None or not self._model_path:
+            return None
+        path = Path(self._model_path)
+        if not path.is_file():
+            return {"enabled": True}
+        try:
+            with open(path, "rb") as f:
+                checkpoint_sha = hashlib.sha256(f.read()).hexdigest()
+        except Exception:
+            return {"enabled": True}
+        return {"enabled": True, "checkpoint_sha": checkpoint_sha}
 
 
 def make_marl_ppo_if_available(model_path: str | None = None, **kwargs: Any) -> CoordinationMethod | None:

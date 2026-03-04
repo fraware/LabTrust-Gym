@@ -97,6 +97,10 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
     ),
     ("policy/golden/golden_scenarios.v0.1.yaml", "golden_scenarios.v0.1.schema.json"),
     (
+        "policy/golden/security_attack_suite.v0.1.yaml",
+        "security_attack_suite.v0.1.schema.json",
+    ),
+    (
         "policy/enforcement/enforcement_map.v0.1.yaml",
         "enforcement_map.v0.1.schema.json",
     ),
@@ -387,10 +391,18 @@ def validate_tool_registry_capabilities_subset(root: Path) -> list[str]:
     return errors
 
 
-def validate_policy(root: Path, partner_id: str | None = None) -> list[str]:
+def validate_policy(
+    root: Path,
+    partner_id: str | None = None,
+    strict_tool_provenance: bool = False,
+    domain_id: str | None = None,
+) -> list[str]:
     """
     Run all policy validations. Returns list of error messages (with file paths);
     empty list means success. If partner_id is set, also validates overlay files and merged consistency.
+    When strict_tool_provenance is True, also runs validate_registry_sbom (require_sbom and ref existence).
+    When domain_id is set, loads policy for domain (load_policy_for_domain) and validates domain-specific
+    files under policy/domains/<domain_id>/ against known schemas where applicable.
     """
     errors: list[str] = []
     errors.extend(validate_runner_output_contract_schema(root))
@@ -398,6 +410,46 @@ def validate_policy(root: Path, partner_id: str | None = None) -> list[str]:
     errors.extend(validate_coordination_security_pack_gate_rules_supported(root))
     errors.extend(validate_llm_schema_files(root))
     errors.extend(validate_tool_registry_capabilities_subset(root))
+    from labtrust_gym.tools.registry import load_tool_registry, validate_registry_sbom
+
+    registry = load_tool_registry(root)
+    tr = registry.get("tool_registry") if isinstance(registry, dict) else {}
+    require_sbom_policy = bool(tr.get("require_sbom", False)) if isinstance(tr, dict) else False
+    if strict_tool_provenance or require_sbom_policy:
+        require_sbom = strict_tool_provenance or require_sbom_policy
+        sbom_errors = validate_registry_sbom(registry, policy_root=root, require_sbom=require_sbom)
+        for msg in sbom_errors:
+            errors.append(f"tool_registry (SBOM/provenance): {msg}")
+    if domain_id:
+        from labtrust_gym.policy.loader import (
+            POLICY_FILE_SCHEMA_MAP,
+            load_policy_for_domain,
+        )
+
+        domain_dir = Path(root) / "policy" / "domains" / domain_id
+        if not domain_dir.is_dir():
+            errors.append(f"policy/domains/{domain_id}/ not found")
+        else:
+            try:
+                load_policy_for_domain(root, domain_id=domain_id)
+            except Exception as e:
+                errors.append(f"policy/domains/{domain_id}: load failed: {e}")
+            schemas_dir = Path(root) / "policy" / "schemas"
+            for path in sorted(domain_dir.glob("*.yaml")) + sorted(domain_dir.glob("*.yml")):
+                if path.name not in POLICY_FILE_SCHEMA_MAP:
+                    continue
+                schema_name = POLICY_FILE_SCHEMA_MAP[path.name]
+                schema_path = schemas_dir / schema_name
+                if not schema_path.exists():
+                    continue
+                try:
+                    data = load_yaml(path)
+                    if not isinstance(data, dict):
+                        continue
+                    schema_data = load_json(schema_path)
+                    validate_against_schema(data, schema_data, path=path)
+                except Exception as e:
+                    errors.append(f"policy/domains/{domain_id}/{path.name}: {e}")
     if partner_id:
         errors.extend(validate_partner_overlay_files(root, partner_id))
         errors.extend(validate_merged_policy_consistency(root, partner_id))

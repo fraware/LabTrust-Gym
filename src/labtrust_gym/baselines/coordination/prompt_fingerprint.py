@@ -43,8 +43,7 @@ def _canonical_state_slice(state_digest: dict[str, Any]) -> dict[str, Any]:
         elif key == "per_agent":
             agents = val if isinstance(val, list) else []
             out[key] = [
-                {k: v for k, v in sorted((a if isinstance(a, dict) else {}).items())}
-                for a in agents[:MAX_AGENTS_SLICE]
+                {k: v for k, v in sorted((a if isinstance(a, dict) else {}).items())} for a in agents[:MAX_AGENTS_SLICE]
             ]
         elif key == "per_device":
             devices = val if isinstance(val, list) else []
@@ -160,12 +159,14 @@ def canonical_prompt_representation(
     policy_str = ""
     if policy_slice:
         policy_str = json.dumps(policy_slice, sort_keys=True, separators=(",", ":"))
-    return "\n".join([
-        prompt_template_id,
-        state_str,
-        allowed_actions_payload_canonical,
-        policy_str,
-    ])
+    return "\n".join(
+        [
+            prompt_template_id,
+            state_str,
+            allowed_actions_payload_canonical,
+            policy_str,
+        ]
+    )
 
 
 def compute_prompt_fingerprints(

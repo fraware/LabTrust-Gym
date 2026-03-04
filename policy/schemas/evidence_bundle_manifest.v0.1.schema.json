@@ -29,6 +29,10 @@
       "type": ["string", "null"],
       "description": "SHA-256 digest of tool registry (B010); policy_fingerprint may incorporate this."
     },
+    "coordination_audit_digest_sha256": {
+      "type": ["string", "null"],
+      "description": "SHA-256 of canonical digest (step_id, proposal_hash, shield_outcome_hash) from episode log for verification."
+    },
     "signature": {
       "type": ["object", "null"],
       "description": "Optional Ed25519 signature: algorithm, public_key_b64, signature_b64, key_id",

@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import (
-    ACTION_NOOP,
     ACTION_MOVE,
+    ACTION_NOOP,
     ACTION_OPEN_DOOR,
     ACTION_QUEUE_RUN,
     ACTION_START_RUN,
@@ -71,17 +72,21 @@ def shield_outcome_hash_from_step_results(
         action_type = result.get("action_type") or "NOOP"
         args = result.get("args") if isinstance(result.get("args"), dict) else {}
         if status == "BLOCKED" or blocked_rc:
-            blocked.append({
-                "agent_id": agent_id,
-                "action_type": action_type,
-                "blocked_reason_code": str(blocked_rc) if blocked_rc else "",
-            })
+            blocked.append(
+                {
+                    "agent_id": agent_id,
+                    "action_type": action_type,
+                    "blocked_reason_code": str(blocked_rc) if blocked_rc else "",
+                }
+            )
         else:
-            executed.append({
-                "agent_id": agent_id,
-                "action_type": action_type,
-                "args": args,
-            })
+            executed.append(
+                {
+                    "agent_id": agent_id,
+                    "action_type": action_type,
+                    "args": args,
+                }
+            )
     return _shield_outcome_hash(executed, blocked)
 
 
@@ -91,17 +96,11 @@ class ExecutionReport:
 
     executed_actions: list[dict[str, Any]] = field(default_factory=list)
     blocked_actions: list[dict[str, Any]] = field(default_factory=list)
-    invariant_violations_delta: list[dict[str, Any]] = field(
-        default_factory=list
-    )
-    enforcement_actions_triggered: list[dict[str, Any]] = field(
-        default_factory=list
-    )
+    invariant_violations_delta: list[dict[str, Any]] = field(default_factory=list)
+    enforcement_actions_triggered: list[dict[str, Any]] = field(default_factory=list)
     comms_delivered_count: int = 0
     comms_dropped_count: int = 0
-    per_agent_outcome: dict[str, dict[str, Any]] = field(
-        default_factory=dict
-    )
+    per_agent_outcome: dict[str, dict[str, Any]] = field(default_factory=dict)
     proposal_hash: str = ""
     shield_outcome_hash: str = ""
     step_results: list[dict[str, Any]] = field(default_factory=list)
@@ -233,11 +232,7 @@ def execute_proposal(
     obs, rewards, term, trunc, infos = env.step(actions, action_infos=action_infos)
 
     first_agent = agents[0] if agents else None
-    step_results = list(
-        (infos.get(first_agent) or {}).get("_benchmark_step_results", [])
-        if first_agent
-        else []
-    )
+    step_results = list((infos.get(first_agent) or {}).get("_benchmark_step_results", []) if first_agent else [])
 
     violations_delta: list[dict[str, Any]] = []
     enforcements: list[dict[str, Any]] = []
@@ -390,9 +385,7 @@ def run_proposal_with_repair(
     infos: dict[str, dict[str, Any]],
     t: int,
     *,
-    validate_fn: Callable[
-        [dict[str, Any]], tuple[bool, list[str]]
-    ] | None = None,
+    validate_fn: Callable[[dict[str, Any]], tuple[bool, list[str]]] | None = None,
     capability_profile: dict[str, Any] | None = None,
     max_repairs: int = 1,
     blocked_threshold: int = 0,
@@ -488,11 +481,7 @@ def run_proposal_with_repair(
         if len(report.blocked_actions) <= blocked_threshold:
             return (proposal, report, attempt)
 
-        blocked_codes = [
-            b.get("blocked_reason_code")
-            for b in report.blocked_actions
-            if b.get("blocked_reason_code")
-        ]
+        blocked_codes = [b.get("blocked_reason_code") for b in report.blocked_actions if b.get("blocked_reason_code")]
         repair_request = build_repair_request(
             blocked_codes,
             [],

@@ -23,8 +23,18 @@ def test_consensus_paxos_lite_agreement() -> None:
     method.reset(seed=42, policy=policy, scale_config={})
     # Leader at t=0 is agents[0]; all agents see same queue state so digest is same
     obs = {
-        "a1": {"zone_id": "Z_A", "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}], "queue_has_head": [1], "log_frozen": 0},
-        "a2": {"zone_id": "Z_A", "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}], "queue_has_head": [1], "log_frozen": 0},
+        "a1": {
+            "zone_id": "Z_A",
+            "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}],
+            "queue_has_head": [1],
+            "log_frozen": 0,
+        },
+        "a2": {
+            "zone_id": "Z_A",
+            "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}],
+            "queue_has_head": [1],
+            "log_frozen": 0,
+        },
     }
     actions = method.propose_actions(obs, {}, 0)
     assert set(actions.keys()) == {"a1", "a2"}

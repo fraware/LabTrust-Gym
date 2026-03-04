@@ -18,9 +18,9 @@ from typing import Any, cast
 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
     REASON_OPENAI_API_KEY_MISSING,
     _estimated_cost_usd,
-    require_openai_api_key,
 )
-from labtrust_gym.security.secret_scrubber import scrub_dict_for_log, scrub_secrets
+from labtrust_gym.baselines.llm.parse_utils import extract_first_json_object
+from labtrust_gym.security.secret_scrubber import scrub_secrets
 
 LOG = logging.getLogger(__name__)
 
@@ -72,15 +72,24 @@ def _parse_proposal_from_content(
 ) -> tuple[dict[str, Any] | None, str | None]:
     """
     Parse JSON content as coordination proposal. Return (proposal_dict, None) if valid,
-    else (None, error_message).
+    else (None, error_message). Tries direct parse first; on failure extracts first
+    JSON object from text (handles markdown or commentary around JSON).
     """
     content = (content or "").strip()
     if not content:
         return None, "Empty content"
+    proposal = None
     try:
         proposal = json.loads(content)
-    except json.JSONDecodeError as e:
-        return None, f"Invalid JSON: {e}"
+    except json.JSONDecodeError:
+        extracted = extract_first_json_object(content)
+        if extracted:
+            try:
+                proposal = json.loads(extracted)
+            except json.JSONDecodeError as e:
+                return None, f"Invalid JSON (extracted): {e}"
+        else:
+            return None, "No JSON object found in content"
     if not isinstance(proposal, dict):
         return None, "Response is not a JSON object"
     per_agent = proposal.get("per_agent")
@@ -111,13 +120,13 @@ class OpenAIAgenticProposalBackend:
         api_key: str | None = None,
         model: str | None = None,
         timeout_s: int = 30,
-        retries: int = 1,
+        retries: int = 2,
         repo_root: Path | None = None,
     ) -> None:
         self._api_key = (api_key or os.environ.get("OPENAI_API_KEY") or "").strip()
         self._model = (model or os.environ.get("LABTRUST_OPENAI_MODEL") or "gpt-4o-mini").strip()
         self._timeout_s = max(5, timeout_s)
-        self._retries = max(0, retries)
+        self._retries = max(0, min(retries, 5))  # cap at 5 for sanity
         self._repo_root = Path(repo_root) if repo_root else None
         self._seed = 0
         self._step_id: int | None = None
@@ -186,6 +195,7 @@ class OpenAIAgenticProposalBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass
@@ -204,9 +214,7 @@ class OpenAIAgenticProposalBackend:
         try:
             from openai import OpenAI
         except ImportError as e:
-            raise RuntimeError(
-                "openai not installed; pip install -e '.[llm_openai]'"
-            ) from e
+            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
 
         client = OpenAI(api_key=self._api_key)
         model = self._model.strip() or "gpt-4o-mini"
@@ -262,9 +270,7 @@ class OpenAIAgenticProposalBackend:
                 usage = getattr(resp, "usage", None)
                 prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
                 completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
-                cost = _estimated_cost_usd(
-                    model, prompt_tokens, completion_tokens, self._repo_root
-                )
+                cost = _estimated_cost_usd(model, prompt_tokens, completion_tokens, self._repo_root)
                 meta: dict[str, Any] = {
                     "backend_id": BACKEND_ID,
                     "model_id": model,
@@ -304,9 +310,7 @@ class OpenAIAgenticProposalBackend:
                                 "type": "function",
                                 "function": {
                                     "name": getattr(getattr(tc, "function", None), "name", ""),
-                                    "arguments": getattr(
-                                        getattr(tc, "function", None), "arguments", "{}"
-                                    ) or "{}",
+                                    "arguments": getattr(getattr(tc, "function", None), "arguments", "{}") or "{}",
                                 },
                             }
                             for tc in tool_calls
@@ -326,18 +330,14 @@ class OpenAIAgenticProposalBackend:
                     return (fallback, meta)
 
                 if content:
-                    proposal, err = _parse_proposal_from_content(
-                        content, agent_ids, step_id, method_id
-                    )
+                    proposal, err = _parse_proposal_from_content(content, agent_ids, step_id, method_id)
                     if proposal is not None:
                         self._last_assistant_msg = None
                         self._last_tool_call_ids = []
                         self._last_tool_calls_normalized = []
                         if "meta" not in proposal or not isinstance(proposal.get("meta"), dict):
                             proposal["meta"] = {}
-                        proposal["meta"].update(
-                            {k: v for k, v in meta.items() if k != "tool_calls"}
-                        )
+                        proposal["meta"].update({k: v for k, v in meta.items() if k != "tool_calls"})
                         if tracer is not None:
                             tracer.set_attribute("latency_ms", meta.get("latency_ms"))
                             tracer.set_attribute("prompt_tokens", meta.get("tokens_in", 0))

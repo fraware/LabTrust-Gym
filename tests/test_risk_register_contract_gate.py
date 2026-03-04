@@ -7,6 +7,7 @@ fail CI.
 
 from __future__ import annotations
 
+import csv
 import json
 from pathlib import Path
 
@@ -25,14 +26,12 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-SNAPSHOT_PATH = (
-    Path(__file__).resolve().parent
-    / "fixtures"
-    / "risk_register_bundle_ui_fixtures.v0.1.json"
-)
+SNAPSHOT_PATH = Path(__file__).resolve().parent / "fixtures" / "risk_register_bundle_ui_fixtures.v0.1.json"
 
 
 UI_FIXTURES_RUN_SPEC = "tests/fixtures/ui_fixtures"
+# Minimal fixture (only pack_summary.csv) used for coverage gate; evidence is marked synthetic.
+COORD_PACK_FIXTURE_RUN_SPEC = "tests/fixtures/coord_pack_fixture_minimal"
 
 
 def _bundle_ui_fixtures(root: Path) -> dict:
@@ -74,18 +73,16 @@ def test_snapshot_ui_fixtures_bundle() -> None:
     snapshot_data = json.loads(snapshot_text)
     expected = json.dumps(snapshot_data, indent=2, sort_keys=True)
     regen_hint = (
-        "If intentional, regenerate: python -c \"from pathlib import Path; "
+        'If intentional, regenerate: python -c "from pathlib import Path; '
         "from labtrust_gym.export.risk_register_bundle import "
         "build_risk_register_bundle, resolve_run_dirs; import json; "
         "r=Path('.'); d=resolve_run_dirs(r, ['tests/fixtures/ui_fixtures']); "
         "b=build_risk_register_bundle(r, run_dirs=d, "
         "include_generated_at=False, include_git_hash=False); "
         "Path('tests/fixtures/risk_register_bundle_ui_fixtures.v0.1.json')."
-        "write_text(json.dumps(b, indent=2, sort_keys=True))\""
+        'write_text(json.dumps(b, indent=2, sort_keys=True))"'
     )
-    assert generated == expected, (
-        "Generated bundle differs from snapshot. " + regen_hint
-    )
+    assert generated == expected, "Generated bundle differs from snapshot. " + regen_hint
 
 
 def test_ui_fixtures_evidence_bundle_verifies() -> None:
@@ -106,9 +103,7 @@ def test_crosswalk_risk_ids_in_evidence_exist_in_registry() -> None:
     bundle = _bundle_ui_fixtures(root)
     errors = check_crosswalk_integrity(bundle)
     risk_errors = [e for e in errors if "risk_id" in e and "not in risks" in e]
-    assert not risk_errors, (
-        f"Crosswalk: risk_ids in evidence must exist in risks: {risk_errors}"
-    )
+    assert not risk_errors, f"Crosswalk: risk_ids in evidence must exist in risks: {risk_errors}"
 
 
 def test_crosswalk_evidence_refs_exist() -> None:
@@ -116,12 +111,8 @@ def test_crosswalk_evidence_refs_exist() -> None:
     root = _repo_root()
     bundle = _bundle_ui_fixtures(root)
     errors = check_crosswalk_integrity(bundle)
-    ref_errors = [
-        e for e in errors if "evidence_id" in e and "not in evidence" in e
-    ]
-    assert not ref_errors, (
-        f"Crosswalk: evidence_refs must exist in evidence: {ref_errors}"
-    )
+    ref_errors = [e for e in errors if "evidence_id" in e and "not in evidence" in e]
+    assert not ref_errors, f"Crosswalk: evidence_refs must exist in evidence: {ref_errors}"
 
 
 def test_crosswalk_control_ids_in_claimed_controls_exist() -> None:
@@ -129,12 +120,8 @@ def test_crosswalk_control_ids_in_claimed_controls_exist() -> None:
     root = _repo_root()
     bundle = _bundle_ui_fixtures(root)
     errors = check_crosswalk_integrity(bundle)
-    ctrl_errors = [
-        e for e in errors if "control_id" in e and "not in controls" in e
-    ]
-    assert not ctrl_errors, (
-        f"Crosswalk: claimed_controls must exist in controls: {ctrl_errors}"
-    )
+    ctrl_errors = [e for e in errors if "control_id" in e and "not in controls" in e]
+    assert not ctrl_errors, f"Crosswalk: claimed_controls must exist in controls: {ctrl_errors}"
 
 
 def test_crosswalk_integrity_no_errors() -> None:
@@ -152,15 +139,9 @@ def test_coverage_gate_required_bench_evidenced_or_waived() -> None:
     passed, missing = check_risk_register_coverage(bundle, root, waived_risk_ids=None)
     if not missing:
         return
-    risk_ids_in_bundle = {
-        r["risk_id"] for r in (bundle.get("risks") or []) if r.get("risk_id")
-    }
-    passed_waived, still_missing = check_risk_register_coverage(
-        bundle, root, waived_risk_ids=risk_ids_in_bundle
-    )
-    assert passed_waived, (
-        f"Coverage gate should pass when all risk_ids waived: {still_missing}"
-    )
+    risk_ids_in_bundle = {r["risk_id"] for r in (bundle.get("risks") or []) if r.get("risk_id")}
+    passed_waived, still_missing = check_risk_register_coverage(bundle, root, waived_risk_ids=risk_ids_in_bundle)
+    assert passed_waived, f"Coverage gate should pass when all risk_ids waived: {still_missing}"
     assert len(still_missing) == 0
 
 
@@ -168,9 +149,7 @@ def test_coverage_gate_reports_missing_when_not_waived() -> None:
     """Coverage gate returns missing for required cells with no evidence."""
     root = _repo_root()
     bundle = _bundle_ui_fixtures(root)
-    passed, missing = check_risk_register_coverage(
-        bundle, root, waived_risk_ids=None
-    )
+    passed, missing = check_risk_register_coverage(bundle, root, waived_risk_ids=None)
     if not passed:
         assert len(missing) > 0
         for mid, rid in missing:
@@ -186,9 +165,7 @@ def test_coverage_gate_missing_evidence_valid_waiver_passes() -> None:
     if passed:
         return
     waived_cells = set(missing)
-    passed_waived, still_missing = check_risk_register_coverage(
-        bundle, root, waived_cells=waived_cells
-    )
+    passed_waived, still_missing = check_risk_register_coverage(bundle, root, waived_cells=waived_cells)
     assert passed_waived, f"With all missing cells waived should pass: {still_missing}"
     assert len(still_missing) == 0
 
@@ -200,21 +177,15 @@ def test_coverage_gate_missing_evidence_expired_waiver_fails() -> None:
     passed, missing = check_risk_register_coverage(bundle, root)
     if passed or not missing:
         return
-    passed_empty_waived, still_missing = check_risk_register_coverage(
-        bundle, root, waived_cells=set()
-    )
-    assert not passed_empty_waived or len(still_missing) > 0, (
-        "With no waivers, missing cells must remain missing"
-    )
+    passed_empty_waived, still_missing = check_risk_register_coverage(bundle, root, waived_cells=set())
+    assert not passed_empty_waived or len(still_missing) > 0, "With no waivers, missing cells must remain missing"
 
 
 def test_coverage_gate_missing_evidence_no_waiver_fails() -> None:
     """Missing evidence + no waiver -> FAIL (explicit no waived_cells)."""
     root = _repo_root()
     bundle = _bundle_ui_fixtures(root)
-    passed, missing = check_risk_register_coverage(
-        bundle, root, waived_risk_ids=None, waived_cells=None
-    )
+    passed, missing = check_risk_register_coverage(bundle, root, waived_risk_ids=None, waived_cells=None)
     if not passed:
         assert len(missing) >= 0
 
@@ -229,6 +200,45 @@ def test_load_waivers_returns_non_expired() -> None:
         assert len(item) == 2
         assert isinstance(item[0], str)
         assert isinstance(item[1], str)
+
+
+def test_coord_pack_fixture_csv_headers_match_pack_summary_columns() -> None:
+    """coord_pack_fixture_minimal pack_summary.csv headers must match PACK_SUMMARY_COLUMNS to avoid drift."""
+    from labtrust_gym.studies.coordination_security_pack import PACK_SUMMARY_COLUMNS
+
+    root = _repo_root()
+    path = root / "tests" / "fixtures" / "coord_pack_fixture_minimal" / "pack_summary.csv"
+    assert path.exists(), f"Fixture missing: {path}"
+    with path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        assert reader.fieldnames is not None
+        assert list(reader.fieldnames) == PACK_SUMMARY_COLUMNS, (
+            "coord_pack_fixture pack_summary.csv headers must match PACK_SUMMARY_COLUMNS"
+        )
+
+
+def test_two_fixture_bundle_passes_strict_coverage() -> None:
+    """Bundle from ui_fixtures + coord_pack_fixture_minimal passes validate-coverage --strict; coord_pack evidence is synthetic."""
+    root = _repo_root()
+    run_dirs = resolve_run_dirs(root, [UI_FIXTURES_RUN_SPEC, COORD_PACK_FIXTURE_RUN_SPEC])
+    bundle = build_risk_register_bundle(
+        root,
+        run_dirs=run_dirs,
+        include_generated_at=False,
+        include_git_hash=False,
+    )
+    waived_cells = load_waivers(root)
+    passed, missing = check_risk_register_coverage(bundle, root, waived_cells=waived_cells)
+    assert passed, f"Expected strict coverage to pass; missing: {missing}"
+    assert missing == []
+
+    coord_pack_evidence = [e for e in (bundle.get("evidence") or []) if e.get("type") == "coordination_pack"]
+    assert len(coord_pack_evidence) == 1, (
+        "Bundle from ui_fixtures + coord_pack_fixture_minimal must contain exactly one coordination_pack evidence"
+    )
+    assert coord_pack_evidence[0].get("synthetic") is True, (
+        "coord_pack_fixture_minimal has only pack_summary.csv; evidence must be marked synthetic"
+    )
 
 
 def test_bundle_loadable_and_has_risk_evidence_structure() -> None:
@@ -256,8 +266,10 @@ def test_risk_register_includes_matrix_evidence_when_present() -> None:
     if not (run_fixture / "coordination_matrix.v0.1.json").exists():
         if not (run_fixture / "summary_coord.csv").exists():
             import pytest
+
             pytest.skip("coordination_matrix_run_fixture not present")
         import pytest
+
         pytest.skip("coordination_matrix_run_fixture has no matrix file (run builder first)")
     run_dirs = [run_fixture]
     bundle = build_risk_register_bundle(
@@ -268,12 +280,9 @@ def test_risk_register_includes_matrix_evidence_when_present() -> None:
     )
     evidence = bundle.get("evidence") or []
     matrix_evidence = [
-        e for e in evidence
-        if (e.get("evidence_id") or "").startswith(COORDINATION_MATRIX_EVIDENCE_ID_PREFIX)
+        e for e in evidence if (e.get("evidence_id") or "").startswith(COORDINATION_MATRIX_EVIDENCE_ID_PREFIX)
     ]
-    assert len(matrix_evidence) >= 1, (
-        "Bundle must include coordination matrix evidence when run dir contains matrix"
-    )
+    assert len(matrix_evidence) >= 1, "Bundle must include coordination matrix evidence when run dir contains matrix"
     ev = matrix_evidence[0]
     assert ev.get("status") == "present"
     assert ev.get("type") == "coordination_study"

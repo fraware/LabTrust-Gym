@@ -54,67 +54,85 @@ class DefenseController:
             if self.EMIT_DETECTED in emits or self.EMIT_CONTAINED in emits:
                 if self.state == DefenseState.NORMAL:
                     self.state = DefenseState.CONTAINED
-                    self.transition_log.append({
-                        "step": step,
-                        "event": "attack_detected_or_contained",
-                        "emits": emits,
-                        "new_state": self.state.value,
-                    })
-                    actions.append({
-                        "type": "throttle",
-                        "step": step,
-                        "reason": "attack_detected_or_contained",
-                    })
+                    self.transition_log.append(
+                        {
+                            "step": step,
+                            "event": "attack_detected_or_contained",
+                            "emits": emits,
+                            "new_state": self.state.value,
+                        }
+                    )
+                    actions.append(
+                        {
+                            "type": "throttle",
+                            "step": step,
+                            "reason": "attack_detected_or_contained",
+                        }
+                    )
                 if self.EMIT_CONTAINED in emits:
                     self.state = DefenseState.FALLBACK_REQUESTED
-                    self.transition_log.append({
-                        "step": step,
-                        "event": "containment",
-                        "new_state": self.state.value,
-                    })
-                    actions.append({
-                        "type": "switch_to_baseline",
-                        "step": step,
-                        "reason": "containment",
-                    })
+                    self.transition_log.append(
+                        {
+                            "step": step,
+                            "event": "containment",
+                            "new_state": self.state.value,
+                        }
+                    )
+                    actions.append(
+                        {
+                            "type": "switch_to_baseline",
+                            "step": step,
+                            "reason": "containment",
+                        }
+                    )
             blocked = r.get("blocked_reason_code") or r.get("status") == "BLOCKED"
             if blocked and self.state == DefenseState.NORMAL:
                 self.state = DefenseState.CONTAINED
-                self.transition_log.append({
-                    "step": step,
-                    "event": "blocked",
-                    "reason_code": r.get("blocked_reason_code"),
-                    "new_state": self.state.value,
-                })
+                self.transition_log.append(
+                    {
+                        "step": step,
+                        "event": "blocked",
+                        "reason_code": r.get("blocked_reason_code"),
+                        "new_state": self.state.value,
+                    }
+                )
             violations = r.get("violations") or []
             for v in violations:
                 if v.get("status") == "VIOLATION":
                     if self.state == DefenseState.NORMAL:
                         self.state = DefenseState.CONTAINED
-                        self.transition_log.append({
+                        self.transition_log.append(
+                            {
+                                "step": step,
+                                "event": "invariant_violation",
+                                "invariant_id": v.get("invariant_id"),
+                                "new_state": self.state.value,
+                            }
+                        )
+                        actions.append(
+                            {
+                                "type": "freeze_zone",
+                                "step": step,
+                                "reason": "invariant_violation",
+                                "invariant_id": v.get("invariant_id"),
+                            }
+                        )
+                    self.state = DefenseState.FROZEN
+                    self.transition_log.append(
+                        {
                             "step": step,
-                            "event": "invariant_violation",
-                            "invariant_id": v.get("invariant_id"),
+                            "event": "frozen",
+                            "reason": "invariant_violation",
                             "new_state": self.state.value,
-                        })
-                        actions.append({
-                            "type": "freeze_zone",
+                        }
+                    )
+                    actions.append(
+                        {
+                            "type": "kill_switch",
                             "step": step,
                             "reason": "invariant_violation",
-                            "invariant_id": v.get("invariant_id"),
-                        })
-                    self.state = DefenseState.FROZEN
-                    self.transition_log.append({
-                        "step": step,
-                        "event": "frozen",
-                        "reason": "invariant_violation",
-                        "new_state": self.state.value,
-                    })
-                    actions.append({
-                        "type": "kill_switch",
-                        "step": step,
-                        "reason": "invariant_violation",
-                    })
+                        }
+                    )
                     break
         return actions
 
@@ -137,7 +155,9 @@ class DefenseController:
             return True
         if self.human_override_token is None:
             self.state = DefenseState.NORMAL
-            self.transition_log.append({"event": "resume", "reason": "no_token_required", "new_state": self.state.value})
+            self.transition_log.append(
+                {"event": "resume", "reason": "no_token_required", "new_state": self.state.value}
+            )
             return True
         if override_token != self.human_override_token:
             return False

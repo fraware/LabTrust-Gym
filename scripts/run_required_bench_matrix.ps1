@@ -51,6 +51,15 @@ Get-Content $RunsList -Encoding utf8 | ForEach-Object {
   }
 }
 
+# Verify evidence before using: EvidenceBundles under receipts/ and SECURITY/attack_results.json.sha256
+if ($RunDirs.Count -gt 0) {
+  Write-Host "=== verify run evidence (bundles + SECURITY checksum) ==="
+  $verifyArgs = @("scripts/verify_run_evidence.py", "--policy-root", $RepoRoot)
+  foreach ($d in $RunDirs) { $verifyArgs += $d }
+  & python $verifyArgs
+  if ($LASTEXITCODE -ne 0) { exit 1 }
+}
+
 $RunsArgs = @("export-risk-register", "--out", $OutDir)
 foreach ($d in $RunDirs) { $RunsArgs += "--runs"; $RunsArgs += $d }
 
@@ -62,6 +71,9 @@ if ($RunDirs.Count -eq 0) {
   New-Item -ItemType Directory -Force -Path $SecurityDir, $CoordDir | Out-Null
   Run-Labtrust "run-security-suite", "--out", $SecurityDir, "--seed", $SeedBase
   Run-Labtrust "run-coordination-security-pack", "--out", $CoordDir, "--seed", $SeedBase, "--methods-from", "fixed", "--injections-from", "critical"
+  Write-Host "=== verify run evidence (bundles + SECURITY checksum) ==="
+  python scripts/verify_run_evidence.py --policy-root $RepoRoot $SecurityDir $CoordDir
+  if ($LASTEXITCODE -ne 0) { exit 1 }
   Run-Labtrust "export-risk-register", "--out", $OutDir, "--runs", $SecurityDir, "--runs", $CoordDir
 } else {
   Run-Labtrust $RunsArgs

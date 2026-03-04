@@ -9,7 +9,6 @@ Phase 1 coordination matrix policy contract: YAML files validate against JSON sc
 from __future__ import annotations
 
 import copy
-import json
 from pathlib import Path
 
 import pytest

@@ -9,11 +9,19 @@ Purely deterministic given observations.
 from __future__ import annotations
 
 from collections import deque
+from pathlib import Path
 from typing import Any
 
 from labtrust_gym.engine.zones import (
     build_adjacency_set,
     get_default_device_zone_map,
+)
+from labtrust_gym.envs.action_contract import (
+    ACTION_MOVE,
+    ACTION_NOOP,
+    ACTION_OPEN_DOOR,
+    ACTION_START_RUN,
+    ACTION_TICK,
 )
 
 # Zone order must match env's zone list for my_zone_idx (1-based index)
@@ -29,14 +37,6 @@ DEFAULT_ZONE_IDS: list[str] = [
     "Z_QC_SUPERVISOR",
     "Z_RESTRICTED_BIOHAZARD",
 ]
-
-# Action indices aligned with pz_parallel (runner uses 0,1,3,4,5; ops uses 0,1,2)
-ACTION_NOOP = 0
-ACTION_TICK = 1
-ACTION_QUEUE_RUN = 2  # ops only
-ACTION_MOVE = 3
-ACTION_OPEN_DOOR = 4
-ACTION_START_RUN = 5
 
 # Default zone order for workflow: reception area -> centrifuge -> aliquot -> analyzer
 DEFAULT_WORKFLOW_ZONES: list[str] = [
@@ -128,17 +128,33 @@ class ScriptedRunnerAgent:
         restricted_door_id: str = RESTRICTED_DOOR_ID,
         door_tick_threshold_s: float = 150.0,
         tick_interval_steps: int = 3,
+        policy_path: Path | None = None,
+        policy_dict: dict[str, Any] | None = None,
     ) -> None:
         from labtrust_gym.engine.zones import _default_layout as _layout
 
+        policy: dict[str, Any] = {}
+        if policy_dict is not None:
+            policy = policy_dict
+        else:
+            try:
+                from labtrust_gym.policy.scripted import load_scripted_runner_policy
+
+                policy = load_scripted_runner_policy(
+                    policy_path_arg=policy_path,
+                    repo_root=None,
+                    validate=True,
+                )
+            except Exception:
+                pass
         layout = _layout()
-        self._zone_ids = zone_ids or list(DEFAULT_ZONE_IDS)
+        self._zone_ids = policy.get("zone_ids") or zone_ids or list(DEFAULT_ZONE_IDS)
         self._adjacency = adjacency_set or build_adjacency_set(layout.get("graph_edges", []))
         self._device_zone = device_zone_map or get_default_device_zone_map()
         self._device_ids = device_ids or list(self._device_zone.keys())
-        self._restricted_zone_id = restricted_zone_id
-        self._restricted_door_id = restricted_door_id
-        self._door_tick_threshold_s = door_tick_threshold_s
+        self._restricted_zone_id = policy.get("restricted_zone_id", restricted_zone_id)
+        self._restricted_door_id = policy.get("restricted_door_id", restricted_door_id)
+        self._door_tick_threshold_s = policy.get("door_tick_threshold_s", door_tick_threshold_s)
         self._tick_interval_steps = max(1, tick_interval_steps)
         self._step_counter = 0
         # TaskE transport state: DISPATCH -> TICK -> CHAIN_OF_CUSTODY_SIGN -> RECEIVE
@@ -190,12 +206,22 @@ class ScriptedRunnerAgent:
                         "origin_site": first.get("origin_site", "SITE_ACUTE"),
                         "dest_site": first.get("dest_site", "SITE_HUB"),
                     },
+                    "reason_code": None,
+                    "rationale": "scripted_runner: transport dispatch",
                 },
             )
         if self._transport_phase == 1 and in_transit:
             self._transport_consignment_id = in_transit[0].get("consignment_id")
             self._transport_phase = 2
-            return (0, {"action_type": "TRANSPORT_TICK", "args": {}})
+            return (
+                0,
+                {
+                    "action_type": "TRANSPORT_TICK",
+                    "args": {},
+                    "reason_code": None,
+                    "rationale": "scripted_runner: transport tick",
+                },
+            )
         if self._transport_phase == 2 and in_transit and self._transport_consignment_id:
             self._transport_phase = 3
             return (
@@ -203,6 +229,8 @@ class ScriptedRunnerAgent:
                 {
                     "action_type": "CHAIN_OF_CUSTODY_SIGN",
                     "args": {"consignment_id": self._transport_consignment_id},
+                    "reason_code": None,
+                    "rationale": "scripted_runner: chain of custody sign",
                 },
             )
         if self._transport_phase == 3 and in_transit and self._transport_consignment_id:
@@ -212,6 +240,8 @@ class ScriptedRunnerAgent:
                 {
                     "action_type": "RECEIVE_TRANSPORT",
                     "args": {"consignment_id": self._transport_consignment_id},
+                    "reason_code": None,
+                    "rationale": "scripted_runner: receive transport",
                 },
             )
         return None
@@ -237,7 +267,14 @@ class ScriptedRunnerAgent:
 
         log_frozen = _scalar(observation.get("log_frozen"), 0)
         if log_frozen:
-            return (ACTION_NOOP, action_info)
+            return (
+                ACTION_NOOP,
+                {
+                    **action_info,
+                    "reason_code": "AGENT_SCRIPTED_NOOP",
+                    "rationale": "scripted_runner: log frozen",
+                },
+            )
 
         restricted_frozen = _scalar(observation.get("restricted_zone_frozen"), 0)
         door_open = _scalar(observation.get("door_restricted_open"), 0)
@@ -245,14 +282,35 @@ class ScriptedRunnerAgent:
         token_restricted = _scalar(observation.get("token_count_restricted"), 0)
 
         if door_open and door_duration >= self._door_tick_threshold_s:
-            return (ACTION_TICK, action_info)
+            return (
+                ACTION_TICK,
+                {
+                    **action_info,
+                    "reason_code": None,
+                    "rationale": "scripted_runner: door tick threshold",
+                },
+            )
 
         if self._step_counter % self._tick_interval_steps == 0 and door_open:
-            return (ACTION_TICK, action_info)
+            return (
+                ACTION_TICK,
+                {
+                    **action_info,
+                    "reason_code": None,
+                    "rationale": "scripted_runner: periodic door tick",
+                },
+            )
 
         my_zone = self._my_zone(observation)
         if my_zone is None:
-            return (ACTION_NOOP, action_info)
+            return (
+                ACTION_NOOP,
+                {
+                    **action_info,
+                    "reason_code": "AGENT_SCRIPTED_NOOP",
+                    "rationale": "scripted_runner: unknown zone",
+                },
+            )
 
         for dev_idx, dev_id in enumerate(self._device_ids):
             if not _queue_has_head(observation, dev_idx):
@@ -261,34 +319,91 @@ class ScriptedRunnerAgent:
             if dev_zone and my_zone == dev_zone:
                 return (
                     ACTION_START_RUN,
-                    {"device_id": dev_id},
+                    {
+                        "device_id": dev_id,
+                        "reason_code": None,
+                        "rationale": "scripted_runner: start run at device",
+                    },
                 )
 
         goal_zone = self._goal_zone(observation)
         if goal_zone == my_zone:
-            return (ACTION_NOOP, action_info)
+            return (
+                ACTION_NOOP,
+                {
+                    **action_info,
+                    "reason_code": "AGENT_SCRIPTED_NOOP",
+                    "rationale": "scripted_runner: at goal zone",
+                },
+            )
 
         next_zone = _bfs_one_step(my_zone, goal_zone, self._adjacency)
         if next_zone is None:
-            return (ACTION_NOOP, action_info)
+            return (
+                ACTION_NOOP,
+                {
+                    **action_info,
+                    "reason_code": "AGENT_SCRIPTED_NOOP",
+                    "rationale": "scripted_runner: no path to goal",
+                },
+            )
 
         if next_zone == self._restricted_zone_id:
             if restricted_frozen or token_restricted <= 0:
-                return (ACTION_NOOP, action_info)
+                return (
+                    ACTION_NOOP,
+                    {
+                        **action_info,
+                        "reason_code": "AGENT_SCRIPTED_NOOP",
+                        "rationale": "scripted_runner: restricted zone frozen or no token",
+                    },
+                )
             door_from_zone = "Z_SRA_RECEPTION"
             if my_zone != door_from_zone:
                 next_zone = _bfs_one_step(my_zone, door_from_zone, self._adjacency)
                 if next_zone is not None:
-                    return (ACTION_MOVE, {"to_zone": next_zone})
-                return (ACTION_NOOP, action_info)
+                    return (
+                        ACTION_MOVE,
+                        {
+                            "to_zone": next_zone,
+                            "reason_code": None,
+                            "rationale": "scripted_runner: move toward restricted door",
+                        },
+                    )
+                return (
+                    ACTION_NOOP,
+                    {
+                        **action_info,
+                        "reason_code": "AGENT_SCRIPTED_NOOP",
+                        "rationale": "scripted_runner: no path to door",
+                    },
+                )
             if not door_open:
                 return (
                     ACTION_OPEN_DOOR,
-                    {"door_id": self._restricted_door_id},
+                    {
+                        "door_id": self._restricted_door_id,
+                        "reason_code": None,
+                        "rationale": "scripted_runner: open restricted door",
+                    },
                 )
-            return (ACTION_MOVE, {"to_zone": next_zone})
+            return (
+                ACTION_MOVE,
+                {
+                    "to_zone": next_zone,
+                    "reason_code": None,
+                    "rationale": "scripted_runner: move through restricted door",
+                },
+            )
 
-        return (ACTION_MOVE, {"to_zone": next_zone})
+        return (
+            ACTION_MOVE,
+            {
+                "to_zone": next_zone,
+                "reason_code": None,
+                "rationale": "scripted_runner: move toward goal",
+            },
+        )
 
     def _goal_zone(self, observation: dict[str, Any]) -> str:
         """Pick goal zone: first device with queue head, else default reception area."""

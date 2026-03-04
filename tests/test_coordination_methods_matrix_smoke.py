@@ -172,9 +172,12 @@ def test_coordination_matrix_smoke(
     if task_name == "coord_risk":
         sec = metrics.get("sec") or {}
         assert sec, "TaskH must produce security metrics (sec)"
-        assert "injection_id" in sec or "attack_success_rate" in sec or "detection_latency_steps" in sec or "containment_time_steps" in sec, (
-            "TaskH sec should include injection_id or attack/detection/containment fields"
-        )
+        assert (
+            "injection_id" in sec
+            or "attack_success_rate" in sec
+            or "detection_latency_steps" in sec
+            or "containment_time_steps" in sec
+        ), "TaskH sec should include injection_id or attack/detection/containment fields"
 
     if method_id in DETERMINISTIC_METHOD_IDS:
         out_path2 = tmp_path / f"results_{method_id}_{task_name}_rerun.json"

@@ -17,7 +17,8 @@ Envelope (SOTA audit):
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_NOOP,
@@ -25,8 +26,8 @@ from labtrust_gym.baselines.coordination.interface import (
 )
 from labtrust_gym.baselines.coordination.llm_contract import validate_proposal
 from labtrust_gym.baselines.coordination.local_controller import (
-    intent_to_actions,
     _job_id,
+    intent_to_actions,
 )
 from labtrust_gym.baselines.coordination.obs_utils import extract_zone_and_device_ids
 from labtrust_gym.baselines.coordination.state_digest import build_state_digest
@@ -128,9 +129,7 @@ class DeterministicAssignmentsBackend:
             if not dev_id or not queue_head:
                 continue
             zone_id = device_zone.get(dev_id, "")
-            prio = 2 if "STAT" in queue_head.upper() else (
-                1 if "URGENT" in queue_head.upper() else 0
-            )
+            prio = 2 if "STAT" in queue_head.upper() else (1 if "URGENT" in queue_head.upper() else 0)
             jid = _job_id(dev_id, queue_head)
             available_jobs.append((jid, dev_id, queue_head, zone_id, prio))
         available_jobs.sort(key=lambda x: (-x[4], x[1], x[2]))
@@ -266,7 +265,7 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         self._policy_summary = (policy or {}).get("policy_summary") or policy or {}
         self._allowed_by_agent = {}
         if self._get_allowed_actions_fn and policy.get("pz_to_engine"):
-            for aid in (policy.get("pz_to_engine") or {}):
+            for aid in policy.get("pz_to_engine") or {}:
                 allowed = list(self._get_allowed_actions_fn(aid) or [])
                 if SET_INTENT not in allowed:
                     allowed.append(SET_INTENT)
@@ -296,9 +295,7 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         agent_ids = sorted(obs.keys())
         policy = self._policy_summary
         obs_sample = next(iter(obs.values())) if obs else None
-        zone_ids, device_ids, device_zone = extract_zone_and_device_ids(
-            policy, obs_sample=obs_sample
-        )
+        zone_ids, device_ids, device_zone = extract_zone_and_device_ids(policy, obs_sample=obs_sample)
         if not zone_ids and obs:
             zone_ids = ["Z_SORTING_LANES"]
         digest = build_state_digest(obs, infos, t, policy)
@@ -334,7 +331,11 @@ class LLMHierarchicalAllocator(CoordinationMethod):
         confidence = proposal.get("intent_confidence")
         if confidence is None:
             per = proposal.get("per_agent") or []
-            confs = [p.get("intent_confidence") for p in per if isinstance(p, dict) and p.get("intent_confidence") is not None]
+            confs = [
+                p.get("intent_confidence")
+                for p in per
+                if isinstance(p, dict) and p.get("intent_confidence") is not None
+            ]
             confidence = min(confs) if confs else 1.0
         if isinstance(confidence, (int, float)) and float(confidence) < self._confidence_threshold:
             proposal = {**proposal, "per_agent": []}

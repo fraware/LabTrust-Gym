@@ -14,8 +14,17 @@ from pathlib import Path
 
 # Directories to skip when scanning
 EXCLUDE_DIRS = {
-    ".git", ".venv", "venv", "dist", "site", "__pycache__", "node_modules",
-    ".mypy_cache", ".ruff_cache", ".pytest_cache", "build",
+    ".git",
+    ".venv",
+    "venv",
+    "dist",
+    "site",
+    "__pycache__",
+    "node_modules",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    "build",
 }
 
 
@@ -28,10 +37,25 @@ def _is_excluded_path(rel_path: str) -> bool:
             return True
     return False
 
+
 # Text extensions to scan (skip others to avoid binary)
 TEXT_EXTENSIONS = {
-    ".py", ".md", ".yml", ".yaml", ".json", ".jsonl", ".txt", ".sh",
-    ".html", ".css", ".js", ".ts", ".rst", ".cfg", ".ini", ".toml",
+    ".py",
+    ".md",
+    ".yml",
+    ".yaml",
+    ".json",
+    ".jsonl",
+    ".txt",
+    ".sh",
+    ".html",
+    ".css",
+    ".js",
+    ".ts",
+    ".rst",
+    ".cfg",
+    ".ini",
+    ".toml",
 }
 
 # --- Global fail: these substrings must not appear in any file ---
@@ -50,8 +74,8 @@ GLOBAL_FAIL_PATTERNS = [
 ]
 
 # Paths that are checked for words "placeholder" / "stub" (prefix match, normalized).
-# Only docs/, policy/, src/, mkdocs.yml are enforced (per acceptance: no placeholder/stub in those).
-WORD_CHECK_PREFIXES = ("docs/", "policy/", "src/", "mkdocs.yml")
+# docs/, policy/, src/, tests/, mkdocs.yml: no placeholder; no lowercase stub (tests/ may use capital-S Stub).
+WORD_CHECK_PREFIXES = ("docs/", "policy/", "src/", "tests/", "mkdocs.yml")
 
 # In tests/, allow capital-S "Stub" (e.g. StubTask); still fail on lowercase "stub" and "placeholder"
 # secret_scrubber.py may contain "placeholder" (parameter name)
@@ -128,16 +152,20 @@ def _check_word_placeholder_stub(path: Path, root: Path, lines: list[str]) -> li
     if not _word_check_applies(rel_path):
         return []
 
+    under_tests = rel_path.startswith("tests/")
     violations: list[tuple[int, str]] = []
     for i, line in enumerate(lines, start=1):
         # Allow secret_scrubber.py to use "placeholder" (parameter)
         if _is_secret_scrubber(rel_path) and "placeholder" in line.lower():
             continue
-        # docs / policy / src / mkdocs: fail on placeholder or stub (any case)
         if "placeholder" in line.lower():
             violations.append((i, "placeholder"))
+        # In tests/, allow capital-S "Stub" (e.g. StubTask); fail only on lowercase "stub"
         if "stub" in line.lower():
-            violations.append((i, "stub"))
+            if under_tests and re.search(r"\bstub\b", line):
+                violations.append((i, "stub"))
+            elif not under_tests:
+                violations.append((i, "stub"))
     return violations
 
 

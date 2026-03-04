@@ -42,6 +42,7 @@ def _minimal_initial_state(
         "tokens": [],
         "audit_fault_injection": None,
         "tool_registry": tool_registry,
+        "tool_adapter": lambda tool_id, args: {},
     }
     if state_label is not None:
         out["state_label"] = state_label

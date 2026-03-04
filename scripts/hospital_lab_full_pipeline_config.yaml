@@ -1,0 +1,42 @@
+# Hospital lab full pipeline scope config v0.1.
+# Used by scripts/run_hospital_lab_full_pipeline.py to define matrix presets,
+# security mode options, and optional per-model sweep.
+# Do not edit the plan file; this config drives the orchestrator.
+
+version: "0.1"
+description: "Scope options for hospital lab end-to-end pipeline result collection."
+
+# Matrix preset for coordination security pack (method x scale x injection).
+# hospital_lab: 4 methods, 2 scales, critical injections (fast regression).
+# hospital_lab_full: all methods, same scales/injections (full benchmark).
+# full_matrix: all scales, all methods, all injections (large run).
+matrix_presets:
+  - hospital_lab
+  - hospital_lab_full
+  - full_matrix
+
+# Security suite mode: smoke (CI default), full (all attacks), both (run smoke then full).
+security_modes:
+  - smoke
+  - full
+  - both
+
+# Default providers for cross-provider pack (when --providers not given).
+# Per-model sweep uses policy/llm/model_pricing.v0.1.yaml models keyed by backend.
+default_providers:
+  - openai_live
+  - anthropic_live
+  - ollama_live
+
+# Optional explicit (backend, model_id) list for per-model sweep.
+# When empty, per-model sweep uses model_pricing.v0.1.yaml models with backend
+# inferred (openai_* -> openai_live, claude* -> anthropic_live).
+# Example:
+# models_sweep:
+#   - backend: openai_live
+#     model_id: gpt-4o-mini
+#   - backend: openai_live
+#     model_id: gpt-4o
+#   - backend: anthropic_live
+#     model_id: claude-3-5-sonnet
+models_sweep: []

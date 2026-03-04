@@ -1,0 +1,11 @@
+# Repair policy v0.1: max_repairs and blocked_threshold for LLM coordination methods.
+# Source of truth for repair-loop caps; scale_config is fallback when absent here.
+# Optional per_method overrides for specific method_id.
+#
+version: "0.1"
+max_repairs: 1
+blocked_threshold: 0
+# per_method:
+#   llm_central_planner:
+#     max_repairs: 2
+#     blocked_threshold: 0

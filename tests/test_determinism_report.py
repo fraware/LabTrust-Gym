@@ -81,9 +81,7 @@ def test_determinism_report_cli(tmp_path: Path) -> None:
     assert proc.returncode == 0, err
     assert (out_dir / "determinism_report.json").exists()
     assert (out_dir / "determinism_report.md").exists()
-    data = json.loads(
-        (out_dir / "determinism_report.json").read_text(encoding="utf-8")
-    )
+    data = json.loads((out_dir / "determinism_report.json").read_text(encoding="utf-8"))
     assert data["passed"] is True
 
 

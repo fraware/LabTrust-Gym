@@ -108,22 +108,14 @@ class KernelContext:
         layout = (self.policy or {}).get("zone_layout") or {}
         zones = layout.get("zones") or []
         if isinstance(zones, list):
-            return [
-                str(z.get("zone_id", ""))
-                for z in zones
-                if isinstance(z, dict) and z.get("zone_id")
-            ]
+            return [str(z.get("zone_id", "")) for z in zones if isinstance(z, dict) and z.get("zone_id")]
         return []
 
     def _extract_device_ids(self) -> list[str]:
         layout = (self.policy or {}).get("zone_layout") or {}
         placement = layout.get("device_placement") or []
         if isinstance(placement, list):
-            return [
-                str(p.get("device_id", ""))
-                for p in placement
-                if isinstance(p, dict) and p.get("device_id")
-            ]
+            return [str(p.get("device_id", "")) for p in placement if isinstance(p, dict) and p.get("device_id")]
         return []
 
     def _extract_device_zone(self) -> dict[str, str]:

@@ -149,3 +149,41 @@ def combined_policy_fingerprint(
         return policy_fingerprint
     payload = "\n".join(parts).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def validate_registry_sbom(
+    registry: dict[str, Any],
+    policy_root: Path | None = None,
+    require_sbom: bool = False,
+) -> list[str]:
+    """
+    Validate tool registry for optional SBOM/attestation provenance (v0.2).
+    When require_sbom is True, every tool must have sbom_ref set.
+    For tools with sbom_ref, attestation_ref, or cve_scan_ref, check that the path/URI exists
+    when policy_root is set (local paths resolved relative to policy_root).
+    Returns list of error messages; empty if valid.
+    """
+    errors: list[str] = []
+    tr = registry.get("tool_registry") if isinstance(registry, dict) else {}
+    tools = tr.get("tools") if isinstance(tr, dict) else []
+    if not isinstance(tools, list):
+        return ["tool_registry.tools must be an array"]
+    root = Path(policy_root) if policy_root else None
+    for t in tools:
+        if not isinstance(t, dict):
+            continue
+        tool_id = t.get("tool_id") or "<unknown>"
+        if require_sbom and not t.get("sbom_ref"):
+            errors.append(f"tool_id {tool_id!r}: require_sbom is true but sbom_ref is missing")
+        for key in ("sbom_ref", "attestation_ref", "cve_scan_ref"):
+            ref = t.get(key)
+            if not ref or not isinstance(ref, str):
+                continue
+            ref = ref.strip()
+            if not ref:
+                continue
+            if root and not ref.startswith(("http://", "https://", "urn:")):
+                local_path = (root / ref).resolve()
+                if not local_path.exists():
+                    errors.append(f"tool_id {tool_id!r}: {key} path {ref!r} does not exist")
+    return errors

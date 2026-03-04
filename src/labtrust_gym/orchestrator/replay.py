@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.export.receipts import (
-    load_episode_log,
     build_receipts_from_log,
+    load_episode_log,
 )
 from labtrust_gym.util.json_utils import canonical_json
 
@@ -73,12 +73,14 @@ def compare_episode_logs(
     steps_compared = min(len(ref_entries), len(run_entries))
 
     if len(ref_entries) != len(run_entries):
-        diffs.append({
-            "step_index": None,
-            "field": "step_count",
-            "expected": len(ref_entries),
-            "actual": len(run_entries),
-        })
+        diffs.append(
+            {
+                "step_index": None,
+                "field": "step_count",
+                "expected": len(ref_entries),
+                "actual": len(run_entries),
+            }
+        )
         first_divergence_step = steps_compared
 
     for i in range(steps_compared):
@@ -90,12 +92,14 @@ def compare_episode_logs(
             ev = ref_c[key]
             av = run_c[key]
             if ev != av:
-                diffs.append({
-                    "step_index": i,
-                    "field": key,
-                    "expected": ev,
-                    "actual": av,
-                })
+                diffs.append(
+                    {
+                        "step_index": i,
+                        "field": key,
+                        "expected": ev,
+                        "actual": av,
+                    }
+                )
                 if first_divergence_step is None:
                     first_divergence_step = i
 
@@ -109,16 +113,16 @@ def compare_episode_logs(
         if not receipt_match and first_divergence_step is None and not diffs:
             first_divergence_step = steps_compared
         if not receipt_match:
-            diffs.append({
-                "step_index": None,
-                "field": "receipt_digest",
-                "expected": ref_digest,
-                "actual": run_digest,
-            })
+            diffs.append(
+                {
+                    "step_index": None,
+                    "field": "receipt_digest",
+                    "expected": ref_digest,
+                    "actual": run_digest,
+                }
+            )
 
-    status = "failed" if (ref_entries and not run_entries) else (
-        "ok" if not diffs else "diverged"
-    )
+    status = "failed" if (ref_entries and not run_entries) else ("ok" if not diffs else "diverged")
 
     out: dict[str, Any] = {
         "status": status,

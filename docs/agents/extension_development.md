@@ -1,6 +1,6 @@
 # Extension development guide
 
-This guide describes how to extend LabTrust-Gym with your own domains, coordination methods, tasks, invariant handlers, security/safety suites, and metrics without forking the core repository.
+This guide describes how to extend LabTrust-Gym with your own domains, coordination methods, tasks, invariant handlers, security/safety suites, and metrics without forking the core repository. For the full list of supported programmatic entry points and contracts, see [Public API](../reference/public_api.md).
 
 ## Integration pattern (Option B)
 
@@ -21,6 +21,26 @@ labtrust --profile my_lab run-benchmark --task my_custom_task --episodes 2 --out
 
 The CLI loads your plugin and your task (or coordination method) is available. This pattern shows the stack is used as a platform, not only as a fixed application.
 
+## Plugin in 5 minutes
+
+A minimal working example lives in **`examples/extension_example/`**. It registers one task (`example_task`) via an entry_point. From the repo root:
+
+```bash
+pip install -e examples/extension_example
+labtrust --profile example run-benchmark --task example_task --episodes 1
+```
+
+The profile `example` is defined in `policy/lab_profiles/example.v0.1.yaml` and lists `extension_packages: ["example-plugin"]`. Copy `examples/extension_example/` to start your own plugin; the only supported contract for new tasks is `BenchmarkTask` and for coordination methods is `CoordinationMethod` (see Contracts below). The extension example is installed and run in CI to verify the plugin mechanism on every commit; see [CI](../operations/ci.md).
+
+A second minimal example, **`examples/coord_method_example/`**, registers one coordination method (`example_noop_coord`) via the `labtrust_gym.coordination_methods` entry point. It does not add a new task; use an existing task (e.g. `coord_scale`) with `--coord-method example_noop_coord`:
+
+```bash
+pip install -e examples/coord_method_example
+labtrust run-benchmark --task coord_scale --coord-method example_noop_coord --scale small_smoke --episodes 1 --out results.json
+```
+
+Copy `examples/coord_method_example/` to build a custom coordination-only extension.
+
 ## Overview
 
 The core exposes **registries** and optional **setuptools entry_points**. You can either:
@@ -37,11 +57,11 @@ The core exposes **registries** and optional **setuptools entry_points**. You ca
 
 | Extension | Register function | Entry-point group | Notes |
 |-----------|-------------------|-------------------|--------|
-| Domain | `labtrust_gym.domain.registry.register_domain(id, factory)` | `labtrust_gym.domains` | `factory(workflow_spec, config) -> LabTrustEnvAdapter`; use `get_domain_adapter_factory(domain_id)` to resolve, `list_domains()` for known IDs. Default domain is `hospital_lab`; a profile field `domain_id` or future `--domain` can override when the runner uses the registry. |
-| Coordination method | `labtrust_gym.baselines.coordination.registry.register_coordination_method(method_id, factory)` | `labtrust_gym.coordination_methods` | `factory(policy, repo_root, scale_config, params) -> CoordinationMethod` |
+| Domain | `labtrust_gym.domain.registry.register_domain(id, factory)` | `labtrust_gym.domains` | `factory(workflow_spec, config) -> LabTrustEnvAdapter`; use `get_domain_adapter_factory(domain_id)` to resolve, `list_domains()` for known IDs. Default domain is `hospital_lab`; a profile field `domain_id` or future `--domain` can override when the runner uses the registry. The coordination method interface is shared across domains; observation and action semantics are domain-specific. |
+| Coordination method | `labtrust_gym.baselines.coordination.registry.register_coordination_method(method_id, factory)` | `labtrust_gym.coordination_methods` | `factory(policy, repo_root, scale_config, params) -> CoordinationMethod`. Optional **scale_capable: true** in the method's policy entry enables per-agent LLM at N > N_max (combine path); see [coordination_methods.v0.1.yaml](../../policy/coordination/coordination_methods.v0.1.yaml) and [design_choices §6.3](../architecture/design_choices.md). |
 | Task | `labtrust_gym.benchmarks.tasks.register_task(name, task_class)` | `labtrust_gym.tasks` | `task_class` must be a subclass of `BenchmarkTask` |
 | Invariant handler | `labtrust_gym.engine.invariants_runtime.register_invariant_handler(logic_type, check_name, handler)` | `labtrust_gym.invariant_handlers` | Key format: `type.check_name` (e.g. `state.custom_check`). Handler signature: `(env, event, params) -> (passed, reason_code, details) \| None` |
-| Security suite | `labtrust_gym.benchmarks.security_runner.register_security_suite_provider(provider_id, provider)` | `labtrust_gym.security_suite_providers` | Provider: `load_suite(policy_root, partner_id) -> dict`, `run_suite(policy_root, repo_root, ...) -> list[dict]`. Resolve with `get_security_suite_provider(id)`; list IDs with `list_security_suite_providers()`. |
+| Security suite | `labtrust_gym.benchmarks.security_runner.register_security_suite_provider(provider_id, provider)` | `labtrust_gym.security_suite_providers` | Provider: `load_suite(policy_root, partner_id) -> dict`, `run_suite(policy_root, repo_root, ...) -> list[dict]`. Resolve with `get_security_suite_provider(id)`; list IDs with `list_security_suite_providers()`. **Evidence:** Replacing the security suite provider (e.g. via lab profile `security_suite_provider_id`) can weaken evidence, as a custom provider may run a different suite or relax checks. Such overrides should be audited. **CI and release should use the default provider** unless explicitly testing an extension. |
 | Safety case | `labtrust_gym.security.safety_case.register_safety_case_provider(provider_id, provider)` | `labtrust_gym.safety_case_providers` | Provider: `load_claims(policy_root) -> dict`, `build_safety_case(policy_root) -> dict`. Resolve with `get_safety_case_provider(id)`; list IDs with `list_safety_case_providers()`. |
 | Metrics aggregator | `labtrust_gym.benchmarks.metrics.register_metrics_aggregator(aggregator_id, aggregator)` | `labtrust_gym.metrics_aggregators` | Same signature as `compute_episode_metrics`. Resolve with `get_metrics_aggregator(id)`; list IDs with `list_metrics_aggregators()`. |
 | Benchmark pack loader | `labtrust_gym.benchmarks.official_pack.register_benchmark_pack_loader(loader_id, loader)` | `labtrust_gym.benchmark_pack_loaders` | Loader: `(repo_root, prefer_v02, partner_id) -> (pack_dict, version, path)`; use `load_benchmark_pack(..., loader_id=...)` to select. |
@@ -76,7 +96,8 @@ Plugins are loaded when the CLI starts (`labtrust`). For programmatic use, call 
 
 Extensions must conform to existing contracts:
 
-- **Domains**: implement `LabTrustEnvAdapter` (reset, step, query); step return shape must satisfy the runner output contract.
+- **Domains**: implement `LabTrustEnvAdapter` (reset, step, query); step return shape must satisfy the runner output contract. Optional **step_batch(events)** may be implemented for batch stepping (same semantics as calling step(e) for each event in order); the PZ env uses it when present. See [Frozen contracts](../contracts/frozen_contracts.md) (Env contract, PettingZoo env).
+- **Implementing a custom env**: implement the `BenchmarkEnv` protocol (or the subset used by your tasks: at least `agents`, `reset`, `step`, `get_device_ids`, `get_zone_ids`, `get_dt_s` when coordination or timing is used). Register your env via the domain/task path (e.g. task's `get_initial_state` and env_factory returning an env that conforms to BenchmarkEnv).
 - **Coordination methods**: implement `CoordinationMethod` (reset, propose_actions with action_index 0..5).
 
 ### Coordination method factory contract
@@ -109,7 +130,7 @@ metrics_aggregator_id: default
 extension_packages: ["mylab_labtrust"]
 ```
 
-Then run: `labtrust --profile my_lab run-benchmark --task throughput_sla --episodes 5`. The profile overrides `partner_id` and optional provider IDs.
+Then run: `labtrust --profile my_lab run-benchmark --task throughput_sla --episodes 5`. The profile overrides `partner_id` and optional provider IDs. Path overrides (e.g. `security_suite_path`, `safety_claims_path`) must resolve under the repository root; absolute paths outside the repo are rejected and the default path is used.
 
 ## Packaging a lab extension
 

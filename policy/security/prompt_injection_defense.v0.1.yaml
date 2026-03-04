@@ -10,4 +10,8 @@ max_untrusted_chars: 200
 sanitize_redaction_severity: 1
 output_consistency_check: true
 min_verbatim_len: 20
+# Normalize output and untrusted samples before verbatim comparison (evasion hardening). Default on so PI-EVASION-* output is flagged; set false for legacy behavior.
+output_consistency_normalize: true
+output_consistency_normalizers: ["strip_format_chars", "nfkc", "collapse_whitespace"]
+check_split_verbatim: true  # Flag if two contiguous segments of a sample appear adjacently in normalized output (PI-EVASION-SPLIT).
 adversarial_policy: "adversarial_detection.v0.1.yaml"

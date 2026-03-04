@@ -1,0 +1,26 @@
+# Security suite test_ref allowlist v0.1.
+# Only test_ref values listed here may be executed by the security runner (pytest subprocess).
+# Prevents RCE via malicious suite or partner overlay. New test_refs require adding an entry here.
+#
+version: "0.1"
+description: "Curated allowlist of permitted test_ref values for security_attack_suite."
+test_refs:
+  - "tests.test_tool_sandbox"
+  - "tests.test_tool_sandbox::test_tool_sandbox_stress_egress_and_caps"
+  - "tests.test_tool_sandbox::test_unregistered_tool_denied"
+  - "tests.test_tool_sandbox::test_tool_selection_wrong_tool_blocked_by_registry"
+  - "tests.test_tool_sandbox::test_tool_misuse_wrong_device_blocked"
+  - "tests.test_tool_sandbox::test_data_class_violation_phi_not_allowed"
+  - "tests.test_tool_execution_failure"
+  - "tests.test_llm_misparam_rejected"
+  - "tests.test_tool_arg_fuzz"
+  - "tests.test_flow_risks::test_flow_inefficiency_metrics_computed"
+  - "tests.test_flow_risks::test_flow_progress_no_release_zero_throughput"
+  - "tests.test_coordination_identity_bus"
+  - "tests.test_memory_hardening"
+  - "tests.test_coord_red_team_definitions"
+  - "tests.test_export_receipts"
+  - "tests.test_export_receipts::test_evidence_bundle_manifest_has_tool_registry_fingerprint"
+  - "tests.test_data_provenance_r_data_002::test_poisoned_observation_blocked_or_constrained"
+  - "tests.test_detector_advisor_taskh"
+  # Coordination security pack test run only via run-coordination-security-pack / package-release; not in security suite.

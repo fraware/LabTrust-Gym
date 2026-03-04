@@ -74,9 +74,7 @@ class LLMFaultModelAgentWrapper:
         """Per-call RNG: same seed + call_index + digest -> same decision."""  # noqa: E501
         seed_offset = int(self._config.get("seed_offset", 0))
         digest_part = int(message_digest[:8], 16) % (2**31)
-        call_seed = (
-            self._seed + seed_offset + call_index * 7919 + digest_part
-        )
+        call_seed = self._seed + seed_offset + call_index * 7919 + digest_part
         return random.Random(call_seed)
 
     def generate(self, messages: list[dict[str, str]]) -> str:
@@ -94,9 +92,7 @@ class LLMFaultModelAgentWrapper:
             if not isinstance(fault, dict):
                 continue
             if _should_inject_fault(fault, call_index, step_rng):
-                reason_code = fault.get(
-                    "reason_code", RC_LLM_INVALID_OUTPUT
-                )
+                reason_code = fault.get("reason_code", RC_LLM_INVALID_OUTPUT)
                 self._fault_injected_count += 1
                 self._fallback_count += 1
                 return _noop_fallback_json(reason_code)

@@ -32,6 +32,9 @@ from labtrust_gym.baselines.llm.provider import (
 __all__ = [
     "AuthError",
     "FixtureMissingError",
+    "LLMBackendError",
+    "ProviderUnavailable",
+    "RateLimitError",
     "LLMBackend",
     "LLMAgent",
     "LLMAgentWithShield",

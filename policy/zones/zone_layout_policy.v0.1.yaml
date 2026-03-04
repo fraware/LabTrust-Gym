@@ -190,7 +190,7 @@ zone_layout_policy:
         allowed_if:
           - "specimen.hazard_flag == true"
           - "has_token('TOKEN_RESTRICTED_ENTRY')"
-          - "agent.role in ['ROLE_BIOHAZARD','ROLE_SUPERVISOR']"
+          - "agent.role in ('ROLE_BIOHAZARD','ROLE_SUPERVISOR')"
     Aliquot:
       same_as: "Specimen"
     Waste:

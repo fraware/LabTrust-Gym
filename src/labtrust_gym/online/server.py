@@ -145,7 +145,11 @@ def _handle_step(body: dict[str, Any]) -> StepResponse:
     hashchain = result.get("hashchain") or {}
     emits = result.get("emits") or []
     violations = result.get("violations") or []
-    observation = result.get("state_snapshot") if isinstance(result.get("state_snapshot"), dict) else {"step": step_count, "event_id": event_id}
+    observation = (
+        result.get("state_snapshot")
+        if isinstance(result.get("state_snapshot"), dict)
+        else {"step": step_count, "event_id": event_id}
+    )
     receipts = {
         "hashchain": hashchain,
         "emits": emits,

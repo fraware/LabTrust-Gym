@@ -74,6 +74,10 @@ def test_plan_entries_reference_supported_task() -> None:
         assert kind in supported_tasks, f"evidence.kind {kind!r} not in {supported_tasks}"
         cmd = ev.get("cmd") or ""
         if kind == "coord_risk" and cmd:
-            assert "coord_risk" in cmd or "run-benchmark" in cmd, f"coord_risk cell cmd should run coord_risk: {cmd[:80]}"
+            assert "coord_risk" in cmd or "run-benchmark" in cmd, (
+                f"coord_risk cell cmd should run coord_risk: {cmd[:80]}"
+            )
         if kind == "security_suite" and cmd:
-            assert "security" in cmd or "run-security" in cmd, f"security_suite cell cmd should run security: {cmd[:80]}"
+            assert "security" in cmd or "run-security" in cmd, (
+                f"security_suite cell cmd should run security: {cmd[:80]}"
+            )

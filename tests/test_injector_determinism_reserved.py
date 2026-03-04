@@ -8,8 +8,6 @@ from __future__ import annotations
 import hashlib
 import json
 
-import pytest
-
 from labtrust_gym.security.risk_injections import make_injector
 
 

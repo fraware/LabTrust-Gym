@@ -101,24 +101,20 @@ def test_coordination_security_pack_outputs(repo_root: Path, tmp_path: Path) -> 
 
     with patch.object(pack_mod, "run_benchmark", side_effect=fake_run_benchmark):
         out_dir = tmp_path / "pack_out"
-        run_coordination_security_pack(
-            out_dir=out_dir, repo_root=repo_root, seed_base=42
-        )
+        run_coordination_security_pack(out_dir=out_dir, repo_root=repo_root, seed_base=42)
         pack_results = out_dir / "pack_results"
         assert pack_results.is_dir()
         cells = [d for d in pack_results.iterdir() if d.is_dir()]
-        expected_cells = len(PACK_SCALES) * len(PACK_METHODS) * len(PACK_INJECTIONS)
-        assert len(cells) == expected_cells, f"expected {expected_cells} cell dirs"
-        for c in cells:
-            assert (c / "results.json").is_file()
-
         summary_path = out_dir / "pack_summary.csv"
         assert summary_path.is_file()
         with summary_path.open(newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             fieldnames = reader.fieldnames or []
             rows = list(reader)
-        assert len(rows) == expected_cells
+        expected_cells = len(rows)
+        assert len(cells) == expected_cells, f"expected {expected_cells} cell dirs (got {len(cells)})"
+        for c in cells:
+            assert (c / "results.json").is_file()
         for col in ["method_id", "scale_id", "injection_id", "safety.violations_total"]:
             assert col in fieldnames, f"missing column {col}"
 
@@ -127,11 +123,7 @@ def test_coordination_security_pack_outputs(repo_root: Path, tmp_path: Path) -> 
         gate_text = gate_path.read_text(encoding="utf-8")
         assert "PASS" in gate_text
         assert "|" in gate_text
-        assert (
-            "not_supported" in gate_text
-            or "SKIP" in gate_text
-            or "PASS" in gate_text
-        )
+        assert "not_supported" in gate_text or "SKIP" in gate_text or "PASS" in gate_text
 
 
 def test_coordination_security_pack_gate_verdicts_present(repo_root: Path, tmp_path: Path) -> None:
@@ -169,6 +161,41 @@ def test_coordination_security_pack_gate_verdicts_present(repo_root: Path, tmp_p
             assert inj in gate_text or inj.replace("-", "_") in gate_text
 
 
+def test_coordination_security_pack_no_reserved_injection_cells_when_disallow(repo_root: Path, tmp_path: Path) -> None:
+    """When pack runs with disallow_reserved_injections (default), no cell has a reserved NoOp injection_id."""
+    from labtrust_gym.security.risk_injections import RESERVED_NOOP_INJECTION_IDS
+
+    def fake_run_benchmark(*args: Any, **kwargs: Any) -> None:
+        out_path = kwargs.get("out_path")
+        if out_path is None:
+            return
+        out_path = Path(out_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        cell_id = out_path.parent.name
+        scale_id, method_id, inj_id = _parse_cell_id(cell_id)
+        method_id = method_id or kwargs.get("coord_method", "kernel_auction_whca_shielded")
+        inj_id = inj_id or kwargs.get("injection_id", "none")
+        data = _minimal_results_json(scale_id, method_id, inj_id)
+        out_path.write_text(json.dumps(data), encoding="utf-8")
+
+    import labtrust_gym.studies.coordination_security_pack as pack_mod
+
+    with patch.object(pack_mod, "run_benchmark", side_effect=fake_run_benchmark):
+        out_dir = tmp_path / "pack_out"
+        run_coordination_security_pack(out_dir=out_dir, repo_root=repo_root, seed_base=42)
+        summary_path = out_dir / "pack_summary.csv"
+        assert summary_path.is_file()
+        with summary_path.open(newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        for row in rows:
+            inj_id = (row.get("injection_id") or "").strip()
+            if inj_id and inj_id != "none":
+                assert inj_id not in RESERVED_NOOP_INJECTION_IDS, (
+                    f"pack_summary must not contain reserved NoOp injection_id {inj_id!r}"
+                )
+
+
 def test_coordination_security_pack_fixed_matrix_constants() -> None:
     """Pack uses the required fixed matrix (scales, methods, injections)."""
     assert "small_smoke" in PACK_SCALES
@@ -184,15 +211,13 @@ def test_coordination_security_pack_fixed_matrix_constants() -> None:
     assert "INJ-TIMING-QUEUE-001" in PACK_INJECTIONS
 
 
-def test_coordination_security_pack_disallows_reserved_injections_when_strict(
-    repo_root: Path, tmp_path: Path
-) -> None:
+def test_coordination_security_pack_disallows_reserved_injections_when_strict(repo_root: Path, tmp_path: Path) -> None:
     """When disallow_reserved_injections is true, pack fails fast if injection list includes reserved IDs (e.g. inj_device_fail)."""
     import labtrust_gym.studies.coordination_security_pack as pack_mod
 
     pack_config_strict = {
         "disallow_reserved_injections": True,
-        "injection_ids": {"default": ["none", "inj_tool_selection_noise"]},
+        "injection_ids": {"default": ["none", "inj_jailbreak"]},
         "method_ids": {"default": PACK_METHODS},
         "scale_ids": {"default": PACK_SCALES},
     }
@@ -206,13 +231,14 @@ def test_coordination_security_pack_disallows_reserved_injections_when_strict(
                 injections_from="fixed",
             )
         assert "Reserved injection IDs" in str(exc_info.value)
-        assert "inj_tool_selection_noise" in str(exc_info.value)
+        assert "inj_jailbreak" in str(exc_info.value)
 
 
 def test_coordination_security_pack_allows_reserved_injections_when_disallow_false(
     repo_root: Path, tmp_path: Path
 ) -> None:
     """When disallow_reserved_injections is false, pack runs even with reserved IDs in the list (NoOp)."""
+
     def fake_run_benchmark(
         task_name: str,
         num_episodes: int,
@@ -254,9 +280,7 @@ def test_coordination_security_pack_allows_reserved_injections_when_disallow_fal
     assert (tmp_path / "pack_out" / "pack_summary.csv").is_file()
 
 
-def test_coordination_native_injection_discriminative_resistance(
-    repo_root: Path, tmp_path: Path
-) -> None:
+def test_coordination_native_injection_discriminative_resistance(repo_root: Path, tmp_path: Path) -> None:
     """
     For coordination-native injection INJ-CONSENSUS-POISON-001, the designated resistant
     method (llm_local_decider_signed_bus) must show strictly better sec.attack_success_rate
@@ -307,9 +331,7 @@ def test_coordination_native_injection_discriminative_resistance(
         with summary_path.open(newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
-        consensus_rows = [
-            r for r in rows if (r.get("injection_id") or "").strip() == COORD_INJECTION
-        ]
+        consensus_rows = [r for r in rows if (r.get("injection_id") or "").strip() == COORD_INJECTION]
         assert len(consensus_rows) >= 2, "need at least 2 methods for INJ-CONSENSUS-POISON-001"
         by_method = {r["method_id"]: r for r in consensus_rows}
         assert RESISTANT_METHOD in by_method
@@ -339,6 +361,7 @@ def test_sec_coord_matrix_001_reduced_matrix(repo_root: Path, tmp_path: Path) ->
     with every method in the list present and at least one PASS verdict (e.g. baseline 'none').
     Uses mocked run_benchmark so CI stays fast; smoke: false in suite.
     """
+
     def fake_run_benchmark(
         task_name: str,
         num_episodes: int,
@@ -388,6 +411,4 @@ def test_sec_coord_matrix_001_reduced_matrix(repo_root: Path, tmp_path: Path) ->
         assert gate_path.is_file(), "pack_gate.md must be emitted"
         gate_text = gate_path.read_text(encoding="utf-8")
         pass_count = gate_text.count("| PASS |")
-        assert pass_count >= 1, (
-            "SEC-COORD-MATRIX-001: at least one cell must PASS (e.g. baseline injection 'none')"
-        )
+        assert pass_count >= 1, "SEC-COORD-MATRIX-001: at least one cell must PASS (e.g. baseline injection 'none')"

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import random
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +76,74 @@ def _pareto_dominates(
     return at_least_one_better
 
 
+def _row_key(r: dict[str, Any]) -> tuple[str, str, str]:
+    """Stable key for a summary row (method_id, scale_id, injection_id)."""
+    return (
+        str(r.get("method_id", "")),
+        str(r.get("scale_id", "")),
+        str(r.get("injection_id", "")),
+    )
+
+
+def _pareto_dominates_robust(
+    a: dict[str, Any],
+    b: dict[str, Any],
+    objectives: list[tuple[str, str]],
+    row_to_ci: dict[tuple[str, str, str], dict[str, dict[str, float]]] | None = None,
+) -> bool:
+    """
+    Robust Pareto dominance: when row_to_ci is provided, a dominates b only if
+    for each objective a's CI does not overlap worse with b's (a.ci_upper <= b.ci_lower for min,
+    a.ci_lower >= b.ci_upper for max) and at least one objective strictly better.
+    When row_to_ci is None, falls back to point-value _pareto_dominates.
+    """
+    if row_to_ci is None:
+        return _pareto_dominates(a, b, objectives)
+    key_a = _row_key(a)
+    key_b = _row_key(b)
+    ci_a = row_to_ci.get(key_a)
+    ci_b = row_to_ci.get(key_b)
+    if ci_a is None or ci_b is None:
+        return _pareto_dominates(a, b, objectives)
+    at_least_one_strictly_better = False
+    for key, direction in objectives:
+        obj_ci_a = ci_a.get(key)
+        obj_ci_b = ci_b.get(key)
+        if obj_ci_a is None or obj_ci_b is None:
+            va = _objective_value(a, key)
+            vb = _objective_value(b, key)
+            if va is None or vb is None:
+                continue
+            if direction == "min":
+                if va > vb:
+                    return False
+                if va < vb:
+                    at_least_one_strictly_better = True
+            else:
+                if va < vb:
+                    return False
+                if va > vb:
+                    at_least_one_strictly_better = True
+            continue
+        low_a = obj_ci_a.get("ci_low")
+        high_a = obj_ci_a.get("ci_high")
+        low_b = obj_ci_b.get("ci_low")
+        high_b = obj_ci_b.get("ci_high")
+        if low_a is None or high_a is None or low_b is None or high_b is None:
+            continue
+        if direction == "min":
+            if high_a > low_b:
+                return False
+            if high_a < low_b:
+                at_least_one_strictly_better = True
+        else:
+            if low_a < high_b:
+                return False
+            if low_a > high_b:
+                at_least_one_strictly_better = True
+    return at_least_one_strictly_better
+
+
 def compute_nondominated_per_scale(
     summary_rows: list[dict[str, Any]],
     objectives: list[tuple[str, str]] | None = None,
@@ -95,6 +164,88 @@ def compute_nondominated_per_scale(
                 if other is r:
                     continue
                 if _pareto_dominates(other, r, objectives):
+                    dominated = True
+                    break
+            if not dominated:
+                front.append(r)
+        out[scale_id] = front
+    return out
+
+
+def _compute_row_to_ci(
+    summary_rows: list[dict[str, Any]],
+    objectives: list[tuple[str, str]],
+    seed: int,
+    metric_keys: list[str] | None = None,
+) -> dict[tuple[str, str, str], dict[str, dict[str, float]]]:
+    """
+    Build row_key -> objective_key -> {ci_low, mean, ci_high} from summary_rows.
+    Groups rows by (method_id, scale_id, injection_id); when multiple rows per cell,
+    bootstrap CIs; when single row, use point estimate as both bounds.
+    """
+    metric_keys = metric_keys or [key for key, _ in objectives]
+    row_to_ci: dict[tuple[str, str, str], dict[str, dict[str, float]]] = {}
+    cells: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for r in summary_rows:
+        cells[_row_key(r)].append(r)
+
+    for cell_key, rows in cells.items():
+        row_to_ci[cell_key] = {}
+        for key in metric_keys:
+            if key == "security_success":
+                values = []
+                for row in rows:
+                    rate = row.get("sec.attack_success_rate")
+                    if rate is not None:
+                        values.append(1.0 - float(rate))
+                    else:
+                        values.append(1.0)
+            else:
+                values = []
+                for row in rows:
+                    v = row.get(key)
+                    if v is not None:
+                        try:
+                            values.append(float(v))
+                        except (TypeError, ValueError):
+                            pass
+            if not values:
+                continue
+            if len(values) == 1:
+                row_to_ci[cell_key][key] = {
+                    "ci_low": values[0],
+                    "mean": values[0],
+                    "ci_high": values[0],
+                }
+            else:
+                cell_seed = seed + sum(ord(x) for c in cell_key for x in str(c)) % (2**31)
+                ci_low, mean, ci_high = bootstrap_ci(values, cell_seed)
+                row_to_ci[cell_key][key] = {"ci_low": ci_low, "mean": mean, "ci_high": ci_high}
+    return row_to_ci
+
+
+def compute_nondominated_per_scale_robust(
+    summary_rows: list[dict[str, Any]],
+    objectives: list[tuple[str, str]] | None = None,
+    seed: int = 42,
+) -> dict[str, list[dict[str, Any]]]:
+    """
+    Nondominated set per scale using robust dominance (bootstrap CIs when multiple rows per cell).
+    When each cell has only one row, robust front equals point-dominance front.
+    """
+    objectives = objectives or DEFAULT_OBJECTIVES
+    row_to_ci = _compute_row_to_ci(summary_rows, objectives, seed)
+    scale_ids = sorted({r.get("scale_id", "") for r in summary_rows})
+    out: dict[str, list[dict[str, Any]]] = {}
+    for scale_id in scale_ids:
+        subset = [r for r in summary_rows if r.get("scale_id") == scale_id]
+        front = []
+        for r in subset:
+            dominated = False
+            for other in subset:
+                if other is r:
+                    continue
+                if _pareto_dominates_robust(other, r, objectives, row_to_ci):
                     dominated = True
                     break
             if not dominated:
@@ -217,12 +368,19 @@ def build_pareto_artifact(
     for scale_id, rows in fronts.items():
         fronts_serializable[scale_id] = [_row_summary(r) for r in rows]
 
+    # Optional robust front (uncertainty-aware dominance)
+    fronts_robust = compute_nondominated_per_scale_robust(summary_rows, objectives, seed)
+    fronts_robust_serializable: dict[str, list[dict[str, Any]]] = {}
+    for scale_id, rows in fronts_robust.items():
+        fronts_robust_serializable[scale_id] = [_row_summary(r) for r in rows]
+
     return {
         "version": "0.3",
         "pareto_version": "0.1",
         "seed": seed,
         "objectives": objectives,
         "fronts_per_scale": fronts_serializable,
+        "fronts_per_scale_robust": fronts_robust_serializable,
         "per_method_ci": per_method_ci,
     }
 
@@ -247,9 +405,8 @@ def write_pareto_md(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     objectives = data.get("objectives") or []
     obj_rows = [f"| {key} | {dirn} |" for key, dirn in objectives]
-    obj_table = (
-        "| Objective | Direction |\n|------------|----------|\n"
-        + ("\n".join(obj_rows) if obj_rows else "| — | — |")
+    obj_table = "| Objective | Direction |\n|------------|----------|\n" + (
+        "\n".join(obj_rows) if obj_rows else "| — | — |"
     )
     lines = [
         "# Pareto evaluation (multi-objective)",
@@ -291,8 +448,7 @@ def write_pareto_md(
         lines.append("## Cost-aware Pareto front")
         lines.append("")
         lines.append(
-            "Objectives: same as above plus cost.total_tokens (min). "
-            "Separate section so the main front is unchanged."
+            "Objectives: same as above plus cost.total_tokens (min). Separate section so the main front is unchanged."
         )
         lines.append("")
         cost_fronts = cost_data.get("fronts_per_scale") or {}

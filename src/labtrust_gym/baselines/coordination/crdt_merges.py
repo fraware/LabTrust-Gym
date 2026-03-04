@@ -55,7 +55,7 @@ def byzantine_aggregate(
     if n <= 2 * k:
         return float(sum(values)) / n
     sorted_v = sorted(values)
-    trimmed = sorted_v[k:n - k]
+    trimmed = sorted_v[k : n - k]
     if method == "median":
         mid = len(trimmed) // 2
         return (trimmed[mid] + trimmed[-1 - mid]) / 2.0

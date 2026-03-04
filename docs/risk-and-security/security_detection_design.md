@@ -22,6 +22,8 @@ Adversarial and prompt-injection detection in LabTrust-Gym supports two paths: *
 | Auditable evidence for paper/release | Rely on pattern-based; document pattern set and severity mapping. Classifier can be used in addition but pattern path remains the primary, auditable signal. |
 | Novel or encoded attacks | Enable classifier when you have a judge endpoint or local model that can flag semantic/encoded payloads; pattern-based remains the baseline and merge keeps both signals. |
 
+**Auditability vs coverage:** Prefer pattern-only when every detection decision must be explainable from the policy YAML (auditability). Enable the classifier when you need additional coverage for semantic or encoded payloads that patterns may miss; the merge preserves pattern results and adds classifier flags, but classifier decisions are not fully auditable from policy alone.
+
 ## Auditability with classifier enabled
 
 - Pattern-based results are always computed first; pattern flags and severities are preserved in the merged result.

@@ -40,6 +40,4 @@ def _make_optional_backend(
     **kwargs: Any,
 ) -> Any:
     """CBS/ECBS/LNS/RHCR when [mapf] installed. Raises ImportError otherwise."""
-    raise ImportError(
-        f"Router backend {backend!r} requires [mapf]; use pip install -e '.[mapf]'"
-    )
+    raise ImportError(f"Router backend {backend!r} requires [mapf]; use pip install -e '.[mapf]'")

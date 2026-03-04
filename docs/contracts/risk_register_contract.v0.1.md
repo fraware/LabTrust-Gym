@@ -56,7 +56,7 @@ Sourced from:
 
 ### Evidence
 
-Each element of `evidence[]` has:
+Evidence indicates that a specific test was run with a specific outcome; it does not by itself prove control effectiveness. Each element of `evidence[]` has:
 
 | Field | Type | Description |
 |-------|------|-------------|

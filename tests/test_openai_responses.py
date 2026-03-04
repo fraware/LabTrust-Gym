@@ -7,7 +7,6 @@ OpenAI Responses API backend: schema mapping, RC_LLM_INVALID_OUTPUT, healthcheck
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -161,12 +160,13 @@ def test_healthcheck_requires_network() -> None:
 
 
 def test_healthcheck_no_key_returns_ok_false() -> None:
-    """With no API key, healthcheck returns ok=False and error message."""
+    """With no API key (or openai not installed), healthcheck returns ok=False and error message."""
     set_pipeline_config(pipeline_mode="llm_live", allow_network=True)
     backend = OpenAILiveResponsesBackend(api_key="")
     result = backend.healthcheck()
     assert result["ok"] is False
-    assert "OPENAI_API_KEY" in (result.get("error") or "")
+    err = result.get("error") or ""
+    assert "OPENAI_API_KEY" in err or "openai not installed" in err
 
 
 def test_submit_action_tool_definition() -> None:
@@ -232,9 +232,7 @@ def test_json_schema_and_tool_call_produce_identical_decision() -> None:
     raw = json.dumps(decision)
     usage = {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18}
 
-    backend_json = OpenAILiveResponsesBackend(
-        api_key="sk-test", output_mode="json_schema"
-    )
+    backend_json = OpenAILiveResponsesBackend(api_key="sk-test", output_mode="json_schema")
     with patch.object(backend_json, "_call_api", return_value=(raw, usage)):
         out_json = backend_json.propose_action(
             {
@@ -243,9 +241,7 @@ def test_json_schema_and_tool_call_produce_identical_decision() -> None:
             }
         )
 
-    backend_tool = OpenAILiveResponsesBackend(
-        api_key="sk-test", output_mode="tool_call"
-    )
+    backend_tool = OpenAILiveResponsesBackend(api_key="sk-test", output_mode="tool_call")
     with patch.object(backend_tool, "_call_api_tool_call", return_value=(raw, usage)):
         out_tool = backend_tool.propose_action(
             {

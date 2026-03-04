@@ -66,17 +66,12 @@ def build_manifest_from_release(
         summary_path = tables / "summary.csv"
     if summary_path.exists():
         digest = _sha256_file(summary_path)
-        manifest_entries.append(
-            _entry_present("summary", "TABLES/summary", digest, artifact=summary_path.name)
-        )
+        manifest_entries.append(_entry_present("summary", "TABLES/summary", digest, artifact=summary_path.name))
         if snapshot_out is not None:
-            (snapshot_out / "summary.csv").write_text(
-                summary_path.read_text(encoding="utf-8"), encoding="utf-8"
-            )
+            (snapshot_out / "summary.csv").write_text(summary_path.read_text(encoding="utf-8"), encoding="utf-8")
     else:
         manifest_entries.append(
-            _entry_absent("summary", "TABLES/summary")
-            | {"artifact": "summary_v0.3.csv|summary.csv"}
+            _entry_absent("summary", "TABLES/summary") | {"artifact": "summary_v0.3.csv|summary.csv"}
         )
 
     # SOTA leaderboard: rglob (first match)
@@ -87,17 +82,13 @@ def build_manifest_from_release(
         digest = _sha256_file(sota_path)
         manifest_entries.append(_entry_present("sota_leaderboard", rel, digest))
     else:
-        manifest_entries.append(
-            _entry_absent("sota_leaderboard", "summary/sota_leaderboard.csv")
-        )
+        manifest_entries.append(_entry_absent("sota_leaderboard", "summary/sota_leaderboard.csv"))
 
     # Simple path-based artifacts
     for key, path_parts, path_label in _SIMPLE_ARTIFACTS:
         path = release_dir.joinpath(*path_parts)
         if path.exists():
-            manifest_entries.append(
-                _entry_present(key, path_label, _sha256_file(path))
-            )
+            manifest_entries.append(_entry_present(key, path_label, _sha256_file(path)))
         else:
             manifest_entries.append(_entry_absent(key, path_label))
 
@@ -128,7 +119,5 @@ def build_manifest_from_release(
 
     manifest = {"version": "v0.1", "entries": manifest_entries}
     if snapshot_out is not None:
-        (snapshot_out / "snapshot_manifest.json").write_text(
-            _canonical_json(manifest), encoding="utf-8"
-        )
+        (snapshot_out / "snapshot_manifest.json").write_text(_canonical_json(manifest), encoding="utf-8")
     return manifest

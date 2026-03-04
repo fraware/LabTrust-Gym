@@ -28,28 +28,16 @@ def load_resilience_scoring_policy(
     if path is not None:
         p = Path(path)
     elif policy_root is not None:
-        p = (
-            Path(policy_root)
-            / "policy"
-            / "coordination"
-            / "resilience_scoring.v0.1.yaml"
-        )
+        p = Path(policy_root) / "policy" / "coordination" / "resilience_scoring.v0.1.yaml"
     else:
         from labtrust_gym.config import get_repo_root
 
-        p = (
-            Path(get_repo_root())
-            / "policy"
-            / "coordination"
-            / "resilience_scoring.v0.1.yaml"
-        )
+        p = Path(get_repo_root()) / "policy" / "coordination" / "resilience_scoring.v0.1.yaml"
     if not p.is_absolute():
         p = Path.cwd() / p
     data = load_yaml(p)
     if "weights" not in data or "components" not in data:
-        raise ValueError(
-            f"Invalid resilience scoring policy: missing weights or components in {p}"
-        )
+        raise ValueError(f"Invalid resilience scoring policy: missing weights or components in {p}")
     return dict(data)
 
 

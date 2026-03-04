@@ -20,6 +20,7 @@ def _repo_root() -> Path:
 def _load_yaml(path: Path) -> dict:
     try:
         import yaml
+
         with path.open("r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except Exception:
@@ -65,7 +66,7 @@ def _envelope_yaml_method_ids_simple(repo: Path) -> set[str]:
         if current_id and "compute_envelope" in line:
             ids.add(current_id)
         # Reset when we hit the next top-level list item (new method block)
-        if re.match(r'^\s*-\s*method_id:', line) and i > 0 and current_id:
+        if re.match(r"^\s*-\s*method_id:", line) and i > 0 and current_id:
             # Keep current_id for this line; we just set it above
             pass
     return ids
@@ -86,6 +87,15 @@ def _envelope_docstring_method_ids_grep(repo: Path) -> set[str]:
                     ids.add("llm_detector_throttle_advisor")
                 elif stem == "hierarchical_method":
                     ids.add("hierarchical_hub_local")
+                elif stem == "method" and "group_evolving" in str(py):
+                    ids.add("group_evolving_experience_sharing")
+                    ids.add("group_evolving_study")
+                elif stem == "compose":
+                    ids.add("kernel_whca")
+                    ids.add("kernel_centralized_edf")
+                elif stem == "scheduler_or" and "kernels" in str(py):
+                    ids.add("kernel_scheduler_or")
+                    ids.add("kernel_scheduler_or_whca")
                 else:
                     ids.add(stem)
         except Exception:

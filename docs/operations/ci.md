@@ -10,18 +10,18 @@ CI runs on every push/PR to `main` and keeps the default pipeline **fast**. All 
 | **typecheck**   | Mypy on `src/`                 | `mypy src/`                |
 | **test**        | Pytest (fast suite, excludes slow) | Matrix: **ubuntu-latest**, **windows-latest** × Python **3.11**, **3.12**; `pytest -q -m "not slow"`; slow tests (golden suite, package-release) are marked `@pytest.mark.slow` and use pytest-timeout (see pyproject.toml) |
 | **golden**      | Determinism-report then full golden suite (real engine) | Determinism-report (throughput_sla, 3 episodes, seed 42); then `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q` (timeout 35 min) |
-| **risk-coverage-every-pr** | Risk coverage (strict) on every PR | `labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures` then `labtrust validate-coverage --bundle ./risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json --strict` |
+| **risk-coverage-every-pr** | Risk coverage (strict) on every PR | Runs two R-SYS-001 cells (centralized_planner + INJ-DOS-PLANNER-001, swarm_reactive + INJ-DOS-PLANNER-001) for real evidence, then export from fixtures (ui_fixtures + coord_pack_fixture_minimal) plus those run dirs, then `labtrust validate-coverage --strict`. R-SYS-001 evidence in the bundle is real; other cells may use fixture. No waivers. |
 | **coverage**    | Code coverage (every PR) | `pytest -q -m "not slow" --cov=src/labtrust_gym --cov-report=xml --cov-report=term`; uploads coverage.xml artifact |
 | **policy-validate** | Policy YAML/JSON vs schemas | `labtrust validate-policy` |
-| **release-fixture-verify** | Release chain regression anchor (verify-release --strict-fingerprints on committed fixture) | `pytest tests/test_release_fixture_verify_release.py -v`. Fixture at `tests/fixtures/release_fixture_minimal`; build with `scripts/build_release_fixture.sh` (or `.ps1`). Any change that breaks release invariants fails here even if golden passes. See [Release checklist](release_checklist.md). |
-| **risk-register-gate** | Risk register contract (schema, snapshot, crosswalk, coverage) | `labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures` then `pytest tests/test_risk_register_contract_gate.py -v` |
+| **release-fixture-verify** | Release chain regression anchor (verify-release --strict-fingerprints on committed fixture) | `pytest tests/test_release_fixture_verify_release.py -v`. Fixture at `tests/fixtures/release_fixture_minimal`; build with `scripts/build_release_fixture.sh` (or `.ps1`). Any change that breaks release invariants fails here even if golden passes. See [Trust verification](../risk-and-security/trust_verification.md). |
+| **risk-register-gate** | Risk register contract (schema, snapshot, crosswalk, coverage) | Export from ui_fixtures only (for artifact inspection; tests build bundle in memory), then `pytest tests/test_risk_register_contract_gate.py -v` |
 | **quick-eval**  | 1 episode throughput_sla, adversarial_disruption, multi_site_stat   | `pip install -e ".[env,plots]"` then `labtrust quick-eval --seed 42 --out-dir ./labtrust_runs` |
-| **baseline-regression** | Compare to canonical frozen v0.2 (exact metrics) | `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`; non-skipping when `benchmarks/baselines_official/v0.2/results/*.json` exist |
+| **baseline-regression** | Compare to canonical frozen v0.2 (exact metrics) | `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`; non-skipping when `benchmarks/baselines_official/v0.2/results/*.json` exist. For byte-identical reproducibility, use the same Python version and platform as the test matrix (Ubuntu/Windows × Python 3.11/3.12); see [Determinism contract](../benchmarks/determinism_contract.md). |
 | **docs**        | Build MkDocs site and deploy to GitHub Pages (site + viewer + viewer-data/latest) | `pip install -e ".[docs]"`, `mkdocs build --strict`, `build_viewer_data_from_release.sh`, copy viewer/ and viewer-data/ into site/, upload Pages artifact |
 | **wheel-smoke** | Build wheel, install in venv, **audit-selfcheck** (doctor), validate-policy, quick-eval | `.github/workflows/wheel-smoke.yml`; fails if audit-selfcheck exits non-zero (missing env deps caught early) |
 | **paper-claims-regression** | Paper snapshot regression (schedule / workflow_dispatch only) | `LABTRUST_PAPER_SMOKE=1 pytest tests/test_paper_claims_regression.py -v`; compares built paper artifact to committed snapshot at tests/fixtures/paper_claims_snapshot/v0.1; timeout 15 min |
 
-The **test** job runs on a **matrix** of **ubuntu-latest** and **windows-latest** with Python 3.11 and 3.12 so regressions on either OS or version are caught. The default **test** job excludes slow tests via `-m "not slow"` so CI stays fast. Long-running tests (e.g. package_release, full golden suite, benchmark multi_site_stat/insider_key_misuse, determinism-report) are marked with `@pytest.mark.slow` and run in the **golden** job or on demand. pytest-timeout is configured in `pyproject.toml` (default 120s per test); see `addopts` and `markers` in pyproject.toml. The **golden suite** runs in a separate **golden** job on every push/PR and must stay green. It validates scenario correctness against the engine contract. Slow tests (golden, package-release, heavy CLI) are excluded from the default **test** job via `-m "not slow"` so CI stays bounded.
+The **test** job runs on a **matrix** of **ubuntu-latest** and **windows-latest** with Python 3.11 and 3.12 so regressions on either OS or version are caught. After installing `.[dev,env]`, it also installs the extension example (`examples/extension_example`) and runs `labtrust --profile example run-benchmark --task example_task --episodes 1` to verify the plugin mechanism on every commit. The default **test** job excludes slow tests via `-m "not slow"` so CI stays fast. Long-running tests (e.g. package_release, full golden suite, benchmark multi_site_stat/insider_key_misuse, determinism-report) are marked with `@pytest.mark.slow` and run in the **golden** job or on demand. pytest-timeout is configured in `pyproject.toml` (default 120s per test); see `addopts` and `markers` in pyproject.toml. The **golden suite** runs in a separate **golden** job on every push/PR and must stay green. It validates scenario correctness against the engine contract. Slow tests (golden, package-release, heavy CLI) are excluded from the default **test** job via `-m "not slow"` so CI stays bounded.
 
 ### Test skip conditions and required fixtures
 
@@ -37,6 +37,8 @@ Some tests skip when fixtures or environment are missing. To avoid unnecessary s
 | **cryptography** not installed | Gossip/signed-bus tests (e.g. `llm_gossip_summarizer`, `llm_local_decider_signed_bus`) | Install `.[env]`; tests that build key_store or use SignedMessageBus skip when cryptography is missing. |
 | **kernel_whca / optional coordination deps** | Conformance and method tests for kernel_whca, llm_repair_over_kernel_whca, etc. | Install `.[env]`; some tests skip when optional coordination backends are not available. |
 | **CBS backend** | `test_mapf_property.py::test_mapf_cbs_equivalence` | Permanently skipped until [mapf] CBS backend is available; WHCA tests run. |
+
+**Optional extras:** To reduce skips, install the extras you need: `.[env]` for PettingZoo/coordination/security suite; `.[marl]` for PPO; `.[docs]` for docs build; `.[full]` for env+marl+docs+plots in one go. See [Installation](../getting-started/installation.md) for the full table.
 
 CI jobs that depend on a fixture (e.g. **risk-register-gate** on ui_fixtures evidence bundle) fail with a clear error when the fixture is missing; use the "What to do" column to fix. See [Evaluation checklist](../benchmarks/evaluation_checklist.md) and this document for full CI and local commands.
 
@@ -104,6 +106,15 @@ When **LABTRUST_COORDINATION_SMOKE=1**, an extra job **coordination-smoke** runs
 
 **When it runs:** Nightly schedule or manual "Run workflow" with **Run coordination smoke** enabled. No secrets required. Normal push/PR do not set `LABTRUST_COORDINATION_SMOKE`, so the job is skipped.
 
+### Official pack vs all coordination methods
+
+The **official benchmark pack** (e.g. `labtrust run-official-pack`) uses a **minimal set of three coordination methods** from the pack policy: `centralized_planner`, `hierarchical_hub_rr`, `llm_constrained`. This keeps the default pack fast for CI and release. To run **all coordination methods** in one go (from the registry), use:
+
+- **Script:** `python scripts/run_all_coordination_methods_smoke.py [--preset full|llm_only|official] [--out runs/all_coordination_methods_smoke]`. Default preset is `llm_only` (LLM-based methods only). Use `--llm-backend deterministic` for CI; use `--llm-backend openai_live` and `--allow-network` for live cost/latency reporting.
+- **Coordination study:** Run a coordination study with a spec that lists all desired method IDs (see `run-coordination-study` and coordination study spec format).
+
+**Full pipeline (agentic + coordination):** The **test** job runs `test_full_pipeline_metadata.py`, which exercises the agent-driven path with `coord_risk` and `llm_central_planner_agentic` using the deterministic backend (no network). So "agentic + coordination" is covered in CI. A **live LLM** full pipeline (agent_driven + all methods + cost/latency) is not run in CI. To produce one report with cost and latency per (method, scale, task): run `python scripts/run_all_coordination_methods_smoke.py --agent-driven --llm-backend openai_live --allow-network --out runs/full_pipeline_report` (or use `scripts/run_full_pipeline_smoke.py` with `--backend openai_live` and `--allow-network`). Report files: `full_pipeline_report/all_coordination_summary.json` and `.csv`.
+
 ## Pack smoke on PR (path-filtered)
 
 Workflow **`.github/workflows/pack-smoke-pr.yml`** runs a **lightweight** coordination security pack on pull requests when files under `src/labtrust_gym/studies/`, `src/labtrust_gym/benchmarks/`, or `policy/coordination/` (or related tests) change. It runs `labtrust run-coordination-security-pack --out ./pack_smoke --methods-from fixed --injections-from critical --seed 42` and asserts `pack_smoke/pack_summary.csv` exists. If the pack fails or the summary is missing, the workflow fails and the build is red. PRs that do not touch those paths skip this workflow.
@@ -115,6 +126,8 @@ When **LABTRUST_EXTERNAL_REVIEWER_CHECKS=1**, an extra job **external-reviewer-c
 - Installs `.[dev,env]`.
 - Runs `scripts/run_external_reviewer_checks.sh ./external_reviewer_out tests/fixtures/coordination_study_llm_smoke_spec.yaml`: coordination study (deterministic), validates `summary/summary_coord.csv` and required columns, **coverage gate** (every required_bench (method_id, risk_id) from the method-risk matrix has at least one row in the summary), optionally verify-bundle, ensures or generates `COORDINATION_LLM_CARD.md`.
 - **Coverage gate**: By default missing (method_id, risk_id) cells are reported and the script continues (exit 0). Set **LABTRUST_STRICT_COVERAGE=1** to exit 1 when any required_bench cell is missing.
+
+**External reviewer evidence:** This job produces the coordination study output and COORDINATION_LLM_CARD used as evidence for external review. Artifacts live in the job output directory (e.g. `./external_reviewer_out` when run as above: `summary/summary_coord.csv`, `COORDINATION_LLM_CARD.md`, and study cells). **Workflow_dispatch** with **Run external reviewer checks** runs the same script and is the recommended way to produce these artifacts on demand.
 
 **When it runs:** Nightly schedule or manual "Run workflow" with **Run external reviewer checks** enabled. No network, no secrets. To run the same locally with the full spec: `bash scripts/run_external_reviewer_checks.sh <out_dir> policy/coordination/coordination_study_spec.v0.1.yaml`.
 
@@ -137,15 +150,21 @@ Before enabling online or non-deterministic runs in production:
 
 See [Evaluation checklist](../benchmarks/evaluation_checklist.md) for verification and audit steps.
 
-## Risk coverage (strict) — schedule / manual and path-filtered PR
+## Risk coverage (strict) — every PR, schedule / manual, and path-filtered PR
 
-Job **risk-coverage-strict** in the main CI workflow runs **only on schedule or workflow_dispatch** (not on every push/PR). It builds the risk register bundle from `tests/fixtures/ui_fixtures` and runs **`labtrust validate-coverage --strict`**. The job fails if any required_bench cell in the method–risk matrix has no evidence in the bundle. To pass: add evidence (e.g. run the coordination security pack or study, then `labtrust export-risk-register --runs <pack_or_study_out> --out <dir>` and use that bundle; or add coordination matrix / run artifacts to the ui_fixtures so the fixture bundle covers all required cells). See [Risk register](../risk-and-security/risk_register.md).
+Job **risk-coverage-every-pr** runs on every push/PR (when paths under policy/risks, policy/coordination, or risk-register code change): it runs the two **R-SYS-001** benchmark cells (coord_risk centralized_planner + INJ-DOS-PLANNER-001, coord_risk swarm_reactive + INJ-DOS-PLANNER-001) into `runs/r_sys_001_cells/`, verifies run evidence, then builds the risk register bundle from **`scripts/risk_coverage_fixture_dirs.py`** (ui_fixtures + coord_pack_fixture_minimal) plus those run dirs. The bundle therefore has **real** evidence for R-SYS-001 (type `coord_risk_run` from results.json); other required_bench cells may still use the minimal fixture (synthetic). Then **`labtrust validate-coverage --strict`** runs. **No waivers** are used.
 
-**Path-filtered PR:** Workflow **`.github/workflows/risk-coverage-pr.yml`** runs **validate-coverage --strict** on pull requests (and push to main) when files under `policy/coordination/`, `policy/risks/`, `tests/fixtures/ui_fixtures/`, or `src/labtrust_gym/export/risk_register_bundle.py` (or related export/risk_register code) change. This reduces the risk that required_bench coverage regresses without detection on relevant PRs. To enforce required_bench coverage on every push, add a job that runs `labtrust validate-coverage --strict` after export-risk-register from ui_fixtures (heavier; current design uses path-filtered PR and schedule).
+Job **risk-coverage-strict** runs **only on schedule or workflow_dispatch**. It uses the same fixture dirs and validate-coverage --strict. The job fails if any required_bench cell has no evidence in the bundle.
+
+**Path-filtered PR:** Workflow **`.github/workflows/risk-coverage-pr.yml`** runs the same export and validate-coverage --strict when files under `policy/coordination/`, `policy/risks/`, `tests/fixtures/ui_fixtures/`, `tests/fixtures/coord_pack_fixture_minimal/`, `.github/workflows/risk-coverage-pr.yml`, `.github/workflows/ci.yml`, or risk-register/export code change. See [Risk register](../risk-and-security/risk_register.md).
+
+**Evidence level in the bundle:** The risk register bundle produced by export-risk-register (and thus by risk-coverage-pr or e2e-artifacts-chain) may include an optional **`evidence_level`** field. **`deterministic_only`** is the default for PRs (run dirs contain only deterministic evidence). **`with_live_llm`** appears when at least one run dir includes LLM attacker output (SECURITY/attack_results.json with `metadata.llm_attacker_run === true`) or llm_live pack output (TRANSPARENCY_LOG/llm_live.json or live_evaluation_metadata.json). Reviewers can use this to see whether validate-coverage passed with deterministic evidence only or with live LLM evidence.
 
 ## Optional: LLM live E2E in CI
 
-The **llm_live_optional_smoke** workflow (`.github/workflows/llm_live_optional_smoke.yml`) runs when `OPENAI_API_KEY` is set (workflow_dispatch or schedule). It runs healthcheck and official-pack smoke with `--pipeline-mode llm_live`, then **asserts E2E**: non-empty `model_id` in live_evaluation_metadata.json and non-empty `model_version_identifiers.llm_model_id` plus at least one of mean_latency_ms / estimated_cost_usd / total_tokens in TRANSPARENCY_LOG/llm_live.json. This job is **not** required for merge (opt-in when secret is set). Required secrets: `OPENAI_API_KEY`. See [Optional: LLM live E2E in CI](#optional-llm-live-e2e-in-ci) above.
+**MARL smoke:** Workflow **`.github/workflows/marl_smoke.yml`** runs the MARL smoke suite (PPO train, multi-agent training, CTDE train, marl_ppo propose_actions, global state tests) only on **workflow_dispatch**. It sets `LABTRUST_MARL_SMOKE=1`, installs `.[dev,env,marl]`, and runs the relevant tests from `tests/test_marl_smoke.py` and `tests/test_ppo_wrapper.py`. This job is not required for merge. To run locally: `LABTRUST_MARL_SMOKE=1 pytest tests/test_marl_smoke.py tests/test_ppo_wrapper.py -v -k "ppo_train_tiny or ppo_train_config or ppo_eval or propose_actions or get_global_state or multi_agent or ctde"`.
+
+The **llm_live_optional_smoke** workflow (`.github/workflows/llm_live_optional_smoke.yml`) runs when `OPENAI_API_KEY` is set (workflow_dispatch or schedule). It runs healthcheck and official-pack smoke with `--pipeline-mode llm_live`, then **asserts E2E**: non-empty `model_id` in live_evaluation_metadata.json and non-empty `model_version_identifiers.llm_model_id` plus at least one of mean_latency_ms / estimated_cost_usd / total_tokens in TRANSPARENCY_LOG/llm_live.json. It also runs the security suite with **--llm-attacker** and uploads SECURITY artifacts. This job is **not** required for merge (opt-in when secret is set). Required secrets: `OPENAI_API_KEY`. To include risk register evidence from llm_live runs, run `labtrust export-risk-register --out <dir> --runs <llm_live_out_dir>` after the workflow; see [Live LLM security testing](../risk-and-security/llm_live_security_testing.md) for the full procedure.
 
 ## Determinism and golden suite
 
@@ -195,7 +214,7 @@ Workflow **`.github/workflows/coordination-nightly.yml`** runs a heavier coordin
    coord_scale and coord_risk at S scale (small_smoke), 1 episode each, for methods `kernel_whca`, `ripple_effect`, `consensus_paxos_lite`, `swarm_stigmergy_priority`; coord_risk with INJ-COMMS-POISON-001. Writes `labtrust_runs/coordination_nightly/sota_sanity/<id>_taskg.json` and `<id>_taskh_poison.json`.
 
 4. **Layer 3 at-scale (one profile)**  
-   coord_scale with `kernel_whca`, scale `corridor_heavy`, 1 episode (seed 300). Writes `labtrust_runs/coordination_nightly/at_scale/kernel_whca_taskg_corridor_heavy.json`. See [Benchmarking plan](../benchmarks/benchmarking_plan.md) Layer 2/3: full Layer 2 matrix is via coordination study spec; Layer 3 profile is covered here in nightly.
+   coord_scale with `kernel_whca`, scale `corridor_heavy`, 1 episode (seed 300). Writes `labtrust_runs/coordination_nightly/at_scale/kernel_whca_taskg_corridor_heavy.json`. Layer 2/3: full Layer 2 matrix is via coordination study spec; Layer 3 profile is covered here in nightly.
 
 No network, no secrets. To run the same locally:
 
@@ -227,7 +246,7 @@ labtrust run-coordination-security-pack --out ./labtrust_runs/coord_security_ful
 labtrust summarize-coordination --in ./labtrust_runs/coord_security_full --out ./labtrust_runs/coord_security_full/summary
 ```
 
-See [Benchmarking plan](../benchmarks/benchmarking_plan.md#security-stress-matrix-coordination-security-pack) and [Security attack suite](../risk-and-security/security_attack_suite.md#coordination-security-pack-internal-regression).
+See [Security attack suite](../risk-and-security/security_attack_suite.md#coordination-security-pack-internal-regression).
 
 ## Baseline regression guard
 
@@ -270,10 +289,10 @@ Then run `labtrust summarize-results --in benchmarks/baselines_official/v0.2/res
   - `make e2e-artifacts-chain` — full e2e reproducible chain (package-release → determinism-report → verify-release → export-risk-register; no network). See [E2E artifacts chain](#e2e-artifacts-chain) below.
 
 - **Release fixture (regression anchor):**  
-  `pytest tests/test_release_fixture_verify_release.py -v` runs verify-release --strict-fingerprints on `tests/fixtures/release_fixture_minimal`. Build the fixture with `scripts/build_release_fixture.sh` (or `.ps1`); commit the fixture so the gate stays green. See [Release checklist](release_checklist.md).
+  `pytest tests/test_release_fixture_verify_release.py -v` runs verify-release --strict-fingerprints on `tests/fixtures/release_fixture_minimal`. Build the fixture with `scripts/build_release_fixture.sh` (or `.ps1`); commit the fixture so the gate stays green. See [Trust verification](../risk-and-security/trust_verification.md).
 
 - **Required-bench coverage pack (deterministic evidence):**  
-  `scripts/run_required_bench_matrix.sh --out runs/required_bench_pack` (or `.ps1` with `-OutDir`) runs security suite smoke + coordination security pack, then export-risk-register and validate-coverage --strict. Coverage becomes a build product. See [Risk register](../risk-and-security/risk_register.md#required-bench-coverage-pack-deterministic).
+  `scripts/run_required_bench_matrix.sh --out runs/required_bench_pack` (or `.ps1` with `-OutDir`) runs security suite smoke + coordination security pack, **calls verify_run_evidence on run dirs before export**, then export-risk-register and validate-coverage --strict. Coverage becomes a build product. The plan includes **R-SYS-001** cells for centralized_planner and swarm_reactive (INJ-DOS-PLANNER-001); the matrix produces **real** pack evidence for those cells. The workflow `.github/workflows/required_bench_matrix.yml` runs on schedule (and workflow_dispatch) and uploads the bundle artifact; use that bundle to supplement or replace fixture-based evidence for R-SYS-001 when desired. See [Risk register](../risk-and-security/risk_register.md#required-bench-coverage-pack-deterministic).
 
 - **Full benchmark smoke tests (pytest):**  
   `pytest tests/test_benchmark_smoke.py -v`
@@ -303,7 +322,7 @@ Workflow **`.github/workflows/llm_live_optional_smoke.yml`** runs live-LLM healt
 - **Real LLM API tests** (openai_responses, openai_live, anthropic_live, ollama_live) are **not** run on every push/PR. They require secrets or local services and are opt-in.
 - **Scheduled (nightly) and workflow_dispatch:** When `OPENAI_API_KEY` (and optionally `ANTHROPIC_API_KEY`, local Ollama) are configured, the optional LLM live smoke workflow runs healthcheck and a short pack run and uploads artifacts. No failure when keys are unset.
 - **Unit and integration tests that mock backends** (e.g. `test_network_guard_ci`, `test_ollama_live` with mocked urlopen, `test_llm_guardrails`) run in normal CI and **must pass**. They do not call real APIs.
-- **On release tag:** The release workflow does not run cross-provider or live-LLM smoke by default; a future step could run cross-provider smoke when keys are available.
+- **On release tag:** The release workflow (`.github/workflows/release.yml`) optionally runs a **live-llm-smoke** job when `OPENAI_API_KEY` is set in repo secrets: healthcheck + official pack llm_live smoke, then uploads TRANSPARENCY_LOG/llm_live.json and live_evaluation_metadata.json as workflow artifacts. The job uses `continue-on-error: true`, so the release still succeeds if the job is skipped (no key) or fails. Artifacts are available on the workflow run for the tag.
 
 ## Viewer data from release (path-filtered)
 
@@ -329,6 +348,10 @@ A separate workflow **`.github/workflows/package-release-nightly.yml`** runs **p
 - Copies `policy/` into `src/labtrust_gym/policy` so the wheel ships policy.
 - Builds sdist and wheel with `python -m build`.
 - Uploads `dist/` as artifact. A **publish** job (structure only) can use twine; add `TWINE_PASSWORD` (and optionally `TWINE_USERNAME`) in repo secrets to enable PyPI upload.
+
+## Release and live LLM
+
+The release workflow and package-release nightly job do **not** run cross-provider or live-LLM smoke by default (API keys are not in CI). For release-quality assurance with live LLM or cross-provider checks: run the **llm_live optional smoke** workflow (`.github/workflows/llm_live_optional_smoke.yml`) or the cross-provider script locally or in a trusted environment where API keys are available, then attach the resulting artifacts (e.g. `llm_live_smoke_out/`, `TRANSPARENCY_LOG/llm_live.json`) to the release. The nightly release job remains deterministic and does not depend on secrets.
 
 ## Summary
 

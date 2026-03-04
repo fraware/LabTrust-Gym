@@ -51,7 +51,12 @@ def test_injection_produces_sec_metrics(injection_id: str) -> None:
         inj.observe_step(step_results[0])
     metrics = inj.get_metrics()
     assert "attack_success" in metrics
-    assert "first_application_step" in metrics or "first_detection_step" in metrics or "first_containment_step" in metrics or True
+    assert (
+        "first_application_step" in metrics
+        or "first_detection_step" in metrics
+        or "first_containment_step" in metrics
+        or True
+    )
     out = compute_episode_metrics(
         step_results_per_step=step_results * 2,
         injection_metrics=metrics,

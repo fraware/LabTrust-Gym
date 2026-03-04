@@ -37,6 +37,10 @@ When **llm_live** is selected and network is allowed, the CLI also prints a **re
 
 **Why you saw no OpenAI calls:** Runs are offline by default. If you expected the live LLM to be called and saw no API traffic, you were likely in **deterministic** or **llm_offline** mode (or **llm_live** without `--allow-network`). Use `--pipeline-mode llm_live --allow-network` and the red warning will confirm that network is enabled.
 
+## Where the LLM sits in the benchmark
+
+When you run a benchmark with an LLM (per-agent or coordination), the **benchmark runner** owns the PettingZoo env (LabTrustParallelEnv). Each step it gets observations from the env, passes them to the LLM agent or coordination method, and steps the env with the returned actions. The LLM never talks to the env directly; it is a policy that maps observations to actions. For a full breakdown of PettingZoo, LLMs, and agentic coordination, see [Simulation, LLMs, and agentic systems](../architecture/simulation_llm_agentic.md).
+
 ## LLM live pipeline contract
 
 The llm_live pipeline guarantees the following so that live runs are auditable and safe:
@@ -50,7 +54,22 @@ The llm_live pipeline guarantees the following so that live runs are auditable a
 | **Per-call latency and usage** | When a trace collector is used (e.g. llm_live_eval profile), each call records token usage and **latency_ms** (when provided by the backend). The LLM_TRACE **usage.json** includes **per_call** (one entry per call, with latency_ms when available) and an aggregate **latency_ms** (min, max, mean, sum) for debugging and cost attribution. |
 | **Network gating** | Live backends are only used when **pipeline_mode=llm_live** and **--allow-network** (or LABTRUST_ALLOW_NETWORK=1). Otherwise the run fails fast with a clear error. |
 
+**Structured outputs:** For **openai_live** and **anthropic_live**, the ActionProposal `args` use a strict schema (`additionalProperties: false`, explicit `required` and property set). Provider responses that include extra fields or omit required fields are rejected and yield NOOP; use `scripts/check_llm_backends_live.py` to confirm the backend returns valid structure before long runs.
+
 **Optional guardrails** (env-configured): circuit breaker (skip LLM after consecutive blocks; cooldown), rate limiter (max calls per time window), fallback model chain (try next model on refusal/timeout), request cache (skip API for identical prompt hash). See [Guardrails (circuit breaker and rate limiter)](#guardrails-circuit-breaker-and-rate-limiter).
+
+### Definition of done (new LLM methods or backends) {#llm-excellence-checklist-for-new-methods-or-backends}
+
+When adding a **new** LLM coordination method or live backend, the following must be satisfied before considering it done:
+
+| Requirement | Description |
+|-------------|-------------|
+| **Schema-valid decisions** | All provider responses are validated against the ActionProposal (or single-step decision) schema; invalid or out-of-schema output yields NOOP with a reason code and is never passed to the engine. |
+| **Hard-fail to NOOP** | On timeout, refusal, provider error, or rate limit (429), the agent returns NOOP and records the reason code; run metadata reflects counts and latency. |
+| **Metadata** | Every run records **llm_backend_id**, **llm_model_id**, and (when available) **mean_llm_latency_ms**, **llm_error_rate**, token usage, **estimated_cost_usd** in the same shape as existing backends. |
+| **Integration** | Prompt fingerprint and transparency log (when enabled) include the new backend; redaction and secret scrubbing apply. |
+
+Confirm this checklist when contributing a new method or backend; see [CONTRIBUTING](../../CONTRIBUTING.md) for the reference link.
 
 ## Pre-flight checklist
 
@@ -58,7 +77,7 @@ Before any live run, complete this checklist so you do not blame the provider fo
 
 | Step | Action | Acceptance |
 |------|--------|------------|
-| **0. Env** | Load `.env` if you use it; set API key in process. | `python -c "import os; print('OPENAI', bool(os.getenv('OPENAI_API_KEY')))"` shows key present. |
+| **0. Env** | Load `.env` if you use it; set API key in process. | `python -c "import os; print('OPENAI', bool(os.getenv('OPENAI_API_KEY')))"` shows key present. From repo root, `python scripts/check_llm_backends_live.py --backends openai_live` (or anthropic_live) loads `.env` when present and is the recommended minimal live-backend check. |
 | **1. Phase 2A** | Run offline checks. | `validate-policy`, `pytest -q`, `determinism-report`, `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py -q` all pass. |
 | **2. Healthcheck** | Run backend healthcheck. | `labtrust llm-healthcheck --backend <backend> --allow-network` exits 0 and reports model_id, latency_ms. |
 | **3. Cost awareness** | Know model and episode count. | Small model (e.g. gpt-4o-mini), limited `--episodes` when experimenting; check **metadata.estimated_cost_usd** after run. |
@@ -446,6 +465,19 @@ The following entry points use an LLM (or deterministic) backend for coordinatio
 
 **Gaps to fix (if any):** When adding a new LLM coordination method or backend, ensure (1) all responses pass through the same schema validation (`validate_proposal` for CoordinationProposal, or the appropriate ActionProposal schema), (2) on validation failure, timeout, or refusal the code path returns NOOP and does not pass invalid output through, (3) backend_id, model_id, latency (and optionally tokens) are recorded in proposal meta and results metadata, (4) prompt_fingerprint and policy_fingerprint are set and transparency log / episode log receive the expected audit entries.
 
+### LLM excellence checklist (for new methods or backends)
+
+When contributing a **new** LLM coordination method or backend, the PR must confirm that the following four criteria are satisfied. Use the table above as the reference; add a row for the new entry point.
+
+| Criterion | Requirement |
+|-----------|-------------|
+| **Schema-valid decisions** | All responses pass through the same schema validation (e.g. `validate_proposal` for CoordinationProposal, or the appropriate ActionProposal schema). |
+| **Hard-fail to NOOP** | On validation failure, timeout, or refusal, return safe NOOP and do not pass invalid output through. |
+| **Metadata** | backend_id, model_id, latency (and optionally tokens) in proposal meta and results metadata. |
+| **Integration** | prompt_fingerprint, policy_fingerprint, and transparency log / episode log audit entries. |
+
+In the PR description, state that the new method/backend satisfies the checklist and add it to the entry-point table in this section.
+
 ## Anthropic backend (implemented)
 
 The **anthropic_live** backend is implemented in `baselines/llm/backends/anthropic_live.py` with the same contract guarantees as openai_live. The following checklist is satisfied; use it as a reference for adding further providers.
@@ -545,7 +577,7 @@ When **pipeline_mode=llm_live**, the LLM agent uses optional **circuit breaker**
 - **Circuit breaker:** When the pre-LLM or shield path blocks consecutively at least `LABTRUST_CIRCUIT_BREAKER_THRESHOLD` times, the circuit opens. The next `LABTRUST_CIRCUIT_BREAKER_COOLDOWN` LLM calls are skipped: the agent returns NOOP with reason_code **CIRCUIT_BREAKER_OPEN** and no live call is made. The circuit resets on the first successful (non-blocked) decision (i.e. when the LLM is invoked and the returned action is accepted).
 - **Rate limiter:** At most `LABTRUST_RATE_LIMIT_MAX_CALLS` LLM calls are allowed per sliding window of `LABTRUST_RATE_LIMIT_WINDOW_SECONDS` seconds. When the limit is reached, the next call is skipped (NOOP with reason_code **RATE_LIMITED**) until the window slides and a slot frees.
 
-Provider-level errors (e.g. HTTP 429, timeouts) are handled by each backend (NOOP fallback, optional retries) and do **not** by default open the circuit. The circuit is driven only by shield or pre-LLM blocks (e.g. prompt-injection defense). A future enhancement could wire provider 429 into the circuit.
+Provider-level errors (e.g. HTTP 429, timeouts, refusal) are handled by each backend (NOOP fallback, optional retries). When a backend sets **last_error_code** after such an error, **LLMAgentWithShield** calls **circuit_breaker.record_block()**, so consecutive provider failures open the circuit (same as shield or pre-LLM blocks). Backends that implement **last_error_code** (e.g. openai_live, anthropic_live, ollama_live) thus drive the circuit on 429/timeout/refusal.
 
 Both are configured via environment variables (defaults are applied if unset):
 

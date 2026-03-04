@@ -32,12 +32,8 @@ def fitness_from_metrics(
 ) -> float:
     """Fitness = throughput - violation_penalty * violations - block_penalty * blocks."""
     throughput = float(episode_metrics.get("throughput") or 0)
-    violations = sum(
-        (episode_metrics.get("violations_by_invariant_id") or {}).values()
-    )
-    blocks = sum(
-        (episode_metrics.get("blocked_by_reason_code") or {}).values()
-    )
+    violations = sum((episode_metrics.get("violations_by_invariant_id") or {}).values())
+    blocks = sum((episode_metrics.get("blocked_by_reason_code") or {}).values())
     return throughput - violation_penalty * violations - block_penalty * blocks
 
 
@@ -67,10 +63,7 @@ def mutate_genome(
     for key in GENOME_KEYS:
         val = genome.get(key)
         if isinstance(val, dict):
-            out[key] = {
-                k: max(0.01, v + (rng.random() - 0.5) * 2 * mutation_scale)
-                for k, v in val.items()
-            }
+            out[key] = {k: max(0.01, v + (rng.random() - 0.5) * 2 * mutation_scale) for k, v in val.items()}
         elif isinstance(val, (int, float)):
             out[key] = max(0.0, val + (rng.random() - 0.5) * 2 * mutation_scale)
         else:
@@ -90,10 +83,7 @@ def recombine_genomes(
         v1, v2 = g1.get(key), g2.get(key)
         if isinstance(v1, dict) and isinstance(v2, dict):
             keys = sorted(set(v1) | set(v2))
-            out[key] = {
-                k: v1.get(k, 1.0) if rng.random() < 0.5 else v2.get(k, 1.0)
-                for k in keys
-            }
+            out[key] = {k: v1.get(k, 1.0) if rng.random() < 0.5 else v2.get(k, 1.0) for k in keys}
         else:
             out[key] = v1 if rng.random() < 0.5 else v2
     return out

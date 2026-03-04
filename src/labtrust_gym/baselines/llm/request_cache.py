@@ -23,6 +23,7 @@ DEFAULT_REQUEST_CACHE_TTL_S = 0  # 0 = no TTL, evict by size only
 def _parse_request_cache_config() -> tuple[bool, int, int]:
     """Return (enabled, max_size, ttl_s)."""
     import os
+
     raw = (os.environ.get("LABTRUST_LLM_REQUEST_CACHE") or "").strip().lower()
     enabled = raw in ("1", "true", "yes")
     try:

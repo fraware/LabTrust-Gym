@@ -9,8 +9,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.orchestrator.config import OrchestratorConfig
 from labtrust_gym.orchestrator.live import run_live_orchestrator
 

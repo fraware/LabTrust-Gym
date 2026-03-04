@@ -107,9 +107,7 @@ def test_llm_hierarchical_allocator_contract() -> None:
         "per_device": [{"device_id": "D1", "queue_head": "W1"}, {"device_id": "D2", "queue_head": "W2"}],
         "device_zone": {"D1": "Z_A", "D2": "Z_A"},
     }
-    proposal, meta = backend.generate_proposal(
-        digest, ["SET_INTENT", "NOOP", "TICK"], 0, "llm_hierarchical_allocator"
-    )
+    proposal, meta = backend.generate_proposal(digest, ["SET_INTENT", "NOOP", "TICK"], 0, "llm_hierarchical_allocator")
     assert proposal.get("intent_confidence") is not None or any(
         p.get("intent_confidence") is not None for p in (proposal.get("per_agent") or [])
     )
@@ -167,7 +165,6 @@ def test_learning_to_bid_checksum_stable() -> None:
 def test_llm_auction_bidder_spoofed_bid_dropped() -> None:
     """Market entry with unknown agent_id is dropped; assignment uses only valid bids."""
     from labtrust_gym.baselines.coordination.methods.llm_auction_bidder import (
-        LLMAuctionBidder,
         _proposal_market_to_typed_bids,
     )
 
@@ -184,15 +181,40 @@ def test_llm_auction_bidder_spoofed_bid_dropped() -> None:
                 "per_agent": [],
                 "comms": [],
                 "market": [
-                    {"agent_id": "a1", "bid": 1.0, "bundle": {"device_id": "D1", "work_id": "W1"}, "units": "cost", "constraints": {}},
-                    {"agent_id": "unknown_agent", "bid": 0.1, "bundle": {"device_id": "D1", "work_id": "W1"}, "units": "cost", "constraints": {}},
+                    {
+                        "agent_id": "a1",
+                        "bid": 1.0,
+                        "bundle": {"device_id": "D1", "work_id": "W1"},
+                        "units": "cost",
+                        "constraints": {},
+                    },
+                    {
+                        "agent_id": "unknown_agent",
+                        "bid": 0.1,
+                        "bundle": {"device_id": "D1", "work_id": "W1"},
+                        "units": "cost",
+                        "constraints": {},
+                    },
                 ],
                 "meta": {},
             }
 
     typed_bids, errors = _proposal_market_to_typed_bids(
-        [{"agent_id": "a1", "bid": 1.0, "bundle": {"device_id": "D1", "work_id": "W1"}, "units": "cost", "constraints": {}},
-         {"agent_id": "unknown_agent", "bid": 0.1, "bundle": {"device_id": "D1", "work_id": "W1"}, "units": "cost", "constraints": {}},
+        [
+            {
+                "agent_id": "a1",
+                "bid": 1.0,
+                "bundle": {"device_id": "D1", "work_id": "W1"},
+                "units": "cost",
+                "constraints": {},
+            },
+            {
+                "agent_id": "unknown_agent",
+                "bid": 0.1,
+                "bundle": {"device_id": "D1", "work_id": "W1"},
+                "units": "cost",
+                "constraints": {},
+            },
         ],
         {"a1"},
     )
@@ -206,27 +228,27 @@ def test_llm_gossip_summarizer_codec_contract() -> None:
         llm_gossip_summarizer,
     )
 
-    assert (
-        llm_gossip_summarizer.MESSAGE_TYPE_GOSSIP_SUMMARY == "gossip_summary"
-    )
+    assert llm_gossip_summarizer.MESSAGE_TYPE_GOSSIP_SUMMARY == "gossip_summary"
 
 
 def test_llm_repair_over_kernel_deterministic_backend() -> None:
-    """Repair backend: deterministic repair output and meta."""
+    """Repair backend: deterministic repair returns (candidates, meta); each candidate is per_agent."""
     from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca import (
         DeterministicRepairBackend,
     )
 
     backend = DeterministicRepairBackend(seed=42)
     repair_input = {"context": {}, "rejected_plan": []}
-    per_agent, meta = backend.repair(repair_input, ["a1", "a2"])
-    assert len(per_agent) == 2
+    candidates, meta = backend.repair(repair_input, ["a1", "a2"])
+    assert len(candidates) >= 1
+    assert len(candidates[0]) == 2
     assert meta.get("backend_id") == "deterministic_repair"
 
 
 def test_llm_central_planner_invalid_proposal_returns_noop() -> None:
     """When backend returns invalid proposal, planner returns NOOP for all (no crash).
     Repair loop and max_repairs are handled by executor/runner; see docstring."""
+
     class InvalidBackend:
         def reset(self, seed: int) -> None:
             pass
@@ -242,8 +264,7 @@ def test_llm_central_planner_invalid_proposal_returns_noop() -> None:
                     "method_id": method_id,
                     "horizon_steps": 1,
                     "per_agent": [
-                        {"agent_id": aid, "action_type": "INVALID", "args": {}, "reason_code": "x"}
-                        for aid in agent_ids
+                        {"agent_id": aid, "action_type": "INVALID", "args": {}, "reason_code": "x"} for aid in agent_ids
                     ],
                     "comms": [],
                     "meta": {},

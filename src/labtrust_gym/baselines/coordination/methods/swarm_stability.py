@@ -5,8 +5,6 @@ Used by swarm_stigmergy_priority and swarm_reactive. Reduces oscillation and her
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def inertia_term(
     current_direction: tuple[float, float],

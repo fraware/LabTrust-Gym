@@ -17,9 +17,7 @@ def _repo_root() -> Path:
 
 
 @pytest.mark.parametrize("injection_id", ["inj_dos_flood", "inj_memory_tamper", "inj_tool_selection_noise"])
-def test_coord_risk_one_episode_with_reserved_injector(
-    injection_id: str, tmp_path: Path
-) -> None:
+def test_coord_risk_one_episode_with_reserved_injector(injection_id: str, tmp_path: Path) -> None:
     """Run coord_risk 1 episode with injector; assert run completes and result has metrics or sec fields."""
     root = _repo_root()
     result_path = tmp_path / "results.json"
@@ -34,6 +32,7 @@ def test_coord_risk_one_episode_with_reserved_injector(
     )
     assert result_path.exists()
     import json
+
     data = json.loads(result_path.read_text(encoding="utf-8"))
     episodes = data.get("episodes") or []
     assert len(episodes) >= 1

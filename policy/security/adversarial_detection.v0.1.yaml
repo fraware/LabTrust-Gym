@@ -1,12 +1,19 @@
 # Adversarial input detection policy v0.1.
 # Defensive monitoring: keyword/pattern-based (default), optional classifier when use_classifier: true.
 # Used by security.adversarial_detection to produce detection flags, severity, suggested_action.
+# Pattern-only detection is auditable; classifier is supplementary and must not replace pattern-based blocking for critical severity.
 #
 version: "0.1"
 severity_threshold: 1  # Emit SECURITY_ALERT when severity >= this (0-3).
 max_text_length: 2000  # Truncate inputs to avoid abuse; chars.
 # Optional: when true (or LABTRUST_USE_CLASSIFIER_DETECTION=1), run classifier on same texts and merge with pattern result (max severity, union of flags). Pattern-based remains auditable; classifier is best-effort.
 use_classifier: false
+# When use_classifier is true and judge is unavailable: 0 = pattern-only (fail-open); 1-3 = treat as this severity (fail-closed). Omitted or 0 = current behavior.
+# classifier_fallback_severity_when_unavailable: 0
+# Input normalization before pattern match (evasion hardening). Default on so PI-EVASION-* are caught by detector; set false for legacy behavior.
+normalize_before_match: true
+normalizers: ["strip_format_chars", "nfkc", "decode_base64_scan"]  # B64 decoded and scanned so PI-EVASION-B64 is caught.
+max_decoded_base64_len: 2000  # Cap decoded base64 length when decode_base64_scan is in normalizers.
 
 # Patterns: list of { id, pattern, severity, reason_code }.
 # pattern: substring (case-insensitive) or regex (prefix with "re:").
@@ -60,6 +67,19 @@ patterns:
     pattern: "re:(show|display|print|reveal) (your )?(system )?prompt"
     severity: 3
     reason_code: "ADV_JAILBREAK_PATTERN"
+  # Evasion-oriented: catch instructions to decode/combine and output (PI-EVASION-B64, PI-EVASION-SPLIT style).
+  - id: "evasion_decode_and_output"
+    pattern: "re:decode (base64|b64) and (output|print|emit|return)"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "evasion_combine_and_output"
+    pattern: "re:combine (the )?(segments|parts|above) and (output|print|emit)"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
+  - id: "evasion_ignore_spaces_output"
+    pattern: "re:ignore (all )?spaces and (output|print|repeat)"
+    severity: 2
+    reason_code: "ADV_INJECTION_DETECTED"
 
 # Severity -> suggested response action (for enforcement integration).
 suggested_actions:

@@ -83,7 +83,7 @@ Optional follow-up: run a full matrix (multiple injections, multiple methods) or
 
 **Current position:** The pipeline provides production-grade single-model and multi-role coordination (per-role backends, guardrails, attribution), coord_scale and coord_risk trials with real API, and a written interpretation template for publishing metrics. The same lab policies (RBAC, shield, invariants) apply to deterministic and LLM coordination.
 
-**Limitations (research SOTA):** Debate aggregation is deterministic (majority); an optional LLM aggregator is future work. Round_robin is N bidder calls per step then merge, not multi-round negotiation or message-passing between separate agent LLMs. The interpretation document (llm_coord_trials_interpretation.md) addresses the need for a written summary of cost, latency, and conclusions; complete it when publishing a run. See [Multi-LLM protocols](../coordination/multi_llm_protocols.md) for protocol-level limits.
+**Limitations (research SOTA):** Debate aggregation is majority by default; set `coord_debate_aggregator: llm` and provide an aggregator backend (e.g. same as proposer with a generate method, or params.aggregator_backend) to use an LLM to merge proposals (falls back to majority on failure). Round_robin is N bidder calls per step then merge, not multi-round negotiation or message-passing between separate agent LLMs. The interpretation document (llm_coord_trials_interpretation.md) addresses the need for a written summary of cost, latency, and conclusions; complete it when publishing a run. See [Multi-LLM protocols](../coordination/multi_llm_protocols.md) for protocol-level limits.
 
 ## Related
 

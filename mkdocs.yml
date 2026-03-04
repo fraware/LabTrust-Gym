@@ -24,6 +24,7 @@ nav:
     - Forker guide: getting-started/forkers.md
     - Quick demos: getting-started/quick_demos.md
     - Troubleshooting: getting-started/troubleshooting.md
+    - Presentation and demo guide: presentation_labtrust_gym.md
   - Architecture:
     - architecture/index.md
     - Architecture: architecture/architecture.md
@@ -47,19 +48,20 @@ nav:
     - Coordination matrix contract: coordination/coordination_matrix_contract.md
     - Coordination studies: coordination/coordination_studies.md
     - Coordination benchmark card: coordination/coordination_benchmark_card.md
+    - Generalization and limits: coordination/generalization_and_limits.md
     - Coordination methods audit: coordination/coordination_methods_audit.md
     - Lab coordination report: coordination/lab_coordination_report.md
     - Fidelity notes: coordination/fidelity_notes.md
-    - SOTA methods at scale: coordination/sota_methods_at_scale.md
     - Learning methods implementation strategy: coordination/learning_methods_implementation_strategy.md
   - Benchmarks and studies:
     - benchmarks/index.md
     - Benchmarks: benchmarks/benchmarks.md
     - Benchmark card: benchmarks/benchmark_card.md
-    - Benchmarking plan: benchmarks/benchmarking_plan.md
     - Official benchmark pack: benchmarks/official_benchmark_pack.md
+    - Hospital lab full pipeline: benchmarks/hospital_lab_full_pipeline.md
     - Studies and plots: benchmarks/studies.md
     - Scale and operational limits: benchmarks/scale_operational_limits.md
+    - Uncertainty quantification: benchmarks/uncertainty_quantification.md
     - Reproduce: benchmarks/reproduce.md
     - LLM Coordination Protocol: benchmarks/llm_coordination_protocol.md
     - Paper claims: benchmarks/PAPER_CLAIMS.md
@@ -103,7 +105,6 @@ nav:
   - Operations:
     - operations/index.md
     - CI: operations/ci.md
-    - Release checklist: operations/release_checklist.md
     - Ops runbook: operations/ops_runbook.md
     - "How-to: Add coordination method": operations/howto_add_coordination_method.md
     - "How-to: Add risk injection": operations/howto_add_injection.md
@@ -111,12 +112,13 @@ nav:
     - "How-to: Security and gate failures": operations/howto_security_gate_failures.md
   - Reference:
     - reference/index.md
+    - Glossary: reference/glossary.md
     - Use cases and impact: reference/use_cases_and_impact.md
     - LabTrust Portal context: labtrust-portal-context.md
     - Repository structure: reference/repository_structure.md
     - Documentation standards: reference/documentation_standards.md
     - Code style and lint: reference/code_style_and_lint.md
-    - Documentation mission checklist: reference/documentation_mission_checklist.md
+    - State of the art and limits: reference/state_of_the_art_and_limits.md
     - Outputs and results: reference/outputs_and_results.md
     - Lab profile reference: reference/lab_profile_reference.md
     - Observability: reference/observability.md

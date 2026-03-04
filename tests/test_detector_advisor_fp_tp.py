@@ -4,14 +4,10 @@ Unit tests for detector advisor: FP cap (clean obs -> no throttle), TP floor (an
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.assurance.detector_advisor import (
     ALLOWED_ENFORCEMENT_ACTIONS,
     DeterministicDetectorBackend,
-    DetectorOutput,
     detector_calibration_metrics,
-    wrap_with_detector_advisor,
 )
 
 

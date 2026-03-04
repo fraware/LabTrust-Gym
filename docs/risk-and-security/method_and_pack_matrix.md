@@ -1,6 +1,6 @@
 # Method and pack matrix view
 
-Two matrix views support coordination methods and the security suite: **method x risk coverage** and **pack matrix (method x scale x injection)**. Both are policy-driven and can be rendered as markdown tables or exported to CSV for Excel. The pack matrix depends on **scale (number of agents)**, which is important for the hospital lab taxonomy.
+Two matrix views support coordination methods and the security suite: **method x risk coverage** and **pack matrix (method x scale x injection)**. Both are policy-driven and can be rendered as markdown tables or exported to CSV for Excel. The pack matrix depends on **scale (number of agents)**, which is important for the pathology lab (blood sciences) taxonomy.
 
 ## 1. Method x risk coverage matrix
 
@@ -37,12 +37,12 @@ The coordination security pack runs a Cartesian product of **method_ids x scale_
 
 ### Scale taxonomy (number of agents)
 
-The matrix depends on the number of agents collaborating in the hospital lab. Scale configs are defined in `policy/coordination/scale_configs.v0.1.yaml`. Typical presets:
+The matrix depends on the number of agents collaborating in the blood sciences (pathology lab) run. Scale configs are defined in `policy/coordination/scale_configs.v0.1.yaml`. Typical presets:
 
 | scale_id                 | num_agents_total | Use |
 |--------------------------|------------------|-----|
 | small_smoke              | 4                | Fast smoke / unit test |
-| medium_stress_signed_bus | 75               | Hospital lab at scale; signed bus and identity evaluation |
+| medium_stress_signed_bus | 75               | Pathology lab (blood sciences) at scale; signed bus and identity evaluation |
 | corridor_heavy           | 200              | High contention routing stress |
 
 Two presets use these scales: **hospital_lab** (4 methods; fast regression) and **hospital_lab_full** (all 30 coordination methods; full benchmark). Both use `small_smoke` and `medium_stress_signed_bus`, so you get 4-agent and 75-agent runs for each (method, injection) pair. This taxonomy is important when interpreting pack results: a method’s resilience or attack surface can differ by agent count.
@@ -53,7 +53,7 @@ Two presets use these scales: **hospital_lab** (4 methods; fast regression) and 
 # Default pack (fixed methods/injections)
 labtrust show-pack-matrix
 
-# Hospital lab preset (4 methods; fast)
+# Pathology lab (blood sciences) preset (4 methods; fast)
 labtrust show-pack-matrix --matrix-preset hospital_lab
 
 # Full benchmark (all 30 coordination methods; same scales/injections)

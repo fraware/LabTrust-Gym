@@ -89,15 +89,17 @@ def _write_security_report(pack_dir: Path, out_dir: Path) -> bool:
                 rel_risk = str((security_dir / "coordination_risk_matrix.md").relative_to(out_dir))
             except ValueError:
                 pass
-    lines.extend([
-        "## Artifacts",
-        "",
-        f"- [pack_gate.md]({rel_gate}) – per-cell verdict (PASS / FAIL / SKIP / not_supported).",
-        f"- [SECURITY/coordination_risk_matrix.md]({rel_risk}) – method x injection outcomes (when present).",
-        "",
-        "This report ties the coordination decision and risk register to the security pack evidence.",
-        "",
-    ])
+    lines.extend(
+        [
+            "## Artifacts",
+            "",
+            f"- [pack_gate.md]({rel_gate}) – per-cell verdict (PASS / FAIL / SKIP / not_supported).",
+            f"- [SECURITY/coordination_risk_matrix.md]({rel_risk}) – method x injection outcomes (when present).",
+            "",
+            "This report ties the coordination decision and risk register to the security pack evidence.",
+            "",
+        ]
+    )
     report_path = out_dir / SECURITY_REPORT_FILENAME
     report_path.write_text("\n".join(lines), encoding="utf-8")
     return True
@@ -111,6 +113,7 @@ def _write_safety_case_report(out_dir: Path, pack_dir: Path) -> bool:
             continue
         try:
             import json
+
             data = json.loads(safety_json.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             continue
@@ -128,16 +131,18 @@ def _write_safety_case_report(out_dir: Path, pack_dir: Path) -> bool:
             controls = c.get("controls") or []
             tests = c.get("tests") or []
             lines.append(f"- **{claim_id}**: {len(controls)} control(s), {len(tests)} test(s).")
-        lines.extend([
-            "",
-            "## Artifacts",
-            "",
-            "- [SAFETY_CASE/safety_case.json](SAFETY_CASE/safety_case.json) – full claim tree.",
-            "- [SAFETY_CASE/safety_case.md](SAFETY_CASE/safety_case.md) – human-readable (when present).",
-            "",
-            "This report links the coordination decision and risk register to the safety case evidence.",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Artifacts",
+                "",
+                "- [SAFETY_CASE/safety_case.json](SAFETY_CASE/safety_case.json) – full claim tree.",
+                "- [SAFETY_CASE/safety_case.md](SAFETY_CASE/safety_case.md) – human-readable (when present).",
+                "",
+                "This report links the coordination decision and risk register to the safety case evidence.",
+                "",
+            ]
+        )
         report_path = out_dir / SAFETY_CASE_REPORT_FILENAME
         report_path.write_text("\n".join(lines), encoding="utf-8")
         return True
@@ -192,14 +197,14 @@ def build_lab_coordination_report(
     summary_csv = pack_dir / "pack_summary.csv"
     if not summary_csv.is_file():
         raise FileNotFoundError(
-            f"pack_summary.csv not found under {pack_dir}. "
-            "Run labtrust run-coordination-security-pack first."
+            f"pack_summary.csv not found under {pack_dir}. Run labtrust run-coordination-security-pack first."
         )
     out_dir = Path(out_dir).resolve() if out_dir else pack_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     if policy_root is None:
         try:
             from labtrust_gym.config import get_repo_root
+
             policy_root = Path(get_repo_root())
         except Exception:
             policy_root = pack_dir
@@ -215,10 +220,9 @@ def build_lab_coordination_report(
             MATRIX_MODE_PACK,
             build_coordination_matrix,
         )
+
         matrix_path = out_dir / COORDINATION_MATRIX_FILENAME
-        build_coordination_matrix(
-            pack_dir, matrix_path, policy_root=policy_root, matrix_mode=MATRIX_MODE_PACK
-        )
+        build_coordination_matrix(pack_dir, matrix_path, policy_root=policy_root, matrix_mode=MATRIX_MODE_PACK)
 
     scope = (
         f"Matrix preset: `{matrix_preset_name}`."
@@ -257,38 +261,44 @@ def build_lab_coordination_report(
         "",
     ]
     report_lines.extend(decision_lines if decision_lines else ["(No scale decisions in artifact.)"])
-    report_lines.extend([
-        "",
-        "## Artifacts in this bundle",
-        "",
-        "| Artifact | Description |",
-        "| -------- | ----------- |",
-        f"| [SECURITY_REPORT.md]({SECURITY_REPORT_FILENAME}) | Security pack and gate summary; links to pack_gate and SECURITY/. |",
-        f"| [SAFETY_CASE_REPORT.md]({SAFETY_CASE_REPORT_FILENAME}) | Safety case summary and links (when SAFETY_CASE/ present). |",
-        f"| [pack_gate.md]({gate_rel}) | PASS/FAIL/not_supported per cell. |",
-        f"| [SECURITY/coordination_risk_matrix.md]({risk_rel}) | Method x injection x phase outcomes. |",
-        "| [summary/sota_leaderboard.md](summary/sota_leaderboard.md) | Per-method means (throughput, violations, resilience, stealth). |",
-        "| [summary/method_class_comparison.md](summary/method_class_comparison.md) | Comparison by method class. |",
-        "| [COORDINATION_DECISION.md](COORDINATION_DECISION.md) | Chosen method and rationale (constraints + objective). |",
-    ])
+    report_lines.extend(
+        [
+            "",
+            "## Artifacts in this bundle",
+            "",
+            "| Artifact | Description |",
+            "| -------- | ----------- |",
+            f"| [SECURITY_REPORT.md]({SECURITY_REPORT_FILENAME}) | Security pack and gate summary; links to pack_gate and SECURITY/. |",
+            f"| [SAFETY_CASE_REPORT.md]({SAFETY_CASE_REPORT_FILENAME}) | Safety case summary and links (when SAFETY_CASE/ present). |",
+            f"| [pack_gate.md]({gate_rel}) | PASS/FAIL/not_supported per cell. |",
+            f"| [SECURITY/coordination_risk_matrix.md]({risk_rel}) | Method x injection x phase outcomes. |",
+            "| [summary/sota_leaderboard.md](summary/sota_leaderboard.md) | Per-method means (throughput, violations, resilience, stealth). |",
+            "| [summary/method_class_comparison.md](summary/method_class_comparison.md) | Comparison by method class. |",
+            "| [COORDINATION_DECISION.md](COORDINATION_DECISION.md) | Chosen method and rationale (constraints + objective). |",
+        ]
+    )
     if matrix_path is not None and matrix_path.is_file():
-        report_lines.append(f"| [{COORDINATION_MATRIX_FILENAME}]({COORDINATION_MATRIX_FILENAME}) | CoordinationMatrix (pack-based): scores and ops_first/sec_first/balanced per scale. |")
-    report_lines.extend([
-        "",
-        "## How to interpret",
-        "",
-        "- **pack_gate.md**: Each row is a cell (scale, method, injection). PASS = threshold met; FAIL = threshold violated (with evidence); SKIP = not evaluated (not_applicable, no_data, or disabled_by_config); not_supported = capability not present.",
-        "- **coordination_risk_matrix**: Security metrics (attack_success_rate, detection_latency_steps, verdict) per method and injection.",
-        "- **SOTA leaderboard**: Methods ranked by aggregate metrics over all cells; use for throughput vs safety trade-offs.",
-        "- **COORDINATION_DECISION**: The recommended method per scale under the selection policy (constraints + maximize_overall_score).",
-        "",
-        "## Next steps",
-        "",
-        "- Deploy the chosen method(s) from COORDINATION_DECISION for each scale.",
-        "- Re-run with a different matrix preset (e.g. `--matrix-preset hospital_lab`) or `--methods-from full` for full coverage.",
-        "- Use `labtrust run-coordination-security-pack --out <dir> --matrix-preset hospital_lab` then `labtrust build-lab-coordination-report --pack-dir <dir>` to refresh this report.",
-        "",
-    ])
+        report_lines.append(
+            f"| [{COORDINATION_MATRIX_FILENAME}]({COORDINATION_MATRIX_FILENAME}) | CoordinationMatrix (pack-based): scores and ops_first/sec_first/balanced per scale. |"
+        )
+    report_lines.extend(
+        [
+            "",
+            "## How to interpret",
+            "",
+            "- **pack_gate.md**: Each row is a cell (scale, method, injection). PASS = threshold met; FAIL = threshold violated (with evidence); SKIP = not evaluated (not_applicable, no_data, or disabled_by_config); not_supported = capability not present.",
+            "- **coordination_risk_matrix**: Security metrics (attack_success_rate, detection_latency_steps, verdict) per method and injection.",
+            "- **SOTA leaderboard**: Methods ranked by aggregate metrics over all cells; use for throughput vs safety trade-offs.",
+            "- **COORDINATION_DECISION**: The recommended method per scale under the selection policy (constraints + maximize_overall_score).",
+            "",
+            "## Next steps",
+            "",
+            "- Deploy the chosen method(s) from COORDINATION_DECISION for each scale.",
+            "- Re-run with a different matrix preset (e.g. `--matrix-preset hospital_lab`) or `--methods-from full` for full coverage.",
+            "- Use `labtrust run-coordination-security-pack --out <dir> --matrix-preset hospital_lab` then `labtrust build-lab-coordination-report --pack-dir <dir>` to refresh this report.",
+            "",
+        ]
+    )
 
     report_path = out_dir / LAB_REPORT_FILENAME
     report_path.write_text("\n".join(report_lines), encoding="utf-8")

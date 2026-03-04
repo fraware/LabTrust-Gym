@@ -141,6 +141,7 @@ coordination_methods:
     - method_id: "llm_constrained"
       name: "LLM constrained (existing baseline)"
       coordination_class: llm
+      scale_capable: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
@@ -150,6 +151,7 @@ coordination_methods:
     - method_id: "llm_central_planner"
       name: "LLM central planner (global state digest -> CoordinationProposal)"
       coordination_class: llm
+      scale_capable: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]

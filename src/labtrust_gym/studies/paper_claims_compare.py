@@ -68,10 +68,7 @@ def compare_manifests(
         exp_sha = exp.get("sha256")
         act_sha = act.get("sha256")
         if exp_sha != act_sha:
-            msg = (
-                f"{key}: sha256 mismatch (expected {exp_sha[:16]}..., "
-                f"actual {act_sha[:16]}...)"
-            )
+            msg = f"{key}: sha256 mismatch (expected {exp_sha[:16]}..., actual {act_sha[:16]}...)"
             if key in optional_keys:
                 report.append(msg + " (optional, not failing)")
             else:
@@ -79,12 +76,7 @@ def compare_manifests(
                 all_passed = False
 
         # Optional: by_status tolerance for risk_bundle
-        if (
-            key == "risk_bundle"
-            and allow_by_status_delta
-            and "by_status" in exp
-            and "by_status" in act
-        ):
+        if key == "risk_bundle" and allow_by_status_delta and "by_status" in exp and "by_status" in act:
             exp_status = exp["by_status"]
             act_status = act["by_status"]
             for k, exp_count in exp_status.items():
@@ -97,18 +89,12 @@ def compare_manifests(
                     all_passed = False
             for k in act_status:
                 if k not in exp_status and act_status[k] > by_status_max_delta:
-                    report.append(
-                        f"{key}: by_status[{k}] unexpected in actual "
-                        f"(count {act_status[k]})"
-                    )
+                    report.append(f"{key}: by_status[{k}] unexpected in actual (count {act_status[k]})")
                     all_passed = False
 
     for key in actual_by_key:
         if key not in expected_by_key:
-            report.append(
-                f"{key}: present in actual but not in expected snapshot "
-                "(consider updating snapshot)"
-            )
+            report.append(f"{key}: present in actual but not in expected snapshot (consider updating snapshot)")
     return all_passed, report
 
 

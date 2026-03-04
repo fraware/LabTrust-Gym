@@ -38,18 +38,14 @@ def test_evidence_contract(
     """When method emits trace (or runner writes minimal), file exists, valid JSONL."""
     pass_evidence = conformance_config.get("pass_evidence") or []
     if method_id not in pass_evidence:
-        pytest.skip(
-            f"{method_id}: not in pass_evidence; add when method emits trace"
-        )
+        pytest.skip(f"{method_id}: not in pass_evidence; add when method emits trace")
 
     scale_config = _minimal_scale_config()
     coord = make_coord_method_for_conformance(method_id, repo_root, scale_config)
     if coord is None:
         pytest.skip(f"{method_id}: optional deps missing")
 
-    agent_ids = sorted(
-        minimal_policy.get("pz_to_engine") or ["worker_0", "worker_1", "worker_2"]
-    )
+    agent_ids = sorted(minimal_policy.get("pz_to_engine") or ["worker_0", "worker_1", "worker_2"])
     obs = _minimal_obs(agent_ids, 0)
     infos: dict = {}
     trace_path = tmp_path / "METHOD_TRACE.jsonl"
@@ -97,9 +93,7 @@ def test_composed_kernel_writes_trace_when_trace_path_set(
     if coord is None:
         pytest.skip("kernel_whca not available")
 
-    agent_ids = sorted(
-        minimal_policy.get("pz_to_engine") or ["worker_0", "worker_1", "worker_2"]
-    )
+    agent_ids = sorted(minimal_policy.get("pz_to_engine") or ["worker_0", "worker_1", "worker_2"])
     obs = _minimal_obs(agent_ids, 0)
     infos: dict = {}
 
@@ -116,16 +110,10 @@ def test_composed_kernel_writes_trace_when_trace_path_set(
 
 def test_trace_event_build_and_hash_stable() -> None:
     """Unit: build_method_trace_event and trace_event_hash are deterministic."""
-    e1 = build_method_trace_event(
-        "kernel_whca", 0, "route", duration_ms=1.5, outcome="ok"
-    )
-    e2 = build_method_trace_event(
-        "kernel_whca", 0, "route", duration_ms=1.5, outcome="ok"
-    )
+    e1 = build_method_trace_event("kernel_whca", 0, "route", duration_ms=1.5, outcome="ok")
+    e2 = build_method_trace_event("kernel_whca", 0, "route", duration_ms=1.5, outcome="ok")
     assert trace_event_hash(e1) == trace_event_hash(e2)
-    e3 = build_method_trace_event(
-        "kernel_whca", 0, "route", duration_ms=1.6, outcome="ok"
-    )
+    e3 = build_method_trace_event("kernel_whca", 0, "route", duration_ms=1.6, outcome="ok")
     assert trace_event_hash(e1) != trace_event_hash(e3)
 
 
@@ -140,10 +128,10 @@ def test_evidence_diff_stability_same_seed_same_trace_hash(
     must yield same METHOD_TRACE event hash across two runs (determinism for evidence).
     """
     from labtrust_gym.baselines.coordination.trace import (
-        append_trace_event,
         trace_event_hash,
         trace_from_contract_record,
     )
+
     from .conftest import (
         _minimal_obs,
         _minimal_scale_config,

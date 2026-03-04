@@ -13,7 +13,7 @@ This document describes the policy-as-data **Risk Registry**, **Coordination Met
 | Scale configs | `policy/coordination/scale_configs.v0.1.yaml` | (optional schema) | Named scale configs (e.g. corridor_heavy, small_smoke) for coord_scale/coord_risk. |
 | Resilience scoring | `policy/coordination/resilience_scoring.v0.1.yaml` | `policy/schemas/resilience_scoring.v0.1.schema.json` | Component weights (perf, safety, security, coordination), normalization ranges, missing-metric behavior for resilience_score. |
 
-All of these are validated by `labtrust validate-policy` where a schema exists. Loading and fingerprinting are deterministic (no ambient randomness). Study specs may list **legacy injection IDs** (e.g. `inj_tool_selection_noise`, `inj_prompt_injection`); these are implemented as **NoOpInjector** (passthrough, no mutation) so the study runner completes all cells without failing. Implemented **INJ-*** injection IDs (e.g. INJ-COMMS-POISON-001, INJ-ID-SPOOF-001) use the full risk injectors.
+All of these are validated by `labtrust validate-policy` where a schema exists. Loading and fingerprinting are deterministic (no ambient randomness). Study specs may list **legacy or reserved injection IDs** (e.g. `inj_tool_selection_noise`); unimplemented or reserved IDs use **NoOpInjector** (passthrough, no mutation) so the study runner completes all cells. Implemented **INJ-*** and other injector IDs (e.g. INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, `inj_prompt_injection`, `inj_collusion_handoff`) use the full risk injectors.
 
 ## Risk registry
 
@@ -52,6 +52,7 @@ Each method entry has:
 - **required_controls** (optional): List of strings (e.g. `signed_actions`, `RBAC`, `rate_limit`, `message_auth`).
 - **compatible_injections** (optional): List of `injection_id`.
 - **default_params** (optional): Object (small set of optional params).
+- **scale_capable** (optional, boolean): When true, this method is treated as scale-capable: at N > coord_propose_actions_max_agents the runner may populate scripted_agents_map with one LLMAgentWithShield per agent for the combine path. Omission or false means the method is not in the scale-capable set. Backward compatibility: if no method in the registry has scale_capable set to true, the effective set defaults to llm_constrained and llm_central_planner.
 
 **API:** `load_coordination_methods(path)` returns `Dict[str, Dict]` (method_id to entry).
 

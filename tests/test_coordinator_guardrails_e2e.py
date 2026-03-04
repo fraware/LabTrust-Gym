@@ -42,9 +42,7 @@ class _FailAfterNProposalBackend:
         self._calls += 1
         if self._calls > self._n:
             raise RuntimeError("simulated 429 or timeout after N calls")
-        out = self._inner.generate_proposal(
-            state_digest, allowed_actions, step_id, method_id, **kwargs
-        )
+        out = self._inner.generate_proposal(state_digest, allowed_actions, step_id, method_id, **kwargs)
         if isinstance(out, tuple):
             return out
         return out, {}
@@ -53,7 +51,6 @@ class _FailAfterNProposalBackend:
 def test_e2e_coordinator_guardrails_full_episode() -> None:
     """Run one full episode with guarded coordinator path (llm_offline); assert completion and result structure."""
     from labtrust_gym.benchmarks.coordination_scale import (
-        CoordinationScaleConfig,
         load_scale_config_by_id,
     )
     from labtrust_gym.benchmarks.runner import run_benchmark
@@ -112,9 +109,7 @@ def test_e2e_round_robin_through_runner() -> None:
             assert summary is not None, "LABTRUST_LLM_TRACE=1 should produce llm_attribution_summary"
             by_backend = summary.get("by_backend") or {}
             assert isinstance(by_backend, dict)
-            total_calls = sum(
-                b.get("call_count", 0) for b in by_backend.values() if isinstance(b, dict)
-            )
+            total_calls = sum(b.get("call_count", 0) for b in by_backend.values() if isinstance(b, dict))
             num_agents = scale_config.num_agents_total
             if total_calls > 0:
                 assert total_calls >= num_agents, (
@@ -157,6 +152,7 @@ def test_e2e_attribution_structure_with_trace() -> None:
             assert isinstance(by_backend, dict)
             assert len(by_backend) > 0, "by_backend should be non-empty when coordinator runs with LABTRUST_LLM_TRACE=1"
             from labtrust_gym.baselines.coordination.methods.llm_auction_bidder import DeterministicBidBackend
+
             expected_bid_id = DeterministicBidBackend.DEFAULT_BACKEND_ID
             assert expected_bid_id in by_backend, (
                 f"llm_auction_bidder uses DeterministicBidBackend; by_backend should "
@@ -179,9 +175,7 @@ def test_e2e_guardrail_trigger_full_episode() -> None:
 
     repo_root = _repo_root()
     scale_config = load_scale_config_by_id(repo_root, "small_smoke")
-    scale_config_dict = (
-        scale_config.__dict__ if hasattr(scale_config, "__dict__") else {}
-    )
+    scale_config_dict = scale_config.__dict__ if hasattr(scale_config, "__dict__") else {}
     seed = int(scale_config_dict.get("seed", 42))
     inner = DeterministicProposalBackend(
         seed=seed,
@@ -233,8 +227,7 @@ def test_e2e_guardrail_trigger_full_episode() -> None:
                     found_guardrail = True
                     break
         assert found_guardrail, (
-            f"Expected at least one LLM_COORD_PROPOSAL with meta.reason_code in "
-            f"{guardrail_reason_codes} in {log_path}"
+            f"Expected at least one LLM_COORD_PROPOSAL with meta.reason_code in {guardrail_reason_codes} in {log_path}"
         )
 
         coord_decisions_path = log_path.parent / "coord_decisions.jsonl"

@@ -23,7 +23,9 @@ def _make_stigmergy() -> CoordinationMethod:
     return SwarmStigmergyPriority()
 
 
-@pytest.mark.parametrize("method_factory", [_make_reactive, _make_stigmergy], ids=["swarm_reactive", "swarm_stigmergy_priority"])
+@pytest.mark.parametrize(
+    "method_factory", [_make_reactive, _make_stigmergy], ids=["swarm_reactive", "swarm_stigmergy_priority"]
+)
 def test_swarm_symmetric_corridor_no_infinite_pingpong(method_factory) -> None:
     """Symmetric corridor Z_A - Z_B: two agents; stability terms damp flip-flop; no unbounded oscillation."""
     policy = {
@@ -60,7 +62,9 @@ def test_swarm_symmetric_corridor_no_infinite_pingpong(method_factory) -> None:
     assert pingpong_count <= 5, "Oscillation (A/B ping-pong) should be bounded by stability terms"
 
 
-@pytest.mark.parametrize("method_factory", [_make_reactive, _make_stigmergy], ids=["swarm_reactive", "swarm_stigmergy_priority"])
+@pytest.mark.parametrize(
+    "method_factory", [_make_reactive, _make_stigmergy], ids=["swarm_reactive", "swarm_stigmergy_priority"]
+)
 def test_swarm_herding_congestion_reduces_pileup(method_factory) -> None:
     """Multiple agents in same zone; with congestion_penalty at least one can move away."""
     policy = {
@@ -73,9 +77,24 @@ def test_swarm_herding_congestion_reduces_pileup(method_factory) -> None:
     method = method_factory()
     method.reset(seed=0, policy=policy, scale_config={"congestion_penalty_scale": 0.8})
     obs = {
-        "a1": {"zone_id": "Z_A", "queue_by_device": [{"queue_len": 1, "queue_head": ""}], "queue_has_head": [0], "log_frozen": 0},
-        "a2": {"zone_id": "Z_A", "queue_by_device": [{"queue_len": 1, "queue_head": ""}], "queue_has_head": [0], "log_frozen": 0},
-        "a3": {"zone_id": "Z_A", "queue_by_device": [{"queue_len": 1, "queue_head": ""}], "queue_has_head": [0], "log_frozen": 0},
+        "a1": {
+            "zone_id": "Z_A",
+            "queue_by_device": [{"queue_len": 1, "queue_head": ""}],
+            "queue_has_head": [0],
+            "log_frozen": 0,
+        },
+        "a2": {
+            "zone_id": "Z_A",
+            "queue_by_device": [{"queue_len": 1, "queue_head": ""}],
+            "queue_has_head": [0],
+            "log_frozen": 0,
+        },
+        "a3": {
+            "zone_id": "Z_A",
+            "queue_by_device": [{"queue_len": 1, "queue_head": ""}],
+            "queue_has_head": [0],
+            "log_frozen": 0,
+        },
     }
     actions = method.propose_actions(obs, {}, 0)
     move_count = sum(1 for r in actions.values() if (r.get("action_type") or "") == "MOVE")

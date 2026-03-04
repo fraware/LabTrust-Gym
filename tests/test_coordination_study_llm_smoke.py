@@ -116,12 +116,8 @@ def test_coordination_study_llm_smoke_stable_summary(tmp_path: Path) -> None:
     try:
         out1 = tmp_path / "run1"
         out2 = tmp_path / "run2"
-        run_coordination_study(
-            spec_path, out1, repo_root=repo, llm_backend="deterministic", llm_model=None
-        )
-        run_coordination_study(
-            spec_path, out2, repo_root=repo, llm_backend="deterministic", llm_model=None
-        )
+        run_coordination_study(spec_path, out1, repo_root=repo, llm_backend="deterministic", llm_model=None)
+        run_coordination_study(spec_path, out2, repo_root=repo, llm_backend="deterministic", llm_model=None)
     finally:
         os.environ.pop("LABTRUST_REPRO_SMOKE", None)
 
@@ -142,6 +138,7 @@ def test_coordination_study_llm_smoke_stable_summary(tmp_path: Path) -> None:
         # Fallback: require at least same (method_id, scale_id, injection_id) row keys
         import csv as csv_module
         from io import StringIO
+
         r1 = list(csv_module.DictReader(StringIO(raw1)))
         r2 = list(csv_module.DictReader(StringIO(raw2)))
         keys1 = {(r.get("method_id"), r.get("scale_id"), r.get("injection_id")) for r in r1}
@@ -152,7 +149,7 @@ def test_coordination_study_llm_smoke_stable_summary(tmp_path: Path) -> None:
     cells_dir1 = out1 / "cells"
     cells_dir2 = out2 / "cells"
     if cells_dir1.exists() and cells_dir2.exists():
-        for cell_id in (cells_dir1.iterdir() if cells_dir1.is_dir() else []):
+        for cell_id in cells_dir1.iterdir() if cells_dir1.is_dir() else []:
             if not cell_id.is_dir():
                 continue
             ep_log1 = cell_id / "episodes.jsonl"
@@ -170,9 +167,7 @@ def test_coordination_study_llm_smoke_stable_summary(tmp_path: Path) -> None:
                         steps.extend(rec.get("steps") or [])
                         break
             if steps1 or steps2:
-                assert steps1 == steps2, (
-                    f"Cell {cell_id.name}: same seed must yield identical audit digest steps"
-                )
+                assert steps1 == steps2, f"Cell {cell_id.name}: same seed must yield identical audit digest steps"
                 break
 
 

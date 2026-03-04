@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scripted_ops_policy.v0.1.schema.json",
+  "title": "Scripted Ops Policy v0.1",
+  "description": "Policy for ScriptedOpsAgent: device_ids, alternate_devices, priority_order, thresholds.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "device_ids": { "type": "array", "items": { "type": "string" } },
+    "alternate_devices": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "integer" } }
+    },
+    "priority_order": { "type": "array", "items": { "type": "string" } },
+    "edf_deadline_field": { "type": "string" },
+    "door_tick_threshold_s": { "type": "number" },
+    "max_queue_len": { "type": "integer" },
+    "request_override_if_configured": { "type": "boolean" }
+  }
+}

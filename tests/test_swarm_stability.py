@@ -100,9 +100,12 @@ def test_swarm_oscillation_bounded() -> None:
         if to_a2:
             obs["a2"] = dict(obs["a2"], zone_id=to_a2)
     back_forth = sum(
-        1 for i in range(len(positions) - 1)
-        if positions[i] == ("Z_A", "Z_B") and positions[i + 1] == ("Z_B", "Z_A")
-        or positions[i] == ("Z_B", "Z_A") and positions[i + 1] == ("Z_A", "Z_B")
+        1
+        for i in range(len(positions) - 1)
+        if positions[i] == ("Z_A", "Z_B")
+        and positions[i + 1] == ("Z_B", "Z_A")
+        or positions[i] == ("Z_B", "Z_A")
+        and positions[i + 1] == ("Z_A", "Z_B")
     )
     assert back_forth <= 10
 

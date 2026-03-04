@@ -18,11 +18,10 @@ from pathlib import Path
 def main() -> int:
     from labtrust_gym.studies.paper_claims_snapshot import build_manifest_from_release
 
-    parser = argparse.ArgumentParser(
-        description="Extract paper claims snapshot from a paper_v0.1 release directory."
-    )
+    parser = argparse.ArgumentParser(description="Extract paper claims snapshot from a paper_v0.1 release directory.")
     parser.add_argument(
-        "release_dir", type=Path,
+        "release_dir",
+        type=Path,
         help="Path to paper release (package-release --profile paper_v0.1 --out <dir>)",
     )
     parser.add_argument(

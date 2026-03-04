@@ -5,22 +5,18 @@ bids via OpenAI structured outputs. Opt-in only; requires OPENAI_API_KEY.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
-import time
 from pathlib import Path
-from typing import Any, cast
-
-from labtrust_gym.security.secret_scrubber import scrub_dict_for_log, scrub_secrets
+from typing import Any
 
 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
     _coordination_proposal_schema_for_api,
     _estimated_cost_usd,
-    _load_model_pricing,
     generate_coordination_proposal,
 )
+from labtrust_gym.security.secret_scrubber import scrub_dict_for_log, scrub_secrets
 
 LOG = logging.getLogger(__name__)
 
@@ -138,6 +134,7 @@ class OpenAIBidBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass

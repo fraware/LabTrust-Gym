@@ -6,12 +6,12 @@ Real Ed25519 signatures in-test; tampering fails verification.
 import base64
 
 from labtrust_gym.engine.signatures import (
-    build_signing_payload,
-    canonical_payload_bytes,
-    sign_payload_bytes,
     SIG_KEY_EXPIRED,
     SIG_KEY_NOT_YET_VALID,
     SIG_KEY_REVOKED,
+    build_signing_payload,
+    canonical_payload_bytes,
+    sign_payload_bytes,
     verify_action_signature,
 )
 

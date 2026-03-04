@@ -6,7 +6,6 @@ Stable enough to diff in CI (same seed -> same trace content).
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 from typing import Any
 

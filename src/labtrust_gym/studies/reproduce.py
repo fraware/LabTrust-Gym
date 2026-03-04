@@ -79,9 +79,7 @@ def run_reproduce(
     elif base_profile == "full":
         episodes = 1 if smoke else 4
     else:
-        raise ValueError(
-            f"profile must be 'minimal', 'full', or 'full_with_coordination', got {profile!r}"
-        )
+        raise ValueError(f"profile must be 'minimal', 'full', or 'full_with_coordination', got {profile!r}")
 
     if out_dir is None:
         stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -139,9 +137,7 @@ def main(
 ) -> int:
     """CLI entry: run reproduce and write runs/<id>/throughput_sla, qc_cascade with figures."""
     try:
-        result = run_reproduce(
-            profile=profile, out_dir=out_dir, repo_root=repo_root, seed_base=seed_base
-        )
+        result = run_reproduce(profile=profile, out_dir=out_dir, repo_root=repo_root, seed_base=seed_base)
         print(f"Reproduce written to {result}", file=sys.stderr)
         print(
             f"  throughput_sla: {result / 'throughput_sla'}/figures  ({result / 'throughput_sla' / 'RUN_SUMMARY.md'})",

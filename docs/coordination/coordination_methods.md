@@ -2,12 +2,13 @@
 
 Coordination methods produce per-agent actions for the PettingZoo Parallel env and are compared at scale in coord_scale and coord_risk. Each method implements the same interface and runs deterministically when using the deterministic backend. The registry is defined in `policy/coordination/coordination_methods.v0.1.yaml`; risk coverage is in `policy/coordination/method_risk_matrix.v0.1.yaml` and `policy/risks/risk_registry.v0.1.yaml`. For **learning-style methods** (e.g. MARL, evolution), see [Learning methods implementation strategy](learning_methods_implementation_strategy.md): deterministic track (CI-safe) vs study track (reproducible via seed-base and checkpoint hashing), and optional `metadata.coordination.learning` fields in results.
 
-For a **detailed description of how each method works** (algorithms, data flow, invariants, and design choices), see [How coordination methods work (detailed)](coordination_methods_how_they_work.md). For **per-method SOTA status** (conformance pass_budget/pass_evidence, strictly-better test, envelope), see [SOTA method roles and checklist](sota_method_roles_and_checklist.md); run `python scripts/refresh_sota_checklist.py` from repo root to regenerate the dashboard table.
+For a **detailed description of how each method works** (algorithms, data flow, invariants, and design choices), see [How coordination methods work (detailed)](coordination_methods_how_they_work.md). For **per-method SOTA status** (conformance pass_budget/pass_evidence, strictly-better test, envelope), run `python scripts/refresh_sota_checklist.py` from repo root to regenerate the dashboard table.
 
 ## Interface
 
 - **CoordinationMethod**: `method_id`, `reset(seed, policy, scale_config)`, `propose_actions(obs, infos, t) -> dict[agent_id, action_dict]`, optional `on_step_result(step_outputs)`. Kernel-composed methods also implement `step(context) -> (actions, CoordinationDecision)` for decision tracing.
 - **action_dict**: At least `action_index` (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN); optionally `action_type`, `args`, `reason_code`, `token_refs` for engine events. Actions are schema-valid and do not bypass RBAC or signature rules.
+- **combine_submissions(submissions, obs, infos, t)** (optional): Combines per-agent submissions into a joint action dict. Used at scale when simulation-centric has N > N_max (per-agent policies) or agent-centric multi-agentic (N agent backends). Submission shape per method is defined in `policy/coordination/coordination_submission_shapes.v0.1.yaml`: `action` (default), `bid` (auction methods), or `vote` (consensus). Default implementation treats each submission as an action_dict and fills missing agents with NOOP.
 
 ### Where coordination runs
 
@@ -17,7 +18,7 @@ Coordination is **not** in the CLI. The CLI only parses arguments and invokes th
 - Else if the method has repair and `_backend.generate_proposal`: runs `run_proposal_with_repair` with an internal `_propose_fn` that calls the coordinator backend's `generate_proposal(...)`.
 - Else: calls `coord_method.propose_actions(obs_for_step, infos, step_t)`.
 
-So one step = runner gets obs -> coord method calls backend(s) -> one or N LLM call(s) -> joint decision -> runner maps to per-agent actions -> env step. The CLI never sees per-step observations or LLM calls.
+So one step = runner gets obs -> coord method calls backend(s) -> one or N LLM call(s) -> joint decision -> runner maps to per-agent actions -> env step. The CLI never sees per-step observations or LLM calls. The **propose_actions** (and step(context)) path does not run a runner-level shield; coordination methods are expected to produce valid actions. The engine still enforces RBAC and invariants on every action. Integrators who cannot assume a trusted coordinator should use agent-centric or combine path, or set `apply_runner_shield_on_propose_actions: true` in scale_config when implemented. See [Design choices](../architecture/design_choices.md) section 4.2 and 4.3.
 
 ```mermaid
 flowchart LR
@@ -35,6 +36,10 @@ flowchart LR
   CoordMethod --> Loop
   Loop --> Env[Env step]
 ```
+
+## Domain scope
+
+The coordination method contract (propose_actions, step, combine_submissions) is **domain-agnostic**: it consumes observations and returns action dicts. The only **implemented** domain is **hospital_lab** (blood sciences lane—a pathology lab: zones, specimens, MOVE, START_RUN, etc.). See [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab). All current coordination methods and tasks are defined for this domain. Adding another domain would require a new domain adapter, env/engine, and policy; see [Extension development](../agents/extension_development.md) and `domain_id` / `get_domain_adapter_factory`.
 
 ## Coordination kernel (ALLOCATION, SCHEDULING, ROUTING)
 
@@ -178,7 +183,7 @@ Purely local rules; zero global state.
 
 Leader-based agreement on a single global digest (e.g. device -> queue_head) in bounded rounds. Leader = `agents[t % n]`; leader proposes digest from `queue_by_device`; all agents use the digest for local actions (move toward device zones, START_RUN when colocated with head, QUEUE_RUN when at device with queue but no head). No central auctioneer; fits existing bus and identity.
 
-**Expected vulnerabilities**: R-COMMS-002 (poisoning of proposed value), R-DATA-003, R-FLOW-002. See [SOTA methods at scale](sota_methods_at_scale.md), [fidelity notes](fidelity_notes.md).
+**Expected vulnerabilities**: R-COMMS-002 (poisoning of proposed value), R-DATA-003, R-FLOW-002. See [fidelity notes](fidelity_notes.md).
 
 ---
 
@@ -186,7 +191,7 @@ Leader-based agreement on a single global digest (e.g. device -> queue_head) in 
 
 Priority-weighted stigmergy: pheromone per zone with decay; deposit on QUEUE_RUN/START_RUN. Agents follow gradient (move to adjacent zone with highest pheromone); if no gradient, fallback BFS toward device zones with work. Handles restricted zone (TICK when frozen). Params: pheromone_decay, pheromone_deposit.
 
-**Expected vulnerabilities**: R-TOOL-001, R-DATA-001, R-FLOW-002. See [SOTA methods at scale](sota_methods_at_scale.md), [fidelity notes](fidelity_notes.md).
+**Expected vulnerabilities**: R-TOOL-001, R-DATA-001, R-FLOW-002. See [fidelity notes](fidelity_notes.md).
 
 ---
 
@@ -259,4 +264,4 @@ To honestly claim SOTA, methods need **algorithmic fidelity** (implementation ma
 
 **Evaluation fidelity:** coord_scale measures scale effects (comm.msg_count, comm.p95_latency_ms, coordination.stale_action_rate in summary_coord.csv). coord_risk measures robustness (sec.attack_success_rate, sec.stealth_success_rate, robustness.resilience_score). Baselines: kernel_whca, market_auction, hierarchical_hub_rr, consensus_paxos_lite, swarm_stigmergy_priority in study spec and Layer 1 / coordination-nightly scripts.
 
-See source: `src/labtrust_gym/baselines/coordination/ripple_effect.py`, `group_evolving/`, `coordination_study_runner.py`, `benchmarks/metrics.py`, `docs/benchmarking_plan.md`.
+See source: `src/labtrust_gym/baselines/coordination/ripple_effect.py`, `group_evolving/`, `coordination_study_runner.py`, `benchmarks/metrics.py`, `policy/coordination/coordination_study_spec.v0.1.yaml`.

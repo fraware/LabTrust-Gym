@@ -115,8 +115,6 @@ def test_agent_returns_circuit_breaker_open_when_circuit_open() -> None:
         MockDeterministicBackendV2,
     )
     from labtrust_gym.engine.rbac import (
-        get_agent_role,
-        get_allowed_actions,
         load_rbac_policy,
     )
     from labtrust_gym.pipeline import set_pipeline_config

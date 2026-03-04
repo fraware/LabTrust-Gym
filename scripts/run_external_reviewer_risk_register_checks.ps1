@@ -60,6 +60,11 @@ if ($CoordDir) {
 
 Push-Location $RepoRoot
 try {
+    Write-Host "Verifying run evidence..."
+    $VerifyArgs = @("scripts/verify_run_evidence.py", "--policy-root", $RepoRoot) + $RunDirs
+    & python @VerifyArgs
+    if ($LASTEXITCODE -ne 0) { throw "verify_run_evidence failed" }
+
     Write-Host "Exporting risk register..."
     $ExportArgs = @("export-risk-register", "--out", $OutDir)
     foreach ($d in $RunDirs) {

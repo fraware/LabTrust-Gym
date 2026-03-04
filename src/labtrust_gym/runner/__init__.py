@@ -3,7 +3,9 @@ Golden runner, environment adapter, and emit validation.
 
 GoldenRunner runs scenario suites against an env adapter and asserts the
 runner output contract. LabTrustEnvAdapter is the interface the engine
-implements. PZParallelAdapter wraps the PettingZoo env for the golden runner.
+implements. PZParallelAdapter wraps CoreEnv and implements LabTrustEnvAdapter.
+Used by the golden runner and online server; no PettingZoo dependency. The
+PettingZoo env (LabTrustParallelEnv) is used only by the benchmark runner.
 Emits validator checks that step emits are in the policy vocabulary.
 """
 
@@ -22,6 +24,7 @@ def get_default_env_adapter() -> LabTrustEnvAdapter:
     """
     Return the default env adapter for deterministic mode (no adapter provided).
     Uses PZParallelAdapter, which wraps the same engine as pz_parallel (CoreEnv).
+    No PettingZoo involved.
     """
     return PZParallelAdapter()
 

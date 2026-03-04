@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -46,16 +47,9 @@ def _require_sb3_or_skip() -> None:
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "").strip()[:500]
         hint = f" (Python: {sys.executable})"
-        if (
-            "1114" in err
-            or "DLL" in err
-            or "c10" in err.lower()
-            or "access violation" in err.lower()
-        ):
+        if "1114" in err or "DLL" in err or "c10" in err.lower() or "access violation" in err.lower():
             pytest.skip(_MARL_SKIP_MSG + hint + (f" Raw: {err[:200]}" if err else ""))
-        pytest.skip(
-            f"stable_baselines3 not available: {err or result.returncode}{hint}"
-        )
+        pytest.skip(f"stable_baselines3 not available: {err or result.returncode}{hint}")
 
 
 def _run_test_in_subprocess(test_name: str) -> None:
@@ -80,17 +74,10 @@ def _run_test_in_subprocess(test_name: str) -> None:
             text=True,
         )
     except subprocess.TimeoutExpired:
-        pytest.skip(
-            "MARL smoke subprocess timed out; run test_marl_smoke.py with LABTRUST_MARL_SMOKE=1"
-        )
+        pytest.skip("MARL smoke subprocess timed out; run test_marl_smoke.py with LABTRUST_MARL_SMOKE=1")
     if result.returncode != 0:
         out = (result.stdout or "") + (result.stderr or "")
-        if (
-            "1114" in out
-            or "c10.dll" in out.lower()
-            or "DLL" in out
-            or "access violation" in out.lower()
-        ):
+        if "1114" in out or "c10.dll" in out.lower() or "DLL" in out or "access violation" in out.lower():
             pytest.skip(_MARL_SKIP_MSG)
         pytest.fail(f"MARL smoke test failed in subprocess (exit {result.returncode})")
 
@@ -133,6 +120,7 @@ def test_marl_smoke_ppo_train_config_and_history() -> None:
     pytest.importorskip("gymnasium")
     pytest.importorskip("pettingzoo")
     import json
+
     from labtrust_gym.baselines.marl.ppo_train import train_ppo
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -239,3 +227,343 @@ def test_marl_ppo_propose_actions_scenario_no_crash() -> None:
     for rec in actions.values():
         assert "action_index" in rec
         assert 0 <= rec["action_index"] <= 5
+
+
+def _minimal_obs_for_agent() -> dict:
+    """Minimal obs dict compatible with _flatten_obs (n_d=6, n_status=8)."""
+    return {
+        "my_zone_idx": 0,
+        "door_restricted_open": 0,
+        "door_restricted_duration_s": 0.0,
+        "restricted_zone_frozen": 0,
+        "queue_lengths": [0] * 6,
+        "queue_has_head": [0] * 6,
+        "specimen_status_counts": [0] * 8,
+        "device_qc_pass": [1] * 6,
+        "log_frozen": 0,
+        "token_count_override": 0,
+        "token_count_restricted": 0,
+    }
+
+
+def test_marl_ppo_propose_actions_all_five_agent_indices() -> None:
+    """Train with include_agent_id=True, num_agents=5; propose_actions for all 5 agents; assert valid actions."""
+    if os.environ.get("LABTRUST_MARL_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_MARL_SMOKE=1 to run MARL smoke tests")
+    _require_sb3_or_skip()
+    if sys.platform == "win32" and os.environ.get("MARL_RUN_INLINE") != "1":
+        _run_test_in_subprocess("test_marl_ppo_propose_actions_all_five_agent_indices")
+        return
+    pytest.importorskip("gymnasium")
+    pytest.importorskip("pettingzoo")
+    from labtrust_gym.baselines.coordination.registry import make_coordination_method
+    from labtrust_gym.baselines.marl.ppo_train import train_ppo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "ppo"
+        train_ppo(
+            task_name="throughput_sla",
+            timesteps=400,
+            seed=44,
+            out_dir=out,
+            verbose=0,
+            train_config={"include_agent_id": True, "num_agents": 5},
+        )
+        checkpoint = out / "model.zip"
+        assert checkpoint.exists()
+        policy = {"zone_layout": {"zones": []}}
+        scale_config = {"model_path": str(checkpoint), "seed": 44}
+        repo_root = Path(__file__).resolve().parent.parent
+        coord = make_coordination_method(
+            "marl_ppo",
+            policy,
+            repo_root=repo_root,
+            scale_config=scale_config,
+            model_path=str(checkpoint),
+        )
+        coord.reset(44, policy, scale_config)
+        agents = ["ops_0", "runner_0", "runner_1", "qc_0", "supervisor_0"]
+        obs = {aid: _minimal_obs_for_agent() for aid in agents}
+        actions = coord.propose_actions(obs, {}, 0)
+        assert isinstance(actions, dict)
+        assert len(actions) == 5
+        assert set(actions.keys()) == set(agents)
+        for aid in agents:
+            rec = actions[aid]
+            assert "action_index" in rec
+            assert 0 <= rec["action_index"] <= 5, f"agent {aid} action_index out of range"
+
+
+def test_marl_ppo_full_episode_in_env() -> None:
+    """One full episode with marl_ppo as coordinator in real env; assert episode completes and metrics present."""
+    if os.environ.get("LABTRUST_MARL_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_MARL_SMOKE=1 to run MARL smoke tests")
+    _require_sb3_or_skip()
+    if sys.platform == "win32" and os.environ.get("MARL_RUN_INLINE") != "1":
+        _run_test_in_subprocess("test_marl_ppo_full_episode_in_env")
+        return
+    pytest.importorskip("gymnasium")
+    pytest.importorskip("pettingzoo")
+    from labtrust_gym.baselines.coordination.registry import make_coordination_method
+    from labtrust_gym.baselines.marl.ppo_train import train_ppo
+    from labtrust_gym.benchmarks.runner import run_episode
+    from labtrust_gym.benchmarks.tasks import get_task
+    from labtrust_gym.domain import get_domain_adapter_factory
+    from labtrust_gym.envs.pz_parallel import LabTrustParallelEnv
+
+    repo_root = Path(__file__).resolve().parent.parent
+    policy_dir = repo_root / "policy"
+    _adapter_fn = get_domain_adapter_factory("hospital_lab")
+    if _adapter_fn is None:
+        from labtrust_gym.domain.lab_adapter import lab_domain_adapter_factory
+
+        _adapter_fn = lab_domain_adapter_factory
+
+    def _engine_factory() -> Any:
+        return _adapter_fn({}, None)
+
+    def env_factory(
+        initial_state: dict[str, Any],
+        reward_config: dict[str, Any],
+        log_path: Path | None = None,
+    ) -> Any:
+        return LabTrustParallelEnv(
+            num_runners=2,
+            num_adversaries=0,
+            num_insiders=0,
+            dt_s=10,
+            reward_config=reward_config,
+            policy_dir=policy_dir,
+            log_path=log_path,
+            engine_factory=_engine_factory,
+        )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "ppo"
+        train_ppo(
+            task_name="throughput_sla",
+            timesteps=300,
+            seed=45,
+            out_dir=out,
+            verbose=0,
+        )
+        checkpoint = out / "model.zip"
+        assert checkpoint.exists()
+        task = get_task("throughput_sla")
+        coord = make_coordination_method(
+            "marl_ppo",
+            {},
+            repo_root=repo_root,
+            scale_config={"model_path": str(checkpoint)},
+            model_path=str(checkpoint),
+        )
+        metrics, step_results_per_step = run_episode(
+            task,
+            episode_seed=46,
+            env_factory=env_factory,
+            coord_method=coord,
+            repo_root=repo_root,
+        )
+    assert isinstance(metrics, dict)
+    assert isinstance(step_results_per_step, list)
+    assert "steps" in metrics or "episode_reward" in metrics or len(step_results_per_step) > 0
+
+
+def test_marl_ppo_multi_agent_training_ops_and_runner() -> None:
+    """Train with controlled_agents=[ops_0, runner_0]; load in marl_ppo; propose_actions for both; assert valid actions."""
+    if os.environ.get("LABTRUST_MARL_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_MARL_SMOKE=1 to run MARL smoke tests")
+    _require_sb3_or_skip()
+    if sys.platform == "win32" and os.environ.get("MARL_RUN_INLINE") != "1":
+        _run_test_in_subprocess("test_marl_ppo_multi_agent_training_ops_and_runner")
+        return
+    pytest.importorskip("gymnasium")
+    pytest.importorskip("pettingzoo")
+    from labtrust_gym.baselines.coordination.registry import make_coordination_method
+    from labtrust_gym.baselines.marl.ppo_train import train_ppo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "ppo"
+        train_ppo(
+            task_name="throughput_sla",
+            timesteps=600,
+            seed=47,
+            out_dir=out,
+            verbose=0,
+            train_config={
+                "include_agent_id": True,
+                "num_agents": 5,
+                "controlled_agents": ["ops_0", "runner_0"],
+            },
+        )
+        checkpoint = out / "model.zip"
+        assert checkpoint.exists()
+        import json as _json
+
+        with open(out / "train_config.json", encoding="utf-8") as f:
+            cfg = _json.load(f)
+        assert cfg.get("controlled_agents") == ["ops_0", "runner_0"]
+        policy = {}
+        scale_config = {"model_path": str(checkpoint), "seed": 47}
+        repo_root = Path(__file__).resolve().parent.parent
+        coord = make_coordination_method(
+            "marl_ppo",
+            policy,
+            repo_root=repo_root,
+            scale_config=scale_config,
+            model_path=str(checkpoint),
+        )
+        coord.reset(47, policy, scale_config)
+        obs = {
+            "ops_0": _minimal_obs_for_agent(),
+            "runner_0": _minimal_obs_for_agent(),
+        }
+        actions = coord.propose_actions(obs, {}, 0)
+        assert set(actions.keys()) == {"ops_0", "runner_0"}
+        for aid in ["ops_0", "runner_0"]:
+            assert "action_index" in actions[aid]
+            assert 0 <= actions[aid]["action_index"] <= 5
+
+
+def test_marl_ctde_train_and_load() -> None:
+    """Run CTDE training for a few hundred steps; load with eval and marl_ppo; assert no crash."""
+    if os.environ.get("LABTRUST_MARL_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_MARL_SMOKE=1 to run MARL smoke tests")
+    _require_sb3_or_skip()
+    if sys.platform == "win32" and os.environ.get("MARL_RUN_INLINE") != "1":
+        _run_test_in_subprocess("test_marl_ctde_train_and_load")
+        return
+    pytest.importorskip("gymnasium")
+    pytest.importorskip("pettingzoo")
+    from labtrust_gym.baselines.coordination.registry import make_coordination_method
+    from labtrust_gym.baselines.marl.ctde_ppo_train import train_ctde_ppo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "ctde"
+        result = train_ctde_ppo(
+            task_name="throughput_sla",
+            timesteps=400,
+            seed=48,
+            out_dir=out,
+            verbose=0,
+        )
+        assert Path(result["model_path"]).exists()
+        assert result.get("algorithm") == "ctde"
+        import json as _json
+
+        with open(out / "train_config.json", encoding="utf-8") as f:
+            cfg = _json.load(f)
+        assert cfg.get("algorithm") == "ctde"
+        coord = make_coordination_method(
+            "marl_ppo",
+            {},
+            repo_root=Path(__file__).resolve().parent.parent,
+            scale_config={"model_path": result["model_path"]},
+            model_path=result["model_path"],
+        )
+        coord.reset(48, {}, {})
+        obs = {"ops_0": _minimal_obs_for_agent()}
+        actions = coord.propose_actions(obs, {}, 0)
+        assert "ops_0" in actions
+        assert 0 <= actions["ops_0"]["action_index"] <= 5
+        from stable_baselines3 import PPO
+
+        model = PPO.load(str(result["model_path"]))
+        obs_vec = _minimal_obs_for_agent()
+        import numpy as np
+
+        from labtrust_gym.baselines.marl.sb3_wrapper import _flatten_obs, _one_hot_agent
+
+        flat = _flatten_obs(obs_vec, n_d=6, n_status=8)
+        vec = np.concatenate([flat, _one_hot_agent(0, 5)]).astype(np.float32)
+        action, _ = model.predict(vec, deterministic=True)
+        assert 0 <= int(action) <= 5
+
+
+def test_marl_ppo_learning_metadata_in_results() -> None:
+    """Run benchmark with marl_ppo and model_path; assert results.metadata.coordination.learning has enabled and checkpoint_sha."""
+    if os.environ.get("LABTRUST_MARL_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_MARL_SMOKE=1 to run MARL smoke tests")
+    _require_sb3_or_skip()
+    if sys.platform == "win32" and os.environ.get("MARL_RUN_INLINE") != "1":
+        _run_test_in_subprocess("test_marl_ppo_learning_metadata_in_results")
+        return
+    pytest.importorskip("gymnasium")
+    pytest.importorskip("pettingzoo")
+    from labtrust_gym.baselines.marl.ppo_train import train_ppo
+    from labtrust_gym.benchmarks.coordination_scale import load_scale_config_by_id
+    from labtrust_gym.benchmarks.runner import run_benchmark
+
+    repo_root = Path(__file__).resolve().parent.parent
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "ppo"
+        train_ppo(
+            task_name="throughput_sla",
+            timesteps=300,
+            seed=49,
+            out_dir=out,
+            verbose=0,
+        )
+        checkpoint = out / "model.zip"
+        assert checkpoint.exists()
+        scale_cfg = load_scale_config_by_id(repo_root, "small_smoke")
+        results_path = Path(tmp) / "results.json"
+        run_benchmark(
+            task_name="coord_scale",
+            num_episodes=1,
+            base_seed=50,
+            out_path=results_path,
+            repo_root=repo_root,
+            coord_method="marl_ppo",
+            scale_config_override=scale_cfg,
+            initial_state_overrides={"model_path": str(checkpoint)},
+        )
+        import json as _json
+
+        with open(results_path, encoding="utf-8") as f:
+            results = _json.load(f)
+        learning = (results.get("metadata") or {}).get("coordination", {}).get("learning")
+        assert learning is not None, "results.metadata.coordination.learning should be set for marl_ppo"
+        assert learning.get("enabled") is True
+        assert "checkpoint_sha" in learning
+        assert isinstance(learning["checkpoint_sha"], str)
+        assert len(learning["checkpoint_sha"]) == 64
+
+
+def test_marl_ppo_per_agent_agent_multiple_agent_ids() -> None:
+    """MarlPPOPerAgentAgent returns valid actions for different agent_ids (scale path)."""
+    if os.environ.get("LABTRUST_MARL_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_MARL_SMOKE=1 to run MARL smoke tests")
+    _require_sb3_or_skip()
+    if sys.platform == "win32" and os.environ.get("MARL_RUN_INLINE") != "1":
+        _run_test_in_subprocess("test_marl_ppo_per_agent_agent_multiple_agent_ids")
+        return
+    pytest.importorskip("gymnasium")
+    pytest.importorskip("pettingzoo")
+    from labtrust_gym.baselines.marl.ppo_agent import MarlPPOPerAgentAgent
+    from labtrust_gym.baselines.marl.ppo_train import train_ppo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "ppo"
+        train_ppo(
+            task_name="throughput_sla",
+            timesteps=350,
+            seed=51,
+            out_dir=out,
+            verbose=0,
+            train_config={"include_agent_id": True, "num_agents": 5},
+        )
+        checkpoint = out / "model.zip"
+        assert checkpoint.exists()
+        agent_order = ["worker_0", "worker_1", "worker_2"]
+        per_agent = MarlPPOPerAgentAgent(
+            model_path=checkpoint,
+            agent_order=agent_order,
+            repo_root=Path(__file__).resolve().parent.parent,
+        )
+        obs = _minimal_obs_for_agent()
+        for i, aid in enumerate(agent_order):
+            action_idx, action_info = per_agent.act(obs, aid)
+            assert isinstance(action_idx, int)
+            assert 0 <= action_idx <= 5
+            assert isinstance(action_info, dict)

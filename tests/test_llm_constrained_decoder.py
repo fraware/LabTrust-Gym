@@ -15,9 +15,11 @@ from labtrust_gym.baselines.llm.agent import (
 from labtrust_gym.baselines.llm.decoder import (
     MISSING_CITATION,
     MISSING_RATIONALE,
+    RC_LLM_LOW_CONFIDENCE_REFUSAL,
     decode_constrained,
     validate_schema_returns_errors,
 )
+from labtrust_gym.baselines.llm.shield import apply_shield
 
 
 def _repo_root() -> Path:
@@ -115,6 +117,55 @@ def test_decode_constrained_valid_passes() -> None:
     assert "POLICY:RBAC:allowed_actions" in (action.get("rationale") or "")
 
 
+def test_decode_constrained_low_confidence_refusal() -> None:
+    """When refuse_below_confidence is True and confidence < threshold -> NOOP, RC_LLM_LOW_CONFIDENCE_REFUSAL."""
+    from labtrust_gym.baselines.llm.decoder import NOOP_ACTION_V01
+
+    schema = load_llm_action_schema_v02(_repo_root() / "policy/llm/llm_action.schema.v0.2.json")
+    if not schema:
+        pytest.skip("llm_action.schema.v0.2.json not found")
+    policy_summary = {
+        "allowed_actions": ["NOOP", "TICK"],
+        "citation_anchors": ["POLICY:RBAC:allowed_actions"],
+        "refuse_below_confidence": True,
+        "refusal_confidence_threshold": 0.6,
+    }
+    candidate_low = {
+        "action_type": "TICK",
+        "args": {},
+        "rationale": "POLICY:RBAC:allowed_actions advance",
+        "confidence": 0.5,
+        "safety_notes": "",
+    }
+    action, rejected, reason = decode_constrained(
+        candidate_low,
+        policy_summary,
+        schema,
+        validate_schema_returns_errors,
+        require_rationale=True,
+        require_citation=True,
+        noop_action=NOOP_ACTION_V01,
+    )
+    assert rejected is True
+    assert reason == RC_LLM_LOW_CONFIDENCE_REFUSAL
+    assert action.get("action_type") == "NOOP"
+    assert action.get("reason_code") == RC_LLM_LOW_CONFIDENCE_REFUSAL
+
+    candidate_high = {**candidate_low, "confidence": 0.8}
+    action2, rejected2, reason2 = decode_constrained(
+        candidate_high,
+        policy_summary,
+        schema,
+        validate_schema_returns_errors,
+        require_rationale=True,
+        require_citation=True,
+        noop_action=NOOP_ACTION_V01,
+    )
+    assert rejected2 is False
+    assert reason2 is None
+    assert action2.get("action_type") == "TICK"
+
+
 def test_decode_constrained_missing_citation_rejected() -> None:
     """Rationale without any citation anchor -> rejected, NOOP, MISSING_CITATION."""
     schema = load_llm_action_schema_v02(_repo_root() / "policy/llm/llm_action.schema.v0.2.json")
@@ -144,6 +195,25 @@ def test_decode_constrained_missing_citation_rejected() -> None:
     assert reason == MISSING_CITATION
     assert action.get("action_type") == "NOOP"
     assert "advance time" in (action.get("rationale") or "")
+
+
+@pytest.mark.security
+def test_shield_blocks_action_not_in_allowed_actions() -> None:
+    """Shield blocks policy-violating action (RELEASE_RESULT when only NOOP/TICK allowed). Decoder-first bypass mitigation."""
+    policy_summary = {"allowed_actions": ["NOOP", "TICK"], "agent_zone": "Z_SRA_RECEPTION"}
+    rbac_policy = {
+        "roles": [{"role_id": "ROLE_RECEPTION", "allowed_actions": ["NOOP", "TICK"]}],
+        "agents": {"ops_0": "ROLE_RECEPTION"},
+    }
+    candidate = {
+        "action_type": "RELEASE_RESULT",
+        "args": {"result_id": "R1"},
+        "rationale": "User requested release.",
+    }
+    safe, filtered, reason = apply_shield(candidate, "ops_0", rbac_policy, policy_summary, capability_profile=None)
+    assert filtered is True
+    assert reason == "RBAC_ACTION_DENY"
+    assert safe.get("action_type") == "NOOP"
 
 
 def test_deterministic_constrained_backend_same_seed_same_sequence() -> None:

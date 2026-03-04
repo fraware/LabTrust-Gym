@@ -1,13 +1,15 @@
 """
 Debate/consensus coordination: N proposer backends each produce a proposal;
 a deterministic rule (e.g. majority vote per agent on action_type) or an
-aggregator backend produces the final proposal. Same propose_actions interface.
+aggregator backend (e.g. LLM) produces the final proposal. Same propose_actions interface.
 """
 
 from __future__ import annotations
 
+import json
 from collections import Counter
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_NOOP,
@@ -48,12 +50,14 @@ def _majority_merge_proposals(
             counts = Counter(votes)
             best = counts.most_common(1)[0][0]
             action_type = best
-        per_agent.append({
-            "agent_id": aid,
-            "action_type": action_type,
-            "args": {},
-            "reason_code": "DEBATE_MAJORITY",
-        })
+        per_agent.append(
+            {
+                "agent_id": aid,
+                "action_type": action_type,
+                "args": {},
+                "reason_code": "DEBATE_MAJORITY",
+            }
+        )
     return {
         "proposal_id": f"debate_majority_{step_id}",
         "step_id": step_id,
@@ -62,6 +66,50 @@ def _majority_merge_proposals(
         "comms": [],
         "meta": {"backend_id": "debate_majority"},
     }
+
+
+def _llm_merge_proposals(
+    proposals: list[dict[str, Any]],
+    agent_ids: list[str],
+    allowed_actions: list[str],
+    step_id: int,
+    method_id: str,
+    generate_fn: Callable[[str], str],
+) -> dict[str, Any] | None:
+    """
+    Build a prompt from proposals, call generate_fn(prompt), parse JSON into a
+    proposal dict. Returns None on parse/generate failure (caller should fall back to majority).
+    """
+    try:
+        summary = json.dumps(
+            [p.get("per_agent") for p in proposals],
+            indent=0,
+        )
+        prompt = (
+            f"Given these N coordination proposals (one per_agent list per proposal), "
+            f"output a single merged proposal as JSON with keys: proposal_id (string), "
+            f"step_id (int), method_id (string), per_agent (list of dicts with agent_id, "
+            f"action_type, args, reason_code). Allowed action_type values: "
+            f"{json.dumps(allowed_actions)}. Agent IDs: {json.dumps(agent_ids)}.\n\n"
+            f"Proposals:\n{summary}\n\nMerged proposal JSON:"
+        )
+        out = generate_fn(prompt)
+        if not out or not isinstance(out, str):
+            return None
+        out = out.strip()
+        if out.startswith("```"):
+            lines = out.split("\n")
+            out = "\n".join(line for line in lines if not line.startswith("```"))
+        merged = json.loads(out)
+        if not isinstance(merged, dict) or "per_agent" not in merged:
+            return None
+        merged.setdefault("proposal_id", f"debate_llm_{step_id}")
+        merged.setdefault("step_id", step_id)
+        merged.setdefault("method_id", method_id)
+        merged.setdefault("meta", {})["backend_id"] = "debate_llm_aggregator"
+        return merged
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return None
 
 
 def _proposal_to_actions_dict(
@@ -104,6 +152,7 @@ class LLMCentralPlannerDebate(CoordinationMethod):
         get_allowed_actions_fn: Callable[[str], list[str]] | None = None,
         aggregator: str = "majority",
         method_id_override: str | None = None,
+        aggregator_backend: Any | None = None,
     ) -> None:
         if isinstance(proposal_backend, list):
             self._proposers = list(proposal_backend)
@@ -114,6 +163,7 @@ class LLMCentralPlannerDebate(CoordinationMethod):
         self._policy_summary = policy_summary or {}
         self._get_allowed_actions_fn = get_allowed_actions_fn
         self._aggregator = (aggregator or "majority").lower()
+        self._aggregator_backend = aggregator_backend
         self._method_id_override = method_id_override
         self._last_proposal: dict[str, Any] | None = None
         self._last_meta: dict[str, Any] | None = None
@@ -176,14 +226,38 @@ class LLMCentralPlannerDebate(CoordinationMethod):
             return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
 
         if self._aggregator == "majority":
-            merged = _majority_merge_proposals(
-                proposals, agent_ids, allowed, t, self.method_id
-            )
+            merged = _majority_merge_proposals(proposals, agent_ids, allowed, t, self.method_id)
+            self._last_meta = {"backend_id": "debate_majority"}
+        elif self._aggregator == "llm" and self._aggregator_backend is not None:
+            merged = None
+            backend = self._aggregator_backend
+            if hasattr(backend, "merge_proposals") and callable(backend.merge_proposals):
+                try:
+                    merged = backend.merge_proposals(proposals, agent_ids, allowed, t, self.method_id)
+                except Exception:
+                    merged = None
+            elif hasattr(backend, "generate") and callable(backend.generate):
+                try:
+                    merged = _llm_merge_proposals(
+                        proposals,
+                        agent_ids,
+                        allowed,
+                        t,
+                        self.method_id,
+                        backend.generate,
+                    )
+                except Exception:
+                    merged = None
+            if merged is None:
+                merged = _majority_merge_proposals(proposals, agent_ids, allowed, t, self.method_id)
+                self._last_meta = {"backend_id": "debate_majority_fallback"}
+            else:
+                self._last_meta = {"backend_id": "debate_llm_aggregator"}
         else:
             merged = proposals[0]
+            self._last_meta = {"backend_id": "debate_first"}
 
         self._last_proposal = merged
-        self._last_meta = {"backend_id": "debate_majority"}
 
         valid, _ = validate_proposal(
             merged,

@@ -1,0 +1,25 @@
+# Scripted ops (scheduler) policy v0.1.
+# Used by ScriptedOpsAgent when policy_path or repo policy/scripted/ is present.
+# No file or empty file => in-code defaults in scripted_ops.py.
+
+version: "0.1"
+device_ids:
+  - DEV_CENTRIFUGE_BANK_01
+  - DEV_ALIQUOTER_01
+  - DEV_CHEM_A_01
+  - DEV_CHEM_B_01
+  - DEV_HAEM_01
+  - DEV_COAG_01
+alternate_devices:
+  2: [3]
+  3: [2]
+  4: [2, 3]
+  5: [3]
+priority_order:
+  - STAT
+  - URGENT
+  - ROUTINE
+edf_deadline_field: deadline_s
+door_tick_threshold_s: 150.0
+max_queue_len: 50
+request_override_if_configured: true

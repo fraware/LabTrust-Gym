@@ -95,9 +95,7 @@ class _Span:
             except Exception as e:
                 LOG.debug("Tracing set_attribute failed: %s", e)
 
-    def end(
-        self, status: str = "ok", error_message: str | None = None
-    ) -> None:
+    def end(self, status: str = "ok", error_message: str | None = None) -> None:
         self.end_ns = time.perf_counter_ns()
         self.status = status
         self.error_message = error_message
@@ -106,9 +104,7 @@ class _Span:
                 from opentelemetry.trace import Status, StatusCode
 
                 if status != "ok":
-                    self._otel_span.set_status(
-                        Status(StatusCode.ERROR, error_message or status)
-                    )
+                    self._otel_span.set_status(Status(StatusCode.ERROR, error_message or status))
                 else:
                     self._otel_span.set_status(Status(StatusCode.OK))
                 self._otel_span.end()
@@ -157,9 +153,7 @@ class LLMTracer:
         if self._current is not None:
             self._current.set_attribute(key, value)
 
-    def end_span(
-        self, status: str = "ok", error_message: str | None = None
-    ) -> None:
+    def end_span(self, status: str = "ok", error_message: str | None = None) -> None:
         if self._current is not None:
             self._current.end(status=status, error_message=error_message)
             self._spans.append(self._current)

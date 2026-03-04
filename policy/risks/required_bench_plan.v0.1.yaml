@@ -103,13 +103,6 @@ cells:
     injection_id: INJ-COMMS-POISON-001
     cmd: labtrust run-benchmark --task coord_risk --coord-method swarm_stigmergy_priority
       --injection INJ-COMMS-POISON-001 --scale small_smoke --episodes 1 --seed 42
-- method_id: marl_ppo
-  risk_id: R-DATA-002
-  evidence:
-    kind: coord_risk
-    injection_id: inj_poison_obs
-    cmd: labtrust run-benchmark --task coord_risk --coord-method marl_ppo --injection
-      inj_poison_obs --scale small_smoke --episodes 1 --seed 42
 - method_id: llm_constrained
   risk_id: R-TOOL-001
   evidence:

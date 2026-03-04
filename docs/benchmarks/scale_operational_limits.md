@@ -10,23 +10,36 @@ This document defines what “coordination at scale” means for LabTrust-Gym, t
 
 **Wall-clock vs simulated timing:** Use `--timing simulated` for Layer 3 and latency/TAT metrics; the engine advances time according to device service times and arrival rates. Wall-clock (real time) is not used for benchmark correctness; runs are deterministic given seed and timing mode.
 
-**Designated at-scale profile:** **`corridor_heavy`** (200 agents, 2 sites, narrow corridor zones) is the “at scale” profile for stress-testing the coordinator and router. It is exercised in Layer 3 scripts (`scripts/run_benchmarking_layer3_scale.sh`) and can be added to coordination-nightly or a dedicated CI job (e.g. one episode per method at `corridor_heavy`) so forkers know the intended envelope. **`medium_stress_signed_bus`** (75 agents) is the default “hospital lab at scale” for selection policy and lab report.
+**Designated at-scale profile:** **`corridor_heavy`** (200 agents, 2 sites, narrow corridor zones) is the “at scale” profile for stress-testing the coordinator and router. It is exercised in Layer 3 scripts (`scripts/run_benchmarking_layer3_scale.sh`) and can be added to coordination-nightly or a dedicated CI job (e.g. one episode per method at `corridor_heavy`) so forkers know the intended envelope. **`medium_stress_signed_bus`** (75 agents) is the default “pathology lab (blood sciences) at scale” for selection policy and lab report.
 
 **Known limits:** Large scales increase memory (agent state, episode log) and runtime. The pack and study runners do not currently cap episode length or agent count in code; policy-defined scale configs are the source of truth. For production-like or very long runs, consider persistence and checkpointing (below).
+
+**Parallel multi-agentic and rate limiting:** When running agent-centric multi-agentic with per-agent LLM (`--agent-driven --multi-agentic --use-parallel-multi-agentic` and an LLM backend), the following parameters are configurable via `run_benchmark` or (when using scale tasks) via scale_config dict overrides:
+
+- **round_timeout_s** (default 60.0): Maximum wall-clock seconds per round before the driver forces advance (missing agents get NOOP). Passed to `AgentDrivenDriver` and `ParallelMultiAgenticBackend`. Recommended: 60s for production; lower for tests.
+- **parallel_multi_agentic_max_workers** (default None): Max threads in the pool for parallel agent backends. When None, uses `min(N, 64)`. Recommended: `min(N, 64)` for 200 agents.
+- **global_rate_limit_rps** / **global_rate_limit_capacity** (defaults 10.0, 20.0): TokenBucket rate and capacity for the shared global rate limiter passed to every per-agent `LLMAgentWithShield`. Optional; when not set in scale_config, runner uses these defaults. Tune for your LLM provider limits.
+- **global_rate_limit_max_wait_s** (optional): Maximum seconds each agent waits for a token from the global rate limiter before returning NOOP with reason_code **AGENT_RATE_LIMIT** (bounded wait; no indefinite block). When not set, agents wait indefinitely. Set (e.g. 60.0) in scale_config for production-style behavior.
+
+See [Design choices](../architecture/design_choices.md) (sections 3.4, 6, 7) for thread safety, round timeout semantics, and parallel backend behavior.
+
+**Recommended max N and memory (200 LLM agents):** A single process can run up to about **200** per-agent LLM agents (e.g. `LLMAgentWithShield`) with the default backends and shared global rate limiter. Each agent instance holds its own RateLimiter, CircuitBreaker, and shield context; 200 such instances are relatively heavy in memory. Use a **shared backend** (one OpenAILiveBackend or DeterministicConstrainedBackend) and one **global_rate_limiter** (TokenBucket) for all agents so that API usage and connection count stay bounded. For higher N or constrained memory, consider: (1) reducing `parallel_multi_agentic_max_workers` to cap concurrency; (2) an optional “light” per-agent wrapper that shares a single CircuitBreaker per backend: set **shared_circuit_breaker_per_backend: true** in scale_config (or scale_config_override) so the runner creates one CircuitBreaker per backend and passes it to each LLMAgentWithShield; default is one CircuitBreaker per agent. The designated at-scale profile **corridor_heavy** (200 agents) is validated in Layer 3 and coordination-nightly; for production-like runs, monitor memory and tune rate limits.
+
+**Combine path at scale (N_max):** When the number of agents exceeds **coord_propose_actions_max_agents** (default 50, set in `CoordinationScaleConfig` or scale_config_override), the runner does **not** call `coord_method.propose_actions`. Instead it collects one **submission** per agent (from scripted_agents_map or NOOP), then calls **`coord_method.combine_submissions(submissions, obs, infos, t)`** to obtain the joint action. So at scale, only the combine path is used; submission shape per method is defined in `policy/coordination/coordination_submission_shapes.v0.1.yaml` (action, bid, or vote).
 
 ## Persistence and replay (design)
 
 **Goal:** Support long or production-like runs by persisting episode logs incrementally, saving checkpoints at step N, and resuming from a checkpoint so runs can be audited and resumed after interruption.
 
-**Design (current state):** Episode logs are written at the end of an episode (or at the end of a run) by the benchmark runner. There is no mid-episode checkpoint or append-only log stream to disk during a run.
+**Design (current state):** When `--log` is set, the runner appends one JSON line per completed episode to `run_dir/episodes.jsonl` so that a crash leaves a partial, verifiable log of episode records. Step-level (method trace, coord_decisions) is written by the episode driver to the path given by `--log`. Optionally, use `--log-step-interval N` (N=1 for every step, N=10 for every 10 steps; default 0=off) to append a compact step record to `run_dir/steps.jsonl` each N steps (fields: episode, step, t_s, violations). Checkpoints are written at end of every N episodes (and after the last episode); step-level checkpoint is documented separately.
 
-**Proposed direction:**
+**Implementation status:**
 
-1. **Append-only episode log:** Optionally append each step (or every K steps) to a run dir file (e.g. `episode_log.jsonl`) so that a crash leaves a partial log that can be verified up to the last written step. Requires the runner to open the file once and append lines; hashchain and receipt generation would operate on the written subset.
-2. **Checkpoint at step N:** Save engine state (and optional coordinator state) to a checkpoint file (e.g. `checkpoint_step_N.json` or a binary blob) at configurable intervals. Resume would load the checkpoint, re-initialize the runner from that step, and continue. This requires a serializable state contract for the engine and any stateful coordination method.
-3. **Replay from checkpoint:** A separate command or mode (e.g. `labtrust run-benchmark --resume-from <checkpoint_dir>`) would load the checkpoint and continue the run. Evidence bundle and verify-bundle (or verify-release) would need to accept a run that was produced in two segments (e.g. merge logs or verify the final segment only).
+1. **Append-only step log:** Implemented. Use `--log-step-interval 1` (or N) with `--log` to append each step (or every N steps) to `run_dir/steps.jsonl`; a crash leaves a partial log up to the last written step.
+2. **Checkpoint at step N:** Implemented (minimal). Use `--checkpoint-every-steps N` with `--log`; the runner writes a step checkpoint every N steps (engine clock and RNG state in `checkpoint_step_latest.json`). Full store serialization is not implemented; resume-from-step is best-effort. Coordinator state is not serialized.
+3. **Replay from checkpoint:** Implemented. The command `labtrust run-benchmark --resume-from <run_dir>` loads the episode checkpoint and continues the run (skips completed episodes). Use the same `--out` and `--log` paths as the original run. Evidence bundle and verify-bundle accept a run produced in multiple segments.
 
-**Implementation status:** Design only. A minimal implementation could add (1) append-only episode log in the runner and (2) a single checkpoint-at-end-of-episode for multi-episode runs, with resume supporting “start from episode K” by re-running episodes 0..K-1 in a fast replay mode or by loading a saved episode log and continuing from episode K. No checkpoint/resume code is implemented in the current codebase.
+The helper module `labtrust_gym.benchmarks.checkpoint` provides `write_checkpoint`, `load_checkpoint`, `start_episode_index_from_resume`, and step-level `write_step_checkpoint` / `load_step_checkpoint`. The CLI supports `--resume-from <dir>`, `--checkpoint-every N`, and `--checkpoint-every-steps N` (step checkpoint requires `--log`). Use `--log <run_dir>/episodes.jsonl` and `--checkpoint-every N` for long runs; resume with `--resume-from <run_dir>`.
 
 ## Observability
 
@@ -34,10 +47,10 @@ This document defines what “coordination at scale” means for LabTrust-Gym, t
 
 **Metrics export:** There is no Prometheus or OpenTelemetry export in the current code. A future extension could expose counters or histograms (e.g. steps per episode, violations per run, throughput) via a small HTTP endpoint or a file that a sidecar could scrape. Metrics would be optional and off by default to keep the core deterministic and dependency-light.
 
-**Run summary script:** The existing `labtrust summarize-results` and report builders (e.g. LAB_COORDINATION_REPORT.md, pack_gate.md) provide a human-readable summary of a run. A simple script that parses a run dir and prints one-line stats (episodes, total steps, violations, throughput) would help forkers inspect runs without opening JSON. This can be added as a small CLI or script (e.g. `labtrust run-summary --run <dir>`).
+**Run summary:** Use `labtrust run-summary --run <dir>` to print one-line stats (episodes, steps, violations, throughput) for a run directory. The directory may contain `results.json` or (for partial runs) `episodes.jsonl`. Use `--format json` for machine-readable output. The existing `labtrust summarize-results` and report builders (e.g. LAB_COORDINATION_REPORT.md, pack_gate.md) provide full aggregation across multiple runs.
 
 ## See also
 
-- [Benchmarking plan](benchmarking_plan.md) – Layer 1–3 and scale IDs.
+- [Coordination studies](../coordination/coordination_studies.md) – Study runner and matrix.
 - [Coordination studies](../coordination/coordination_studies.md) – study runner and matrix.
 - [CI](../operations/ci.md) – coordination-nightly and optional at-scale job.

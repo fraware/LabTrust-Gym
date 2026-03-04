@@ -46,9 +46,7 @@ def test_coordination_matrix_policy_files_exist() -> None:
 
 
 @pytest.mark.parametrize("yaml_name, schema_name", _COORDINATION_MATRIX_POLICY_FILES)
-def test_coordination_matrix_policy_file_validates_against_schema(
-    yaml_name: str, schema_name: str
-) -> None:
+def test_coordination_matrix_policy_file_validates_against_schema(yaml_name: str, schema_name: str) -> None:
     """Each coordination matrix policy YAML must validate against its JSON schema."""
     root = _repo_root()
     policy_path = root / "policy" / "coordination" / yaml_name

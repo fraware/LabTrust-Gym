@@ -103,9 +103,7 @@ def load_benchmark_pack(
         "required_reports": ["security", "safety_case", "transparency_log"],
     }
     if partner_id:
-        overlay_v01 = policy_path(
-            repo_root, "partners", partner_id, "official", "benchmark_pack.v0.1.yaml"
-        )
+        overlay_v01 = policy_path(repo_root, "partners", partner_id, "official", "benchmark_pack.v0.1.yaml")
         if overlay_v01.exists():
             data = load_yaml(overlay_v01)
             pack = data if isinstance(data, dict) else default_pack
@@ -134,9 +132,7 @@ def _all_pack_tasks(pack: dict[str, Any]) -> list[str]:
     return out
 
 
-def _scale_config_to_coordination_scale_config(
-    scale_id: str, scale_row: dict[str, Any]
-) -> Any:
+def _scale_config_to_coordination_scale_config(scale_id: str, scale_row: dict[str, Any]) -> Any:
     """Build CoordinationScaleConfig from pack scale_configs entry."""
     from labtrust_gym.benchmarks.coordination_scale import CoordinationScaleConfig
 
@@ -171,9 +167,13 @@ def run_official_pack(
     allow_network: bool = False,
     llm_backend: str | None = None,
     include_coordination_pack: bool | None = None,
+    matrix_preset_override: str | None = None,
     partner_id: str | None = None,
     metrics_aggregator_id: str | None = None,
     benchmark_pack_path: Path | None = None,
+    security_suite_timeout_s: int = 300,
+    skip_system_level: bool = False,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> Path:
     """
     Run the official benchmark pack: baselines, SECURITY/, SAFETY_CASE/, TRANSPARENCY_LOG/.
@@ -181,6 +181,7 @@ def run_official_pack(
     When pipeline_mode is llm_live, pass llm_backend (e.g. openai_responses, anthropic_live) to use that backend for baselines.
     When include_coordination_pack is True (or pack policy coordination_pack.enabled), runs
     coordination security pack into coordination_pack/ and builds lab report there.
+    matrix_preset_override: when set (e.g. hospital_lab_full), use this preset for the coordination pack instead of pack policy.
     """
     out_dir = Path(out_dir).resolve()
     repo_root = Path(repo_root).resolve()
@@ -217,9 +218,7 @@ def run_official_pack(
     if episodes_per_task is None:
         episodes_per_task = 1 if smoke else 50
 
-    ts = (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed_base)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    ts = (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed_base)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # 1) Baselines: generate-official-baselines into <out>/baselines/
     baselines_dir = out_dir / "baselines"
@@ -237,7 +236,12 @@ def run_official_pack(
     if tasks and scale_s and any(t in ("coord_scale", "coord_risk") for t in tasks):
         scale_config_override = _scale_config_to_coordination_scale_config("S", scale_s)
 
-    for task in tasks:
+    for i, task in enumerate(tasks):
+        if progress_callback is not None:
+            try:
+                progress_callback(i + 1, len(tasks), f"baseline:{task}")
+            except Exception:  # noqa: BLE001
+                pass
         bid = task_to_baseline.get(task) or "scripted_ops_v1"
         suffix = bid.replace("_v1", "").replace("_v0", "")
         out_path = results_dir / f"{task}_{suffix}.json"
@@ -278,11 +282,10 @@ def run_official_pack(
             write_llm_live_transparency_log(out_dir)
         except Exception as e:
             (out_dir / "TRANSPARENCY_LOG").mkdir(parents=True, exist_ok=True)
-            (out_dir / "TRANSPARENCY_LOG" / "llm_live_error.txt").write_text(
-                str(e), encoding="utf-8"
-            )
+            (out_dir / "TRANSPARENCY_LOG" / "llm_live_error.txt").write_text(str(e), encoding="utf-8")
         # Live evaluation metadata (required by v0.2 protocol): model_id, temperature, tool_registry_fingerprint, allow_network.
         # pipeline_mode and python_version for audit parity with deterministic metadata.
+        # First-class wall-clock and LLM latency: aggregate from all task results when present.
         live_meta: dict[str, Any] = {
             "model_id": None,
             "temperature": None,
@@ -291,6 +294,9 @@ def run_official_pack(
             "pipeline_mode": "llm_live",
             "python_version": sys.version.split()[0] if sys.version else None,
         }
+        latencies_ms: list[float] = []
+        wall_s_list: list[float] = []
+        step_mean_ms_list: list[float] = []
         for p in sorted(results_dir.glob("*.json")):
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
@@ -299,24 +305,36 @@ def run_official_pack(
                 continue
             meta = data.get("metadata") or {}
             if live_meta["model_id"] is None:
-                live_meta["model_id"] = meta.get("llm_model_id") or data.get(
-                    "llm_model_id"
-                )
+                live_meta["model_id"] = meta.get("llm_model_id") or data.get("llm_model_id")
             if live_meta["tool_registry_fingerprint"] is None:
-                live_meta["tool_registry_fingerprint"] = data.get(
+                live_meta["tool_registry_fingerprint"] = data.get("tool_registry_fingerprint") or meta.get(
                     "tool_registry_fingerprint"
-                ) or meta.get("tool_registry_fingerprint")
+                )
             if live_meta["temperature"] is None and meta.get("temperature") is not None:
                 live_meta["temperature"] = meta.get("temperature")
-            if (
-                live_meta["model_id"] is not None
-                and live_meta["tool_registry_fingerprint"] is not None
-            ):
-                break
+            for key in ("mean_llm_latency_ms", "p50_llm_latency_ms", "p95_llm_latency_ms"):
+                v = meta.get(key)
+                if v is not None and isinstance(v, (int, float)):
+                    latencies_ms.append(float(v))
+            rd = meta.get("run_duration_wall_s")
+            if rd is not None and isinstance(rd, (int, float)):
+                wall_s_list.append(float(rd))
+            step_timing = meta.get("step_timing") or {}
+            sm = step_timing.get("step_ms_mean")
+            if sm is not None and isinstance(sm, (int, float)):
+                step_mean_ms_list.append(float(sm))
         if live_meta["temperature"] is None:
-            live_meta["temperature"] = os.environ.get(
-                "OPENAI_TEMPERATURE"
-            ) or os.environ.get("LLM_TEMPERATURE")
+            live_meta["temperature"] = os.environ.get("OPENAI_TEMPERATURE") or os.environ.get("LLM_TEMPERATURE")
+        if latencies_ms:
+            s = sorted(latencies_ms)
+            n = len(s)
+            live_meta["llm_latency_ms_p50"] = round(s[int(n * 0.5)] if n else 0, 2)
+            live_meta["llm_latency_ms_p95"] = round(s[int(n * 0.95)] if n else 0, 2)
+            live_meta["llm_latency_ms_max"] = round(max(latencies_ms), 2)
+        if wall_s_list:
+            live_meta["wall_clock_s_episode_total"] = round(sum(wall_s_list), 3)
+        if step_mean_ms_list:
+            live_meta["wall_clock_s_per_step_mean"] = round(sum(step_mean_ms_list) / len(step_mean_ms_list) / 1000.0, 4)
         (out_dir / LIVE_EVALUATION_METADATA_FILENAME).write_text(
             json.dumps(live_meta, indent=2, sort_keys=True), encoding="utf-8"
         )
@@ -332,7 +350,10 @@ def run_official_pack(
             repo_root=repo_root,
             smoke_only=not full_security,
             seed=seed_base,
+            timeout_s=security_suite_timeout_s,
             metadata={"seed_base": seed_base, "smoke_only": not full_security},
+            skip_system_level=skip_system_level,
+            progress_callback=progress_callback,
         )
         emit_securitization_packet(repo_root, out_dir)
     except Exception as e:
@@ -362,21 +383,21 @@ def run_official_pack(
             )
     except Exception as e:
         (out_dir / "TRANSPARENCY_LOG").mkdir(parents=True, exist_ok=True)
-        (out_dir / "TRANSPARENCY_LOG" / "run_error.txt").write_text(
-            str(e), encoding="utf-8"
-        )
+        (out_dir / "TRANSPARENCY_LOG" / "run_error.txt").write_text(str(e), encoding="utf-8")
 
     # 4f) Optional: coordination security pack + lab report into coordination_pack/
     coord_pack_config = pack.get("coordination_pack") or {}
     run_coord_pack = (
-        include_coordination_pack
-        if include_coordination_pack is not None
-        else bool(coord_pack_config.get("enabled"))
+        include_coordination_pack if include_coordination_pack is not None else bool(coord_pack_config.get("enabled"))
     )
     if run_coord_pack:
         coord_pack_dir = out_dir / "coordination_pack"
         coord_pack_dir.mkdir(parents=True, exist_ok=True)
-        matrix_preset = coord_pack_config.get("matrix_preset") or "hospital_lab"
+        matrix_preset = (
+            matrix_preset_override
+            if matrix_preset_override
+            else (coord_pack_config.get("matrix_preset") or "hospital_lab")
+        )
         try:
             from labtrust_gym.studies.coordination_security_pack import (
                 run_coordination_security_pack,
@@ -432,9 +453,7 @@ def run_official_pack(
         "required_reports": required_reports,
         "results_semantics": "v0.2",
     }
-    (out_dir / "pack_manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    (out_dir / "pack_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
 
     lines = [
         f"# Official Benchmark Pack v{pack_version} – Pack summary",
@@ -467,7 +486,7 @@ def run_official_pack(
         )
     if pipeline_mode == "llm_live":
         lines.append(
-            f"{LIVE_EVALUATION_METADATA_FILENAME}   (live evaluation metadata)"
+            f"{LIVE_EVALUATION_METADATA_FILENAME}   (live evaluation metadata: model_id, wall_clock_s_*, llm_latency_ms_* when present)"
         )
     lines.append("PACK_SUMMARY.md")
     lines.append("```")
@@ -484,6 +503,7 @@ def run_cross_provider_pack(
     seed_base: int = 100,
     smoke: bool = True,
     full_security: bool = False,
+    skip_system_level: bool = False,
 ) -> Path:
     """
     Run the official pack once per provider (pipeline_mode=llm_live, allow_network=True).
@@ -504,14 +524,13 @@ def run_cross_provider_pack(
             pipeline_mode="llm_live",
             allow_network=True,
             llm_backend=provider,
+            skip_system_level=skip_system_level,
         )
         row: dict[str, Any] = {"provider": provider, "out_dir": str(provider_dir)}
         live_meta_path = provider_dir / LIVE_EVALUATION_METADATA_FILENAME
         if live_meta_path.exists():
             try:
-                row["live_metadata"] = json.loads(
-                    live_meta_path.read_text(encoding="utf-8")
-                )
+                row["live_metadata"] = json.loads(live_meta_path.read_text(encoding="utf-8"))
             except Exception as e:
                 logger.debug("Failed to load live_metadata from %s: %s", live_meta_path.name, e)
                 row["live_metadata"] = None
@@ -548,10 +567,6 @@ def run_cross_provider_pack(
         cost = row.get("latency_and_cost") or {}
         mean_agg = cost.get("mean_latency_ms") or {}
         mean_val = mean_agg.get("mean") if isinstance(mean_agg, dict) else None
-        md_lines.append(
-            f"| {row['provider']} | {row['out_dir']} | {meta.get('model_id', 'n/a')} | {mean_val} |"
-        )
-    (out_dir / "summary_cross_provider.md").write_text(
-        "\n".join(md_lines), encoding="utf-8"
-    )
+        md_lines.append(f"| {row['provider']} | {row['out_dir']} | {meta.get('model_id', 'n/a')} | {mean_val} |")
+    (out_dir / "summary_cross_provider.md").write_text("\n".join(md_lines), encoding="utf-8")
     return out_dir

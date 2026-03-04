@@ -1,0 +1,31 @@
+# Required-bench coverage matrix: run plan-driven runs, export risk register, validate-coverage --strict.
+# Does not run on push/PR (too expensive). Trigger: schedule (weekly) or workflow_dispatch.
+# Produces evidence for required_bench cells (e.g. centralized_planner + R-SYS-001, swarm_reactive + R-SYS-001).
+# When run, bundle includes coord_risk + security_suite evidence; validate-coverage --strict passes with zero or fewer waivers.
+
+name: Required bench matrix
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+
+jobs:
+  required-bench-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Run required bench matrix
+        run: ./scripts/run_required_bench_matrix.sh --out ./runs/required_bench_pack
+      - name: Upload bundle and run dirs
+        uses: actions/upload-artifact@v4
+        with:
+          name: required-bench-pack
+          path: |
+            runs/required_bench_pack/RISK_REGISTER_BUNDLE.v0.1.json
+            runs/required_bench_pack/.plan_runs.txt

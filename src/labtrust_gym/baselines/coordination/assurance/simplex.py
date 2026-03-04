@@ -208,9 +208,7 @@ def validate_plan(
         seen: set[tuple[str, str, int]] = set()
         for triple in start_run_triples:
             if triple in seen:
-                reasons.append(
-                    f"COORD_SHIELD_SCHEDULE_DUPLICATE: duplicate (agent, device, start_time) {triple}"
-                )
+                reasons.append(f"COORD_SHIELD_SCHEDULE_DUPLICATE: duplicate (agent, device, start_time) {triple}")
                 counters["schedule_duplicate"] += 1
             seen.add(triple)
 

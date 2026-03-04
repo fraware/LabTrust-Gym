@@ -38,9 +38,7 @@ def _per_agent_to_route_decision(
     """Convert list of (agent_id, action_type, args_dict) to RouteDecision."""
     tupled = []
     for agent_id, action_type, args in per_agent:
-        args_tuple = tuple(
-            sorted((k, v) for k, v in (args or {}).items())
-        )
+        args_tuple = tuple(sorted((k, v) for k, v in (args or {}).items()))
         tupled.append((agent_id, action_type, args_tuple))
     return RouteDecision(per_agent=tuple(tupled), explain="llm_repair")
 
@@ -58,9 +56,7 @@ def _score_repair_candidate(
         return -1.0
     work_per_agent: dict[str, int] = {}
     for agent_id, action_type, _ in route.per_agent:
-        work_per_agent[agent_id] = work_per_agent.get(agent_id, 0) + (
-            1 if action_type == "START_RUN" else 0
-        )
+        work_per_agent[agent_id] = work_per_agent.get(agent_id, 0) + (1 if action_type == "START_RUN" else 0)
     if not work_per_agent:
         return 1.0
     counts = list(work_per_agent.values())
@@ -179,6 +175,7 @@ class LiveRepairBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass
@@ -208,6 +205,7 @@ class LiveRepairBackend:
             from labtrust_gym.baselines.llm.parse_utils import (
                 extract_first_json_object,
             )
+
             extracted = extract_first_json_object(raw)
             if not extracted or not extracted.strip().startswith("["):
                 if tracer is not None:
@@ -241,14 +239,13 @@ class LiveRepairBackend:
             if not any(aid == p[0] for p in per_agent):
                 per_agent.append((aid, "NOOP", {}))
         per_agent.sort(key=lambda x: (x[0], x[1]))
-        usage = getattr(self._backend, "last_metrics", lambda: {})()
+        _lm = getattr(self._backend, "last_metrics", lambda: {})
+        usage = _lm() if callable(_lm) else (_lm if isinstance(_lm, dict) else {})
         if tracer is not None:
             tracer.set_attribute("prompt_tokens", usage.get("tokens_in", 0))
             tracer.set_attribute("completion_tokens", usage.get("tokens_out", 0))
             if usage.get("estimated_cost_usd") is not None:
-                tracer.set_attribute(
-                    "estimated_cost_usd", usage["estimated_cost_usd"]
-                )
+                tracer.set_attribute("estimated_cost_usd", usage["estimated_cost_usd"])
             tracer.end_span()
         meta = {
             "backend_id": "live_repair",
@@ -305,9 +302,7 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
     ) -> None:
         self._policy = policy or {}
         self._scale_config = dict(scale_config or {})
-        self._seed = (
-            int(scale_config.get("seed", seed)) if scale_config else seed
-        )
+        self._seed = int(scale_config.get("seed", seed)) if scale_config else seed
         self._repair_call_count = 0
         self._repair_success_count = 0
         self._repair_fallback_noop_count = 0
@@ -349,14 +344,10 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
         trigger_repair = not result.ok or len(repair_triggers) > 0
 
         if not trigger_repair:
-            out: dict[str, dict[str, Any]] = {
-                a: {"action_index": ACTION_NOOP} for a in agent_ids
-            }
+            out: dict[str, dict[str, Any]] = {a: {"action_index": ACTION_NOOP} for a in agent_ids}
             for agent_id, action_type, args_tuple in decision.route.per_agent:
                 if agent_id in out:
-                    out[agent_id] = _route_to_action_dict(
-                        agent_id, action_type, args_tuple
-                    )
+                    out[agent_id] = _route_to_action_dict(agent_id, action_type, args_tuple)
             return out
 
         self._repair_call_count += 1
@@ -386,9 +377,7 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
             last_accepted_plan_summary=plan_summary,
             blocked_actions=blocked_actions,
             constraint_summary=constraint_summary,
-            red_team_flags=(
-                repair_triggers if isinstance(repair_triggers, list) else []
-            ),
+            red_team_flags=(repair_triggers if isinstance(repair_triggers, list) else []),
         )
 
         repair_result = self._repair_backend.repair(repair_input, agent_ids)
@@ -429,9 +418,7 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
             out = {a: {"action_index": ACTION_NOOP} for a in agent_ids}
             for agent_id, action_type, args_tuple in repaired_route.per_agent:
                 if agent_id in out:
-                    out[agent_id] = _route_to_action_dict(
-                        agent_id, action_type, args_tuple
-                    )
+                    out[agent_id] = _route_to_action_dict(agent_id, action_type, args_tuple)
             return out
 
         self._repair_fallback_noop_count += 1
@@ -440,16 +427,10 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
     def get_llm_repair_metrics(self) -> dict[str, Any]:
         """Return coordination.llm_repair block for results v0.2."""
         calls = max(0, self._repair_call_count)
-        success_rate = (
-            self._repair_success_count / calls if calls > 0 else 0.0
-        )
+        success_rate = self._repair_success_count / calls if calls > 0 else 0.0
         lat_list = self._repair_latency_ms_list
-        mean_latency = (
-            sum(lat_list) / len(lat_list) if lat_list else None
-        )
-        mean_latency_round = (
-            round(mean_latency, 2) if mean_latency is not None else None
-        )
+        mean_latency = sum(lat_list) / len(lat_list) if lat_list else None
+        mean_latency_round = round(mean_latency, 2) if mean_latency is not None else None
         out = {
             "repair_call_count": calls,
             "repair_success_rate": round(success_rate, 4),
@@ -457,17 +438,13 @@ class LLMRepairOverKernelWHCA(CoordinationMethod):
             "mean_repair_latency_ms": mean_latency_round,
             "total_repair_tokens": self._repair_tokens_total,
         }
-        fault_metrics = getattr(
-            self._repair_backend, "get_fault_metrics", lambda: None
-        )()
+        fault_metrics = getattr(self._repair_backend, "get_fault_metrics", lambda: None)()
         if fault_metrics:
             fi = int(fault_metrics.get("fault_injected_count", 0))
             fb = int(fault_metrics.get("fallback_count", 0))
             out["fault_injected_count"] = fi
             out["fallback_count"] = fb
-            out["fault_injected_rate"] = (
-                round(fi / calls, 4) if calls > 0 else 0.0
-            )
+            out["fault_injected_rate"] = round(fi / calls, 4) if calls > 0 else 0.0
             out["fallback_rate"] = round(fb / calls, 4) if calls > 0 else 0.0
         return out
 

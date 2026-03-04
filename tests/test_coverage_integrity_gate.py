@@ -84,7 +84,7 @@ def test_coverage_preflight_strict_fails_when_missing(tmp_path: Path) -> None:
     try:
         with pytest.raises(SystemExit) as exc_info:
             run_coordination_study(spec_path, tmp_path, repo_root=repo)
-        assert exc_info.value.code == 1
+        assert exc_info.value.args[0] == 1
     finally:
         os.environ.pop("LABTRUST_REPRO_SMOKE", None)
         os.environ.pop("LABTRUST_STRICT_COVERAGE", None)
@@ -127,6 +127,4 @@ def test_external_reviewer_smoke_summary_and_new_method_cells_covered(tmp_path: 
         ("group_evolving_experience_sharing", "R-DATA-001"),
     ]
     for method_id, risk_id in required_new_cells:
-        assert (method_id, risk_id) in pairs, (
-            f"Required ({method_id!r}, {risk_id!r}) must appear in summary"
-        )
+        assert (method_id, risk_id) in pairs, f"Required ({method_id!r}, {risk_id!r}) must appear in summary"

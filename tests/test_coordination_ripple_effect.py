@@ -12,8 +12,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.benchmarks.runner import run_benchmark
 
 
@@ -73,12 +71,8 @@ def test_ripple_effect_deterministic_same_seed_same_comm_throughput_blocks(
     m2 = episodes2[0].get("metrics") or {}
     comm1 = (m1.get("coordination") or {}).get("comm") or {}
     comm2 = (m2.get("coordination") or {}).get("comm") or {}
-    assert comm1.get("msg_count") == comm2.get("msg_count"), (
-        "comm.msg_count must be identical for same seed"
-    )
-    assert m1.get("throughput") == m2.get("throughput"), (
-        "throughput must be identical for same seed"
-    )
+    assert comm1.get("msg_count") == comm2.get("msg_count"), "comm.msg_count must be identical for same seed"
+    assert m1.get("throughput") == m2.get("throughput"), "throughput must be identical for same seed"
     blocks1 = sum((m1.get("blocked_by_reason_code") or {}).values())
     blocks2 = sum((m2.get("blocked_by_reason_code") or {}).values())
     assert blocks1 == blocks2, "blocks (blocked_by_reason_code total) must be identical for same seed"
@@ -113,18 +107,13 @@ def test_ripple_effect_taskh_comms_poison_detection_or_containment(tmp_path: Pat
     comm = coord.get("comm") or {}
     sec = metrics.get("sec") or {}
     rejection_indicators = (
-        comm.get("invalid_sig_count", 0)
-        + comm.get("replay_drop_count", 0)
-        + comm.get("spoof_attempt_count", 0)
+        comm.get("invalid_sig_count", 0) + comm.get("replay_drop_count", 0) + comm.get("spoof_attempt_count", 0)
     )
     detection_improved = (
-        sec.get("detection_latency_steps") is not None
-        or sec.get("time_to_attribution_steps") is not None
+        sec.get("detection_latency_steps") is not None or sec.get("time_to_attribution_steps") is not None
     )
     containment_present = sec.get("containment_time_steps") is not None
-    assert (
-        rejection_indicators > 0 or detection_improved or containment_present
-    ), (
+    assert rejection_indicators > 0 or detection_improved or containment_present, (
         "With INJ-COMMS-POISON-001 expect either rejection counts > 0 "
         "(invalid_sig/replay/spoof) or detection/containment signals; "
         "no silent acceptance of spoofed updates when signatures are enforced."

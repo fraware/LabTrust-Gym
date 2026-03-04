@@ -7,9 +7,14 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - ".github/workflows/risk-coverage-pr.yml"
+      - ".github/workflows/ci.yml"
       - "policy/coordination/**"
       - "policy/risks/**"
+      - "policy/risks/required_bench_plan.v0.1.yaml"
       - "tests/fixtures/ui_fixtures/**"
+      - "tests/fixtures/coord_pack_fixture/**"
+      - "tests/fixtures/coord_pack_fixture_minimal/**"
       - "src/labtrust_gym/export/risk_register_bundle.py"
       - "src/labtrust_gym/export/validate_coverage.py"
       - "tests/test_risk_register_contract_gate.py"
@@ -18,9 +23,14 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/risk-coverage-pr.yml"
+      - ".github/workflows/ci.yml"
       - "policy/coordination/**"
       - "policy/risks/**"
+      - "policy/risks/required_bench_plan.v0.1.yaml"
       - "tests/fixtures/ui_fixtures/**"
+      - "tests/fixtures/coord_pack_fixture/**"
+      - "tests/fixtures/coord_pack_fixture_minimal/**"
       - "src/labtrust_gym/export/risk_register_bundle.py"
       - "src/labtrust_gym/export/validate_coverage.py"
       - "tests/test_risk_register_contract_gate.py"
@@ -37,9 +47,28 @@ jobs:
           python-version: "3.11"
       - name: Install package
         run: pip install -e ".[dev]"
+      - name: Verify fixture evidence (when receipts or SECURITY present)
+        run: |
+          dirs=$(python scripts/risk_coverage_fixture_dirs.py --dirs-only)
+          to_verify=""
+          for d in $dirs; do
+            if [ -d "$d/receipts" ] || [ -f "$d/SECURITY/attack_results.json" ]; then
+              to_verify="$to_verify $d"
+            fi
+          done
+          if [ -n "$to_verify" ]; then
+            python scripts/verify_run_evidence.py --policy-root . $to_verify
+          fi
       - name: Required bench plan completeness
         run: python scripts/required_bench_plan_runs.py > /dev/null
-      - name: Generate bundle from fixtures
-        run: labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures
+      - name: Run R-SYS-001 cells (real evidence)
+        run: |
+          mkdir -p runs/r_sys_001_cells/centralized_planner runs/r_sys_001_cells/swarm_reactive
+          labtrust run-benchmark --task coord_risk --coord-method centralized_planner --injection INJ-DOS-PLANNER-001 --scale small_smoke --episodes 1 --seed 42 --out runs/r_sys_001_cells/centralized_planner/results.json
+          labtrust run-benchmark --task coord_risk --coord-method swarm_reactive --injection INJ-DOS-PLANNER-001 --scale small_smoke --episodes 1 --seed 43 --out runs/r_sys_001_cells/swarm_reactive/results.json
+      - name: Verify R-SYS-001 run evidence
+        run: python scripts/verify_run_evidence.py --policy-root . runs/r_sys_001_cells/centralized_planner runs/r_sys_001_cells/swarm_reactive
+      - name: Generate bundle from fixtures (ui + coord pack) + R-SYS-001 real runs
+        run: labtrust export-risk-register --out ./risk_register_out $(python scripts/risk_coverage_fixture_dirs.py) --runs runs/r_sys_001_cells/centralized_planner --runs runs/r_sys_001_cells/swarm_reactive
       - name: Validate coverage (strict)
         run: labtrust validate-coverage --bundle ./risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json --strict

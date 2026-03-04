@@ -34,10 +34,8 @@ from labtrust_gym.coordination.bus import SignedMessageBus
 from labtrust_gym.coordination.identity import (
     COORD_REPLAY_DETECTED,
     COORD_SIGNATURE_INVALID,
-    KEY_MESSAGE_TYPE,
     KEY_PAYLOAD,
     KEY_SENDER_ID,
-    build_key_store,
     sign_message,
     verify_message_find_signer,
 )
@@ -78,7 +76,7 @@ def _build_neighbor_graph(
     Deterministic: sorted order.
     """
     zone_neighbors: dict[str, set[str]] = {}
-    for (a, b) in zone_adjacency:
+    for a, b in zone_adjacency:
         zone_neighbors.setdefault(a, set()).add(b)
         zone_neighbors.setdefault(b, set()).add(a)
     out: dict[str, list[str]] = {}
@@ -192,9 +190,7 @@ def _resolve_conflicts(
             continue
         prio = int(payload.get("priority") or 0)
         key = (dev, work)
-        if key not in claims or prio > claims[key][0] or (
-            prio == claims[key][0] and sid < claims[key][1]
-        ):
+        if key not in claims or prio > claims[key][0] or (prio == claims[key][0] and sid < claims[key][1]):
             claims[key] = (prio, sid)
     if own_intent and (own_intent.get("action_type") or "").strip() == "START_RUN":
         args = own_intent.get("args") or {}
@@ -281,9 +277,7 @@ class RippleEffectMethod(CoordinationMethod):
         scale_config: dict[str, Any],
     ) -> None:
         self._bus.reset()
-        self._zone_ids, self._device_ids, self._device_zone = (
-            extract_zone_and_device_ids(policy)
-        )
+        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
         self._current_epoch = 0
@@ -304,9 +298,7 @@ class RippleEffectMethod(CoordinationMethod):
             return out
         if not self._zone_ids and obs:
             sample = next(iter(obs.values()))
-            self._zone_ids, self._device_ids, self._device_zone = (
-                extract_zone_and_device_ids({}, obs_sample=sample)
-            )
+            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         if not self._zone_ids:
             self._zone_ids = ["Z_SORTING_LANES"]
         if not self._adjacency:
@@ -317,12 +309,8 @@ class RippleEffectMethod(CoordinationMethod):
         agent_zone: dict[str, str] = {}
         for aid in agents:
             o = obs.get(aid) or {}
-            agent_zone[aid] = (
-                get_zone_from_obs(o, self._zone_ids) or o.get("zone_id") or ""
-            )
-        neighbor_graph = _build_neighbor_graph(
-            agents, agent_zone, self._adjacency
-        )
+            agent_zone[aid] = get_zone_from_obs(o, self._zone_ids) or o.get("zone_id") or ""
+        neighbor_graph = _build_neighbor_graph(agents, agent_zone, self._adjacency)
         if not neighbor_graph:
             neighbor_graph = {a: [b for b in agents if b != a] for a in agents}
 
@@ -367,29 +355,16 @@ class RippleEffectMethod(CoordinationMethod):
                     self._replay_drop_count += 1
                 elif reason == COORD_SIGNATURE_INVALID:
                     self._invalid_sig_count += 1
-                    ok_any, actual_sender = verify_message_find_signer(
-                        env, self._key_store
-                    )
+                    ok_any, actual_sender = verify_message_find_signer(env, self._key_store)
                     claimed = env.get(KEY_SENDER_ID)
-                    if (
-                        ok_any
-                        and actual_sender
-                        and claimed
-                        and actual_sender != claimed
-                    ):
+                    if ok_any and actual_sender and claimed and actual_sender != claimed:
                         self._spoof_attempt_count += 1
 
-        intent_by_agent: dict[str, dict[str, Any] | None] = {
-            aid: intent for aid, intent in intents
-        }
+        intent_by_agent: dict[str, dict[str, Any] | None] = {aid: intent for aid, intent in intents}
         for agent_id in agents:
             own = intent_by_agent.get(agent_id)
             neighbors = neighbor_graph.get(agent_id) or []
-            neighbor_payloads = [
-                (sid, accepted[sid])
-                for sid in neighbors
-                if sid in accepted
-            ]
+            neighbor_payloads = [(sid, accepted[sid]) for sid in neighbors if sid in accepted]
             my_zone = agent_zone.get(agent_id) or ""
             resolved = _resolve_conflicts(
                 agent_id,
@@ -421,14 +396,8 @@ class RippleEffectMethod(CoordinationMethod):
 
     def get_comm_metrics(self) -> dict[str, Any]:
         """coordination.comm: msg_count, invalid_sig_count, replay_drop_count, spoof."""
-        total = (
-            self._msg_count
-            + self._invalid_sig_count
-            + self._replay_drop_count
-        )
-        invalid_rate = (
-            self._invalid_sig_count / total if total > 0 else 0.0
-        )
+        total = self._msg_count + self._invalid_sig_count + self._replay_drop_count
+        invalid_rate = self._invalid_sig_count / total if total > 0 else 0.0
         return {
             "msg_count": self._msg_count,
             "drop_rate": 0.0,

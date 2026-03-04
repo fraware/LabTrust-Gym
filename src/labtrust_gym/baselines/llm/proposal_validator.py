@@ -63,9 +63,9 @@ def validate_proposal_deterministic(
 
     # 3) Optional: token presence hint (OPEN_DOOR often needs token_refs)
     if action_type == "OPEN_DOOR" and policy_summary:
-        strict_tokens = policy_summary.get(
-            "token_required_for_door"
-        ) or policy_summary.get("restricted_door_requires_token")
+        strict_tokens = policy_summary.get("token_required_for_door") or policy_summary.get(
+            "restricted_door_requires_token"
+        )
         if strict_tokens:
             token_refs = proposal.get("token_refs") or []
             if not isinstance(token_refs, list) or len(token_refs) == 0:

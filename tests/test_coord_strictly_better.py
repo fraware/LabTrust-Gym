@@ -13,10 +13,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
-from labtrust_gym.benchmarks.runner import run_benchmark
 from labtrust_gym.benchmarks.coordination_scale import load_scale_config_by_id
+from labtrust_gym.benchmarks.runner import run_benchmark
 
 
 def _repo_root() -> Path:
@@ -99,9 +97,7 @@ def test_llm_repair_over_kernel_whca_at_least_as_good_as_kernel_whca_under_poiso
     )
     base_throughput = _throughput_from_results(base)
     llm_throughput = _throughput_from_results(llm)
-    assert llm_throughput >= base_throughput, (
-        f"llm_repair throughput {llm_throughput} < kernel_whca {base_throughput}"
-    )
+    assert llm_throughput >= base_throughput, f"llm_repair throughput {llm_throughput} < kernel_whca {base_throughput}"
 
 
 def test_llm_central_planner_at_least_as_good_as_kernel_whca_throughput(
@@ -131,8 +127,70 @@ def test_llm_central_planner_at_least_as_good_as_kernel_whca_throughput(
     )
     base_throughput = _throughput_from_results(base)
     llm_throughput = _throughput_from_results(llm)
+    assert llm_throughput >= base_throughput, f"llm_central_planner {llm_throughput} < kernel_whca {base_throughput}"
+
+
+def test_llm_central_planner_agentic_at_least_as_good_as_kernel_whca_throughput(
+    tmp_path: Path,
+) -> None:
+    """coord_risk, no injection, small_smoke: llm_central_planner_agentic >= kernel_whca.
+    Baseline: kernel_whca. LLM: llm_central_planner_agentic (llm_offline).
+    """
+    base = _run_coord_one_episode(
+        tmp_path,
+        task_name="coord_risk",
+        coord_method="kernel_whca",
+        injection_id="none",
+        scale_id="small_smoke",
+        seed=42,
+        pipeline_mode="deterministic",
+    )
+    llm = _run_coord_one_episode(
+        tmp_path,
+        task_name="coord_risk",
+        coord_method="llm_central_planner_agentic",
+        injection_id="none",
+        scale_id="small_smoke",
+        seed=42,
+        pipeline_mode="llm_offline",
+        llm_backend="deterministic_constrained",
+    )
+    base_throughput = _throughput_from_results(base)
+    llm_throughput = _throughput_from_results(llm)
     assert llm_throughput >= base_throughput, (
-        f"llm_central_planner {llm_throughput} < kernel_whca {base_throughput}"
+        f"llm_central_planner_agentic {llm_throughput} < kernel_whca {base_throughput}"
+    )
+
+
+def test_llm_central_planner_debate_at_least_as_good_as_kernel_whca_throughput(
+    tmp_path: Path,
+) -> None:
+    """coord_risk, no injection, small_smoke: llm_central_planner_debate >= kernel_whca.
+    Baseline: kernel_whca. LLM: llm_central_planner_debate (llm_offline).
+    """
+    base = _run_coord_one_episode(
+        tmp_path,
+        task_name="coord_risk",
+        coord_method="kernel_whca",
+        injection_id="none",
+        scale_id="small_smoke",
+        seed=42,
+        pipeline_mode="deterministic",
+    )
+    llm = _run_coord_one_episode(
+        tmp_path,
+        task_name="coord_risk",
+        coord_method="llm_central_planner_debate",
+        injection_id="none",
+        scale_id="small_smoke",
+        seed=42,
+        pipeline_mode="llm_offline",
+        llm_backend="deterministic_constrained",
+    )
+    base_throughput = _throughput_from_results(base)
+    llm_throughput = _throughput_from_results(llm)
+    assert llm_throughput >= base_throughput, (
+        f"llm_central_planner_debate {llm_throughput} < kernel_whca {base_throughput}"
     )
 
 
@@ -195,9 +253,7 @@ def test_llm_auction_bidder_at_least_as_good_as_market_auction_throughput(
     )
     base_throughput = _throughput_from_results(base)
     llm_throughput = _throughput_from_results(llm)
-    assert llm_throughput >= base_throughput, (
-        f"llm_auction_bidder {llm_throughput} < market_auction {base_throughput}"
-    )
+    assert llm_throughput >= base_throughput, f"llm_auction_bidder {llm_throughput} < market_auction {base_throughput}"
 
 
 def test_llm_gossip_summarizer_at_least_as_good_as_gossip_consensus_throughput(

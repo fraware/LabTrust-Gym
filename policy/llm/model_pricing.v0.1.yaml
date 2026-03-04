@@ -2,8 +2,9 @@
 # Scope: used when LLM backends report token usage; estimated_cost_usd is optional in metadata.
 # Version 0.1; extend models as backends add new model IDs.
 version: "0.1"
-# model_id (as in LABTRUST_OPENAI_MODEL); use base name or add variant (e.g. gpt-4o-mini-2024-07-18) with same prices.
+# model_id (as in LABTRUST_OPENAI_MODEL or LABTRUST_ANTHROPIC_MODEL); use base name or add variant with same prices.
 models:
+  # OpenAI
   gpt-4o-mini:
     input_price_per_1m: 0.15
     output_price_per_1m: 0.60
@@ -16,3 +17,19 @@ models:
   gpt-3.5-turbo:
     input_price_per_1m: 0.50
     output_price_per_1m: 1.50
+  # Anthropic (list prices; match model_id from backend)
+  claude-3-5-haiku-20241022:
+    input_price_per_1m: 0.80
+    output_price_per_1m: 4.00
+  claude-3-5-sonnet-20241022:
+    input_price_per_1m: 3.00
+    output_price_per_1m: 15.00
+  claude-3-5-sonnet:
+    input_price_per_1m: 3.00
+    output_price_per_1m: 15.00
+  claude-3-opus-20240229:
+    input_price_per_1m: 15.00
+    output_price_per_1m: 75.00
+  claude-3-opus:
+    input_price_per_1m: 15.00
+    output_price_per_1m: 75.00

@@ -80,6 +80,12 @@ jobs:
           pip install -e ".[dev,env]"
           pytest tests/test_security_property_fuzz.py tests/test_prompt_injection_defense.py tests/test_llm_prompt_injection_golden.py -q
           pytest tests/test_cli_smoke_matrix.py -q -k "not train_ppo and not eval_ppo" -m "not slow"
+      - name: Run security suite (smoke, includes coord_pack_ref when env available)
+        run: labtrust run-security-suite --out ./security_suite_out --smoke --seed 42
+      - name: Extension example (install plugin and run example_task)
+        run: |
+          pip install -e examples/extension_example
+          labtrust --profile example run-benchmark --task example_task --episodes 1 --out ./extension_example_out.json
 
   policy-validate:
     runs-on: ubuntu-latest
@@ -116,7 +122,7 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Verify ui_fixtures evidence bundle
         run: labtrust verify-bundle --bundle tests/fixtures/ui_fixtures/evidence_bundle/EvidenceBundle.v0.1
-      - name: Generate bundle from fixtures
+      - name: Export bundle from ui_fixtures (for artifact inspection; tests build bundle in memory)
         run: labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures
       - name: Risk register contract gate (schema, snapshot, crosswalk, coverage)
         run: pytest tests/test_risk_register_contract_gate.py -v
@@ -130,8 +136,11 @@ jobs:
           python-version: "3.11"
       - name: Install package
         run: pip install -e ".[dev]"
-      - name: Export risk register from ui_fixtures
-        run: labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures
+      # Plan completeness checked on every PR so required_bench_plan is runnable.
+      - name: Required bench plan completeness
+        run: python scripts/required_bench_plan_runs.py > /dev/null
+      - name: Export risk register from fixtures (ui + coord pack)
+        run: labtrust export-risk-register --out ./risk_register_out $(python scripts/risk_coverage_fixture_dirs.py)
       - name: Validate coverage (strict)
         run: labtrust validate-coverage --bundle ./risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json --strict
 
@@ -145,8 +154,8 @@ jobs:
           python-version: "3.11"
       - name: Install package
         run: pip install -e ".[dev]"
-      - name: Generate bundle from fixtures
-        run: labtrust export-risk-register --out ./risk_register_out --runs tests/fixtures/ui_fixtures
+      - name: Generate bundle from fixtures (ui + coord pack)
+        run: labtrust export-risk-register --out ./risk_register_out $(python scripts/risk_coverage_fixture_dirs.py)
       - name: Validate coverage (strict)
         run: labtrust validate-coverage --bundle ./risk_register_out/RISK_REGISTER_BUNDLE.v0.1.json --strict
 
@@ -339,6 +348,38 @@ jobs:
         run: LABTRUST_PAPER_SMOKE=1 pytest tests/test_paper_claims_regression.py -v
         env:
           LABTRUST_PAPER_SMOKE: "1"
+
+  security-fuzz-stress:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: Security fuzz stress (hypothesis 500 examples)
+        run: pytest tests/test_security_property_fuzz.py -m security_fuzz_stress -v --hypothesis-max-examples=500
+
+  llm-attacker-baseline-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: LLM attacker baseline regression (when baseline present)
+        run: |
+          BASELINE="tests/fixtures/llm_attacker_baseline.json"
+          if [ -f "$BASELINE" ]; then
+            python scripts/check_llm_attacker_regression.py --baseline "$BASELINE" --policy-root .
+          else
+            echo "No llm_attacker_baseline.json at $BASELINE; skipping (pass). To enable: run security suite with --llm-attacker, then commit SECURITY/llm_attacker_baseline.json to $BASELINE."
+          fi
 
   coverage:
     runs-on: ubuntu-latest

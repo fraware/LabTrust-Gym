@@ -37,6 +37,12 @@ jobs:
           sha256sum *.whl *.tar.gz > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      - name: Build policy bundle (for benchmark-only workflow)
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          tar czf "dist/policy-bundle-${VERSION}.tar.gz" policy/
+          echo "POLICY_BUNDLE=policy-bundle-${VERSION}.tar.gz" >> $GITHUB_ENV
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -62,3 +68,67 @@ jobs:
           # Use repository secret TWINE_PASSWORD (and optionally TWINE_USERNAME) for PyPI.
           # twine upload --non-interactive dist/*
           echo "Configure TWINE_PASSWORD (and TWINE_USERNAME if needed) in repo secrets, then uncomment: twine upload --non-interactive dist/*"
+
+  # Optional: run live-LLM smoke when OPENAI_API_KEY is set; does not block release.
+  live-llm-smoke:
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    continue-on-error: true
+    env:
+      LABTRUST_ALLOW_NETWORK: "1"
+      LABTRUST_LLM_TIMEOUT_S: "25"
+      LABTRUST_OPENAI_MODEL: "gpt-4o-mini"
+    steps:
+      - name: Check for API key (skip if not set)
+        id: check
+        run: |
+          if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Live LLM smoke: OPENAI_API_KEY not set; skipping."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package (dev, env, plots)
+        if: steps.check.outputs.skip != 'true'
+        run: pip install -e ".[dev,env,plots]"
+
+      - name: LLM healthcheck
+        if: steps.check.outputs.skip != 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: labtrust llm-healthcheck --backend openai_responses --model gpt-4o-mini --allow-network
+
+      - name: Official pack llm_live smoke
+        if: steps.check.outputs.skip != 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          labtrust run-official-pack \
+            --out ./llm_live_smoke_out \
+            --pipeline-mode llm_live \
+            --allow-network \
+            --smoke \
+            --seed-base 100
+        timeout-minutes: 12
+
+      - name: Upload llm_live artifacts
+        if: steps.check.outputs.skip != 'true' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-llm-live-smoke
+          path: |
+            llm_live_smoke_out/TRANSPARENCY_LOG/llm_live.json
+            llm_live_smoke_out/live_evaluation_metadata.json
+          retention-days: 14

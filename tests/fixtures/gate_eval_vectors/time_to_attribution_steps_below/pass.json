@@ -1,0 +1,1 @@
+{"row":{"scale_id":"s","method_id":"m","injection_id":"INJ-ATTR-001","sec.time_to_attribution_steps":10},"nominal_by_scale_method":{},"gate_rules":[{"injection_id":"INJ-ATTR-001","rule":"time_to_attribution_steps_below","max_steps":15}],"expected_verdict":"PASS","expected_rationale_substring":"10"}

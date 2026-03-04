@@ -509,10 +509,9 @@ def test_missing_specimen_uses_extension() -> None:
         specimen = obs_resource["specimen"]
         assert specimen.get("reference") is None or specimen.get("reference") == "", "reference must be absent"
         exts = specimen.get("extension") or []
-        assert any(
-            ext.get("url") == DATA_ABSENT_EXTENSION_URL and ext.get("valueCode") == "unknown"
-            for ext in exts
-        ), "Observation.specimen must contain data-absent-reason extension with valueCode unknown"
+        assert any(ext.get("url") == DATA_ABSENT_EXTENSION_URL and ext.get("valueCode") == "unknown" for ext in exts), (
+            "Observation.specimen must contain data-absent-reason extension with valueCode unknown"
+        )
     assert validate_bundle_structure(bundle) == []
 
 
@@ -550,7 +549,9 @@ def test_present_specimen_resolves() -> None:
     for obs_resource in [e["resource"] for e in obs_entries]:
         assert "specimen" in obs_resource
         ref = obs_resource["specimen"].get("reference")
-        assert ref == f"#Specimen/{spec_id}", f"Observation.specimen.reference must resolve to Specimen in bundle: {ref}"
+        assert ref == f"#Specimen/{spec_id}", (
+            f"Observation.specimen.reference must resolve to Specimen in bundle: {ref}"
+        )
     full_urls = {e.get("fullUrl") for e in bundle["entry"] if e.get("fullUrl")}
     assert f"#Specimen/{spec_id}" in full_urls
     assert validate_bundle_structure(bundle) == []
@@ -568,6 +569,6 @@ def test_missing_numeric_value_uses_data_absent_reason() -> None:
     assert "dataAbsentReason" in obs
     dar = obs["dataAbsentReason"]
     codings = dar.get("coding") or []
-    assert any(
-        c.get("system") == DATA_ABSENT_CODESYSTEM and c.get("code") == "unknown" for c in codings
-    ), "dataAbsentReason must have coding with system and code unknown"
+    assert any(c.get("system") == DATA_ABSENT_CODESYSTEM and c.get("code") == "unknown" for c in codings), (
+        "dataAbsentReason must have coding with system and code unknown"
+    )

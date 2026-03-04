@@ -53,7 +53,7 @@ The AEC env cycles through agents in order; observation and action spaces are th
 
 - **Engine unchanged:** The wrapper uses the existing `CoreEnv` (reset, step, query). No refactor of engine internals; the engine remains the single source of truth for lab physics, trust skeleton, and contract output.
 - **Determinism:** `reset(seed=...)` and `seed(seed)` set the RNG; the engine is reset with `deterministic=True` and `rng_seed=seed`. Same seed + same action sequence yields identical observations and rewards.
-- **Parallel step semantics:** One PettingZoo `step(actions)` runs one engine `step(event)` per agent, in a fixed order (ops_0, runner_0, …, qc_0, supervisor_0). All events in a parallel step use the same `t_s` (clock advances once per parallel step). This keeps the audit log and queue semantics consistent.
+- **Parallel step semantics:** One PettingZoo `step(actions)` runs one engine `step(event)` per agent, in a fixed order (ops_0, runner_0, …, qc_0, supervisor_0). All events in a parallel step use the same `t_s` (clock advances once per parallel step). This keeps the audit log and queue semantics consistent. When the engine supports `step_batch(events)`, the wrapper calls it once per parallel step; otherwise it calls `step(event)` in a loop. `step_batch` processes events in the supplied order; contention (e.g. two agents claiming the same queue head) is resolved by order of execution (same semantics as calling `step()` N times). See **How the simulation works** below for a consolidated overview.
 
 ## Agent set
 
@@ -138,6 +138,28 @@ Rewards are per agent; in the default config every agent gets the same shared re
 - `env.seed(42)` then `env.reset()` — equivalent to `reset(seed=42)`.
 - Same `seed` and same sequence of `step(actions)` must yield the same sequence of (observations, rewards, terminations). Tests in `tests/test_pz_parallel_smoke.py` enforce this (e.g. hashing observations and comparing two runs).
 
+**Reset options:** `reset(seed=..., options={...})` accepts optional keys: `initial_state` (dict passed to the engine), `timing_mode` (e.g. `"explicit"` or `"simulated"`, injected into initial state for the engine), and `dt_s` (integer, updates the env’s time step for the new episode).
+
+## How the simulation works
+
+- **CoreEnv** is the underlying simulator: one event per `step(event)` call, or a batch via `step_batch(events)` when supported.
+- **PettingZoo `step(actions)`** runs N sequential engine steps at the same `t_s`, in fixed agent order (ops_0, runner_0, …, qc_0, supervisor_0). The wrapper builds one event per agent, then calls `step_batch(events)` if the engine supports it, else `step(event)` in a loop.
+- **Observations:** Shared state is collected with `query_many`; per-agent data (zone, role) uses batch `get_agent_zones` / `get_agent_roles` when available. Results are cached per step so multiple consumers do not recompute.
+- **Determinism:** Same `seed` and same action sequence yield the same trajectory. Fixed agent ordering is part of the contract.
+- **Rendering:** With `render_mode="ansi"` or `"human"`, `render()` returns or prints a text summary of the current state (see Rendering below).
+
+## Rendering
+
+When `render_mode` is set in the constructor, `render()` is supported:
+
+- **`render_mode="ansi"`:** `render()` returns a multi-line string summarizing current state (step count, episode time, agent zones/roles, door status, queue lengths, specimen counts).
+- **`render_mode="human"`:** `render()` prints the same string to stdout and returns `None`.
+- **`render_mode=None` (default):** `render()` returns `None` (no-op).
+
+State for the summary comes from the same observation cache used by `step()` and `get_timing_summary()`; no extra engine queries are performed.
+
+**Wrappers:** For algorithms that expect a single flat observation vector per agent, use `FlattenObsWrapper` from `labtrust_gym.baselines.marl` (or `sb3_wrapper`). It wraps any LabTrust Parallel env and exposes `observation_space(agent)` as a `Box`; `reset()` and `step()` return flattened float32 vectors. See `tests/test_pz_parallel_smoke.py::test_flatten_obs_wrapper_smoke`.
+
 ## Tests
 
 - **Smoke:** `tests/test_pz_parallel_smoke.py` — instantiate, `reset(seed=123)`, 50 steps with alternating NOOP/TICK, no crash.
@@ -166,3 +188,9 @@ The wrapper uses only the public engine API (`reset`, `step`, `query`). It relie
 - `token_active` — list of active token IDs (wrapper only counts by type, no secrets).
 
 No engine internals are refactored; only minimal query support was added where needed for the observation spec.
+
+## Relationship to LLMs and agentic systems
+
+**PettingZoo** (LabTrustParallelEnv) implements **BenchmarkEnv** and is the **simulation backend** for benchmarks. In the default (simulation-centric) mode, the **benchmark runner** is the only component that calls `env.step`; LLM agents and coordination methods are policies that receive observations and return actions. When you are not using LLM or MARL, those roles are controlled by **scripted baselines** — deterministic, hand-coded reference policies used for comparison and reproducibility; the repo's state-of-the-art control is the OR kernel, LLM coordination methods, and MARL PPO. QC and supervisor are part of the agent set and are driven by ScriptedQcAgent and ScriptedSupervisorAgent in the default benchmark setup unless a coordination method or task config overrides them. For where "state of the art" is defined in this repo, see [State of the art status and limits](../reference/state_of_the_art_and_limits.md) and [Coordination benchmark card](../coordination/coordination_benchmark_card.md) (baselines for SOTA comparison). In **agent-driven** mode (`run-benchmark --agent-driven`), a driver holds the env and steps it only when the agent calls the step_lab tool. The security suite uses the PZ env only for system-level coordination-under-attack (coord_pack_ref); agent/shield tests use synthetic observations and do not run the env. For a single diagram and full breakdown, see [Simulation, LLMs, and agentic systems](../architecture/simulation_llm_agentic.md).
+
+**Vectorized env:** Implemented in `src/labtrust_gym/envs/vectorized.py`. `LabTrustVectorEnv` holds N `LabTrustParallelEnv` instances; `reset(seed, options)` and `step(actions_list)` operate on all envs synchronously. Each env gets seed `base_seed + env_index`. Same agent list and observation/action contract per env. **AsyncLabTrustVectorEnv** runs reset/step in parallel via a thread pool (same API; use for overlapping stepping when steps release the GIL). See [Design choices](../architecture/design_choices.md) (section 10.1).

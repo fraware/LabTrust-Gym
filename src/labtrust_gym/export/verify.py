@@ -14,6 +14,7 @@ from typing import Any, cast
 from labtrust_gym.config import policy_path
 from labtrust_gym.export.receipts import (
     POLICY_PACK_MANIFEST_FILENAME,
+    compute_coordination_audit_digest_sha256,
     load_episode_log,
 )
 from labtrust_gym.policy.loader import (
@@ -162,8 +163,13 @@ def _check_hashchain_proof(bundle_dir: Path) -> list[str]:
         if proof.get("length") != 0:
             errors.append(f"hashchain_proof: length {proof.get('length')} but episode_log has 0 entries")
         return errors
-    last = entries[-1]
-    hc = last.get("hashchain") or {}
+    # Match receipt export: proof is built from the last entry that has hashchain (see receipts._hashchain_from_entries)
+    hc = {}
+    for e in reversed(entries):
+        h = e.get("hashchain")
+        if h and isinstance(h, dict):
+            hc = h
+            break
     expected_head = hc.get("head_hash")
     expected_last = hc.get("last_event_hash")
     expected_len = len(entries)
@@ -176,6 +182,35 @@ def _check_hashchain_proof(bundle_dir: Path) -> list[str]:
         errors.append("hashchain_proof: last_event_hash mismatch with last entry")
     if proof.get("length") != expected_len:
         errors.append(f"hashchain_proof: length {proof.get('length')} != episode_log entries {expected_len}")
+    return errors
+
+
+def _check_coordination_audit_digest(
+    bundle_dir: Path,
+    manifest: dict[str, Any],
+) -> list[str]:
+    """If manifest has coordination_audit_digest_sha256, recompute from episode_log_subset and assert match."""
+    errors: list[str] = []
+    expected = manifest.get("coordination_audit_digest_sha256")
+    if expected is None or expected == "":
+        return errors
+    log_path = bundle_dir / "episode_log_subset.jsonl"
+    if not log_path.exists():
+        errors.append("coordination_audit_digest_sha256 present but episode_log_subset.jsonl missing")
+        return errors
+    try:
+        entries = load_episode_log(log_path)
+        actual = compute_coordination_audit_digest_sha256(entries)
+        if actual is None:
+            errors.append(
+                "coordination_audit_digest_sha256 in manifest but no LLM_COORD_AUDIT_DIGEST or proposal_hash entries in log"
+            )
+        elif actual != expected:
+            errors.append(
+                f"coordination_audit_digest_sha256 mismatch: manifest={expected[:16]}..., computed={actual[:16]}..."
+            )
+    except Exception as e:
+        errors.append(f"coordination_audit_digest check failed: {e}")
     return errors
 
 
@@ -313,9 +348,7 @@ def _check_tool_registry_fingerprint(
         path_used = policy_path(policy_root, "tool_registry.v0.1.yaml")
         actual = tool_registry_fingerprint(registry)
         if actual != expected:
-            errors.append(_fingerprint_mismatch_message(
-                "tool_registry_fingerprint", expected, actual, path_used
-            ))
+            errors.append(_fingerprint_mismatch_message("tool_registry_fingerprint", expected, actual, path_used))
     except Exception as e:
         errors.append(f"tool_registry_fingerprint check: {e}")
     return errors
@@ -346,9 +379,7 @@ def _check_rbac_policy_fingerprint(
             return errors
         actual = rbac_policy_fingerprint(rbac_policy)
         if actual != expected:
-            errors.append(_fingerprint_mismatch_message(
-                "rbac_policy_fingerprint", expected, actual, rbac_path
-            ))
+            errors.append(_fingerprint_mismatch_message("rbac_policy_fingerprint", expected, actual, rbac_path))
     except Exception as e:
         errors.append(f"rbac_policy_fingerprint check: {e}")
     return errors
@@ -357,8 +388,7 @@ def _check_rbac_policy_fingerprint(
 def _fingerprint_mismatch_message(key: str, expected: str, actual: str, path: Path) -> str:
     """Standard message for manifest fingerprint mismatch (expected, actual, resolved path)."""
     return (
-        f"manifest: {key} mismatch: expected {expected!r}, actual {actual!r}; "
-        f"resolved path for recomputation: {path}"
+        f"manifest: {key} mismatch: expected {expected!r}, actual {actual!r}; resolved path for recomputation: {path}"
     )
 
 
@@ -393,9 +423,7 @@ def _check_coordination_policy_fingerprint(
     try:
         actual = _policy_yaml_fingerprint(path)
         if actual != expected:
-            errors.append(_fingerprint_mismatch_message(
-                "coordination_policy_fingerprint", expected, actual, path
-            ))
+            errors.append(_fingerprint_mismatch_message("coordination_policy_fingerprint", expected, actual, path))
     except Exception as e:
         errors.append(f"coordination_policy_fingerprint check: {e}")
     return errors
@@ -442,9 +470,7 @@ def _check_prompt_sha256(
             policy_slice,
         )
         if actual != expected:
-            errors.append(
-                f"manifest: prompt_sha256 mismatch: expected {expected[:16]}..., recomputed {actual[:16]}..."
-            )
+            errors.append(f"manifest: prompt_sha256 mismatch: expected {expected[:16]}..., recomputed {actual[:16]}...")
     except Exception as e:
         errors.append(f"prompt_sha256 check: {e}")
     return errors
@@ -469,9 +495,7 @@ def _check_memory_policy_fingerprint(
     try:
         actual = _policy_yaml_fingerprint(path)
         if actual != expected:
-            errors.append(_fingerprint_mismatch_message(
-                "memory_policy_fingerprint", expected, actual, path
-            ))
+            errors.append(_fingerprint_mismatch_message("memory_policy_fingerprint", expected, actual, path))
     except Exception as e:
         errors.append(f"memory_policy_fingerprint check: {e}")
     return errors
@@ -618,6 +642,7 @@ def verify_bundle(
     errors.extend(_check_schemas(bundle_dir, manifest, policy_root))
     errors.extend(_check_fhir_if_present(bundle_dir))
     errors.extend(_check_hashchain_proof(bundle_dir))
+    errors.extend(_check_coordination_audit_digest(bundle_dir, manifest))
     errors.extend(_check_invariant_trace(bundle_dir))
     errors.extend(_check_policy_manifest_and_root_hash(bundle_dir, manifest, policy_root))
     errors.extend(_check_tool_registry_fingerprint(manifest, policy_root))
@@ -712,7 +737,31 @@ def verify_release_manifest(release_dir: Path) -> list[str]:
             continue
         actual = _sha256_file(full)
         if actual != expected:
-            errors.append(f"RELEASE_MANIFEST hash mismatch: {path_str} (expected {expected[:16]}..., got {actual[:16]}...)")
+            errors.append(
+                f"RELEASE_MANIFEST hash mismatch: {path_str} (expected {expected[:16]}..., got {actual[:16]}...)"
+            )
+    return errors
+
+
+def verify_security_attack_results_checksum(run_or_release_dir: Path) -> list[str]:
+    """
+    If SECURITY/attack_results.json exists, verify attack_results.json.sha256 exists
+    and matches the file digest. Returns list of error messages (empty if ok or file absent).
+    """
+    path = Path(run_or_release_dir) / "SECURITY" / "attack_results.json"
+    if not path.exists():
+        return []
+    errors: list[str] = []
+    sha_path = path.parent / "attack_results.json.sha256"
+    if not sha_path.exists():
+        errors.append("SECURITY/attack_results.json.sha256 missing (required when attack_results.json present)")
+        return errors
+    expected = sha_path.read_text(encoding="utf-8").strip()
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != expected:
+        errors.append(
+            f"SECURITY/attack_results.json: checksum mismatch (expected {expected[:16]}..., got {actual[:16]}...)"
+        )
     return errors
 
 
@@ -785,6 +834,12 @@ def verify_release(
             release_errors.append(f"Risk register bundle validation: {e}")
 
     release_errors.extend(verify_release_manifest(release_dir))
+
+    # SECURITY/attack_results.json integrity when present (run dir or release root)
+    release_errors.extend(verify_security_attack_results_checksum(release_dir))
+    for child in release_dir.iterdir():
+        if child.is_dir():
+            release_errors.extend(verify_security_attack_results_checksum(child))
 
     bundles_passed = all(r[1] for r in results) and len(results) == len(bundles)
     all_passed = bundles_passed and len(release_errors) == 0

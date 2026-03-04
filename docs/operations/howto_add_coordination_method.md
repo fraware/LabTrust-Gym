@@ -15,6 +15,8 @@ Add an entry to `policy/coordination/coordination_methods.v0.1.yaml` (or your pa
 
 Ensure the `class` is registered in `src/labtrust_gym/baselines/coordination/registry.py` (or equivalent) so the runner can instantiate it.
 
+- **Scale-capable:** If your method supports the combine path with per-agent LLM at N > coord_propose_actions_max_agents, add **scale_capable: true** to its entry in coordination_methods.v0.1.yaml; otherwise the runner will not populate scripted_agents_map with per-agent LLM for that method at scale.
+
 ## 2. Code
 
 Implement the coordination interface (see `src/labtrust_gym/baselines/coordination/interface.py`): your class must implement the expected API (e.g. propose actions, consume step results). Add the class to the method registry so `method_id` maps to the class. See an existing method under `src/labtrust_gym/baselines/coordination/methods/` for the exact interface and registration pattern.
@@ -39,6 +41,6 @@ To bring the method to the full SOTA bar:
 - **Strictly-better scenario:** Add at least one test in `tests/test_coord_strictly_better.py` that runs the same scale/seed/injection for a baseline and for your method, then asserts your method is at least as good on a chosen metric (e.g. throughput or violations). Use `_run_coord_one_episode` and `_throughput_from_results` (or `_violations_count_from_results`). For LLM methods use `pipeline_mode="llm_offline"` and `llm_backend="deterministic_constrained"` for CI.
 - **Envelope:** Document compute/latency in a module or class docstring section "Envelope (SOTA audit)" (steps, llm_calls_per_step, fallback, max_latency_ms) and add a `# compute_envelope: ...` comment in the method's block in `policy/coordination/coordination_methods.v0.1.yaml`.
 
-See [SOTA method roles and checklist](../coordination/sota_method_roles_and_checklist.md) and `python scripts/refresh_sota_checklist.py` for the per-method dashboard.
+Run `python scripts/refresh_sota_checklist.py` from repo root for the per-method dashboard (pass_budget, pass_evidence, strictly-better test, envelope).
 
 After adding the method, run `labtrust validate-policy` and at least the coordination interface contract test; then run a short pack or study to confirm the method appears and completes without error.

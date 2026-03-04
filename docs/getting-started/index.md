@@ -2,6 +2,17 @@
 
 Get LabTrust-Gym installed, run your first benchmarks, and optionally fork and extend for your organization.
 
+## I want to...
+
+| I want to... | First step |
+|--------------|------------|
+| Run benchmarks only | `pip install labtrust-gym[env,plots]` then `labtrust quick-eval` |
+| Add my coordination method (or task) | [Extension development](../agents/extension_development.md) + entry_points; see [examples/extension_example](../../examples/extension_example/) for a minimal plugin |
+| Fork and customize policy | [Forker guide](forkers.md) and `labtrust forker-quickstart` |
+| Use as a library without forking | [Extension development](../agents/extension_development.md) + `--profile` + `extension_packages` in a lab profile |
+| Run the full security suite | `labtrust run-security-suite`; full suite needs `.[env]`; use `--skip-system-level` when env is not installed |
+| Connect the LabTrust Portal (Lovable) to live data | Set `VITE_DATA_BASE_URL` in the portal to this repo’s deployed viewer-data URL; see [Portal context — Portal live data connection](../labtrust-portal-context.md#portal-live-data-connection) |
+
 ## New to the project
 
 | Document | Description |
@@ -16,6 +27,8 @@ Get LabTrust-Gym installed, run your first benchmarks, and optionally fork and e
 | Document | Description |
 |----------|-------------|
 | [Forker guide](forkers.md) | Fork, customize policy, run the full pipeline, add partner overlays and coordination methods. |
+| [Demo readiness](demo_readiness.md) | Prerequisites, Windows notes, and risk-register usage for the three presentation demos. |
+| [Recommended Windows setup](windows_setup.md) | Path, shell, file-lock mitigation, and locale for Windows-only users. |
 | [Troubleshooting](troubleshooting.md) | Common issues and fixes. |
 
 ## Next steps

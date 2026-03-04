@@ -8,13 +8,11 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.studies.coordination_decision_builder import (
-    build_decision,
-    write_decision_artifact,
     DECISION_FILENAME_JSON,
     DECISION_FILENAME_MD,
+    build_decision,
+    write_decision_artifact,
 )
 
 

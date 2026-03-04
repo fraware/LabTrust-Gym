@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import random
 
-import pytest
-
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import (
     AllocationDecision,

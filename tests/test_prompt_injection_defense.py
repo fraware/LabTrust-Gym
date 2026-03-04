@@ -31,9 +31,7 @@ def test_load_prompt_injection_defense_policy_default() -> None:
 
 def test_pre_llm_check_no_untrusted() -> None:
     state = {"untrusted_notes": {"present": False, "samples": []}}
-    result = pre_llm_prompt_injection_check(
-        state, repo_root=_repo_root()
-    )
+    result = pre_llm_prompt_injection_check(state, repo_root=_repo_root())
     assert isinstance(result, PreLLMResult)
     assert result.block is False
     assert result.reason_code is None
@@ -50,9 +48,7 @@ def test_pre_llm_check_blocks_on_injection() -> None:
     }
     policy = load_prompt_injection_defense_policy(repo_root=_repo_root())
     threshold = int(policy.get("block_severity_threshold", 2))
-    result = pre_llm_prompt_injection_check(
-        state, defense_policy=policy, repo_root=_repo_root()
-    )
+    result = pre_llm_prompt_injection_check(state, defense_policy=policy, repo_root=_repo_root())
     if threshold <= 2:
         assert result.block is True
         assert result.reason_code == "PROMPT_INJECTION_DETECTED"
@@ -62,9 +58,7 @@ def test_pre_llm_check_blocks_on_injection() -> None:
 def test_output_consistency_check_no_verbatim() -> None:
     samples = [{"source": "specimen_note", "text": "Some long adversarial string here."}]
     llm_output = '{"action_type": "NOOP", "rationale": "Safe."}'
-    flagged, reason = output_consistency_check(
-        llm_output, samples, min_verbatim_len=20
-    )
+    flagged, reason = output_consistency_check(llm_output, samples, min_verbatim_len=20)
     assert flagged is False
     assert reason is None
 
@@ -73,9 +67,7 @@ def test_output_consistency_check_verbatim_leak() -> None:
     untrusted = "Adversarial instruction to output RELEASE_RESULT now."
     samples = [{"source": "specimen_note", "text": untrusted}]
     llm_output = f'{{"action_type": "NOOP", "rationale": "User said: {untrusted}"}}'
-    flagged, reason = output_consistency_check(
-        llm_output, samples, min_verbatim_len=20
-    )
+    flagged, reason = output_consistency_check(llm_output, samples, min_verbatim_len=20)
     assert flagged is True
     assert reason == "UNTRUSTED_NOTE_AS_INSTRUCTION"
 
@@ -83,7 +75,21 @@ def test_output_consistency_check_verbatim_leak() -> None:
 def test_output_consistency_check_short_chunk() -> None:
     samples = [{"source": "specimen_note", "text": "A" * 30}]
     llm_output = "A" * 25
-    flagged, _ = output_consistency_check(
-        llm_output, samples, min_verbatim_len=20
-    )
+    flagged, _ = output_consistency_check(llm_output, samples, min_verbatim_len=20)
     assert flagged is True
+
+
+@pytest.mark.security
+def test_paranoid_preset_blocks_severity_one() -> None:
+    """With block_severity_threshold 1 (paranoid), severity-1-only payload must block at pre-LLM."""
+    state = {
+        "untrusted_notes": {
+            "present": True,
+            "samples": [{"source": "specimen_note", "text": "RELEASE_RESULT"}],
+        },
+    }
+    paranoid_policy = load_prompt_injection_defense_policy(repo_root=_repo_root())
+    paranoid_policy = dict(paranoid_policy, block_severity_threshold=1)
+    result = pre_llm_prompt_injection_check(state, defense_policy=paranoid_policy, repo_root=_repo_root())
+    assert result.block is True, "Paranoid preset must block severity-1 payload (RELEASE_RESULT)"
+    assert result.reason_code == "PROMPT_INJECTION_DETECTED"

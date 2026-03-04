@@ -15,7 +15,9 @@ This page is the **canonical list of frozen contracts and schema versions** for 
 | **Sites policy schema** | v0.1 | `policy/schemas/sites_policy.v0.1.schema.json` | Schema for `policy/sites/sites_policy.v0.1.yaml`: sites, site_graph, routes (transport_time, temp_drift). Used by engine/transport. |
 | **Key registry schema** | v0.1 | `policy/schemas/key_registry.v0.1.schema.json` | Schema for `policy/keys/key_registry.v0.1.yaml`: Ed25519 keys (key_id, public_key, agent_id, role_id); optional status (ACTIVE/REVOKED/EXPIRED), not_before_ts_s, not_after_ts_s. Used by engine/signatures; lifecycle enforced in verification. |
 | **RBAC policy schema** | v0.1 | `policy/schemas/rbac_policy.v0.1.schema.json` | Schema for `policy/rbac/rbac_policy.v0.1.yaml`: roles (allowed_actions, allowed_zones, allowed_devices), agents (agent_id → role_id), action_constraints. Used by engine/rbac. |
-| **Coordination baseline contract** | v0.1 | `src/labtrust_gym/baselines/coordination/interface.py` | Required: `reset(seed, policy, scale_config)`, `propose_actions(obs, infos, t)` → one action per agent with `action_index` in 0..5. Optional: `on_step_result`, `on_episode_end`. Enforced by `tests/test_coordination_interface_contract.py`: every method_id in `coordination_methods.v0.1.yaml` instantiates, runs 5 steps coord_scale, returns schema-valid actions and is deterministic. |
+| **Action contract** | v0.1 | `src/labtrust_gym/envs/action_contract.py` | Per-step action: `action_index` in 0..5; optional `action_type`, `args`, `reason_code`, `token_refs`. Coordination methods and risk injectors must use these indices. |
+| **Env contract (BenchmarkEnv)** | v0.1 | `src/labtrust_gym/benchmarks/env_protocol.py` | New envs must implement `BenchmarkEnv`. The benchmark runner depends only on this protocol; it does not use private attributes (`_device_ids`, `_zone_ids`, `_dt_s`). |
+| **Coordination baseline contract** | v0.1 | `src/labtrust_gym/baselines/coordination/interface.py` | Defines the coordination *method* interface; "baseline" here means reference implementation, not the v0.2 frozen result set. Required: `reset(seed, policy, scale_config)`, `propose_actions(obs, infos, t)` → one action per agent with `action_index` in 0..5. Optional: `on_step_result`, `on_episode_end`. Enforced by `tests/test_coordination_interface_contract.py`: every method_id in `coordination_methods.v0.1.yaml` instantiates, runs 5 steps coord_scale, returns schema-valid actions and is deterministic. Conformance to this contract (schema-valid, deterministic) does not imply that the method's outputs are safe or correct; safety is a separate concern. |
 | **Benchmark results schema** | v0.2 | `policy/schemas/results.v0.2.schema.json` | CI-stable benchmark results: task, seeds, policy_fingerprint, partner_id, git_sha, agent_baseline_id, episodes with metrics (ints/structs). Used by run-benchmark output and summarize-results; summary_v0.2.csv regression is stable across OS/Python. |
 | **Benchmark results schema** | v0.3 | `policy/schemas/results.v0.3.schema.json` | Paper-grade extension of v0.2: optional quantiles, 95% CI, simulated-mode distributions. Same required fields as v0.2; summary_v0.3.csv includes quantiles and CI. See [Metrics contract](metrics_contract.md). |
 
@@ -50,7 +52,7 @@ Defines the structure of study specification YAMLs (e.g. `policy/studies/study_s
 
 ## Receipt and evidence bundle (v0.1)
 
-Receipt and evidence bundle manifest schemas define the shape of exported receipts (per specimen/result) and the EvidenceBundle.v0.1 manifest (files + sha256, policy_fingerprint). Validated when exporting; see [Enforcement](../policy/enforcement.md) (evidence bundle section) and [FHIR R4 export](../export/fhir_export.md).
+Receipt and evidence bundle manifest schemas define the shape of exported receipts (per specimen/result) and the EvidenceBundle.v0.1 manifest (files + sha256, policy_fingerprint). When the run used LLM coordination and the episode log contains proposal_hash / shield_outcome_hash or LLM_COORD_AUDIT_DIGEST, the manifest may include optional **coordination_audit_digest_sha256**; verify-bundle checks it when present. Validated when exporting; see [Enforcement](../policy/enforcement.md) (evidence bundle section) and [FHIR R4 export](../export/fhir_export.md).
 
 ## FHIR bundle export (v0.1)
 
@@ -60,9 +62,19 @@ Minimal structural contract for FHIR R4 Bundle export (resourceType Bundle, type
 
 Schema for `policy/sites/sites_policy.v0.1.yaml`: sites, site_graph, routes (transport_time_mean_s, temp_drift). Used by `labtrust validate-policy` and engine/transport.
 
+## Action contract (v0.1)
+
+Per-step action: `action_index` in 0..5 (see [envs/action_contract.py](../../src/labtrust_gym/envs/action_contract.py)); optional `action_type`, `args`, `reason_code`, `token_refs`. All coordination methods and risk injectors must use these indices. The runner converts action dicts to `(actions, action_infos)` and passes them to `env.step(actions, action_infos)`.
+
+## Env contract (BenchmarkEnv) (v0.1)
+
+New envs must implement `BenchmarkEnv` (see `src/labtrust_gym/benchmarks/env_protocol.py`). The benchmark runner depends only on this protocol; it does not use private attributes (`_device_ids`, `_zone_ids`, `_dt_s`).
+
+**PettingZoo env (LabTrustParallelEnv):** The wrapper implements the full Parallel API including **render()** (modes ansi/human when `render_mode` is set), **reset(seed, options)** with optional `timing_mode` and `dt_s` in options, and observation building via batch **get_agent_zones** / **get_agent_roles** when the engine supports them. The engine may implement optional **step_batch(events)** (same semantics as calling step(e) for each event in order); the PZ env uses it when available. For flat observations per agent, use **FlattenObsWrapper** (`labtrust_gym.baselines.marl`). See [PettingZoo API](../agents/pettingzoo_api.md).
+
 ## Coordination baseline contract (v0.1)
 
-Every coordination method registered in `policy/coordination/coordination_methods.v0.1.yaml` must implement the interface in `src/labtrust_gym/baselines/coordination/interface.py` (CoordinationMethod): **reset(seed, policy, scale_config)** and **propose_actions(obs, infos, t)** returning a dict of agent_id to action_dict with at least **action_index** (int in 0..5). Optional hooks: **on_step_result(step_outputs)**, **on_episode_end(episode_metrics)**. New methods cannot break CI: `pytest tests/test_coordination_interface_contract.py` loads every method_id, instantiates via registry (deterministic backends; no network), runs 5 steps in coord_scale with seed=42, and asserts actions for all agents, schema-valid proposals, and determinism. See [Coordination methods](../coordination/coordination_methods.md).
+Every coordination method registered in `policy/coordination/coordination_methods.v0.1.yaml` must implement the interface in `src/labtrust_gym/baselines/coordination/interface.py` (CoordinationMethod): **reset(seed, policy, scale_config)** and **propose_actions(obs, infos, t)** returning a dict of agent_id to action_dict with at least **action_index** (int in 0..5). Optional hooks: **on_step_result(step_outputs)**, **on_episode_end(episode_metrics)**, **combine_submissions(submissions, obs, infos, t)**. The **combine_submissions** method combines per-agent submissions into a joint action dict; default implementation treats each submission as an action_dict and fills missing agents with NOOP. **For N <= N_max, only propose_actions (or step) is used; combine_submissions is never called.** At scale (simulation-centric when N > coord_propose_actions_max_agents, default 50), the runner uses per-agent submissions and **combine_submissions** only; **propose_actions** is not called. In agent-centric multi-agentic mode, the driver also uses **combine_submissions**. The set of methods that receive per-agent LLM at scale (scale-capable) is defined in policy (coordination_methods.v0.1.yaml, optional scale_capable: true) with a fallback for existing configs; see [design_choices §6.3](../architecture/design_choices.md). New methods cannot break CI: `pytest tests/test_coordination_interface_contract.py` loads every method_id, instantiates via registry (deterministic backends; no network), runs 5 steps in coord_scale with seed=42, and asserts actions for all agents, schema-valid proposals, and determinism. Conformance to this contract does not imply that the method's outputs are safe or correct; safety is a separate concern. See [Coordination methods](../coordination/coordination_methods.md).
 
 ## Acceptance (v0.1.0 release)
 
@@ -76,7 +88,7 @@ labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>
 labtrust verify-bundle --bundle <bundle_dir>   # passes when bundle is from export-receipts
 ```
 
-Use an EvidenceBundle path under `receipts/` (e.g. `receipts/taska_cond_0/EvidenceBundle.v0.1`), not the release root. To verify all bundles in a release: `labtrust verify-release --release-dir <path>`. See [Release checklist](../operations/release_checklist.md) and [Trust verification](../risk-and-security/trust_verification.md) for the full trust story and how to run each verification step.
+Use an EvidenceBundle path under `receipts/` (e.g. `receipts/taska_cond_0/EvidenceBundle.v0.1`), not the release root. To verify all bundles in a release: `labtrust verify-release --release-dir <path>`. See [Trust verification](../risk-and-security/trust_verification.md) for the full trust story and how to run each verification step.
 
 ## Release artifacts (v0.1.0)
 

@@ -7,6 +7,7 @@ Risk register, viewer, injections, security suite, monitoring, and controls.
 | Document | Description |
 |----------|-------------|
 | [Trust verification](trust_verification.md) | Verification chain, EvidenceBundles, risk register coverage, and artifact-to-concern mapping; what each step proves and how to run or inspect it. |
+| [Supply chain integrity](supply_chain_integrity.md) | Optional artifact signing, policy checksums, and TEE/out-of-band verification for high-assurance deployments. |
 
 ## Risk register
 
@@ -21,6 +22,7 @@ Risk register, viewer, injections, security suite, monitoring, and controls.
 
 | Document | Description |
 |----------|-------------|
+| [Security flows and entry points](security_flows_and_entry_points.md) | Two security-related flows: attack suite vs coord_risk; entry points and when PZ env is used. |
 | [Security attack suite](security_attack_suite.md) | Attack suite and securitization packet. |
 | [Security monitoring](security_monitoring.md) | Adversarial detection. |
 | [Security detection design](security_detection_design.md) | Detection design. |

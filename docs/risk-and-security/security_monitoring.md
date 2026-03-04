@@ -30,8 +30,13 @@ Observation context is passed per step by the PettingZoo env: it builds a dict f
 |-------|--------|
 | `severity_threshold` | Emit SECURITY_ALERT when detector severity >= this (0–3). Default 1. |
 | `max_text_length` | Truncate each text field to this many characters (bounded scan). |
+| `normalize_before_match` | When true, apply allowlisted normalizers to text before pattern match (evasion hardening: ZWSP/homoglyphs/base64). |
+| `normalizers` | Allowlist: `strip_format_chars`, `nfkc`, `collapse_whitespace`, `decode_base64_scan`. Only these are applied; behaviour is auditable. |
+| `max_decoded_base64_len` | Cap on decoded base64 length when `decode_base64_scan` is in normalizers (default 2000). |
 | `patterns` | List of `{ id, pattern, severity, reason_code }`. `pattern` is a substring (case-insensitive) or regex (prefix `re:`). |
 | `suggested_actions` | Map severity 0–3 to suggested response: NOOP, THROTTLE_AGENT, REQUIRE_HUMAN_REVIEW, FREEZE_EPISODE. |
+
+**Auditability:** Pattern-only detection remains the primary, auditable control. The optional classifier (`use_classifier`) is supplementary and best-effort; it must not replace pattern-based blocking for critical severity. When the classifier is unavailable, detection falls back to pattern-only (see Prompt-injection defense doc for block_severity_threshold and classifier fallback).
 
 ### Tuning thresholds
 
@@ -57,6 +62,16 @@ The detector returns a **suggested_action** (NOOP, THROTTLE_AGENT, REQUIRE_HUMAN
 ## Prompt-injection defense (layered)
 
 A separate **prompt-injection defense** layer (`policy/security/prompt_injection_defense.v0.1.yaml`) adds pre-LLM blocking, optional sanitization, and output-consistency checks. When the detector severity is at or above `block_severity_threshold`, the LLM call is skipped and the agent returns NOOP with `PROMPT_INJECTION_DETECTED`. See [Prompt-injection defense](prompt_injection_defense.md).
+
+## Classifier fallback and limits
+
+When `use_classifier` is true, the detector calls an optional judge URL (`LABTRUST_CLASSIFIER_JUDGE_URL`). If the judge is unavailable (timeout, connection error, or invalid response), the detector by default **falls back to pattern-only** (fail-open). You can set **classifier_fallback_severity_when_unavailable** in `adversarial_detection.v0.1.yaml` to 1, 2, or 3 to treat judge unavailability as that severity (fail-closed): the detector will then merge that severity with pattern results so pre-LLM block can still fire. Omitted or 0 = pattern-only. Rate limiting or circuit breaking on the judge URL is not implemented in-core; operators can put a reverse proxy or rate limiter in front of the judge endpoint.
+
+## Rate limiting and circuit breaker
+
+- **LLM circuit breaker:** When a backend sets **last_error_code** after 429, timeout, or refusal, the LLM agent calls **circuit_breaker.record_block()**. Consecutive provider failures open the circuit so further calls are short-circuited (e.g. return NOOP with reason code). See `baselines/llm` and the guardrails section in the LLM live doc.
+- **LLM rate limiter:** A shared **TokenBucket** (or equivalent) can be passed to all LLM agents when many agents share one backend; **act()** waits at most **global_rate_limit_max_wait_s** for a token. Rate-limited agents return NOOP with **AGENT_RATE_LIMIT** when the deadline is exceeded. See scale config and `scale_operational_limits.md`.
+- **Judge URL rate limiting:** The classifier/judge endpoint (`LABTRUST_CLASSIFIER_JUDGE_URL`) is not rate-limited in-core. For production, put a reverse proxy or rate limiter in front of the judge, or implement an optional wrapper around the judge call with a token bucket.
 
 ## False positives
 

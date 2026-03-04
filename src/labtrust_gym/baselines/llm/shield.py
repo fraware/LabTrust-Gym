@@ -113,6 +113,8 @@ def build_policy_summary(
     restricted_zones: list[str] | None = None,
     token_requirements: dict[str, list[str]] | None = None,
     role_id: str | None = None,
+    refuse_below_confidence: bool = False,
+    refusal_confidence_threshold: float = 0.6,
 ) -> dict[str, Any]:
     """Build policy_summary dict for LLM (what the agent can see). Conforms to policy_summary.schema.v0.1. Includes stable citation_anchors for rationale."""
     out: dict[str, Any] = {
@@ -128,6 +130,9 @@ def build_policy_summary(
         out["key_constraints"] = list(key_constraints)
     if critical_ladder_summary is not None:
         out["critical_ladder_summary"] = dict(critical_ladder_summary)
+    if refuse_below_confidence:
+        out["refuse_below_confidence"] = True
+        out["refusal_confidence_threshold"] = refusal_confidence_threshold
     if restricted_zones is not None:
         out["restricted_zones"] = list(restricted_zones)
     if token_requirements is not None:
@@ -156,6 +161,7 @@ def _load_rbac_roles_summary(root: Path) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     try:
         from labtrust_gym.engine.rbac import load_rbac_policy
+
         path = root / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
         if not path.exists():
             return out
@@ -174,6 +180,7 @@ def _derive_zone_graph_from_policy(root: Path) -> dict[str, list[str]]:
     graph: dict[str, list[str]] = {}
     try:
         from labtrust_gym.policy.loader import load_yaml
+
         path = root / "policy" / "zones" / "zone_layout_policy.v0.1.yaml"
         if not path.exists():
             return graph
@@ -209,29 +216,20 @@ def _derive_key_constraints_full(
     """
     constraints: list[str] = []
     if role_id:
-        constraints.append(
-            f"Only propose actions from your role ({role_id}) allowed_actions list."
-        )
+        constraints.append(f"Only propose actions from your role ({role_id}) allowed_actions list.")
     if log_frozen:
         constraints.append("Do not release results when log_frozen is true.")
     if restricted_zones:
         constraints.append(
-            f"Restricted zones ({', '.join(sorted(restricted_zones))}) require "
-            "token for OPEN_DOOR or MOVE into them."
+            f"Restricted zones ({', '.join(sorted(restricted_zones))}) require token for OPEN_DOOR or MOVE into them."
         )
     for action, tokens in sorted((token_requirements or {}).items()):
         if tokens:
-            constraints.append(
-                f"Action {action} requires one of: {', '.join(sorted(tokens))}."
-            )
+            constraints.append(f"Action {action} requires one of: {', '.join(sorted(tokens))}.")
     if critical_summary.get("ack_required"):
-        constraints.append(
-            "Critical results require acknowledgment per escalation ladder."
-        )
+        constraints.append("Critical results require acknowledgment per escalation ladder.")
     if strict_signatures:
-        constraints.append(
-            "Mutating actions require key_id and signature when strict_signatures."
-        )
+        constraints.append("Mutating actions require key_id and signature when strict_signatures.")
     return constraints
 
 
@@ -240,19 +238,14 @@ def _derive_critical_ladder_summary(root: Path) -> dict[str, Any]:
     out: dict[str, Any] = {"ack_required": True, "levels": ["CRIT_A", "CRIT_B"]}
     try:
         from labtrust_gym.policy.loader import load_yaml
+
         # Critical levels from critical_thresholds
         ct_path = root / "policy" / "critical" / "critical_thresholds.v0.1.yaml"
         if ct_path.exists():
             ct = load_yaml(ct_path) or {}
             thresholds = ct.get("critical_thresholds") or ct
             defaults = thresholds.get("defaults_rcpath2017") or []
-            levels = sorted(
-                set(
-                    str(d.get("class"))
-                    for d in defaults
-                    if isinstance(d, dict) and d.get("class")
-                )
-            )
+            levels = sorted(set(str(d.get("class")) for d in defaults if isinstance(d, dict) and d.get("class")))
             if levels:
                 out["levels"] = levels
         # Escalation tiers and ack from escalation_ladder
@@ -270,9 +263,7 @@ def _derive_critical_ladder_summary(root: Path) -> dict[str, Any]:
                     for t in tiers
                     if isinstance(t, dict)
                 ]
-                out["ack_required"] = any(
-                    t.get("requires_readback", True) for t in tiers if isinstance(t, dict)
-                )
+                out["ack_required"] = any(t.get("requires_readback", True) for t in tiers if isinstance(t, dict))
     except Exception:
         pass
     return out
@@ -352,13 +343,8 @@ def generate_policy_summary_from_policy(
                             action = entry.get("action_type")
                             tok = entry.get("requires_token_type")
                             if action and tok:
-                                token_requirements.setdefault(
-                                    str(action), []
-                                ).append(str(tok))
-                    token_requirements = {
-                        k: list(dict.fromkeys(v))
-                        for k, v in token_requirements.items()
-                    }
+                                token_requirements.setdefault(str(action), []).append(str(tok))
+                    token_requirements = {k: list(dict.fromkeys(v)) for k, v in token_requirements.items()}
             except Exception:
                 pass
         # Critical ladder
@@ -382,13 +368,10 @@ def generate_policy_summary_from_policy(
                 intent = da_policy.get("intent")
                 if intent:
                     key_constraints.append(f"Dual approval: {intent}")
-                for rule in (da_policy.get("rules") or []):
+                for rule in da_policy.get("rules") or []:
                     if isinstance(rule, dict) and rule.get("id"):
                         req = rule.get("requirements") or rule.get("requirement") or ""
-                        req_str = (
-                            req if isinstance(req, str)
-                            else "; ".join(str(x) for x in req)
-                        )
+                        req_str = req if isinstance(req, str) else "; ".join(str(x) for x in req)
                         key_constraints.append(f"Rule {rule['id']}: {req_str}")
             except Exception:
                 pass
@@ -410,7 +393,5 @@ def generate_policy_summary_from_policy(
         role_id=role_id,
     )
     if rbac_roles_summary:
-        summary["rbac_roles_summary"] = {
-            k: list(v) for k, v in rbac_roles_summary.items()
-        }
+        summary["rbac_roles_summary"] = {k: list(v) for k, v in rbac_roles_summary.items()}
     return summary

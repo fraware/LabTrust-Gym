@@ -14,14 +14,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from labtrust_gym.logging.step_timing import is_enabled as step_timing_enabled
-from labtrust_gym.logging.step_timing import record_invariant_ms
-
 from labtrust_gym.engine.catalogue_runtime import (
     INV_STAB_BIOCHEM_001,
     check_stability,
     check_temp_out_of_band,
 )
+from labtrust_gym.logging.step_timing import is_enabled as step_timing_enabled
+from labtrust_gym.logging.step_timing import record_invariant_ms
 from labtrust_gym.policy.invariants_registry import (
     InvariantEntry,
     load_invariant_registry,

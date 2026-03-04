@@ -24,6 +24,7 @@ MAX_CHUNK_CHARS = 600
 def _get_repo_root() -> Path:
     try:
         from labtrust_gym.config import get_repo_root
+
         return Path(get_repo_root())
     except Exception:
         return Path(__file__).resolve().parent.parent.parent.parent.parent
@@ -38,6 +39,7 @@ def _chunk_file(path: Path, content: str, source_id: str) -> list[tuple[str, str
     if path.suffix in (".yaml", ".yml"):
         try:
             import yaml
+
             data = yaml.safe_load(content)
             if isinstance(data, dict):
                 for key, val in data.items():
@@ -134,10 +136,7 @@ def _query_terms(state_summary: dict[str, Any], allowed_actions: list[str]) -> s
 def _score_chunk(chunk_text: str, terms: set[str]) -> int:
     """Simple term-overlap score (case-insensitive)."""
     lower = chunk_text.lower()
-    return sum(
-        1 for t in terms
-        if t.lower() in lower or t.upper() in chunk_text
-    )
+    return sum(1 for t in terms if t.lower() in lower or t.upper() in chunk_text)
 
 
 def retrieve(
@@ -153,9 +152,7 @@ def retrieve(
     terms = _query_terms(state_summary, allowed_actions)
     if not terms or not chunks:
         return chunks[:top_k]
-    scored = [
-        ((c, text), _score_chunk(text, terms)) for c, text in chunks
-    ]
+    scored = [((c, text), _score_chunk(text, terms)) for c, text in chunks]
     scored.sort(key=lambda x: -x[1])
     return [pair for (pair, _) in scored[:top_k]]
 
@@ -182,9 +179,7 @@ def build_rag_context(
     Retrieve top-k policy chunks and format as one string for prompt injection.
     """
     chunks = get_cached_chunks(repo_root=repo_root)
-    selected = retrieve(
-        state_summary, allowed_actions, chunks, top_k=top_k
-    )
+    selected = retrieve(state_summary, allowed_actions, chunks, top_k=top_k)
     if not selected:
         return ""
     lines = ["--- Relevant policy excerpts ---"]

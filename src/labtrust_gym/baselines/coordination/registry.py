@@ -87,6 +87,46 @@ from labtrust_gym.baselines.coordination.routing.mapf_backends import make_route
 from labtrust_gym.config import policy_path
 
 
+def _load_repair_policy(repo_root: Path | None) -> dict[str, Any]:
+    """Load repair_policy.v0.1.yaml from repo; return dict or empty if missing."""
+    if repo_root is None:
+        return {}
+    path = policy_path(repo_root, "coordination", "repair_policy.v0.1.yaml")
+    if not path.exists():
+        return {}
+    try:
+        import yaml
+
+        with path.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _resolve_repair_caps(
+    method_id: str,
+    repair_policy: dict[str, Any],
+    scale_config: dict[str, Any] | None,
+) -> tuple[int, int]:
+    """Resolve max_repairs and blocked_threshold: (1) per_method, (2) repair_policy top-level, (3) scale_config."""
+    sc = scale_config or {}
+    max_repairs = int(sc.get("max_repairs", 1))
+    blocked_threshold = int(sc.get("blocked_threshold", 0))
+    if repair_policy:
+        max_repairs = int(repair_policy.get("max_repairs", max_repairs))
+        blocked_threshold = int(repair_policy.get("blocked_threshold", blocked_threshold))
+    per_method = (repair_policy or {}).get("per_method") or {}
+    if isinstance(per_method, dict) and method_id in per_method:
+        override = per_method[method_id]
+        if isinstance(override, dict):
+            if "max_repairs" in override:
+                max_repairs = int(override["max_repairs"])
+            if "blocked_threshold" in override:
+                blocked_threshold = int(override["blocked_threshold"])
+    return max(0, max_repairs), max(0, blocked_threshold)
+
+
 def _load_scheduler_or_policy(repo_root: Path | None) -> dict[str, Any]:
     """Load scheduler_or_policy.v0.1.yaml from repo; return dict or empty."""
     if repo_root is None:
@@ -165,28 +205,18 @@ def _build_builtin(
                 default_action_type="NOOP",
             )
         if backend is None:
-            raise ValueError(
-                "llm_central_planner requires proposal_backend= or repo_root "
-                "for deterministic backend"
-            )
-        rbac_path = (
-            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
-        )
+            raise ValueError("llm_central_planner requires proposal_backend= or repo_root for deterministic backend")
+        rbac_path = policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         pz_to_engine_map = params.get("pz_to_engine") or {}
-        first_engine = (
-            next(iter(pz_to_engine_map.values()), None)
-            if pz_to_engine_map
-            else None
-        )
+        first_engine = next(iter(pz_to_engine_map.values()), None) if pz_to_engine_map else None
         allowed = (
             get_allowed_actions(first_engine, rbac_policy)
             if first_engine
             else ["NOOP", "TICK", "QUEUE_RUN", "MOVE", "OPEN_DOOR", "START_RUN"]
         )
-        sc = scale_config or {}
-        max_repairs = int(sc.get("max_repairs", 1))
-        blocked_threshold = int(sc.get("blocked_threshold", 0))
+        repair_policy = _load_repair_policy(repo_root)
+        max_repairs, blocked_threshold = _resolve_repair_caps("llm_central_planner", repair_policy, scale_config)
         return cast(
             CoordinationMethod,
             LLMCentralPlanner(
@@ -194,9 +224,7 @@ def _build_builtin(
                 rbac_policy=rbac_policy,
                 allowed_actions=allowed,
                 policy_summary=params.get("policy_summary") or policy,
-                get_allowed_actions_fn=(
-                    lambda aid: get_allowed_actions(aid, rbac_policy)
-                ),
+                get_allowed_actions_fn=(lambda aid: get_allowed_actions(aid, rbac_policy)),
                 max_repairs=max_repairs,
                 blocked_threshold=blocked_threshold,
                 method_id_override=params.get("method_id_override"),
@@ -224,24 +252,23 @@ def _build_builtin(
                         default_action_type="NOOP",
                     )
                 )
-        rbac_path = (
-            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml")
-            if repo_root
-            else None
-        )
+        rbac_path = policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         pz_to_engine_map = params.get("pz_to_engine") or {}
-        first_engine = (
-            next(iter(pz_to_engine_map.values()), None)
-            if pz_to_engine_map
-            else None
-        )
+        first_engine = next(iter(pz_to_engine_map.values()), None) if pz_to_engine_map else None
         allowed = (
             get_allowed_actions(first_engine, rbac_policy)
             if first_engine
             else ["NOOP", "TICK", "QUEUE_RUN", "MOVE", "OPEN_DOOR", "START_RUN"]
         )
         aggregator = str(sc.get("coord_debate_aggregator", "majority")).lower()
+        aggregator_backend: Any = None
+        if aggregator == "llm":
+            aggregator_backend = params.get("aggregator_backend")
+            if aggregator_backend is None and backends:
+                first = backends[0]
+                if hasattr(first, "generate") or hasattr(first, "merge_proposals"):
+                    aggregator_backend = first
         return cast(
             CoordinationMethod,
             LLMCentralPlannerDebate(
@@ -249,11 +276,10 @@ def _build_builtin(
                 rbac_policy=rbac_policy,
                 allowed_actions=allowed,
                 policy_summary=params.get("policy_summary") or policy,
-                get_allowed_actions_fn=(
-                    lambda aid: get_allowed_actions(aid, rbac_policy)
-                ),
+                get_allowed_actions_fn=(lambda aid: get_allowed_actions(aid, rbac_policy)),
                 aggregator=aggregator,
                 method_id_override=params.get("method_id_override"),
+                aggregator_backend=aggregator_backend,
             ),
         )
 
@@ -267,19 +293,12 @@ def _build_builtin(
             backend = DeterministicAssignmentsBackend(seed=seed)
         if backend is None:
             raise ValueError(
-                "llm_hierarchical_allocator requires allocator_backend= or repo_root "
-                "for deterministic backend"
+                "llm_hierarchical_allocator requires allocator_backend= or repo_root for deterministic backend"
             )
-        rbac_path = (
-            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
-        )
+        rbac_path = policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         pz_to_engine_map = params.get("pz_to_engine") or {}
-        first_engine = (
-            next(iter(pz_to_engine_map.values()), None)
-            if pz_to_engine_map
-            else None
-        )
+        first_engine = next(iter(pz_to_engine_map.values()), None) if pz_to_engine_map else None
         allowed = (
             get_allowed_actions(first_engine, rbac_policy)
             if first_engine
@@ -295,9 +314,7 @@ def _build_builtin(
                 rbac_policy=rbac_policy,
                 allowed_actions=allowed,
                 policy_summary=params.get("policy_summary") or policy,
-                get_allowed_actions_fn=(
-                    lambda aid: get_allowed_actions(aid, rbac_policy)
-                ),
+                get_allowed_actions_fn=(lambda aid: get_allowed_actions(aid, rbac_policy)),
                 local_strategy=local_strategy,
                 use_whca=bool(params.get("use_whca", False)),
                 whca_horizon=int(params.get("whca_horizon", 10)),
@@ -315,21 +332,11 @@ def _build_builtin(
             seed = int((scale_config or {}).get("seed", 0))
             backend = DeterministicAgenticProposalBackend(seed=seed)
         if backend is None:
-            raise ValueError(
-                "llm_central_planner_agentic requires proposal_backend= or repo_root"
-            )
-        rbac_path = (
-            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml")
-            if repo_root
-            else None
-        )
+            raise ValueError("llm_central_planner_agentic requires proposal_backend= or repo_root")
+        rbac_path = policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         pz_to_engine_map = params.get("pz_to_engine") or {}
-        first_engine = (
-            next(iter(pz_to_engine_map.values()), None)
-            if pz_to_engine_map
-            else None
-        )
+        first_engine = next(iter(pz_to_engine_map.values()), None) if pz_to_engine_map else None
         allowed = (
             get_allowed_actions(first_engine, rbac_policy)
             if first_engine
@@ -344,9 +351,7 @@ def _build_builtin(
                 rbac_policy=rbac_policy,
                 allowed_actions=allowed,
                 policy_summary=params.get("policy_summary") or policy,
-                get_allowed_actions_fn=(
-                    lambda aid: get_allowed_actions(aid, rbac_policy)
-                ),
+                get_allowed_actions_fn=(lambda aid: get_allowed_actions(aid, rbac_policy)),
                 max_tool_rounds=max_rounds,
                 method_id_override=params.get("method_id_override"),
             ),
@@ -360,13 +365,8 @@ def _build_builtin(
             seed = int((scale_config or {}).get("seed", 0))
             backend = DeterministicBidBackend(seed=seed)
         if backend is None:
-            raise ValueError(
-                "llm_auction_bidder requires bid_backend= or repo_root "
-                "for deterministic backend"
-            )
-        rbac_path = (
-            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
-        )
+            raise ValueError("llm_auction_bidder requires bid_backend= or repo_root for deterministic backend")
+        rbac_path = policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         return cast(
             CoordinationMethod,
@@ -387,10 +387,7 @@ def _build_builtin(
         seed = int((scale_config or {}).get("seed", 0))
         key_store = build_key_store(agent_ids, seed)
         if not key_store:
-            raise ValueError(
-                "llm_gossip_summarizer requires cryptography and non-empty "
-                "pz_to_engine for key_store"
-            )
+            raise ValueError("llm_gossip_summarizer requires cryptography and non-empty pz_to_engine for key_store")
         identity_policy = {
             "allowed_message_types": ["gossip_summary"],
         }
@@ -414,31 +411,19 @@ def _build_builtin(
         if not agent_ids and scale_config:
             scale_agents = (scale_config or {}).get("agents")
             if isinstance(scale_agents, list):
-                agent_ids = [
-                    a.get("agent_id") for a in scale_agents
-                    if isinstance(a, dict) and a.get("agent_id")
-                ]
+                agent_ids = [a.get("agent_id") for a in scale_agents if isinstance(a, dict) and a.get("agent_id")]
         if not agent_ids:
             agent_ids = ["ops_0", "runner_0"]
         seed = int((scale_config or {}).get("seed", 0))
         key_store = build_key_store(agent_ids, seed)
         if not key_store:
-            raise ValueError(
-                "llm_local_decider_signed_bus requires cryptography and "
-                "non-empty agent set for key_store"
-            )
+            raise ValueError("llm_local_decider_signed_bus requires cryptography and non-empty agent set for key_store")
         backend = params.get("proposal_backend")
         if backend is None:
             backend = DeterministicLocalProposalBackend(seed=seed)
-        rbac_path = (
-            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
-        )
+        rbac_path = policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
-        first_engine = (
-            next(iter(pz_map.values()), agent_ids[0])
-            if pz_map
-            else agent_ids[0]
-        )
+        first_engine = next(iter(pz_map.values()), agent_ids[0]) if pz_map else agent_ids[0]
         allowed = (
             get_allowed_actions(first_engine, rbac_policy)
             if rbac_policy
@@ -511,6 +496,7 @@ def _build_builtin(
         from labtrust_gym.baselines.coordination.group_evolving.method import (
             ExperienceSharingDeterministic,
         )
+
         return cast(
             CoordinationMethod,
             ExperienceSharingDeterministic(
@@ -522,6 +508,7 @@ def _build_builtin(
         from labtrust_gym.baselines.coordination.group_evolving.method import (
             GroupEvolvingStudy,
         )
+
         return cast(
             CoordinationMethod,
             GroupEvolvingStudy(
@@ -541,11 +528,7 @@ def _build_builtin(
         if not agent_ids and scale_config:
             scale_agents = (scale_config or {}).get("agents")
             if isinstance(scale_agents, list):
-                agent_ids = [
-                    a.get("agent_id")
-                    for a in scale_agents
-                    if isinstance(a, dict) and a.get("agent_id")
-                ]
+                agent_ids = [a.get("agent_id") for a in scale_agents if isinstance(a, dict) and a.get("agent_id")]
         if not agent_ids:
             agent_ids = ["ops_0", "runner_0"]
         seed = int((scale_config or {}).get("seed", 0))
@@ -696,19 +679,11 @@ def _build_builtin(
                 LLMFaultModelRepairWrapper,
             )
 
-            repair_backend = LLMFaultModelRepairWrapper(
-                repair_backend, fault_model_config, seed=seed
-            )
-        rbac_path = (
-            policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
-        )
+            repair_backend = LLMFaultModelRepairWrapper(repair_backend, fault_model_config, seed=seed)
+        rbac_path = policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml") if repo_root else None
         rbac_policy = load_rbac(rbac_path) if rbac_path and rbac_path.exists() else {}
         pz_to_engine_map = params.get("pz_to_engine") or {}
-        first_engine = (
-            next(iter(pz_to_engine_map.values()), None)
-            if pz_to_engine_map
-            else None
-        )
+        first_engine = next(iter(pz_to_engine_map.values()), None) if pz_to_engine_map else None
         allowed = (
             get_allowed_actions(first_engine, rbac_policy)
             if first_engine
@@ -731,7 +706,9 @@ def _build_builtin(
 
         sc = params.get("scale_config") or scale_config or {}
         seed = int(sc.get("seed", 0))
-        compute_budget = params.get("compute_budget") or params.get("max_bids") or sc.get("compute_budget_node_expansions")
+        compute_budget = (
+            params.get("compute_budget") or params.get("max_bids") or sc.get("compute_budget_node_expansions")
+        )
         alloc = AuctionAllocator(
             max_bids=compute_budget or params.get("max_bids"),
         )
@@ -785,43 +762,46 @@ def _build_builtin(
         )
     return cast(CoordinationMethod, cls())
 
+
 BUILTIN_COORDINATION_METHOD_IDS: tuple[str, ...] = (
-    'centralized_planner',
-    'consensus_paxos_lite',
-    'gossip_consensus',
-    'group_evolving_experience_sharing',
-    'group_evolving_study',
-    'hierarchical_hub_local',
-    'hierarchical_hub_rr',
-    'kernel_auction_edf',
-    'kernel_auction_whca',
-    'kernel_auction_whca_shielded',
-    'kernel_centralized_edf',
-    'kernel_scheduler_or',
-    'kernel_scheduler_or_whca',
-    'kernel_whca',
-    'llm_auction_bidder',
-    'llm_central_planner',
-    'llm_central_planner_debate',
-    'llm_central_planner_agentic',
-    'llm_constrained',
-    'llm_detector_throttle_advisor',
-    'llm_gossip_summarizer',
-    'llm_hierarchical_allocator',
-    'llm_local_decider_signed_bus',
-    'llm_repair_over_kernel_whca',
-    'market_auction',
-    'marl_ppo',
-    'ripple_effect',
-    'swarm_reactive',
-    'swarm_stigmergy_priority',
+    "centralized_planner",
+    "consensus_paxos_lite",
+    "gossip_consensus",
+    "group_evolving_experience_sharing",
+    "group_evolving_study",
+    "hierarchical_hub_local",
+    "hierarchical_hub_rr",
+    "kernel_auction_edf",
+    "kernel_auction_whca",
+    "kernel_auction_whca_shielded",
+    "kernel_centralized_edf",
+    "kernel_scheduler_or",
+    "kernel_scheduler_or_whca",
+    "kernel_whca",
+    "llm_auction_bidder",
+    "llm_central_planner",
+    "llm_central_planner_debate",
+    "llm_central_planner_agentic",
+    "llm_constrained",
+    "llm_detector_throttle_advisor",
+    "llm_gossip_summarizer",
+    "llm_hierarchical_allocator",
+    "llm_local_decider_signed_bus",
+    "llm_repair_over_kernel_whca",
+    "market_auction",
+    "marl_ppo",
+    "ripple_effect",
+    "swarm_reactive",
+    "swarm_stigmergy_priority",
 )
 
 
 def _register_builtin_coordination_methods() -> None:
     for mid in BUILTIN_COORDINATION_METHOD_IDS:
+
         def _factory(p, r, s, params, _mid=mid):
             return _build_builtin(_mid, p, r, s, params)
+
         register_coordination_method(mid, _factory)
 
 

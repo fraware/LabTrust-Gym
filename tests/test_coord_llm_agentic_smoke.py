@@ -4,15 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from labtrust_gym.baselines.coordination.methods.llm_central_planner_agentic import (
-    LLMCentralPlannerAgentic,
-    DeterministicAgenticProposalBackend,
-)
 from labtrust_gym.baselines.coordination.methods.coord_agentic_tools import (
-    run_tools,
     DEFAULT_COORD_TOOL_REGISTRY,
+    run_tools,
+)
+from labtrust_gym.baselines.coordination.methods.llm_central_planner_agentic import (
+    DeterministicAgenticProposalBackend,
+    LLMCentralPlannerAgentic,
 )
 
 
@@ -36,13 +34,9 @@ def test_agentic_backend_first_call_returns_tool_calls() -> None:
     """DeterministicAgenticProposalBackend returns tool_calls on first call, proposal on second."""
     backend = DeterministicAgenticProposalBackend(seed=0)
     digest = {"per_agent": [{"agent_id": "ops_0"}, {"agent_id": "runner_0"}]}
-    prop1, meta1 = backend.generate_proposal(
-        digest, ["NOOP", "TICK"], step_id=0, method_id="test"
-    )
+    prop1, meta1 = backend.generate_proposal(digest, ["NOOP", "TICK"], step_id=0, method_id="test")
     assert meta1.get("tool_calls") == [{"name": "query_queue_state", "args": {}}]
-    prop2, meta2 = backend.generate_proposal(
-        digest, ["NOOP", "TICK"], step_id=0, method_id="test"
-    )
+    prop2, meta2 = backend.generate_proposal(digest, ["NOOP", "TICK"], step_id=0, method_id="test")
     assert not meta2.get("tool_calls")
     assert prop2.get("per_agent")
     assert len(prop2["per_agent"]) == 2

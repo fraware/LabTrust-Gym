@@ -54,6 +54,22 @@ scale_configs:
       horizon_steps: 60
       timing_mode: "explicit"
 
+    - id: "exploratory_scale"
+      name: "Exploratory (one extra scale for ad-hoc experiments)"
+      description: "8 agents, 500 horizon_steps; not part of the frozen card matrix."
+      num_agents_total: 8
+      role_mix:
+        ROLE_RUNNER: 0.5
+        ROLE_ANALYTICS: 0.3
+        ROLE_RECEPTION: 0.2
+      num_devices_per_type:
+        CHEM_ANALYZER: 2
+        CENTRIFUGE_BANK: 1
+      num_sites: 1
+      specimens_per_min: 1.5
+      horizon_steps: 500
+      timing_mode: "explicit"
+
     - id: "medium_stress_signed_bus"
       name: "Medium stress (signed bus / identity)"
       description: "50-100 agents, 8-12 devices, 2 sites; arrival rate tuned so queues form without saturation. For signed message bus and coordination identity evaluation."

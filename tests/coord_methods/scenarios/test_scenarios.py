@@ -15,8 +15,8 @@ from labtrust_gym.baselines.coordination.interface import (
 )
 
 from .conftest import (
-    load_scenario,
     list_scenario_paths,
+    load_scenario,
     make_coord_method_for_scenario,
     scenario_obs_at_step,
     scenario_to_policy,
@@ -103,18 +103,12 @@ def test_scenario_runs_n_steps(scenario_path: Path, method_id: str) -> None:
         for aid in agent_ids:
             ad = actions_dict.get(aid, {})
             idx = ad.get("action_index", 0)
-            assert idx in VALID_ACTION_INDICES, (
-                f"{scenario_path.name} {method_id} t={t} {aid}: action_index {idx}"
-            )
+            assert idx in VALID_ACTION_INDICES, f"{scenario_path.name} {method_id} t={t} {aid}: action_index {idx}"
 
 
 def _count_start_runs(actions_dict: dict) -> int:
     """Total START_RUN actions in one step."""
-    return sum(
-        1
-        for ad in actions_dict.values()
-        if isinstance(ad, dict) and ad.get("action_index") == ACTION_START_RUN
-    )
+    return sum(1 for ad in actions_dict.values() if isinstance(ad, dict) and ad.get("action_index") == ACTION_START_RUN)
 
 
 def test_hierarchical_hub_rr_vs_centralized_planner_throughput() -> None:
@@ -130,9 +124,7 @@ def test_hierarchical_hub_rr_vs_centralized_planner_throughput() -> None:
     n_steps = min(5, scale_config.get("horizon_steps", 10))
 
     central = make_coord_method_for_scenario("centralized_planner", policy, scale_config)
-    hierarchical = make_coord_method_for_scenario(
-        "hierarchical_hub_rr", policy, scale_config
-    )
+    hierarchical = make_coord_method_for_scenario("hierarchical_hub_rr", policy, scale_config)
     if central is None or hierarchical is None:
         pytest.skip("centralized_planner or hierarchical_hub_rr not available")
 

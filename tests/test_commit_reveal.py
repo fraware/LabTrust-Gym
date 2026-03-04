@@ -4,8 +4,6 @@ Tests for commit-reveal bids: commit, verify_reveal, replay rejection.
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.allocation.commit_reveal import (
     accept_reveal,
     commit,

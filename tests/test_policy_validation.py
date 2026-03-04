@@ -6,6 +6,8 @@ JSON schemas in policy/schemas/. Tests ensure valid policy passes and invalid
 policy fails (missing required keys, wrong types).
 """
 
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -119,9 +121,7 @@ def test_gate_eval_supported_types_enforced_in_validation(tmp_path: Path) -> Non
     }
     import yaml
 
-    (coord_dir / "coordination_security_pack_gate.v0.1.yaml").write_text(
-        yaml.dump(bad_gate), encoding="utf-8"
-    )
+    (coord_dir / "coordination_security_pack_gate.v0.1.yaml").write_text(yaml.dump(bad_gate), encoding="utf-8")
     errs = validate_coordination_security_pack_gate_rules_supported(tmp_path)
     assert len(errs) > 0, "Unsupported rule type must produce validation errors"
     assert any("unsupported_rule_type" in e and "not supported" in e for e in errs)
@@ -164,3 +164,19 @@ def test_policy_and_design_docs_contain_no_placeholder_string() -> None:
                 if "placeholder" in line.lower():
                     bad.append((str(path.relative_to(root)), i, line.strip()[:80]))
     assert not bad, "Policy/design must not contain 'placeholder': " + str(bad)
+
+
+def test_validate_security_safety_refs_exit_zero() -> None:
+    """Security/safety refs validation script must pass (risk and control alignment)."""
+    root = _repo_root()
+    script = root / "scripts" / "validate_security_safety_refs.py"
+    if not script.exists():
+        pytest.skip("scripts/validate_security_safety_refs.py not found")
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"validate_security_safety_refs.py failed: {result.stderr or result.stdout}"

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.repair_policy.v0.1",
+  "title": "Repair policy v0.1",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "max_repairs": { "type": "integer", "minimum": 0 },
+    "blocked_threshold": { "type": "integer", "minimum": 0 },
+    "per_method": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "max_repairs": { "type": "integer", "minimum": 0 },
+          "blocked_threshold": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

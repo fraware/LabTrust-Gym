@@ -1,0 +1,51 @@
+# Submission shapes for combine_submissions (scale / multi-agentic workflows).
+# Used when simulation-centric N > N_max or agent-centric multi-agentic.
+# Each method_id maps to the shape each agent submits; combine_submissions consumes these.
+#
+# Shapes:
+#   action: per-agent action_dict (action_index or action_type, args, reason_code). Default.
+#   bid: per-agent bid for auction clearing (method-specific bid structure).
+#   vote: per-agent vote or proposal for consensus (method-specific).
+#
+# Methods not listed default to "action". Variants (e.g. llm_auction_bidder_shielded)
+# inherit from base_method when present in coordination_methods.v0.1.yaml.
+
+version: "0.1"
+submission_shapes:
+  # Centralized / planner / kernel: identity (submissions as actions)
+  kernel_centralized_edf: action
+  kernel_whca: action
+  kernel_scheduler_or: action
+  kernel_scheduler_or_whca: action
+  centralized_planner: action
+  hierarchical_hub_rr: action
+  hierarchical_hub_local: action
+  llm_central_planner: action
+  llm_central_planner_shielded: action
+  llm_central_planner_with_safe_fallback: action
+  llm_central_planner_debate: action
+  llm_central_planner_agentic: action
+  llm_constrained: action
+  llm_hierarchical_allocator: action
+  llm_hierarchical_allocator_shielded: action
+  llm_hierarchical_allocator_with_safe_fallback: action
+  llm_repair_over_kernel_whca: action
+  llm_local_decider_signed_bus: action
+  llm_detector_throttle_advisor: action
+  llm_gossip_summarizer: action
+  # Auction: per-agent bid
+  market_auction: bid
+  llm_auction_bidder: bid
+  llm_auction_bidder_shielded: bid
+  llm_auction_bidder_with_safe_fallback: bid
+  # Consensus / decentralized: vote or proposal
+  gossip_consensus: vote
+  consensus_paxos_lite: vote
+  ripple_effect: action
+  group_evolving_experience_sharing: action
+  group_evolving_study: action
+  # Swarm
+  swarm_reactive: action
+  swarm_stigmergy_priority: action
+  # Learning
+  marl_ppo: action

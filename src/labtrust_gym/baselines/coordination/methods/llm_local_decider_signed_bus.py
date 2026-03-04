@@ -34,10 +34,8 @@ from labtrust_gym.coordination.bus import SignedMessageBus
 from labtrust_gym.coordination.identity import (
     COORD_REPLAY_DETECTED,
     COORD_SIGNATURE_INVALID,
-    KEY_MESSAGE_TYPE,
     KEY_PAYLOAD,
     KEY_SENDER_ID,
-    build_key_store,
     sign_message,
     verify_message_find_signer,
 )
@@ -62,11 +60,13 @@ def _build_local_view(
         if idx >= len(qbd):
             break
         d = qbd[idx] if isinstance(qbd[idx], dict) else {}
-        queue_summary.append({
-            "device_id": str(d.get("device_id", dev_id))[:32],
-            "queue_len": min(256, max(0, int(d.get("queue_len", 0)))),
-            "queue_head": str(d.get("queue_head", ""))[:48],
-        })
+        queue_summary.append(
+            {
+                "device_id": str(d.get("device_id", dev_id))[:32],
+                "queue_len": min(256, max(0, int(d.get("queue_len", 0)))),
+                "queue_head": str(d.get("queue_head", ""))[:48],
+            }
+        )
     return {
         "agent_id": agent_id[:64],
         "step_id": t,
@@ -137,9 +137,7 @@ def _reconcile(
             if (other_prop.get("action_type") or "").strip() != "START_RUN":
                 continue
             oargs = other_prop.get("args") or {}
-            if oargs.get("device_id") == device_id and (
-                not work_id or oargs.get("work_id") == work_id
-            ):
+            if oargs.get("device_id") == device_id and (not work_id or oargs.get("work_id") == work_id):
                 conflict = True
                 break
         if conflict:
@@ -219,7 +217,12 @@ class LLMLocalDeciderSignedBus(CoordinationMethod):
         )
         self._current_epoch = 0
         self._allowed_actions = allowed_actions or [
-            "NOOP", "TICK", "MOVE", "START_RUN", "QUEUE_RUN", "OPEN_DOOR",
+            "NOOP",
+            "TICK",
+            "MOVE",
+            "START_RUN",
+            "QUEUE_RUN",
+            "OPEN_DOOR",
         ]
         self._zone_ids: list[str] = []
         self._device_ids: list[str] = []
@@ -242,9 +245,7 @@ class LLMLocalDeciderSignedBus(CoordinationMethod):
         scale_config: dict[str, Any],
     ) -> None:
         self._bus.reset()
-        self._zone_ids, self._device_ids, self._device_zone = (
-            extract_zone_and_device_ids(policy)
-        )
+        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         self._current_epoch = 0
         self._msg_count = 0
         self._invalid_sig_count = 0
@@ -262,25 +263,19 @@ class LLMLocalDeciderSignedBus(CoordinationMethod):
         t: int,
     ) -> dict[str, dict[str, Any]]:
         agents = sorted(obs.keys())
-        out: dict[str, dict[str, Any]] = {
-            a: {"action_index": ACTION_NOOP} for a in agents
-        }
+        out: dict[str, dict[str, Any]] = {a: {"action_index": ACTION_NOOP} for a in agents}
         if not agents:
             return out
         if not self._zone_ids and obs:
             sample = next(iter(obs.values()))
-            self._zone_ids, self._device_ids, self._device_zone = (
-                extract_zone_and_device_ids({}, obs_sample=sample)
-            )
+            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         if not self._zone_ids:
             self._zone_ids = ["Z_SORTING_LANES"]
         self._current_epoch = t
 
         envelopes: list[dict[str, Any]] = []
         for i, agent_id in enumerate(agents):
-            local_view = _build_local_view(
-                agent_id, obs, self._zone_ids, self._device_ids, t
-            )
+            local_view = _build_local_view(agent_id, obs, self._zone_ids, self._device_ids, t)
             prop = self._backend.propose_action(
                 local_view,
                 self._allowed_actions,
@@ -316,21 +311,12 @@ class LLMLocalDeciderSignedBus(CoordinationMethod):
                     self._replay_drop_count += 1
                 elif reason == COORD_SIGNATURE_INVALID:
                     self._invalid_sig_count += 1
-                    ok_any, actual_sender = verify_message_find_signer(
-                        env, self._key_store
-                    )
+                    ok_any, actual_sender = verify_message_find_signer(env, self._key_store)
                     claimed = env.get(KEY_SENDER_ID)
-                    if (
-                        ok_any
-                        and actual_sender
-                        and claimed
-                        and actual_sender != claimed
-                    ):
+                    if ok_any and actual_sender and claimed and actual_sender != claimed:
                         self._spoof_attempt_count += 1
 
-        final_proposals, overridden = _reconcile(
-            accepted, self._device_zone
-        )
+        final_proposals, overridden = _reconcile(accepted, self._device_zone)
         self._overridden_count += overridden
 
         for agent_id in agents:
@@ -350,9 +336,7 @@ class LLMLocalDeciderSignedBus(CoordinationMethod):
     def get_comm_metrics(self) -> dict[str, Any]:
         """Extend coordination.comm: invalid_sig_count, replay_drop_count, spoof."""
         total = self._msg_count + self._invalid_sig_count + self._replay_drop_count
-        invalid_rate = (
-            self._invalid_sig_count / total if total > 0 else 0.0
-        )
+        invalid_rate = self._invalid_sig_count / total if total > 0 else 0.0
         return {
             "msg_count": self._msg_count,
             "drop_rate": 0.0,

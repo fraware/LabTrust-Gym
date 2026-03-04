@@ -4,8 +4,6 @@ Unit tests: repair input canonicalization is stable (same input -> same JSON -> 
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.repair_input import (
     build_repair_input,
     repair_input_hash,

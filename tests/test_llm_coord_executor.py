@@ -20,8 +20,7 @@ from labtrust_gym.baselines.coordination.llm_executor import (
     get_actions_from_proposal,
     run_proposal_with_repair,
 )
-from labtrust_gym.baselines.llm.shield import apply_shield
-from labtrust_gym.baselines.llm.shield import build_policy_summary
+from labtrust_gym.baselines.llm.shield import apply_shield, build_policy_summary
 
 
 def _repo_root() -> Path:
@@ -41,9 +40,7 @@ def _minimal_rbac_only_noop_tick() -> dict:
     }
 
 
-def _minimal_proposal_dict(
-    agent_id: str = "runner_0", action_type: str = "NOOP"
-) -> dict:
+def _minimal_proposal_dict(agent_id: str = "runner_0", action_type: str = "NOOP") -> dict:
     """Minimal valid proposal for one agent."""
     return {
         "proposal_id": "test-001",
@@ -102,8 +99,7 @@ def test_proposal_with_invalid_action_blocked_no_state_mutation(pz_env) -> None:
     assert isinstance(report, ExecutionReport)
     assert len(report.blocked_actions) >= 1
     runner_blocked = [
-        b for b in report.blocked_actions
-        if b.get("blocked_reason_code") and b.get("agent_id") == "runner_0"
+        b for b in report.blocked_actions if b.get("blocked_reason_code") and b.get("agent_id") == "runner_0"
     ]
     assert len(runner_blocked) >= 1
     assert report.proposal_hash
@@ -217,9 +213,7 @@ def test_shield_outcome_hash_deterministic() -> None:
     """_shield_outcome_hash is deterministic for same executed and blocked lists."""
     executed = [{"agent_id": "a", "action_type": "NOOP"}]
     blocked = [{"agent_id": "b", "blocked_reason_code": "RC"}]
-    assert _shield_outcome_hash(executed, blocked) == _shield_outcome_hash(
-        executed, blocked
-    )
+    assert _shield_outcome_hash(executed, blocked) == _shield_outcome_hash(executed, blocked)
 
 
 def test_build_repair_request() -> None:

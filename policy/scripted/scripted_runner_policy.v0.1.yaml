@@ -1,0 +1,25 @@
+# Scripted runner policy v0.1.
+# Used by ScriptedRunnerAgent when policy_path or repo policy/scripted/ is present.
+# No file or empty file => in-code defaults in scripted_runner.py.
+
+version: "0.1"
+zone_ids:
+  - Z_SRA_RECEPTION
+  - Z_ACCESSIONING
+  - Z_SORTING_LANES
+  - Z_PREANALYTICS
+  - Z_CENTRIFUGE_BAY
+  - Z_ALIQUOT_LABEL
+  - Z_ANALYZER_HALL_A
+  - Z_ANALYZER_HALL_B
+  - Z_QC_SUPERVISOR
+  - Z_RESTRICTED_BIOHAZARD
+workflow_zone_order:
+  - Z_SORTING_LANES
+  - Z_CENTRIFUGE_BAY
+  - Z_ALIQUOT_LABEL
+  - Z_ANALYZER_HALL_A
+  - Z_ANALYZER_HALL_B
+restricted_zone_id: Z_RESTRICTED_BIOHAZARD
+restricted_door_id: D_RESTRICTED_AIRLOCK
+door_tick_threshold_s: 150.0

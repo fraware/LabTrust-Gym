@@ -12,7 +12,7 @@ import io
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -22,7 +22,6 @@ pytest.importorskip("gymnasium")
 from tests.network_guard import (
     NETWORK_BLOCKED_MSG,
     install_network_block,
-    network_guard_when_offline,
 )
 
 
@@ -61,9 +60,9 @@ def test_quick_eval_no_outbound_and_logs_network_disabled(tmp_path: Path) -> Non
         restore_block()
 
     assert rc == 0, f"quick-eval should succeed; stderr: {captured!r}"
-    assert (
-        "network disabled" in captured or "network=disabled" in captured
-    ), f"Logs must state network disabled; stderr: {captured!r}"
+    assert "network disabled" in captured or "network=disabled" in captured, (
+        f"Logs must state network disabled; stderr: {captured!r}"
+    )
     assert NETWORK_BLOCKED_MSG not in captured, "No outbound attempt should occur"
 
 
@@ -87,18 +86,16 @@ def test_reproduce_no_outbound_and_logs_network_disabled(tmp_path: Path) -> None
                 {"OPENAI_API_KEY": "sk-dummy", "LABTRUST_REPRO_SMOKE": "1"},
                 clear=False,
             ):
-                run_reproduce(
-                    profile="minimal", out_dir=out_dir, repo_root=root, seed_base=100
-                )
+                run_reproduce(profile="minimal", out_dir=out_dir, repo_root=root, seed_base=100)
         finally:
             sys.stderr = old_stderr
         captured = stderr_buf.getvalue()
     finally:
         restore_block()
 
-    assert (
-        "network disabled" in captured or "network=disabled" in captured
-    ), f"Logs must state network disabled; stderr: {captured!r}"
+    assert "network disabled" in captured or "network=disabled" in captured, (
+        f"Logs must state network disabled; stderr: {captured!r}"
+    )
     assert NETWORK_BLOCKED_MSG not in captured, "No outbound attempt should occur"
     assert (out_dir / "throughput_sla").is_dir()
     assert (out_dir / "qc_cascade").is_dir()
@@ -112,9 +109,7 @@ def test_llm_live_mocked_client_call_made_and_logged() -> None:
     from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
     from labtrust_gym.pipeline import set_pipeline_config
 
-    set_pipeline_config(
-        pipeline_mode="llm_live", allow_network=True, llm_backend_id="openai_live"
-    )
+    set_pipeline_config(pipeline_mode="llm_live", allow_network=True, llm_backend_id="openai_live")
 
     call_log: list[list] = []
 
@@ -143,7 +138,4 @@ def test_llm_live_mocked_client_call_made_and_logged() -> None:
     assert result.get("action_type") == "NOOP"
     assert len(call_log) == 1, "API call path must be invoked once"
     assert backend.last_metrics, "Backend must record metrics for the call"
-    assert (
-        backend.last_metrics.get("latency_ms") is not None
-        or "prompt_sha256" in backend.last_metrics
-    )
+    assert backend.last_metrics.get("latency_ms") is not None or "prompt_sha256" in backend.last_metrics

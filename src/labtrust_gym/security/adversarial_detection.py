@@ -22,6 +22,10 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.policy.loader import PolicyLoadError, load_yaml
+from labtrust_gym.security.text_normalization import (
+    get_normalizers_from_policy,
+    normalize_text,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -35,6 +39,9 @@ _DEFAULT_ADV_POLICY: dict[str, Any] = {
     "severity_threshold": 1,
     "max_text_length": 2000,
     "use_classifier": False,
+    "normalize_before_match": False,
+    "normalizers": [],
+    "max_decoded_base64_len": 2000,
     "patterns": [],
     "suggested_actions": {
         "0": "NOOP",
@@ -117,11 +124,22 @@ def load_adversarial_detection_policy(
         "yes",
     ):
         use_classifier = True
+    normalizers_raw = data.get("normalizers")
+    if isinstance(normalizers_raw, list):
+        normalizers = [str(n) for n in normalizers_raw]
+    else:
+        normalizers = []
     result = {
         "version": data.get("version", "0.1"),
         "severity_threshold": max(0, min(3, int(data.get("severity_threshold", 1)))),
         "max_text_length": max(100, min(100000, int(data.get("max_text_length", 2000)))),
         "use_classifier": use_classifier,
+        "normalize_before_match": bool(data.get("normalize_before_match", False)),
+        "normalizers": normalizers,
+        "max_decoded_base64_len": max(
+            500,
+            min(10000, int(data.get("max_decoded_base64_len", 2000))),
+        ),
         "patterns": patterns,
         "suggested_actions": suggested,
     }
@@ -236,6 +254,12 @@ def detect_adversarial(
             matched_pattern_ids=[],
         )
 
+    normalize_before = bool(policy.get("normalize_before_match", False))
+    normalizers = get_normalizers_from_policy(policy, "normalizers")
+    max_b64_len = int(policy.get("max_decoded_base64_len", 2000))
+    if normalize_before and normalizers:
+        texts = [normalize_text(t, normalizers, max_decoded_base64_len=max_b64_len) for t in texts]
+
     flags: list[str] = []
     matched_ids: list[str] = []
     max_severity = 0
@@ -266,6 +290,15 @@ def detect_adversarial(
             matched_ids = list(set(matched_ids) | set(c_flags))
             if c_sev > 0 and (reason_code is None or c_sev >= pattern_max):
                 reason_code = reason_code or "ADV_CLASSIFIER_DETECTED"
+        else:
+            # Judge unavailable: fail-closed when classifier_fallback_severity_when_unavailable is set (1-3).
+            fallback_sev = policy.get("classifier_fallback_severity_when_unavailable")
+            if isinstance(fallback_sev, int) and 1 <= fallback_sev <= 3:
+                max_severity = max(max_severity, fallback_sev)
+                flags = list(set(flags) | {"ADV_CLASSIFIER_UNAVAILABLE"})
+                matched_ids = list(set(matched_ids) | {"ADV_CLASSIFIER_UNAVAILABLE"})
+                if reason_code is None:
+                    reason_code = "ADV_CLASSIFIER_UNAVAILABLE"
 
     suggested_action = str(
         suggested_actions.get(max_severity)

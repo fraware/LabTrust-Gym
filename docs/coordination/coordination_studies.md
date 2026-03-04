@@ -6,7 +6,13 @@ This document describes how to run the policy-driven coordination study and how 
 
 ## Overview
 
-The coordination study runner executes a deterministic experiment matrix: for each cell **(scale x method x injection)** it runs a fixed number of episodes (coord_risk), writes per-cell results in the existing results v0.2 format (with optional `coordination` and `security` blocks), then aggregates a summary CSV and a Pareto front report. A separate **internal regression pack** (fixed matrix, 1 ep/cell, gate thresholds) is run with `labtrust run-coordination-security-pack --out <dir>`; see [Security attack suite – Coordination security pack](../risk-and-security/security_attack_suite.md#coordination-security-pack-internal-regression). For **hospital lab**: run the pack (optionally with `--matrix-preset hospital_lab`), then `labtrust build-lab-coordination-report --pack-dir <dir>` to get SOTA leaderboard, coordination decision, and `LAB_COORDINATION_REPORT.md`; see [Lab coordination report](lab_coordination_report.md).
+The coordination study runner executes a deterministic experiment matrix: for each cell **(scale x method x injection)** it runs a fixed number of episodes (coord_risk), writes per-cell results in the existing results v0.2 format (with optional `coordination` and `security` blocks), then aggregates a summary CSV and a Pareto front report.
+
+### Coordination concepts (task vs cell)
+
+- **Task (coord):** The benchmark task name: `coord_scale` or `coord_risk`. **coord_risk** = coord_scale plus one injection applied per run.
+- **Cell / condition:** A single run configuration: (scale_id, method_id, injection_id). The study runner runs one or more episodes per cell; `summary_coord.csv` and Pareto reports are per cell.
+- **Scale config:** Defines agents, devices, horizon, etc.; from `policy/coordination/scale_configs.v0.1.yaml` or the study spec. The study spec expands scales (e.g. Cartesian product of dimensions) into concrete scale configs; each (scale, method, injection) is one cell. A separate **internal regression pack** (fixed matrix, 1 ep/cell, gate thresholds) is run with `labtrust run-coordination-security-pack --out <dir>`; see [Security attack suite – Coordination security pack](../risk-and-security/security_attack_suite.md#coordination-security-pack-internal-regression). For the **pathology lab (blood sciences)** pipeline: run the pack (optionally with `--matrix-preset hospital_lab`), then `labtrust build-lab-coordination-report --pack-dir <dir>` to get SOTA leaderboard, coordination decision, and `LAB_COORDINATION_REPORT.md`; see [Lab coordination report](lab_coordination_report.md).
 
 ## Running a study
 
@@ -126,6 +132,8 @@ The spec YAML must include:
 | perf.p95_tat | Mean p95 turnaround time (s). |
 | safety.violations_total | Total invariant violations. |
 | sec.attack_success_rate | Fraction of episodes where the attack succeeded. |
+| sec.attack_success_rate_ci_lower, sec.attack_success_rate_ci_upper | 95% Clopper-Pearson CI for attack success rate (when n ≥ 1). |
+| sec.worst_case_attack_success_upper_95 | Upper bound on attack success rate when 0 successes observed (for gate/reporting). |
 | sec.detection_latency_steps | Mean steps to first detection (when applicable). |
 | sec.containment_time_steps | Mean steps to containment (when applicable). |
 | robustness.resilience_score | Composite score (higher is better); from policy/coordination/resilience_scoring.v0.1.yaml. |

@@ -14,8 +14,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-# Use NOOP index; action_info carries action_type override for env
-ACTION_NOOP = 0
+from labtrust_gym.envs.action_contract import ACTION_NOOP
 
 # Step indices for each attack phase (deterministic)
 PHASE1_RELEASE_STEP = 2

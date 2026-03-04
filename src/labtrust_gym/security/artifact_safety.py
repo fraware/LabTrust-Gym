@@ -85,6 +85,7 @@ def write_artifact_safe(
     if active is not None and sensitive:
         try:
             from cryptography.fernet import Fernet
+
             f = Fernet(active)
             token = f.encrypt(data)
             path.write_bytes(_ARTIFACT_ENC_MAGIC + bytes([_KEY_ID_ACTIVE]) + token)
@@ -104,13 +105,14 @@ def read_artifact_safe(path: Path) -> bytes:
     raw = path.read_bytes()
     if not raw.startswith(_ARTIFACT_ENC_MAGIC) or len(raw) <= len(_ARTIFACT_ENC_MAGIC) + 1:
         return raw
-    token = raw[len(_ARTIFACT_ENC_MAGIC) + 1:]
+    token = raw[len(_ARTIFACT_ENC_MAGIC) + 1 :]
     active, legacy = _get_fernet_keys()
     for key in (active, legacy):
         if key is None:
             continue
         try:
             from cryptography.fernet import Fernet
+
             f = Fernet(key)
             return f.decrypt(token)
         except Exception:
@@ -172,6 +174,4 @@ def write_artifact_with_integrity(
         raw = path.read_bytes()
         if not raw.startswith(_ARTIFACT_ENC_MAGIC):
             digest = hashlib.sha256(raw).hexdigest()
-            path.with_suffix(path.suffix + ".sha256").write_text(
-                digest + "\n", encoding="utf-8"
-            )
+            path.with_suffix(path.suffix + ".sha256").write_text(digest + "\n", encoding="utf-8")

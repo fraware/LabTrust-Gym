@@ -152,6 +152,17 @@ risk_registry:
       severity_hint: high
       complexity_hint: high
 
+    - risk_id: "R-COORD-001"
+      name: "Coordination security pack (multi-agentic combine path)"
+      category: system
+      description: "Coordination methods under attack when using the combine path (N > N_max)."
+      typical_failure_mode: "Coord pack gate failure; combine path not exercised or not resilient."
+      mitigation_options: ["Signed bus", "Shield", "Detector advisor"]
+      suggested_injections: ["INJ-ID-SPOOF-001", "INJ-COMMS-POISON-001", "INJ-COORD-PLAN-REPLAY-001"]
+      primary_metrics: ["sec.attack_success_rate", "safety.violations_total"]
+      severity_hint: high
+      complexity_hint: medium
+
     - risk_id: "R-CAP-001"
       name: "Jailbreak attacks"
       category: capability

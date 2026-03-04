@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.security_attack_suite.v0.1",
+  "title": "Security attack suite v0.1",
+  "description": "Schema for policy/golden/security_attack_suite.v0.1.yaml. Entry types: scenario_ref, test_ref, llm_attacker, or coord_pack_ref (exactly one per attack).",
+  "type": "object",
+  "required": ["version", "controls", "attacks"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "controls": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["control_id", "name", "description"],
+        "additionalProperties": true,
+        "properties": {
+          "control_id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "attacks": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "$comment": "Exactly one of scenario_ref, test_ref, llm_attacker, or coord_pack_ref per attack.",
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "attack_id": { "type": "string" },
+          "risk_id": { "type": "string" },
+          "control_id": { "type": "string" },
+          "title": { "type": "string" },
+          "expected_outcome": { "type": "string", "enum": ["blocked", "detected"] },
+          "smoke": { "type": "boolean" },
+          "scenario_ref": { "type": "string" },
+          "test_ref": { "type": "string" },
+          "llm_attacker": { "type": "boolean" },
+          "injection_source": { "type": "string" },
+          "allowed_actions_for_assert": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "attacker_prompt_template_id": { "type": "string" },
+          "llm_attacker_rounds": { "type": "integer" },
+          "coord_pack_ref": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "matrix_preset": { "type": "string" },
+              "methods_from": { "type": "array", "items": { "type": "string" } },
+              "injections_from": { "type": "array", "items": { "type": "string" } },
+              "scales_from": { "type": "array", "items": { "type": "string" } },
+              "pass_criteria": { "type": "string" }
+            }
+          }
+        },
+        "oneOf": [
+          {
+            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "scenario_ref"],
+            "not": {
+              "anyOf": [
+                { "required": ["test_ref"] },
+                { "required": ["llm_attacker"] },
+                { "required": ["coord_pack_ref"] }
+              ]
+            }
+          },
+          {
+            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "test_ref"],
+            "not": {
+              "anyOf": [
+                { "required": ["scenario_ref"] },
+                { "required": ["llm_attacker"] },
+                { "required": ["coord_pack_ref"] }
+              ]
+            }
+          },
+          {
+            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "llm_attacker"],
+            "properties": { "llm_attacker": { "const": true } },
+            "not": {
+              "anyOf": [
+                { "required": ["scenario_ref"] },
+                { "required": ["test_ref"] },
+                { "required": ["coord_pack_ref"] }
+              ]
+            }
+          },
+          {
+            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "coord_pack_ref"],
+            "not": {
+              "anyOf": [
+                { "required": ["scenario_ref"] },
+                { "required": ["test_ref"] },
+                { "required": ["llm_attacker"] }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

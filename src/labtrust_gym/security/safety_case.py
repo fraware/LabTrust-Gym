@@ -10,6 +10,7 @@ Fully auto-generated; used in CI and paper_v0.1 artifact. Proves claims from the
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -66,9 +67,7 @@ def load_claims(
     if not path.exists():
         return {"version": "0.1", "claims": []}
     data = load_yaml(path)
-    out = (
-        data.get("safety_case_claims", data) if isinstance(data, dict) else {"version": "0.1", "claims": []}
-    )
+    out = data.get("safety_case_claims", data) if isinstance(data, dict) else {"version": "0.1", "claims": []}
     return cast(dict[str, Any], out)
 
 
@@ -100,7 +99,7 @@ def _claim_to_dict(c: dict[str, Any], claim_version: str = "0.1") -> dict[str, A
         evidence_links.append(link)
     for a in artifacts:
         evidence_links.append({"type": "artifact", "path": a})
-    return {
+    out: dict[str, Any] = {
         "claim_id": claim_id,
         "claim_version": claim_version,
         "statement": c.get("statement", ""),
@@ -113,6 +112,10 @@ def _claim_to_dict(c: dict[str, Any], claim_version: str = "0.1") -> dict[str, A
             "evidence_links": evidence_links,
         },
     }
+    artifacts_expected = list(c.get("artifacts_expected") or [])
+    if artifacts_expected:
+        out["artifacts_expected"] = artifacts_expected
+    return out
 
 
 def _build_safety_case_impl(
@@ -153,7 +156,7 @@ def write_safety_case_md(safety_case: dict[str, Any], md_path: Path) -> None:
     lines = [
         "# Safety case (auto-generated)",
         "",
-        "Claim -> control -> test(s) -> artifact(s) -> verification command.",
+        "Claim -> control -> reproduce command (primary) -> artifact. Tests are supporting (what the command runs).",
         "Source: " + safety_case.get("source", ""),
         "",
         "---",
@@ -172,9 +175,15 @@ def write_safety_case_md(safety_case: dict[str, Any], md_path: Path) -> None:
             for c in controls:
                 lines.append(f"- {c}")
             lines.append("")
+        commands = claim.get("commands") or []
+        if commands:
+            lines.append("**Reproduce (primary):**")
+            for cmd in commands:
+                lines.append(f"- `{cmd}`")
+            lines.append("")
         tests = claim.get("tests") or []
         if tests:
-            lines.append("**Tests:**")
+            lines.append("**Supporting tests:**")
             for t in tests:
                 lines.append(f"- `{t}`")
             lines.append("")
@@ -184,15 +193,45 @@ def write_safety_case_md(safety_case: dict[str, Any], md_path: Path) -> None:
             for a in artifacts:
                 lines.append(f"- {a}")
             lines.append("")
-        commands = claim.get("commands") or []
-        if commands:
-            lines.append("**Verification commands:**")
-            for cmd in commands:
-                lines.append(f"- `{cmd}`")
-            lines.append("")
         lines.append("---")
         lines.append("")
     md_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _sha256_file(path: Path) -> str:
+    """Return hex digest of file contents. Raises if file cannot be read."""
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _enrich_safety_case_with_artifact_hashes(
+    safety_case: dict[str, Any],
+    release_dir: Path,
+) -> None:
+    """
+    When built from a release dir, add artifact_sha256 to each claim that has
+    artifacts_expected, for each path that exists under release_dir.
+    Mutates safety_case in place.
+    """
+    release_dir = Path(release_dir)
+    for claim in safety_case.get("claims") or []:
+        expected = claim.get("artifacts_expected") or []
+        if not expected:
+            continue
+        hashes: list[dict[str, str]] = []
+        for rel_path in expected:
+            full = release_dir / rel_path
+            if full.is_file():
+                try:
+                    digest = _sha256_file(full)
+                    hashes.append({"path": rel_path, "sha256": digest})
+                except OSError:
+                    pass
+        if hashes:
+            claim["artifact_sha256"] = hashes
 
 
 def emit_safety_case(
@@ -205,11 +244,14 @@ def emit_safety_case(
     Write SAFETY_CASE/safety_case.json and SAFETY_CASE/safety_case.md under out_dir.
     Returns the safety_case dict. When provider_id is set, use that provider.
     When claims_path is set, load claims from that path (default provider only).
+    When built from a release dir (out_dir), claims with artifacts_expected get
+    artifact_sha256 populated for each artifact that exists under out_dir.
     """
     out_dir = Path(out_dir)
     safety_dir = out_dir / SAFETY_CASE_DIR
     safety_dir.mkdir(parents=True, exist_ok=True)
     safety_case = build_safety_case(policy_root, provider_id=provider_id, claims_path=claims_path)
+    _enrich_safety_case_with_artifact_hashes(safety_case, out_dir)
     json_path = safety_dir / SAFETY_CASE_JSON
     json_path.write_text(
         json.dumps(safety_case, indent=2, sort_keys=True),
@@ -243,8 +285,10 @@ def get_claimed_artifacts(policy_root: Path) -> list[str]:
 
 def run_smt_checks(safety_case: dict[str, Any]) -> dict[str, Any]:
     """
-    Optional SMT verification of safety case structure (when z3 is available).
-    Performs trivial consistency checks (e.g. claim_id non-empty, controls list present).
+    Reserved for optional structural consistency checks when z3 is available.
+    Performs trivial checks (e.g. claim_id non-empty via z3); does not prove
+    claim implications (e.g. claim C implies control X). For full formal
+    checks, reserve for future use.
     Returns {"smt_available": bool, "results": {claim_id: "pass"|"fail"|"skip"}, "errors": [...]}.
     When z3 is not installed, returns smt_available=False and empty results.
     """
@@ -255,6 +299,7 @@ def run_smt_checks(safety_case: dict[str, Any]) -> dict[str, Any]:
     }
     try:
         import z3
+
         out["smt_available"] = True
     except ImportError:
         return out

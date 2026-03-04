@@ -101,4 +101,3 @@ def _register_benchmark_pack_loader(name: str, loader: Any) -> None:
     from labtrust_gym.benchmarks.official_pack import register_benchmark_pack_loader
 
     register_benchmark_pack_loader(name, loader)
-

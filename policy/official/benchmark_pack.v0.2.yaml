@@ -42,6 +42,7 @@ scale_configs:
     arrival_rate: 3.0
     horizon_steps: 300
 
+# For coord_scale/coord_risk, value is coordination method_id (suffix _v0 stripped by runner).
 baselines:
   throughput_sla: scripted_ops_v1
   stat_insertion: scripted_ops_v1

@@ -17,6 +17,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.benchmarks.rate_uncertainty import clopper_pearson_ci
+
 RESULTS_SCHEMA_VERSION = "0.2"
 RESULTS_SCHEMA_VERSION_V03 = "0.3"
 METRIC_KEYS = [
@@ -42,11 +44,7 @@ def _normalize_to_v02(data: dict[str, Any]) -> dict[str, Any] | None:
         return None
     seeds = data.get("seeds")
     if not seeds and episodes:
-        seeds = [
-            ep.get("seed")
-            for ep in episodes
-            if isinstance(ep, dict) and ep.get("seed") is not None
-        ]
+        seeds = [ep.get("seed") for ep in episodes if isinstance(ep, dict) and ep.get("seed") is not None]
     agent_baseline_id = data.get("agent_baseline_id") or "scripted_ops_v1"
     git_sha = data.get("git_sha") or data.get("git_commit_hash")
     return {
@@ -164,34 +162,24 @@ def _aggregate_episodes(episodes: list[dict[str, Any]]) -> dict[str, Any]:
             llm_latency_ms_vals.append(float(v))
     if llm_proposal_vals:
         out["proposal_valid_rate_mean"] = statistics.mean(llm_proposal_vals)
-        out["proposal_valid_rate_std"] = (
-            statistics.stdev(llm_proposal_vals) if len(llm_proposal_vals) > 1 else 0.0
-        )
+        out["proposal_valid_rate_std"] = statistics.stdev(llm_proposal_vals) if len(llm_proposal_vals) > 1 else 0.0
     if llm_blocked_vals:
         out["blocked_rate_mean"] = statistics.mean(llm_blocked_vals)
-        out["blocked_rate_std"] = (
-            statistics.stdev(llm_blocked_vals) if len(llm_blocked_vals) > 1 else 0.0
-        )
+        out["blocked_rate_std"] = statistics.stdev(llm_blocked_vals) if len(llm_blocked_vals) > 1 else 0.0
     if llm_repair_vals:
         out["repair_rate_mean"] = statistics.mean(llm_repair_vals)
-        out["repair_rate_std"] = (
-            statistics.stdev(llm_repair_vals) if len(llm_repair_vals) > 1 else 0.0
-        )
+        out["repair_rate_std"] = statistics.stdev(llm_repair_vals) if len(llm_repair_vals) > 1 else 0.0
     if llm_tokens_per_step_vals:
         out["tokens_per_step_mean"] = statistics.mean(llm_tokens_per_step_vals)
         out["tokens_per_step_std"] = (
-            statistics.stdev(llm_tokens_per_step_vals)
-            if len(llm_tokens_per_step_vals) > 1
-            else 0.0
+            statistics.stdev(llm_tokens_per_step_vals) if len(llm_tokens_per_step_vals) > 1 else 0.0
         )
     if llm_latency_ms_vals:
         sorted_lat = sorted(llm_latency_ms_vals)
         k = (len(sorted_lat) - 1) * 0.95
         lo = int(k)
         hi = min(lo + 1, len(sorted_lat) - 1)
-        out["p95_llm_latency_ms"] = sorted_lat[lo] + (k - lo) * (
-            sorted_lat[hi] - sorted_lat[lo]
-        )
+        out["p95_llm_latency_ms"] = sorted_lat[lo] + (k - lo) * (sorted_lat[hi] - sorted_lat[lo])
     return out
 
 
@@ -217,7 +205,60 @@ def _aggregate_episodes_v03(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         lo, hi = _ci_95_mean(vals)
         base[f"{key}_mean_ci_lower"] = lo
         base[f"{key}_mean_ci_upper"] = hi
+    # Binomial 95% CI for containment_success (rate of True across episodes)
+    containment_vals = values_by_key.get("containment_success") or []
+    if len(containment_vals) >= 1:
+        successes = int(sum(containment_vals))
+        trials = len(containment_vals)
+        c_lo, c_hi = clopper_pearson_ci(successes, trials, 0.95)
+        base["containment_success_rate_ci_lower"] = c_lo
+        base["containment_success_rate_ci_upper"] = c_hi
+    # LLM confidence calibration: mean ECE/MCE over episodes that have llm_confidence_calibration
+    eces: list[float] = []
+    mces: list[float] = []
+    for ep in episodes:
+        cal = (ep.get("metrics") or {}).get("llm_confidence_calibration")
+        if isinstance(cal, dict):
+            e = cal.get("ece")
+            m = cal.get("mce")
+            if e is not None:
+                try:
+                    eces.append(float(e))
+                except (TypeError, ValueError):
+                    pass
+            if m is not None:
+                try:
+                    mces.append(float(m))
+                except (TypeError, ValueError):
+                    pass
+    if eces:
+        base["llm_confidence_ece_mean"] = sum(eces) / len(eces)
+    if mces:
+        base["llm_confidence_mce_mean"] = sum(mces) / len(mces)
     return base
+
+
+def _iter_result_candidate_files(path: Path) -> Iterator[Path]:
+    """
+    Yield candidate result file paths under a directory (deduplicated by realpath).
+    Includes: (1) any file matching **/results*.json, (2) any *.json inside a subdir named 'results'.
+    Used so pack output dirs (e.g. baselines/results/*.json) are discovered when --in is the pack root.
+    """
+    seen: set[Path] = set()
+    for f in sorted(path.rglob("results*.json")):
+        if f.is_file():
+            r = f.resolve()
+            if r not in seen:
+                seen.add(r)
+                yield f
+    for sub in sorted(path.rglob("results")):
+        if sub.is_dir():
+            for f in sorted(sub.glob("*.json")):
+                if f.is_file():
+                    r = f.resolve()
+                    if r not in seen:
+                        seen.add(r)
+                        yield f
 
 
 def load_results_from_path(path: Path) -> list[dict[str, Any]]:
@@ -242,16 +283,15 @@ def load_results_from_path(path: Path) -> list[dict[str, Any]]:
                 pass
         return loaded
     if path.is_dir():
-        for f in sorted(path.rglob("results*.json")):
-            if f.is_file():
-                try:
-                    data = json.loads(f.read_text(encoding="utf-8"))
-                    if isinstance(data, dict) and data.get("episodes") is not None:
-                        norm = _normalize_to_v02(data)
-                        if norm:
-                            loaded.append(norm)
-                except Exception:
-                    pass
+        for f in sorted(_iter_result_candidate_files(path), key=lambda p: (str(p),)):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("episodes") is not None:
+                    norm = _normalize_to_v02(data)
+                    if norm:
+                        loaded.append(norm)
+            except Exception:
+                pass
     return loaded
 
 
@@ -279,16 +319,15 @@ def iter_results_from_path(path: Path) -> Iterator[dict[str, Any]]:
                 pass
         return
     if path.is_dir():
-        for f in sorted(path.rglob("results*.json")):
-            if f.is_file():
-                try:
-                    data = json.loads(f.read_text(encoding="utf-8"))
-                    if isinstance(data, dict) and data.get("episodes") is not None:
-                        norm = _normalize_to_v02(data)
-                        if norm:
-                            yield norm
-                except Exception:
-                    pass
+        for f in sorted(_iter_result_candidate_files(path), key=lambda p: (str(p),)):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("episodes") is not None:
+                    norm = _normalize_to_v02(data)
+                    if norm:
+                        yield norm
+            except Exception:
+                pass
 
 
 def _metadata_slice(raw: dict[str, Any]) -> dict[str, Any]:
@@ -329,16 +368,15 @@ def iter_results_and_metadata_from_paths(
             except Exception:
                 pass
         elif p.is_dir():
-            for f in sorted(p.rglob("results*.json")):
-                if f.is_file():
-                    try:
-                        data = json.loads(f.read_text(encoding="utf-8"))
-                        if isinstance(data, dict) and data.get("episodes") is not None:
-                            norm = _normalize_to_v02(data)
-                            if norm:
-                                yield (norm, _metadata_slice(data))
-                    except Exception:
-                        pass
+            for f in sorted(_iter_result_candidate_files(p), key=lambda x: (str(x),)):
+                try:
+                    data = json.loads(f.read_text(encoding="utf-8"))
+                    if isinstance(data, dict) and data.get("episodes") is not None:
+                        norm = _normalize_to_v02(data)
+                        if norm:
+                            yield (norm, _metadata_slice(data))
+                except Exception:
+                    pass
 
 
 def _merge_groups_from_stream(
@@ -479,10 +517,7 @@ def rows_to_csv(rows: list[dict[str, Any]]) -> str:
     header = ",".join(_csv_escape(str(k)) for k in all_keys)
     lines = [header]
     for r in rows:
-        cells = [
-            _csv_escape(str(r.get(k, "")) if r.get(k) is not None else "")
-            for k in all_keys
-        ]
+        cells = [_csv_escape(str(r.get(k, "")) if r.get(k) is not None else "") for k in all_keys]
         lines.append(",".join(cells))
     return "\n".join(lines)
 
@@ -520,9 +555,7 @@ def rows_to_markdown_table(rows: list[dict[str, Any]]) -> str:
                 seen.add(k)
                 all_keys.append(k)
     header = "| " + " | ".join(str(k) for k in all_keys) + " |"
-    sep_parts = [
-        "---:" if _is_numeric_column(k) else ":---" for k in all_keys
-    ]
+    sep_parts = ["---:" if _is_numeric_column(k) else ":---" for k in all_keys]
     sep = "| " + " | ".join(sep_parts) + " |"
     lines = [header, sep]
     for r in rows:
@@ -542,9 +575,7 @@ def rows_to_markdown_table(rows: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def validate_results_v02(
-    data: dict[str, Any], schema_path: Path | None = None
-) -> list[str]:
+def validate_results_v02(data: dict[str, Any], schema_path: Path | None = None) -> list[str]:
     """
     Validate a results dict against results.v0.2.schema.json. Returns list of error messages; empty if valid.
     """
@@ -553,11 +584,7 @@ def validate_results_v02(
     except ImportError:
         return ["jsonschema required for validation"]
     path = (
-        schema_path
-        or Path(__file__).resolve().parent.parent.parent
-        / "policy"
-        / "schemas"
-        / "results.v0.2.schema.json"
+        schema_path or Path(__file__).resolve().parent.parent.parent / "policy" / "schemas" / "results.v0.2.schema.json"
     )
     if not path.exists():
         return []
@@ -577,9 +604,7 @@ def validate_results_v02(
         return [str(e)]
 
 
-def validate_results_v03(
-    data: dict[str, Any], schema_path: Path | None = None
-) -> list[str]:
+def validate_results_v03(data: dict[str, Any], schema_path: Path | None = None) -> list[str]:
     """
     Validate a results dict against results.v0.3.schema.json. Document must have schema_version "0.3".
     Returns list of error messages; empty if valid.
@@ -589,11 +614,7 @@ def validate_results_v03(
     except ImportError:
         return ["jsonschema required for validation"]
     path = (
-        schema_path
-        or Path(__file__).resolve().parent.parent.parent
-        / "policy"
-        / "schemas"
-        / "results.v0.3.schema.json"
+        schema_path or Path(__file__).resolve().parent.parent.parent / "policy" / "schemas" / "results.v0.3.schema.json"
     )
     if not path.exists():
         return []
@@ -625,14 +646,13 @@ def _load_raw_results_with_metadata(in_paths: list[Path]) -> list[dict[str, Any]
             except Exception:
                 pass
         elif p.is_dir():
-            for f in sorted(p.rglob("results*.json")):
-                if f.is_file():
-                    try:
-                        data = json.loads(f.read_text(encoding="utf-8"))
-                        if isinstance(data, dict) and data.get("episodes") is not None:
-                            raw_list.append(data)
-                    except Exception:
-                        pass
+            for f in sorted(_iter_result_candidate_files(p), key=lambda x: (str(x),)):
+                try:
+                    data = json.loads(f.read_text(encoding="utf-8"))
+                    if isinstance(data, dict) and data.get("episodes") is not None:
+                        raw_list.append(data)
+                except Exception:
+                    pass
     return raw_list
 
 
@@ -747,11 +767,7 @@ def run_summarize(
     if run_info_rows:
         run_info_csv = out_dir / "run_info.csv"
         run_info_csv.write_text(rows_to_csv(run_info_rows), encoding="utf-8")
-        md_content += (
-            "\n\n---\n\n## Run info\n\n"
-            + rows_to_markdown_table(run_info_rows)
-            + "\n\n"
-        )
+        md_content += "\n\n---\n\n## Run info\n\n" + rows_to_markdown_table(run_info_rows) + "\n\n"
     md_content += "\n---\n\n*Summary generated from results.v0.2.*\n"
     md_path.write_text(md_content, encoding="utf-8")
     if llm_rows:
@@ -760,3 +776,55 @@ def run_summarize(
         llm_csv.write_text(rows_to_csv(llm_rows), encoding="utf-8")
         llm_md.write_text(rows_to_markdown_table(llm_rows), encoding="utf-8")
     return csv_path, md_path
+
+
+def run_dir_stats(run_dir: Path) -> dict[str, Any]:
+    """
+    Compute one-line stats for a run directory: num_episodes, total_steps,
+    violations_total, throughput (mean). Uses results.json when present;
+    falls back to episodes.jsonl for partial runs (episode count only).
+    """
+    run_dir = Path(run_dir).resolve()
+    out: dict[str, Any] = {
+        "run_dir": str(run_dir),
+        "num_episodes": 0,
+        "total_steps": None,
+        "violations_total": None,
+        "throughput_mean": None,
+        "task": None,
+    }
+    loaded = load_results_from_path(run_dir)
+    if loaded:
+        # Use first result (single run dir usually has one results.json)
+        data = loaded[0]
+        episodes = data.get("episodes") or []
+        out["num_episodes"] = len(episodes)
+        out["task"] = data.get("task")
+        total_steps = 0
+        total_violations = 0
+        throughputs: list[float] = []
+        for ep in episodes:
+            m = ep.get("metrics") or {}
+            steps = m.get("steps")
+            if steps is not None:
+                total_steps += int(steps)
+            v = m.get("violations_total")
+            if v is not None:
+                total_violations += int(v)
+            t = m.get("throughput")
+            if t is not None:
+                try:
+                    throughputs.append(float(t))
+                except (TypeError, ValueError):
+                    pass
+        out["total_steps"] = total_steps if total_steps > 0 else None
+        out["violations_total"] = total_violations if total_violations > 0 else None
+        out["throughput_mean"] = statistics.mean(throughputs) if throughputs else None
+        return out
+    # Fallback: episodes.jsonl (partial run)
+    episodes_jsonl = run_dir / "episodes.jsonl"
+    if episodes_jsonl.is_file():
+        with open(episodes_jsonl, encoding="utf-8") as f:
+            num_lines = sum(1 for _ in f)
+        out["num_episodes"] = num_lines
+    return out

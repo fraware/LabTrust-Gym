@@ -1,0 +1,23 @@
+{
+  "policy_paths": [
+    {
+      "path": "policy/risks/risk_registry.v0.1.yaml",
+      "sha256": "74c6a81361dd50e0d291e8d21cdb21ce0d2996bbf5f56ae93501d8dc51280b45"
+    },
+    {
+      "path": "policy/golden/security_attack_suite.v0.1.yaml",
+      "sha256": "b994010c6d13810b66621a8c3169d13aed8cc144584af50ef66976d7bc18c1e0"
+    },
+    {
+      "path": "policy/reason_codes/reason_code_registry.v0.1.yaml",
+      "sha256": "a08791086e68a22d0b5680f3159b37cca9d5ddb0836193bfd58b26acbe442a8f"
+    }
+  ],
+  "rbac_policy_fingerprint": "1f293d34c87f68ea1ae60e91159ffbc11478c1a27a8e630bc5e1ff1487745441",
+  "rbac_policy_path": "policy/rbac/rbac_policy.v0.1.yaml",
+  "tool_registry": {
+    "fingerprint": "03242dac72175c4bfeafa4c92ab888904b135e0f71af0cf68e62de89d5db844d",
+    "path": "policy/tool_registry.v0.1.yaml"
+  },
+  "version": "0.1"
+}

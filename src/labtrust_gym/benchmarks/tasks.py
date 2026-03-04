@@ -153,15 +153,11 @@ class BenchmarkTask:
     scripted_agents: list[str]
     reward_config: dict[str, Any]
     sla_turnaround_s: int | None = None  # for on-time rate (accept->release)
-    attack_start_step: int | None = (
-        None  # AdversarialDisruption: first adversarial action step for detection_latency_s
-    )
+    attack_start_step: int | None = None  # AdversarialDisruption: first adversarial action step for detection_latency_s
     insider_attack_steps: list[int] | None = (
         None  # InsiderAndKeyMisuse: step indices of insider attack attempts for containment metrics
     )
-    timing_mode: str | None = (
-        None  # "explicit" | "simulated"; None => use CLI/spec override
-    )
+    timing_mode: str | None = None  # "explicit" | "simulated"; None => use CLI/spec override
     scale_config: CoordinationScaleConfig | None = None  # CoordinationScale / CoordinationRisk
 
     def get_initial_state(
@@ -195,9 +191,7 @@ class BenchmarkTask:
             specimens.append(
                 _specimen_template(
                     sid,
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 100)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 100)),
                     priority_class=prio,
                 )
             )
@@ -241,9 +235,7 @@ class ThroughputSla(BenchmarkTask):
             specimens.append(
                 _specimen_template(
                     f"TA_{seed}_{i}",
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 50)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 50)),
                     priority_class=prio,
                     status="accepted",
                 )
@@ -293,9 +285,7 @@ class StatInsertionUnderLoad(BenchmarkTask):
             specimens.append(
                 _specimen_template(
                     f"TB_{seed}_{i}",
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 80)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 80)),
                     priority_class=prio,
                     status="accepted",
                 )
@@ -342,9 +332,7 @@ class QcFailCascade(BenchmarkTask):
             specimens.append(
                 _specimen_template(
                     f"TC_{seed}_{i}",
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 30)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 30)),
                     priority_class=prio,
                     status="accepted",
                 )
@@ -407,9 +395,7 @@ class AdversarialDisruption(BenchmarkTask):
             specimens.append(
                 _specimen_template(
                     f"TD_{seed}_{i}",
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 50)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 50)),
                     priority_class=prio,
                 )
             )
@@ -494,9 +480,7 @@ class InsiderAndKeyMisuse(BenchmarkTask):
             specimens.append(
                 _specimen_template(
                     f"TF_{seed}_{i}",
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 50)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 50)),
                     priority_class=prio,
                 )
             )
@@ -580,9 +564,7 @@ class MultiSiteStat(BenchmarkTask):
             specimens.append(
                 _specimen_template(
                     f"TE_{seed}_{i}",
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 100)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 100)),
                     priority_class=prio,
                 )
             )
@@ -648,9 +630,7 @@ class DeviceOutageSurge(BenchmarkTask):
             specimens.append(
                 _specimen_template(
                     f"TI_{seed}_{i}",
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 150)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 150)),
                     priority_class=prio,
                 )
             )
@@ -709,9 +689,7 @@ class ReagentStockout(BenchmarkTask):
             specimens.append(
                 _specimen_template(
                     f"TJ_{seed}_{i}",
-                    arrival_ts_s=(
-                        arrivals[i] if i < len(arrivals) else rng.randint(0, 60)
-                    ),
+                    arrival_ts_s=(arrivals[i] if i < len(arrivals) else rng.randint(0, 60)),
                     priority_class=prio,
                 )
             )
@@ -756,7 +734,6 @@ def get_task(name: str) -> BenchmarkTask:
         raise ValueError(f"Unknown task: {name}. Known: {list_tasks()}")
     if not callable(cls):
         raise TypeError(
-            f"Task {name!r} maps to non-callable {type(cls).__name__!r}; "
-            "registry entry must be a BenchmarkTask class."
+            f"Task {name!r} maps to non-callable {type(cls).__name__!r}; registry entry must be a BenchmarkTask class."
         )
     return cast(BenchmarkTask, cls())

@@ -85,5 +85,5 @@ Optional: `labtrust quick-eval --seed 42` and `labtrust determinism-report --tas
 ## References
 
 - [CI gates and regression](../operations/ci.md) — What runs in CI and when baselines are required.
-- [Benchmarking plan](benchmarking_plan.md) — Layer 1 (sanity), Layer 2 (coverage), Layer 3 (scale) and coordination security pack.
+- [Security attack suite](../risk-and-security/security_attack_suite.md) — Coordination security pack; [Coordination studies](../coordination/coordination_studies.md) for study matrix.
 - [Benchmarks](benchmarks.md) — Task definitions and metrics.

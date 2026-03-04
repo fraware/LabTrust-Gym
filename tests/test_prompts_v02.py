@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.policy.prompts_v02 import (
     compute_prompt_fingerprint_v02,
     get_rendered_system_content_v02,
@@ -38,9 +36,7 @@ def test_load_prompts_v02() -> None:
 def test_get_rendered_system_content_v02() -> None:
     """Rendered system = system_prompt + developer_prompt + role_overlay(role_id)."""
     root = _repo_root()
-    content, schema_version = get_rendered_system_content_v02(
-        role_id="ROLE_RECEPTION", repo_root=root
-    )
+    content, schema_version = get_rendered_system_content_v02(role_id="ROLE_RECEPTION", repo_root=root)
     assert "trusted" in content.lower() or "untrusted" in content.lower()
     assert schema_version == "0.2"
 

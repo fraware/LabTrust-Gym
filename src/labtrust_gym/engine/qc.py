@@ -49,11 +49,7 @@ class QCStore:
         res = self._results.get(result_id)
         if not res:
             return None
-        return (
-            res.get("device_id")
-            or res.get("run_id")
-            and self._run_device.get(str(res["run_id"]))
-        )
+        return res.get("device_id") or res.get("run_id") and self._run_device.get(str(res["run_id"]))
 
     def result_status(self, result_id: str) -> str | None:
         res = self._results.get(result_id)
@@ -130,9 +126,5 @@ class QCStore:
     def list_result_ids_with_status(self, *statuses: str) -> list[str]:
         """Return result_ids whose status is in statuses. Deterministic order (sorted)."""
         st_set = set(statuses)
-        out = [
-            rid
-            for rid, res in self._results.items()
-            if (res.get("status") or "") in st_set
-        ]
+        out = [rid for rid, res in self._results.items() if (res.get("status") or "") in st_set]
         return sorted(out)

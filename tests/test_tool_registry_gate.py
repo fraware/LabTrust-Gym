@@ -26,6 +26,11 @@ from labtrust_gym.tools.registry import (
 )
 
 
+def _noop_tool_adapter(tool_id: str, args: dict) -> dict:
+    """No-op adapter so env.step() with tool_id does not raise."""
+    return {}
+
+
 def _minimal_initial_state(tool_registry: dict) -> dict:
     """Minimal initial_state so CoreEnv reset and step (tool gate) run."""
     return {
@@ -41,6 +46,7 @@ def _minimal_initial_state(tool_registry: dict) -> dict:
         "tokens": [],
         "audit_fault_injection": None,
         "tool_registry": tool_registry,
+        "tool_adapter": _noop_tool_adapter,
     }
 
 

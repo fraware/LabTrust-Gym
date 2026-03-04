@@ -3,6 +3,10 @@ Compose allocator + scheduler + router into a CoordinationMethod.
 
 Returns a method that implements step(context) -> (actions, CoordinationDecision)
 and propose_actions(obs, infos, t) for backward compatibility.
+
+Envelope (SOTA audit): Used by kernel_whca, kernel_centralized_edf, and other
+composed kernels. Steps=horizon; llm_calls_per_step=0; fallback=N/A; max_latency_ms
+bounded by allocator + scheduler + router (time_budget_ms when OR/WHCA).
 """  # noqa: D205
 
 from __future__ import annotations
@@ -154,10 +158,9 @@ def compose_kernel(
                         append_trace_event,
                         trace_from_contract_record,
                     )
+
                     path = Path(trace_path) if isinstance(trace_path, str) else trace_path
-                    event = trace_from_contract_record(
-                        self._method_id, context.t, actions
-                    )
+                    event = trace_from_contract_record(self._method_id, context.t, actions)
                     append_trace_event(path, event)
                 except Exception:
                     pass

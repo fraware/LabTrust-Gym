@@ -15,11 +15,16 @@ Optional hooks (default no-op):
   - on_episode_end(episode_metrics): called at end of episode (e.g. for learning).
   - get_learning_metadata(): when method is study-track (learning/evolving), return dict with
     enabled, checkpoint_sha, update_count, buffer_size for results.metadata.coordination.learning.
+  - combine_submissions(submissions, obs, infos, t): combine per-agent submissions into joint
+    action; used at scale (simulation-centric N > N_max, agent-centric multi-agentic). Default:
+    treat each submission as action_dict, fill missing agents with NOOP.
 
 Each method produces per-agent actions compatible with the env API:
 action_index (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN).
 The runner builds a CoordDecision (contract record) per step; see
 policy/schemas/coord_method_output_contract.v0.1.schema.json and telemetry.py.
+
+Data flow (runner owns env; coord never calls env): docs/coordination/coordination_and_env.md.
 """
 
 from __future__ import annotations
@@ -30,14 +35,39 @@ from typing import Any
 # CoordDecision: one timestep record per coord_method_output_contract.v0.1 (built in runner)
 CoordDecision = dict[str, Any]
 
-# Action indices aligned with pz_parallel (schema-valid range for action_index)
-ACTION_NOOP = 0
-ACTION_TICK = 1
-ACTION_QUEUE_RUN = 2
-ACTION_MOVE = 3
-ACTION_OPEN_DOOR = 4
-ACTION_START_RUN = 5
-VALID_ACTION_INDICES = frozenset({0, 1, 2, 3, 4, 5})
+__all__ = [
+    "ACTION_MOVE",
+    "ACTION_NOOP",
+    "ACTION_OPEN_DOOR",
+    "ACTION_QUEUE_RUN",
+    "ACTION_START_RUN",
+    "ACTION_TICK",
+    "VALID_ACTION_INDICES",
+    "CoordDecision",
+    "CoordinationMethod",
+    "action_dict_to_index_and_info",
+]
+
+# Action indices: single source of truth in envs/action_contract; re-export for compatibility.
+from labtrust_gym.envs.action_contract import (  # noqa: E402
+    ACTION_MOVE,
+    ACTION_NOOP,
+    ACTION_OPEN_DOOR,
+    ACTION_QUEUE_RUN,
+    ACTION_START_RUN,
+    ACTION_TICK,
+    VALID_ACTION_INDICES,
+)
+
+# Map action_type string to action_index for combine_submissions default
+_ACTION_TYPE_TO_INDEX: dict[str, int] = {
+    "NOOP": ACTION_NOOP,
+    "TICK": ACTION_TICK,
+    "QUEUE_RUN": ACTION_QUEUE_RUN,
+    "MOVE": ACTION_MOVE,
+    "OPEN_DOOR": ACTION_OPEN_DOOR,
+    "START_RUN": ACTION_START_RUN,
+}
 
 
 def action_dict_to_index_and_info(
@@ -111,3 +141,29 @@ class CoordinationMethod(ABC):
         Return None for deterministic-track or inference-only methods.
         """
         return None
+
+    def combine_submissions(
+        self,
+        submissions: dict[str, dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
+        t: int,
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Combine per-agent submissions into a joint action dict. Used at scale when
+        simulation-centric uses per-agent policies (N > N_max) or agent-centric
+        multi-agentic uses N agent backends. Default: treat each submission as
+        action_dict; fill missing agents with NOOP. Override for auction (bids),
+        consensus (votes), etc.
+        """
+        agent_ids = list(obs.keys()) if obs else sorted(submissions.keys())
+        result: dict[str, dict[str, Any]] = {}
+        for aid in agent_ids:
+            if aid in submissions:
+                sub = dict(submissions[aid])
+                if "action_index" not in sub and "action_type" in sub:
+                    sub["action_index"] = _ACTION_TYPE_TO_INDEX.get(str(sub["action_type"]).upper(), ACTION_NOOP)
+                result[aid] = sub
+            else:
+                result[aid] = {"action_index": ACTION_NOOP}
+        return result

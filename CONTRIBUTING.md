@@ -13,7 +13,7 @@ For a full verification command sequence, see [Evaluation checklist](docs/benchm
 
 ## Documentation
 
-Comments and docstrings should be clear and free of unexplained jargon. See [Documentation standards](docs/reference/documentation_standards.md) for module/class/function docstrings, structure, and style. New or modified public modules, classes, or functions must have docstrings that meet those standards (module purpose, no unexplained jargon, and for functions: summary and Args/Returns where applicable). Existing code is being brought up to standard incrementally; see [Documentation mission checklist](docs/reference/documentation_mission_checklist.md).
+Comments and docstrings should be clear and free of unexplained jargon. See [Documentation standards](docs/reference/documentation_standards.md) for module/class/function docstrings, structure, and style. New or modified public modules, classes, or functions must have docstrings that meet those standards (module purpose, no unexplained jargon, and for functions: summary and Args/Returns where applicable). Existing code is being brought up to standard incrementally.
 
 ## Code quality
 
@@ -21,14 +21,14 @@ Before opening a PR:
 
 - `ruff format` and `ruff check` (lines must not exceed 120 characters; E501 is enforced). For naming exceptions (N802, N806), see [Code style and lint](docs/reference/code_style_and_lint.md).
 - `mypy src/` (must pass; CI fails on type errors)
-- `pytest -q`
+- `pytest -q -m "not slow"` (quick check; excludes slow tests). For full env-dependent tests (security, CLI smoke): `pip install -e ".[dev,env]"` then run the security and CLI smoke steps from [CI](docs/operations/ci.md).
 - `labtrust validate-policy`
 
-Policy files under `policy/` must validate against the JSON schemas in `policy/schemas/`. New or modified policy files must pass validation. Legacy and design-only YAML (e.g. override matrix, compiler contracts) live under `docs/architecture/design/` and are not loaded by the runtime.
+Policy files under `policy/` must validate against the JSON schemas in `policy/schemas/`. validate-policy checks schema and structural validity only; it does not check logical correctness (e.g. zone connectivity, invariant feasibility, or that controls match risks). After validate-policy, review policy for logical consistency and appropriateness of controls; validation is necessary but not sufficient. New or modified policy files must pass validation. Legacy and design-only YAML (e.g. override matrix, compiler contracts) live under `docs/architecture/design/` and are not loaded by the runtime.
 
 ## Testing and contracts
 
-- **Frozen contracts:** Do not weaken runner output, queue contract, coordination interface, or risk register schema without a version bump and doc update. See [Frozen contracts](docs/contracts/frozen_contracts.md) for the canonical list.
+- **Frozen contracts:** Do not weaken runner output, queue contract, coordination interface, or risk register schema without a version bump and doc update. See [Frozen contracts](docs/contracts/frozen_contracts.md) for the canonical list. For coordination: when N <= N_max only propose_actions is used; combine_submissions is never called (backward-compat guarantee).
 - **Implementation audit:** What is tested vs manual checklists: see [Evaluation checklist](docs/benchmarks/evaluation_checklist.md) and [CI](docs/operations/ci.md).
 - **Troubleshooting:** Common failures (verify-bundle, policy validation, pack gate, E2E chain): [Troubleshooting](docs/getting-started/troubleshooting.md).
 
@@ -45,10 +45,11 @@ The golden scenarios in `policy/golden/golden_scenarios.v0.1.yaml` define correc
 - Golden suite impact explained
 - Tests added or updated
 - New or modified public functions/methods have docstrings in Google style (summary + Args/Returns/Raises where applicable)
+- **New LLM coordination method or backend:** Confirm the [LLM excellence checklist](docs/agents/llm_live.md#llm-excellence-checklist-for-new-methods-or-backends) (schema-valid decisions, hard-fail to NOOP, metadata, integration) and add the entry to the table in that section.
 
 Preferred PR size: under 400 lines where practical.
 
-Before **tagging a release**, run the full E2E artifacts chain and ensure it passes (package-release → export-risk-register into release dir → build-release-manifest → verify-release --strict-fingerprints → schema/crosswalk). See [Release checklist](docs/operations/release_checklist.md).
+Before **tagging a release**, run the full E2E artifacts chain and ensure it passes (package-release → export-risk-register into release dir → build-release-manifest → verify-release --strict-fingerprints → schema/crosswalk). Run `python scripts/validate_security_safety_refs.py` to ensure risk_registry, security_attack_suite, and safety case claims stay aligned. See [CI](docs/operations/ci.md) and [Trust verification](docs/risk-and-security/trust_verification.md).
 
 ## Optional smoke tests (env vars)
 
@@ -58,4 +59,4 @@ Before **tagging a release**, run the full E2E artifacts chain and ensure it pas
 - **Coordination tests** — Run all coordination-related tests: `pytest -q tests/ -k coordination` (requires `.[env]`). CI coordination-smoke job (when `LABTRUST_COORDINATION_SMOKE=1`) runs validate-policy, these tests, and one-episode coord_scale + coord_risk. See [Coordination methods](docs/coordination/coordination_methods.md) (Coordination done checklist section).
 - **LABTRUST_PAPER_SMOKE=1** — Run package-release paper profile smoke (1 episode baselines, 2 episodes insider_key_misuse study): `labtrust package-release --profile paper_v0.1 --seed-base 100 --out /tmp/paper_smoke` (requires `.[env,plots]`). Determinism: `pytest tests/test_package_release.py -v` (includes paper_v0.1 smoke and CLI test).
 - **LABTRUST_MARL_SMOKE=1** — Run MARL smoke: `pytest tests/test_marl_smoke.py -v` (requires `.[marl]`).
-- **Package-release:** `labtrust package-release --profile minimal --out /tmp/labtrust_release --seed-base 100` (requires `.[env,plots]`). For paper-ready artifact: `--profile paper_v0.1` (see [Paper provenance](docs/benchmarks/paper/README.md) and [Release checklist](docs/operations/release_checklist.md)). Determinism: `pytest tests/test_package_release.py -v` with `LABTRUST_REPRO_SMOKE=1` for minimal/full; paper_v0.1 tests use `LABTRUST_PAPER_SMOKE=1`.
+- **Package-release:** `labtrust package-release --profile minimal --out /tmp/labtrust_release --seed-base 100` (requires `.[env,plots]`). For paper-ready artifact: `--profile paper_v0.1` (see [Paper provenance](docs/benchmarks/paper/README.md)). Determinism: `pytest tests/test_package_release.py -v` with `LABTRUST_REPRO_SMOKE=1` for minimal/full; paper_v0.1 tests use `LABTRUST_PAPER_SMOKE=1`.

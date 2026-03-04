@@ -51,10 +51,7 @@ def _v02_metrics_canonical(results: dict[str, Any]) -> str:
         "task": norm["task"],
         "seeds": norm["seeds"],
         "agent_baseline_id": norm["agent_baseline_id"],
-        "episodes": [
-            {"seed": ep.get("seed"), "metrics": ep.get("metrics") or {}}
-            for ep in episodes
-        ],
+        "episodes": [{"seed": ep.get("seed"), "metrics": ep.get("metrics") or {}} for ep in episodes],
     }
     return canonical_json(out)
 
@@ -87,9 +84,7 @@ def _check_determinism_budget(
     t1, p1 = _extract_throughput_p95_lists(results1)
     t2, p2 = _extract_throughput_p95_lists(results2)
     if len(t1) != len(t2) or len(p1) != len(p2):
-        errors.append(
-            "Per-episode metric list length mismatch; cannot compute determinism budget deltas"
-        )
+        errors.append("Per-episode metric list length mismatch; cannot compute determinism budget deltas")
         return (float("nan"), float("nan"))
     max_t_delta = 0.0
     max_p_delta = 0.0
@@ -101,13 +96,9 @@ def _check_determinism_budget(
         if dp == dp and dp > max_p_delta:
             max_p_delta = dp
     if max_t_delta > MAX_THROUGHPUT_DELTA:
-        errors.append(
-            f"Throughput jitter {max_t_delta} exceeds max_throughput_delta={MAX_THROUGHPUT_DELTA}"
-        )
+        errors.append(f"Throughput jitter {max_t_delta} exceeds max_throughput_delta={MAX_THROUGHPUT_DELTA}")
     if max_p_delta > MAX_P95_LATENCY_DELTA:
-        errors.append(
-            f"p95 latency jitter {max_p_delta}s exceeds max_p95_latency_delta={MAX_P95_LATENCY_DELTA}"
-        )
+        errors.append(f"p95 latency jitter {max_p_delta}s exceeds max_p95_latency_delta={MAX_P95_LATENCY_DELTA}")
     return (max_t_delta, max_p_delta)
 
 
@@ -254,9 +245,7 @@ def run_determinism_report(
     if bundle_hash1 and bundle_hash2 and bundle_hash1 != bundle_hash2:
         errors.append("Receipts bundle root hash mismatch")
     elif (bundle_hash1 is None) != (bundle_hash2 is None):
-        errors.append(
-            "Receipts bundle export failed for one run; cannot compare bundle root"
-        )
+        errors.append("Receipts bundle export failed for one run; cannot compare bundle root")
 
     max_throughput_delta, max_p95_delta = _check_determinism_budget(results1, results2, errors)
 
@@ -292,9 +281,7 @@ def run_determinism_report(
         "v02_metrics_identical": v02_c1 == v02_c2,
         "episode_log_identical": log_sha1 == log_sha2,
         "results_identical": res_sha1 == res_sha2,
-        "receipts_bundle_identical": (
-            (bundle_hash1 == bundle_hash2) if (bundle_hash1 and bundle_hash2) else None
-        ),
+        "receipts_bundle_identical": ((bundle_hash1 == bundle_hash2) if (bundle_hash1 and bundle_hash2) else None),
         "determinism_budget": {
             "max_throughput_delta": MAX_THROUGHPUT_DELTA,
             "max_p95_latency_delta": MAX_P95_LATENCY_DELTA,
@@ -306,11 +293,7 @@ def run_determinism_report(
     }
 
     status_label = "PASSED" if passed else "FAILED"
-    n_passed = (
-        (1 if log_sha1 == log_sha2 else 0)
-        + (1 if res_sha1 == res_sha2 else 0)
-        + (1 if v02_c1 == v02_c2 else 0)
-    )
+    n_passed = (1 if log_sha1 == log_sha2 else 0) + (1 if res_sha1 == res_sha2 else 0) + (1 if v02_c1 == v02_c2 else 0)
     n_total = 4 if (bundle_hash1 and bundle_hash2) else 3
     if bundle_hash1 and bundle_hash2:
         n_passed += 1 if bundle_hash1 == bundle_hash2 else 0
@@ -366,14 +349,8 @@ def run_determinism_report(
     log_match = "yes" if log_sha1 == log_sha2 else "**no**"
     res_match = "yes" if res_sha1 == res_sha2 else "**no**"
     v02_match = "yes" if v02_c1 == v02_c2 else "**no**"
-    row_log = (
-        f"| Episode log SHA-256 | `{log_sha1[:16]}...` | "
-        f"`{log_sha2[:16]}...` | {log_match} |"
-    )
-    row_res = (
-        f"| Results canonical SHA-256 | `{res_sha1[:16]}...` | "
-        f"`{res_sha2[:16]}...` | {res_match} |"
-    )
+    row_log = f"| Episode log SHA-256 | `{log_sha1[:16]}...` | `{log_sha2[:16]}...` | {log_match} |"
+    row_res = f"| Results canonical SHA-256 | `{res_sha1[:16]}...` | `{res_sha2[:16]}...` | {res_match} |"
     md_lines.extend(
         [
             "## Hash comparison",
@@ -389,8 +366,7 @@ def run_determinism_report(
     if bundle_hash1 and bundle_hash2:
         bundle_match = "yes" if bundle_hash1 == bundle_hash2 else "**no**"
         md_lines.append(
-            f"| Receipts bundle root | `{bundle_hash1[:16]}...` | "
-            f"`{bundle_hash2[:16]}...` | {bundle_match} |"
+            f"| Receipts bundle root | `{bundle_hash1[:16]}...` | `{bundle_hash2[:16]}...` | {bundle_match} |"
         )
         md_lines.append("")
     md_lines.append("## Determinism budget")
@@ -423,9 +399,7 @@ def run_determinism_report(
 
     report_path_json = out_dir / "determinism_report.json"
     report_path_md = out_dir / "determinism_report.md"
-    report_path_json.write_text(
-        canonical_json(report) + "\n", encoding="utf-8"
-    )
+    report_path_json.write_text(canonical_json(report) + "\n", encoding="utf-8")
     report_path_md.write_text(markdown_text, encoding="utf-8")
 
     return passed, report, markdown_text

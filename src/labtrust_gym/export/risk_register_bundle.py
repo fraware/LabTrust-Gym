@@ -16,6 +16,7 @@ import glob
 import hashlib
 import json
 import subprocess
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +69,31 @@ def _best_coverage(statuses: list[str]) -> str:
         if c in statuses:
             return c
     return "not_applicable"
+
+
+def _infer_evidence_level(run_dirs: list[Path]) -> str | None:
+    """
+    Infer evidence_level from run dirs. Returns 'with_live_llm' if any run used
+    LLM attacker or llm_live pack; 'deterministic_only' otherwise. Returns None
+    when run_dirs is empty (cannot infer).
+    """
+    if not run_dirs:
+        return None
+    for run_dir in run_dirs:
+        run_dir = Path(run_dir)
+        ar_path = run_dir / "SECURITY" / "attack_results.json"
+        if ar_path.exists():
+            try:
+                ar = json.loads(ar_path.read_text(encoding="utf-8"))
+                if ar.get("metadata", {}).get("llm_attacker_run") is True:
+                    return "with_live_llm"
+            except Exception:
+                pass
+        if (run_dir / "TRANSPARENCY_LOG" / "llm_live.json").exists():
+            return "with_live_llm"
+        if (run_dir / "live_evaluation_metadata.json").exists():
+            return "with_live_llm"
+    return "deterministic_only"
 
 
 def _policy_fingerprints(repo_root: Path) -> dict[str, str]:
@@ -168,6 +194,28 @@ def _find_evidence_bundle(run_dir: Path) -> Path | None:
                 if (bundle / "manifest.json").exists():
                     return bundle
     return None
+
+
+def _load_required_bench_plan_cell_map(repo_root: Path) -> dict[tuple[str, str], str]:
+    """Load required_bench_plan and return (method_id, injection_id) -> risk_id."""
+    path = repo_root / "policy" / "risks" / "required_bench_plan.v0.1.yaml"
+    if not path.exists():
+        return {}
+    try:
+        data = load_yaml(path)
+        out: dict[tuple[str, str], str] = {}
+        for cell in data.get("cells") or []:
+            if not isinstance(cell, dict):
+                continue
+            method_id = cell.get("method_id")
+            risk_id = cell.get("risk_id")
+            ev = cell.get("evidence") or {}
+            injection_id = ev.get("injection_id") if isinstance(ev, dict) else None
+            if method_id and risk_id and injection_id:
+                out[(str(method_id), str(injection_id))] = str(risk_id)
+        return out
+    except Exception:
+        return {}
 
 
 def _expected_sources_for_risk(
@@ -285,6 +333,7 @@ def _build_evidence(
     matrix: dict[str, Any],
     all_risk_ids: list[str],
     include_missing_entries: bool = True,
+    plan_cell_map: dict[tuple[str, str], str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
     """
     Build evidence[] from run_dirs. Returns (evidence_list, risk_id -> evidence_ids).
@@ -324,9 +373,7 @@ def _build_evidence(
                 "artifacts": [_artifact(attack_results_path)],
             }
             try:
-                ar = json.loads(
-                    (security_dir / "attack_results.json").read_text(encoding="utf-8")
-                )
+                ar = json.loads((security_dir / "attack_results.json").read_text(encoding="utf-8"))
                 sm = ar.get("summary") or {}
                 entry["summary"] = {
                     "total": sm.get("total", 0),
@@ -340,13 +387,9 @@ def _build_evidence(
                         risk_to_evidence.setdefault(rid, []).append(eid)
                     for code, count in (res.get("reason_code_counts") or {}).items():
                         if isinstance(count, (int, float)):
-                            reason_code_dist[str(code)] = reason_code_dist.get(
-                                str(code), 0
-                            ) + int(count)
+                            reason_code_dist[str(code)] = reason_code_dist.get(str(code), 0) + int(count)
                 if reason_code_dist:
-                    entry["reason_code_distribution"] = dict(
-                        sorted(reason_code_dist.items(), key=lambda x: -x[1])[:20]
-                    )
+                    entry["reason_code_distribution"] = dict(sorted(reason_code_dist.items(), key=lambda x: -x[1])[:20])
             except Exception:
                 pass
             evidence.append(entry)
@@ -409,9 +452,7 @@ def _build_evidence(
         # Coordination matrix (canonical filename in run dir or COORDINATION_MATRIX/ subdir)
         matrix_path = run_dir / COORDINATION_MATRIX_CANONICAL_FILENAME
         if not matrix_path.exists():
-            matrix_path = (
-                run_dir / "COORDINATION_MATRIX" / "COORDINATION_MATRIX.v0.1.json"
-            )
+            matrix_path = run_dir / "COORDINATION_MATRIX" / "COORDINATION_MATRIX.v0.1.json"
         if matrix_path.exists():
             run_id = run_dir.name
             eid = f"{COORDINATION_MATRIX_EVIDENCE_ID_PREFIX}{run_id}"
@@ -433,9 +474,7 @@ def _build_evidence(
             }
             risk_ids_from_matrix = list(
                 dict.fromkeys(
-                    c.get("risk_id")
-                    for c in (matrix.get("cells") or [])
-                    if isinstance(c, dict) and c.get("risk_id")
+                    c.get("risk_id") for c in (matrix.get("cells") or []) if isinstance(c, dict) and c.get("risk_id")
                 )
             )
             if risk_ids_from_matrix:
@@ -445,11 +484,16 @@ def _build_evidence(
             evidence.append(matrix_entry)
 
         # pack_summary.csv (coordination security pack)
+        # Requires method_risk_matrix to have cells with risk_id; otherwise this evidence is not linked to any risk and strict validation will fail.
         pack_summary_path = "pack_summary.csv"
         pack_summary_file = run_dir / "pack_summary.csv"
         if pack_summary_file.exists():
             eid = f"ev-coord-pack-summary-{ev_id}"
             ev_id += 1
+            coord_risk_csv = run_dir / "SECURITY" / "coordination_risk_matrix.csv"
+            coord_risk_md = run_dir / "SECURITY" / "coordination_risk_matrix.md"
+            summary_coord = run_dir / "summary" / "summary_coord.csv"
+            synthetic = not (coord_risk_csv.exists() or coord_risk_md.exists() or summary_coord.exists())
             pack_entry: dict[str, Any] = {
                 "evidence_id": eid,
                 "type": "coordination_pack",
@@ -458,6 +502,8 @@ def _build_evidence(
                 "status": "present",
                 "artifacts": [_artifact(pack_summary_path)],
             }
+            if synthetic:
+                pack_entry["synthetic"] = True
             try:
                 with pack_summary_file.open(newline="", encoding="utf-8") as f:
                     reader = csv.DictReader(f)
@@ -469,7 +515,7 @@ def _build_evidence(
                 pass
             evidence.append(pack_entry)
             # Link pack evidence to all risk_ids in the method-risk matrix so coord pack run satisfies required_bench.
-            for cell in (matrix.get("cells") or []):
+            for cell in matrix.get("cells") or []:
                 if isinstance(cell, dict):
                     rid = cell.get("risk_id")
                     if rid:
@@ -497,6 +543,40 @@ def _build_evidence(
                     "artifacts": [_artifact(coord_risk_path)],
                 }
             )
+
+        # results.json (single coord_risk run): link to risk_id via required_bench_plan
+        results_json = run_dir / "results.json"
+        if results_json.exists() and not (run_dir / "pack_summary.csv").exists() and plan_cell_map:
+            try:
+                res = json.loads(results_json.read_text(encoding="utf-8"))
+                task = res.get("task")
+                cfg = res.get("config") or {}
+                if task == "coord_risk":
+                    method_id = cfg.get("coord_method")
+                    injection_id = cfg.get("injection_id")
+                    if method_id and injection_id:
+                        risk_id = plan_cell_map.get((str(method_id), str(injection_id)))
+                        if risk_id:
+                            eid = f"ev-coord-risk-run-{ev_id}"
+                            ev_id += 1
+                            results_path = "results.json"
+                            art = _artifact(results_path)
+                            if not art.get("sha256"):
+                                art["sha256"] = hashlib.sha256(results_json.read_bytes()).hexdigest()
+                            evidence.append(
+                                {
+                                    "evidence_id": eid,
+                                    "type": "coord_risk_run",
+                                    "path": prefix + results_path,
+                                    "label": (f"Coord risk run: {method_id} + {injection_id}"),
+                                    "status": "present",
+                                    "artifacts": [art],
+                                    "risk_ids": [risk_id],
+                                }
+                            )
+                            risk_to_evidence.setdefault(risk_id, []).append(eid)
+            except (OSError, json.JSONDecodeError, TypeError):
+                pass
 
         # LAB_COORDINATION_REPORT.md
         lab_report_path = "LAB_COORDINATION_REPORT.md"
@@ -596,9 +676,7 @@ def _build_evidence(
             bundle_path = _find_evidence_bundle(run_dir)
             if bundle_path is not None:
                 try:
-                    vs = verify_bundle_structured(
-                        bundle_path, repo_root, allow_extra_files=True
-                    )
+                    vs = verify_bundle_structured(bundle_path, repo_root, allow_extra_files=True)
                     manifest_entry["verification_summary"] = {
                         "manifest_valid": vs.get("manifest_valid", False),
                         "schema_valid": vs.get("schema_valid", False),
@@ -624,13 +702,29 @@ def _build_evidence(
                     "path": "",
                     "label": f"Evidence gap: {risk_id}",
                     "status": "missing",
-                    "expected_sources": _expected_sources_for_risk(
-                        risk_id, suite, matrix
-                    ),
+                    "expected_sources": _expected_sources_for_risk(risk_id, suite, matrix),
                     "risk_ids": [risk_id],
                 }
             )
             risk_to_evidence[risk_id] = [eid]
+
+    # Set optional evidence_strength for present evidence (deterministic heuristic)
+    for e in evidence:
+        if e.get("status") != "present":
+            continue
+        etype = e.get("type", "other")
+        if etype == "security_suite":
+            e["evidence_strength"] = "high"
+        elif etype == "coordination_pack":
+            e["evidence_strength"] = "high"
+        elif etype in ("official_pack", "safety_case"):
+            e["evidence_strength"] = "high"
+        elif etype == "coordination_study":
+            e["evidence_strength"] = "medium"
+        elif etype == "bundle_verification":
+            e["evidence_strength"] = "medium"
+        else:
+            e["evidence_strength"] = "medium"
 
     return evidence, risk_to_evidence
 
@@ -731,9 +825,7 @@ def _build_reproduce(evidence_list: list[dict[str, Any]]) -> list[dict[str, Any]
                     ],
                 }
             )
-        elif etype == "security_suite" and "coordination_risk_matrix" in (
-            e.get("path") or ""
-        ):
+        elif etype == "security_suite" and "coordination_risk_matrix" in (e.get("path") or ""):
             out.append(
                 {
                     "evidence_id": eid,
@@ -859,27 +951,19 @@ def build_risk_register_bundle(
 
     risk_reg_path = repo_root / "policy" / "risks" / "risk_registry.v0.1.yaml"
     if partner_id:
-        overlay_risk = (
-            repo_root
-            / "policy"
-            / "partners"
-            / partner_id
-            / "risks"
-            / "risk_registry.v0.1.yaml"
-        )
+        overlay_risk = repo_root / "policy" / "partners" / partner_id / "risks" / "risk_registry.v0.1.yaml"
         if overlay_risk.exists():
             risk_reg_path = overlay_risk
     risk_registry = load_risk_registry(risk_reg_path)
 
     matrix_path = repo_root / "policy" / "coordination" / "method_risk_matrix.v0.1.yaml"
-    matrix = (
-        load_method_risk_matrix(matrix_path) if matrix_path.exists() else {"cells": []}
-    )
+    matrix = load_method_risk_matrix(matrix_path) if matrix_path.exists() else {"cells": []}
 
     suite = load_attack_suite(repo_root, partner_id=partner_id)
     claims_path = repo_root / "policy" / "safety_case" / "claims.v0.1.yaml"
 
     all_risk_ids = sorted(risk_registry.risks.keys())
+    plan_cell_map = _load_required_bench_plan_cell_map(repo_root)
     evidence_list, risk_to_evidence = _build_evidence(
         repo_root,
         run_dirs,
@@ -887,6 +971,7 @@ def build_risk_register_bundle(
         matrix=matrix,
         all_risk_ids=all_risk_ids,
         include_missing_entries=True,
+        plan_cell_map=plan_cell_map,
     )
     risks_list = _build_risks(
         repo_root,
@@ -913,26 +998,23 @@ def build_risk_register_bundle(
         "reproduce": reproduce_list,
     }
     if include_generated_at:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        bundle["generated_at"] = (
-            datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        )
+        bundle["generated_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     if include_git_hash:
         h = _git_commit_hash(repo_root)
         if h:
             bundle["git_commit_hash"] = h
     bundle["policy_fingerprints"] = _policy_fingerprints(repo_root)
+    level = _infer_evidence_level(run_dirs)
+    if level is not None:
+        bundle["evidence_level"] = level
     return bundle
 
 
-def validate_bundle_against_schema(
-    bundle: dict[str, Any], repo_root: Path
-) -> list[str]:
+def validate_bundle_against_schema(bundle: dict[str, Any], repo_root: Path) -> list[str]:
     """Validate bundle against risk_register_bundle.v0.1.schema.json. Returns list of errors."""
-    schema_path = (
-        repo_root / "policy" / "schemas" / "risk_register_bundle.v0.1.schema.json"
-    )
+    schema_path = repo_root / "policy" / "schemas" / "risk_register_bundle.v0.1.schema.json"
     if not schema_path.exists():
         return [f"Schema not found: {schema_path}"]
     try:
@@ -1046,20 +1128,14 @@ def check_crosswalk_integrity(bundle: dict[str, Any]) -> list[str]:
     for e in evidence_list:
         for rid in e.get("risk_ids") or []:
             if rid and rid not in risk_ids:
-                errors.append(
-                    f"evidence {e.get('evidence_id')!r} references risk_id {rid!r} not in risks"
-                )
+                errors.append(f"evidence {e.get('evidence_id')!r} references risk_id {rid!r} not in risks")
     for r in risks_list:
         for ref in r.get("evidence_refs") or []:
             if ref and ref not in evidence_ids:
-                errors.append(
-                    f"risk {r.get('risk_id')!r} references evidence_id {ref!r} not in evidence"
-                )
+                errors.append(f"risk {r.get('risk_id')!r} references evidence_id {ref!r} not in evidence")
         for cid in r.get("claimed_controls") or []:
             if cid and cid not in control_ids:
-                errors.append(
-                    f"risk {r.get('risk_id')!r} references control_id {cid!r} not in controls"
-                )
+                errors.append(f"risk {r.get('risk_id')!r} references control_id {cid!r} not in controls")
     return errors
 
 
@@ -1115,18 +1191,15 @@ def check_risk_register_coverage(
     waived_ids = waived_risk_ids or set()
     waived_pairs = waived_cells or set()
     repo_root = Path(repo_root)
-    matrix_path = matrix_path or (
-        repo_root / "policy" / "coordination" / "method_risk_matrix.v0.1.yaml"
-    )
+    matrix_path = matrix_path or (repo_root / "policy" / "coordination" / "method_risk_matrix.v0.1.yaml")
     if not matrix_path.exists():
         return True, []
 
     matrix = load_method_risk_matrix(matrix_path)
     required = get_required_bench_cells(matrix)
     evidence_list = bundle.get("evidence") or []
-    evidence_by_id = {
-        e["evidence_id"]: e for e in evidence_list if e.get("evidence_id")
-    }
+    evidence_by_id = {e["evidence_id"]: e for e in evidence_list if e.get("evidence_id")}
+    # Satisfaction is by risk_id only: each required cell (method_id, risk_id) passes if that risk_id has any present evidence.
     risk_ids_with_present_evidence: set[str] = set()
     for r in bundle.get("risks") or []:
         rid = r.get("risk_id")

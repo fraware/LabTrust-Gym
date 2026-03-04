@@ -20,7 +20,8 @@ Envelope (SOTA audit):
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 _LOG = logging.getLogger(__name__)
 
@@ -160,21 +161,32 @@ class DeterministicCommitteeBackend:
         if not agent_ids:
             agent_ids = ["ops_0"]
         at = "NOOP" if "NOOP" in allowed_actions else (allowed_actions[0] if allowed_actions else "NOOP")
-        rng = (self._seed + step_id) % (2**31)
+        _rng = (self._seed + step_id) % (2**31)
         per_agent_base = [
-            {"agent_id": aid, "action_type": at, "args": {}, "reason_code": "COORD_COMMITTEE"}
-            for aid in agent_ids
+            {"agent_id": aid, "action_type": at, "args": {}, "reason_code": "COORD_COMMITTEE"} for aid in agent_ids
         ]
         if self._corrupt_role == "Allocator":
             per_agent_base = [{"agent_id": aid, "action_type": "INVALID_ACTION", "args": {}} for aid in agent_ids]
-        allocator = {"per_agent": per_agent_base, "proposal_id": f"committee-{self._seed}-{step_id}", "step_id": step_id, "method_id": method_id, "horizon_steps": 1}
+        allocator = {
+            "per_agent": per_agent_base,
+            "proposal_id": f"committee-{self._seed}-{step_id}",
+            "step_id": step_id,
+            "method_id": method_id,
+            "horizon_steps": 1,
+        }
         scheduler = {"per_agent": per_agent_base}
         router = {"per_agent": per_agent_base}
         safety = {"veto_agent_ids": []}
         role_outputs = {"Allocator": allocator, "Scheduler": scheduler, "Router": router, "Safety reviewer": safety}
         merged = _merge_committee_outputs(role_outputs, agent_ids)
         merged["comms"] = []
-        meta = {"backend_id": "deterministic_committee", "model_id": "n/a", "latency_ms": 0.0, "tokens_in": 0, "tokens_out": 0}
+        meta = {
+            "backend_id": "deterministic_committee",
+            "model_id": "n/a",
+            "latency_ms": 0.0,
+            "tokens_in": 0,
+            "tokens_out": 0,
+        }
         merged["meta"] = meta
         return merged, meta
 
@@ -245,6 +257,7 @@ class DeterministicProposalBackend:
         }
         try:
             from labtrust_gym.baselines.llm.llm_tracer import record_deterministic_coord_span
+
             record_deterministic_coord_span("coord_proposal", self._backend_id)
         except Exception as e:
             _LOG.debug("Tracing coord_proposal span failed: %s", e)

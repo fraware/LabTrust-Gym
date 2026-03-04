@@ -69,9 +69,7 @@ def scenario_obs_at_step(scenario: dict[str, Any], t: int) -> dict[str, Any]:
             my_zone_idx = zones_list.index(zone_id) + 1
         except ValueError:
             my_zone_idx = 1
-        queue_has_head = [
-            1 if (d.get("queue_head") or "") else 0 for d in queue_by_device
-        ]
+        queue_has_head = [1 if (d.get("queue_head") or "") else 0 for d in queue_by_device]
         if not queue_has_head:
             queue_has_head = [0]
         obs[aid] = {

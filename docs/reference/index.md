@@ -6,7 +6,10 @@ Repository layout, lab profile, observability, and testing strategy.
 
 | Document | Description |
 |----------|-------------|
+| [Glossary](glossary.md) | Definitions of terms (e.g. official baselines vs coordination method) to avoid ambiguity. |
 | [Repository structure](repository_structure.md) | Canonical layout and where to put outputs. |
+| [State of the art and limits](state_of_the_art_and_limits.md) | What is SOTA, deployment ready, and reusable; coordination definition of done, rate limiter, debate, vectorized envs. |
+| [Episode viewer](episode_viewer.md) | Episode simulation viewer: data sources, bundle build, lab design, views. |
 | [Outputs and results](outputs_and_results.md) | Where CLI and CI write results, schemas, and quick reference. |
 | [Lab profile reference](lab_profile_reference.md) | Lab profile and provider IDs. |
 | [Observability](observability.md) | Observability and logging. |

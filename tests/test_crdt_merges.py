@@ -4,8 +4,6 @@ Tests for CRDT-style merges and Byzantine aggregation.
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.crdt_merges import (
     byzantine_aggregate,
     lww_register_merge,

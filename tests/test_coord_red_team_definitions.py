@@ -5,6 +5,9 @@ Coordination red-team: success/detection/containment consistent; strict signatur
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from labtrust_gym.baselines.adversary_coord import (
     RedTeamStrategy,
     evaluate_episode_outcome,
@@ -147,3 +150,36 @@ def test_coordination_study_aggregate_includes_red_team_metrics() -> None:
     assert "sec.blast_radius_proxy" in out
     assert out["sec.time_to_attribution_steps"] == 7.5
     assert out["sec.blast_radius_proxy"] == 1.5
+
+
+def test_replay_in_new_epoch_blocked(tmp_path: Path) -> None:
+    """
+    INJ-COORD-PLAN-REPLAY-001: replay of previously valid signed plan in new epoch is blocked.
+    One episode with signed-bus method; assert attack_success is False (replay rejected).
+    """
+    from labtrust_gym.benchmarks.runner import run_benchmark
+
+    repo_root = get_repo_root()
+    out_path = tmp_path / "results.json"
+    run_benchmark(
+        task_name="coord_risk",
+        num_episodes=1,
+        base_seed=42,
+        out_path=out_path,
+        repo_root=repo_root,
+        coord_method="llm_local_decider_signed_bus",
+        injection_id="INJ-COORD-PLAN-REPLAY-001",
+        pipeline_mode="deterministic",
+    )
+    assert out_path.exists()
+    data = json.loads(out_path.read_text(encoding="utf-8"))
+    episodes = data.get("episodes") or []
+    assert len(episodes) >= 1
+    metrics = episodes[0].get("metrics") or {}
+    sec = metrics.get("sec") or {}
+    attack_success_rate = sec.get("attack_success_rate")
+    assert attack_success_rate is not None
+    assert attack_success_rate == 0.0, (
+        "Replay in new epoch (INJ-COORD-PLAN-REPLAY-001) must be blocked; "
+        f"got attack_success_rate={attack_success_rate}"
+    )

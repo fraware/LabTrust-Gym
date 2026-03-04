@@ -97,9 +97,7 @@ def test_verify_integrity_plaintext_with_sha256(tmp_path: Path) -> None:
     """Plaintext with .sha256 sidecar: verify passes when digest matches."""
     p = tmp_path / "plain.txt"
     p.write_bytes(b"hello")
-    (tmp_path / "plain.txt.sha256").write_text(
-        "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824\n"
-    )
+    (tmp_path / "plain.txt.sha256").write_text("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824\n")
     ok, err = verify_artifact_integrity(p)
     assert ok is True
     assert err is None
@@ -115,6 +113,7 @@ def test_write_artifact_with_integrity_store_digest(tmp_path: Path) -> None:
     assert digest_path.exists()
     digest = digest_path.read_text(encoding="utf-8").strip()
     import hashlib
+
     assert digest == hashlib.sha256(b"content").hexdigest()
 
 

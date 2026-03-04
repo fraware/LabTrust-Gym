@@ -8,6 +8,11 @@ LLM detector throttle advisor wrapper.
 - wrap_with_detector_advisor: wrap with LLM detector (detect + recommend; policy-validated containment).
 """
 
+from labtrust_gym.baselines.coordination.assurance.detector_advisor import (
+    DeterministicDetectorBackend,
+    LiveDetectorBackend,
+    wrap_with_detector_advisor,
+)
 from labtrust_gym.baselines.coordination.assurance.simplex import (
     EMIT_COORD_SHIELD_DECISION,
     REASON_SHIELD_COLLISION,
@@ -16,11 +21,6 @@ from labtrust_gym.baselines.coordination.assurance.simplex import (
     select_controller,
     validate_plan,
     wrap_with_simplex_shield,
-)
-from labtrust_gym.baselines.coordination.assurance.detector_advisor import (
-    DeterministicDetectorBackend,
-    LiveDetectorBackend,
-    wrap_with_detector_advisor,
 )
 
 __all__ = [

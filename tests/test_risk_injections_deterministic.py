@@ -74,6 +74,7 @@ def _sequence_hash(seed: int, injection_id: str, steps: int, intensity: float = 
         "INJ-BLAME-SHIFT-001",
         "inj_device_fail",
         "inj_msg_poison",
+        "inj_collusion_handoff",
     ],
 )
 def test_same_seed_same_injection_sequence(injection_id: str) -> None:
@@ -115,7 +116,7 @@ def test_reserved_injectors_never_mutate_state(injection_id: str) -> None:
 
 def test_reserved_injectors_emit_reserved_flag() -> None:
     """Reserved injectors emit reserved flag in get_metrics() and in audit payload (telemetry)."""
-    inj = make_injector("inj_tool_selection_noise", seed_offset=0)
+    inj = make_injector("none", seed_offset=0)  # none is reserved NoOpInjector
     inj.reset(1, None)
     obs = {"worker_0": {"z": 1}}
     actions_dict = {"worker_0": {"action_index": 0}}
@@ -128,19 +129,21 @@ def test_reserved_injectors_emit_reserved_flag() -> None:
         inj.observe_step([])
     metrics = inj.get_metrics()
     assert metrics.get("reserved") is True, "get_metrics() must include reserved=True for reserved injectors"
-    assert any(
-        (a.get("injection_payload") or {}).get("reserved") is True for a in audits_seen
-    ), "at least one audit entry must have injection_payload.reserved=True"
+    assert any((a.get("injection_payload") or {}).get("reserved") is True for a in audits_seen), (
+        "at least one audit entry must have injection_payload.reserved=True"
+    )
 
 
 def test_is_reserved_injection() -> None:
     """is_reserved_injection identifies reserved vs implemented."""
     assert is_reserved_injection("none") is True
-    assert is_reserved_injection("inj_tool_selection_noise") is True
+    assert is_reserved_injection("inj_untrusted_payload") is True
     assert is_reserved_injection("INJ-ID-SPOOF-001") is False
     assert is_reserved_injection("INJ-COMMS-POISON-001") is False
     assert is_reserved_injection("inj_device_fail") is False
     assert is_reserved_injection("inj_msg_poison") is False
+    assert is_reserved_injection("inj_tool_selection_noise") is False
+    assert is_reserved_injection("inj_collusion_handoff") is False
 
 
 def test_inj_device_fail_applies_at_deterministic_step() -> None:
@@ -172,7 +175,7 @@ def test_inj_device_fail_applies_at_deterministic_step() -> None:
 
 def test_inj_msg_poison_corrupts_messages_deterministically() -> None:
     """inj_msg_poison corrupts message payload deterministically."""
-    from labtrust_gym.security.risk_injections import MsgPoisonInjector, InjectionConfig
+    from labtrust_gym.security.risk_injections import InjectionConfig, MsgPoisonInjector
 
     cfg = InjectionConfig(injection_id="inj_msg_poison", intensity=1.0, seed_offset=0)
     inj = MsgPoisonInjector(cfg)
@@ -183,3 +186,21 @@ def test_inj_msg_poison_corrupts_messages_deterministically() -> None:
     assert any("_POISON" in str(m.get("payload", m.get("_poison", ""))) for m in out)
     assert audit is not None
     assert audit.get("injection_id") == "inj_msg_poison"
+
+
+def test_inj_collusion_handoff_mutates_messages_observable() -> None:
+    """inj_collusion_handoff duplicates a message; observable effect and audit."""
+    from labtrust_gym.security.risk_injections import CollusionHandoffInjector, InjectionConfig
+
+    cfg = InjectionConfig(injection_id="inj_collusion_handoff", intensity=1.0, seed_offset=0)
+    inj = CollusionHandoffInjector(cfg)
+    inj.reset(seed=42, injection_config=None)
+    messages = [{"handoff": "work_1", "from": "a"}, {"handoff": "work_2", "from": "b"}]
+    out, audit = inj.mutate_messages(messages)
+    # With intensity 1.0, one message is duplicated (list length +1)
+    assert len(out) >= len(messages), "handoff injector must add or preserve messages"
+    assert audit is not None
+    assert audit.get("injection_id") == "inj_collusion_handoff"
+    assert (audit.get("injection_payload") or {}).get("type") == "handoff_duplicate"
+    metrics = inj.get_metrics()
+    assert metrics.get("first_application_step") is not None or len(out) > len(messages)

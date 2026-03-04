@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scripted_runner_policy.v0.1.schema.json",
+  "title": "Scripted Runner Policy v0.1",
+  "description": "Policy for ScriptedRunnerAgent: zone_ids, workflow_zone_order, restricted_*, door_tick_threshold_s.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "zone_ids": { "type": "array", "items": { "type": "string" } },
+    "workflow_zone_order": { "type": "array", "items": { "type": "string" } },
+    "restricted_zone_id": { "type": "string" },
+    "restricted_door_id": { "type": "string" },
+    "door_tick_threshold_s": { "type": "number" }
+  }
+}

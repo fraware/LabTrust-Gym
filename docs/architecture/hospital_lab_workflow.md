@@ -1,6 +1,6 @@
-# Hospital lab workflow
+# Hospital lab workflow (blood sciences lane)
 
-This document gives two views of the hospital lab workflow modeled in LabTrust-Gym and how it differs under the **deterministic** and **LLM live** pipelines. Diagrams are Mermaid; they render on GitHub and in MkDocs with a Mermaid plugin. Otherwise paste the code into [Mermaid Live](https://mermaid.live).
+This document gives two views of the **blood sciences** workflow (pathology lab) modeled in LabTrust-Gym and how it differs under the **deterministic** and **LLM live** pipelines. Terminology: [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab). Diagrams are Mermaid; they render on GitHub and in MkDocs with a Mermaid plugin. Otherwise paste the code into [Mermaid Live](https://mermaid.live).
 
 ---
 
@@ -157,7 +157,7 @@ flowchart LR
 | **Outputs** | results.json (v0.2), episode log, receipts. No LLM metadata. | Same results schema plus pipeline_mode, llm_backend_id, llm_model_id; metadata has latency, tokens, error_rate, optional cost. TRANSPARENCY_LOG/llm_live.json and live_evaluation_metadata.json for packs. |
 | **Use case** | CI, baseline regression, reproducibility, release verification. | Live evaluation, provider comparison, transparency and cost attribution. |
 
-**Summary:** The hospital lab workflow (zones, devices, specimens, QUEUE_RUN → START_RUN → RELEASE_RESULT, RBAC, signatures, invariants) is **identical** in both pipelines. Only the **source of the action proposal** for LLM-capable agents (and thus network and reproducibility) differs. Results and episode logs share the same schema so you can compare scripted vs LLM in one table via summarize-results.
+**Summary:** The blood sciences workflow (zones, devices, specimens, QUEUE_RUN → START_RUN → RELEASE_RESULT, RBAC, signatures, invariants) is **identical** in both pipelines. Only the **source of the action proposal** for LLM-capable agents (and thus network and reproducibility) differs. Results and episode logs share the same schema so you can compare scripted vs LLM in one table via summarize-results.
 
 ---
 

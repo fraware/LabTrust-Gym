@@ -1,0 +1,17 @@
+# Lab profile for the minimal extension example (examples/extension_example).
+# Use: labtrust --profile example run-benchmark --task example_task --episodes 1
+# Requires: pip install -e examples/extension_example from repo root.
+version: "0.1"
+profile_id: example
+description: "Minimal extension example (example-plugin adds example_task)."
+
+partner_id: null
+benchmark_pack_path: null
+security_suite_path: null
+safety_claims_path: null
+coordination_study_spec_path: null
+security_suite_provider_id: null
+safety_case_provider_id: null
+metrics_aggregator_id: null
+
+extension_packages: ["example-plugin"]

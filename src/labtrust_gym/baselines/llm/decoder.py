@@ -12,6 +12,7 @@ from typing import Any
 # Reason codes (must match policy)
 MISSING_RATIONALE = "MISSING_RATIONALE"
 MISSING_CITATION = "MISSING_CITATION"
+RC_LLM_LOW_CONFIDENCE_REFUSAL = "RC_LLM_LOW_CONFIDENCE_REFUSAL"
 
 # NOOP action used when decoder rejects (llm_action.schema.v0.2 compatible)
 NOOP_ACTION: dict[str, Any] = {
@@ -140,6 +141,22 @@ def decode_constrained(
                     True,
                     "RC_ILLEGAL_MOVE",
                 )
+
+    # 6) Optional: uncertainty-aware refusal when confidence below threshold
+    if policy_summary.get("refuse_below_confidence"):
+        threshold = float(policy_summary.get("refusal_confidence_threshold", 0.6))
+        conf = raw_candidate.get("confidence")
+        if conf is not None:
+            try:
+                c = float(conf)
+                if c < threshold:
+                    noop_out = _noop_for_reject(
+                        noop_action, raw_candidate.get("rationale") or "Refused: confidence below threshold."
+                    )
+                    noop_out["reason_code"] = RC_LLM_LOW_CONFIDENCE_REFUSAL
+                    return (noop_out, True, RC_LLM_LOW_CONFIDENCE_REFUSAL)
+            except (TypeError, ValueError):
+                pass
 
     # Pass: build safe action with rationale; include confidence/safety_notes when using ActionProposal
     safe: dict[str, Any] = {
