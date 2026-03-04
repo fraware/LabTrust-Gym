@@ -111,6 +111,7 @@ def _make_llm_agent_for_smoke(repo_root: Path) -> Any:
     capability_policy = {}
     try:
         from labtrust_gym.security.agent_capabilities import load_agent_capabilities
+
         capability_policy = load_agent_capabilities(repo_root)
     except Exception:
         pass
@@ -173,6 +174,46 @@ def test_centralized_planner_compute_budget() -> None:
     assert len(actions_dict) == 3
     non_noop = sum(1 for a in actions_dict.values() if a.get("action_index") != ACTION_NOOP)
     assert non_noop <= 1
+
+
+def test_centralized_planner_property_no_duplicate_device_work_per_step() -> None:
+    """Core invariant: at most one START_RUN per (device_id, work_id) per step."""
+    from labtrust_gym.baselines.coordination.methods.centralized_planner import (
+        CentralizedPlanner,
+    )
+
+    policy = _tiny_scale_policy()
+    scale_config = {"num_agents_total": 4, "num_sites": 1}
+    method = CentralizedPlanner(compute_budget=None)
+    method.reset(42, policy, scale_config)
+    agents = ["worker_0", "worker_1", "worker_2", "worker_3"]
+    # Obs with work at DEV_1 in Z_B so worklist is non-empty (device in Z_B per policy).
+    obs = {}
+    for i, aid in enumerate(agents):
+        zone_id = "Z_B" if i % 2 else "Z_A"
+        obs[aid] = {
+            "my_zone_idx": 2 if zone_id == "Z_B" else 1,
+            "zone_id": zone_id,
+            "queue_by_device": [
+                {"device_id": "DEV_1", "queue_len": 1, "queue_head": "W1"},
+            ],
+            "queue_has_head": [1],
+            "log_frozen": 0,
+            "door_restricted_open": 0,
+            "restricted_zone_frozen": 0,
+        }
+    actions_dict = method.propose_actions(obs, {}, 0)
+    seen: set[tuple[str, str]] = set()
+    for _aid, rec in actions_dict.items():
+        if rec.get("action_type") != "START_RUN":
+            continue
+        args = rec.get("args") or {}
+        dev = args.get("device_id")
+        work = args.get("work_id")
+        if dev is not None and work is not None:
+            key = (dev, work)
+            assert key not in seen, f"Duplicate (device, work) assignment: {key}"
+            seen.add(key)
 
 
 def test_marl_ppo_skip_if_no_deps() -> None:

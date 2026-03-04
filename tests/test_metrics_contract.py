@@ -197,3 +197,27 @@ def test_summarize_results_v02_csv_mean_std_only(tmp_path: Path) -> None:
         if c in ("task", "agent_baseline_id", "partner_id", "n_episodes"):
             continue
         assert c.endswith("_mean") or c.endswith("_std"), f"v0.2 summary column must be *_mean or *_std: {c}"
+
+
+def test_summarize_discovers_results_subdir_json(tmp_path: Path) -> None:
+    """When --in is a directory, summarization discovers *.json inside subdirs named 'results' (pack layout)."""
+    from labtrust_gym.benchmarks.summarize import load_results_from_path, run_summarize
+
+    # Pack layout: no results*.json at root; only results/throughput_sla_scripted_ops.json
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+    result_file = results_dir / "throughput_sla_scripted_ops.json"
+    result_file.write_text(json.dumps(FIXTURE_RESULTS_V02), encoding="utf-8")
+
+    loaded = load_results_from_path(tmp_path)
+    assert len(loaded) == 1, "should discover the single result file under results/"
+    assert loaded[0]["task"] == "throughput_sla"
+    assert loaded[0]["agent_baseline_id"] == "scripted_ops_v1"
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    run_summarize([tmp_path], out_dir, out_basename="summary")
+    v02_csv = out_dir / "summary_v0.2.csv"
+    assert v02_csv.exists()
+    content = v02_csv.read_text(encoding="utf-8")
+    assert "throughput_sla" in content and "scripted_ops" in content

@@ -18,8 +18,6 @@ from labtrust_gym.tools.execution import (
 def test_execute_tool_safely_missing_adapter_raises() -> None:
     """adapter=None raises ToolExecutionConfigurationError."""
     with pytest.raises(ToolExecutionConfigurationError) as exc_info:
-        execute_tool_safely(
-            "read_lims_v1", {"accession_id": "A1"}, adapter=None
-        )
+        execute_tool_safely("read_lims_v1", {"accession_id": "A1"}, adapter=None)
     assert "tool_adapter" in (exc_info.value.remediation or "")
     assert getattr(exc_info.value, "docs_section", None)

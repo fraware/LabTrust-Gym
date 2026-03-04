@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import csv
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from labtrust_gym.config import policy_path
 from labtrust_gym.policy.loader import (
     get_partner_overlay_dir,
-    load_yaml,
     load_json,
+    load_yaml,
     validate_against_schema,
 )
 
@@ -107,11 +107,7 @@ def _load_summary_rows(csv_path: Path) -> list[dict[str, Any]]:
                     continue
                 if k in numeric_keys:
                     try:
-                        out[k] = (
-                            float(v)
-                            if "." in str(v) or "e" in str(v).lower()
-                            else int(v)
-                        )
+                        out[k] = float(v) if "." in str(v) or "e" in str(v).lower() else int(v)
                     except (ValueError, TypeError):
                         out[k] = None
             rows.append(out)
@@ -131,19 +127,10 @@ def _aggregated_for_cell(
     cell_rows = [
         r
         for r in rows
-        if (r.get("scale_id") or "").strip() == scale_id
-        and (r.get("method_id") or "").strip() == method_id
+        if (r.get("scale_id") or "").strip() == scale_id and (r.get("method_id") or "").strip() == method_id
     ]
-    baseline_rows = [
-        r
-        for r in cell_rows
-        if (r.get("injection_id") or "").strip().lower() in ("none", "")
-    ]
-    attack_rows = [
-        r
-        for r in cell_rows
-        if (r.get("injection_id") or "").strip().lower() not in ("none", "")
-    ]
+    baseline_rows = [r for r in cell_rows if (r.get("injection_id") or "").strip().lower() in ("none", "")]
+    attack_rows = [r for r in cell_rows if (r.get("injection_id") or "").strip().lower() not in ("none", "")]
 
     out: dict[str, Any] = {
         "baseline": {},
@@ -152,20 +139,12 @@ def _aggregated_for_cell(
     }
     metric_keys = set()
     for r in cell_rows:
-        metric_keys.update(
-            k
-            for k in r
-            if k not in ("scale_id", "method_id", "injection_id", "risk_id")
-        )
+        metric_keys.update(k for k in r if k not in ("scale_id", "method_id", "injection_id", "risk_id"))
     for k in metric_keys:
         if k in ("scale_id", "method_id", "injection_id", "risk_id"):
             continue
         base_vals = [r[k] for r in baseline_rows if r.get(k) is not None]
-        out["baseline"][k] = (
-            base_vals[0]
-            if len(base_vals) == 1
-            else (base_vals[0] if base_vals else None)
-        )
+        out["baseline"][k] = base_vals[0] if len(base_vals) == 1 else (base_vals[0] if base_vals else None)
         attack_vals = [r[k] for r in attack_rows if r.get(k) is not None]
         if attack_vals:
             try:
@@ -216,9 +195,7 @@ def _check_constraint(
     if operator == ">":
         return (True, None) if value > threshold else (False, f"{value} <= {threshold}")
     if operator == "==":
-        return (
-            (True, None) if value == threshold else (False, f"{value} != {threshold}")
-        )
+        return (True, None) if value == threshold else (False, f"{value} != {threshold}")
     return (True, None)
 
 
@@ -260,9 +237,7 @@ def build_decision(
     policy_root = Path(policy_root).resolve()
     summary_info = _find_summary_csv(run_dir)
     if not summary_info:
-        raise FileNotFoundError(
-            f"No summary CSV found under {run_dir}. Expected one of: {SUMMARY_CANDIDATES}"
-        )
+        raise FileNotFoundError(f"No summary CSV found under {run_dir}. Expected one of: {SUMMARY_CANDIDATES}")
     csv_path, summary_source = summary_info
     rows = _load_summary_rows(csv_path)
     if not rows:
@@ -279,13 +254,11 @@ def build_decision(
     if not has_resilience and "pack_summary" in summary_source:
         try:
             from labtrust_gym.studies.resilience_scoring import (
-                load_resilience_scoring_policy,
                 enrich_pack_rows_with_resilience,
+                load_resilience_scoring_policy,
             )
 
-            resilience_policy_path = policy_path(
-                policy_root, "coordination", "resilience_scoring.v0.1.yaml"
-            )
+            resilience_policy_path = policy_path(policy_root, "coordination", "resilience_scoring.v0.1.yaml")
             if resilience_policy_path.is_file():
                 policy_res = load_resilience_scoring_policy(resilience_policy_path)
                 enrich_pack_rows_with_resilience(rows, policy=policy_res)
@@ -295,11 +268,7 @@ def build_decision(
     # Partner overlay may override selection policy
     selection_policy_path = policy_path(policy_root, "coordination", SELECTION_POLICY_FILENAME)
     if partner_id:
-        overlay_path = (
-            get_partner_overlay_dir(policy_root, partner_id)
-            / "coordination"
-            / SELECTION_POLICY_FILENAME
-        )
+        overlay_path = get_partner_overlay_dir(policy_root, partner_id) / "coordination" / SELECTION_POLICY_FILENAME
         if overlay_path.is_file():
             selection_policy_path = overlay_path
     if not selection_policy_path.is_file():
@@ -307,18 +276,10 @@ def build_decision(
     policy = load_yaml(selection_policy_path)
     policy_id = policy.get("policy_id") or "coordination_selection_v0.1"
     constraints: list[dict[str, Any]] = policy.get("constraints") or []
-    objective: dict[str, Any] = policy.get("objective") or {
-        "type": "maximize_overall_score"
-    }
-    per_scale_rules: dict[str, Any] = policy.get("per_scale_rules") or {}
+    objective: dict[str, Any] = policy.get("objective") or {"type": "maximize_overall_score"}
+    _per_scale_rules: dict[str, Any] = policy.get("per_scale_rules") or {}
 
-    scale_ids = sorted(
-        {
-            (r.get("scale_id") or "").strip()
-            for r in rows
-            if (r.get("scale_id") or "").strip()
-        }
-    )
+    scale_ids = sorted({(r.get("scale_id") or "").strip() for r in rows if (r.get("scale_id") or "").strip()})
     if not scale_ids:
         scale_ids = ["default"]
 
@@ -331,8 +292,7 @@ def build_decision(
             {
                 (r.get("method_id") or "").strip()
                 for r in rows
-                if (r.get("scale_id") or "").strip() == scale_id
-                and (r.get("method_id") or "").strip()
+                if (r.get("scale_id") or "").strip() == scale_id and (r.get("method_id") or "").strip()
             }
         )
         admissible: list[dict[str, Any]] = []
@@ -349,11 +309,7 @@ def build_decision(
                 aggregation = c.get("aggregation") or "baseline_only"
                 allow_missing = c.get("allow_missing") or False
                 value = _value_for_constraint(agg, metric_key, aggregation)
-                if (
-                    metric_key == "cost.estimated_cost_usd"
-                    and value is None
-                    and allow_missing
-                ):
+                if metric_key == "cost.estimated_cost_usd" and value is None and allow_missing:
                     value = 0.0
                 passes, _ = _check_constraint(value, operator, threshold, allow_missing)
                 if not passes:
@@ -370,9 +326,7 @@ def build_decision(
                 disqualified.append(
                     {
                         "method_id": method_id,
-                        "reason": "; ".join(
-                            f"{v['constraint_id']}={v['actual']}" for v in violated_list
-                        ),
+                        "reason": "; ".join(f"{v['constraint_id']}={v['actual']}" for v in violated_list),
                         "violated_constraints": violated_list,
                     }
                 )
@@ -380,9 +334,7 @@ def build_decision(
                     all_violated.append(v)
             else:
                 score = _overall_score_for_ranking(agg, objective)
-                admissible.append(
-                    {"method_id": method_id, "overall_score": score, "rank": None}
-                )
+                admissible.append({"method_id": method_id, "overall_score": score, "rank": None})
 
         admissible.sort(key=lambda x: (-(x["overall_score"] or 0), x["method_id"]))
         for i, a in enumerate(admissible, start=1):
@@ -426,26 +378,16 @@ def build_decision(
         )
         residual = "Residual risk: security/safety gate failed; do not deploy until gate passes."
     elif not any_no_admissible:
-        chosen_list = [
-            sd["chosen_method_id"]
-            for sd in scale_decisions
-            if sd.get("chosen_method_id")
-        ]
-        chosen_evidence = (
-            "Chosen method(s) for deployment: " + ", ".join(chosen_list) + "."
-        )
+        chosen_list = [sd["chosen_method_id"] for sd in scale_decisions if sd.get("chosen_method_id")]
+        chosen_evidence = "Chosen method(s) for deployment: " + ", ".join(chosen_list) + "."
         rejected_rationale = (
             "Rejected others: "
             + "; ".join(
-                f"{d['method_id']}: {d['reason']}"
-                for sd in scale_decisions
-                for d in sd.get("disqualified") or []
+                f"{d['method_id']}: {d['reason']}" for sd in scale_decisions for d in sd.get("disqualified") or []
             )
             or "None (all admissible or only one method)."
         )
-        residual = (
-            "Residual risk: see per-scale disqualified methods and policy constraints."
-        )
+        residual = "Residual risk: see per-scale disqualified methods and policy constraints."
 
     risk_register_linkage = {
         "chosen_method_evidence": chosen_evidence,
@@ -456,7 +398,7 @@ def build_decision(
     decision: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "kind": KIND,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "run_dir": str(run_dir),
         "policy_id": policy_id,
         "policy_path": str(policy_path),
@@ -546,10 +488,7 @@ def _render_decision_md(decision: dict[str, Any]) -> list[str]:
         if adm:
             lines.append(
                 "- **Top candidates:** "
-                + ", ".join(
-                    f"{a['method_id']} (score={a.get('overall_score')}, rank={a.get('rank')})"
-                    for a in adm[:5]
-                )
+                + ", ".join(f"{a['method_id']} (score={a.get('overall_score')}, rank={a.get('rank')})" for a in adm[:5])
             )
         lines.append("")
         disq = sd.get("disqualified") or []
@@ -561,15 +500,9 @@ def _render_decision_md(decision: dict[str, Any]) -> list[str]:
     lines.append("## Risk register linkage")
     lines.append("")
     rr = decision.get("risk_register_linkage") or {}
-    lines.append(
-        f"- **Chosen method evidence:** {rr.get('chosen_method_evidence', '')}"
-    )
-    lines.append(
-        f"- **Rejected others rationale:** {rr.get('rejected_others_rationale', '')}"
-    )
-    lines.append(
-        f"- **Residual risk statement:** {rr.get('residual_risk_statement', '')}"
-    )
+    lines.append(f"- **Chosen method evidence:** {rr.get('chosen_method_evidence', '')}")
+    lines.append(f"- **Rejected others rationale:** {rr.get('rejected_others_rationale', '')}")
+    lines.append(f"- **Residual risk statement:** {rr.get('residual_risk_statement', '')}")
     lines.append("")
     if decision.get("verdict") == "security_gate_failed":
         sgf = decision.get("security_gate_failed") or {}
@@ -577,9 +510,7 @@ def _render_decision_md(decision: dict[str, Any]) -> list[str]:
         lines.append("")
         lines.append("One or more coordination security pack cells failed the gate. Do not deploy until resolved.")
         for cell in (sgf.get("failed_cells") or [])[:30]:
-            lines.append(
-                f"- {cell.get('scale_id')} / {cell.get('method_id')} / {cell.get('injection_id')}"
-            )
+            lines.append(f"- {cell.get('scale_id')} / {cell.get('method_id')} / {cell.get('injection_id')}")
         lines.append("")
     if decision.get("verdict") == "no_admissible_method":
         no_adm = decision.get("no_admissible_method") or {}

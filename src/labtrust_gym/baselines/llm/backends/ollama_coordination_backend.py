@@ -105,17 +105,17 @@ def _ensure_proposal_shape(proposal: dict[str, Any], agent_ids: list[str]) -> No
     proposal.setdefault("comms", [])
     if "per_agent" not in proposal or not isinstance(proposal["per_agent"], list):
         proposal["per_agent"] = []
-    per_agent_by_id = {
-        p.get("agent_id"): p for p in proposal["per_agent"] if p.get("agent_id")
-    }
+    per_agent_by_id = {p.get("agent_id"): p for p in proposal["per_agent"] if p.get("agent_id")}
     for aid in agent_ids:
         if aid not in per_agent_by_id:
-            proposal["per_agent"].append({
-                "agent_id": aid,
-                "action_type": "NOOP",
-                "args": {},
-                "reason_code": "LLM_INVALID_SCHEMA",
-            })
+            proposal["per_agent"].append(
+                {
+                    "agent_id": aid,
+                    "action_type": "NOOP",
+                    "args": {},
+                    "reason_code": "LLM_INVALID_SCHEMA",
+                }
+            )
     if "meta" not in proposal or not isinstance(proposal.get("meta"), dict):
         proposal["meta"] = {}
 
@@ -184,6 +184,7 @@ class OllamaCoordinationProposalBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass
@@ -210,9 +211,7 @@ class OllamaCoordinationProposalBackend:
         )
         start = time.perf_counter()
         try:
-            raw = _call_ollama_chat(
-                prompt, self._base_url, self._model, self._timeout_s
-            )
+            raw = _call_ollama_chat(prompt, self._base_url, self._model, self._timeout_s)
         except Exception as e:
             if tracer is not None:
                 tracer.set_attribute("latency_ms", 0)
@@ -258,13 +257,15 @@ class OllamaCoordinationProposalBackend:
         proposal["method_id"] = method_id
         if "meta" not in proposal:
             proposal["meta"] = {}
-        proposal["meta"].update({
-            "backend_id": BACKEND_ID_COORD,
-            "model_id": self._model,
-            "latency_ms": round(latency_ms, 2),
-            "tokens_in": 0,
-            "tokens_out": 0,
-        })
+        proposal["meta"].update(
+            {
+                "backend_id": BACKEND_ID_COORD,
+                "model_id": self._model,
+                "latency_ms": round(latency_ms, 2),
+                "tokens_in": 0,
+                "tokens_out": 0,
+            }
+        )
         meta = {
             "backend_id": BACKEND_ID_COORD,
             "model_id": self._model,
@@ -298,9 +299,7 @@ class OllamaCoordinationProposalBackend:
             "backend_id": BACKEND_ID_COORD,
             "model_id": self._model,
             "error_rate": round(rate, 4),
-            "mean_latency_ms": (
-                round(mean_ms, 2) if mean_ms is not None else None
-            ),
+            "mean_latency_ms": (round(mean_ms, 2) if mean_ms is not None else None),
             "p50_latency_ms": round(p50, 2) if p50 is not None else None,
             "p95_latency_ms": round(p95, 2) if p95 is not None else None,
             "total_tokens": None,
@@ -386,6 +385,7 @@ class OllamaBidBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass
@@ -501,9 +501,7 @@ class OllamaBidBackend:
             "backend_id": BACKEND_ID_BID,
             "model_id": self._model,
             "error_rate": round(rate, 4),
-            "mean_latency_ms": (
-                round(mean_ms, 2) if mean_ms is not None else None
-            ),
+            "mean_latency_ms": (round(mean_ms, 2) if mean_ms is not None else None),
             "p50_latency_ms": round(p50, 2) if p50 is not None else None,
             "p95_latency_ms": round(p95, 2) if p95 is not None else None,
             "total_tokens": None,
@@ -563,12 +561,7 @@ class OllamaLocalProposalBackend:
             + json.dumps(allowed_actions[:20])
             + "), args (object), reason_code (null or string), token_refs (array), "
             "rationale (string), confidence (number 0-1), safety_notes (string). "
-            "Local view: "
-            + json.dumps(local_view, sort_keys=True)
-            + " Agent: "
-            + agent_id
-            + " Step: "
-            + str(step)
+            "Local view: " + json.dumps(local_view, sort_keys=True) + " Agent: " + agent_id + " Step: " + str(step)
         )
         try:
             raw = _call_ollama_chat(
@@ -651,6 +644,7 @@ class OllamaGossipSummaryBackend:
             get_zone_from_obs,
             log_frozen,
         )
+
         o = obs.get(agent_id) or {}
         zone = get_zone_from_obs(o, zone_ids) or str(o.get("zone_id", ""))[:64]
         task = "frozen" if log_frozen(o) else "active"
@@ -660,20 +654,20 @@ class OllamaGossipSummaryBackend:
             if idx >= len(qbd):
                 break
             d = qbd[idx] if isinstance(qbd[idx], dict) else {}
-            queue_preview.append({
-                "device_id": str(d.get("device_id", dev_id))[:32],
-                "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
-                "queue_head": str(d.get("queue_head", ""))[:64],
-            })
-        prompt = (
-            "Return JSON with agent_id, step_id, zone_id, queue_summary "
-            "(array of {device_id, queue_len, queue_head}), task (active|frozen). "
-            "agent_id=%s step_id=%s zone_id=%s task=%s queue=%s. Only JSON."
-        ) % (agent_id, t, zone, task, json.dumps(queue_preview, sort_keys=True))
-        try:
-            raw = _call_ollama_chat(
-                prompt, self._base_url, self._model, self._timeout_s
+            queue_preview.append(
+                {
+                    "device_id": str(d.get("device_id", dev_id))[:32],
+                    "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
+                    "queue_head": str(d.get("queue_head", ""))[:64],
+                }
             )
+        prompt = (
+            f"Return JSON with agent_id, step_id, zone_id, queue_summary "
+            f"(array of {{device_id, queue_len, queue_head}}), task (active|frozen). "
+            f"agent_id={agent_id} step_id={t} zone_id={zone} task={task} queue={json.dumps(queue_preview, sort_keys=True)}. Only JSON."
+        )
+        try:
+            raw = _call_ollama_chat(prompt, self._base_url, self._model, self._timeout_s)
         except Exception:
             return _minimal_gossip_payload_ollama(agent_id, t)
         raw = (raw or "").strip()

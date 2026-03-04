@@ -17,9 +17,25 @@ from typing import Any, TypeVar, cast
 
 T = TypeVar("T")
 
+# Optional: jsonschema is a dependency in pyproject.toml
+from types import ModuleType
+
 import yaml
 
 from labtrust_gym.errors import PolicyLoadError
+
+__all__ = [
+    "PolicyLoadError",
+    "load_json",
+    "load_yaml",
+    "load_yaml_optional",
+    "load_policy_file",
+    "validate_against_schema",
+    "load_effective_policy",
+    "get_partner_overlay_dir",
+    "load_partners_index",
+]
+
 from labtrust_gym.policy.overlay import (
     merge_critical_thresholds,
     merge_enforcement_map,
@@ -28,11 +44,9 @@ from labtrust_gym.policy.overlay import (
     merge_stability_policy,
 )
 
-# Optional: jsonschema is a dependency in pyproject.toml
-from types import ModuleType
-
 try:
     import jsonschema as _jsonschema_module
+
     jsonschema: ModuleType | None = _jsonschema_module
 except ImportError:
     jsonschema = None
@@ -156,6 +170,7 @@ POLICY_FILE_SCHEMA_MAP: dict[str, str] = {
     "critical_thresholds.v0.1.yaml": "critical_thresholds.v0.1.schema.json",
     "equipment_registry.v0.1.yaml": "equipment_registry.v0.1.schema.json",
     "golden_scenarios.v0.1.yaml": "golden_scenarios.v0.1.schema.json",
+    "security_attack_suite.v0.1.yaml": "security_attack_suite.v0.1.schema.json",
     "enforcement_map.v0.1.yaml": "enforcement_map.v0.1.schema.json",
     "escalation_ladder.v0.2.yaml": "escalation_ladder.v0.2.schema.json",
     "sites_policy.v0.1.yaml": "sites_policy.v0.1.schema.json",
@@ -172,6 +187,9 @@ POLICY_FILE_SCHEMA_MAP: dict[str, str] = {
     "coordination_matrix_column_map.v0.1.yaml": "coordination_matrix_column_map.v0.1.schema.json",
     "coordination_matrix_spec.v0.1.yaml": "coordination_matrix_spec.v0.1.schema.json",
     "tool_registry.v0.1.yaml": "tool_registry.v0.1.schema.json",
+    "scripted_ops_policy.v0.1.yaml": "scripted_ops_policy.v0.1.schema.json",
+    "scripted_runner_policy.v0.1.yaml": "scripted_runner_policy.v0.1.schema.json",
+    "repair_policy.v0.1.yaml": "repair_policy.v0.1.schema.json",
 }
 
 
@@ -492,3 +510,44 @@ def load_effective_policy(
     if _policy_cache_enabled():
         _EFFECTIVE_POLICY_CACHE[cache_key] = result
     return result
+
+
+def load_policy_for_domain(
+    root: Path,
+    domain_id: str | None = None,
+    partner_id: str | None = None,
+) -> tuple[dict[str, Any], str, str | None, str | None, dict[str, Any]]:
+    """
+    Load base policy (via load_effective_policy); when domain_id is set and
+    policy/domains/<domain_id>/ exists, load domain-specific YAML files from that
+    path and return them as domain_overrides. Merge rules: domain_overrides extend
+    or override base only for keys explicitly loaded from the domain dir.
+    Returns (effective_policy, fingerprint, partner_id, calibration_fingerprint, domain_overrides).
+    domain_overrides is empty when domain_id is None or the domain path does not exist.
+    """
+    effective_policy, fingerprint, pid, cal_fp = load_effective_policy(root, partner_id=partner_id)
+    domain_overrides: dict[str, Any] = {}
+    if domain_id:
+        domain_dir = Path(root) / "policy" / "domains" / domain_id
+        if domain_dir.is_dir():
+            for path in sorted(domain_dir.glob("*.yaml")):
+                try:
+                    data = load_yaml(path)
+                    if isinstance(data, dict):
+                        key = path.stem
+                        domain_overrides[key] = data
+                except PolicyLoadError:
+                    raise
+                except Exception:
+                    pass
+            for path in sorted(domain_dir.glob("*.yml")):
+                try:
+                    data = load_yaml(path)
+                    if isinstance(data, dict):
+                        key = path.stem
+                        domain_overrides[key] = data
+                except PolicyLoadError:
+                    raise
+                except Exception:
+                    pass
+    return (effective_policy, fingerprint, pid, cal_fp, domain_overrides)

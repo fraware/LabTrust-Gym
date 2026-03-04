@@ -61,10 +61,7 @@ def _map_openai_error(e: Exception) -> LLMBackendError:
         return AuthError(str(e))
     if "429" in msg or "rate" in msg or "rate_limit" in msg:
         return RateLimitError(str(e))
-    if (
-        "timeout" in msg or "timed out" in msg
-        or "504" in msg or "502" in msg or "503" in msg or "500" in msg
-    ):
+    if "timeout" in msg or "timed out" in msg or "504" in msg or "502" in msg or "503" in msg or "500" in msg:
         return ProviderUnavailable(str(e))
     return ProviderUnavailable(str(e))
 
@@ -101,16 +98,11 @@ class OpenAIHostedBackend:
         Raises RateLimitError or ProviderUnavailable on API errors after retries.
         """
         if not self._api_key:
-            raise AuthError(
-                "OPENAI_API_KEY is not set. Set it in the environment to use "
-                "OpenAI-hosted backend."
-            )
+            raise AuthError("OPENAI_API_KEY is not set. Set it in the environment to use OpenAI-hosted backend.")
         try:
             from openai import OpenAI
         except ImportError as e:
-            raise ProviderUnavailable(
-                "OpenAI SDK not installed. Install with: pip install -e '.[llm_openai]'"
-            ) from e
+            raise ProviderUnavailable("OpenAI SDK not installed. Install with: pip install -e '.[llm_openai]'") from e
 
         client = OpenAI(api_key=self._api_key)
         last_exc: Exception | None = None
@@ -136,19 +128,13 @@ class OpenAIHostedBackend:
                 last_exc = RuntimeError("Empty response")
                 if attempt < self._retries:
                     continue
-                raise ProviderUnavailable(
-                    "Empty response from OpenAI"
-                ) from last_exc
+                raise ProviderUnavailable("Empty response from OpenAI") from last_exc
             msg = choice.message
             content = getattr(msg, "content", None) or ""
             if not content or not content.strip():
                 last_exc = RuntimeError("Empty content")
                 if attempt < self._retries:
                     continue
-                raise ProviderUnavailable(
-                    "Empty content from OpenAI"
-                ) from last_exc
+                raise ProviderUnavailable("Empty content from OpenAI") from last_exc
             return content.strip()
-        raise ProviderUnavailable(
-            str(last_exc or "No response")
-        ) from last_exc
+        raise ProviderUnavailable(str(last_exc or "No response")) from last_exc

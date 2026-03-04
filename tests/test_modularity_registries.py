@@ -8,9 +8,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import pytest
-
-
 # Unique prefix to avoid clashing with built-in names
 _MOD_PREFIX = "_modularity_test_"
 
@@ -86,6 +83,7 @@ def test_register_task_and_get_task() -> None:
     finally:
         # Unregister to avoid affecting other tests
         from labtrust_gym.benchmarks.tasks import _TASK_REGISTRY
+
         _TASK_REGISTRY.pop(name, None)
 
 
@@ -115,6 +113,7 @@ def test_register_coordination_method_and_make() -> None:
             return {}
 
     mid = _stub_coord_id()
+
     def _factory(
         policy: dict[str, Any],
         repo_root: Path | None,
@@ -130,6 +129,7 @@ def test_register_coordination_method_and_make() -> None:
         assert isinstance(method, StubCoordinationMethod)
     finally:
         from labtrust_gym.baselines.coordination.registry import _COORDINATION_FACTORIES
+
         _COORDINATION_FACTORIES.pop(mid, None)
 
 
@@ -140,7 +140,9 @@ def test_register_invariant_handler_appears_in_registry() -> None:
     """Register an invariant handler and assert it is in the runtime registry."""
     from labtrust_gym.engine import invariants_runtime
 
-    def _handler(env: Any, event: dict[str, Any], params: dict[str, Any]) -> tuple[bool, str | None, dict[str, Any] | None] | None:
+    def _handler(
+        env: Any, event: dict[str, Any], params: dict[str, Any]
+    ) -> tuple[bool, str | None, dict[str, Any] | None] | None:
         return (True, None, None)
 
     logic_type = _stub_invariant_type()
@@ -171,6 +173,7 @@ def test_register_and_get_security_suite_provider() -> None:
         assert got is stub
     finally:
         from labtrust_gym.benchmarks.security_runner import _SECURITY_SUITE_PROVIDERS
+
         _SECURITY_SUITE_PROVIDERS.pop(pid, None)
 
 
@@ -192,6 +195,7 @@ def test_register_and_get_safety_case_provider() -> None:
         assert got is stub
     finally:
         from labtrust_gym.security.safety_case import _SAFETY_CASE_PROVIDERS
+
         _SAFETY_CASE_PROVIDERS.pop(pid, None)
 
 
@@ -215,6 +219,7 @@ def test_register_and_get_metrics_aggregator() -> None:
         assert got is _stub_aggregator
     finally:
         from labtrust_gym.benchmarks.metrics import _METRICS_AGGREGATORS
+
         _METRICS_AGGREGATORS.pop(pid, None)
 
 
@@ -228,9 +233,7 @@ def test_register_and_get_benchmark_pack_loader() -> None:
         register_benchmark_pack_loader,
     )
 
-    def _stub_loader(
-        repo_root: Path, prefer_v02: bool, partner_id: str | None
-    ) -> tuple[dict[str, Any], str, str]:
+    def _stub_loader(repo_root: Path, prefer_v02: bool, partner_id: str | None) -> tuple[dict[str, Any], str, str]:
         return ({"version": "0.1", "tasks": {"core": []}}, "0.1", "stub")
 
     lid = _stub_pack_loader_id()
@@ -240,6 +243,7 @@ def test_register_and_get_benchmark_pack_loader() -> None:
         assert got is _stub_loader
     finally:
         from labtrust_gym.benchmarks.official_pack import _BENCHMARK_PACK_LOADERS
+
         _BENCHMARK_PACK_LOADERS.pop(lid, None)
 
 
@@ -285,6 +289,7 @@ def test_profile_provider_id_passed_to_run_security_suite(tmp_path: Path) -> Non
         assert get_security_suite_provider(pid) is not None
     finally:
         from labtrust_gym.benchmarks.security_runner import _SECURITY_SUITE_PROVIDERS
+
         _SECURITY_SUITE_PROVIDERS.pop(pid, None)
 
 
@@ -301,9 +306,10 @@ def test_get_effective_path_uses_profile_when_set(tmp_path: Path) -> None:
     assert get_effective_path(policy_root, None, "security_suite_path", default_rel) == (
         policy_root / "policy" / default_rel
     )
-    assert get_effective_path(
-        policy_root, {"other": "x"}, "security_suite_path", default_rel
-    ) == policy_root / "policy" / default_rel
+    assert (
+        get_effective_path(policy_root, {"other": "x"}, "security_suite_path", default_rel)
+        == policy_root / "policy" / default_rel
+    )
     # Profile has field -> resolved relative to policy_root
     profile_custom = {"security_suite_path": "policy/golden/custom_suite.v0.1.yaml"}
     got = get_effective_path(policy_root, profile_custom, "security_suite_path", default_rel)
@@ -334,6 +340,7 @@ def test_safety_case_provider_id_passed_through(tmp_path: Path) -> None:
         assert get_safety_case_provider(pid) is not None
     finally:
         from labtrust_gym.security.safety_case import _SAFETY_CASE_PROVIDERS
+
         _SAFETY_CASE_PROVIDERS.pop(pid, None)
 
 
@@ -360,6 +367,7 @@ def test_metrics_aggregator_resolution() -> None:
         assert pid in list_metrics_aggregators()
     finally:
         from labtrust_gym.benchmarks.metrics import _METRICS_AGGREGATORS
+
         _METRICS_AGGREGATORS.pop(pid, None)
 
 
@@ -380,9 +388,7 @@ def test_domain_adapter_factory_resolution() -> None:
     from labtrust_gym.runner.adapter import LabTrustEnvAdapter
 
     class StubAdapter(LabTrustEnvAdapter):
-        def reset(
-            self, initial_state: dict, *, deterministic: bool, rng_seed: int
-        ) -> None:
+        def reset(self, initial_state: dict, *, deterministic: bool, rng_seed: int) -> None:
             pass
 
         def step(self, event: dict) -> dict:
@@ -402,6 +408,7 @@ def test_domain_adapter_factory_resolution() -> None:
         assert did in list_domains()
     finally:
         from labtrust_gym.domain.registry import _DOMAIN_REGISTRY
+
         _DOMAIN_REGISTRY.pop(did, None)
 
 

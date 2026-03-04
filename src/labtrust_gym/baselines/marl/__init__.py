@@ -4,11 +4,13 @@ from __future__ import annotations
 
 try:
     from labtrust_gym.baselines.marl.sb3_wrapper import (
+        FlattenObsWrapper,
         LabTrustGymnasiumWrapper,
         make_task_env,
     )
 except ImportError:
+    FlattenObsWrapper = None  # type: ignore[misc, assignment]
     LabTrustGymnasiumWrapper = None  # type: ignore[misc, assignment]
     make_task_env = None  # type: ignore[assignment]
 
-__all__ = ["LabTrustGymnasiumWrapper", "make_task_env"]
+__all__ = ["FlattenObsWrapper", "LabTrustGymnasiumWrapper", "make_task_env"]

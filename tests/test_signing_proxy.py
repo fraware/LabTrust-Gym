@@ -180,9 +180,7 @@ def test_llm_agent_strict_signatures_attach_signed_by_proxy() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     rbac_path = repo_root / "policy" / "rbac" / "rbac_policy.v0.1.yaml"
     rbac_policy = load_rbac_policy(rbac_path)
-    backend = DeterministicConstrainedBackend(
-        seed=42, default_action_type="TICK", first_action_type="TICK"
-    )
+    backend = DeterministicConstrainedBackend(seed=42, default_action_type="TICK", first_action_type="TICK")
     pz_to_engine = {"ops_0": "A_RECEPTION"}
     agent = LLMAgentWithShield(
         backend=backend,

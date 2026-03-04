@@ -7,12 +7,11 @@ executed; tools only read state and return a small result for the coordinator.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 # Type for a single tool: (obs, infos, step_t, method_state) -> result dict
-CoordinatorToolFn = Callable[
-    [dict[str, Any], dict[str, Any], int, dict[str, Any]], dict[str, Any]
-]
+CoordinatorToolFn = Callable[[dict[str, Any], dict[str, Any], int, dict[str, Any]], dict[str, Any]]
 
 
 def tool_query_queue_state(
@@ -124,7 +123,7 @@ def run_tools(
         if name not in reg:
             results.append({"name": name, "result": {"error": "unknown_tool"}})
             continue
-        args = tc.get("args") if isinstance(tc.get("args"), dict) else {}
+        _args = tc.get("args") if isinstance(tc.get("args"), dict) else {}
         try:
             result = reg[name](obs, infos, step_t, method_state)
             results.append({"name": name, "result": result})

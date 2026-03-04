@@ -63,7 +63,7 @@ The portal should feel like a **browser over immutable objects**.
 
 | Object | Description | Repo / artifact reference |
 |--------|-------------|---------------------------|
-| **Release** | Version, git_sha, generated_at, manifest, gates | `package-release` output; `MANIFEST.v0.1.json`, `RELEASE_MANIFEST.v0.1.json`; see [Release checklist](operations/release_checklist.md) |
+| **Release** | Version, git_sha, generated_at, manifest, gates | `package-release` output; `MANIFEST.v0.1.json`, `RELEASE_MANIFEST.v0.1.json`; see [Trust verification](risk-and-security/trust_verification.md) and [CI](operations/ci.md) |
 | **Risk** | risk_id, narrative, controls, evidence, coverage | `policy/risks/risk_registry.v0.1.yaml`; RiskRegisterBundle.v0.1 `risks[]`; [Risk register contract](contracts/risk_register_contract.v0.1.md) |
 | **Method** | method_id, family, contract, invariants, benchmark results | `policy/coordination/coordination_methods.v0.1.yaml`; [How coordination methods work](coordination/coordination_methods_how_they_work.md) |
 | **Benchmark run / suite** | Pack results, verdicts, metrics | `run-coordination-security-pack` output; `pack_summary.csv`, `SECURITY/coordination_risk_matrix.csv`; results.v0.2/v0.3 |
@@ -108,7 +108,7 @@ Release timeline and diff tooling.
 - **Manifest:** Human-readable summary + raw JSON (MANIFEST.v0.1.json)
 - **Inputs:** Policy digests, tool registry digests, prompt digests (from bundle or manifest)
 - **Outputs:** Bundle, benchmark index, claims snapshots
-- **Reproduce block:** Exact CLI commands and expected hashes (from [Release checklist](operations/release_checklist.md): package-release, export-risk-register, build-release-manifest, verify-release)
+- **Reproduce block:** Exact CLI commands and expected hashes (package-release, export-risk-register, build-release-manifest, verify-release)
 
 **Anchor:** This is the "unit of truth" for the release. Repo unit of truth: `tests/fixtures/release_fixture_minimal` and e2e-artifacts-chain.
 
@@ -296,6 +296,21 @@ In Lovable (or any single frontend project), structure as:
 Keep it **pure frontend initially**: control plane generates exact commands and validates outputs once pasted/loaded. Later, swap in a runner API without changing the portal’s conceptual model.
 
 **Deployment:** Standard web app; sync and host externally as needed (e.g. static hosting + CI publishing of public-data). GitHub as backbone; existing `viewer-data-from-release` and `docs` workflows show the pattern.
+
+### Portal live data connection
+
+When the portal is deployed (e.g. via Lovable on a custom domain), **Live** mode fetches data from this repo’s deployed viewer-data. Configure the portal as follows:
+
+- **Environment variable:** `VITE_DATA_BASE_URL`  
+  The portal’s `getBaseUrl()` uses this for live mode (with trailing-slash normalization). If unset, it falls back to `/public-data/<channel>`.
+
+- **Value:** The base URL where `viewer-data/latest/` is publicly served. This repo deploys that folder via the **Docs** workflow (`.github/workflows/docs.yml`), which runs `scripts/build_viewer_data_from_release.sh` and copies `viewer-data/` into the site before deploy. The public URL is:
+  - **`https://<owner>.github.io/<repo>/viewer-data/latest/`**  
+  Replace `<owner>` and `<repo>` with the GitHub org/user and repository name (e.g. `https://our-org.github.io/LabTrust-Gym/viewer-data/latest/`). Include the trailing slash.
+
+- **Where to set:** In the Lovable project (or the platform Lovable deploys to), set `VITE_DATA_BASE_URL` in the **build** environment so it is available when `vite build` runs. Then redeploy. Switching the UI to **Live** (and channel **latest**) will fetch `latest.json` and the risk register bundle from that URL.
+
+- **Verification:** After deploy, open the portal, switch to Live + latest, and confirm the risk register (and any other data from the pointer) loads. In DevTools → Network, requests should go to `{VITE_DATA_BASE_URL}latest.json` and `{VITE_DATA_BASE_URL}RISK_REGISTER_BUNDLE.v0.1.json`. Ensure the Docs workflow has run on `main` so that URL is populated.
 
 ---
 

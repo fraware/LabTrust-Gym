@@ -63,13 +63,15 @@ def format_method_risk_matrix(
     for c in cells:
         if not isinstance(c, dict):
             continue
-        rows.append({
-            "method_id": str(c.get("method_id", "")),
-            "risk_id": str(c.get("risk_id", "")),
-            "coverage": str(c.get("coverage", "")),
-            "required_bench": "yes" if c.get("required_bench") else "no",
-            "rationale": str(c.get("rationale", ""))[:80],
-        })
+        rows.append(
+            {
+                "method_id": str(c.get("method_id", "")),
+                "risk_id": str(c.get("risk_id", "")),
+                "coverage": str(c.get("coverage", "")),
+                "required_bench": "yes" if c.get("required_bench") else "no",
+                "rationale": str(c.get("rationale", ""))[:80],
+            }
+        )
 
     if output_format == "csv":
         out = io.StringIO()
@@ -86,31 +88,47 @@ def format_method_risk_matrix(
             "|-----------|---------|----------|----------------|-----------|",
         ]
         for r in rows:
-            lines.append(f"| {r['method_id']} | {r['risk_id']} | {r['coverage']} | {r['required_bench']} | {r['rationale']} |")
+            lines.append(
+                f"| {r['method_id']} | {r['risk_id']} | {r['coverage']} | {r['required_bench']} | {r['rationale']} |"
+            )
         return "\n".join(lines)
 
     # table: simple ASCII
-    col_w = {"method_id": max(8, max((len(r["method_id"]) for r in rows), default=0)),
-             "risk_id": max(8, max((len(r["risk_id"]) for r in rows), default=0)),
-             "coverage": 10, "required_bench": 8, "rationale": 40}
+    col_w = {
+        "method_id": max(8, max((len(r["method_id"]) for r in rows), default=0)),
+        "risk_id": max(8, max((len(r["risk_id"]) for r in rows), default=0)),
+        "coverage": 10,
+        "required_bench": 8,
+        "rationale": 40,
+    }
     sep = "  "
-    head = sep.join([
-        f"{'method_id':<{col_w['method_id']}}",
-        f"{'risk_id':<{col_w['risk_id']}}",
-        f"{'coverage':<{col_w['coverage']}}",
-        f"{'req_bench':<{col_w['required_bench']}}",
-        f"{'rationale':<{col_w['rationale']}}",
-    ])
+    head = sep.join(
+        [
+            f"{'method_id':<{col_w['method_id']}}",
+            f"{'risk_id':<{col_w['risk_id']}}",
+            f"{'coverage':<{col_w['coverage']}}",
+            f"{'req_bench':<{col_w['required_bench']}}",
+            f"{'rationale':<{col_w['rationale']}}",
+        ]
+    )
     lines = [head, "-" * len(head)]
     for r in rows:
-        rshort = (r["rationale"][: col_w["rationale"] - 2] + "..") if len(r["rationale"]) > col_w["rationale"] else r["rationale"]
-        lines.append(sep.join([
-            f"{r['method_id']:<{col_w['method_id']}}",
-            f"{r['risk_id']:<{col_w['risk_id']}}",
-            f"{r['coverage']:<{col_w['coverage']}}",
-            f"{r['required_bench']:<{col_w['required_bench']}}",
-            f"{rshort:<{col_w['rationale']}}",
-        ]))
+        rshort = (
+            (r["rationale"][: col_w["rationale"] - 2] + "..")
+            if len(r["rationale"]) > col_w["rationale"]
+            else r["rationale"]
+        )
+        lines.append(
+            sep.join(
+                [
+                    f"{r['method_id']:<{col_w['method_id']}}",
+                    f"{r['risk_id']:<{col_w['risk_id']}}",
+                    f"{r['coverage']:<{col_w['coverage']}}",
+                    f"{r['required_bench']:<{col_w['required_bench']}}",
+                    f"{rshort:<{col_w['rationale']}}",
+                ]
+            )
+        )
     return "\n".join(lines)
 
 
@@ -127,7 +145,9 @@ def _resolve_pack_methods_scales_injections(
         injection_ids = list(preset.get("injection_ids") or [])
         if method_ids or scale_ids or injection_ids:
             if not scale_ids:
-                scale_ids = list((pack_config.get("scale_ids") or {}).get("default") or ["small_smoke", "medium_stress_signed_bus"])
+                scale_ids = list(
+                    (pack_config.get("scale_ids") or {}).get("default") or ["small_smoke", "medium_stress_signed_bus"]
+                )
             return method_ids, scale_ids, injection_ids
     method_ids = list((pack_config.get("method_ids") or {}).get("default") or [])
     scale_ids = list((pack_config.get("scale_ids") or {}).get("default") or ["small_smoke", "medium_stress_signed_bus"])
@@ -140,6 +160,7 @@ def _injection_ids_policy(repo_root: Path) -> list[str]:
     from labtrust_gym.studies.coordination_security_pack import (
         _get_injection_ids_from_policy_and_registry,
     )
+
     return _get_injection_ids_from_policy_and_registry(repo_root)
 
 
@@ -160,13 +181,8 @@ def get_pack_matrix_cells(
         method_ids = ["kernel_auction_whca_shielded", "llm_repair_over_kernel_whca", "llm_local_decider_signed_bus"]
     if not scale_ids:
         scale_ids = ["small_smoke", "medium_stress_signed_bus"]
-    policy_injections = (
-        injection_ids == "policy"
-        or (
-            isinstance(injection_ids, list)
-            and len(injection_ids) == 1
-            and injection_ids[0] == "policy"
-        )
+    policy_injections = injection_ids == "policy" or (
+        isinstance(injection_ids, list) and len(injection_ids) == 1 and injection_ids[0] == "policy"
     )
     if policy_injections:
         injection_ids = _injection_ids_policy(repo_root)
@@ -203,7 +219,9 @@ def format_pack_matrix(
         for t in taxonomy:
             out_lines.append(f"| {t['scale_id']} | {t['num_agents_total']} | {t['name']} |")
         out_lines.append("")
-        out_lines.append("The pack matrix below depends on scale: each (method, scale, injection) cell is run at that scale's agent count.")
+        out_lines.append(
+            "The pack matrix below depends on scale: each (method, scale, injection) cell is run at that scale's agent count."
+        )
         out_lines.append("")
 
     if output_format == "markdown":
@@ -264,7 +282,9 @@ def format_pack_results_from_run(
     elif pack_csv.is_file():
         path = pack_csv
     else:
-        return f"(No result matrix found under {run_dir}; run labtrust run-coordination-security-pack --out <dir> first.)"
+        return (
+            f"(No result matrix found under {run_dir}; run labtrust run-coordination-security-pack --out <dir> first.)"
+        )
 
     with path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -281,7 +301,9 @@ def format_pack_results_from_run(
         return buf.getvalue()
 
     # table: compact view with key columns
-    key_cols = [c for c in ["method_id", "scale_id", "injection_id", "verdict", "sec.attack_success_rate"] if c in fieldnames]
+    key_cols = [
+        c for c in ["method_id", "scale_id", "injection_id", "verdict", "sec.attack_success_rate"] if c in fieldnames
+    ]
     if not key_cols:
         key_cols = fieldnames[:6]
     col_w = {k: max(len(k), max((len(str(r.get(k, ""))) for r in rows), default=0)) for k in key_cols}

@@ -58,6 +58,10 @@ class CoordinationScaleConfig:
     timing_mode: str = "explicit"  # "explicit" | "simulated"
     partner_id: str | None = None
     coord_auction_protocol: str | None = None  # "single_call" | "round_robin" for auction methods
+    coord_propose_actions_max_agents: int = 50  # above this N, use per-agent submissions + combine
+    apply_runner_shield_on_propose_actions: bool = (
+        False  # when True, runner applies shield to joint action from propose_actions/step
+    )
 
     def __post_init__(self) -> None:
         total = sum(self.role_mix.values())
@@ -338,6 +342,8 @@ def load_scale_config_by_id(
                 timing_mode=str(c.get("timing_mode", "explicit")),
                 partner_id=c.get("partner_id"),
                 coord_auction_protocol=c.get("coord_auction_protocol"),
+                coord_propose_actions_max_agents=int(c.get("coord_propose_actions_max_agents", 50)),
+                apply_runner_shield_on_propose_actions=bool(c.get("apply_runner_shield_on_propose_actions", False)),
             )
     raise KeyError(f"Scale config id {config_id!r} not found in {path}")
 

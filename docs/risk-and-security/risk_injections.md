@@ -2,6 +2,12 @@
 
 This document describes how to implement and register **risk injectors** for the coordination security pack and TaskH (coord_risk). For the risk register bundle and evidence, see [Risk register](risk_register.md).
 
+## Naming conventions
+
+- **INJ-*** (e.g. `INJ-COMMS-POISON-001`, `INJ-DOS-PLANNER-001`): Coordination/risk injectors defined in `policy/coordination/injections.v0.2.yaml`. Deterministic, policy-driven, and used for coord_risk and the coordination security pack. Prefer these for **active** fault injection in new specs.
+- **inj_*** (e.g. `inj_prompt_injection`, `inj_tool_selection_noise`): Legacy or reserved IDs. Some have real implementations; five are reserved and implemented as **NoOpInjector** (passthrough) so specs that reference them do not fail.
+- **none**: No injection (baseline/nominal cell in the coordination security pack).
+
 ## Implementing a RiskInjector
 
 1. **Subclass** `labtrust_gym.security.risk_injections.RiskInjector` and pass an `InjectionConfig` to `super().__init__(config)`.
@@ -21,24 +27,30 @@ This document describes how to implement and register **risk injectors** for the
 
 6. **Policy:** Add the injection ID to `policy/coordination/injections.v0.2.yaml` and, if used in the coordination security pack gate, to `policy/coordination/coordination_security_pack_gate.v0.1.yaml` with a rule type (e.g. `attack_success_rate_zero`, `violations_within_delta`). See `src/labtrust_gym/policy/gate_eval.py` and [Risk register](risk_register.md) for supported rule types.
 
-## Reserved no-op IDs (out of scope for this release)
+## Injection ID reference (status and canonical use)
 
-The following IDs are **reserved** and registered as **NoOpInjector** (passthrough; no observation or action mutation) so that study specs and the risk register can reference them without failing. For **active** fault injection use **INJ-*** IDs from `policy/coordination/injections.v0.2.yaml`.
+Single reference for which IDs are reserved (no-op) vs implemented (real injector) and what to use in new specs.
 
-| ID | Notes |
-|----|--------|
-| `none` | No-op baseline for coordination security pack (nominal cell). |
-| `inj_tool_selection_noise` | Reserved; no-op in this release. |
-| `inj_prompt_injection` | Reserved; no-op in this release. |
-| `inj_dos_flood` | Reserved; no-op in this release. |
-| `inj_collusion_handoff` | Reserved; no-op in this release. |
-| `inj_untrusted_payload` | Reserved; no-op in this release. |
-| `inj_memory_tamper` | Reserved; no-op in this release. |
-| `inj_stuck_state` | Reserved; no-op in this release. |
-| `inj_jailbreak` | Reserved; no-op in this release. |
-| `inj_misparam_device` | Reserved; no-op in this release. |
+| Injection ID | Status | Canonical use |
+|--------------|--------|---------------|
+| `none` | Reserved (no-op) | No injection; baseline/nominal cell in coordination security pack. |
+| `inj_collusion_handoff` | Reserved (no-op) | Legacy; prefer INJ-COLLUSION-001 for active faults. |
+| `inj_untrusted_payload` | Reserved (no-op) | Legacy; use INJ-* from injections.v0.2.yaml when available. |
+| `inj_stuck_state` | Reserved (no-op) | Legacy; use INJ-* when available. |
+| `inj_jailbreak` | Reserved (no-op) | Legacy; use INJ-* when available. |
+| `inj_prompt_injection` | Implemented (real injector) | PromptInjectionObsInjector; injects into scenario_note/specimen_note. |
+| `inj_misparam_device` | Implemented (real injector) | MisparamDeviceInjector; perturbs device-related action args. |
+| `inj_tool_selection_noise` | Implemented (real injector) | ToolSelectionNoiseInjector. |
+| `inj_device_fail` | Implemented (real injector) | DeviceFailInjector. |
+| `inj_msg_poison` | Implemented (real injector) | MsgPoisonInjector. |
+| `inj_dos_flood` | Implemented (real injector) | DosFloodInjector. |
+| `inj_memory_tamper` | Implemented (real injector) | MemoryTamperInjector. |
+| `inj_poison_obs` | Implemented (real injector) | PoisonObsInjector. |
+| INJ-* (e.g. `INJ-COMMS-POISON-001`, `INJ-DOS-PLANNER-001`) | Implemented (real injector) | **Use for new specs and coord_risk.** Defined in `policy/coordination/injections.v0.2.yaml`; deterministic, policy-driven. |
 
-The reserved list (10 IDs above) is in `RESERVED_NOOP_INJECTION_IDS`. **Implemented as real injectors:** `inj_device_fail` (DeviceFailInjector), `inj_msg_poison` (MsgPoisonInjector), `inj_poison_obs` (PoisonObsInjector: observation poisoning with probability intensity). Pack config supports **disallow_reserved_injections**. Implementing full injectors for the remaining reserved IDs is future work.
+**Reserved IDs** (e.g. `inj_collusion_handoff`) are **no-op**: they do not perform any injection. Specs that reference them run without injection. Do not interpret results as evidence of "collusion" or other attack containment.
+
+The five reserved no-op IDs above are in `RESERVED_NOOP_INJECTION_IDS` in `src/labtrust_gym/security/risk_injections.py`; they are registered as **NoOpInjector** so study specs and the risk register can reference them without failing. For **active** fault injection use **INJ-*** IDs from `policy/coordination/injections.v0.2.yaml`. Pack config supports **disallow_reserved_injections** so strict packs can forbid reserved (no-op) IDs.
 
 ## See also
 

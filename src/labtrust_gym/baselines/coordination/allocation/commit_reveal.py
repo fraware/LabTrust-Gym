@@ -6,7 +6,6 @@ Reject reveal mismatch or replay (epoch/nonce).
 from __future__ import annotations
 
 import hashlib
-from typing import Any
 
 
 def commit(agent_id: str, bid: float, nonce: str, epoch: int = 0) -> str:

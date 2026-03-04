@@ -8,9 +8,9 @@ anomaly), and enforcement gating on probability threshold and cooldown.
 from __future__ import annotations
 
 from labtrust_gym.baselines.coordination.assurance.detector_advisor import (
-    DeterministicDetectorBackend,
     DetectorOutput,
     DetectResult,
+    DeterministicDetectorBackend,
     RecommendResult,
     _LLMDetectorThrottleAdvisor,
 )
@@ -35,9 +35,7 @@ def test_detector_false_positive_cap_clean_fixture() -> None:
     }
     event = {"obs_snapshot": clean_obs, "step": 0}
     out = backend.detect(0, event, None)
-    assert (
-        out.detect.probability <= 0.5 or not out.detect.is_attack_suspected
-    )
+    assert out.detect.probability <= 0.5 or not out.detect.is_attack_suspected
     assert out.recommend.enforcement_action in ("none", "throttle")
 
 
@@ -66,6 +64,7 @@ def test_detector_true_positive_floor_injected() -> None:
 
 def test_detector_gate_probability_threshold() -> None:
     """When probability < threshold, containment is not applied."""
+
     class LowProbBackend:
         def detect(self, step, event_summary, comms_stats):
             return DetectorOutput(

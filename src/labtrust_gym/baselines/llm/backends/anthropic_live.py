@@ -34,9 +34,7 @@ UsageDict = dict[str, int]
 def _get_config() -> tuple[str, str, int]:
     """Read config from environment. Returns (api_key, model, timeout_s)."""
     api_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
-    model = (
-        os.environ.get("LABTRUST_ANTHROPIC_MODEL") or "claude-3-5-haiku-20241022"
-    ).strip()
+    model = (os.environ.get("LABTRUST_ANTHROPIC_MODEL") or "claude-3-5-haiku-20241022").strip()
     try:
         timeout_s = int(os.environ.get("LABTRUST_LLM_TIMEOUT_S", "30"))
     except ValueError:
@@ -51,15 +49,32 @@ def _sha256(content: str) -> str:
 
 
 def _action_proposal_schema_flat() -> dict[str, Any]:
-    """ActionProposal schema for API (flat; no allOf). Same as openai_live."""
+    """
+    ActionProposal schema for API (flat; no allOf). Same shape as openai_live.
+    Anthropic tool input_schema accepts object with additionalProperties: false;
+    args lists optional properties for known action args so we stay strict.
+    """
+    args_schema: dict[str, Any] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [],
+        "properties": {
+            "device_id": {"type": "string"},
+            "work_id": {"type": "string"},
+            "priority_class": {"type": "string"},
+            "result_id": {"type": "string"},
+            "from_zone": {"type": "string"},
+            "to_zone": {"type": "string"},
+            "door_id": {"type": "string"},
+            "specimen_id": {"type": "string"},
+        },
+    }
     return {
         "type": "object",
         "properties": {
             "action_type": {"type": "string", "minLength": 1},
-            "args": {"type": "object", "additionalProperties": True},
-            "reason_code": {
-                "anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]
-            },
+            "args": args_schema,
+            "reason_code": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
             "token_refs": {
                 "type": "array",
                 "items": {"type": "string", "minLength": 1},
@@ -89,6 +104,52 @@ def _percentile(sorted_vals: list[float], p: float) -> float | None:
     lo = int(k)
     hi = min(lo + 1, len(sorted_vals) - 1)
     return sorted_vals[lo] + (k - lo) * (sorted_vals[hi] - sorted_vals[lo])
+
+
+def _load_model_pricing(repo_root: Any | None = None) -> dict[str, Any]:
+    """Load policy/llm/model_pricing.v0.1.yaml. Returns {} if missing."""
+    try:
+        from pathlib import Path
+
+        if repo_root is not None:
+            root = Path(repo_root)
+        else:
+            try:
+                from labtrust_gym.config import get_repo_root
+
+                root = Path(get_repo_root())
+            except Exception:
+                root = Path(__file__).resolve().parent.parent.parent.parent.parent
+        path = root / "policy" / "llm" / "model_pricing.v0.1.yaml"
+        if not path.exists():
+            return {}
+        import yaml
+
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        return data.get("models") or {}
+    except Exception:
+        return {}
+
+
+def _estimated_cost_usd(
+    model_id: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    repo_root: Any | None = None,
+) -> float | None:
+    """Estimated cost in USD from model_pricing. Returns None if no pricing."""
+    models = _load_model_pricing(repo_root)
+    prices = models.get(model_id) if model_id else {}
+    if not isinstance(prices, dict):
+        return None
+    inp = prices.get("input_price_per_1m")
+    out = prices.get("output_price_per_1m")
+    if inp is None or out is None:
+        return None
+    try:
+        return (prompt_tokens / 1_000_000.0) * float(inp) + (completion_tokens / 1_000_000.0) * float(out)
+    except (TypeError, ValueError):
+        return None
 
 
 def _usage_from_anthropic(usage: Any) -> UsageDict:
@@ -156,9 +217,7 @@ class AnthropicLiveBackend:
     def get_aggregate_metrics(self) -> dict[str, Any]:
         """Same shape as openai_live: backend_id, model_id, mean_latency_ms, p50/p95, total_tokens, etc."""
         rate = self._error_count / self._total_calls if self._total_calls > 0 else 0.0
-        mean_ms = (
-            self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
-        )
+        mean_ms = self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
         sorted_lat = sorted(self._latency_ms_list) if self._latency_ms_list else []
         p50_ms = _percentile(sorted_lat, 50)
         p95_ms = _percentile(sorted_lat, 95)
@@ -166,6 +225,18 @@ class AnthropicLiveBackend:
             round(self._total_tokens / self._total_calls, 2)
             if self._total_calls > 0 and self._total_tokens is not None
             else None
+        )
+        try:
+            from labtrust_gym.config import get_repo_root
+
+            repo_root = get_repo_root()
+        except Exception:
+            repo_root = None
+        estimated_cost_usd = _estimated_cost_usd(
+            self._model,
+            self._total_prompt_tokens,
+            self._total_completion_tokens,
+            repo_root=repo_root,
         )
         out: dict[str, Any] = {
             "backend_id": BACKEND_ID,
@@ -179,7 +250,7 @@ class AnthropicLiveBackend:
             "p95_latency_ms": round(p95_ms, 2) if p95_ms is not None else None,
             "total_tokens": self._total_tokens,
             "tokens_per_step": tokens_per_step,
-            "estimated_cost_usd": None,
+            "estimated_cost_usd": round(estimated_cost_usd, 6) if estimated_cost_usd is not None else None,
         }
         return out
 
@@ -188,9 +259,7 @@ class AnthropicLiveBackend:
         try:
             import anthropic
         except ImportError as e:
-            raise RuntimeError(
-                "anthropic not installed; pip install -e '.[llm_anthropic]'"
-            ) from e
+            raise RuntimeError("anthropic not installed; pip install -e '.[llm_anthropic]'") from e
 
         client = anthropic.Anthropic(api_key=self._api_key)
         tool_def = {
@@ -293,9 +362,7 @@ class AnthropicLiveBackend:
             raw, usage = self._call_api(messages)
         except Exception as e:
             latency_ms = (time.perf_counter() - start) * 1000
-            self._last_error_code = getattr(
-                self, "_last_error_code", None
-            ) or LLM_PROVIDER_ERROR
+            self._last_error_code = getattr(self, "_last_error_code", None) or LLM_PROVIDER_ERROR
             self._error_count += 1
             self._sum_latency_ms += latency_ms
             self._last_metrics = {
@@ -381,9 +448,7 @@ class AnthropicLiveBackend:
             raw, usage = self._call_api(messages)
         except Exception as e:
             latency_ms = (time.perf_counter() - start) * 1000
-            self._last_error_code = (
-                getattr(self, "_last_error_code", None) or LLM_PROVIDER_ERROR
-            )
+            self._last_error_code = getattr(self, "_last_error_code", None) or LLM_PROVIDER_ERROR
             self._error_count += 1
             self._sum_latency_ms += latency_ms
             self._last_metrics = {
@@ -502,22 +567,26 @@ def _normalize_per_agent(
             reason = str(reason)[:64]
         else:
             reason = ""
-        out.append({
-            "agent_id": aid,
-            "action_type": atype,
-            "args": dict(args),
-            "reason_code": reason,
-        })
+        out.append(
+            {
+                "agent_id": aid,
+                "action_type": atype,
+                "args": dict(args),
+                "reason_code": reason,
+            }
+        )
     if allowed_agent_ids:
         seen = {p["agent_id"] for p in out}
         for aid in allowed_agent_ids:
             if aid not in seen:
-                out.append({
-                    "agent_id": aid,
-                    "action_type": "NOOP",
-                    "args": {},
-                    "reason_code": "",
-                })
+                out.append(
+                    {
+                        "agent_id": aid,
+                        "action_type": "NOOP",
+                        "args": {},
+                        "reason_code": "",
+                    }
+                )
     return out
 
 
@@ -538,9 +607,21 @@ def _anthropic_coord_fallback_proposal(
             for aid in agent_ids
         ],
         "comms": [],
-        "meta": {"backend_id": "anthropic_live_coord", "model_id": "claude", "latency_ms": 0, "tokens_in": 0, "tokens_out": 0},
+        "meta": {
+            "backend_id": "anthropic_live_coord",
+            "model_id": "claude",
+            "latency_ms": 0,
+            "tokens_in": 0,
+            "tokens_out": 0,
+        },
     }
-    meta = {"backend_id": "anthropic_live_coord", "model_id": "claude", "latency_ms": 0.0, "tokens_in": 0, "tokens_out": 0}
+    meta = {
+        "backend_id": "anthropic_live_coord",
+        "model_id": "claude",
+        "latency_ms": 0.0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+    }
     return proposal, meta
 
 
@@ -587,9 +668,7 @@ class AnthropicCoordinationProposalBackend:
         agent_ids = [p.get("agent_id") for p in state_digest.get("per_agent") or []]
         if not agent_ids:
             agent_ids = ["ops_0"]
-        fallback, fallback_meta = _anthropic_coord_fallback_proposal(
-            agent_ids, step_id, method_id, self._seed
-        )
+        fallback, fallback_meta = _anthropic_coord_fallback_proposal(agent_ids, step_id, method_id, self._seed)
         if not self._api_key:
             self._error_count += 1
             return (fallback, fallback_meta)
@@ -601,6 +680,7 @@ class AnthropicCoordinationProposalBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass
@@ -646,6 +726,7 @@ class AnthropicCoordinationProposalBackend:
                 break
         try:
             from labtrust_gym.baselines.llm.parse_utils import extract_first_json_object
+
             extracted = extract_first_json_object(content)
             if not extracted:
                 if tracer is not None:
@@ -750,9 +831,21 @@ class AnthropicBidBackend:
             "per_agent": [],
             "comms": [],
             "market": [],
-            "meta": {"backend_id": "anthropic_live_bid", "model_id": self._model, "latency_ms": 0, "tokens_in": 0, "tokens_out": 0},
+            "meta": {
+                "backend_id": "anthropic_live_bid",
+                "model_id": self._model,
+                "latency_ms": 0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+            },
         }
-        fallback_meta = {"backend_id": "anthropic_live_bid", "model_id": self._model, "latency_ms": 0.0, "tokens_in": 0, "tokens_out": 0}
+        fallback_meta = {
+            "backend_id": "anthropic_live_bid",
+            "model_id": self._model,
+            "latency_ms": 0.0,
+            "tokens_in": 0,
+            "tokens_out": 0,
+        }
         if not self._api_key:
             return (fallback, fallback_meta)
         try:
@@ -762,6 +855,7 @@ class AnthropicBidBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass
@@ -777,9 +871,7 @@ class AnthropicBidBackend:
         prompt = (
             "Return a single JSON object with: proposal_id, step_id, method_id, "
             "per_agent (array), comms (array), market (array of {agent_id, bid, "
-            "bundle, constraints}). State: "
-            + json.dumps(state_payload, sort_keys=True)
-            + ". Return only the JSON."
+            "bundle, constraints}). State: " + json.dumps(state_payload, sort_keys=True) + ". Return only the JSON."
         )
         start = time.perf_counter()
         try:
@@ -808,6 +900,7 @@ class AnthropicBidBackend:
                 break
         try:
             from labtrust_gym.baselines.llm.parse_utils import extract_first_json_object
+
             extracted = extract_first_json_object(content)
             if not extracted:
                 if tracer is not None:

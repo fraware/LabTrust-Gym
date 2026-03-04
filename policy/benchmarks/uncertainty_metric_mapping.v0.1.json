@@ -1,0 +1,12 @@
+{
+  "description": "Mapping of metric/summary keys to uncertainty type (epistemic vs aleatoric). Used by docs/benchmarks/uncertainty_quantification.md and tests.",
+  "mapping": {
+    "containment_success_rate_ci_lower": "aleatoric",
+    "containment_success_rate_ci_upper": "aleatoric",
+    "throughput_std": "aleatoric",
+    "p95_turnaround_s_std": "aleatoric",
+    "llm_confidence_calibration": "epistemic",
+    "llm_confidence_ece_mean": "epistemic",
+    "llm_confidence_mce_mean": "epistemic"
+  }
+}

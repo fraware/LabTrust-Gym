@@ -10,6 +10,10 @@
     "version": { "type": "string" },
     "severity_threshold": { "type": "integer", "minimum": 0, "maximum": 3 },
     "max_text_length": { "type": "integer", "minimum": 100, "maximum": 100000 },
+    "normalize_before_match": { "type": "boolean" },
+    "normalizers": { "type": "array", "items": { "type": "string" } },
+    "max_decoded_base64_len": { "type": "integer", "minimum": 500, "maximum": 10000 },
+    "use_classifier": { "type": "boolean" },
     "patterns": {
       "type": "array",
       "items": {

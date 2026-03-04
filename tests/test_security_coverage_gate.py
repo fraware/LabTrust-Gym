@@ -48,22 +48,14 @@ def _valid_injection_ids(repo_root: Path) -> set[str]:
         return set()
     data = load_yaml(path)
     injections = (data or {}).get("injections") or []
-    return {
-        str(i["injection_id"])
-        for i in injections
-        if isinstance(i, dict) and i.get("injection_id")
-    }
+    return {str(i["injection_id"]) for i in injections if isinstance(i, dict) and i.get("injection_id")}
 
 
 def _valid_attack_ids(repo_root: Path) -> set[str]:
     """Return set of attack_id from security_attack_suite.v0.1.yaml."""
     suite = load_attack_suite(repo_root)
     attacks = (suite or {}).get("attacks") or []
-    return {
-        str(a["attack_id"])
-        for a in attacks
-        if isinstance(a, dict) and a.get("attack_id")
-    }
+    return {str(a["attack_id"]) for a in attacks if isinstance(a, dict) and a.get("attack_id")}
 
 
 def test_security_coverage_map_exists_and_parses() -> None:
@@ -82,9 +74,7 @@ def test_security_coverage_map_exists_and_parses() -> None:
 def test_every_risk_has_coverage_or_non_applicable() -> None:
     """Every risk has coverage map entry; each is covered or non_applicable+notes."""
     root = _repo_root()
-    risk_reg = load_risk_registry(
-        root / "policy" / "risks" / "risk_registry.v0.1.yaml"
-    )
+    risk_reg = load_risk_registry(root / "policy" / "risks" / "risk_registry.v0.1.yaml")
     coverage_map = _load_security_coverage_map(root)
     missing = set(risk_reg.risks) - set(coverage_map)
     assert not missing, (
@@ -101,13 +91,8 @@ def test_every_risk_has_coverage_or_non_applicable() -> None:
                 invalid.append(f"{risk_id} (non_applicable but notes empty)")
         else:
             if not covered_by:
-                invalid.append(
-                    f"{risk_id} (no covered_by and not non_applicable)"
-                )
-    assert not invalid, (
-        "Entry must be non_applicable+notes or have covered_by. Invalid: "
-        f"{invalid}"
-    )
+                invalid.append(f"{risk_id} (no covered_by and not non_applicable)")
+    assert not invalid, f"Entry must be non_applicable+notes or have covered_by. Invalid: {invalid}"
 
 
 def test_coverage_injection_refs_exist_in_injections() -> None:
@@ -126,8 +111,7 @@ def test_coverage_injection_refs_exist_in_injections() -> None:
             if ref and ref not in valid_injections:
                 bad.append((risk_id, ref))
     assert not bad, (
-        f"Injection refs not in injections.v0.2: {bad}. "
-        "Add to injections.v0.2.yaml or remove from covered_by."
+        f"Injection refs not in injections.v0.2: {bad}. Add to injections.v0.2.yaml or remove from covered_by."
     )
 
 
@@ -155,9 +139,7 @@ def test_coverage_attack_suite_refs_exist() -> None:
 def test_no_orphan_coverage_entries() -> None:
     """Every coverage map risk_id exists in risk_registry (no stale entries)."""
     root = _repo_root()
-    risk_reg = load_risk_registry(
-        root / "policy" / "risks" / "risk_registry.v0.1.yaml"
-    )
+    risk_reg = load_risk_registry(root / "policy" / "risks" / "risk_registry.v0.1.yaml")
     coverage_map = _load_security_coverage_map(root)
     orphan = set(coverage_map) - set(risk_reg.risks)
     assert not orphan, (
@@ -177,9 +159,7 @@ def test_coordination_pack_full_method_list_non_empty() -> None:
         "Coordination security pack --methods-from full must resolve to at least one method_id. "
         "Define method_ids.full in policy/coordination/coordination_security_pack.v0.1.yaml or ensure coordination_methods.v0.1.yaml exists."
     )
-    assert "marl_ppo" not in methods, (
-        "marl_ppo must be excluded from full method list (no checkpoint in repo)."
-    )
+    assert "marl_ppo" not in methods, "marl_ppo must be excluded from full method list (no checkpoint in repo)."
 
 
 def test_coordination_pack_full_method_list_used() -> None:

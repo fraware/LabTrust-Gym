@@ -40,7 +40,7 @@ The message envelope and invocation order are specified in [Handoff protocol](ha
 
 ## Debate / consensus — implemented
 
-- Implemented in **llm_central_planner_debate**: N proposer backends (coord_debate_proposers), majority vote per agent. See llm_central_planner_debate.py and test_coord_llm_debate_smoke.py.
+- Implemented in **llm_central_planner_debate**: N proposer backends (coord_debate_proposers), majority vote per agent by default. When `coord_debate_aggregator: llm` and an aggregator backend is configured, an LLM merges N proposals into one (falls back to majority on failure). See llm_central_planner_debate.py and test_coord_llm_debate_smoke.py.
 - Multiple “proposer” LLMs each produce a proposal; one “aggregator” LLM or a deterministic rule (e.g. majority vote on action_type per agent) produces the final proposal. Scope: one method (e.g. a variant of llm_central_planner or llm_auction_bidder) to avoid touching the rest of the codebase.
 - Aggregator can be another backend (Phase 2: e.g. `coord_aggregator_backend`) or a small Python rule. Guardrails and tracing apply to each proposer and the aggregator.
 
@@ -65,11 +65,11 @@ A live test runs with distinct backends per role and asserts attribution: `test_
 
 ## Limitations (current behavior) and state of the art
 
-- **Debate:** Aggregation is deterministic (majority vote per agent). An optional LLM aggregator is future work. State-of-the-art multi-agent debate in the literature often uses a dedicated aggregator LLM or iterative refinement; our implementation is intentionally minimal and extensible.
+- **Debate:** Aggregation is majority vote per agent by default. When `coord_debate_aggregator: llm` and an aggregator backend is configured, an LLM merges proposals (with fallback to majority on failure). State-of-the-art multi-agent debate in the literature often uses a dedicated aggregator LLM or iterative refinement; our implementation supports both majority and LLM aggregation.
 - **Round_robin:** N bidder calls per step then merge; no true multi-round negotiation or message-passing between separate agent LLMs. True multi-agent negotiation would require multiple rounds of message exchange and agreement protocols; the current design prioritizes one-step orchestration and clear attribution.
 - **Trials and reporting:** coord_scale and coord_risk are both supported by the trials script; the interpretation template (see [LLM coordinator trials](../reference/llm_coord_trials.md)) provides a written summary structure. A single published document that interprets a specific run (cost, latency, conclusions) is filled in by the user from that template.
 
-## Future work (optional)
+## Status (debate aggregator and lab policies)
 
-- **Debate aggregator LLM:** An optional aggregator backend (e.g. `coord_debate_aggregator_backend`) could be added so a second LLM aggregates N proposals instead of a Python majority vote.
+- **Debate aggregator LLM:** Implemented. Set `coord_debate_aggregator: llm` in scale_config and provide an aggregator_backend (object with `merge_proposals(...)` or `generate(prompt)`); the registry uses the first proposer when it has generate. Falls back to majority on parse/generate failure.
 - **Lab policies:** The same lab policies (RBAC, shield, invariants) apply to both deterministic and LLM coordination paths; no separate policy layer is introduced for LLM coordinators.

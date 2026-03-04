@@ -10,13 +10,11 @@ from __future__ import annotations
 
 from typing import Any
 
-# Action indices aligned with pz_parallel
-ACTION_NOOP = 0
-ACTION_TICK = 1
-ACTION_QUEUE_RUN = 2
-ACTION_MOVE = 3
-ACTION_OPEN_DOOR = 4
-ACTION_START_RUN = 5
+from labtrust_gym.envs.action_contract import (
+    ACTION_NOOP,
+    ACTION_OPEN_DOOR,
+    ACTION_QUEUE_RUN,
+)
 
 DEFAULT_DEVICE_IDS: list[str] = [
     "DEV_CENTRIFUGE_BANK_01",

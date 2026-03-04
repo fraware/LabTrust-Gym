@@ -11,19 +11,42 @@ pip install labtrust-gym[env,plots]
 - **env**: PettingZoo and Gymnasium (required for benchmarks and quick-eval).
 - **plots**: Matplotlib (for study figures and data tables).
 
+**Minimal install:** `pip install labtrust-gym` (no extras) supports policy validation (`labtrust validate-policy`) and the security suite in agent/shield-only mode if you use `--skip-system-level` (no PZ env). For scenario_ref and llm_attacker you still need dependencies used by the agent; see [Security attack suite](../risk-and-security/security_attack_suite.md).
+
+**Full security suite:** To run all attack types including system-level coordination-under-attack (`coord_pack_ref`), install `pip install labtrust-gym[env]` (and optionally `[plots]` for other commands).
+
+**Optional extras and test skips:** Installing extras reduces the number of tests and commands that skip. Use `pip install -e ".[full]"` to pull env, marl, docs, and plots in one go and minimize skips for local development.
+
+| Extra | Reduces skips / enables |
+|-------|--------------------------|
+| `[env]` | PettingZoo/Gymnasium; coordination and security suite (system-level); quick-eval |
+| `[dotenv]` | No-op (`.env` loading is now a default dependency) |
+| `[plots]` | Study figures and data tables |
+| `[marl]` | PPO/MARL baselines; train_ppo / eval_ppo CLI |
+| `[docs]` | MkDocs site build |
+| `[full]` | env + marl + docs + plots (single install to minimize skips) |
+
 Check version and optional git SHA:
 
 ```bash
 labtrust --version
 ```
 
-When installed from a wheel, policy files are bundled in the package. When developing from source, policy is read from the repo `policy/` directory. You can override the policy location with the `LABTRUST_POLICY_DIR` environment variable (path to the policy directory). If `LABTRUST_POLICY_DIR` is set but the path does not exist or is not a directory, the CLI and tests raise **PolicyPathError** (from `labtrust_gym.errors`) with a clear message. If you run from a directory that is not the repo root and `LABTRUST_POLICY_DIR` is not set, **get_repo_root()** raises PolicyPathError when no `policy/` with `policy/emits/` is found under the current or parent directory. Run from the repo root or set `LABTRUST_POLICY_DIR` to a valid policy directory to avoid this.
+When installed from a wheel, policy files are bundled in the package (package data under `labtrust_gym`); policy is loaded from the package by default and no repo root is needed. When developing from source, policy is read from the repo `policy/` directory; the resolver walks upward from the current working directory (up to a limited depth) to find a directory containing `policy/emits/`, so you can run from the repo root or any subdirectory. You can override the policy location with the `LABTRUST_POLICY_DIR` environment variable (path to the policy directory). If `LABTRUST_POLICY_DIR` is set but the path does not exist or is not a directory, the CLI and tests raise **PolicyPathError** (from `labtrust_gym.errors`) with a clear message. If no policy directory is found, the error message suggests setting `LABTRUST_POLICY_DIR`, running from repo root (or a subdirectory of the repo), or installing from wheel. See [State of the art and limits](../reference/state_of_the_art_and_limits.md).
 
-**Paths with spaces or special characters:** If your repo or policy path contains spaces or special characters, use quoted paths in scripts (e.g. `"C:\My Lab\LabTrust-Gym"`) or set `REPO_ROOT` / `LABTRUST_POLICY_DIR` in the environment. On Windows, avoid accented characters in the path; clone to a simple path like `C:\LabTrust-Gym` if needed. See [Forker guide](forkers.md).
+**Reuse without repo tree:** When using the installed package (wheel), policy is bundled and no repo root is needed. From source, run from repo root or any subdirectory of the repo, or set `LABTRUST_POLICY_DIR`.
 
-## Configuration (no .env file required)
+**Benchmark-only workflow (no clone):** To run the official pack and compare results without cloning or forking: (1) `pip install labtrust-gym[env,plots]` (add extras as needed). (2) Run `labtrust run-official-pack --out <dir>`. Policy is loaded from the package by default. To use a specific released policy snapshot (e.g. from a release artifact), download the policy bundle from the release (e.g. `policy-bundle-vX.Y.Z.tar.gz` from the release workflow artifacts or release assets), extract to a directory, set `LABTRUST_POLICY_DIR` to that directory (the extracted directory must contain `emits/`, `schemas/`, etc.), then run `labtrust run-official-pack --out <dir>`. No clone required.
 
-LabTrust-Gym **does not load a `.env` file**. All configuration is via **environment variables** (set in your shell or CI). You do **not** need to create a `.env` file for normal use. See `.env.example` in the repo root for a list of optional environment variables.
+**Reproducibility:** For byte-identical baselines, use the same Python version and OS as CI; pin dependencies; avoid env vars that change behavior. See the [Determinism contract](../benchmarks/determinism_contract.md). Different Python versions or platforms can change RNG or float behavior.
+
+**Paths with spaces or special characters:** If your repo or policy path contains spaces or special characters, use quoted paths in scripts (e.g. `"C:\My Lab\LabTrust-Gym"`) or set `REPO_ROOT` / `LABTRUST_POLICY_DIR` in the environment. On Windows, avoid accented characters in the path; clone to a simple path like `C:\LabTrust-Gym` if needed. See [Recommended Windows setup](windows_setup.md) and [Forker guide](forkers.md).
+
+## Configuration (environment variables and .env)
+
+LabTrust-Gym configuration is via **environment variables** (set in your shell or CI). You do **not** need a `.env` file for normal use. See `.env.example` in the repo root for a list of optional variables.
+
+**Default .env loading:** The CLI loads a `.env` file at startup from the current working directory by default, or from the path in `LABTRUST_DOTENV_PATH` if set. Place a `.env` file (e.g. with `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) in the directory from which you run `labtrust` for live LLM and cross-provider demos.
 
 Optional env vars (all have defaults or CLI overrides):
 
@@ -39,10 +62,11 @@ Optional env vars (all have defaults or CLI overrides):
 | `LABTRUST_LOCAL_LLM_URL` | Base URL for local LLM (e.g. Ollama). Used when `--llm-backend ollama_live`. Default: `http://localhost:11434`. |
 | `LABTRUST_LOCAL_LLM_MODEL` | Model name for local LLM (e.g. `llama3.2`). Used when `--llm-backend ollama_live`. |
 | `LABTRUST_LOCAL_LLM_TIMEOUT` | Request timeout in seconds for local LLM. Default: 60. |
+| `LABTRUST_DOTENV_PATH` | Path to `.env` file to load (default: `.env` in cwd). |
 
-### Loading a .env file (optional)
+### Loading a .env file manually
 
-The code **does not load `.env` automatically**. If you use a `.env` file for API keys or other overrides, you must load it yourself **before** running any command; otherwise you may see "provider X doesn't work" when the cause is missing env injection.
+If you run the CLI from a different directory than where your `.env` file lives, set `LABTRUST_DOTENV_PATH` to the full path of the `.env` file, or load it in your shell before running:
 
 **macOS / Linux (bash/zsh):**
 

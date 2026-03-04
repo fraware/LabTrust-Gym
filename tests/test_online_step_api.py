@@ -10,8 +10,6 @@ import time
 import urllib.request
 from typing import Any
 
-import pytest
-
 from labtrust_gym.online.config import AUTH_OFF, OnlineConfig
 from labtrust_gym.online.server import create_server
 

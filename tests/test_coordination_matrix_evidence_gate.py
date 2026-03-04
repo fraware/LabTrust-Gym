@@ -70,9 +70,7 @@ def test_coordination_matrix_fixture_inputs_match_policy() -> None:
             assert rel_path in role_spec["allowed_paths"], f"{role} path not allowed: {rel_path}"
 
         if "allowed_filenames" in role_spec:
-            assert Path(rel_path).name in role_spec["allowed_filenames"], (
-                f"{role} filename not allowed: {rel_path}"
-            )
+            assert Path(rel_path).name in role_spec["allowed_filenames"], f"{role} filename not allowed: {rel_path}"
 
     for entry in m["inputs"]:
         role = entry["role"]

@@ -12,8 +12,6 @@ import time
 import urllib.error
 import urllib.request
 
-import pytest
-
 from labtrust_gym.online.config import AUTH_API_KEY, AUTH_OFF, OnlineConfig
 from labtrust_gym.online.server import create_server
 from labtrust_gym.online.telemetry import get_abuse_counters
@@ -45,6 +43,7 @@ def _request(
 
 def _start_server(config: OnlineConfig) -> tuple[object, int]:
     import threading
+
     server = create_server(config)
     port = server.server_address[1]
     thread = threading.Thread(target=server.serve_forever, daemon=True)

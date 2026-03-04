@@ -64,6 +64,12 @@ while IFS= read -r line; do
   RUN_DIRS+=("$run_dir")
 done < "$RUNS_LIST"
 
+# Verify evidence before using: EvidenceBundles under receipts/ and SECURITY/attack_results.json.sha256
+if [ ${#RUN_DIRS[@]} -gt 0 ]; then
+  echo "=== verify run evidence (bundles + SECURITY checksum) ==="
+  python3 scripts/verify_run_evidence.py --policy-root "$REPO_ROOT" "${RUN_DIRS[@]}" || exit 1
+fi
+
 # Build --runs args for export-risk-register
 RUNS_ARGS=()
 for d in "${RUN_DIRS[@]}"; do
@@ -78,6 +84,8 @@ if [ ${#RUNS_ARGS[@]} -eq 0 ]; then
   mkdir -p "$SECURITY_DIR" "$COORD_DIR"
   "${LABTRUST[@]}" run-security-suite --out "$SECURITY_DIR" --seed "$SEED_BASE"
   "${LABTRUST[@]}" run-coordination-security-pack --out "$COORD_DIR" --seed "$SEED_BASE" --methods-from fixed --injections-from critical
+  echo "=== verify run evidence (bundles + SECURITY checksum) ==="
+  python3 scripts/verify_run_evidence.py --policy-root "$REPO_ROOT" "$SECURITY_DIR" "$COORD_DIR" || exit 1
   "${LABTRUST[@]}" export-risk-register --out "$OUT_DIR" --runs "$SECURITY_DIR" --runs "$COORD_DIR"
 else
   "${LABTRUST[@]}" export-risk-register --out "$OUT_DIR" "${RUNS_ARGS[@]}"

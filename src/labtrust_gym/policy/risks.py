@@ -41,8 +41,7 @@ def load_risk_registry(path: Path | str) -> RiskRegistry:
     if not isinstance(raw_list, list):
         raise PolicyLoadError(
             p,
-            "risk_registry.risks must be a list, got "
-            f"{type(raw_list).__name__}",
+            f"risk_registry.risks must be a list, got {type(raw_list).__name__}",
         )
     risks: dict[str, dict[str, Any]] = {}
     for entry in raw_list:
@@ -89,8 +88,7 @@ def load_risk_coverage_registry(path: Path | str) -> RiskCoverageRegistry:
     if not isinstance(raw_list, list):
         raise PolicyLoadError(
             p,
-            "risk_coverage_registry.coverage must be a list, got "
-            f"{type(raw_list).__name__}",
+            f"risk_coverage_registry.coverage must be a list, got {type(raw_list).__name__}",
         )
     coverage: dict[str, dict[str, Any]] = {}
     for entry in raw_list:

@@ -90,11 +90,13 @@ def run_live_orchestrator(config: OrchestratorConfig) -> dict[str, Any]:
     defense_controller = DefenseController(human_override_token=config.human_override_token)
     if config.defense_enabled and defense_transition.get("attack_detected"):
         defense_controller.state = DefenseState.CONTAINED
-        defense_controller.transition_log.append({
-            "event": "attack_detected",
-            "detection_step": defense_transition.get("detection_step"),
-            "containment_step": defense_transition.get("containment_step"),
-        })
+        defense_controller.transition_log.append(
+            {
+                "event": "attack_detected",
+                "detection_step": defense_transition.get("detection_step"),
+                "containment_step": defense_transition.get("containment_step"),
+            }
+        )
     defense_path = cell_dir / "defense_transition.json"
     defense_path.write_text(
         json.dumps(
@@ -120,10 +122,17 @@ def run_live_orchestrator(config: OrchestratorConfig) -> dict[str, Any]:
     }
     summary_csv = summary_dir / "summary_coord.csv"
     columns = [
-        "method_id", "scale_id", "risk_id", "injection_id",
-        "perf.throughput", "perf.p95_tat",
-        "safety.violations_total", "safety.blocks_total",
-        "sec.attack_success_rate", "sec.detection_latency_steps", "sec.containment_time_steps",
+        "method_id",
+        "scale_id",
+        "risk_id",
+        "injection_id",
+        "perf.throughput",
+        "perf.p95_tat",
+        "safety.violations_total",
+        "safety.blocks_total",
+        "sec.attack_success_rate",
+        "sec.detection_latency_steps",
+        "sec.containment_time_steps",
     ]
     with summary_csv.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
@@ -145,6 +154,7 @@ def run_live_orchestrator(config: OrchestratorConfig) -> dict[str, Any]:
     receipts_out = run_dir / "receipts"
     try:
         from labtrust_gym.export.receipts import export_receipts
+
         export_receipts(
             run_path=log_path,
             out_dir=receipts_out,
@@ -165,6 +175,7 @@ def run_live_orchestrator(config: OrchestratorConfig) -> dict[str, Any]:
             build_decision,
             write_decision_artifact,
         )
+
         decision = build_decision(run_dir, policy_root)
         write_decision_artifact(decision, decision_out, policy_root)
         for name in ("COORDINATION_DECISION.v0.1.json", "COORDINATION_DECISION.md"):

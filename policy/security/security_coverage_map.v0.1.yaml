@@ -11,44 +11,62 @@ entries:
   - risk_id: "R-TOOL-001"
     category: tool
     applies_to: [tools]
-    non_applicable: true
-    notes: "Tool selection errors are single-agent workflow; no coordination injection or security attack suite case. Covered by benchmark/golden flows."
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-TOOL-SELECT-001"
+    notes: "Tool selection: injected wrong tool_id denied by registry (test_tool_selection_wrong_tool_blocked_by_registry)."
 
   - risk_id: "R-TOOL-002"
     category: tool
     applies_to: [tools]
-    non_applicable: true
-    notes: "Tool execution failure (device/queue) exercised in failure_models and benchmarks; not in coordination injections v0.2 or security attack suite."
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-TOOL-EXECFAIL-001"
+    notes: "Tool execution failure: device fault injector and containment (test_tool_execution_failure)."
 
   - risk_id: "R-TOOL-003"
     category: tool
     applies_to: [tools]
-    non_applicable: true
-    notes: "Unverified tool risk mitigated by shield layer and invariant checks; no dedicated coordination injection or attack suite case."
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-TOOL-UNVERIFIED-001"
+    notes: "Unverified tool risk; pre-action validation evidenced by test_unregistered_tool_denied (tool not in registry denied)."
 
   - risk_id: "R-TOOL-004"
     category: tool
     applies_to: [tools]
-    non_applicable: true
-    notes: "Tool misuse (wrong context) covered by schema validation and golden scenarios; no coordination injection in v0.2."
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-TOOL-MISUSE-001"
+      - type: injection
+        ref: "INJ-TOOL-MISUSE-001"
+    notes: "Tool misuse: wrong context (device_id) denied; INJ-TOOL-MISUSE-001 + test_tool_misuse_wrong_device_blocked."
 
   - risk_id: "R-TOOL-005"
     category: tool
     applies_to: [tools]
-    non_applicable: true
-    notes: "Misparameterization covered by allowlist and test_llm_misparam_rejected; not in coordination injection set."
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-TOOL-MISPARAM-001"
+      - type: attack_suite
+        ref: "SEC-TOOL-MISPARAM-FUZZ-001"
+    notes: "Misparameterization: injector rejected + arg fuzz (validate_tool_args)."
 
   - risk_id: "R-FLOW-001"
     category: flow
     applies_to: [tools]
-    non_applicable: true
-    notes: "Action inefficiency is performance/benchmark concern; not a coordination or security attack suite target."
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-FLOW-INEF-001"
+    notes: "Action inefficiency: episode metrics (steps, perf) evidenced."
 
   - risk_id: "R-FLOW-002"
     category: flow
     applies_to: [tools]
-    non_applicable: true
-    notes: "Action progress (deadlock/livelock) exercised in benchmarks and fallback policies; no coordination injection in v0.2."
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-FLOW-PROGRESS-001"
+    notes: "Action progress: zero throughput when no release evidenced."
 
   - risk_id: "R-TOOL-006"
     category: tool
@@ -58,7 +76,9 @@ entries:
         ref: "INJ-LLM-TOOL-ESCALATION-001"
       - type: attack_suite
         ref: "SEC-TOOL-001"
-    notes: "Tool vulnerability exploitation; tool escalation injection and attack suite."
+      - type: attack_suite
+        ref: "SEC-TOOL-DATACLASS-001"
+    notes: "Tool vulnerability exploitation; egress/caps + data-class (PII/PHI) tests."
 
   - risk_id: "R-DATA-001"
     category: data
@@ -66,7 +86,9 @@ entries:
     covered_by:
       - type: attack_suite
         ref: "SEC-OBS-001"
-    notes: "Untrusted data exchange; covered by observability and receipt verification."
+      - type: attack_suite
+        ref: "SEC-DATA-PROV-001"
+    notes: "Untrusted data exchange; observability + data provenance (tool_registry_fingerprint)."
 
   - risk_id: "R-SYS-001"
     category: system
@@ -153,3 +175,11 @@ entries:
       - type: attack_suite
         ref: "SEC-MEM-001"
     notes: "Memory poisoning; coordination delayed-trigger and coord memory injections."
+
+  - risk_id: "R-COORD-001"
+    category: system
+    applies_to: [coordination]
+    covered_by:
+      - type: attack_suite
+        ref: "SEC-COORD-PACK-MULTI-AGENTIC"
+    notes: "Coordination security pack (multi-agentic combine path); coord_pack_ref attack suite."

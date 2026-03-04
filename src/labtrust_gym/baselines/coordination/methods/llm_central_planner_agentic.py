@@ -8,7 +8,8 @@ final proposal or max_rounds. Same propose_actions interface.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_NOOP,
@@ -78,10 +79,7 @@ class DeterministicAgenticProposalBackend:
                 {"per_agent": [], "proposal_id": "tool_round"},
                 {"tool_calls": [{"name": "query_queue_state", "args": {}}]},
             )
-        per_agent = [
-            {"agent_id": aid, "action_type": "NOOP", "args": {}, "reason_code": "OK"}
-            for aid in agent_ids
-        ]
+        per_agent = [{"agent_id": aid, "action_type": "NOOP", "args": {}, "reason_code": "OK"} for aid in agent_ids]
         return (
             {
                 "proposal_id": f"agentic-{self._seed}-{step_id}",

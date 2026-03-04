@@ -29,12 +29,8 @@ from labtrust_gym.export.risk_register_bundle import (
 
 
 def _skip_unless_official_pack_smoke() -> None:
-    if os.environ.get("LABTRUST_OFFICIAL_PACK_SMOKE") != "1" and os.environ.get(
-        "LABTRUST_PAPER_SMOKE"
-    ) != "1":
-        pytest.skip(
-            "Set LABTRUST_OFFICIAL_PACK_SMOKE=1 or LABTRUST_PAPER_SMOKE=1 to run"
-        )
+    if os.environ.get("LABTRUST_OFFICIAL_PACK_SMOKE") != "1" and os.environ.get("LABTRUST_PAPER_SMOKE") != "1":
+        pytest.skip("Set LABTRUST_OFFICIAL_PACK_SMOKE=1 or LABTRUST_PAPER_SMOKE=1 to run")
 
 
 def test_export_risk_register_from_llm_live_pack_artifacts_and_links(
@@ -95,12 +91,10 @@ def test_export_risk_register_from_llm_live_pack_artifacts_and_links(
     link_labels = {lnk.get("label") for lnk in links if lnk.get("label")}
 
     assert "LLM live transparency log" in link_labels, (
-        "Bundle must contain link to TRANSPARENCY_LOG/llm_live.json; "
-        f"labels={sorted(link_labels)!r}"
+        f"Bundle must contain link to TRANSPARENCY_LOG/llm_live.json; labels={sorted(link_labels)!r}"
     )
     assert "Live evaluation metadata" in link_labels, (
-        "Bundle must contain link to live_evaluation_metadata.json; "
-        f"labels={sorted(link_labels)!r}"
+        f"Bundle must contain link to live_evaluation_metadata.json; labels={sorted(link_labels)!r}"
     )
 
     schema_errors = validate_bundle_against_schema(bundle, root)
@@ -108,6 +102,5 @@ def test_export_risk_register_from_llm_live_pack_artifacts_and_links(
 
     crosswalk_errors = check_crosswalk_integrity(bundle)
     assert crosswalk_errors == [], (
-        "Bundle must have no crosswalk failures (evidence/risk/control refs); "
-        f"errors={crosswalk_errors!r}"
+        f"Bundle must have no crosswalk failures (evidence/risk/control refs); errors={crosswalk_errors!r}"
     )

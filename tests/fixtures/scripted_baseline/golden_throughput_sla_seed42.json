@@ -1,0 +1,10 @@
+{
+  "task": "throughput_sla",
+  "base_seed": 42,
+  "num_episodes": 1,
+  "episode_metrics": {
+    "throughput": 0,
+    "steps": 80
+  },
+  "description": "Golden metrics for scripted baseline regression: one episode, fixed seed. Scripted baseline behaviour is the stable reference for SOTA comparison."
+}

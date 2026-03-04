@@ -23,7 +23,6 @@ from labtrust_gym.baselines.coordination.interface import (
     ACTION_NOOP,
     ACTION_QUEUE_RUN,
     ACTION_START_RUN,
-    ACTION_TICK,
     CoordinationMethod,
 )
 from labtrust_gym.baselines.coordination.obs_utils import (
@@ -96,9 +95,7 @@ class ConsensusPaxosLite(CoordinationMethod):
         policy: dict[str, Any],
         scale_config: dict[str, Any],
     ) -> None:
-        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(
-            policy
-        )
+        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         if isinstance(layout, dict):
             self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
@@ -121,9 +118,7 @@ class ConsensusPaxosLite(CoordinationMethod):
 
         if not self._zone_ids and agents:
             sample = obs.get(agents[0]) or {}
-            self._zone_ids, self._device_ids, self._device_zone = (
-                extract_zone_and_device_ids({}, obs_sample=sample)
-            )
+            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         if not self._device_ids or not self._zone_ids:
             return out
 

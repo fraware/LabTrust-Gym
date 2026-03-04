@@ -22,7 +22,19 @@ import os
 from pathlib import Path
 
 
+def _load_dotenv_if_available() -> None:
+    """Load .env from cwd or LABTRUST_DOTENV_PATH so OPENAI_API_KEY etc. are set (when python-dotenv is installed)."""
+    try:
+        from dotenv import load_dotenv
+
+        path = os.environ.get("LABTRUST_DOTENV_PATH", "").strip() or ".env"
+        load_dotenv(path)
+    except ImportError:
+        pass
+
+
 def main() -> int:
+    _load_dotenv_if_available()
     parser = argparse.ArgumentParser(description="Run plan-results coordination scenario")
     parser.add_argument(
         "--out-dir",
@@ -86,7 +98,7 @@ def main() -> int:
         "Scenario: coord_scale, llm_auction_bidder, scale small_smoke (coord_auction_protocol=round_robin), pipeline_mode=llm_offline.",
         "",
         f"- Episodes: {summary_data['num_episodes']}, base_seed: {args.seed}",
-        f"- Results: `results.json`",
+        "- Results: `results.json`",
         f"- Attribution in results: {summary_data['llm_attribution_present']} (set LABTRUST_LLM_TRACE=1 for attribution).",
         "",
         "Reproduce:",

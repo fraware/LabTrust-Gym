@@ -16,7 +16,6 @@ import pytest
 from labtrust_gym.baselines.llm.agent import FixtureBackend, _messages_digest
 from labtrust_gym.baselines.llm.exceptions import AuthError, FixtureMissingError
 
-
 # Minimal messages that match the key in tests/fixtures/llm_responses/fixtures.json
 FIXTURE_MESSAGES = [
     {"role": "system", "content": "You are a test."},
@@ -81,7 +80,12 @@ def test_openai_hosted_backend_integration() -> None:
 
     backend = OpenAIHostedBackend()
     out = backend.generate(
-        [{"role": "user", "content": "Return only this JSON: {\"action_type\": \"NOOP\", \"args\": {}, \"reason_code\": null, \"token_refs\": [], \"rationale\": \"test\", \"confidence\": 1.0, \"safety_notes\": \"\"}"}]
+        [
+            {
+                "role": "user",
+                "content": 'Return only this JSON: {"action_type": "NOOP", "args": {}, "reason_code": null, "token_refs": [], "rationale": "test", "confidence": 1.0, "safety_notes": ""}',
+            }
+        ]
     )
     assert "action_type" in out
     assert "NOOP" in out

@@ -85,6 +85,47 @@ def test_verify_bundle_pass_untouched(tmp_path: Path) -> None:
     assert len(summary["errors"]) == 0
 
 
+def test_verify_bundle_pass_last_entry_without_hashchain(tmp_path: Path) -> None:
+    """Proof uses last entry with hashchain; trailing entry without hashchain still verifies."""
+    root = _repo_root()
+    entries = [
+        {
+            "t_s": 100,
+            "agent_id": "A",
+            "action_type": "CREATE_ACCESSION",
+            "args": {"specimen_id": "S1"},
+            "status": "ACCEPTED",
+            "hashchain": {"head_hash": "h0", "length": 1, "last_event_hash": "e0"},
+        },
+        {
+            "t_s": 200,
+            "agent_id": "A",
+            "action_type": "ACCEPT_SPECIMEN",
+            "args": {"specimen_id": "S1"},
+            "status": "ACCEPTED",
+            "hashchain": {"head_hash": "h1", "length": 2, "last_event_hash": "e1"},
+        },
+        {"t_s": 300, "agent_id": "A", "info_only": True},
+    ]
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp_test",
+        partner_id=None,
+    )
+    passed, report, errors = verify_bundle(
+        bundle_dir,
+        policy_root=root,
+        allow_extra_files=False,
+    )
+    assert passed, f"expected PASS when last entry has no hashchain: {report}\n{errors}"
+    assert len(errors) == 0
+
+
 def test_verify_bundle_pass_with_llm_decision_entries(tmp_path: Path) -> None:
     """Bundle with episode log entries containing llm_decision still verifies; hashes are stable."""
     root = _repo_root()
@@ -357,7 +398,13 @@ def test_verify_bundle_prompt_sha256_pass(tmp_path: Path) -> None:
     )
 
     root = _repo_root()
-    state = {"step": 0, "per_agent": [], "per_device": [], "per_specimen": [], "comms_stats": {"msg_count": 0, "drop_rate": 0.0}}
+    state = {
+        "step": 0,
+        "per_agent": [],
+        "per_device": [],
+        "per_specimen": [],
+        "comms_stats": {"msg_count": 0, "drop_rate": 0.0},
+    }
     pf = compute_prompt_fingerprints(
         "llm_central_planner",
         state,
@@ -396,7 +443,13 @@ def test_verify_bundle_prompt_sha256_fail_when_tampered(tmp_path: Path) -> None:
     )
 
     root = _repo_root()
-    state = {"step": 0, "per_agent": [], "per_device": [], "per_specimen": [], "comms_stats": {"msg_count": 0, "drop_rate": 0.0}}
+    state = {
+        "step": 0,
+        "per_agent": [],
+        "per_device": [],
+        "per_specimen": [],
+        "comms_stats": {"msg_count": 0, "drop_rate": 0.0},
+    }
     pf = compute_prompt_fingerprints(
         "llm_central_planner",
         state,
@@ -424,6 +477,120 @@ def test_verify_bundle_prompt_sha256_fail_when_tampered(tmp_path: Path) -> None:
     passed, report, errors = verify_bundle(bundle_dir, policy_root=root, allow_extra_files=True)
     assert not passed
     assert any("prompt_sha256" in e for e in errors)
+
+
+def test_evidence_bundle_with_coordination_audit_digest_has_sha256_and_verifies(tmp_path: Path) -> None:
+    """Bundle with LLM_COORD_AUDIT_DIGEST entries gets coordination_audit_digest_sha256 in manifest; verify passes."""
+    root = _repo_root()
+    entries = [
+        {
+            "t_s": 0,
+            "agent_id": "A",
+            "action_type": "NOOP",
+            "args": {},
+            "status": "ACCEPTED",
+            "hashchain": {"head_hash": "h0", "length": 1, "last_event_hash": "e0"},
+        },
+        {
+            "log_type": "LLM_COORD_AUDIT_DIGEST",
+            "audit_digest_version": "0.1",
+            "episode_id": 0,
+            "steps": [
+                {"step_id": 0, "proposal_hash": "ph0", "shield_outcome_hash": "sh0"},
+                {"step_id": 1, "proposal_hash": "ph1", "shield_outcome_hash": "sh1"},
+            ],
+        },
+    ]
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp",
+        partner_id=None,
+    )
+    manifest_path = bundle_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert "coordination_audit_digest_sha256" in manifest
+    digest = manifest["coordination_audit_digest_sha256"]
+    assert isinstance(digest, str) and len(digest) == 64
+    assert all(c in "0123456789abcdef" for c in digest)
+    passed, report, errors = verify_bundle(
+        bundle_dir,
+        policy_root=root,
+        allow_extra_files=True,
+    )
+    assert passed, f"expected PASS: {report}\n{errors}"
+
+
+def test_verify_bundle_fail_coordination_audit_digest_mismatch(tmp_path: Path) -> None:
+    """When manifest has coordination_audit_digest_sha256 but log is tampered, verify fails."""
+    root = _repo_root()
+    entries = [
+        {
+            "t_s": 0,
+            "agent_id": "A",
+            "action_type": "NOOP",
+            "args": {},
+            "status": "ACCEPTED",
+            "hashchain": {"head_hash": "h0", "length": 1, "last_event_hash": "e0"},
+        },
+        {
+            "log_type": "LLM_COORD_AUDIT_DIGEST",
+            "audit_digest_version": "0.1",
+            "episode_id": 0,
+            "steps": [{"step_id": 0, "proposal_hash": "ph0", "shield_outcome_hash": "sh0"}],
+        },
+    ]
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp",
+        partner_id=None,
+    )
+    manifest_path = bundle_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["coordination_audit_digest_sha256"] = "0" * 64
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+    passed, report, errors = verify_bundle(
+        bundle_dir,
+        policy_root=root,
+        allow_extra_files=True,
+    )
+    assert not passed
+    assert any("coordination_audit_digest" in e for e in errors)
+
+
+def test_verify_bundle_pass_without_coordination_audit_digest(tmp_path: Path) -> None:
+    """Bundle with no LLM_COORD_AUDIT_DIGEST has no coordination_audit_digest_sha256; verify still passes."""
+    root = _repo_root()
+    log_path = _tiny_episode_log(tmp_path)
+    entries = load_episode_log(log_path)
+    receipts = build_receipts_from_log(entries)
+    out_dir = tmp_path / "export"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle_dir = write_evidence_bundle(
+        out_dir,
+        receipts,
+        entries,
+        policy_fingerprint="fp",
+        partner_id=None,
+    )
+    manifest_path = bundle_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest.get("coordination_audit_digest_sha256") is None
+    passed, report, errors = verify_bundle(
+        bundle_dir,
+        policy_root=root,
+        allow_extra_files=False,
+    )
+    assert passed, f"expected PASS: {report}\n{errors}"
 
 
 def test_policy_root_hash_changes_with_partner_overlay() -> None:

@@ -27,6 +27,12 @@ from labtrust_gym.baselines.coordination.interface import (
     ACTION_TICK,
     CoordinationMethod,
 )
+from labtrust_gym.baselines.coordination.methods.swarm_stability import (
+    congestion_penalty,
+)
+from labtrust_gym.baselines.coordination.methods.swarm_stability import (
+    pheromone_diffusion as _pheromone_diffusion_fn,
+)
 from labtrust_gym.baselines.coordination.obs_utils import (
     device_qc_pass,
     extract_zone_and_device_ids,
@@ -35,10 +41,6 @@ from labtrust_gym.baselines.coordination.obs_utils import (
     log_frozen,
     queue_has_head,
     restricted_zone_frozen,
-)
-from labtrust_gym.baselines.coordination.methods.swarm_stability import (
-    congestion_penalty,
-    pheromone_diffusion as _pheromone_diffusion_fn,
 )
 from labtrust_gym.engine.zones import build_adjacency_set
 
@@ -111,12 +113,8 @@ class SwarmStigmergyPriority(CoordinationMethod):
         sc = scale_config or {}
         self._inertia_weight = float(sc.get("inertia_weight", 0.3))
         self._congestion_scale = float(sc.get("congestion_penalty_scale", 0.5))
-        self._pheromone_diffusion_decay = float(
-            sc.get("pheromone_diffusion_decay", 0.9)
-        )
-        self._zone_ids, self._device_ids, self._device_zone = (
-            extract_zone_and_device_ids(policy)
-        )
+        self._pheromone_diffusion_decay = float(sc.get("pheromone_diffusion_decay", 0.9))
+        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
         if isinstance(layout, dict):
             self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
@@ -142,9 +140,7 @@ class SwarmStigmergyPriority(CoordinationMethod):
 
         if not self._zone_ids and agents:
             sample = obs.get(agents[0]) or {}
-            self._zone_ids, self._device_ids, self._device_zone = (
-                extract_zone_and_device_ids({}, obs_sample=sample)
-            )
+            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         if not self._zone_ids:
             return out
 
@@ -160,9 +156,7 @@ class SwarmStigmergyPriority(CoordinationMethod):
                 neighbors = [b for (a, b) in self._adjacency if a == z]
                 nvals = [prev.get(n, 0.0) for n in neighbors]
                 if nvals:
-                    diff = _pheromone_diffusion_fn(
-                        nvals, decay=self._pheromone_diffusion_decay
-                    )
+                    diff = _pheromone_diffusion_fn(nvals, decay=self._pheromone_diffusion_decay)
                     self._pheromone[z] = self._pheromone.get(z, 0) + diff
 
         # First pass: decide work actions and deposit pheromone
@@ -226,16 +220,12 @@ class SwarmStigmergyPriority(CoordinationMethod):
                 last_from_zone = self._last_move[agent_id][0]
             best_next: str | None = None
             best_val = my_pheromone
-            for (a, b) in self._adjacency:
+            for a, b in self._adjacency:
                 if a != my_zone:
                     continue
                 val = self._pheromone.get(b, 0)
-                penalty = congestion_penalty(
-                    zone_agent_count.get(b, 0), scale=self._congestion_scale
-                )
-                inertia_bonus = (
-                    self._inertia_weight if (last_from_zone is None or b != last_from_zone) else 0.0
-                )
+                penalty = congestion_penalty(zone_agent_count.get(b, 0), scale=self._congestion_scale)
+                inertia_bonus = self._inertia_weight if (last_from_zone is None or b != last_from_zone) else 0.0
                 score = val - penalty + inertia_bonus
                 if score > best_val:
                     best_val = score

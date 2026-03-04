@@ -1,6 +1,6 @@
 # LabTrust-Gym Benchmarks
 
-Benchmark harness for running multiple episodes with fixed seeds, recording metrics, and outputting JSON.
+Benchmark harness for running multiple episodes with fixed seeds, recording metrics, and outputting JSON. The scripted baseline (ScriptedOpsAgent, ScriptedRunnerAgent) is the reproducibility reference; SOTA comparison is against the OR kernel, LLM coordination methods, and MARL as described in the [Coordination benchmark card](../coordination/coordination_benchmark_card.md).
 
 ## Tasks
 
@@ -78,9 +78,9 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 - **Episode length**: Same as coord_scale.
 - **Agents**: Same as coord_scale; risk injector can mutate obs, messages, or actions (deterministic, auditable).
 - **Injections**: Red-team injection sets are defined in `policy/coordination/injections.v0.2.yaml` (success_definition, detection_definition, containment_definition per set). Study spec references them via `policy/coordination/coordination_study_spec.v0.1.yaml` (e.g. INJ-COMMS-POISON-001, INJ-ID-SPOOF-001, INJ-COLLUSION-001). INJ-ID-SPOOF-001 must be blocked when strict signatures are enabled.
-- **Red-team metrics** (coord_risk): In addition to `sec.attack_success_rate`, `sec.detection_latency_steps`, `sec.containment_time_steps`, the coordination study reports **sec.stealth_success_rate** (attacks that succeeded without detection), **sec.time_to_attribution_steps** (steps until attacker attribution), **sec.blast_radius_proxy** (scope of impact). See [Security attack suite](../risk-and-security/security_attack_suite.md) for red-team definitions.
+- **Red-team metrics** (coord_risk): In addition to `sec.attack_success_rate`, `sec.detection_latency_steps`, `sec.containment_time_steps`, the coordination study reports **sec.stealth_success_rate** (attacks that succeeded without detection), **sec.time_to_attribution_steps** (steps until attacker attribution), **sec.blast_radius_proxy** (scope of impact). Uncertainty: **sec.attack_success_rate_ci_lower/upper** (95% Clopper-Pearson), **sec.worst_case_attack_success_upper_95** (when 0 successes observed). See [Security attack suite](../risk-and-security/security_attack_suite.md) for red-team definitions and [Uncertainty quantification](uncertainty_quantification.md) for standard reporting.
 - **CLI**: `labtrust run-benchmark --task coord_risk --coord-method <method_id> --injection <injection_id> [--scale small_smoke|medium_stress_signed_bus|corridor_heavy] [--timing explicit|simulated] --episodes 1 --seed 42 --out results.json`.
-- **Study**: `labtrust run-coordination-study --spec policy/coordination/coordination_study_spec.v0.1.yaml --out <dir>` produces per-cell results, summary_coord.csv, pareto.md, SOTA leaderboard, and method-class comparison. Aggregate with `labtrust summarize-coordination --in <dir> --out <dir>`. See [Coordination studies](../coordination/coordination_studies.md), [Benchmarking plan](benchmarking_plan.md).
+- **Study**: `labtrust run-coordination-study --spec policy/coordination/coordination_study_spec.v0.1.yaml --out <dir>` produces per-cell results, summary_coord.csv, pareto.md, SOTA leaderboard, and method-class comparison. Aggregate with `labtrust summarize-coordination --in <dir> --out <dir>`. See [Coordination studies](../coordination/coordination_studies.md).
 - **Coordination security pack** (internal regression): `labtrust run-coordination-security-pack --out <dir>` runs a fixed scale × method × injection matrix (deterministic, 1 ep/cell), writes pack_results/, pack_summary.csv, pack_gate.md. See [Security attack suite](../risk-and-security/security_attack_suite.md#coordination-security-pack-internal-regression).
 
 ### device_outage_surge — experimental
@@ -150,14 +150,14 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 |----------|-------------|----------|
 | results.json | run-benchmark, eval-agent, generate-official-baselines | results.v0.2 (policy/schemas/results.v0.2.schema.json) |
 | summary_v0.2.csv | summarize-results (streaming, bounded memory) | CI-stable; mean/std per metric |
-| summary_v0.3.csv | summarize-results | Paper-grade; quantiles, 95% CI |
+| summary_v0.3.csv | summarize-results | Paper-grade; quantiles, 95% CI; containment_success_rate_ci_*; llm_confidence_ece_mean, llm_confidence_mce_mean (when applicable). |
 | summary.csv | summarize-results | Same as summary_v0.2.csv |
 | summary.md | summarize-results | Markdown table from v0.2 aggregates; when run_info exists, includes a **Run info** section (table) and a footer. |
 | run_info.csv | summarize-results (when any result has metadata.run_duration_wall_s) | run_duration_wall_s, episodes_per_second per result |
 | determinism_report.json, determinism_report.md | determinism-report | Hashes and v0.2 metrics comparison; markdown includes a **Checks** summary (e.g. 4/4 passed), run configuration table, result status, and hash comparison table. |
 | pack_summary.csv, pack_gate.md | run-coordination-security-pack | Method x injection matrix; gate verdicts |
 
-See [Metrics contract](../contracts/metrics_contract.md) for units and aggregation rules.
+See [Metrics contract](../contracts/metrics_contract.md) for units and aggregation rules. For rate CIs, detector/LLM calibration, robust Pareto, and which uncertainty fields appear in each report, see [Uncertainty quantification](uncertainty_quantification.md) and [Uncertainty metrics in standard reports](../contracts/metrics_contract.md#uncertainty-metrics-in-standard-reports).
 
 ## CLI
 

@@ -25,6 +25,7 @@ coordination_methods:
         preemption_sla_threshold: 5
         aging_steps_per_boost: 10
       # SLA: STAT (prio 2), URGENT (1), ROUTINE (0); weights via criticality_slack_steps; replan per-step
+      # compute_envelope: steps=horizon; llm_calls_per_step=0; fallback=N/A; max_latency_ms=bounded
 
     - method_id: "kernel_whca"
       name: "Kernel composed (centralized alloc + EDF sched + WHCA* reservation router)"
@@ -48,6 +49,7 @@ coordination_methods:
       compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
       default_params: {}
       # horizon_steps, replan_cadence_steps, weights (tardiness, throughput, etc.); or_schedule_time_budget_ms in scale_config
+      # compute_envelope: OR time_budget_ms in scale_config; fallback=infeasible returns explain; max_latency_ms=bounded
 
     - method_id: "kernel_scheduler_or_whca"
       name: "Kernel OR scheduler + WHCA* (centralized alloc + OR sched + WHCA* router)"
@@ -60,6 +62,7 @@ coordination_methods:
       default_params:
         whca_horizon: 15
       # Same OR horizon/replan/weights as kernel_scheduler_or; path exposure and invariants as kernel_whca
+      # compute_envelope: same as kernel_scheduler_or + WHCA; time_budget_ms; fallback=infeasible; max_latency_ms=bounded
 
     - method_id: "centralized_planner"
       name: "Centralized planner"
@@ -68,7 +71,7 @@ coordination_methods:
       scaling_knobs: ["num_agents", "num_sites", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-SYS-001", "R-COMMS-001", "R-FLOW-002"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
-      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_device_fail", "inj_dos_flood", "INJ-DOS-PLANNER-001"]
       default_params: {}
       # compute_envelope: O(agents*devices) per step; fallback: truncate assignments when over budget
 
@@ -129,7 +132,7 @@ coordination_methods:
       required_controls: ["message_auth", "replay_protection", "signed_actions"]
       compatible_injections: ["INJ-COMMS-POISON-001", "INJ-CONSENSUS-POISON-001", "INJ-ID-SPOOF-001"]
       default_params: {}
-      # compute envelope: per-step bounded by neighbor count and message size; evidence optional (no METHOD_TRACE)
+      # compute_envelope: per-step bounded by neighbor count and message size; fallback=N/A; evidence optional (no METHOD_TRACE)
 
     - method_id: "swarm_reactive"
       name: "Swarm reactive"
@@ -138,7 +141,7 @@ coordination_methods:
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-FLOW-001", "R-SYS-001"]
       required_controls: ["RBAC", "rate_limit"]
-      compatible_injections: ["inj_tool_selection_noise", "inj_dos_flood"]
+      compatible_injections: ["inj_tool_selection_noise", "inj_dos_flood", "INJ-DOS-PLANNER-001"]
       default_params: {}
       # compute_envelope: steps=horizon; llm_calls_per_step=0; fallback=N/A; max_latency_ms=bounded
       # stability_knobs: inertia_weight (0..1), congestion_penalty_scale; reduce oscillation and pile-ups
@@ -183,6 +186,7 @@ coordination_methods:
       name: "LLM constrained (existing baseline)"
       coordination_class: llm
       llm_based: true
+      scale_capable: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
@@ -194,6 +198,7 @@ coordination_methods:
       name: "LLM central planner (global state digest -> CoordinationProposal)"
       coordination_class: llm
       llm_based: true
+      scale_capable: true
       scaling_knobs: ["num_agents", "num_devices", "specimen_rate"]
       known_weaknesses: ["R-TOOL-001", "R-TOOL-005", "R-CAP-001", "R-DATA-001"]
       required_controls: ["signed_actions", "RBAC", "rate_limit"]
@@ -381,7 +386,7 @@ coordination_methods:
       default_params:
         share_interval: 5
         summary_max_items: 50
-      # compute envelope: share_interval, summary_max_items; evidence optional (no METHOD_TRACE)
+      # compute_envelope: share_interval, summary_max_items; fallback=N/A; evidence optional (no METHOD_TRACE)
 
     - method_id: "group_evolving_study"
       name: "Group-Evolving study (population evolution across episodes)"

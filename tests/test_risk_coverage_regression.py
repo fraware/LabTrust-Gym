@@ -29,22 +29,14 @@ def _valid_injection_ids(repo_root: Path) -> set[str]:
         return set()
     data = load_yaml(path)
     injections = (data or {}).get("injections") or []
-    return {
-        str(i["injection_id"])
-        for i in injections
-        if isinstance(i, dict) and i.get("injection_id")
-    }
+    return {str(i["injection_id"]) for i in injections if isinstance(i, dict) and i.get("injection_id")}
 
 
 def _valid_attack_ids(repo_root: Path) -> set[str]:
     """Return set of attack_id from security_attack_suite."""
     suite = load_attack_suite(repo_root)
     attacks = (suite or {}).get("attacks") or []
-    return {
-        str(a["attack_id"])
-        for a in attacks
-        if isinstance(a, dict) and a.get("attack_id")
-    }
+    return {str(a["attack_id"]) for a in attacks if isinstance(a, dict) and a.get("attack_id")}
 
 
 def test_risk_coverage_registry_exists_and_parses() -> None:
@@ -61,12 +53,8 @@ def test_risk_coverage_registry_exists_and_parses() -> None:
 def test_every_risk_has_coverage_entry() -> None:
     """Every risk in risk_registry has an entry in risk_coverage_registry."""
     root = _repo_root()
-    risk_reg = load_risk_registry(
-        root / "policy" / "risks" / "risk_registry.v0.1.yaml"
-    )
-    cov_reg = load_risk_coverage_registry(
-        root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml"
-    )
+    risk_reg = load_risk_registry(root / "policy" / "risks" / "risk_registry.v0.1.yaml")
+    cov_reg = load_risk_coverage_registry(root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml")
     missing = set(risk_reg.risks) - set(cov_reg.coverage)
     msg = (
         f"Coverage regression: risk_ids with no coverage: {sorted(missing)}. "
@@ -79,9 +67,7 @@ def test_every_risk_has_coverage_entry() -> None:
 def test_every_coverage_entry_has_valid_type() -> None:
     """Each entry has injection_ids, attack_ids, or not_applicable_justification."""
     root = _repo_root()
-    cov_reg = load_risk_coverage_registry(
-        root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml"
-    )
+    cov_reg = load_risk_coverage_registry(root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml")
     invalid: list[str] = []
     for risk_id, entry in cov_reg.coverage.items():
         inj = entry.get("injection_ids") or []
@@ -89,19 +75,14 @@ def test_every_coverage_entry_has_valid_type() -> None:
         na = (entry.get("not_applicable_justification") or "").strip()
         if not inj and not att and not na:
             invalid.append(risk_id)
-    msg = (
-        "Coverage entry must have at least one of injection_ids, attack_ids, "
-        f"not_applicable_justification: {invalid}"
-    )
+    msg = f"Coverage entry must have at least one of injection_ids, attack_ids, not_applicable_justification: {invalid}"
     assert not invalid, msg
 
 
 def test_coverage_injection_ids_exist_in_injections() -> None:
     """Every injection_id in coverage exists in injections.v0.2.yaml."""
     root = _repo_root()
-    cov_reg = load_risk_coverage_registry(
-        root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml"
-    )
+    cov_reg = load_risk_coverage_registry(root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml")
     valid = _valid_injection_ids(root)
     bad: list[tuple[str, str]] = []
     for risk_id, entry in cov_reg.coverage.items():
@@ -118,9 +99,7 @@ def test_coverage_injection_ids_exist_in_injections() -> None:
 def test_coverage_attack_ids_exist_in_security_attack_suite() -> None:
     """Every attack_id in coverage exists in security_attack_suite.v0.1.yaml."""
     root = _repo_root()
-    cov_reg = load_risk_coverage_registry(
-        root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml"
-    )
+    cov_reg = load_risk_coverage_registry(root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml")
     valid = _valid_attack_ids(root)
     bad: list[tuple[str, str]] = []
     for risk_id, entry in cov_reg.coverage.items():
@@ -137,12 +116,8 @@ def test_coverage_attack_ids_exist_in_security_attack_suite() -> None:
 def test_no_orphan_coverage_entries() -> None:
     """Every coverage entry risk_id exists in risk_registry (no stale entries)."""
     root = _repo_root()
-    risk_reg = load_risk_registry(
-        root / "policy" / "risks" / "risk_registry.v0.1.yaml"
-    )
-    cov_reg = load_risk_coverage_registry(
-        root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml"
-    )
+    risk_reg = load_risk_registry(root / "policy" / "risks" / "risk_registry.v0.1.yaml")
+    cov_reg = load_risk_coverage_registry(root / "policy" / "risks" / "risk_coverage_registry.v0.1.yaml")
     orphan = set(cov_reg.coverage) - set(risk_reg.risks)
     msg = (
         f"Coverage has risk_ids not in risk_registry (stale): {sorted(orphan)}. "

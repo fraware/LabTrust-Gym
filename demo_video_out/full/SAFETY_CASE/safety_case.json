@@ -1,0 +1,391 @@
+{
+  "claims": [
+    {
+      "artifacts": [
+        "policy/schemas/runner_output_contract.v0.1.schema.json",
+        "SAFETY_CASE/safety_case.json"
+      ],
+      "claim_id": "SC-CONTRACT-001",
+      "claim_version": "0.1",
+      "commands": [
+        "pytest tests/test_golden_suite.py -q",
+        "pytest tests/test_metamorphic_properties.py -q"
+      ],
+      "controls": [
+        "Runner output schema enforcement",
+        "Golden runner validates contract"
+      ],
+      "statement": "Step output satisfies runner output contract (status, emits, violations, hashchain).",
+      "tests": [
+        "tests.test_golden_suite",
+        "tests.test_metamorphic_properties"
+      ],
+      "traceability": {
+        "claim_id": "SC-CONTRACT-001",
+        "evidence_links": [
+          {
+            "id": "Runner output schema enforcement",
+            "type": "control"
+          },
+          {
+            "id": "Golden runner validates contract",
+            "type": "control"
+          },
+          {
+            "path": "tests/test_golden_suite.py",
+            "ref": "tests.test_golden_suite",
+            "type": "test"
+          },
+          {
+            "path": "tests/test_metamorphic_properties.py",
+            "ref": "tests.test_metamorphic_properties",
+            "type": "test"
+          },
+          {
+            "path": "policy/schemas/runner_output_contract.v0.1.schema.json",
+            "type": "artifact"
+          },
+          {
+            "path": "SAFETY_CASE/safety_case.json",
+            "type": "artifact"
+          }
+        ]
+      }
+    },
+    {
+      "artifacts": [
+        "_repr/",
+        "SAFETY_CASE/safety_case.md"
+      ],
+      "claim_id": "SC-DETERMINISM-001",
+      "claim_version": "0.1",
+      "commands": [
+        "pytest tests/test_metamorphic_properties.py -q",
+        "pytest tests/test_failure_models_deterministic.py -q"
+      ],
+      "controls": [
+        "Single RNG wrapper seeded per episode",
+        "No ambient randomness in step"
+      ],
+      "statement": "Same seed yields identical step outcomes (determinism).",
+      "tests": [
+        "tests.test_metamorphic_properties",
+        "tests.test_failure_models_deterministic"
+      ],
+      "traceability": {
+        "claim_id": "SC-DETERMINISM-001",
+        "evidence_links": [
+          {
+            "id": "Single RNG wrapper seeded per episode",
+            "type": "control"
+          },
+          {
+            "id": "No ambient randomness in step",
+            "type": "control"
+          },
+          {
+            "path": "tests/test_metamorphic_properties.py",
+            "ref": "tests.test_metamorphic_properties",
+            "type": "test"
+          },
+          {
+            "path": "tests/test_failure_models_deterministic.py",
+            "ref": "tests.test_failure_models_deterministic",
+            "type": "test"
+          },
+          {
+            "path": "_repr/",
+            "type": "artifact"
+          },
+          {
+            "path": "SAFETY_CASE/safety_case.md",
+            "type": "artifact"
+          }
+        ]
+      }
+    },
+    {
+      "artifact_sha256": [
+        {
+          "path": "SECURITY/attack_results.json",
+          "sha256": "53a40e945f277f988e0863b912b80dffd53f7511fb3455cdb2f763660225b135"
+        },
+        {
+          "path": "SECURITY/coverage.json",
+          "sha256": "69b2eeddfc062c9576aa3fff84fa2dc32f10b94ef5692bc04b83334b020c8cf2"
+        }
+      ],
+      "artifacts": [
+        "SECURITY/attack_results.json",
+        "SECURITY/coverage.json",
+        "SECURITY/coverage.md"
+      ],
+      "artifacts_expected": [
+        "SECURITY/attack_results.json",
+        "SECURITY/coverage.json"
+      ],
+      "claim_id": "SC-SECURITY-001",
+      "claim_version": "0.1",
+      "commands": [
+        "labtrust run-security-suite --out <dir> --smoke --seed 42",
+        "pytest tests/test_security_attack_suite.py tests/test_securitization.py -q"
+      ],
+      "controls": [
+        "CTRL-LLM-SHIELD",
+        "CTRL-RBAC",
+        "CTRL-TOOL-SANDBOX",
+        "CTRL-COORD-IDENTITY",
+        "CTRL-DETECTOR-ADVISOR"
+      ],
+      "statement": "Security attack suite scenarios are blocked or detected as expected.",
+      "tests": [
+        "tests.test_security_attack_suite",
+        "tests.test_securitization"
+      ],
+      "traceability": {
+        "claim_id": "SC-SECURITY-001",
+        "evidence_links": [
+          {
+            "id": "CTRL-LLM-SHIELD",
+            "type": "control"
+          },
+          {
+            "id": "CTRL-RBAC",
+            "type": "control"
+          },
+          {
+            "id": "CTRL-TOOL-SANDBOX",
+            "type": "control"
+          },
+          {
+            "id": "CTRL-COORD-IDENTITY",
+            "type": "control"
+          },
+          {
+            "id": "CTRL-DETECTOR-ADVISOR",
+            "type": "control"
+          },
+          {
+            "path": "tests/test_security_attack_suite.py",
+            "ref": "tests.test_security_attack_suite",
+            "type": "test"
+          },
+          {
+            "path": "tests/test_securitization.py",
+            "ref": "tests.test_securitization",
+            "type": "test"
+          },
+          {
+            "path": "SECURITY/attack_results.json",
+            "type": "artifact"
+          },
+          {
+            "path": "SECURITY/coverage.json",
+            "type": "artifact"
+          },
+          {
+            "path": "SECURITY/coverage.md",
+            "type": "artifact"
+          }
+        ]
+      }
+    },
+    {
+      "artifacts": [
+        "pack_summary.csv",
+        "pack_gate.md",
+        "SECURITY/coordination_risk_matrix.csv"
+      ],
+      "artifacts_expected": [
+        "pack_summary.csv",
+        "pack_gate.md"
+      ],
+      "claim_id": "SC-SECURITY-002",
+      "claim_version": "0.1",
+      "commands": [
+        "labtrust run-coordination-security-pack --out <dir> --methods-from full --injections-from policy"
+      ],
+      "controls": [
+        "Coordination security pack (scale x method x injection matrix)"
+      ],
+      "statement": "All in-scope coordination methods are stress-tested against the coordination injection set (and optional application phases). Evidence is pack_summary.csv and pack_gate.md from run-coordination-security-pack with full method list; optionally SECURITY/coordination_risk_matrix.csv.",
+      "tests": [
+        "tests.test_security_coverage_gate::test_coordination_pack_full_method_list_non_empty",
+        "tests.test_security_coverage_gate::test_coordination_pack_full_method_list_used"
+      ],
+      "traceability": {
+        "claim_id": "SC-SECURITY-002",
+        "evidence_links": [
+          {
+            "id": "Coordination security pack (scale x method x injection matrix)",
+            "type": "control"
+          },
+          {
+            "path": "tests/test_security_coverage_gate::test_coordination_pack_full_method_list_non_empty.py",
+            "ref": "tests.test_security_coverage_gate::test_coordination_pack_full_method_list_non_empty",
+            "type": "test"
+          },
+          {
+            "path": "tests/test_security_coverage_gate::test_coordination_pack_full_method_list_used.py",
+            "ref": "tests.test_security_coverage_gate::test_coordination_pack_full_method_list_used",
+            "type": "test"
+          },
+          {
+            "path": "pack_summary.csv",
+            "type": "artifact"
+          },
+          {
+            "path": "pack_gate.md",
+            "type": "artifact"
+          },
+          {
+            "path": "SECURITY/coordination_risk_matrix.csv",
+            "type": "artifact"
+          }
+        ]
+      }
+    },
+    {
+      "artifacts": [
+        "policy/schemas/"
+      ],
+      "claim_id": "SC-POLICY-001",
+      "claim_version": "0.1",
+      "commands": [
+        "labtrust validate-policy"
+      ],
+      "controls": [
+        "validate-policy before release"
+      ],
+      "statement": "All policy files validate against their JSON schemas.",
+      "tests": [
+        "tests.test_policy_validation"
+      ],
+      "traceability": {
+        "claim_id": "SC-POLICY-001",
+        "evidence_links": [
+          {
+            "id": "validate-policy before release",
+            "type": "control"
+          },
+          {
+            "path": "tests/test_policy_validation.py",
+            "ref": "tests.test_policy_validation",
+            "type": "test"
+          },
+          {
+            "path": "policy/schemas/",
+            "type": "artifact"
+          }
+        ]
+      }
+    },
+    {
+      "artifacts": [
+        "policy/equipment/failure_models.v0.1.yaml",
+        "policy/reagents/reagent_policy.v0.1.yaml"
+      ],
+      "claim_id": "SC-FAILURE-PHYSICS-001",
+      "claim_version": "0.1",
+      "commands": [
+        "pytest tests/test_failure_models_deterministic.py -q"
+      ],
+      "controls": [
+        "failure_models.v0.1 maintenance_schedule",
+        "reagent_policy.v0.1 panel_requirements"
+      ],
+      "statement": "Maintenance windows block START_RUN with RC_DEVICE_MAINT; reagent stockout blocks with RC_REAGENT_STOCKOUT.",
+      "tests": [
+        "tests.test_failure_models_deterministic"
+      ],
+      "traceability": {
+        "claim_id": "SC-FAILURE-PHYSICS-001",
+        "evidence_links": [
+          {
+            "id": "failure_models.v0.1 maintenance_schedule",
+            "type": "control"
+          },
+          {
+            "id": "reagent_policy.v0.1 panel_requirements",
+            "type": "control"
+          },
+          {
+            "path": "tests/test_failure_models_deterministic.py",
+            "ref": "tests.test_failure_models_deterministic",
+            "type": "test"
+          },
+          {
+            "path": "policy/equipment/failure_models.v0.1.yaml",
+            "type": "artifact"
+          },
+          {
+            "path": "policy/reagents/reagent_policy.v0.1.yaml",
+            "type": "artifact"
+          }
+        ]
+      }
+    },
+    {
+      "artifacts": [
+        "SECURITY/",
+        "receipts/",
+        "TABLES/",
+        "FIGURES/",
+        "SAFETY_CASE/",
+        "RELEASE_NOTES.md"
+      ],
+      "claim_id": "SC-PAPER-ARTIFACT-001",
+      "claim_version": "0.1",
+      "commands": [
+        "labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>"
+      ],
+      "controls": [
+        "package-release paper_v0.1 pipeline"
+      ],
+      "statement": "Paper v0.1 artifact is self-contained and includes SECURITY, receipts, TABLES, FIGURES, SAFETY_CASE.",
+      "tests": [
+        "tests.test_package_release"
+      ],
+      "traceability": {
+        "claim_id": "SC-PAPER-ARTIFACT-001",
+        "evidence_links": [
+          {
+            "id": "package-release paper_v0.1 pipeline",
+            "type": "control"
+          },
+          {
+            "path": "tests/test_package_release.py",
+            "ref": "tests.test_package_release",
+            "type": "test"
+          },
+          {
+            "path": "SECURITY/",
+            "type": "artifact"
+          },
+          {
+            "path": "receipts/",
+            "type": "artifact"
+          },
+          {
+            "path": "TABLES/",
+            "type": "artifact"
+          },
+          {
+            "path": "FIGURES/",
+            "type": "artifact"
+          },
+          {
+            "path": "SAFETY_CASE/",
+            "type": "artifact"
+          },
+          {
+            "path": "RELEASE_NOTES.md",
+            "type": "artifact"
+          }
+        ]
+      }
+    }
+  ],
+  "source": "policy/safety_case/claims.v0.1.yaml",
+  "version": "0.1"
+}

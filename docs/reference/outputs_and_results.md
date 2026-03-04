@@ -1,6 +1,6 @@
 # LabTrust-Gym: Outputs and Results Reference
 
-This repo is **LabTrust-Gym**: a multi-agent environment (PettingZoo/Gym) for a self-driving hospital lab with a reference trust skeleton (RBAC, signed actions, audit log, invariants). Outputs are produced by the `labtrust` CLI, scripts, and CI; most go under a configurable output directory (default `labtrust_runs/` or `--out` / `--out-dir`).
+This repo is **LabTrust-Gym**: a multi-agent environment (PettingZoo/Gym) for hospital lab automation, with a reference trust skeleton (RBAC, signed actions, audit log, invariants). The implemented workflow is a **blood sciences** lane (pathology lab); see [Glossary – Lab terminology](glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab). Outputs are produced by the `labtrust` CLI, scripts, and CI; most go under a configurable output directory (default `labtrust_runs/` or `--out` / `--out-dir`).
 
 ---
 
@@ -10,6 +10,7 @@ This repo is **LabTrust-Gym**: a multi-agent environment (PettingZoo/Gym) for a 
 |----------|--------------------------|-------------|----------|
 | **Benchmark results** | `<out>/results.json` or `<out_dir>/results/<task>_<suffix>.json` | `run-benchmark`, `eval-agent`, `quick-eval`, `generate-official-baselines` | Any |
 | **Episode logs** | `<out_dir>/logs/*.jsonl`, `episodes.jsonl` | Benchmark/study runs, quick-eval | Any |
+| **Episode bundle** | `<run_dir>/episode_bundle.json` or `--out` path | `build-episode-bundle` | Any (for [episode viewer](episode_viewer.md)) |
 | **Summaries** | `<out>/summary.md`, `<out>/summary.csv`, `summary_v0.2.csv`, `summary_v0.3.csv` | `quick-eval`, `summarize-results`, `generate-official-baselines` | Any |
 | **Coordination pack** | `<out>/pack_results/`, `pack_summary.csv`, `pack_gate.md`, `SECURITY/` | `run-coordination-security-pack`, `run-coordination-study` | Any (security pack: deterministic only) |
 | **Study outputs** | `<out>/manifest.json`, `results/<condition_id>/results.json`, `logs/<condition_id>/episodes.jsonl` | `run-study`, `run-coordination-study` | Any |
@@ -44,7 +45,7 @@ Benchmarks run in exactly three **pipeline modes**: **deterministic** | **llm_of
 ## 2. Main result schemas and formats
 
 - **Benchmark results**: `policy/schemas/results.v0.2.schema.json` (CI-stable), `policy/schemas/results.v0.3.schema.json` (paper-grade with quantiles/CI). Metrics (throughput, p95_turnaround_s, violations, blocked_by_reason_code, etc.) are defined in [metrics contract](../contracts/metrics_contract.md). The optional **metadata.llm_attribution_summary** (cost/latency per backend and agent) is only present when `LABTRUST_LLM_TRACE=1`; see [Observability — Attribution in results](observability.md#attribution-in-results).
-- **Summaries**: `summary_v0.2.csv` (CI-stable aggregates), `summary_v0.3.csv` (adds quantiles/CI), `summary.md` (markdown table + optional Run info). See metrics contract for column semantics.
+- **Summaries**: `summary_v0.2.csv` (CI-stable aggregates), `summary_v0.3.csv` (adds quantiles/CI and uncertainty: containment_success_rate_ci_*, llm_confidence_ece_mean, llm_confidence_mce_mean), `summary.md` (markdown table + optional Run info). Coordination and pack outputs (`summary_coord.csv`, `pack_summary.csv`, `SECURITY/coordination_risk_matrix.*`) include sec.attack_success_rate_ci_*, sec.worst_case_attack_success_upper_95. See [Metrics contract](../contracts/metrics_contract.md) and [Uncertainty metrics in standard reports](../contracts/metrics_contract.md#uncertainty-metrics-in-standard-reports) for column semantics.
 - **Risk/evidence**: `RISK_REGISTER_BUNDLE.v0.1.json`, EvidenceBundle v0.1, FHIR export; schemas under `policy/schemas/` and contracts under [contracts](../contracts/index.md).
 
 ---
@@ -106,5 +107,6 @@ flowchart LR
 | Plots for a run | `make-plots --run <dir>` | (consumes existing run) |
 | Full release artifact (paper-ready) | `package-release --profile paper_v0.1 --out <dir>` | deterministic |
 | Official baseline results | `generate-official-baselines --out <dir>` (e.g. `benchmarks/baselines_official/v0.2/`) | deterministic only |
+| Episode bundle for viewer | `build-episode-bundle --run-dir <path> [--out <path>]` (writes episode_bundle.json) | (consumes existing run) |
 
 All paths above are relative to CWD or the given `--out` / `--out-dir`; see [CLI output contract](../contracts/cli_contract.md) for exact filenames and schema references.

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -21,10 +22,9 @@ from labtrust_gym.benchmarks.coordination_scale import (
 )
 from labtrust_gym.benchmarks.runner import run_benchmark
 from labtrust_gym.policy.gate_eval import (
-    SKIP_REASON_DISABLED_BY_CONFIG,
-    SKIP_REASON_NO_DATA,
-    SKIP_REASON_NOT_APPLICABLE,
     evaluate_gate as _evaluate_gate,
+)
+from labtrust_gym.policy.gate_eval import (
     load_gate_policy as _load_gate_policy,
 )
 from labtrust_gym.policy.loader import load_yaml
@@ -61,6 +61,10 @@ PACK_SUMMARY_COLUMNS = [
     "safety.violations_total",
     "safety.blocks_total",
     "sec.attack_success_rate",
+    "sec.attack_success_rate_ci_lower",
+    "sec.attack_success_rate_ci_upper",
+    "sec.worst_case_attack_success_upper_95",
+    "sec.attack_success_observed",
     "sec.detection_latency_steps",
     "sec.containment_time_steps",
     "sec.stealth_success_rate",
@@ -70,9 +74,7 @@ PACK_SUMMARY_COLUMNS = [
 
 def _load_pack_config(repo_root: Path) -> dict[str, Any]:
     """Load coordination_security_pack.v0.1.yaml; return empty dict if missing."""
-    path = (
-        repo_root / "policy" / "coordination" / "coordination_security_pack.v0.1.yaml"
-    )
+    path = repo_root / "policy" / "coordination" / "coordination_security_pack.v0.1.yaml"
     if not path.is_file():
         return {}
     return load_yaml(path)
@@ -91,11 +93,7 @@ def _get_injection_ids_from_policy_and_registry(repo_root: Path) -> list[str]:
         return [i for i in all_ids if i == "none" or not is_reserved_injection(i)]
     data = load_yaml(path)
     injections = data.get("injections") or []
-    policy_ids = [
-        inj.get("injection_id")
-        for inj in injections
-        if isinstance(inj, dict) and inj.get("injection_id")
-    ]
+    policy_ids = [inj.get("injection_id") for inj in injections if isinstance(inj, dict) and inj.get("injection_id")]
     implemented = set(INJECTION_REGISTRY.keys())
     ordered = ["none"] + [i for i in policy_ids if i in implemented]
     # Append any registry ids not in policy (e.g. legacy INJ-*)
@@ -134,9 +132,7 @@ def _resolve_methods(
     if methods_from == "full_llm":
         from labtrust_gym.policy.coordination import list_llm_coordination_method_ids
 
-        reg_path = (
-            repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
-        )
+        reg_path = repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
         if not reg_path.is_file():
             return PACK_METHODS
         return list_llm_coordination_method_ids(reg_path)
@@ -146,17 +142,11 @@ def _resolve_methods(
             return list(full_list)
         from labtrust_gym.policy.coordination import load_coordination_methods
 
-        reg_path = (
-            repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
-        )
+        reg_path = repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
         if not reg_path.is_file():
             return PACK_METHODS
         registry = load_coordination_methods(reg_path)
-        return [
-            m
-            for m in sorted(registry.keys())
-            if m not in ("marl_ppo", "group_evolving_study")
-        ]
+        return [m for m in sorted(registry.keys()) if m not in ("marl_ppo", "group_evolving_study")]
     if methods_from == "fixed" or not methods_from:
         default = (pack_config.get("method_ids") or {}).get("default")
         if isinstance(default, list) and default:
@@ -171,11 +161,7 @@ def _resolve_methods(
     text = path.read_text(encoding="utf-8").strip()
     if text.startswith("---") or ":" in text.split("\n")[0]:
         data = load_yaml(path)
-        ids = (
-            data
-            if isinstance(data, list)
-            else (data.get("method_ids") or data.get("methods") or [])
-        )
+        ids = data if isinstance(data, list) else (data.get("method_ids") or data.get("methods") or [])
         return list(ids) if isinstance(ids, list) else PACK_METHODS
     return [m.strip() for m in text.splitlines() if m.strip()]
 
@@ -212,11 +198,7 @@ def _resolve_injections(
     text = path.read_text(encoding="utf-8").strip()
     if text.startswith("---") or ":" in text.split("\n")[0]:
         data = load_yaml(path)
-        ids = (
-            data
-            if isinstance(data, list)
-            else (data.get("injection_ids") or data.get("injections") or [])
-        )
+        ids = data if isinstance(data, list) else (data.get("injection_ids") or data.get("injections") or [])
         return list(ids) if isinstance(ids, list) else PACK_INJECTIONS
     return [i.strip() for i in text.splitlines() if i.strip()]
 
@@ -247,17 +229,11 @@ def _resolve_from_preset(
     presets = pack_config.get("matrix_presets") or {}
     preset = presets.get(preset_name)
     if not isinstance(preset, dict):
-        raise KeyError(
-            f"Unknown or invalid matrix preset: {preset_name}. Known: {list(presets.keys())}"
-        )
+        raise KeyError(f"Unknown or invalid matrix preset: {preset_name}. Known: {list(presets.keys())}")
     scale_ids = preset.get("scale_ids")
     method_ids = preset.get("method_ids")
     injection_ids = preset.get("injection_ids")
-    scales = (
-        list(scale_ids)
-        if isinstance(scale_ids, list) and scale_ids
-        else _resolve_scales(repo_root, pack_config)
-    )
+    scales = list(scale_ids) if isinstance(scale_ids, list) and scale_ids else _resolve_scales(repo_root, pack_config)
     methods = (
         list(method_ids)
         if isinstance(method_ids, list) and method_ids
@@ -284,9 +260,7 @@ def _resolve_from_preset(
     return (scales, methods, inj_list)
 
 
-def _cell_seed(
-    seed_base: int, scale_idx: int, method_idx: int, injection_idx: int
-) -> int:
+def _cell_seed(seed_base: int, scale_idx: int, method_idx: int, injection_idx: int) -> int:
     """Deterministic cell seed (stable across runs)."""
     return seed_base + scale_idx * 10000 + method_idx * 100 + injection_idx
 
@@ -315,6 +289,7 @@ def _run_one_cell(
     application_phase: str,
     llm_backend: str = PACK_LLM_BACKEND,
     allow_network: bool = False,
+    multi_agentic: bool = False,
 ) -> dict[str, Any]:
     """
     Run a single pack cell (one scale x method x injection). Used for parallel execution.
@@ -346,6 +321,8 @@ def _run_one_cell(
         llm_model=None,
         partner_id=partner_id,
         allow_network=allow_network,
+        agent_driven=multi_agentic,
+        multi_agentic=multi_agentic,
     )
 
     results = json.loads(results_path.read_text(encoding="utf-8"))
@@ -378,31 +355,58 @@ def _run_cells_sequential(
     application_phase_by_injection: dict[str, str],
     llm_backend: str = PACK_LLM_BACKEND,
     allow_network: bool = False,
+    multi_agentic: bool = False,
 ) -> list[dict[str, Any]]:
-    """Run all cells one after another. scale_rows items are (scale_id, scale_config)."""
+    """Run all cells one after another. scale_rows items are (scale_id, scale_config).
+    On per-cell exception, append a minimal row so pack_summary and pack_gate are still written."""
     summary_rows: list[dict[str, Any]] = []
     for scale_idx, (scale_id, scale_config) in enumerate(scale_rows):
         for method_idx, method_id in enumerate(methods):
             for inj_idx, injection_id in enumerate(injections):
-                application_phase = application_phase_by_injection.get(
-                    injection_id, "full"
-                )
-                row = _run_one_cell(
-                    scale_idx=scale_idx,
-                    scale_id=scale_id,
-                    method_idx=method_idx,
-                    method_id=method_id,
-                    inj_idx=inj_idx,
-                    injection_id=injection_id,
-                    seed_base=seed_base,
-                    root_str=str(root.resolve()),
-                    pack_results_dir_str=str(pack_results_dir.resolve()),
-                    partner_id=partner_id,
-                    application_phase=application_phase,
-                    llm_backend=llm_backend,
-                    allow_network=allow_network,
-                )
-                summary_rows.append(row)
+                application_phase = application_phase_by_injection.get(injection_id, "full")
+                try:
+                    row = _run_one_cell(
+                        scale_idx=scale_idx,
+                        scale_id=scale_id,
+                        method_idx=method_idx,
+                        method_id=method_id,
+                        inj_idx=inj_idx,
+                        injection_id=injection_id,
+                        seed_base=seed_base,
+                        root_str=str(root.resolve()),
+                        pack_results_dir_str=str(pack_results_dir.resolve()),
+                        partner_id=partner_id,
+                        application_phase=application_phase,
+                        llm_backend=llm_backend,
+                        allow_network=allow_network,
+                        multi_agentic=multi_agentic,
+                    )
+                    summary_rows.append(row)
+                except Exception as e:  # noqa: BLE001
+                    logging.getLogger(__name__).warning(
+                        "Cell %s/%s/%s failed: %s", scale_id, method_id, injection_id, e
+                    )
+                    summary_rows.append(
+                        {
+                            "method_id": method_id,
+                            "scale_id": scale_id,
+                            "injection_id": injection_id,
+                            "application_phase": application_phase,
+                            "perf.throughput": None,
+                            "safety.violations_total": None,
+                            "safety.blocks_total": None,
+                            "sec.attack_success_rate": None,
+                            "sec.attack_success_rate_ci_lower": None,
+                            "sec.attack_success_rate_ci_upper": None,
+                            "sec.worst_case_attack_success_upper_95": None,
+                            "sec.attack_success_observed": None,
+                            "sec.detection_latency_steps": None,
+                            "sec.containment_time_steps": None,
+                            "sec.stealth_success_rate": None,
+                            "sec.time_to_attribution_steps": None,
+                            "_cell_error": str(e)[:200],
+                        }
+                    )
     return summary_rows
 
 
@@ -418,6 +422,7 @@ def _run_cells_parallel(
     workers: int,
     llm_backend: str = PACK_LLM_BACKEND,
     allow_network: bool = False,
+    multi_agentic: bool = False,
 ) -> list[dict[str, Any]]:
     """Run cells in parallel with ProcessPoolExecutor; return rows in matrix order."""
     from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -426,9 +431,7 @@ def _run_cells_parallel(
     for scale_idx, (scale_id, _) in enumerate(scale_rows):
         for method_idx, method_id in enumerate(methods):
             for inj_idx, injection_id in enumerate(injections):
-                application_phase = application_phase_by_injection.get(
-                    injection_id, "full"
-                )
+                application_phase = application_phase_by_injection.get(injection_id, "full")
                 cell_args.append(
                     (
                         scale_idx,
@@ -444,15 +447,13 @@ def _run_cells_parallel(
                         application_phase,
                         llm_backend,
                         allow_network,
+                        multi_agentic,
                     )
                 )
 
     results_by_idx: dict[int, dict[str, Any]] = {}
     with ProcessPoolExecutor(max_workers=workers) as executor:
-        future_to_idx = {
-            executor.submit(_run_one_cell, *args): i
-            for i, args in enumerate(cell_args)
-        }
+        future_to_idx = {executor.submit(_run_one_cell, *args): i for i, args in enumerate(cell_args)}
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             try:
@@ -461,9 +462,7 @@ def _run_cells_parallel(
                 scale_id = cell_args[idx][1]
                 method_id = cell_args[idx][3]
                 injection_id = cell_args[idx][5]
-                raise RuntimeError(
-                    f"Cell ({scale_id}, {method_id}, {injection_id}) failed: {e}"
-                ) from e
+                raise RuntimeError(f"Cell ({scale_id}, {method_id}, {injection_id}) failed: {e}") from e
 
     return [results_by_idx[i] for i in range(len(cell_args))]
 
@@ -481,6 +480,7 @@ def run_coordination_security_pack(
     workers: int = 1,
     llm_backend: str | None = None,
     allow_network: bool = False,
+    multi_agentic: bool = False,
 ) -> None:
     """
     Run the coordination security pack matrix and write pack_results/,
@@ -497,14 +497,13 @@ def run_coordination_security_pack(
     llm_backend: backend for coordination/agents (default deterministic). Use openai_live, ollama_live, etc.
         to benchmark LLM methods with live API; requires allow_network=True.
     allow_network: when True and llm_backend is live, allows API calls. Required for openai_live, etc.
+    multi_agentic: when True, run each cell with agent_driven=True and multi_agentic=True (combine path under attack).
     """
     root = Path(repo_root) if repo_root else Path.cwd()
     out_dir = Path(out_dir)
     pack_config = _load_pack_config(root)
     if matrix_preset:
-        scales, methods, injections = _resolve_from_preset(
-            root, matrix_preset, pack_config
-        )
+        scales, methods, injections = _resolve_from_preset(root, matrix_preset, pack_config)
     else:
         methods = _resolve_methods(root, methods_from or "fixed", pack_config)
         injections = _resolve_injections(root, injections_from or "fixed", pack_config)
@@ -521,19 +520,14 @@ def run_coordination_security_pack(
         scales = [s for s in scales if s in allowed]
         if not scales:
             raise ValueError(
-                f"scale_ids_filter {scale_ids_filter} did not match any resolved scale. "
-                f"Resolved scales: {before}"
+                f"scale_ids_filter {scale_ids_filter} did not match any resolved scale. Resolved scales: {before}"
             )
 
     disallow_reserved = pack_config.get("disallow_reserved_injections", True)
     if disallow_reserved:
         from labtrust_gym.security.risk_injections import RESERVED_NOOP_INJECTION_IDS
 
-        reserved_in_list = [
-            iid
-            for iid in injections
-            if iid != "none" and iid in RESERVED_NOOP_INJECTION_IDS
-        ]
+        reserved_in_list = [iid for iid in injections if iid != "none" and iid in RESERVED_NOOP_INJECTION_IDS]
         if reserved_in_list:
             raise ValueError(
                 "Reserved injection IDs are not allowed in security pack when "
@@ -570,6 +564,7 @@ def run_coordination_security_pack(
             application_phase_by_injection,
             llm_backend=effective_llm_backend,
             allow_network=effective_allow_network,
+            multi_agentic=multi_agentic,
         )
     else:
         summary_rows = _run_cells_parallel(
@@ -584,6 +579,7 @@ def run_coordination_security_pack(
             workers,
             llm_backend=effective_llm_backend,
             allow_network=effective_allow_network,
+            multi_agentic=multi_agentic,
         )
 
     # Nominal: (scale_id, method_id) -> violations_total for injection "none"
@@ -612,7 +608,7 @@ def run_coordination_security_pack(
                     out_row[k] = ""
             w.writerow(out_row)
 
-    # pack_gate.md
+    # pack_gate.md and gate verdicts for summary
     gate_path = out_dir / "pack_gate.md"
     gate_lines = [
         "# Coordination security pack – gate results",
@@ -623,26 +619,56 @@ def run_coordination_security_pack(
         "| scale_id | method_id | injection_id | verdict | rationale |",
         "|----------|-----------|--------------|---------|-----------|",
     ]
+    cell_verdicts: list[dict[str, Any]] = []
     for r in summary_rows:
         verdict, rationale = _evaluate_gate(r, nominal_by_scale_method, gate_policy)
         scale_id = r.get("scale_id", "")
         method_id = r.get("method_id", "")
         inj_id = r.get("injection_id", "")
-        gate_lines.append(
-            f"| {scale_id} | {method_id} | {inj_id} | {verdict} | {rationale} |"
+        gate_lines.append(f"| {scale_id} | {method_id} | {inj_id} | {verdict} | {rationale} |")
+        cell_verdicts.append(
+            {
+                "scale_id": scale_id,
+                "method_id": method_id,
+                "injection_id": inj_id,
+                "verdict": verdict,
+                "rationale": rationale,
+            }
         )
     gate_lines.append("")
     gate_path.write_text("\n".join(gate_lines), encoding="utf-8")
 
-    # SECURITY/coordination_risk_matrix.csv and .md (single view of method x injection x phase outcomes)
+    # SECURITY/coord_pack_gate_summary.json for security suite runner (machine-readable overall pass)
     security_dir = out_dir / "SECURITY"
     security_dir.mkdir(parents=True, exist_ok=True)
+    failed_cells = [c for c in cell_verdicts if c.get("verdict") == "FAIL"]
+    passed_count = sum(1 for c in cell_verdicts if c.get("verdict") == "PASS")
+    failed_count = len(failed_cells)
+    skipped_count = sum(1 for c in cell_verdicts if c.get("verdict") in ("SKIP", "not_supported"))
+    gate_summary = {
+        "overall_pass": failed_count == 0,
+        "total_cells": len(cell_verdicts),
+        "passed": passed_count,
+        "failed": failed_count,
+        "skipped": skipped_count,
+        "failed_cells": failed_cells,
+    }
+    gate_summary_path = security_dir / "coord_pack_gate_summary.json"
+    gate_summary_path.write_text(
+        json.dumps(gate_summary, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    # SECURITY/coordination_risk_matrix.csv and .md (single view of method x injection x phase outcomes)
     matrix_columns = [
         "method_id",
         "injection_id",
         "application_phase",
         "scale_id",
         "sec.attack_success_rate",
+        "sec.attack_success_rate_ci_lower",
+        "sec.attack_success_rate_ci_upper",
+        "sec.worst_case_attack_success_upper_95",
         "sec.detection_latency_steps",
         "sec.containment_time_steps",
         "sec.stealth_success_rate",
@@ -670,8 +696,8 @@ def run_coordination_security_pack(
         "One row per (method_id, injection_id, application_phase, scale_id). "
         "Verdict: PASS | FAIL | SKIP | not_supported.",
         "",
-        "| method_id | injection_id | application_phase | scale_id | sec.attack_success_rate | sec.detection_latency_steps | sec.containment_time_steps | sec.stealth_success_rate | verdict |",
-        "|-----------|---------------|-------------------|----------|--------------------------|-----------------------------|-----------------------------|---------------------------|---------|",
+        "| method_id | injection_id | application_phase | scale_id | sec.attack_success_rate | sec.attack_success_rate_ci_lower | sec.attack_success_rate_ci_upper | sec.worst_case_attack_success_upper_95 | sec.detection_latency_steps | sec.containment_time_steps | sec.stealth_success_rate | verdict |",
+        "|-----------|---------------|-------------------|----------|--------------------------|----------------------------------|-----------------------------------|----------------------------------------|-----------------------------|-----------------------------|---------------------------|---------|",
     ]
     for r in summary_rows:
         verdict, _ = _evaluate_gate(r, nominal_by_scale_method, gate_policy)
@@ -680,11 +706,14 @@ def run_coordination_security_pack(
         application_phase = r.get("application_phase", "full")
         scale_id = r.get("scale_id", "")
         ar = r.get("sec.attack_success_rate", "")
+        ar_lo = r.get("sec.attack_success_rate_ci_lower", "")
+        ar_hi = r.get("sec.attack_success_rate_ci_upper", "")
+        wc = r.get("sec.worst_case_attack_success_upper_95", "")
         dl = r.get("sec.detection_latency_steps", "")
         ct = r.get("sec.containment_time_steps", "")
         ss = r.get("sec.stealth_success_rate", "")
         md_lines.append(
-            f"| {method_id} | {injection_id} | {application_phase} | {scale_id} | {ar} | {dl} | {ct} | {ss} | {verdict} |"
+            f"| {method_id} | {injection_id} | {application_phase} | {scale_id} | {ar} | {ar_lo} | {ar_hi} | {wc} | {dl} | {ct} | {ss} | {verdict} |"
         )
     md_lines.append("")
     md_path.write_text("\n".join(md_lines), encoding="utf-8")

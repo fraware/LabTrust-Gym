@@ -178,10 +178,7 @@ def load_agent(
                 spec=spec,
             )
         return instance
-    raise TypeError(
-        f"Agent spec {module_path!r}:{name!r} is not callable "
-        "(expected class or factory function)"
-    )
+    raise TypeError(f"Agent spec {module_path!r}:{name!r} is not callable (expected class or factory function)")
 
 
 def wrap_agent_for_runner(agent: Any) -> Any:

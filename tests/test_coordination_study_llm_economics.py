@@ -15,6 +15,7 @@ import pytest
 from labtrust_gym.studies.coordination_study_runner import (
     _aggregate_cell_metrics,
     _empty_cell_metrics,
+    _write_summary_csv,
     run_coordination_study,
 )
 
@@ -114,6 +115,57 @@ def test_aggregate_cell_metrics_with_llm_economics() -> None:
     assert out["p95_llm_latency_ms"] is not None
 
 
+def test_aggregate_cell_metrics_sec_rate_ci_and_worst_case() -> None:
+    """_aggregate_cell_metrics returns sec.attack_success_rate CI and worst_case when n >= 1."""
+    # Two episodes: one with attack success, one without -> rate 0.5
+    episodes = [
+        {
+            "metrics": {
+                "throughput": 1,
+                "violations_by_invariant_id": {},
+                "blocked_by_reason_code": {},
+                "sec": {"attack_success_rate": 1.0, "attack_success_observed": 1.0},
+            },
+        },
+        {
+            "metrics": {
+                "throughput": 1,
+                "violations_by_invariant_id": {},
+                "blocked_by_reason_code": {},
+                "sec": {"attack_success_rate": 0.0, "attack_success_observed": 0.0},
+            },
+        },
+    ]
+    out = _aggregate_cell_metrics(episodes)
+    assert out["sec.attack_success_rate"] == 0.5
+    assert out["sec.attack_success_rate_ci_lower"] is not None
+    assert out["sec.attack_success_rate_ci_upper"] is not None
+    assert out["sec.attack_success_rate_ci_lower"] <= 0.5 <= out["sec.attack_success_rate_ci_upper"]
+    # 0 successes in 2 episodes -> worst_case not set (we have 1 success). When 0 successes, worst_case is set.
+    episodes_zero = [
+        {
+            "metrics": {
+                "throughput": 0,
+                "violations_by_invariant_id": {},
+                "blocked_by_reason_code": {},
+                "sec": {"attack_success_rate": 0.0},
+            }
+        },
+        {
+            "metrics": {
+                "throughput": 0,
+                "violations_by_invariant_id": {},
+                "blocked_by_reason_code": {},
+                "sec": {"attack_success_rate": 0.0},
+            }
+        },
+    ]
+    out_zero = _aggregate_cell_metrics(episodes_zero)
+    assert out_zero["sec.attack_success_rate"] == 0.0
+    assert out_zero["sec.worst_case_attack_success_upper_95"] is not None
+    assert 0 < out_zero["sec.worst_case_attack_success_upper_95"] < 1.0
+
+
 def test_coordination_study_llm_cell_has_llm_economics_and_summary_columns(
     tmp_path: Path,
 ) -> None:
@@ -180,6 +232,7 @@ def test_coordination_study_llm_cell_has_llm_economics_and_summary_columns(
     # Rows can exceed cell count when one injection maps to multiple risk_ids.
     import csv as csv_module
     from io import StringIO
+
     reader = csv_module.DictReader(StringIO(content))
     data_rows = list(reader)
     assert len(data_rows) >= len(cell_ids), (
@@ -188,3 +241,30 @@ def test_coordination_study_llm_cell_has_llm_economics_and_summary_columns(
     for row in data_rows:
         assert "cost.total_tokens" in row
         assert "llm.error_rate" in row
+    assert "p95_llm_latency_ms" in header, "summary_coord.csv must include p95_llm_latency_ms (3a.2 contract)"
+
+
+def test_write_summary_csv_always_has_cost_and_latency_columns(tmp_path: Path) -> None:
+    """_write_summary_csv always writes cost.estimated_cost_usd and p95_llm_latency_ms columns (3a.2)."""
+    csv_path = tmp_path / "summary_coord.csv"
+    rows = [
+        {
+            "method_id": "centralized_planner",
+            "scale_id": "small_smoke",
+            "injection_id": "none",
+            "cost.estimated_cost_usd": None,
+            "p95_llm_latency_ms": None,
+        },
+        {
+            "method_id": "llm_central_planner",
+            "scale_id": "small_smoke",
+            "injection_id": "none",
+            "cost.estimated_cost_usd": 0.01,
+            "p95_llm_latency_ms": 100.0,
+        },
+    ]
+    _write_summary_csv(csv_path, rows)
+    content = csv_path.read_text(encoding="utf-8")
+    header = content.splitlines()[0]
+    assert "cost.estimated_cost_usd" in header
+    assert "p95_llm_latency_ms" in header

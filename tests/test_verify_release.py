@@ -107,9 +107,7 @@ def test_verify_release_one_valid_bundle(tmp_path: Path) -> None:
         partner_id=None,
     )
     release_dir = tmp_path / "release"
-    (release_dir / "receipts" / "cond_0" / EVIDENCE_BUNDLE_DIRNAME).mkdir(
-        parents=True, exist_ok=True
-    )
+    (release_dir / "receipts" / "cond_0" / EVIDENCE_BUNDLE_DIRNAME).mkdir(parents=True, exist_ok=True)
     dest_bundle = release_dir / "receipts" / "cond_0" / EVIDENCE_BUNDLE_DIRNAME
     for f in bundle_dir.iterdir():
         if f.is_file():
@@ -182,9 +180,7 @@ def test_verify_release_cli_one_valid_bundle(tmp_path: Path) -> None:
         partner_id=None,
     )
     release_dir = tmp_path / "release"
-    (release_dir / "receipts" / "cond_0" / EVIDENCE_BUNDLE_DIRNAME).mkdir(
-        parents=True, exist_ok=True
-    )
+    (release_dir / "receipts" / "cond_0" / EVIDENCE_BUNDLE_DIRNAME).mkdir(parents=True, exist_ok=True)
     dest_bundle = release_dir / "receipts" / "cond_0" / EVIDENCE_BUNDLE_DIRNAME
     for f in bundle_dir.iterdir():
         if f.is_file():
@@ -203,7 +199,8 @@ def test_verify_release_cli_one_valid_bundle(tmp_path: Path) -> None:
         text=True,
     )
     assert proc.returncode == 0, f"stdout={proc.stdout} stderr={proc.stderr}"
-    assert "all passed" in proc.stdout or "PASS" in proc.stdout
+    out = (proc.stdout or "") + (proc.stderr or "")
+    assert "all passed" in out or "PASS" in out
 
 
 def test_build_and_verify_release_manifest(tmp_path: Path) -> None:

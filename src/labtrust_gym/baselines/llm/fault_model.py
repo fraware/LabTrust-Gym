@@ -88,9 +88,7 @@ class LLMFaultModelRepairWrapper:
         """Per-step RNG: same seed + step + input hash -> same sequence."""
         seed_offset = int(self._config.get("seed_offset", 0))
         h = repair_input_hash(repair_input)
-        step_seed = (
-            self._seed + seed_offset + step * 7919 + (int(h[:8], 16) % (2**31))
-        )
+        step_seed = self._seed + seed_offset + step * 7919 + (int(h[:8], 16) % (2**31))
         return random.Random(step_seed)
 
     def repair(
@@ -124,9 +122,7 @@ class LLMFaultModelRepairWrapper:
                     "tokens_out": 0,
                 }
                 if fault_id == "high_latency":
-                    meta["latency_ms"] = float(
-                        fault.get("simulated_latency_ms", 5000.0)
-                    )
+                    meta["latency_ms"] = float(fault.get("simulated_latency_ms", 5000.0))
                 return per_agent, meta
 
         per_agent, meta = self._inner.repair(repair_input, agent_ids)

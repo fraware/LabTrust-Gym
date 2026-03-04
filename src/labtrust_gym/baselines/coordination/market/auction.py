@@ -173,11 +173,7 @@ def clear_auction(
     bids_used: list[tuple[str, str, float]] = []
     assigned_agents: set[str] = set()
     used_bundles: set[str] = set()
-    cap = (
-        max_assignments
-        if max_assignments is not None
-        else len(work_items) * 2
-    )
+    cap = max_assignments if max_assignments is not None else len(work_items) * 2
 
     for item in sorted_items:
         if len(assignments) >= cap:
@@ -211,11 +207,7 @@ def clear_auction(
     gini = gini_work_distribution(work_per_agent)
     bid_values = [b[2] for b in bids_used]
     mean_bid = sum(bid_values) / len(bid_values) if bid_values else 0.0
-    variance = (
-        sum((x - mean_bid) ** 2 for x in bid_values) / len(bid_values)
-        if bid_values
-        else 0.0
-    )
+    variance = sum((x - mean_bid) ** 2 for x in bid_values) / len(bid_values) if bid_values else 0.0
     std = math.sqrt(variance) if variance > 0 else 0.0
     bid_skew = (std / mean_bid) if mean_bid > 0 else 0.0
     collusion, collusion_details = collusion_suspected_proxy(

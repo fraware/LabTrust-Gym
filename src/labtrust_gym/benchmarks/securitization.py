@@ -37,6 +37,7 @@ def _build_coverage_data(
     risk_entries: dict[str, list[dict[str, Any]]] = {}
     for a in attacks:
         risk_id = a.get("risk_id") or "unknown"
+        uses_env = bool(a.get("coord_pack_ref"))
         entry = {
             "attack_id": a.get("attack_id"),
             "control_id": a.get("control_id"),
@@ -44,6 +45,8 @@ def _build_coverage_data(
             "test_ref": a.get("test_ref"),
             "expected_outcome": a.get("expected_outcome"),
             "smoke": a.get("smoke"),
+            "layer": "system" if uses_env else "agent_shield",
+            "uses_env": uses_env,
         }
         risk_entries.setdefault(risk_id, []).append(entry)
     coverage: dict[str, Any] = {
@@ -90,6 +93,12 @@ def write_coverage(
         "# Security coverage",
         "",
         "Risk -> control -> tests -> artifacts mapping (from security_attack_suite).",
+        "",
+        "## Layers",
+        "",
+        "Each attack in coverage.json has a `layer` (`agent_shield` or `system`) and "
+        "`uses_env` (true for coord_pack_ref). Filter by layer for agent-only vs "
+        "system-level evidence.",
         "",
         "## Risk to controls",
         "",

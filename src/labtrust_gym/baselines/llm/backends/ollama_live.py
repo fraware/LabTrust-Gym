@@ -35,6 +35,17 @@ LLM_TIMEOUT = "LLM_TIMEOUT"
 BACKEND_ID = "ollama_live"
 LOG = logging.getLogger(__name__)
 
+# Ollama reports tokens but not cost (local/free). estimated_cost_usd remains None.
+
+
+def _percentile(sorted_vals: list[float], p: float) -> float | None:
+    if not sorted_vals:
+        return None
+    k = (len(sorted_vals) - 1) * p / 100.0
+    lo = int(k)
+    hi = min(lo + 1, len(sorted_vals) - 1)
+    return sorted_vals[lo] + (k - lo) * (sorted_vals[hi] - sorted_vals[lo])
+
 
 def _get_config() -> tuple[str, str, int]:
     """
@@ -89,6 +100,8 @@ class OllamaLiveBackend:
         self._total_calls: int = 0
         self._error_count: int = 0
         self._sum_latency_ms: float = 0.0
+        self._total_tokens: int = 0
+        self._latency_ms_list: list[float] = []
 
     @property
     def is_available(self) -> bool:
@@ -109,11 +122,18 @@ class OllamaLiveBackend:
         """
         Aggregate stats over all generate calls since init.
         Returns: backend_id, model_id, total_calls, error_count, error_rate,
-        sum_latency_ms, mean_latency_ms.
+        sum_latency_ms, mean_latency_ms, total_tokens, tokens_per_step,
+        p50_latency_ms, p95_latency_ms. estimated_cost_usd is None (Ollama is local).
         """
         rate = self._error_count / self._total_calls if self._total_calls > 0 else 0.0
-        mean_ms = (
-            self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
+        mean_ms = self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
+        sorted_lat = sorted(self._latency_ms_list) if self._latency_ms_list else []
+        p50_ms = _percentile(sorted_lat, 50)
+        p95_ms = _percentile(sorted_lat, 95)
+        tokens_per_step = (
+            round(self._total_tokens / self._total_calls, 2)
+            if self._total_calls > 0 and self._total_tokens is not None
+            else None
         )
         return {
             "backend_id": BACKEND_ID,
@@ -123,6 +143,11 @@ class OllamaLiveBackend:
             "error_rate": round(rate, 4),
             "sum_latency_ms": round(self._sum_latency_ms, 2),
             "mean_latency_ms": round(mean_ms, 2) if mean_ms is not None else None,
+            "p50_latency_ms": round(p50_ms, 2) if p50_ms is not None else None,
+            "p95_latency_ms": round(p95_ms, 2) if p95_ms is not None else None,
+            "total_tokens": self._total_tokens,
+            "tokens_per_step": tokens_per_step,
+            "estimated_cost_usd": None,
         }
 
     def generate(self, messages: list[dict[str, str]]) -> str:
@@ -160,9 +185,7 @@ class OllamaLiveBackend:
         except urllib.error.URLError as e:
             latency_ms = (time.perf_counter() - start) * 1000
             reason = str(e.reason or "").lower()
-            self._last_error_code = (
-                LLM_TIMEOUT if "timed out" in reason else LLM_PROVIDER_ERROR
-            )
+            self._last_error_code = LLM_TIMEOUT if "timed out" in reason else LLM_PROVIDER_ERROR
             self._error_count += 1
             self._sum_latency_ms += latency_ms
             self._last_metrics = {
@@ -192,6 +215,7 @@ class OllamaLiveBackend:
             return json.dumps(NOOP_ACTION_V01, sort_keys=True)
         latency_ms = (time.perf_counter() - start) * 1000
         self._sum_latency_ms += latency_ms
+        self._latency_ms_list.append(latency_ms)
         response_sha256 = _sha256(raw)
         self._last_metrics = {
             "model_id": self._model,
@@ -202,14 +226,11 @@ class OllamaLiveBackend:
         }
         return raw
 
-    def _call_api(self, messages: list[dict[str, str]]) -> str:
-        """POST to Ollama /api/chat. Raises on error/timeout."""
+    def _call_api(self, messages: list[dict[str, str]]) -> tuple[str, dict[str, int]]:
+        """POST to Ollama /api/chat. Returns (content_str, usage_dict with prompt_tokens, completion_tokens, total_tokens)."""
         payload = {
             "model": self._model,
-            "messages": [
-                {"role": m.get("role", "user"), "content": m.get("content", "") or ""}
-                for m in messages
-            ],
+            "messages": [{"role": m.get("role", "user"), "content": m.get("content", "") or ""} for m in messages],
             "stream": False,
         }
         body = json.dumps(payload).encode("utf-8")
@@ -226,8 +247,15 @@ class OllamaLiveBackend:
             raise RuntimeError("Ollama response missing message")
         content = msg.get("content")
         if content is None:
-            return "{}"
-        return str(content).strip()
+            content = "{}"
+        prompt_eval = int(data.get("prompt_eval_count", 0) or 0)
+        eval_count = int(data.get("eval_count", 0) or 0)
+        usage = {
+            "prompt_tokens": prompt_eval,
+            "completion_tokens": eval_count,
+            "total_tokens": prompt_eval + eval_count,
+        }
+        return (str(content).strip(), usage)
 
     def healthcheck(self) -> dict[str, Any]:
         """
@@ -246,7 +274,7 @@ class OllamaLiveBackend:
         ]
         start = time.perf_counter()
         try:
-            raw = self._call_api(messages)
+            raw, usage = self._call_api(messages)
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
         except Exception as e:
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
@@ -264,7 +292,7 @@ class OllamaLiveBackend:
                     "ok": True,
                     "model_id": self._model,
                     "latency_ms": latency_ms,
-                    "usage": {},
+                    "usage": usage,
                     "error": None,
                 }
         except json.JSONDecodeError:
@@ -273,6 +301,6 @@ class OllamaLiveBackend:
             "ok": False,
             "model_id": self._model,
             "latency_ms": latency_ms,
-            "usage": {},
+            "usage": usage,
             "error": "Response did not match expected NOOP schema",
         }

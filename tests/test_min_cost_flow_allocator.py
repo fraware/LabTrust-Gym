@@ -10,9 +10,9 @@ import pytest
 
 from labtrust_gym.baselines.coordination.allocation.min_cost_flow import (
     MinCostFlowAllocator,
-    min_cost_flow_allocate,
-    _build_task_list,
     _agent_zone,
+    _build_task_list,
+    min_cost_flow_allocate,
 )
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import AllocationDecision
@@ -52,9 +52,7 @@ def _brute_force_optimal_cost(
         prio, _dev_id, _work_id, zone_id = worklist[task_i]
         best = float("inf")
         if n_tasks - task_i > remaining_to_assign:
-            best = recurse(
-                task_i + 1, dict(agent_counts), current_cost, remaining_to_assign
-            )
+            best = recurse(task_i + 1, dict(agent_counts), current_cost, remaining_to_assign)
         for a_idx, a in enumerate(agents):
             if agent_zone_map[a] != zone_id:
                 continue
@@ -227,17 +225,11 @@ def test_min_cost_flow_brute_force_vs_mcf() -> None:
         obs_with_tasks=obs,
     )
     brute_opt = _brute_force_optimal_cost(ctx, tasks_per_agent_cap=2, fairness_weight=0.0)
-    decision = min_cost_flow_allocate(
-        ctx, tasks_per_agent_cap=2, fairness_weight=0.0
-    )
+    decision = min_cost_flow_allocate(ctx, tasks_per_agent_cap=2, fairness_weight=0.0)
     if not decision.assignments or "greedy" in (decision.explain or ""):
         pytest.skip("networkx not used or zero flow")
-    mcf_cost = sum(
-        (2 - p) * 1000 for _a, _w, _d, p in decision.assignments
-    )
-    assert mcf_cost == brute_opt, (
-        f"MCF cost {mcf_cost} should equal brute-force optimum {brute_opt}"
-    )
+    mcf_cost = sum((2 - p) * 1000 for _a, _w, _d, p in decision.assignments)
+    assert mcf_cost == brute_opt, f"MCF cost {mcf_cost} should equal brute-force optimum {brute_opt}"
     for agent_id, work_id, device_id, _ in decision.assignments:
         assert agent_id in agent_ids
         assert (device_id, work_id) in {("D1", "W1"), ("D2", "W2")}
@@ -275,15 +267,10 @@ def test_min_cost_flow_forbidden_edges() -> None:
         obs_with_tasks=obs,
     )
     forbidden_edges = [("a1", ("DEV_1", "W1"))]
-    decision = min_cost_flow_allocate(
-        ctx, tasks_per_agent_cap=2, forbidden_edges=forbidden_edges
-    )
+    decision = min_cost_flow_allocate(ctx, tasks_per_agent_cap=2, forbidden_edges=forbidden_edges)
     for agent_id, work_id, device_id, _ in decision.assignments:
         assert (agent_id, (device_id, work_id)) not in forbidden_edges
-    assert not any(
-        a == "a1" and (d, w) == ("DEV_1", "W1")
-        for a, w, d, _ in decision.assignments
-    )
+    assert not any(a == "a1" and (d, w) == ("DEV_1", "W1") for a, w, d, _ in decision.assignments)
 
 
 def test_min_cost_flow_gini_fairness() -> None:
@@ -301,9 +288,7 @@ def test_min_cost_flow_gini_fairness() -> None:
     obs = {
         aid: {
             "zone_id": "Z_A",
-            "queue_by_device": [
-                {"queue_head": f"W{d}", "queue_len": 1} for d in device_ids
-            ],
+            "queue_by_device": [{"queue_head": f"W{d}", "queue_len": 1} for d in device_ids],
             "queue_has_head": [1, 1, 1],
         }
         for aid in agent_ids
@@ -315,17 +300,15 @@ def test_min_cost_flow_gini_fairness() -> None:
         device_zone=device_zone,
         obs_with_tasks=obs,
     )
-    decision_zero = min_cost_flow_allocate(
-        ctx, tasks_per_agent_cap=3, fairness_weight=0.0
-    )
-    decision_fair = min_cost_flow_allocate(
-        ctx, tasks_per_agent_cap=3, fairness_weight=0.2
-    )
+    decision_zero = min_cost_flow_allocate(ctx, tasks_per_agent_cap=3, fairness_weight=0.0)
+    decision_fair = min_cost_flow_allocate(ctx, tasks_per_agent_cap=3, fairness_weight=0.2)
+
     def gini(decision: AllocationDecision) -> float:
         work_per_agent: dict[str, int] = {a: 0 for a in agent_ids}
         for a, _w, _d, _ in decision.assignments:
             work_per_agent[a] = work_per_agent.get(a, 0) + 1
         return gini_coefficient(work_per_agent)
+
     g0 = gini(decision_zero)
     gf = gini(decision_fair)
     assert gf <= g0 + 1e-6

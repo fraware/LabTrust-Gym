@@ -135,6 +135,26 @@ jobs:
             --seed 44
         timeout-minutes: 15
 
+      # Periodic LLM-attacker run: when API key set, run security suite with --llm-attacker;
+      # if baseline is committed, run regression check (blocked -> accepted = fail).
+      - name: Security suite with LLM attacker (periodic regression)
+        if: steps.check.outputs.skip != 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          labtrust run-security-suite --out ./llm_live_smoke_out/security_llm_attacker --llm-attacker --allow-network --smoke --seed 42
+        timeout-minutes: 15
+
+      - name: LLM attacker baseline regression (when baseline present)
+        if: steps.check.outputs.skip != 'true' && success()
+        run: |
+          BASELINE="tests/fixtures/llm_attacker_baseline.json"
+          if [ -f "$BASELINE" ]; then
+            python scripts/check_llm_attacker_regression.py --baseline "$BASELINE" --policy-root .
+          else
+            echo "No llm_attacker_baseline.json at $BASELINE; skipping regression check (pass)."
+          fi
+
       - name: Upload llm_live artifacts (for regression inspection)
         if: steps.check.outputs.skip != 'true' && success()
         uses: actions/upload-artifact@v4
@@ -146,4 +166,5 @@ jobs:
             llm_live_smoke_out/coord_smoke_results.json
             llm_live_smoke_out/llm_coord_trials/llm_coord_trials_report.json
             llm_live_smoke_out/llm_coord_trials/llm_coord_trials_report.md
+            llm_live_smoke_out/security_llm_attacker/SECURITY/
           retention-days: 14

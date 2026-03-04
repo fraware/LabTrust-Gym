@@ -24,13 +24,13 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.baselines.coordination.crdt_merges import lww_register_merge
-from labtrust_gym.baselines.coordination.llm_contract import canonical_json
 from labtrust_gym.baselines.coordination.interface import (
     ACTION_MOVE,
     ACTION_NOOP,
     ACTION_START_RUN,
     CoordinationMethod,
 )
+from labtrust_gym.baselines.coordination.llm_contract import canonical_json
 from labtrust_gym.baselines.coordination.obs_utils import (
     extract_zone_and_device_ids,
     get_queue_by_device,
@@ -41,11 +41,8 @@ from labtrust_gym.baselines.coordination.obs_utils import (
 from labtrust_gym.coordination.bus import SignedMessageBus
 from labtrust_gym.coordination.identity import (
     KEY_EPOCH,
-    KEY_MESSAGE_TYPE,
-    KEY_NONCE,
     KEY_PAYLOAD,
     KEY_SENDER_ID,
-    build_key_store,
     sign_message,
 )
 from labtrust_gym.engine.zones import build_adjacency_set
@@ -84,6 +81,7 @@ def _load_message_schema(repo_root: Path | None) -> dict[str, Any]:
             return json.loads(path.read_text(encoding="utf-8"))
     try:
         from labtrust_gym.config import get_repo_root
+
         root = get_repo_root()
         path = root / "policy" / "schemas" / "coordination_message.v0.1.schema.json"
         if path.exists():
@@ -178,11 +176,13 @@ def _build_local_summary(
         if idx >= len(qbd):
             break
         d = qbd[idx] if isinstance(qbd[idx], dict) else {}
-        queue_summary.append({
-            "device_id": str(d.get("device_id", dev_id))[:32],
-            "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
-            "queue_head": str(d.get("queue_head", ""))[:64],
-        })
+        queue_summary.append(
+            {
+                "device_id": str(d.get("device_id", dev_id))[:32],
+                "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
+                "queue_head": str(d.get("queue_head", ""))[:64],
+            }
+        )
     out: dict[str, Any] = {
         "agent_id": agent_id[:64],
         "step_id": t,
@@ -268,13 +268,9 @@ class LLMGossipSummarizer(CoordinationMethod):
         self._bus.reset()
         self._detection_events = []
         self._drop_reasons = []
-        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(
-            policy
-        )
+        self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids(policy)
         layout = (policy or {}).get("zone_layout") or {}
-        self._adjacency = build_adjacency_set(
-            layout.get("graph_edges") or []
-        )
+        self._adjacency = build_adjacency_set(layout.get("graph_edges") or [])
 
     def propose_actions(
         self,
@@ -283,61 +279,52 @@ class LLMGossipSummarizer(CoordinationMethod):
         t: int,
     ) -> dict[str, dict[str, Any]]:
         agents = sorted(obs.keys())
-        out: dict[str, dict[str, Any]] = {
-            a: {"action_index": ACTION_NOOP, "action_type": "NOOP"}
-            for a in agents
-        }
+        out: dict[str, dict[str, Any]] = {a: {"action_index": ACTION_NOOP, "action_type": "NOOP"} for a in agents}
         if (not self._zone_ids or not self._device_ids) and obs:
             sample = next(iter(obs.values()))
-            self._zone_ids, self._device_ids, self._device_zone = (
-                extract_zone_and_device_ids({}, obs_sample=sample)
-            )
+            self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
         if not self._zone_ids:
             self._zone_ids = ["Z_SORTING_LANES"]
         self._current_epoch = t
 
         envelopes: list[dict[str, Any]] = []
         for i, agent_id in enumerate(agents):
-            if self._summary_backend is not None and hasattr(
-                self._summary_backend, "get_summary"
-            ):
+            if self._summary_backend is not None and hasattr(self._summary_backend, "get_summary"):
                 try:
-                    payload = self._summary_backend.get_summary(
-                        agent_id, obs, self._zone_ids, self._device_ids, t
-                    )
+                    payload = self._summary_backend.get_summary(agent_id, obs, self._zone_ids, self._device_ids, t)
                 except Exception:
                     payload = None
                 if not _is_valid_gossip_payload(payload):
-                    payload = _build_local_summary(
-                        agent_id, obs, self._zone_ids, self._device_ids, t
-                    )
+                    payload = _build_local_summary(agent_id, obs, self._zone_ids, self._device_ids, t)
             else:
-                payload = _build_local_summary(
-                    agent_id, obs, self._zone_ids, self._device_ids, t
-                )
-            ok, reason = validate_message_payload(
-                payload, self._schema, max_bytes=MAX_MESSAGE_PAYLOAD_BYTES
-            )
+                payload = _build_local_summary(agent_id, obs, self._zone_ids, self._device_ids, t)
+            ok, reason = validate_message_payload(payload, self._schema, max_bytes=MAX_MESSAGE_PAYLOAD_BYTES)
             if not ok:
-                self._drop_reasons.append({
-                    "reason_code": reason,
-                    "agent_id": agent_id,
-                    "step_id": t,
-                })
+                self._drop_reasons.append(
+                    {
+                        "reason_code": reason,
+                        "agent_id": agent_id,
+                        "step_id": t,
+                    }
+                )
                 continue
             suspected, poison_reason = poison_heuristic(payload)
             if suspected:
-                self._detection_events.append({
-                    "reason_code": poison_reason,
-                    "risk_id": POISON_DETECTION_RISK_ID,
-                    "agent_id": agent_id,
-                    "step_id": t,
-                })
-                self._drop_reasons.append({
-                    "reason_code": poison_reason,
-                    "agent_id": agent_id,
-                    "step_id": t,
-                })
+                self._detection_events.append(
+                    {
+                        "reason_code": poison_reason,
+                        "risk_id": POISON_DETECTION_RISK_ID,
+                        "agent_id": agent_id,
+                        "step_id": t,
+                    }
+                )
+                self._drop_reasons.append(
+                    {
+                        "reason_code": poison_reason,
+                        "agent_id": agent_id,
+                        "step_id": t,
+                    }
+                )
                 continue
             nonce = t * max(len(agents), 1) + i
             env = sign_message(
@@ -359,28 +346,30 @@ class LLMGossipSummarizer(CoordinationMethod):
                 pl = delivered.get(KEY_PAYLOAD)
                 if sid and isinstance(pl, dict):
                     if not _verify_hash_commitment(pl):
-                        self._drop_reasons.append({
-                            "reason_code": COORD_HASH_MISMATCH,
-                            "sender_id": sid,
-                            "step_id": t,
-                        })
+                        self._drop_reasons.append(
+                            {
+                                "reason_code": COORD_HASH_MISMATCH,
+                                "sender_id": sid,
+                                "step_id": t,
+                            }
+                        )
                     else:
                         shared_view[sid] = pl
             elif violation:
-                self._drop_reasons.append({
-                    "reason_code": (
-                        violation.get("violations") or [{}]
-                    )[0].get("reason_code", "COORD_VIOLATION"),
-                    "sender_id": env.get(KEY_SENDER_ID),
-                    "step_id": t,
-                })
-                self._detection_events.append({
-                    "reason_code": (
-                        violation.get("violations") or [{}]
-                    )[0].get("reason_code"),
-                    "sender_id": env.get(KEY_SENDER_ID),
-                    "step_id": t,
-                })
+                self._drop_reasons.append(
+                    {
+                        "reason_code": (violation.get("violations") or [{}])[0].get("reason_code", "COORD_VIOLATION"),
+                        "sender_id": env.get(KEY_SENDER_ID),
+                        "step_id": t,
+                    }
+                )
+                self._detection_events.append(
+                    {
+                        "reason_code": (violation.get("violations") or [{}])[0].get("reason_code"),
+                        "sender_id": env.get(KEY_SENDER_ID),
+                        "step_id": t,
+                    }
+                )
         merged_queue_head_lww: dict[str, tuple[int, int, Any]] = {}
         for sid in sorted(shared_view.keys()):
             pl = shared_view[sid]
@@ -431,8 +420,7 @@ class LLMGossipSummarizer(CoordinationMethod):
             candidates = [
                 (aid, load.get(aid, ("", 0))[1])
                 for aid in agents
-                if not log_frozen(obs.get(aid) or {})
-                and load.get(aid, ("", ""))[0] == zone_id
+                if not log_frozen(obs.get(aid) or {}) and load.get(aid, ("", ""))[0] == zone_id
             ]
             candidates.sort(key=lambda x: (x[1], x[0]))
             for aid, _ in candidates:

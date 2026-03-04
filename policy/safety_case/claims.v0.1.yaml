@@ -1,6 +1,8 @@
 # Safety case claims v0.1: claim -> control -> test(s) -> artifact(s) -> verification command.
+# commands = how to reproduce the artifact (primary); tests = underlying pytest or components run by the command.
 # Machine-generated safety case maps each claim to evidence; fully auto-generated, no handwavy docs.
 # Used by: labtrust safety-case --out <dir>; paper_v0.1 artifact includes SAFETY_CASE/.
+# SMT: optional run_smt_checks in safety_case.py validates structure only; formal claim->control implications are not checked.
 
 safety_case_claims:
   version: "0.1"
@@ -37,6 +39,9 @@ safety_case_claims:
 
     - claim_id: "SC-SECURITY-001"
       statement: "Security attack suite scenarios are blocked or detected as expected."
+      artifacts_expected:
+        - "SECURITY/attack_results.json"
+        - "SECURITY/coverage.json"
       controls:
         - "CTRL-LLM-SHIELD"
         - "CTRL-RBAC"
@@ -56,6 +61,9 @@ safety_case_claims:
 
     - claim_id: "SC-SECURITY-002"
       statement: "All in-scope coordination methods are stress-tested against the coordination injection set (and optional application phases). Evidence is pack_summary.csv and pack_gate.md from run-coordination-security-pack with full method list; optionally SECURITY/coordination_risk_matrix.csv."
+      artifacts_expected:
+        - "pack_summary.csv"
+        - "pack_gate.md"
       controls:
         - "Coordination security pack (scale x method x injection matrix)"
       tests:

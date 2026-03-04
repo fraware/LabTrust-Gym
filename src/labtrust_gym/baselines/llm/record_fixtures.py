@@ -58,10 +58,7 @@ def merge_and_write_fixtures(
     path.parent.mkdir(parents=True, exist_ok=True)
     data = {
         "responses": existing,
-        "_comment": (
-            "Keys are SHA-256 of canonical JSON messages. "
-            "Add entries via record-llm-fixtures."
-        ),
+        "_comment": ("Keys are SHA-256 of canonical JSON messages. Add entries via record-llm-fixtures."),
     }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return len(existing)

@@ -35,6 +35,15 @@ Same **CentralizedAllocator** and **EDFScheduler** as kernel_centralized_edf. Th
 
 **State-of-the-art aspects:** Collision-free multi-agent path planning without external MAPF libraries; horizon limits computation and allows replanning; wait-in-place avoids livelock; RBAC/token constraints are respected at the routing layer.
 
+#### MAPF backend adapter contract
+
+The routing layer uses a **router** abstraction that, given a graph, agent positions, goals, reservation table, and horizon, returns per-agent paths (or next move). **WHCARouter** implements this contract and is always available. **CBS, ECBS, LNS, RHCR** are optional backends that require the `[mapf]` extra; when `[mapf]` is not installed, `make_router("cbs")` (and the others) fall back to WHCARouter. The adapter contract:
+
+- **Input:** Graph (zones, edges, restricted edges), current (time, zone) per agent, goal zone per agent, horizon, reservation table, RNG for tie-breaks, optional token/restricted-edge info.
+- **Output:** Per-agent path as list of (t, zone), or first step only; must satisfy INV-ROUTE-001 (no same (t, zone) for two agents) and INV-ROUTE-002 (no restricted edge without token). Cost (e.g. sum of path lengths or makespan) can be used for equivalence: CBS optimality implies CBS cost <= WHCA cost on the same instance.
+
+CBS/ECBS/LNS/RHCR are **placeholders** until a [mapf] dependency is chosen and a minimal adapter is implemented. The conformance config skips CBS; the equivalence test (`test_mapf_cbs_equivalence`) remains skipped until a CBS backend is available. See `src/labtrust_gym/baselines/coordination/routing/mapf_backends.py` and [State of the art and limits](../reference/state_of_the_art_and_limits.md).
+
 ---
 
 ### 1.3 kernel_scheduler_or / kernel_scheduler_or_whca

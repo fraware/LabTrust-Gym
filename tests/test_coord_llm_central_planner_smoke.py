@@ -12,16 +12,15 @@ import pytest
 
 from labtrust_gym.baselines.coordination.llm_contract import validate_proposal
 from labtrust_gym.baselines.coordination.llm_executor import (
-    execute_proposal,
     _proposal_hash,
+    execute_proposal,
 )
 from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
     DeterministicProposalBackend,
     LLMCentralPlanner,
 )
 from labtrust_gym.baselines.coordination.state_digest import build_state_digest
-from labtrust_gym.baselines.llm.shield import apply_shield
-from labtrust_gym.baselines.llm.shield import build_policy_summary
+from labtrust_gym.baselines.llm.shield import apply_shield, build_policy_summary
 
 
 def _repo_root() -> Path:
@@ -37,6 +36,22 @@ def _minimal_rbac() -> dict:
     }
 
 
+def test_llm_central_planner_repair_caps_from_scale_config() -> None:
+    """LLMCentralPlanner accepts max_repairs and blocked_threshold (e.g. from scale_config)."""
+    backend = DeterministicProposalBackend(seed=0, default_action_type="NOOP")
+    method = LLMCentralPlanner(
+        proposal_backend=backend,
+        rbac_policy=_minimal_rbac(),
+        allowed_actions=["NOOP", "TICK"],
+        policy_summary={},
+        get_allowed_actions_fn=lambda _: ["NOOP", "TICK"],
+        max_repairs=3,
+        blocked_threshold=2,
+    )
+    assert method._max_repairs == 3
+    assert method._blocked_threshold == 2
+
+
 def test_deterministic_backend_proposal_validates() -> None:
     """With deterministic backend, proposal validates against schema."""
     backend = DeterministicProposalBackend(seed=42, default_action_type="NOOP")
@@ -50,9 +65,7 @@ def test_deterministic_backend_proposal_validates() -> None:
         "comms_stats": {"msg_count": 0, "drop_rate": 0.0},
     }
     allowed = ["NOOP", "TICK"]
-    proposal, meta = backend.generate_proposal(
-        digest, allowed, step_id=0, method_id="llm_central_planner"
-    )
+    proposal, meta = backend.generate_proposal(digest, allowed, step_id=0, method_id="llm_central_planner")
     valid, errors = validate_proposal(
         proposal,
         allowed_actions=allowed,
@@ -81,12 +94,8 @@ def test_executor_runs_deterministically_with_central_planner_proposal() -> None
         "comms_stats": {},
     }
     allowed = ["NOOP", "TICK"]
-    proposal1, _ = backend.generate_proposal(
-        digest, allowed, step_id=0, method_id="llm_central_planner"
-    )
-    proposal2, _ = backend.generate_proposal(
-        digest, allowed, step_id=0, method_id="llm_central_planner"
-    )
+    proposal1, _ = backend.generate_proposal(digest, allowed, step_id=0, method_id="llm_central_planner")
+    proposal2, _ = backend.generate_proposal(digest, allowed, step_id=0, method_id="llm_central_planner")
     h1 = _proposal_hash(proposal1)
     h2 = _proposal_hash(proposal2)
     assert h1 == h2
@@ -190,9 +199,7 @@ def test_with_injection_like_obs_proposal_and_shield_outcomes() -> None:
     assert proposal.get("method_id") == "llm_central_planner"
     assert len(proposal.get("per_agent", [])) >= 1
 
-    policy_summary = build_policy_summary(
-        allowed_actions=["NOOP", "TICK", "QUEUE_RUN"]
-    )
+    policy_summary = build_policy_summary(allowed_actions=["NOOP", "TICK", "QUEUE_RUN"])
     env = LabTrustParallelEnv(num_runners=1)
     env.reset(seed=11)
     report = execute_proposal(

@@ -41,4 +41,4 @@ If the pack has FAIL cells, the decision verdict is **security_gate_failed** and
 
 - [Troubleshooting](../getting-started/troubleshooting.md) – pack gate failures, no admissible method.
 - [Forker guide – Security and safety gates](../getting-started/forkers.md#security-and-safety-gates)
-- [Release checklist](release_checklist.md) – do not release with gate failed or broken E2E chain.
+- [Trust verification](../risk-and-security/trust_verification.md) and [CI](ci.md) – do not release with gate failed or broken E2E chain.

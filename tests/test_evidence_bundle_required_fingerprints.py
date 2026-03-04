@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.export.receipts import (
     compute_bundle_fingerprints_required,

@@ -225,9 +225,7 @@ def test_unknown_top_level_key_fails_with_strict_schema() -> None:
     proposal["unknown_key"] = "value"
     valid, errors = validate_proposal(proposal)
     assert not valid
-    assert any(
-        "additional" in e.lower() or "unknown" in e.lower() for e in errors
-    )
+    assert any("additional" in e.lower() or "unknown" in e.lower() for e in errors)
 
 
 def test_args_must_be_object() -> None:

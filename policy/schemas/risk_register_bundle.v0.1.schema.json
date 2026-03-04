@@ -36,6 +36,7 @@
     },
     "evidence": {
       "type": "array",
+      "description": "Evidence indicates that a specific test was run with a specific outcome; it does not by itself prove control effectiveness.",
       "items": { "$ref": "#/$defs/evidence_entry" }
     },
     "injection_registry": {
@@ -51,6 +52,11 @@
       "type": "array",
       "description": "Deterministic reproduction commands per evidence; UI renders these without hardcoding.",
       "items": { "$ref": "#/$defs/reproduce_entry" }
+    },
+    "evidence_level": {
+      "type": "string",
+      "enum": ["deterministic_only", "with_live_llm"],
+      "description": "Inferred from run dirs: whether any evidence came from LLM attacker or llm_live pack. Omitted when no run dirs provided."
     }
   },
   "$defs": {
@@ -190,6 +196,23 @@
           "type": "object",
           "additionalProperties": { "type": "number" },
           "description": "For security evidence: top reason codes (blocked_reason_code) counts per attack/risk; why blocked."
+        },
+        "synthetic": {
+          "type": "boolean",
+          "description": "True when evidence is from a fixture or minimal run not from a full pack/study."
+        },
+        "evidence_strength": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "Set from source type heuristics (e.g. security_suite -> high, coordination_study -> medium); not a ground-truth measure of evidence strength. For reviewer visibility."
+        },
+        "evidence_strength_notes": {
+          "type": "string",
+          "description": "Optional free-text notes on evidence strength (e.g. high from suite but attacks were narrow; medium from study but very thorough)."
+        },
+        "confidence_notes": {
+          "type": "string",
+          "description": "Optional free-text notes on evidence quality or confidence."
         }
       }
     },

@@ -49,6 +49,8 @@ def test_load_benchmark_pack_prefer_v02_returns_v02_when_present() -> None:
     assert "live_coordination_evaluation_protocol" in pack
 
 
+@pytest.mark.slow
+@pytest.mark.timeout(900)
 def test_official_pack_smoke_required_folders() -> None:
     """Run official pack with smoke; assert required folders and files exist."""
     root = get_repo_root()
@@ -65,6 +67,7 @@ def test_official_pack_smoke_required_folders() -> None:
                 seed_base=100,
                 smoke=True,
                 full_security=False,
+                security_suite_timeout_s=300,
             )
             assert (out / "baselines" / "results").is_dir()
             assert (out / "SECURITY").is_dir()

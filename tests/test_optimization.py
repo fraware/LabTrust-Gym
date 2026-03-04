@@ -14,7 +14,9 @@ import pytest
 pytest.importorskip("pettingzoo")
 pytest.importorskip("gymnasium")
 
-from labtrust_gym.benchmarks.runner import run_episode, run_benchmark
+from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
+from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
+from labtrust_gym.benchmarks.runner import run_benchmark, run_episode
 from labtrust_gym.benchmarks.tasks import get_task
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.envs.pz_parallel import (
@@ -22,8 +24,6 @@ from labtrust_gym.envs.pz_parallel import (
     DEFAULT_ZONE_IDS,
     LabTrustParallelEnv,
 )
-from labtrust_gym.baselines.scripted_ops import ScriptedOpsAgent
-from labtrust_gym.baselines.scripted_runner import ScriptedRunnerAgent
 from labtrust_gym.policy.loader import (
     _policy_cache_enabled,
     load_effective_policy,
@@ -50,12 +50,8 @@ def test_env_reuse_same_seeds_same_metrics() -> None:
 
     agents_map = {
         "ops_0": ScriptedOpsAgent(),
-        "runner_0": ScriptedRunnerAgent(
-            zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
-        ),
-        "runner_1": ScriptedRunnerAgent(
-            zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
-        ),
+        "runner_0": ScriptedRunnerAgent(zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS),
+        "runner_1": ScriptedRunnerAgent(zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS),
     }
 
     m1, _ = run_episode(
@@ -128,12 +124,8 @@ def test_env_reuse_two_episodes_different_seeds_complete() -> None:
 
     agents_map = {
         "ops_0": ScriptedOpsAgent(),
-        "runner_0": ScriptedRunnerAgent(
-            zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
-        ),
-        "runner_1": ScriptedRunnerAgent(
-            zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
-        ),
+        "runner_0": ScriptedRunnerAgent(zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS),
+        "runner_1": ScriptedRunnerAgent(zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS),
     }
 
     first_initial = task.get_initial_state(100, policy_root=repo_root)
@@ -188,11 +180,7 @@ def test_policy_cache_disabled_still_correct() -> None:
         os.environ["LABTRUST_POLICY_CACHE"] = "0"
         eff, fp, pid, cal = load_effective_policy(repo_root, partner_id=None)
         assert isinstance(eff, dict)
-        assert (
-            "critical_thresholds" in eff
-            or "equipment_registry" in eff
-            or "enforcement_map" in eff
-        )
+        assert "critical_thresholds" in eff or "equipment_registry" in eff or "enforcement_map" in eff
         assert isinstance(fp, str)
     finally:
         if prev is None:

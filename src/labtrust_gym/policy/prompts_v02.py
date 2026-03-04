@@ -45,9 +45,7 @@ def load_prompts_v02(repo_root: Path | None = None) -> dict[str, Any]:
     system = data.get("system_prompt")
     developer = data.get("developer_prompt")
     if system is None or developer is None:
-        raise PolicyLoadError(
-            path, "prompts v0.2 missing system_prompt or developer_prompt"
-        )
+        raise PolicyLoadError(path, "prompts v0.2 missing system_prompt or developer_prompt")
     role_overlays = data.get("role_overlays")
     if not isinstance(role_overlays, dict):
         role_overlays = {}
@@ -88,12 +86,7 @@ def get_rendered_system_content_v02(
     developer = data["developer_prompt"]
     overlays = data["role_overlays"]
     overlay_key = _role_id_to_overlay_key(role_id)
-    overlay = (
-        overlays.get(overlay_key)
-        or overlays.get(role_id or "")
-        or overlays.get(DEFAULT_ROLE_OVERLAY)
-        or ""
-    )
+    overlay = overlays.get(overlay_key) or overlays.get(role_id or "") or overlays.get(DEFAULT_ROLE_OVERLAY) or ""
     parts = [system, developer]
     if overlay:
         parts.append(overlay)
@@ -113,9 +106,7 @@ def compute_prompt_fingerprint_v02(
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def get_user_template_v02(
-    repo_root: Path | None = None, _loaded: dict[str, Any] | None = None
-) -> str:
+def get_user_template_v02(repo_root: Path | None = None, _loaded: dict[str, Any] | None = None) -> str:
     """Return the user_template string from rendering_rules, or a default."""
     data = _loaded if _loaded is not None else load_prompts_v02(repo_root)
     rules = data.get("rendering_rules") or {}
@@ -174,19 +165,11 @@ def render_user_content_v02(
     """
     template = get_user_template_v02(repo_root=repo_root, _loaded=_loaded)
     state_summary_json = state_summary_json if state_summary_json is not None else "{}"
-    allowed_actions_json = (
-        allowed_actions_json if allowed_actions_json is not None else "[]"
-    )
+    allowed_actions_json = allowed_actions_json if allowed_actions_json is not None else "[]"
     active_tokens_json = active_tokens_json if active_tokens_json is not None else "[]"
-    recent_violations_json = (
-        recent_violations_json if recent_violations_json is not None else "[]"
-    )
-    enforcement_state_json = (
-        enforcement_state_json if enforcement_state_json is not None else "{}"
-    )
-    untrusted_notes_json = (
-        untrusted_notes_json if untrusted_notes_json is not None else "[]"
-    )
+    recent_violations_json = recent_violations_json if recent_violations_json is not None else "[]"
+    enforcement_state_json = enforcement_state_json if enforcement_state_json is not None else "{}"
+    untrusted_notes_json = untrusted_notes_json if untrusted_notes_json is not None else "[]"
     return (
         template.replace("{{partner_id}}", str(partner_id or ""))
         .replace("{{policy_fingerprint}}", str(policy_fingerprint or ""))
@@ -222,16 +205,12 @@ def render_prompt_v02(
     Same renderer used by deterministic and live backends for identical pipeline.
     """
     loaded = load_prompts_v02(repo_root)
-    system_content, schema_version = get_rendered_system_content_v02(
-        role_id=role_id, _loaded=loaded
-    )
+    system_content, schema_version = get_rendered_system_content_v02(role_id=role_id, _loaded=loaded)
     prompt_fingerprint = compute_prompt_fingerprint_v02(system_content, schema_version)
 
     state_summary = state_summary or {}
     state_summary_json = json.dumps(state_summary, sort_keys=True)
-    if allowed_actions_payload is not None and isinstance(
-        allowed_actions_payload, list
-    ):
+    if allowed_actions_payload is not None and isinstance(allowed_actions_payload, list):
         allowed_actions_json = json.dumps(allowed_actions_payload, sort_keys=True)
     else:
         allowed_actions_json = json.dumps(allowed_actions or [], sort_keys=True)

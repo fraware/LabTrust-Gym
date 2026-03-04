@@ -7,7 +7,6 @@ See docs/coordination_matrix_contract.md (Sources contract section).
 
 from __future__ import annotations
 
-import csv
 import shutil
 from pathlib import Path
 
@@ -25,11 +24,7 @@ def _repo_root() -> Path:
 
 
 def _fixture_run_dir() -> Path:
-    return (
-        Path(__file__).resolve().parent
-        / "fixtures"
-        / "coordination_matrix_run_fixture"
-    )
+    return Path(__file__).resolve().parent / "fixtures" / "coordination_matrix_run_fixture"
 
 
 @pytest.fixture

@@ -43,9 +43,7 @@ def load_summary(path: Path) -> list[dict[str, str]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Compare baseline summary CSV to local summary CSV (v0.2 or v0.3)."
-    )
+    parser = argparse.ArgumentParser(description="Compare baseline summary CSV to local summary CSV (v0.2 or v0.3).")
     parser.add_argument(
         "baseline_csv",
         type=Path,
@@ -82,9 +80,7 @@ def main() -> int:
     compare_cols = KEY_COLS + [
         c
         for c in SUMMARY_METRIC_COLS
-        if base_rows and c in (base_rows[0] or {})
-        and local_rows
-        and c in (local_rows[0] or {})
+        if base_rows and c in (base_rows[0] or {}) and local_rows and c in (local_rows[0] or {})
     ]
 
     if len(base_rows) != len(local_rows):
@@ -115,7 +111,7 @@ def main() -> int:
                         continue
                 except (ValueError, TypeError):
                     pass
-            diffs.append(f"  row {i+1} {col}: baseline={bv!r} local={lv!r}")
+            diffs.append(f"  row {i + 1} {col}: baseline={bv!r} local={lv!r}")
 
     if diffs:
         print("Differences:", file=sys.stderr)

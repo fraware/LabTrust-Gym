@@ -15,7 +15,6 @@ from .conftest import (
     _conformance_config,
     _method_ids_from_policy,
     _minimal_obs,
-    _minimal_policy,
     _minimal_scale_config,
     make_coord_method_for_conformance,
 )
@@ -30,7 +29,9 @@ def _minimal_obs_distinct_zones(agent_ids, policy):
     zone_list = inner.get("zones") or []
     zone_ids = [z.get("zone_id") for z in zone_list if isinstance(z, dict) and z.get("zone_id")]
     if len(zone_ids) < len(agent_ids):
-        zone_ids = zone_ids + ["Z_SORTING_LANES", "Z_ANALYZER_HALL_A", "Z_ANALYZER_HALL_B"][: len(agent_ids) - len(zone_ids)]
+        zone_ids = (
+            zone_ids + ["Z_SORTING_LANES", "Z_ANALYZER_HALL_A", "Z_ANALYZER_HALL_B"][: len(agent_ids) - len(zone_ids)]
+        )
     obs = {}
     for i, aid in enumerate(agent_ids):
         zid = zone_ids[i % len(zone_ids)]
@@ -62,6 +63,7 @@ def _run_determinism(repo_root, conformance_config, minimal_policy, method_id: s
     coord.reset(42, policy, scale_config)
     run3 = coord.propose_actions(obs, infos, 0)
     from labtrust_gym.baselines.coordination.interface import VALID_ACTION_INDICES
+
     for aid in agent_ids:
         a1, a2, a3 = run1.get(aid, {}), run2.get(aid, {}), run3.get(aid, {})
         assert a1.get("action_index") == a2.get("action_index") == a3.get("action_index")
@@ -73,6 +75,7 @@ def _run_determinism(repo_root, conformance_config, minimal_policy, method_id: s
 def _run_legality(repo_root, conformance_config, minimal_policy, method_id: str) -> None:
     from labtrust_gym.baselines.coordination.interface import VALID_ACTION_INDICES
     from labtrust_gym.engine.rbac import get_allowed_actions
+
     if method_id in (conformance_config.get("skip_legality") or []):
         pytest.skip(f"{method_id}: skipped by conformance_config (legality)")
     if method_id in (conformance_config.get("xfail_legality") or []):
@@ -130,6 +133,7 @@ def _run_safety_invariants(repo_root, conformance_config, minimal_policy, method
         check_inv_route_002,
         check_swap_collision,
     )
+
     v001 = check_inv_route_001(planned_nodes)
     v002 = check_inv_route_002(planned_moves, restricted_edges, agent_has_token)
     v003 = check_swap_collision(planned_moves)
@@ -161,11 +165,13 @@ def _run_budget(repo_root, conformance_config, minimal_policy, method_id: str) -
 
 def _run_evidence(repo_root, conformance_config, minimal_policy, method_id: str, tmp_path: Path) -> None:
     import json
+
     from labtrust_gym.baselines.coordination.trace import (
         append_trace_event,
         trace_event_hash,
         trace_from_contract_record,
     )
+
     pass_evidence = conformance_config.get("pass_evidence") or []
     if method_id not in pass_evidence:
         pytest.skip(f"{method_id}: not in pass_evidence")

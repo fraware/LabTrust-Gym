@@ -1,0 +1,30 @@
+# Optional MARL smoke: PPO train, multi-agent, CTDE, and marl_ppo propose_actions.
+# Runs only on workflow_dispatch; does not run on push/PR (never blocks merges).
+# Set LABTRUST_MARL_SMOKE=1 to run the MARL smoke suite (requires stable-baselines3, torch).
+name: MARL smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  marl-smoke:
+    runs-on: ubuntu-latest
+    env:
+      LABTRUST_MARL_SMOKE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package (dev, env, marl)
+        run: pip install -e ".[dev,env,marl]"
+
+      - name: MARL smoke (PPO train, multi-agent, CTDE, propose_actions, full_episode, learning_metadata, per_agent)
+        run: |
+          pytest tests/test_marl_smoke.py tests/test_ppo_wrapper.py -v --tb=short \
+            -k "ppo_train_tiny or ppo_train_config or ppo_eval or propose_actions or get_global_state or multi_agent or ctde or full_episode or learning_metadata or per_agent" \
+            --timeout=600

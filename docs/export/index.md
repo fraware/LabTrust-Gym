@@ -10,4 +10,4 @@ Export formats and verification commands.
 
 ## Verification
 
-Release verification is documented in [Release checklist](../operations/release_checklist.md) and [CI](../operations/ci.md). Use `verify-bundle` for a single EvidenceBundle and `verify-release` for a full release directory.
+Release verification is documented in [Trust verification](../risk-and-security/trust_verification.md) and [CI](../operations/ci.md). Use `verify-bundle` for a single EvidenceBundle and `verify-release` for a full release directory.

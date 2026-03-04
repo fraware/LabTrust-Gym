@@ -24,6 +24,7 @@ class PZParallelAdapter(LabTrustEnvAdapter):
 
     def __init__(self) -> None:
         from labtrust_gym.engine.core_env import CoreEnv
+
         self._engine = CoreEnv()
 
     def reset(

@@ -30,15 +30,9 @@ def build_repair_input(
     - red_team_flags: optional list e.g. ["comms_poison"]; sorted for stability.
     """
     # Snapshot with sorted keys for determinism
-    scale_sorted = dict(
-        sorted((k, v) for k, v in (scale_config_snapshot or {}).items())
-    )
-    plan_sorted = dict(
-        sorted((k, v) for k, v in (last_accepted_plan_summary or {}).items())
-    )
-    constraint_sorted = dict(
-        sorted((k, v) for k, v in (constraint_summary or {}).items())
-    )
+    scale_sorted = dict(sorted((k, v) for k, v in (scale_config_snapshot or {}).items()))
+    plan_sorted = dict(sorted((k, v) for k, v in (last_accepted_plan_summary or {}).items()))
+    constraint_sorted = dict(sorted((k, v) for k, v in (constraint_summary or {}).items()))
 
     # Blocked actions: sort by (agent_id, action_type, reason_code) for stable order
     blocked = list(blocked_actions or [])
@@ -50,9 +44,7 @@ def build_repair_input(
             "reason_code": str(b.get("reason_code", "")),
         }
         blocked_normalized.append(item)
-    blocked_normalized.sort(
-        key=lambda x: (x["agent_id"], x["action_type"], x["reason_code"])
-    )
+    blocked_normalized.sort(key=lambda x: (x["agent_id"], x["action_type"], x["reason_code"]))
 
     flags = sorted(red_team_flags or [])
 

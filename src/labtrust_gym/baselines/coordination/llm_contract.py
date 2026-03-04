@@ -90,9 +90,7 @@ def validate_proposal(
                 continue
             action_type = (pa.get("action_type") or "").strip()
             if action_type and action_type not in allowed_actions:
-                errors.append(
-                    f"per_agent[{i}].action_type {action_type!r} not in allowed_actions"
-                )
+                errors.append(f"per_agent[{i}].action_type {action_type!r} not in allowed_actions")
 
     # Optional: reason_code in registry when strict
     if strict_reason_codes and reason_code_registry is not None:
@@ -103,10 +101,7 @@ def validate_proposal(
             if not reason_code:
                 errors.append(f"per_agent[{i}].reason_code missing (required in strict)")
             elif reason_code not in reason_code_registry:
-                errors.append(
-                    f"per_agent[{i}].reason_code {reason_code!r} not in "
-                    "reason_code_registry"
-                )
+                errors.append(f"per_agent[{i}].reason_code {reason_code!r} not in reason_code_registry")
 
     # args must be object (schema already enforces; double-check)
     for i, pa in enumerate(proposal_dict.get("per_agent") or []):

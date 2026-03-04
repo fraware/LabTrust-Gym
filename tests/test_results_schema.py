@@ -16,7 +16,6 @@ from labtrust_gym.benchmarks.summarize import (
     _build_llm_economics_rows,
     _load_raw_results_with_metadata,
     _normalize_to_v02,
-    iter_results_from_path,
     iter_results_and_metadata_from_paths,
     load_results_from_path,
     run_summarize,
@@ -378,9 +377,7 @@ def test_summarize_streaming_large_result_dir_bounded_memory(tmp_path: Path) -> 
             "agent_baseline_id": "scripted_ops_v1",
             "partner_id": None,
         }
-        (results_dir / f"results_{i:04d}.json").write_text(
-            json.dumps(data), encoding="utf-8"
-        )
+        (results_dir / f"results_{i:04d}.json").write_text(json.dumps(data), encoding="utf-8")
     out_dir = tmp_path / "out"
     csv_path, md_path = run_summarize([results_dir], out_dir, out_basename="summary")
     assert csv_path.exists()

@@ -173,9 +173,7 @@ def _run_taskh_one_episode(
 
 
 @pytest.mark.parametrize("injection_id", COORD_PROTOCOL_INJECTION_IDS)
-def test_taskh_coord_protocol_injection_produces_sec_metrics(
-    tmp_path: Path, injection_id: str
-) -> None:
+def test_taskh_coord_protocol_injection_produces_sec_metrics(tmp_path: Path, injection_id: str) -> None:
     """TaskH run with each coord protocol injection produces non-null sec block and expected keys."""
     data = _run_taskh_one_episode(tmp_path, injection_id)
     episodes = data.get("episodes") or []

@@ -142,7 +142,9 @@ def test_group_evolving_experience_sharing_contract_five_steps(tmp_path: Path) -
             idx = ad["action_index"]
             assert idx in VALID_ACTION_INDICES
         actions = {a: action_dict_to_index_and_info(actions_dict.get(a, {"action_index": 0}))[0] for a in env.agents}
-        action_infos = {a: action_dict_to_index_and_info(actions_dict.get(a, {"action_index": 0}))[1] for a in env.agents}
+        action_infos = {
+            a: action_dict_to_index_and_info(actions_dict.get(a, {"action_index": 0}))[1] for a in env.agents
+        }
         obs, _, _, _, infos = env.step(actions, action_infos=action_infos)
         if hasattr(method, "on_step_result") and infos:
             first_agent = next(iter(env.agents), None)

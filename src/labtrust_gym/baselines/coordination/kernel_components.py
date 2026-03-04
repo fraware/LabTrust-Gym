@@ -118,10 +118,15 @@ class CentralizedAllocator:
             if (device_id, work_id) in used_work:
                 continue
             candidates = [
-                a for a in agents
+                a
+                for a in agents
                 if a not in assigned
-                and (get_zone_from_obs(context.obs.get(a) or {}, zone_ids)
-                     or (context.obs.get(a) or {}).get("zone_id") or "") == zone_id
+                and (
+                    get_zone_from_obs(context.obs.get(a) or {}, zone_ids)
+                    or (context.obs.get(a) or {}).get("zone_id")
+                    or ""
+                )
+                == zone_id
             ]
             if not candidates:
                 continue
@@ -372,12 +377,15 @@ class WHCARouter:
 
     def get_last_planned_path(
         self,
-    ) -> tuple[
-        list[tuple[str, int, str]],
-        list[tuple[str, int, str, str]],
-        set[tuple[str, str]],
-        dict[str, bool],
-    ] | None:
+    ) -> (
+        tuple[
+            list[tuple[str, int, str]],
+            list[tuple[str, int, str, str]],
+            set[tuple[str, str]],
+            dict[str, bool],
+        ]
+        | None
+    ):
         """
         Return (planned_nodes, planned_moves, restricted_edges, agent_has_token)
         from the last route() call when expose_planned_path was True; else None.

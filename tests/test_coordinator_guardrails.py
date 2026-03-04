@@ -8,8 +8,6 @@ is open, rate limit exceeded, or inner backend raises (e.g. 429/timeout). No rea
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.llm.coordinator_throttle import (
     CoordinatorGuardrailBidBackend,
     CoordinatorGuardrailDetectorBackend,
@@ -33,10 +31,7 @@ class _MockProposalBackendOk:
         agent_ids = [p.get("agent_id") for p in (state_digest.get("per_agent") or [])]
         if not agent_ids:
             agent_ids = ["ops_0"]
-        per_agent = [
-            {"agent_id": a, "action_type": "NOOP", "args": {}, "reason_code": "OK"}
-            for a in sorted(agent_ids)
-        ]
+        per_agent = [{"agent_id": a, "action_type": "NOOP", "args": {}, "reason_code": "OK"} for a in sorted(agent_ids)]
         return (
             {
                 "proposal_id": "ok",
@@ -86,9 +81,7 @@ def test_coordinator_guardrail_proposal_returns_noop_on_inner_raise() -> None:
         },
     )
     digest = _digest_with_agents()
-    proposal, meta = wrapper.generate_proposal(
-        digest, ["NOOP", "TICK"], step_id=0, method_id="llm_central_planner"
-    )
+    proposal, meta = wrapper.generate_proposal(digest, ["NOOP", "TICK"], step_id=0, method_id="llm_central_planner")
     assert meta.get("reason_code") == "CIRCUIT_BREAKER_OPEN"
     assert proposal.get("per_agent")
     for pa in proposal["per_agent"]:
@@ -110,9 +103,7 @@ def test_coordinator_guardrail_proposal_circuit_opens_after_raise() -> None:
     )
     digest = _digest_with_agents()
     wrapper.generate_proposal(digest, ["NOOP"], step_id=0, method_id="test")
-    proposal2, meta2 = wrapper.generate_proposal(
-        digest, ["NOOP"], step_id=1, method_id="test"
-    )
+    proposal2, meta2 = wrapper.generate_proposal(digest, ["NOOP"], step_id=1, method_id="test")
     assert meta2.get("reason_code") == "CIRCUIT_BREAKER_OPEN"
     assert proposal2["per_agent"][0]["action_type"] == "NOOP"
 
@@ -131,9 +122,7 @@ def test_coordinator_guardrail_proposal_rate_limited() -> None:
     )
     digest = _digest_with_agents()
     wrapper.generate_proposal(digest, ["NOOP"], step_id=0, method_id="test")
-    proposal2, meta2 = wrapper.generate_proposal(
-        digest, ["NOOP"], step_id=1, method_id="test"
-    )
+    proposal2, meta2 = wrapper.generate_proposal(digest, ["NOOP"], step_id=1, method_id="test")
     assert meta2.get("reason_code") == "RATE_LIMITED"
     assert proposal2["per_agent"][0]["action_type"] == "NOOP"
 
@@ -151,9 +140,7 @@ def test_coordinator_guardrail_bid_returns_noop_on_inner_raise() -> None:
         },
     )
     digest = _digest_with_agents()
-    proposal, meta = wrapper.generate_proposal(
-        digest, step_id=0, method_id="llm_auction_bidder"
-    )
+    proposal, meta = wrapper.generate_proposal(digest, step_id=0, method_id="llm_auction_bidder")
     assert meta.get("reason_code") == "CIRCUIT_BREAKER_OPEN"
     assert proposal.get("market") == []
     assert proposal.get("per_agent")
@@ -216,8 +203,8 @@ class _MockDetectorBackendOk:
 
     def detect(self, step, event_summary, comms_stats):
         from labtrust_gym.baselines.coordination.assurance.detector_advisor import (
-            DetectResult,
             DetectorOutput,
+            DetectResult,
             RecommendResult,
         )
 

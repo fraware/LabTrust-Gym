@@ -413,9 +413,7 @@ class AuctionAllocator:
 
         price_signals = build_price_signals(obs, device_zone, zone_ids, device_ids)
         view_snapshots = getattr(context, "view_snapshots", None) or {}
-        fairness_weight = float(
-            scale_config.get("auction_fairness_weight", self._fairness_weight)
-        )
+        fairness_weight = float(scale_config.get("auction_fairness_weight", self._fairness_weight))
 
         def bid_fn(
             agent_id: str,

@@ -70,7 +70,8 @@ def _write_env_provenance(out_dir: Path, repo_root: Path) -> None:
             text=True,
             timeout=30,
             cwd=str(cwd),
-        ).stdout or "",
+        ).stdout
+        or "",
         encoding="utf-8",
     )
     (env_dir / "python_runtime.json").write_text(
@@ -100,9 +101,7 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _collect_files_with_hashes(
-    root: Path, exclude_dirs: list[str] | None = None
-) -> list[dict[str, str]]:
+def _collect_files_with_hashes(root: Path, exclude_dirs: list[str] | None = None) -> list[dict[str, str]]:
     """Walk root, return list of {path: relpath, sha256: hex} sorted by path. Skip exclude_dirs."""
     exclude = set(exclude_dirs or [])
     out: list[dict[str, str]] = []
@@ -195,9 +194,7 @@ OFFICIAL_TASKS = [
 
 def _deterministic_timestamp(seed_base: int) -> str:
     """Deterministic UTC timestamp when seed_base is provided (epoch + seed_base seconds)."""
-    return (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed_base)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    return (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed_base)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 COORDINATION_PACK_SUBDIR = "_coordination_pack"
@@ -231,11 +228,7 @@ def run_package_release_paper(
     figures_dir = out_dir / PAPER_FIGURES_DIR
     tables_dir = out_dir / PAPER_TABLES_DIR
     receipts_dir = out_dir / "receipts"
-    ts = (
-        fixed_timestamp
-        if fixed_timestamp is not None
-        else _deterministic_timestamp(seed_base)
-    )
+    ts = fixed_timestamp if fixed_timestamp is not None else _deterministic_timestamp(seed_base)
 
     smoke = os.environ.get("LABTRUST_PAPER_SMOKE", "").strip().lower() in (
         "1",
@@ -356,11 +349,13 @@ def run_package_release_paper(
         )
         bundle_dir = rec_task / "EvidenceBundle.v0.1"
         if bundle_dir.exists():
-            try:
-                passed, report, _ = verify_bundle(bundle_dir, policy_root=repo_root)
-                (rec_task / "verify_report.txt").write_text(report, encoding="utf-8")
-            except Exception:
-                pass
+            passed, report, errors = verify_bundle(bundle_dir, policy_root=repo_root)
+            (rec_task / "verify_report.txt").write_text(report, encoding="utf-8")
+            if not passed:
+                raise RuntimeError(
+                    f"Evidence bundle verification failed for task {task!r}. "
+                    f"Run labtrust verify-bundle --bundle {bundle_dir}. Errors: {errors}"
+                )
 
     # 4b) Security attack suite + securitization packet (SECURITY/)
     security_dir = out_dir / "SECURITY"
@@ -444,18 +439,11 @@ def run_package_release_paper(
     if matrix_found is not None:
         shutil.copy2(matrix_found, matrix_dest)
     else:
-        fixture = (
-            Path(repo_root)
-            / "tests"
-            / "fixtures"
-            / "coordination_matrix_expected_output.v0.1.json"
-        )
+        fixture = Path(repo_root) / "tests" / "fixtures" / "coordination_matrix_expected_output.v0.1.json"
         if fixture.exists():
             shutil.copy2(fixture, matrix_dest)
         else:
-            (coord_matrix_dir / "COORDINATION_MATRIX.v0.1.json").write_text(
-                "{}", encoding="utf-8"
-            )
+            (coord_matrix_dir / "COORDINATION_MATRIX.v0.1.json").write_text("{}", encoding="utf-8")
     readme = coord_matrix_dir / "README.md"
     readme.write_text(
         "## Coordination matrix (v0.1)\n\n"
@@ -742,9 +730,7 @@ def run_package_release(
         "llm_model_id": None,
         "allow_network": allow_network,
     }
-    (out_dir / "metadata.json").write_text(
-        json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    (out_dir / "metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
 
     card_content = _render_benchmark_card_template(repo_root, metadata)
     (out_dir / "BENCHMARK_CARD.md").write_text(card_content, encoding="utf-8")

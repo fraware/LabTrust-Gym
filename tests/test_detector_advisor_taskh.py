@@ -8,8 +8,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.benchmarks.runner import run_benchmark
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -53,7 +51,9 @@ def test_taskh_detector_advisor_comms_poison_deterministic_and_flags(tmp_path: P
     assert "detector_false_positive_proxy" in sec
     detection_steps = sec.get("detection_latency_steps")
     # Detector should flag (first_detection_step set via LLM_DETECTOR_DECISION) within bound
-    assert detection_steps is not None, "Detector should set first_detection_step (risk_injector sees LLM_DETECTOR_DECISION)"
+    assert detection_steps is not None, (
+        "Detector should set first_detection_step (risk_injector sees LLM_DETECTOR_DECISION)"
+    )
     assert detection_steps <= DETECTOR_LATENCY_BOUND_STEPS, (
         f"Detector should flag within {DETECTOR_LATENCY_BOUND_STEPS} steps; got detection_latency_steps={detection_steps}"
     )

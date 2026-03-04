@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import random
+
 # Preference order: first match in allowed_actions wins; ties broken by RNG
 _DEFAULT_PREFERENCE_ORDER = (
     "START_RUN",
@@ -37,7 +38,7 @@ def _allowed_actions_from_user_message(user_content: str) -> list[str]:
     prefix = "ALLOWED_ACTIONS_JSON:"
     if prefix in user_content:
         idx = user_content.find(prefix)
-        rest = user_content[idx + len(prefix):].lstrip()
+        rest = user_content[idx + len(prefix) :].lstrip()
         line = rest.split("\n")[0].strip()
         if line.startswith("["):
             try:
@@ -49,9 +50,7 @@ def _allowed_actions_from_user_message(user_content: str) -> list[str]:
                     return [str(a) for a in parsed]
                 if isinstance(first, dict) and first.get("action_type"):
                     return [
-                        str(e.get("action_type", ""))
-                        for e in parsed
-                        if isinstance(e, dict) and e.get("action_type")
+                        str(e.get("action_type", "")) for e in parsed if isinstance(e, dict) and e.get("action_type")
                     ]
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -77,9 +76,7 @@ class DeterministicPolicyBackend:
     ) -> None:
         self._seed = seed
         self._default_action_type = default_action_type
-        self._preference_order = (
-            preference_order or _DEFAULT_PREFERENCE_ORDER
-        )
+        self._preference_order = preference_order or _DEFAULT_PREFERENCE_ORDER
         self._call_count = 0
 
     def reset(self, seed: int) -> None:
@@ -95,17 +92,13 @@ class DeterministicPolicyBackend:
         if not allowed_actions:
             action_type = self._default_action_type
         else:
-            ordered = [
-                a for a in self._preference_order if a in allowed_actions
-            ]
+            ordered = [a for a in self._preference_order if a in allowed_actions]
             if not ordered:
                 action_type = allowed_actions[0]
             elif len(ordered) == 1:
                 action_type = ordered[0]
             else:
-                rng = random.Random(
-                    self._seed + self._call_count * 7919
-                )
+                rng = random.Random(self._seed + self._call_count * 7919)
                 action_type = rng.choice(ordered)
         self._call_count += 1
         return json.dumps(

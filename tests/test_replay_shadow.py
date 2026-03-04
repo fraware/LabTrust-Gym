@@ -60,10 +60,7 @@ def test_compare_episode_logs_diverged():
     assert out["first_divergence_step"] == 1
     assert out["steps_compared"] == 2
     assert len(out["diffs"]) >= 1
-    assert any(
-        d.get("field") == "status" and d.get("step_index") == 1
-        for d in out["diffs"]
-    )
+    assert any(d.get("field") == "status" and d.get("step_index") == 1 for d in out["diffs"])
 
 
 def test_compare_episode_logs_step_count_diverged():
@@ -89,12 +86,8 @@ def test_run_replay_two_logs_diverged(tmp_path):
         _entry(0, "A1", "MOVE", "ok"),
         _entry(10, "A1", "QUEUE_RUN", "blocked"),
     ]
-    ref_log.write_text(
-        "\n".join(json.dumps(e, sort_keys=True) for e in ref_entries)
-    )
-    run_log.write_text(
-        "\n".join(json.dumps(e, sort_keys=True) for e in run_entries)
-    )
+    ref_log.write_text("\n".join(json.dumps(e, sort_keys=True) for e in ref_entries))
+    run_log.write_text("\n".join(json.dumps(e, sort_keys=True) for e in run_entries))
 
     result = run_replay(
         episode_log_path=ref_log,
@@ -121,12 +114,8 @@ def test_run_replay_two_logs_ok(tmp_path):
     run_log = tmp_path / "run.jsonl"
     out = tmp_path / "replay_out"
     entries = [_entry(0), _entry(10)]
-    ref_log.write_text(
-        "\n".join(json.dumps(e, sort_keys=True) for e in entries)
-    )
-    run_log.write_text(
-        "\n".join(json.dumps(e, sort_keys=True) for e in entries)
-    )
+    ref_log.write_text("\n".join(json.dumps(e, sort_keys=True) for e in entries))
+    run_log.write_text("\n".join(json.dumps(e, sort_keys=True) for e in entries))
 
     result = run_replay(
         episode_log_path=ref_log,
@@ -172,9 +161,7 @@ def test_run_shadow_baseline_dir_with_log_and_results_produces_comparison(
     baseline_dir.mkdir()
     log_path = baseline_dir / "episode_log.jsonl"
     entries = [_entry(0), _entry(10)]
-    log_path.write_text(
-        "\n".join(json.dumps(e, sort_keys=True) for e in entries)
-    )
+    log_path.write_text("\n".join(json.dumps(e, sort_keys=True) for e in entries))
     results = {
         "task": "throughput_sla",
         "seeds": [42],

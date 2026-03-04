@@ -64,14 +64,16 @@ DEFAULT_DEVICE_IDS: list[str] = [
 RESTRICTED_DOOR_ID = "D_RESTRICTED_AIRLOCK"
 RESTRICTED_ZONE_ID = "Z_RESTRICTED_BIOHAZARD"
 
-# Action type indices: NOOP, TICK, QUEUE_RUN (ops), MOVE, OPEN_DOOR, START_RUN (runner)
-NUM_ACTION_TYPES = 6
-ACTION_NOOP = 0
-ACTION_TICK = 1
-ACTION_QUEUE_RUN = 2
-ACTION_MOVE = 3
-ACTION_OPEN_DOOR = 4
-ACTION_START_RUN = 5
+# Action indices: single source of truth in envs/action_contract; re-export for backward compatibility.
+from labtrust_gym.envs.action_contract import (
+    ACTION_MOVE,
+    ACTION_NOOP,
+    ACTION_OPEN_DOOR,
+    ACTION_QUEUE_RUN,
+    ACTION_START_RUN,
+    ACTION_TICK,
+    NUM_ACTION_TYPES,
+)
 
 
 def _zone_to_index(zone_id: str | None, zone_ids: list[str]) -> int:
@@ -92,8 +94,7 @@ def _safe_int(x: Any, default: int = 0) -> int:
 
 if ParallelEnv is None:
     raise ImportError(
-        "LabTrustParallelEnv requires pettingzoo and gymnasium. "
-        'Install with: pip install -e ".[env]"'
+        'LabTrustParallelEnv requires pettingzoo and gymnasium. Install with: pip install -e ".[env]"'
     ) from _pettingzoo_import_error
 
 
@@ -148,13 +149,9 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
 
         if scale_agents and len(scale_agents) > 0:
             self.possible_agents = [f"worker_{i}" for i in range(len(scale_agents))]
-            self._pz_to_engine = {
-                f"worker_{i}": scale_agents[i]["agent_id"]
-                for i in range(len(scale_agents))
-            }
+            self._pz_to_engine = {f"worker_{i}": scale_agents[i]["agent_id"] for i in range(len(scale_agents))}
             self._default_agent_zones = {
-                f"worker_{i}": scale_agents[i].get("zone_id", "Z_SORTING_LANES")
-                for i in range(len(scale_agents))
+                f"worker_{i}": scale_agents[i].get("zone_id", "Z_SORTING_LANES") for i in range(len(scale_agents))
             }
             self._zone_ids = list(scale_zone_ids or DEFAULT_ZONE_IDS)
             self._device_ids = list(scale_device_ids or DEFAULT_DEVICE_IDS)
@@ -201,15 +198,11 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 {
                     "my_zone_idx": spaces.Discrete(n_z),
                     "door_restricted_open": spaces.Discrete(2),
-                    "door_restricted_duration_s": spaces.Box(
-                        0.0, 1e6, (1,), dtype=np.float32
-                    ),
+                    "door_restricted_duration_s": spaces.Box(0.0, 1e6, (1,), dtype=np.float32),
                     "restricted_zone_frozen": spaces.Discrete(2),
                     "queue_lengths": spaces.Box(0, 100, (n_d,), dtype=np.int32),
                     "queue_has_head": spaces.Box(0, 1, (n_d,), dtype=np.int8),
-                    "specimen_status_counts": spaces.Box(
-                        0, 1000, (n_status,), dtype=np.int32
-                    ),
+                    "specimen_status_counts": spaces.Box(0, 1000, (n_status,), dtype=np.int32),
                     "device_qc_pass": spaces.Box(0, 1, (n_d,), dtype=np.int8),
                     "log_frozen": spaces.Discrete(2),
                     "token_count_override": spaces.Box(0, 100, (1,), dtype=np.int32),
@@ -220,9 +213,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         }
 
         # Action: discrete action type (MVP)
-        self.action_spaces: dict[str, Any] = {
-            a: spaces.Discrete(NUM_ACTION_TYPES) for a in self.possible_agents
-        }
+        self.action_spaces: dict[str, Any] = {a: spaces.Discrete(NUM_ACTION_TYPES) for a in self.possible_agents}
 
         if engine_factory is not None:
             self._engine = engine_factory()
@@ -281,6 +272,12 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "specimens": [],
                 "tokens": [],
             }
+        if options.get("timing_mode") is not None:
+            initial_state["timing_mode"] = str(options["timing_mode"]).strip()
+        if options.get("dt_s") is not None:
+            dt = options["dt_s"]
+            if isinstance(dt, (int, float)) and int(dt) >= 1:
+                self._dt_s = max(1, int(dt))
         self._initial_state = initial_state
         self._observation_text_override = initial_state.get("_observation_text")
         self._engine.reset(
@@ -292,9 +289,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             self._episode_logger.set_episode_meta(
                 partner_id=initial_state.get("partner_id"),
                 policy_fingerprint=initial_state.get("policy_fingerprint"),
-                tool_registry_fingerprint=initial_state.get(
-                    "tool_registry_fingerprint"
-                ),
+                tool_registry_fingerprint=initial_state.get("tool_registry_fingerprint"),
                 rbac_policy_fingerprint=initial_state.get("rbac_policy_fingerprint"),
             )
         self.agents = list(self.possible_agents)
@@ -302,6 +297,17 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         self._last_observations = dict(observations)
         infos: dict[str, dict[str, Any]] = {a: {} for a in self.agents}
         return observations, infos
+
+    def get_state(self) -> dict[str, Any]:
+        """Delegate to engine for step checkpoint; returns {} if engine has no get_state."""
+        if hasattr(self._engine, "get_state") and callable(self._engine.get_state):
+            return self._engine.get_state()
+        return {}
+
+    def set_state(self, state: dict[str, Any]) -> None:
+        """Delegate to engine for step resume; no-op if engine has no set_state."""
+        if state and hasattr(self._engine, "set_state") and callable(self._engine.set_state):
+            self._engine.set_state(state)
 
     def _collect_observations(self) -> dict[str, Any]:
         """
@@ -347,14 +353,9 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                     shared[expr] = self._engine.query(expr)
                 except ValueError:
                     pass
-        door = (
-            shared.get(f"door_state('{RESTRICTED_DOOR_ID}')")
-            or {"open": False, "open_duration_s": 0}
-        )
+        door = shared.get(f"door_state('{RESTRICTED_DOOR_ID}')") or {"open": False, "open_duration_s": 0}
         door_open = 1 if door.get("open") else 0
-        door_duration = np.array(
-            [float(door.get("open_duration_s", 0))], dtype=np.float32
-        )
+        door_duration = np.array([float(door.get("open_duration_s", 0))], dtype=np.float32)
         zstate = shared.get(f"zone_state('{RESTRICTED_ZONE_ID}')", "normal")
         restricted_frozen = 1 if (zstate == "frozen") else 0
         counts = shared.get("specimen_counts") or {}
@@ -391,9 +392,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         token_count_override = sum(1 for t in active if "OVERRIDE" in str(t))
         token_count_restricted = sum(1 for t in active if "RESTRICTED" in str(t))
         t_s = self._step_count * self._dt_s
-        transport_required = list(
-            getattr(self, "_initial_state", {}).get("transport_required") or []
-        )
+        transport_required = list(getattr(self, "_initial_state", {}).get("transport_required") or [])
         transport_consignments = shared.get("transport_consignments") or []
         prev_hash = shared.get("last_event_hash", "")
         accepted_ids = shared.get("accepted_specimen_ids_not_in_queue") or []
@@ -414,27 +413,33 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                     "temp_ok": True,
                 }
             )
-        releasable_result_ids_shared = list(
-            shared.get("releasable_result_ids") or []
-        )
+        releasable_result_ids_shared = list(shared.get("releasable_result_ids") or [])
+        engine_ids = [self._pz_to_engine.get(a, a) for a in self.agents]
+        if hasattr(self._engine, "get_agent_zones"):
+            zones_map = self._engine.get_agent_zones(engine_ids)
+        else:
+            zones_map = {}
+            for eid in engine_ids:
+                try:
+                    zones_map[eid] = self._engine.query(f"agent_zone('{eid}')")
+                except ValueError:
+                    zones_map[eid] = None
+        if hasattr(self._engine, "get_agent_roles"):
+            roles_map = self._engine.get_agent_roles(engine_ids)
+        else:
+            roles_map = {}
+            for eid in engine_ids:
+                try:
+                    r = self._engine.get_agent_role(eid) if hasattr(self._engine, "get_agent_role") else None
+                    roles_map[eid] = r or ""
+                except Exception:
+                    roles_map[eid] = ""
         obs: dict[str, Any] = {}
         for agent in self.agents:
             engine_id = self._pz_to_engine.get(agent, agent)
-            zone: str | None = None
-            try:
-                zone = self._engine.query(f"agent_zone('{engine_id}')")
-            except ValueError:
-                pass
+            zone = zones_map.get(engine_id)
             my_zone_idx = _zone_to_index(zone, self._zone_ids)
-            role_id_obs = ""
-            try:
-                role_id_obs = (
-                    self._engine.get_agent_role(engine_id)
-                    if hasattr(self._engine, "get_agent_role")
-                    else ""
-                ) or ""
-            except Exception:
-                pass
+            role_id_obs = roles_map.get(engine_id) or ""
             next_step = self._step_count + 1
             next_event_id = f"pz_{agent}_{next_step}"
             next_t_s = next_step * self._dt_s
@@ -450,12 +455,8 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 "log_frozen": log_frozen_int,
                 "work_list": list(work_list_shared),
                 "releasable_result_ids": list(releasable_result_ids_shared),
-                "token_count_override": np.array(
-                    [token_count_override], dtype=np.int32
-                ),
-                "token_count_restricted": np.array(
-                    [token_count_restricted], dtype=np.int32
-                ),
+                "token_count_override": np.array([token_count_override], dtype=np.int32),
+                "token_count_restricted": np.array([token_count_restricted], dtype=np.int32),
                 "t_s": t_s,
                 "transport_required": transport_required,
                 "transport_consignments": transport_consignments,
@@ -494,9 +495,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             "_llm_decision",
         )
         _META_KEYS_STRIP = _SHIELD_META_KEYS + _LLM_AUDIT_KEYS
-        info = {
-            k: v for k, v in (action_info or {}).items() if k not in _META_KEYS_STRIP
-        }
+        info = {k: v for k, v in (action_info or {}).items() if k not in _META_KEYS_STRIP}
         # Custom event from action_info (e.g. insider adversary, LLM safe: RELEASE_RESULT, MOVE with signature, etc.)
         if info.get("action_type"):
             ev: dict[str, Any] = {
@@ -536,19 +535,11 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             }
         if action == ACTION_QUEUE_RUN:
             info = action_info or {}
-            device_id = info.get("device_id") or (
-                self._device_ids[0] if self._device_ids else ""
-            )
+            device_id = info.get("device_id") or (self._device_ids[0] if self._device_ids else "")
             run_id = getattr(self, "_seed_value", None) is not None and self._seed_value or 0
-            work_id = info.get("work_id") or (
-                f"work_{run_id}_{engine_id}_{self._step_count}"
-            )
+            work_id = info.get("work_id") or (f"work_{run_id}_{engine_id}_{self._step_count}")
             prio = info.get("priority") or info.get("priority_class") or "ROUTINE"
-            prio = (
-                str(prio).upper()
-                if str(prio).upper() in ("STAT", "URGENT", "ROUTINE")
-                else "ROUTINE"
-            )
+            prio = str(prio).upper() if str(prio).upper() in ("STAT", "URGENT", "ROUTINE") else "ROUTINE"
             return {
                 "event_id": event_id,
                 "t_s": t_s,
@@ -636,18 +627,17 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         action_infos = action_infos or {}
         step_results: list[dict[str, Any]] = []
 
+        # Build events and adversarial overlays (per-agent augmentations after step)
+        events: list[dict[str, Any]] = []
+        adversarial_overlays: list[dict[str, Any] | None] = []
         for agent in self.agents:
             action = actions.get(agent, ACTION_NOOP)
             if isinstance(action, np.integer | np.int64 | np.int32):
                 action = int(action)
-            event = self._action_to_event(
-                agent, action, action_info=action_infos.get(agent)
-            )
-            # Adversarial detector: run on observation context (previous obs + LLM output)
+            event = self._action_to_event(agent, action, action_info=action_infos.get(agent))
+            events.append(event)
             obs_ctx: dict[str, Any] = {}
-            last_obs = (getattr(self, "_last_observations", None) or {}).get(
-                agent
-            ) or {}
+            last_obs = (getattr(self, "_last_observations", None) or {}).get(agent) or {}
             ai = action_infos.get(agent) or {}
             if last_obs.get("specimen_notes") is not None:
                 obs_ctx["specimen_notes"] = last_obs["specimen_notes"]
@@ -658,6 +648,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 prop = llm_dec.get("action_proposal")
                 if isinstance(prop, dict) and prop.get("rationale"):
                     obs_ctx["llm_output_text"] = str(prop.get("rationale", ""))
+            overlay: dict[str, Any] | None = None
             try:
                 repo_root = getattr(self, "_repo_root", None)
                 if repo_root is None and getattr(self, "_policy_dir", None):
@@ -668,30 +659,36 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                 det = detect_adversarial(obs_ctx, policy=adv_policy)
                 threshold = int(adv_policy.get("severity_threshold", 1))
                 if det.severity >= threshold and det.flags:
-                    result = dict(self._engine.step(event))
-                    result["emits"] = list(result.get("emits", [])) + [
-                        "SECURITY_ALERT",
-                        "SECURITY_EVENT",
-                    ]
-                    result["security_event"] = {
-                        "detection_flags": det.flags,
-                        "severity": det.severity,
-                        "suggested_action": det.suggested_action,
-                        "reason_code": det.reason_code,
-                        "matched_pattern_ids": det.matched_pattern_ids,
+                    overlay = {
+                        "emits_add": ["SECURITY_ALERT", "SECURITY_EVENT"],
+                        "security_event": {
+                            "detection_flags": det.flags,
+                            "severity": det.severity,
+                            "suggested_action": det.suggested_action,
+                            "reason_code": det.reason_code,
+                            "matched_pattern_ids": det.matched_pattern_ids,
+                        },
                     }
-                else:
-                    result = self._engine.step(event)
             except Exception:
-                result = self._engine.step(event)
-            # LLM shield: if this agent's action was filtered, augment result with LLM_ACTION_FILTERED
+                pass
+            adversarial_overlays.append(overlay)
+
+        # Single batch call or per-event step
+        if hasattr(self._engine, "step_batch"):
+            raw_results = self._engine.step_batch(events)
+        else:
+            raw_results = [self._engine.step(e) for e in events]
+
+        for agent, event, result, overlay in zip(self.agents, events, raw_results, adversarial_overlays):
+            result = dict(result)
+            if overlay is not None:
+                result["emits"] = list(result.get("emits", [])) + overlay.get("emits_add", [])
+                result["security_event"] = overlay.get("security_event", {})
             ai = action_infos.get(agent) or {}
             if ai.get("_shield_filtered") and ai.get("_shield_reason_code"):
-                result = dict(result)
                 result["emits"] = list(result.get("emits", [])) + [LLM_ACTION_FILTERED]
                 result["blocked_reason_code"] = ai.get("_shield_reason_code")
                 result["status"] = "BLOCKED"
-            # LLM audit: add prompt_hash, policy_summary_hash, allowed_actions_hash, decoder_version to step output
             if any(
                 ai.get(k) is not None
                 for k in (
@@ -701,7 +698,6 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                     "_decoder_version",
                 )
             ):
-                result = dict(result)
                 if ai.get("_prompt_hash") is not None:
                     result["prompt_hash"] = ai["_prompt_hash"]
                 if ai.get("_policy_summary_hash") is not None:
@@ -710,9 +706,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
                     result["allowed_actions_hash"] = ai["_allowed_actions_hash"]
                 if ai.get("_decoder_version") is not None:
                     result["decoder_version"] = ai["_decoder_version"]
-            # LLM_DECISION audit event: include in result and emits for episode log / evidence bundle
             if ai.get("_llm_decision") is not None:
-                result = dict(result)
                 llm_decision = dict(ai["_llm_decision"])
                 llm_decision["event_id"] = event.get("event_id", "")
                 result["llm_decision"] = llm_decision
@@ -725,17 +719,12 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             violation_count += len(result.get("violations", []))
             if "RELEASE_RESULT" in result.get("emits", []):
                 result_released = True
-            if (
-                event.get("action_type") == "QUEUE_RUN"
-                and result.get("status") == "ACCEPTED"
-            ):
+            if event.get("action_type") == "QUEUE_RUN" and result.get("status") == "ACCEPTED":
                 accepted_schedule_agent = agent
 
         if self._reward_config.get("schedule_reward") and accepted_schedule_agent:
             r = float(self._reward_config.get("schedule_reward", 0.0))
-            rewards[accepted_schedule_agent] = rewards.get(
-                accepted_schedule_agent, 0.0
-            ) + r
+            rewards[accepted_schedule_agent] = rewards.get(accepted_schedule_agent, 0.0) + r
         if self._reward_config.get("throughput_reward") and result_released:
             for a in self.agents:
                 rewards[a] = float(self._reward_config.get("throughput_reward", 1.0))
@@ -775,6 +764,57 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
             self._episode_logger.close()
             self._episode_logger = None
 
+    def render(self) -> str | None:
+        """
+        Render current state as text. PettingZoo/Gymnasium contract: when render_mode
+        is set, this method is callable. ansi: return string; human: print and return None.
+        """
+        if self.render_mode is None:
+            return None
+        obs = self._collect_observations()
+        step = self._step_count
+        dt_s = getattr(self, "_dt_s", 10)
+        t_s = step * dt_s
+        ep_s = self.get_episode_time_s()
+        timing = self._engine.get_timing_summary() if hasattr(self._engine, "get_timing_summary") else {}
+        timing_mode = timing.get("timing_mode", "explicit")
+
+        lines: list[str] = [
+            f"LabTrustParallelEnv step={step} t_s={t_s} episode_s={ep_s} timing_mode={timing_mode}",
+            f"agents: {sorted(self.agents)}",
+        ]
+        for agent in sorted(self.agents):
+            o = obs.get(agent) or {}
+            zone_id = o.get("zone_id", "")
+            role_id = o.get("role_id", "")
+            lines.append(f"  {agent}: zone={zone_id} role={role_id}")
+        door_open = 0
+        restricted_frozen = 0
+        if obs:
+            first_obs = next(iter(obs.values()), {})
+            door_open = int(first_obs.get("door_restricted_open", 0))
+            restricted_frozen = int(first_obs.get("restricted_zone_frozen", 0))
+        lines.append(f"door_restricted_open={door_open} restricted_zone_frozen={restricted_frozen}")
+        queue_lens = self.get_device_queue_lengths()
+        dev_ids = self.get_device_ids()
+        if dev_ids:
+            q_parts = [f"{d}:{queue_lens.get(d, 0)}" for d in dev_ids[:6]]
+            if len(dev_ids) > 6:
+                q_parts.append("...")
+            lines.append("queues: " + " ".join(q_parts))
+        if obs:
+            first_obs = next(iter(obs.values()), {})
+            counts = first_obs.get("specimen_status_counts")
+            if counts is not None and hasattr(counts, "tolist"):
+                lines.append("specimen_counts: " + str(counts.tolist()))
+            else:
+                lines.append("specimen_counts: (n/a)")
+        text = "\n".join(lines)
+        if self.render_mode == "human":
+            print(text)
+            return None
+        return text
+
     def get_timing_summary(self) -> dict[str, Any]:
         """Return timing_mode, episode_time_s, device_busy_s from engine. For benchmark utilization metrics."""
         return self._engine.get_timing_summary()
@@ -786,6 +826,28 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         if ep_s is not None and isinstance(ep_s, int):
             return int(ep_s)
         return (self._step_count * self._dt_s) if self._step_count else None
+
+    def get_device_queue_lengths(self) -> dict[str, int]:
+        """Return current queue length per device (for timing_mode simulated metrics). Keys follow _device_ids order."""
+        out: dict[str, int] = {}
+        for dev in getattr(self, "_device_ids", []) or []:
+            try:
+                out[dev] = int(self._engine.query(f"queue_length('{dev}')"))
+            except (ValueError, TypeError):
+                out[dev] = 0
+        return out
+
+    def get_device_ids(self) -> list[str]:
+        """Return the list of device IDs (stable order). For benchmark harness and metrics."""
+        return list(getattr(self, "_device_ids", []) or [])
+
+    def get_zone_ids(self) -> list[str]:
+        """Return the list of zone IDs (stable order). For benchmark harness and metrics."""
+        return list(getattr(self, "_zone_ids", []) or [])
+
+    def get_dt_s(self) -> int:
+        """Return the simulation time step in seconds. For benchmark timing."""
+        return int(getattr(self, "_dt_s", 10))
 
 
 def _hash_obs(obs: dict[str, Any]) -> str:

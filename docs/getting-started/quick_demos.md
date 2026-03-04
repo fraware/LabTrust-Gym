@@ -1,12 +1,13 @@
 # Quick demos
 
-Single place for "If you want to see X, run Y." All demos are deterministic; run from the repo root (or set `LABTRUST_POLICY_DIR` to your policy directory).
+Single place for "If you want to see X, run Y." All demos are deterministic; run from the repo root (or set `LABTRUST_POLICY_DIR` to your policy directory). For a one-line entry point by goal, see the "I want to..." table in [Getting started](index.md) or the README.
 
 ## Canonical demo commands
 
 | Goal | Command | Approx. time |
 |------|---------|--------------|
 | See quick sanity check | `labtrust quick-eval --seed 42` | ~1 min |
+| See one-line run stats (episodes, steps, violations, throughput) | `labtrust run-summary --run <dir>` (use `--format json` for machine-readable) | seconds |
 | See full forker pipeline (validate → coordination pack → risk register) | `labtrust forker-quickstart --out labtrust_runs/forker_quickstart` | ~5–15 min |
 | See coordination + security evidence (official pack with coordination pack) | `labtrust run-official-pack --out <dir> --seed-base 100 --include-coordination-pack` | ~10–15 min |
 | See paper-ready artifact and verify it | `labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>` then `labtrust verify-release --release-dir <dir> --strict-fingerprints` | ~15+ min |
@@ -20,6 +21,7 @@ Single place for "If you want to see X, run Y." All demos are deterministic; run
 
 ## See also
 
+- [Demo readiness](demo_readiness.md) — Prerequisites, Windows notes, and export-risk-register for full pipeline output.
 - [Forker guide](forkers.md) — End-to-end stories and demo scenarios by partner.
 - [Paper provenance](../benchmarks/paper/README.md) — Reference demonstration for external reviewers.
-- [Release checklist](../operations/release_checklist.md) — Full E2E verification chain.
+- [Trust verification](../risk-and-security/trust_verification.md) and [CI](../operations/ci.md) — E2E verification chain.

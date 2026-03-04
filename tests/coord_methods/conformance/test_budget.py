@@ -29,9 +29,7 @@ def test_budget_contract(
     """With very low budget, method completes within budget or uses documented fallback."""
     pass_budget = conformance_config.get("pass_budget") or []
     if method_id not in pass_budget:
-        pytest.skip(
-            f"{method_id}: not in pass_budget; add when method accepts budget knob"
-        )
+        pytest.skip(f"{method_id}: not in pass_budget; add when method accepts budget knob")
     scale_config = dict(_minimal_scale_config())
     scale_config["compute_budget_ms"] = 1
     scale_config["compute_budget_node_expansions"] = 10
@@ -40,9 +38,7 @@ def test_budget_contract(
     if coord is None:
         pytest.skip(f"{method_id}: optional deps missing")
 
-    agent_ids = sorted(
-        minimal_policy.get("pz_to_engine") or ["worker_0", "worker_1", "worker_2"]
-    )
+    agent_ids = sorted(minimal_policy.get("pz_to_engine") or ["worker_0", "worker_1", "worker_2"])
     obs = _minimal_obs(agent_ids, 0)
     infos: dict = {}
 

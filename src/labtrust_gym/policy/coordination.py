@@ -63,6 +63,26 @@ def list_llm_coordination_method_ids(path: Path | str) -> list[str]:
     return sorted(out)
 
 
+def list_scale_capable_method_ids(path: Path | str) -> list[str]:
+    """
+    Return method_ids that are scale-capable: at N > N_max the runner may
+    populate scripted_agents_map with one LLMAgentWithShield per agent.
+
+    Uses scale_capable: true in the method entry. For backward compatibility,
+    if no method in the registry has scale_capable set to True, returns
+    the legacy set ["llm_constrained", "llm_central_planner"].
+    Path may be relative to cwd or absolute.
+    """
+    registry = load_coordination_methods(path)
+    out: list[str] = []
+    for method_id, entry in registry.items():
+        if entry.get("scale_capable") is True:
+            out.append(method_id)
+    if not out:
+        return sorted(["llm_constrained", "llm_central_planner"])
+    return sorted(out)
+
+
 def resolve_method_variant(
     method_id: str,
     methods_registry: dict[str, dict[str, Any]],
@@ -134,6 +154,81 @@ def get_required_bench_cells(matrix: dict[str, Any]) -> list[dict[str, Any]]:
     return [c for c in cells if isinstance(c, dict) and c.get("required_bench") is True]
 
 
+def load_submission_shapes(
+    path: Path | str | None = None,
+    repo_root: Path | str | None = None,
+) -> dict[str, str]:
+    """Load coordination_submission_shapes.v0.1.yaml; return method_id -> action|bid|vote."""
+    if path is None and repo_root is None:
+        return {}
+    if path is None:
+        root = Path(repo_root) if isinstance(repo_root, str) else repo_root
+        path = root / "policy" / "coordination" / "coordination_submission_shapes.v0.1.yaml"
+    p = Path(path)
+    if not p.is_absolute() and repo_root is not None:
+        root = Path(repo_root) if isinstance(repo_root, str) else repo_root
+        p = root / p
+    if not p.is_file():
+        return {}
+    data = load_yaml(p)
+    shapes = data.get("submission_shapes")
+    if not isinstance(shapes, dict):
+        return {}
+    return {k: str(v).strip().lower() for k, v in shapes.items() if v}
+
+
+def get_submission_shape(
+    method_id: str,
+    shapes: dict[str, str] | None = None,
+    methods_registry: dict[str, dict[str, Any]] | None = None,
+) -> str:
+    """Return submission shape for method_id: action, bid, or vote (default action)."""
+    if shapes is None:
+        shapes = {}
+    shape = shapes.get(method_id) if shapes else None
+    if shape in ("action", "bid", "vote"):
+        return shape
+    if methods_registry:
+        base, _ = resolve_method_variant(method_id, methods_registry)
+        if base != method_id and shapes:
+            shape = shapes.get(base)
+            if shape in ("action", "bid", "vote"):
+                return shape
+    return "action"
+
+
+def adapt_submission(
+    shape: str,
+    action_index: int,
+    action_info: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Convert (action_index, action_info) from agent.act() into the submission shape
+    expected by combine_submissions for the given method shape (action, bid, vote).
+    """
+    shape = (shape or "action").strip().lower()
+    if shape == "action":
+        return {"action_index": action_index, **(action_info or {})}
+    if shape == "bid":
+        bid = dict(action_info or {})
+        for k in (
+            "action_type",
+            "reason_code",
+            "token_refs",
+            "rationale",
+            "confidence",
+            "safety_notes",
+            "action_index",
+        ):
+            bid.pop(k, None)
+        bid.setdefault("cost", 0)
+        return {"bid": bid}
+    if shape == "vote":
+        vote_val = (action_info or {}).get("vote", action_index)
+        return {"vote": vote_val}
+    return {"action_index": action_index, **(action_info or {})}
+
+
 def load_risk_to_injection_map(path: Path | str | None = None) -> dict[str, list[str]]:
     """
     Load risk_to_injection_map from YAML. Returns dict risk_id -> list of injection_ids.
@@ -158,9 +253,7 @@ def load_risk_to_injection_map(path: Path | str | None = None) -> dict[str, list
         ids_raw = entry.get("injection_ids")
         if risk_id and isinstance(risk_id, str):
             out[risk_id] = (
-                [str(x) for x in ids_raw if x]
-                if isinstance(ids_raw, list)
-                else ([str(ids_raw)] if ids_raw else [])
+                [str(x) for x in ids_raw if x] if isinstance(ids_raw, list) else ([str(ids_raw)] if ids_raw else [])
             )
     return out
 

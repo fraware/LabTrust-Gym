@@ -6,8 +6,6 @@ and by simplex validate_plan (shield).
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.decision_types import RouteDecision
 from labtrust_gym.baselines.coordination.routing.invariants import (
     INV_ROUTE_001,
@@ -111,6 +109,7 @@ def test_invariant_002_restricted_edge_without_token_shield_rejects() -> None:
     device_zone: dict[str, str] = {}
 
     from types import SimpleNamespace
+
     context = SimpleNamespace(
         policy=policy,
         obs=obs,

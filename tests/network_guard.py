@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import contextlib
 import socket
-from typing import Callable, Generator
+from collections.abc import Callable, Generator
 
 # Message raised when a blocked connect is attempted (for assertions).
 NETWORK_BLOCKED_MSG = "Network is blocked for tests when pipeline_mode != llm_live."

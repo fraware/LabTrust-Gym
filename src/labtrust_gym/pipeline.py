@@ -102,9 +102,7 @@ def print_startup_banner() -> None:
     mode = _state["pipeline_mode"]
     backend = _state.get("llm_backend_id") or "none"
     net = "allowed" if _state["allow_network"] else "disabled"
-    line = (
-        f"[LabTrust] pipeline_mode={mode!r} llm_backend={backend!r} network={net}"
-    )
+    line = f"[LabTrust] pipeline_mode={mode!r} llm_backend={backend!r} network={net}"
     print(line, file=sys.stderr)
     if mode == "llm_live" and _state["allow_network"]:
         _print_llm_live_warning()

@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import random
 
-import pytest
-
 from labtrust_gym.baselines.coordination.allocation.auction import WorkItem
 from labtrust_gym.baselines.coordination.allocation.bundle_bidding import (
     bundle_id_same_zone,

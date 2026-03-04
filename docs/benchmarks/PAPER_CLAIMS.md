@@ -21,7 +21,7 @@ Concrete claims supported by this repository and its artifacts. Update with expe
 
 4. **Coordination and red team**  
    Multiple coordination methods (centralized, hierarchical, market, gossip, swarm, kernel+EDF/WHCA/auction, LLM planners); coordination security pack with fixed scale x method x injection matrix; red-team injections v0.2 with success/detection/containment definitions.  
-   *Artifacts:* `policy/coordination/injections.v0.2.yaml`, `policy/coordination/coordination_security_pack.v0.1.yaml`, `baselines/coordination/`.  
+   *Artifacts:* `policy/coordination/injections.v0.2.yaml`, `policy/coordination/coordination_security_pack.v0.1.yaml`, `src/labtrust_gym/baselines/coordination/` (and policy/coordination/).  
    *Tests:* `tests/test_coordination_security_pack.py`, `tests/test_coord_red_team_definitions.py`.
 
 5. **Prompt-injection defense**  

@@ -13,6 +13,7 @@ comparing hashes or running the determinism report.
 from __future__ import annotations
 
 import random
+from typing import Any
 
 # For determinism contract (same algorithm as task get_initial_state).
 RNG_ALGORITHM = "random.Random (Mersenne Twister)"
@@ -57,3 +58,11 @@ class RNG:
 
         z = self._rng.gauss(0.0, 1.0)
         return float(math.exp(mu + sigma * z))
+
+    def get_state(self) -> tuple[Any, ...]:
+        """Return serializable RNG state (for step checkpoint). Use set_state to restore."""
+        return self._rng.getstate()
+
+    def set_state(self, state: tuple[Any, ...]) -> None:
+        """Restore RNG state from get_state()."""
+        self._rng.setstate(state)

@@ -24,13 +24,19 @@ def test_market_auction_forbidden_edges_excluded() -> None:
     obs = {
         "a1": {
             "zone_id": "Z_A",
-            "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}, {"device_id": "D2", "queue_head": "W2", "queue_len": 1}],
+            "queue_by_device": [
+                {"device_id": "D1", "queue_head": "W1", "queue_len": 1},
+                {"device_id": "D2", "queue_head": "W2", "queue_len": 1},
+            ],
             "queue_has_head": [1, 1],
             "log_frozen": 0,
         },
         "a2": {
             "zone_id": "Z_A",
-            "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}, {"device_id": "D2", "queue_head": "W2", "queue_len": 1}],
+            "queue_by_device": [
+                {"device_id": "D1", "queue_head": "W1", "queue_len": 1},
+                {"device_id": "D2", "queue_head": "W2", "queue_len": 1},
+            ],
             "queue_has_head": [1, 1],
             "log_frozen": 0,
         },

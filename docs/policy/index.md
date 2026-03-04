@@ -7,6 +7,7 @@ Policy is versioned under `policy/`. For the canonical list of frozen contracts 
 | Document | Description |
 |----------|-------------|
 | [Policy pack and schemas](policy_pack.md) | Policy layout, schemas, and versioning. |
+| [Calibration guide](calibration_guide.md) | What to tune, where in policy, and how to validate for site alignment. |
 | [Coordination policy](coordination_policy.md) | Risk and method registry for coordination. |
 
 ## Invariants and enforcement

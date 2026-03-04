@@ -11,7 +11,9 @@ Live OpenAI backend: config parsing, disabled by default, optional integration.
   Use --timeout=600 for live tests (default 120s may be too short for API calls).
   One-command run for all coord live tests + trials: scripts/run_llm_live_coord_checks.ps1
   (or run_llm_live_coord_checks.sh); requires OPENAI_API_KEY set.
-  No network calls in default run; no .env loading.
+  When python-dotenv is installed, .env is loaded at import so LABTRUST_RUN_LLM_LIVE
+  and OPENAI_API_KEY from .env (run from repo root) enable live tests without setting env manually.
+  No network calls in default run unless live env vars are set.
   Attribution/cost: set LABTRUST_LLM_TRACE=1 when tracing is desired.
 """
 
@@ -21,6 +23,60 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+
+def _load_dotenv_if_available() -> None:
+    """Load .env from LABTRUST_DOTENV_PATH, repo root, or cwd so OPENAI_API_KEY etc. are set."""
+    want = ("LABTRUST_RUN_LLM_LIVE", "OPENAI_API_KEY")
+
+    def _parse_env_file(p: Path) -> bool:
+        if not p.exists():
+            return False
+        try:
+            for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip()
+                if key in want and key not in os.environ:
+                    os.environ[key] = val.strip().strip('"').strip("'")
+            return True
+        except Exception:
+            return False
+
+    try:
+        from dotenv import load_dotenv
+
+        path = os.environ.get("LABTRUST_DOTENV_PATH", "").strip()
+        if path:
+            load_dotenv(path)
+        else:
+            repo_root = Path(__file__).resolve().parent.parent
+            for env_file in (repo_root / ".env", Path(".env"), Path.cwd() / ".env"):
+                if env_file.exists():
+                    load_dotenv(env_file)
+                    break
+            else:
+                load_dotenv(".env")
+    except ImportError:
+        repo_root = Path(__file__).resolve().parent.parent
+        for env_file in (repo_root / ".env", Path(".env"), Path.cwd() / ".env"):
+            if _parse_env_file(env_file):
+                break
+    except Exception:
+        pass
+
+
+_load_dotenv_if_available()
+
+
+def _live_openai_enabled() -> bool:
+    """True if LABTRUST_RUN_LLM_LIVE is set (1/true/yes) and OPENAI_API_KEY is non-empty (after .env load)."""
+    live = os.environ.get("LABTRUST_RUN_LLM_LIVE", "").strip().lower() in ("1", "true", "yes")
+    key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    return live and bool(key)
+
 
 from labtrust_gym.baselines.llm.backends.openai_live import (
     BACKEND_ID,
@@ -119,15 +175,17 @@ def test_propose_action_use_tools_calls_tool_path() -> None:
         with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-x"}, clear=False):
             backend = OpenAILiveBackend()
         tool_response = (
-            json.dumps({
-                "action_type": "TICK",
-                "args": {},
-                "reason_code": None,
-                "token_refs": [],
-                "rationale": "Tool-assisted decision.",
-                "confidence": 0.9,
-                "safety_notes": "",
-            }),
+            json.dumps(
+                {
+                    "action_type": "TICK",
+                    "args": {},
+                    "reason_code": None,
+                    "token_refs": [],
+                    "rationale": "Tool-assisted decision.",
+                    "confidence": 0.9,
+                    "safety_notes": "",
+                }
+            ),
             {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
         )
         ctx = {
@@ -172,15 +230,15 @@ def test_propose_action_returns_noop_when_no_key() -> None:
             os.environ.pop("OPENAI_API_KEY", None)
             backend = OpenAILiveBackend()
         ctx = {
-        "partner_id": "",
-        "now_ts_s": 0,
-        "timing_mode": "explicit",
-        "state_summary": {},
-        "allowed_actions": ["NOOP", "TICK"],
-        "active_tokens": [],
-        "recent_violations": [],
-        "enforcement_state": {},
-    }
+            "partner_id": "",
+            "now_ts_s": 0,
+            "timing_mode": "explicit",
+            "state_summary": {},
+            "allowed_actions": ["NOOP", "TICK"],
+            "active_tokens": [],
+            "recent_violations": [],
+            "enforcement_state": {},
+        }
         out = backend.propose_action(ctx)
         assert out.get("action_type") == "NOOP"
         assert out.get("args") == {}
@@ -270,9 +328,10 @@ def test_llm_decision_event_shape_live_backend_no_network() -> None:
         )
 
 
+@pytest.mark.slow
 @pytest.mark.live
 @pytest.mark.skipif(
-    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1" or not os.environ.get("OPENAI_API_KEY"),
+    not _live_openai_enabled(),
     reason="Set LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY for live integration",
 )
 def test_openai_live_one_episode_task_a() -> None:
@@ -297,9 +356,10 @@ def test_openai_live_one_episode_task_a() -> None:
     assert len(r.get("episodes", [])) == 1
 
 
+@pytest.mark.slow
 @pytest.mark.live
 @pytest.mark.skipif(
-    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1" or not os.environ.get("OPENAI_API_KEY"),
+    not _live_openai_enabled(),
     reason="Set LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY for live integration",
 )
 def test_openai_live_coord_scale_central_planner() -> None:
@@ -337,9 +397,10 @@ def test_openai_live_coord_scale_central_planner() -> None:
         assert isinstance(by_backend, dict) and len(by_backend) > 0
 
 
+@pytest.mark.slow
 @pytest.mark.live
 @pytest.mark.skipif(
-    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1" or not os.environ.get("OPENAI_API_KEY"),
+    not _live_openai_enabled(),
     reason="Set LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY for live integration",
 )
 def test_openai_live_coord_scale_auction_bidder() -> None:
@@ -371,9 +432,10 @@ def test_openai_live_coord_scale_auction_bidder() -> None:
     assert r.get("llm_backend_id") is not None
 
 
+@pytest.mark.slow
 @pytest.mark.live
 @pytest.mark.skipif(
-    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1" or not os.environ.get("OPENAI_API_KEY"),
+    not _live_openai_enabled(),
     reason="Set LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY for live integration",
 )
 def test_openai_live_coord_scale_debate() -> None:
@@ -402,9 +464,10 @@ def test_openai_live_coord_scale_debate() -> None:
     assert r.get("llm_backend_id") is not None
 
 
+@pytest.mark.slow
 @pytest.mark.live
 @pytest.mark.skipif(
-    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1" or not os.environ.get("OPENAI_API_KEY"),
+    not _live_openai_enabled(),
     reason="Set LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY for live integration",
 )
 def test_openai_live_coord_scale_central_planner_two_episodes() -> None:
@@ -433,9 +496,10 @@ def test_openai_live_coord_scale_central_planner_two_episodes() -> None:
     assert r.get("llm_backend_id") is not None
 
 
+@pytest.mark.slow
 @pytest.mark.live
 @pytest.mark.skipif(
-    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1" or not os.environ.get("OPENAI_API_KEY"),
+    not _live_openai_enabled(),
     reason="Set LABTRUST_RUN_LLM_LIVE=1 and OPENAI_API_KEY for live integration",
 )
 def test_openai_live_coord_scale_agentic() -> None:
@@ -464,11 +528,10 @@ def test_openai_live_coord_scale_agentic() -> None:
     assert r.get("llm_backend_id") is not None
 
 
+@pytest.mark.slow
 @pytest.mark.live
 @pytest.mark.skipif(
-    os.environ.get("LABTRUST_RUN_LLM_LIVE") != "1"
-    or not os.environ.get("OPENAI_API_KEY")
-    or not os.environ.get("ANTHROPIC_API_KEY"),
+    not _live_openai_enabled() or not (os.environ.get("ANTHROPIC_API_KEY") or "").strip(),
     reason="Need LABTRUST_RUN_LLM_LIVE=1, OPENAI_API_KEY, ANTHROPIC_API_KEY",
 )
 def test_openai_live_coord_scale_per_role_backends() -> None:
@@ -503,28 +566,16 @@ def test_openai_live_coord_scale_per_role_backends() -> None:
         assert len(r.get("episodes", [])) == 1
         assert r.get("pipeline_mode") == "llm_live"
         summary = (r.get("metadata") or {}).get("llm_attribution_summary")
-        assert summary is not None, (
-            "LABTRUST_LLM_TRACE=1 should produce llm_attribution_summary"
-        )
+        assert summary is not None, "LABTRUST_LLM_TRACE=1 should produce llm_attribution_summary"
         by_backend = summary.get("by_backend") or {}
         assert isinstance(by_backend, dict)
         assert len(by_backend) >= 2, (
-            "Per-role run should have >=2 backends in by_backend, got "
-            f"{list(by_backend.keys())}"
+            f"Per-role run should have >=2 backends in by_backend, got {list(by_backend.keys())}"
         )
         for backend_id, stats in by_backend.items():
-            assert isinstance(stats, dict), (
-                f"by_backend[{backend_id!r}] should be a dict"
-            )
-            has_attr = (
-                "call_count" in stats
-                or "latency_ms_sum" in stats
-                or "cost_usd_sum" in stats
-            )
-            assert has_attr, (
-                f"by_backend[{backend_id!r}] should have call_count, "
-                "latency_ms_sum, or cost_usd_sum"
-            )
+            assert isinstance(stats, dict), f"by_backend[{backend_id!r}] should be a dict"
+            has_attr = "call_count" in stats or "latency_ms_sum" in stats or "cost_usd_sum" in stats
+            assert has_attr, f"by_backend[{backend_id!r}] should have call_count, latency_ms_sum, or cost_usd_sum"
     finally:
         if prev_trace is not None:
             os.environ["LABTRUST_LLM_TRACE"] = prev_trace

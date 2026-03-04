@@ -1,0 +1,31 @@
+{
+  "artifacts": [
+    {
+      "description": "Baseline results",
+      "path": "baselines/"
+    },
+    {
+      "description": "Security attack results and coverage",
+      "path": "SECURITY/"
+    },
+    {
+      "description": "Safety case",
+      "path": "SAFETY_CASE/"
+    },
+    {
+      "description": "Transparency log",
+      "path": "TRANSPARENCY_LOG/"
+    },
+    {
+      "description": "Coordination security pack and lab report",
+      "path": "coordination_pack/"
+    }
+  ],
+  "include_coordination_pack": true,
+  "matrix_preset": "hospital_lab",
+  "models_sweep": [],
+  "providers": [],
+  "security_mode": "smoke",
+  "seed_base": 42,
+  "timestamp": "2026-03-04T21:33:21.853804+00:00"
+}

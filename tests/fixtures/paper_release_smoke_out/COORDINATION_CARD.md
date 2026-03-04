@@ -72,7 +72,7 @@ When comparing a new coordination method to "state of the art," the following ba
 - **hierarchical_hub_rr** / **hierarchical_hub_local**: Hierarchical reference for hub-cell split and handoff protocol; comparison for comm.msg_count and handoff_fail_rate.
 - **kernel_scheduler_or** / **kernel_scheduler_or_whca**: Operations-research baseline (rolling-horizon OR scheduler); reference for weighted tardiness and fairness.
 
-For a new method, the study spec defines the exact baseline set per scale and risk cell. Layer 1 sanity uses a default list (e.g. kernel_whca, market_auction, ripple_effect, group_evolving_experience_sharing); full registry mode runs all methods. See `docs/benchmarking_plan.md` (Layer 1) and `policy/coordination/coordination_study_spec.v0.1.yaml`.
+For a new method, the study spec defines the exact baseline set per scale and risk cell. Layer 1 sanity uses a default list (e.g. kernel_whca, market_auction, ripple_effect, group_evolving_experience_sharing); full registry mode runs all methods. See `policy/coordination/coordination_study_spec.v0.1.yaml`.
 
 Summary output: `summary_coord.csv` (one row per cell: method_id, scale_id, risk_id, injection_id, plus the metrics above). Pareto report: `pareto.md` (per-scale Pareto front on p95_tat, violations_total, resilience_score; robust winner by mean resilience across cells).
 

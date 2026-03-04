@@ -53,12 +53,8 @@ def test_release_fixture_verify_release() -> None:
         strict_fingerprints=True,
     )
     if release_errors:
-        raise AssertionError(
-            f"verify-release failed: {release_errors}"
-        )
+        raise AssertionError(f"verify-release failed: {release_errors}")
     for bundle_path, passed, report, errors in results:
         if not passed:
-            raise AssertionError(
-                f"Bundle {bundle_path} failed: {report}; errors: {errors}"
-            )
+            raise AssertionError(f"Bundle {bundle_path} failed: {report}; errors: {errors}")
     assert all_passed, "verify-release did not pass"

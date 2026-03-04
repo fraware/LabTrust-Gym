@@ -10,6 +10,10 @@ Compute envelope: O(agents * devices) per step for worklist build; assignment lo
 capped by compute_budget (max assignments per step). Optional timeout via
 scale_config["compute_budget_ms"] is not enforced in-process; use external
 timeout for hard real-time. Fallback: over budget truncates assignments only.
+
+Envelope (SOTA audit): Scale limits agents x devices; compute_budget caps assignments
+per step; fallback truncates worklist (no crash). Latency bounded by worklist build
+and BFS; no LLM calls.
 """
 
 from __future__ import annotations
@@ -90,6 +94,7 @@ class CentralizedPlanner(CoordinationMethod):
         self._allowed_by_agent = {}
         try:
             from labtrust_gym.engine.rbac import get_allowed_actions
+
             for aid in self._pz_to_engine:
                 allowed = get_allowed_actions(aid, policy)
                 if allowed:

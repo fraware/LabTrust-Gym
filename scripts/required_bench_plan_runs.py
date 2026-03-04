@@ -6,6 +6,7 @@ or kind security_suite (no method/injection).
 Used by run_required_bench_matrix.sh/.ps1 to execute minimal set.
 Exit 1 if any required_bench cell has no plan entry.
 """
+
 from __future__ import annotations
 
 import sys
@@ -23,9 +24,7 @@ def main() -> int:
     plan_data = yaml.safe_load(plan_path.read_text(encoding="utf-8")) or {}
     cells = (matrix.get("method_risk_matrix") or {}).get("cells") or []
     required = {
-        (c["method_id"], c["risk_id"])
-        for c in cells
-        if isinstance(c, dict) and c.get("required_bench") is True
+        (c["method_id"], c["risk_id"]) for c in cells if isinstance(c, dict) and c.get("required_bench") is True
     }
     plan_cells = plan_data.get("cells") or []
     plan_keys = {(c["method_id"], c["risk_id"]) for c in plan_cells if isinstance(c, dict)}

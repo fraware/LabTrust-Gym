@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
+from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
+    DeterministicProposalBackend,
+)
 from labtrust_gym.baselines.coordination.methods.llm_central_planner_debate import (
     LLMCentralPlannerDebate,
     _majority_merge_proposals,
-)
-from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
-    DeterministicProposalBackend,
 )
 
 

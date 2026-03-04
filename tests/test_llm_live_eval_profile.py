@@ -93,12 +93,7 @@ def test_llm_trace_collector_redacts_and_writes_bundle(tmp_path: Path) -> None:
     assert (trace_dir / "prompt_fingerprints.json").exists()
     assert (trace_dir / "usage.json").exists()
 
-    lines = (
-        (trace_dir / "requests_redacted.jsonl")
-        .read_text(encoding="utf-8")
-        .strip()
-        .split("\n")
-    )
+    lines = (trace_dir / "requests_redacted.jsonl").read_text(encoding="utf-8").strip().split("\n")
     assert len(lines) == 1
     req = json.loads(lines[0])
     assert "messages" in req

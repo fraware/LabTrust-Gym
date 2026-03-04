@@ -116,6 +116,7 @@ class MarketAuction(CoordinationMethod):
         self._allowed_by_agent = {}
         try:
             from labtrust_gym.engine.rbac import get_allowed_actions
+
             for aid in (policy or {}).get("pz_to_engine") or {}:
                 allowed = get_allowed_actions(aid, policy)
                 if allowed:
@@ -194,6 +195,117 @@ class MarketAuction(CoordinationMethod):
                 }
 
         # Move toward zone with work
+        for agent_id in agents:
+            if out[agent_id].get("action_index") != ACTION_NOOP:
+                continue
+            o = obs.get(agent_id) or {}
+            if log_frozen(o):
+                continue
+            my_zone = get_zone_from_obs(o, self._zone_ids) or o.get("zone_id") or ""
+            goal = self._zone_ids[0] if self._zone_ids else my_zone
+            qbd = get_queue_by_device(o)
+            for dev_id in self._device_ids:
+                z = self._device_zone.get(dev_id)
+                if not z:
+                    continue
+                for i, d in enumerate(self._device_ids):
+                    if d == dev_id and i < len(qbd) and (qbd[i].get("queue_len") or 0) > 0:
+                        goal = z
+                        break
+            if my_zone != goal:
+                allowed = self._allowed_by_agent.get(agent_id)
+                if allowed and "MOVE" not in allowed:
+                    continue
+                next_z = _bfs_one_step(my_zone, goal, self._adjacency)
+                if next_z:
+                    out[agent_id] = {
+                        "action_index": ACTION_MOVE,
+                        "action_type": "MOVE",
+                        "args": {"from_zone": my_zone, "to_zone": next_z},
+                    }
+        return out
+
+    def combine_submissions(
+        self,
+        submissions: dict[str, dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
+        t: int,
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Combine per-agent bid submissions into joint action. Each submission may
+        contain "bid" with cost, device_id, work_id, zone_id; or flat cost/device_id/work_id/zone_id.
+        Runs same winner selection and MOVE logic as propose_actions.
+        """
+        agents = sorted(obs.keys()) if obs else sorted(submissions.keys())
+        out: dict[str, dict[str, Any]] = {a: {"action_index": ACTION_NOOP} for a in agents}
+
+        if not self._device_ids or not self._zone_ids:
+            if agents and obs:
+                sample = obs.get(agents[0]) or {}
+                self._zone_ids, self._device_ids, self._device_zone = extract_zone_and_device_ids({}, obs_sample=sample)
+        if not self._device_ids or not self._rng:
+            return out
+
+        # Build tasks from obs (same as propose_actions)
+        tasks: list[tuple[str, str, str, int]] = []
+        for agent_id in agents:
+            o = obs.get(agent_id) or {}
+            if log_frozen(o):
+                continue
+            qbd = get_queue_by_device(o)
+            for idx, dev_id in enumerate(self._device_ids):
+                if not queue_has_head(o, idx):
+                    continue
+                dev_zone = self._device_zone.get(dev_id, "")
+                head = (qbd[idx] if idx < len(qbd) else {}).get("queue_head", "W")
+                prio = 2 if "STAT" in str(head).upper() else (1 if "URGENT" in str(head).upper() else 0)
+                tasks.append((dev_id, head or "W", dev_zone, prio))
+        tasks.sort(key=lambda x: (-x[3], x[0], x[1]))
+        seen_task: set[tuple[str, str]] = set()
+
+        # Bids from submissions: (agent_id, cost, device_id, work_id, zone_id)
+        for device_id, work_id, zone_id, _ in tasks:
+            if (device_id, work_id) in seen_task:
+                continue
+            seen_task.add((device_id, work_id))
+            bids_list: list[tuple[str, int, str, str, str]] = []
+            for agent_id in agents:
+                sub = submissions.get(agent_id) or {}
+                bid = sub.get("bid") if isinstance(sub.get("bid"), dict) else sub
+                if not isinstance(bid, dict):
+                    continue
+                cost_val = bid.get("cost")
+                if cost_val is None:
+                    continue
+                try:
+                    cost = int(cost_val)
+                except (TypeError, ValueError):
+                    continue
+                dev = bid.get("device_id") or bid.get("device")
+                work = bid.get("work_id") or bid.get("work")
+                z = bid.get("zone_id") or bid.get("zone")
+                if (dev or "") != device_id or (work or "") != work_id or (z or "") != zone_id:
+                    continue
+                if log_frozen(obs.get(agent_id) or {}):
+                    continue
+                bids_list.append((agent_id, cost, device_id, work_id, zone_id))
+            if not bids_list:
+                continue
+            bids_list.sort(key=lambda x: (x[1], x[0]))
+            winner_id = bids_list[0][0]
+            dev_id, work_id = bids_list[0][2], bids_list[0][3]
+            forbidden = (winner_id, (dev_id, work_id)) in self._forbidden_edges
+            allowed = self._allowed_by_agent.get(winner_id)
+            can_start = (not allowed or "START_RUN" in allowed) and not forbidden
+            if can_start and out[winner_id].get("action_index") == ACTION_NOOP:
+                out[winner_id] = {
+                    "action_index": ACTION_START_RUN,
+                    "action_type": "START_RUN",
+                    "args": {"device_id": dev_id, "work_id": work_id},
+                }
+
+        # Move toward zone with work (same as propose_actions)
         for agent_id in agents:
             if out[agent_id].get("action_index") != ACTION_NOOP:
                 continue

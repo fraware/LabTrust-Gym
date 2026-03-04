@@ -171,8 +171,7 @@ def _run_eval_agent(args: argparse.Namespace) -> int:
         out = root / out
     pipeline_mode = getattr(args, "pipeline_mode", "deterministic") or "deterministic"
     allow_network = getattr(args, "allow_network", False) or (
-        (os.environ.get("LABTRUST_ALLOW_NETWORK") or "").strip().lower()
-        in ("1", "true", "yes")
+        (os.environ.get("LABTRUST_ALLOW_NETWORK") or "").strip().lower() in ("1", "true", "yes")
     )
     run_eval_agent(
         task=args.task,

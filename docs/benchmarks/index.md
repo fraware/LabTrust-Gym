@@ -9,9 +9,10 @@ Tasks, benchmark cards, official pack, studies, and reproduction.
 | [Benchmarks](benchmarks.md) | Harness, tasks (A–H), metrics. |
 | [Benchmark card](benchmark_card.md) | Scope, tasks, baselines. |
 | [Coordination benchmark card](../coordination/coordination_benchmark_card.md) | Coord scale/risk (Task G/H). |
-| [Benchmarking plan](benchmarking_plan.md) | Three-layer matrix (sanity, coverage, scale). |
 | [Evaluation checklist](evaluation_checklist.md) | Baseline status, when to regenerate, full command sequence. |
 | [Scale and operational limits](scale_operational_limits.md) | Scale configs and limits. |
+| [Uncertainty quantification](uncertainty_quantification.md) | Epistemic vs aleatoric; metric mapping. |
+| [Generalization and limits](../coordination/generalization_and_limits.md) | What was tested, what was not; comparison with other benchmarks. |
 
 ## Official pack and studies
 

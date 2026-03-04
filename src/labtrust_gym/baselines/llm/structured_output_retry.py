@@ -59,6 +59,7 @@ def parse_and_normalize_raw(raw: str) -> dict[str, Any]:
         return dict(DEFAULT_ACTION_PROPOSAL)
     try:
         import json
+
         parsed = json.loads(extracted)
     except Exception:
         return dict(DEFAULT_ACTION_PROPOSAL)
@@ -70,5 +71,6 @@ def parse_and_normalize_raw(raw: str) -> dict[str, Any]:
 def retry_free_form_enabled() -> bool:
     """True when LABTRUST_LLM_RETRY_FREE_FORM is 1/true/yes."""
     import os
+
     raw = (os.environ.get("LABTRUST_LLM_RETRY_FREE_FORM") or "").strip().lower()
     return raw in ("1", "true", "yes")

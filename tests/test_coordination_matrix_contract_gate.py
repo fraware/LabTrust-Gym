@@ -97,6 +97,4 @@ def test_coordination_matrix_recommendations_reference_existing_methods() -> Non
 
         for slot in ["ops_first", "sec_first", "balanced"]:
             mid = rec[slot]["method_id"]
-            assert (mid is None) or (
-                mid in valid
-            ), f"{slot} references unknown method {mid} for scale {scale_id}"
+            assert (mid is None) or (mid in valid), f"{slot} references unknown method {mid} for scale {scale_id}"

@@ -43,13 +43,23 @@ def test_build_risk_register_bundle_from_repo_root() -> None:
         assert "risk_id" in risk
         assert "name" in risk
         assert risk["risk_domain"] in {
-            "tool", "flow", "system", "comms", "identity", "data", "capability", "operational",
+            "tool",
+            "flow",
+            "system",
+            "comms",
+            "identity",
+            "data",
+            "capability",
+            "operational",
         }
         assert "applies_to" in risk
         assert "claimed_controls" in risk
         assert "evidence_refs" in risk
         assert risk["coverage_status"] in {
-            "covered", "partially_covered", "uncovered", "not_applicable",
+            "covered",
+            "partially_covered",
+            "uncovered",
+            "not_applicable",
         }
     for ctrl in bundle["controls"]:
         assert "control_id" in ctrl
@@ -163,7 +173,9 @@ def test_export_risk_register_ui_fixtures() -> None:
     data = json.loads(out_path.read_text(encoding="utf-8"))
     assert data["bundle_version"] == "0.1"
     present_evidence = [e for e in data["evidence"] if e.get("status") == "present"]
-    assert len(present_evidence) >= 1, "tests/fixtures/ui_fixtures has SECURITY/attack_results.json so at least one present evidence"
+    assert len(present_evidence) >= 1, (
+        "tests/fixtures/ui_fixtures has SECURITY/attack_results.json so at least one present evidence"
+    )
     risk_cap = next((r for r in data["risks"] if r["risk_id"] == "R-CAP-001"), None)
     assert risk_cap is not None
     refs = risk_cap.get("evidence_refs") or []
@@ -207,6 +219,11 @@ def test_export_risk_register_rich_bundle(tmp_path: Path) -> None:
     assert "security_suite" in types
     assert "safety_case" in types
     assert "bundle_verification" in types
+    # Optional evidence_strength is set for present evidence
+    present = [e for e in data["evidence"] if e.get("status") == "present"]
+    assert len(present) >= 1
+    strengths = [e.get("evidence_strength") for e in present if e.get("evidence_strength")]
+    assert any(s in ("low", "medium", "high") for s in strengths), "at least one present evidence has evidence_strength"
     assert "reproduce" in data
     repro_by_evidence = {r["evidence_id"]: r for r in data["reproduce"]}
     assert len(repro_by_evidence) >= 1
@@ -242,7 +259,11 @@ def test_coord_summary_includes_metrics(tmp_path: Path) -> None:
         validate=True,
     )
     data = json.loads((out_dir / RISK_REGISTER_BUNDLE_FILENAME).read_text(encoding="utf-8"))
-    coord_evidence = [e for e in data["evidence"] if e.get("type") == "coordination_study" and e.get("path", "").endswith("summary_coord.csv")]
+    coord_evidence = [
+        e
+        for e in data["evidence"]
+        if e.get("type") == "coordination_study" and e.get("path", "").endswith("summary_coord.csv")
+    ]
     assert len(coord_evidence) >= 1
     e = coord_evidence[0]
     assert "summary" in e and "coord_metrics" in e["summary"]

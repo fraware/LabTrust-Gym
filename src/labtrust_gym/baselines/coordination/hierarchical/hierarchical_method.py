@@ -237,10 +237,12 @@ class HierarchicalHubLocal(CoordinationMethod):
         if trace_path is not None:
             try:
                 from pathlib import Path
+
                 from labtrust_gym.baselines.coordination.trace import (
                     append_trace_event,
                     trace_from_contract_record,
                 )
+
                 path = Path(trace_path) if isinstance(trace_path, str) else trace_path
                 event = trace_from_contract_record(self.method_id, t, actions)
                 append_trace_event(path, event)

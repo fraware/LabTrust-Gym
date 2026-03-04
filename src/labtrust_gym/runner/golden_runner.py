@@ -7,6 +7,8 @@ outputs match expectations (status, violations, state_assertions) and that all
 emits are in the policy emit vocabulary. Output shape matches
 policy/schemas/runner_output_contract.v0.1.schema.json. Unknown emits cause
 AssertionError in _run_step via validate_emits.
+
+Uses LabTrustEnvAdapter (e.g. PZParallelAdapter over CoreEnv). Does not use PettingZoo.
 """
 
 from __future__ import annotations

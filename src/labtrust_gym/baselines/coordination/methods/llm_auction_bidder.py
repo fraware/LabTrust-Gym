@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import os
 import random
-from typing import Any, Callable
+from typing import Any
 
 _LOG = logging.getLogger(__name__)
 
@@ -88,9 +88,7 @@ def _build_work_items(
         if (dev_id, work_id) in seen:
             continue
         seen.add((dev_id, work_id))
-        prio = 2 if "STAT" in work_id.upper() else (
-            1 if "URGENT" in work_id.upper() else 0
-        )
+        prio = 2 if "STAT" in work_id.upper() else (1 if "URGENT" in work_id.upper() else 0)
         items.append(
             WorkItem(
                 work_id=work_id,
@@ -152,6 +150,7 @@ def _proposal_market_to_typed_bids(
         if not ok:
             errors.append(f"market[{i}] {err}")
             continue
+
         def _float_or_none(x: Any) -> float | None:
             if x is None:
                 return None
@@ -159,6 +158,7 @@ def _proposal_market_to_typed_bids(
                 return float(x)
             except (TypeError, ValueError):
                 return None
+
         bids.append(
             TypedBid(
                 agent_id=str(agent_id),
@@ -231,10 +231,7 @@ def _reject_inconsistent_bids(
         else:
             expected = base + risk + fair
         if abs(b.value - expected) > tolerance:
-            errors.append(
-                f"bid {b.agent_id} {b.bundle_id} value {b.value} outside tolerance "
-                f"of expected {expected}"
-            )
+            errors.append(f"bid {b.agent_id} {b.bundle_id} value {b.value} outside tolerance of expected {expected}")
             continue
         kept.append(b)
     return kept, errors
@@ -250,10 +247,7 @@ def _assignments_to_actions(
     policy: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
     """Deterministic dispatcher: assignments -> action_dict (MOVE / START_RUN / NOOP)."""
-    out: dict[str, dict[str, Any]] = {
-        a: {"action_index": ACTION_NOOP, "action_type": "NOOP"}
-        for a in agent_ids
-    }
+    out: dict[str, dict[str, Any]] = {a: {"action_index": ACTION_NOOP, "action_type": "NOOP"} for a in agent_ids}
     layout = (policy or {}).get("zone_layout") or {}
     adjacency = build_adjacency_set(layout.get("graph_edges") or [])
     assign_by_agent: dict[str, tuple[str, str, str]] = {}
@@ -349,9 +343,7 @@ class DeterministicBidBackend:
                 if not dev_id or not queue_head:
                     continue
                 z = device_zone.get(dev_id, "")
-                prio = 2 if "STAT" in queue_head.upper() else (
-                    1 if "URGENT" in queue_head.upper() else 0
-                )
+                prio = 2 if "STAT" in queue_head.upper() else (1 if "URGENT" in queue_head.upper() else 0)
                 travel = 0.0 if (zone and z and zone == z) else 1.0
                 queue_proxy = float(d.get("queue_len", 0) or 0) * 0.1
                 risk_penalty = 0.0
@@ -376,16 +368,19 @@ class DeterministicBidBackend:
                         "risk_penalty": risk_penalty,
                         "fairness_penalty": fairness_penalty,
                     }
-                market.append({
-                    "agent_id": agent_id,
-                    "bid": bid_payload,
-                    "bundle": {"device_id": dev_id, "work_id": queue_head},
-                    "units": "cost",
-                    "constraints": {},
-                })
+                market.append(
+                    {
+                        "agent_id": agent_id,
+                        "bid": bid_payload,
+                        "bundle": {"device_id": dev_id, "work_id": queue_head},
+                        "units": "cost",
+                        "constraints": {},
+                    }
+                )
         meta = {"backend_id": self._backend_id, "model_id": "n/a", "latency_ms": 0.0}
         try:
             from labtrust_gym.baselines.llm.llm_tracer import record_deterministic_coord_span
+
             record_deterministic_coord_span("coord_bid", self._backend_id)
         except Exception as e:
             _LOG.debug("Tracing coord_bid span failed: %s", e)
@@ -459,9 +454,7 @@ class LLMAuctionBidder(CoordinationMethod):
         agent_ids = sorted(obs.keys())
         policy = self._policy_summary
         obs_sample = next(iter(obs.values())) if obs else None
-        zone_ids, device_ids, device_zone = extract_zone_and_device_ids(
-            policy, obs_sample=obs_sample
-        )
+        zone_ids, device_ids, device_zone = extract_zone_and_device_ids(policy, obs_sample=obs_sample)
         if not zone_ids and obs:
             zone_ids = ["Z_SORTING_LANES"]
         out = {a: {"action_index": ACTION_NOOP, "action_type": "NOOP"} for a in agent_ids}
@@ -473,8 +466,9 @@ class LLMAuctionBidder(CoordinationMethod):
             return out
         digest = build_state_digest(obs, infos or {}, t, policy)
         digest["device_zone"] = device_zone
-        protocol = (self._scale_config.get("coord_auction_protocol") or
-                    os.environ.get("COORD_AUCTION_PROTOCOL", "single_call"))
+        protocol = self._scale_config.get("coord_auction_protocol") or os.environ.get(
+            "COORD_AUCTION_PROTOCOL", "single_call"
+        )
         safe_fallback = self._defense_profile == "safe_fallback"
         market: list[dict[str, Any]] = []
 
@@ -483,14 +477,11 @@ class LLMAuctionBidder(CoordinationMethod):
                 digest_single = dict(digest)
                 per_agent_full = digest_single.get("per_agent") or []
                 digest_single["per_agent"] = [
-                    p for p in per_agent_full
-                    if isinstance(p, dict) and p.get("agent_id") == agent_id
+                    p for p in per_agent_full if isinstance(p, dict) and p.get("agent_id") == agent_id
                 ]
                 if not digest_single["per_agent"] and per_agent_full:
                     digest_single["per_agent"] = [
-                        {**p, "agent_id": agent_id}
-                        for p in per_agent_full[:1]
-                        if isinstance(p, dict)
+                        {**p, "agent_id": agent_id} for p in per_agent_full[:1] if isinstance(p, dict)
                     ]
                 try:
                     raw_single = gen(
@@ -545,17 +536,13 @@ class LLMAuctionBidder(CoordinationMethod):
 
         self._last_proposal = proposal
         self._last_meta = meta
-        typed_bids, val_errors = _proposal_market_to_typed_bids(
-            market, set(agent_ids)
-        )
+        typed_bids, val_errors = _proposal_market_to_typed_bids(market, set(agent_ids))
         self._last_validation_errors = list(val_errors)
         tolerance = self._scale_config.get("bid_consistency_tolerance")
         if tolerance is not None:
             try:
                 tol = float(tolerance)
-                typed_bids, consistency_errors = _reject_inconsistent_bids(
-                    typed_bids, digest, tol
-                )
+                typed_bids, consistency_errors = _reject_inconsistent_bids(typed_bids, digest, tol)
                 self._last_validation_errors.extend(consistency_errors)
             except (TypeError, ValueError):
                 pass
@@ -572,6 +559,48 @@ class LLMAuctionBidder(CoordinationMethod):
             "INJ-BID-SPOOF-001",
         ):
             self._last_metrics["injection_active"] = True
+        return _assignments_to_actions(
+            assignments,
+            obs,
+            agent_ids,
+            zone_ids,
+            device_ids,
+            device_zone,
+            policy,
+        )
+
+    def combine_submissions(
+        self,
+        submissions: dict[str, dict[str, Any]],
+        obs: dict[str, Any],
+        infos: dict[str, dict[str, Any]],
+        t: int,
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Combine per-agent bid submissions into joint action. Each submission is
+        one bid: {bid, bundle, units?, constraints?} (same shape as market[] entry).
+        Builds market from submissions, runs typed bid validation, clear_auction,
+        then deterministic dispatcher.
+        """
+        agent_ids = sorted(obs.keys()) if obs else sorted(submissions.keys())
+        policy = self._policy_summary
+        obs_sample = next(iter(obs.values())) if obs else None
+        zone_ids, device_ids, device_zone = extract_zone_and_device_ids(policy, obs_sample=obs_sample)
+        if not zone_ids and obs:
+            zone_ids = ["Z_SORTING_LANES"]
+
+        market: list[dict[str, Any]] = [
+            {"agent_id": aid, **sub} for aid, sub in submissions.items() if sub and isinstance(sub, dict)
+        ]
+        typed_bids, _ = _proposal_market_to_typed_bids(market, set(agent_ids))
+        work_items = _build_work_items(obs, device_ids, device_zone)
+        rng = random.Random(self._seed + t)
+        assignments, _, _ = clear_auction(
+            work_items,
+            typed_bids,
+            rng,
+            max_assignments=max(len(agent_ids) * 2, 1),
+        )
         return _assignments_to_actions(
             assignments,
             obs,

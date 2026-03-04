@@ -60,13 +60,15 @@ def _get_prompt_templates_cached(prompt_id: str) -> dict[str, Any]:
         return templates
 
 
-# Action indices aligned with pz_parallel
-ACTION_NOOP = 0
-ACTION_TICK = 1
-ACTION_QUEUE_RUN = 2
-ACTION_MOVE = 3
-ACTION_OPEN_DOOR = 4
-ACTION_START_RUN = 5
+# Action indices: single source of truth in envs/action_contract
+from labtrust_gym.envs.action_contract import (
+    ACTION_MOVE,
+    ACTION_NOOP,
+    ACTION_OPEN_DOOR,
+    ACTION_QUEUE_RUN,
+    ACTION_START_RUN,
+    ACTION_TICK,
+)
 
 # String action_type (llm_action.schema.v0.2) -> PZ index
 ACTION_TYPE_TO_INDEX: dict[str, int] = {
@@ -168,9 +170,7 @@ def _allowed_actions_from_user_message(user_content: str) -> list[str]:
                     return [str(a) for a in parsed]
                 if isinstance(first, dict) and first.get("action_type"):
                     return [
-                        str(e.get("action_type", ""))
-                        for e in parsed
-                        if isinstance(e, dict) and e.get("action_type")
+                        str(e.get("action_type", "")) for e in parsed if isinstance(e, dict) and e.get("action_type")
                     ]
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -201,9 +201,7 @@ class MockDeterministicBackend:
 
     def generate(self, messages: list[dict[str, str]]) -> str:
         """Ignore messages; use last user message or fallback to derive hash, or default."""
-        user = next(
-            (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
-        )
+        user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
         h = hashlib.sha256(user.encode()).hexdigest()[:16]
         entry = self._canned.get(h)
         if entry is not None:
@@ -246,6 +244,7 @@ class FixtureBackend:
         else:
             try:
                 from labtrust_gym.config import get_repo_root
+
                 root = get_repo_root()
             except Exception:
                 root = Path(__file__).resolve().parent.parent.parent.parent.parent
@@ -276,6 +275,7 @@ class FixtureBackend:
         responses = self._load_responses()
         if key not in responses:
             from labtrust_gym.baselines.llm.exceptions import FixtureMissingError
+
             raise FixtureMissingError(
                 f"No fixture for request key {key[:16]}...; cannot run deterministic pipeline.",
                 key=key,
@@ -299,9 +299,7 @@ class MockDeterministicBackendV2:
         self._default = default_action_type
 
     def generate(self, messages: list[dict[str, str]]) -> str:
-        user = next(
-            (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
-        )
+        user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
         h = hashlib.sha256(user.encode()).hexdigest()[:16]
         entry = self._canned.get(h)
         if entry is not None:
@@ -339,11 +337,7 @@ def _build_repair_user_content_structured(
     structured_errors: list[str],
 ) -> str:
     """Build repair user message with ONLY structured, non-sensitive validation errors."""
-    err_block = (
-        "\n".join(f"- {e}" for e in structured_errors)
-        if structured_errors
-        else "Validation failed."
-    )
+    err_block = "\n".join(f"- {e}" for e in structured_errors) if structured_errors else "Validation failed."
     return (
         f"ALLOWED_ACTIONS_JSON:\n{allowed_actions_json}\n\n"
         f"INVALID_ACTION_PROPOSAL:\n{invalid_action_proposal}\n\n"
@@ -469,9 +463,7 @@ def _build_llm_decision(
     agent_id, role_id: per-agent and role for routing and shift-change audit.
     """
     metrics = getattr(backend, "last_metrics", None) or {}
-    backend_id = str(
-        metrics.get("backend_id") or getattr(backend, "backend_id", "unknown")
-    )
+    backend_id = str(metrics.get("backend_id") or getattr(backend, "backend_id", "unknown"))
     model_id = str(metrics.get("model_id") or getattr(backend, "model_id", "") or "n/a")
     latency_ms = metrics.get("latency_ms")
     if latency_ms is not None and not isinstance(latency_ms, int | float):
@@ -602,9 +594,7 @@ class DeterministicConstrainedBackend:
         self._call_count = 0
 
     def generate(self, messages: list[dict[str, str]]) -> str:
-        user = next(
-            (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
-        )
+        user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
         allowed_actions = _allowed_actions_from_user_message(user)
         citation_anchors: list[str] = []
         try:
@@ -616,21 +606,15 @@ class DeterministicConstrainedBackend:
                         citation_anchors = []
         except (json.JSONDecodeError, TypeError):
             pass
-        anchor = (
-            citation_anchors[0] if citation_anchors else "POLICY:RBAC:allowed_actions"
-        )
+        anchor = citation_anchors[0] if citation_anchors else "POLICY:RBAC:allowed_actions"
         self._call_count += 1
         import numpy as np
 
         rng = np.random.default_rng(self._seed)
         for _ in range(self._call_count - 1):
             rng.random()
-        idx = (
-            int(rng.integers(0, max(1, len(allowed_actions)))) if allowed_actions else 0
-        )
-        action_type = (
-            allowed_actions[idx] if allowed_actions else self._default_action_type
-        )
+        idx = int(rng.integers(0, max(1, len(allowed_actions)))) if allowed_actions else 0
+        action_type = allowed_actions[idx] if allowed_actions else self._default_action_type
         if self._call_count == 1 and self._first_action_type is not None:
             if allowed_actions and self._first_action_type in allowed_actions:
                 action_type = self._first_action_type
@@ -724,6 +708,14 @@ class LLMAgentWithShield:
     LLM agent that applies safety shield (RBAC + signature required) before returning action.
     By default uses ActionProposal schema (action_proposal.v0.1): model chooses only from allowed_actions, returns ActionProposal JSON only.
     Returns (action_index, action_info, meta). meta has _shield_filtered and _shield_reason_code when shield blocked.
+
+    Optional shared circuit breaker: pass circuit_breaker when N agents share one backend so they share a single
+    CircuitBreaker instance (saves memory at scale). CircuitBreaker is thread-safe when shared. Default: one
+    CircuitBreaker per agent.
+
+    Optional bounded rate-limit wait: when global_rate_limiter is set, pass global_rate_limit_max_wait_s (seconds).
+    If set, act() returns NOOP with reason_code AGENT_RATE_LIMIT after that many seconds instead of blocking
+    indefinitely. Default None = unbounded wait (backward compatible).
     """
 
     def __init__(
@@ -739,8 +731,13 @@ class LLMAgentWithShield:
         key_registry: dict[str, Any] | None = None,
         get_private_key: Callable[[str], bytes | None] | None = None,
         capability_policy: dict[str, Any] | None = None,
+        global_rate_limiter: Any | None = None,
+        circuit_breaker: Any | None = None,
+        global_rate_limit_max_wait_s: float | None = None,
     ) -> None:
         self._backend = backend
+        self._global_rate_limiter = global_rate_limiter
+        self._global_rate_limit_max_wait_s = global_rate_limit_max_wait_s
         self._rbac_policy = rbac_policy
         self._capability_policy = capability_policy or {}
         self._pz_to_engine = dict(pz_to_engine)
@@ -748,9 +745,7 @@ class LLMAgentWithShield:
         self._key_registry = key_registry
         self._get_private_key = get_private_key
         self._use_action_proposal_schema = use_action_proposal_schema
-        self._schema_path = schema_path or Path(
-            "policy/llm/llm_action.schema.v0.2.json"
-        )
+        self._schema_path = schema_path or Path("policy/llm/llm_action.schema.v0.2.json")
         self._action_proposal_schema_path = action_proposal_schema_path or Path(
             "policy/schemas/action_proposal.v0.1.schema.json"
         )
@@ -760,9 +755,7 @@ class LLMAgentWithShield:
                 load_action_proposal_schema,
             )
 
-            self._action_proposal_schema = load_action_proposal_schema(
-                self._action_proposal_schema_path
-            )
+            self._action_proposal_schema = load_action_proposal_schema(self._action_proposal_schema_path)
             if self._action_proposal_schema:
                 self._schema = self._action_proposal_schema
             if system_prompt is not None:
@@ -789,11 +782,15 @@ class LLMAgentWithShield:
             RateLimiter,
             throttle_config_from_env,
         )
+
         cfg = throttle_config_from_env()
-        self._circuit_breaker = CircuitBreaker(
-            consecutive_threshold=int(cfg.get("circuit_consecutive_threshold", 5)),
-            cooldown_calls=int(cfg.get("circuit_cooldown_calls", 10)),
-        )
+        if circuit_breaker is not None:
+            self._circuit_breaker = circuit_breaker
+        else:
+            self._circuit_breaker = CircuitBreaker(
+                consecutive_threshold=int(cfg.get("circuit_consecutive_threshold", 5)),
+                cooldown_calls=int(cfg.get("circuit_cooldown_calls", 10)),
+            )
         self._rate_limiter = RateLimiter(
             max_calls=int(cfg.get("rate_max_calls", 60)),
             window_seconds=float(cfg.get("rate_window_seconds", 60.0)),
@@ -830,6 +827,26 @@ class LLMAgentWithShield:
         Return (action_index, action_info, meta). Constrained decode (schema + rationale + RBAC) then shield.
         Meta has _shield_filtered and _shield_reason_code when blocked at decode or shield.
         """
+        import time as _time
+
+        if getattr(self, "_global_rate_limiter", None) is not None:
+            max_wait_s = getattr(self, "_global_rate_limit_max_wait_s", None)
+            deadline = (_time.monotonic() + max_wait_s) if max_wait_s is not None and max_wait_s > 0 else None
+            while not self._global_rate_limiter.allow():
+                if deadline is not None and _time.monotonic() >= deadline:
+                    from labtrust_gym.baselines.llm.decoder import NOOP_ACTION_V01 as _noop_v01  # noqa: N811
+
+                    noop_action = (
+                        dict(_noop_v01) if self._use_action_proposal_schema else {"action_type": "NOOP", "args": {}}
+                    )
+                    meta_rate_limit: dict[str, Any] = {
+                        "_shield_filtered": True,
+                        "_shield_reason_code": "AGENT_RATE_LIMIT",
+                        "_rate_limited": True,
+                        "_llm_decision": {},
+                    }
+                    return (ACTION_NOOP, noop_action, meta_rate_limit)
+                _time.sleep(0.05)
         from labtrust_gym.baselines.llm.decoder import (
             NOOP_ACTION_V01,
             decode_constrained,
@@ -844,9 +861,7 @@ class LLMAgentWithShield:
 
         engine_id = self._pz_to_engine.get(agent_id, agent_id)
         allowed_actions = get_allowed_actions(engine_id, self._rbac_policy)
-        role_id = (observation.get("role_id") or "").strip() or (
-            get_agent_role(engine_id, self._rbac_policy) or ""
-        )
+        role_id = (observation.get("role_id") or "").strip() or (get_agent_role(engine_id, self._rbac_policy) or "")
         prompt_id_this_act = get_prompt_id_for_role(role_id)
         templates_this_act = _get_prompt_templates_cached(prompt_id_this_act)
         system_prompt_this_act = templates_this_act.get("system_template") or (
@@ -887,6 +902,7 @@ class LLMAgentWithShield:
                     load_prompt_injection_defense_policy,
                     pre_llm_prompt_injection_check,
                 )
+
                 _repo = _get_repo()
                 defense_policy = load_prompt_injection_defense_policy(repo_root=_repo)
                 pre_result = pre_llm_prompt_injection_check(
@@ -927,6 +943,7 @@ class LLMAgentWithShield:
             ]
             try:
                 from labtrust_gym.config import get_repo_root
+
                 repo_root = get_repo_root()
                 if (repo_root / "policy").exists():
                     policy_summary = generate_policy_summary_from_policy(
@@ -964,23 +981,27 @@ class LLMAgentWithShield:
             self._last_defense_policy_for_defense = None
         max_repair_attempts = 1 if get_pipeline_mode() == "llm_live" else 0
         citation_anchors = list(policy_summary.get("citation_anchors") or [])
-        if get_pipeline_mode() == "llm_live" and hasattr(self, "_circuit_breaker") and self._circuit_breaker is not None:
+        if (
+            get_pipeline_mode() == "llm_live"
+            and hasattr(self, "_circuit_breaker")
+            and self._circuit_breaker is not None
+        ):
             if self._circuit_breaker.should_skip_llm():
                 noop_action = (
-                    dict(NOOP_ACTION_V01)
-                    if self._use_action_proposal_schema
-                    else {"action_type": "NOOP", "args": {}}
+                    dict(NOOP_ACTION_V01) if self._use_action_proposal_schema else {"action_type": "NOOP", "args": {}}
                 )
                 return (
                     ACTION_NOOP,
                     noop_action,
                     {"_shield_filtered": True, "_shield_reason_code": "CIRCUIT_BREAKER_OPEN", "_llm_decision": {}},
                 )
-            if hasattr(self, "_rate_limiter") and self._rate_limiter is not None and not self._rate_limiter.allow_call():
+            if (
+                hasattr(self, "_rate_limiter")
+                and self._rate_limiter is not None
+                and not self._rate_limiter.allow_call()
+            ):
                 noop_action = (
-                    dict(NOOP_ACTION_V01)
-                    if self._use_action_proposal_schema
-                    else {"action_type": "NOOP", "args": {}}
+                    dict(NOOP_ACTION_V01) if self._use_action_proposal_schema else {"action_type": "NOOP", "args": {}}
                 )
                 return (
                     ACTION_NOOP,
@@ -992,9 +1013,9 @@ class LLMAgentWithShield:
                 state=state_summary,
                 allowed_actions=allowed_actions,
             )
-            has_propose_action = getattr(
-                self._backend, "propose_action", None
-            ) is not None and callable(getattr(self._backend, "propose_action", None))
+            has_propose_action = getattr(self._backend, "propose_action", None) is not None and callable(
+                getattr(self._backend, "propose_action", None)
+            )
             if has_propose_action:
                 context = {
                     "partner_id": self._partner_id,
@@ -1006,32 +1027,26 @@ class LLMAgentWithShield:
                     "allowed_actions": allowed_actions,
                     "allowed_actions_payload": allowed_actions_payload,
                     "active_tokens": state_summary.get("tokens", {}).get("active", []),
-                    "recent_violations": state_summary.get("invariants", {}).get(
-                        "recent_violations", []
-                    ),
-                    "enforcement_state": state_summary.get("invariants", {}).get(
-                        "enforcement_state", {}
-                    ),
+                    "recent_violations": state_summary.get("invariants", {}).get("recent_violations", []),
+                    "enforcement_state": state_summary.get("invariants", {}).get("enforcement_state", {}),
                     "role_id": role_id,
                     "agent_id": agent_id,
-                    "conversation_history": getattr(
-                        self, "_conversation_history", []
-                    ),
+                    "conversation_history": getattr(self, "_conversation_history", []),
                 }
                 proposal = self._backend.propose_action(context)
                 bm = getattr(self._backend, "last_metrics", None)
-                if isinstance(bm, dict) and bm.get("last_user_content") is not None and bm.get("last_assistant_content") is not None:
+                if (
+                    isinstance(bm, dict)
+                    and bm.get("last_user_content") is not None
+                    and bm.get("last_assistant_content") is not None
+                ):
                     if not hasattr(self, "_conversation_history"):
                         self._conversation_history = []
-                    self._conversation_history.append(
-                        {"role": "user", "content": bm["last_user_content"]}
-                    )
-                    self._conversation_history.append(
-                        {"role": "assistant", "content": bm["last_assistant_content"]}
-                    )
+                    self._conversation_history.append({"role": "user", "content": bm["last_user_content"]})
+                    self._conversation_history.append({"role": "assistant", "content": bm["last_assistant_content"]})
                     max_turns = 6
                     if len(self._conversation_history) > max_turns * 2:
-                        self._conversation_history = self._conversation_history[-max_turns * 2:]
+                        self._conversation_history = self._conversation_history[-max_turns * 2 :]
                 text = json.dumps(proposal)
                 bm = getattr(self._backend, "last_metrics", None)
                 if isinstance(bm, dict) and bm.get("prompt_fingerprint"):
@@ -1055,15 +1070,9 @@ class LLMAgentWithShield:
                             state_summary=state_summary,
                             allowed_actions=allowed_actions,
                             allowed_actions_payload=allowed_actions_payload,
-                            active_tokens=state_summary.get("tokens", {}).get(
-                                "active", []
-                            ),
-                            recent_violations=state_summary.get("invariants", {}).get(
-                                "recent_violations", []
-                            ),
-                            enforcement_state=state_summary.get("invariants", {}).get(
-                                "enforcement_state", {}
-                            ),
+                            active_tokens=state_summary.get("tokens", {}).get("active", []),
+                            recent_violations=state_summary.get("invariants", {}).get("recent_violations", []),
+                            enforcement_state=state_summary.get("invariants", {}).get("enforcement_state", {}),
                         )
                         messages = [
                             {"role": "system", "content": system_content},
@@ -1081,12 +1090,8 @@ class LLMAgentWithShield:
                         allowed_actions=allowed_actions,
                         allowed_actions_payload=allowed_actions_payload,
                         active_tokens=state_summary.get("tokens", {}).get("active", []),
-                        recent_violations=state_summary.get("invariants", {}).get(
-                            "recent_violations", []
-                        ),
-                        enforcement_state=state_summary.get("invariants", {}).get(
-                            "enforcement_state", {}
-                        ),
+                        recent_violations=state_summary.get("invariants", {}).get("recent_violations", []),
+                        enforcement_state=state_summary.get("invariants", {}).get("enforcement_state", {}),
                     )
                     messages = [
                         {"role": "system", "content": system_prompt_this_act},
@@ -1109,6 +1114,12 @@ class LLMAgentWithShield:
             text = self._backend.generate(messages)
 
         self._last_prompt_fingerprint = prompt_fp
+        if (
+            getattr(self._backend, "last_error_code", None)
+            and hasattr(self, "_circuit_breaker")
+            and self._circuit_breaker is not None
+        ):
+            self._circuit_breaker.record_block()
         prompt_hash = _prompt_hash(messages)
         policy_summary_hash = _policy_summary_hash(policy_summary)
         allowed_actions_hash = _allowed_actions_hash(allowed_actions)
@@ -1148,12 +1159,21 @@ class LLMAgentWithShield:
                 from labtrust_gym.security.prompt_injection_defense import (
                     output_consistency_check,
                 )
-                samples = (state_for_defense.get("untrusted_notes") or {}).get(
-                    "samples", []
-                )
+
+                samples = (state_for_defense.get("untrusted_notes") or {}).get("samples", [])
                 min_len = int(defense_for_defense.get("min_verbatim_len", 20))
+                norm_list = (
+                    list(defense_for_defense.get("output_consistency_normalizers") or [])
+                    if defense_for_defense.get("output_consistency_normalize")
+                    else None
+                )
+                check_split = bool(defense_for_defense.get("check_split_verbatim", False))
                 flagged, reason = output_consistency_check(
-                    text, samples, min_verbatim_len=min_len
+                    text,
+                    samples,
+                    min_verbatim_len=min_len,
+                    normalizers=norm_list,
+                    check_split_verbatim=check_split,
                 )
                 if flagged and reason:
                     output_check_blocked = True
@@ -1229,9 +1249,7 @@ class LLMAgentWithShield:
                 validate_action_proposal_dict,
             )
 
-            ok, normalized, _err = validate_action_proposal_dict(
-                candidate, schema=self._schema
-            )
+            ok, normalized, _err = validate_action_proposal_dict(candidate, schema=self._schema)
             if not ok:
                 repair_text, repair_prompt_sha, repair_resp_sha = None, None, None
                 if max_repair_attempts >= 1:
@@ -1247,9 +1265,7 @@ class LLMAgentWithShield:
                     except json.JSONDecodeError:
                         candidate_repair = None
                     if isinstance(candidate_repair, dict):
-                        ok2, normalized2, _ = validate_action_proposal_dict(
-                            candidate_repair, schema=self._schema
-                        )
+                        ok2, normalized2, _ = validate_action_proposal_dict(candidate_repair, schema=self._schema)
                         if ok2 and normalized2 is not None:
                             decoded_repair, rej2, reason2 = decode_constrained(
                                 normalized2,
@@ -1263,23 +1279,17 @@ class LLMAgentWithShield:
                             if not rej2 and reason2 is None:
                                 key_id_repair: str | None = None
                                 signed_repair = False
-                                if (
-                                    self._strict_signatures
-                                    and self._key_registry
-                                    and self._get_private_key
-                                ):
-                                    key_id_repair, signed_repair = (
-                                        _attach_proxy_signature(
-                                            decoded_repair,
-                                            observation,
-                                            engine_id,
-                                            role_id,
-                                            now_ts_s,
-                                            self._key_registry,
-                                            self._get_private_key,
-                                            self._partner_id,
-                                            self._policy_fingerprint,
-                                        )
+                                if self._strict_signatures and self._key_registry and self._get_private_key:
+                                    key_id_repair, signed_repair = _attach_proxy_signature(
+                                        decoded_repair,
+                                        observation,
+                                        engine_id,
+                                        role_id,
+                                        now_ts_s,
+                                        self._key_registry,
+                                        self._get_private_key,
+                                        self._partner_id,
+                                        self._policy_fingerprint,
                                     )
                                 cap_profile_repair = get_profile_for_agent(
                                     engine_id,
@@ -1294,35 +1304,21 @@ class LLMAgentWithShield:
                                     policy_summary,
                                     capability_profile=cap_profile_repair,
                                 )
-                                action_type_repair = (
-                                    safe_repair.get("action_type") or "NOOP"
-                                ).strip()
-                                action_index_repair = ACTION_TYPE_TO_INDEX.get(
-                                    action_type_repair, ACTION_NOOP
-                                )
+                                action_type_repair = (safe_repair.get("action_type") or "NOOP").strip()
+                                action_index_repair = ACTION_TYPE_TO_INDEX.get(action_type_repair, ACTION_NOOP)
                                 action_info_repair = {
                                     "action_type": action_type_repair,
                                     "args": dict(safe_repair.get("args") or {}),
                                     "reason_code": safe_repair.get("reason_code"),
-                                    "token_refs": list(
-                                        safe_repair.get("token_refs") or []
-                                    ),
-                                    "rationale": (
-                                        decoded_repair.get("rationale") or ""
-                                    ).strip(),
+                                    "token_refs": list(safe_repair.get("token_refs") or []),
+                                    "rationale": (decoded_repair.get("rationale") or "").strip(),
                                 }
                                 if safe_repair.get("key_id") is not None:
                                     action_info_repair["key_id"] = safe_repair["key_id"]
                                 if safe_repair.get("signature") is not None:
-                                    action_info_repair["signature"] = safe_repair[
-                                        "signature"
-                                    ]
-                                action_info_repair["confidence"] = decoded_repair.get(
-                                    "confidence", 0.0
-                                )
-                                action_info_repair["safety_notes"] = (
-                                    decoded_repair.get("safety_notes") or ""
-                                ).strip()
+                                    action_info_repair["signature"] = safe_repair["signature"]
+                                action_info_repair["confidence"] = decoded_repair.get("confidence", 0.0)
+                                action_info_repair["safety_notes"] = (decoded_repair.get("safety_notes") or "").strip()
                                 meta_repair: dict[str, Any] = {
                                     "_prompt_hash": prompt_hash,
                                     "_policy_summary_hash": policy_summary_hash,
@@ -1438,12 +1434,8 @@ class LLMAgentWithShield:
                                 policy_summary,
                                 capability_profile=cap_profile,
                             )
-                            action_type_d = (
-                                safe_d.get("action_type") or "NOOP"
-                            ).strip()
-                            action_index_d = ACTION_TYPE_TO_INDEX.get(
-                                action_type_d, ACTION_NOOP
-                            )
+                            action_type_d = (safe_d.get("action_type") or "NOOP").strip()
+                            action_index_d = ACTION_TYPE_TO_INDEX.get(action_type_d, ACTION_NOOP)
                             action_info_d = {
                                 "action_type": action_type_d,
                                 "args": dict(safe_d.get("args") or {}),
@@ -1455,12 +1447,8 @@ class LLMAgentWithShield:
                                 action_info_d["key_id"] = safe_d["key_id"]
                             if safe_d.get("signature") is not None:
                                 action_info_d["signature"] = safe_d["signature"]
-                            action_info_d["confidence"] = decoded_d.get(
-                                "confidence", 0.0
-                            )
-                            action_info_d["safety_notes"] = (
-                                decoded_d.get("safety_notes") or ""
-                            ).strip()
+                            action_info_d["confidence"] = decoded_d.get("confidence", 0.0)
+                            action_info_d["safety_notes"] = (decoded_d.get("safety_notes") or "").strip()
                             signed_d = safe_d.get("signature") is not None
                             key_id_d = safe_d.get("key_id")
                             meta_d: dict[str, Any] = {
@@ -1504,9 +1492,7 @@ class LLMAgentWithShield:
             }
             if self._use_action_proposal_schema:
                 action_info["confidence"] = decoded.get("confidence", 0.0)
-                action_info["safety_notes"] = (
-                    decoded.get("safety_notes") or ""
-                ).strip()
+                action_info["safety_notes"] = (decoded.get("safety_notes") or "").strip()
             meta_decode: dict[str, Any] = {
                 "_shield_filtered": True,
                 "_shield_reason_code": decode_reason,
@@ -1546,19 +1532,15 @@ class LLMAgentWithShield:
             noop_proposed_invalid = dict(NOOP_ACTION_V01)
             noop_proposed_invalid["reason_code"] = RC_LLM_PROPOSED_INVALID
             noop_proposed_invalid["rationale"] = (
-                "; ".join(structured_errors)
-                if structured_errors
-                else "Deterministic validation failed."
+                "; ".join(structured_errors) if structured_errors else "Deterministic validation failed."
             )
             repair_text_p, repair_prompt_sha_p, repair_resp_sha_p = None, None, None
             if max_repair_attempts >= 1:
-                repair_text_p, repair_prompt_sha_p, repair_resp_sha_p = (
-                    _try_repair_structured(
-                        self._backend,
-                        allowed_actions_json,
-                        decoded,
-                        structured_errors,
-                    )
+                repair_text_p, repair_prompt_sha_p, repair_resp_sha_p = _try_repair_structured(
+                    self._backend,
+                    allowed_actions_json,
+                    decoded,
+                    structured_errors,
                 )
             if repair_text_p is not None:
                 try:
@@ -1570,9 +1552,7 @@ class LLMAgentWithShield:
                         validate_action_proposal_dict as validate_action_proposal_dict_p,
                     )
 
-                    ok_p, normalized_p, _ = validate_action_proposal_dict_p(
-                        candidate_p, schema=self._schema
-                    )
+                    ok_p, normalized_p, _ = validate_action_proposal_dict_p(candidate_p, schema=self._schema)
                     if ok_p and normalized_p is not None:
                         decoded_p, rej_p, reason_p = decode_constrained(
                             normalized_p,
@@ -1588,20 +1568,12 @@ class LLMAgentWithShield:
                                 decoded_p,
                                 allowed_actions,
                                 policy_summary,
-                                (
-                                    allowed_actions_payload
-                                    if self._use_action_proposal_schema
-                                    else None
-                                ),
+                                (allowed_actions_payload if self._use_action_proposal_schema else None),
                             )
                             if valid_p:
                                 key_id_p: str | None = None
                                 signed_p = False
-                                if (
-                                    self._strict_signatures
-                                    and self._key_registry
-                                    and self._get_private_key
-                                ):
+                                if self._strict_signatures and self._key_registry and self._get_private_key:
                                     key_id_p, signed_p = _attach_proxy_signature(
                                         decoded_p,
                                         observation,
@@ -1626,31 +1598,21 @@ class LLMAgentWithShield:
                                     policy_summary,
                                     capability_profile=cap_profile_p,
                                 )
-                                action_type_p = (
-                                    safe_p.get("action_type") or "NOOP"
-                                ).strip()
-                                action_index_p = ACTION_TYPE_TO_INDEX.get(
-                                    action_type_p, ACTION_NOOP
-                                )
+                                action_type_p = (safe_p.get("action_type") or "NOOP").strip()
+                                action_index_p = ACTION_TYPE_TO_INDEX.get(action_type_p, ACTION_NOOP)
                                 action_info_p = {
                                     "action_type": action_type_p,
                                     "args": dict(safe_p.get("args") or {}),
                                     "reason_code": safe_p.get("reason_code"),
                                     "token_refs": list(safe_p.get("token_refs") or []),
-                                    "rationale": (
-                                        decoded_p.get("rationale") or ""
-                                    ).strip(),
+                                    "rationale": (decoded_p.get("rationale") or "").strip(),
                                 }
                                 if safe_p.get("key_id") is not None:
                                     action_info_p["key_id"] = safe_p["key_id"]
                                 if safe_p.get("signature") is not None:
                                     action_info_p["signature"] = safe_p["signature"]
-                                action_info_p["confidence"] = decoded_p.get(
-                                    "confidence", 0.0
-                                )
-                                action_info_p["safety_notes"] = (
-                                    decoded_p.get("safety_notes") or ""
-                                ).strip()
+                                action_info_p["confidence"] = decoded_p.get("confidence", 0.0)
+                                action_info_p["safety_notes"] = (decoded_p.get("safety_notes") or "").strip()
                                 meta_p: dict[str, Any] = {
                                     "_prompt_hash": prompt_hash,
                                     "_policy_summary_hash": policy_summary_hash,
@@ -1739,9 +1701,7 @@ class LLMAgentWithShield:
             "args": dict(safe_action.get("args") or {}),
             "reason_code": safe_action.get("reason_code"),
             "token_refs": list(safe_action.get("token_refs") or []),
-            "rationale": (
-                decoded.get("rationale") or safe_action.get("rationale") or ""
-            ).strip(),
+            "rationale": (decoded.get("rationale") or safe_action.get("rationale") or "").strip(),
         }
         if safe_action.get("key_id") is not None:
             action_info["key_id"] = safe_action["key_id"]

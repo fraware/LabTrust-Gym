@@ -40,6 +40,7 @@ def _minimal_initial_state():
         "audit_fault_injection": None,
         "tool_registry": registry,
         "policy_root": root,
+        "tool_adapter": lambda tool_id, args: {},
     }
 
 

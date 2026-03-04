@@ -16,11 +16,7 @@ from labtrust_gym.baselines.coordination.routing.invariants import (
 )
 
 from .conftest import (
-    _conformance_config,
     _method_ids_from_policy,
-    _minimal_obs,
-    _minimal_policy,
-    _minimal_scale_config,
     make_coord_method_for_conformance,
 )
 
@@ -32,7 +28,9 @@ def _minimal_obs_distinct_zones(agent_ids: list[str], policy: dict) -> dict:
     zone_list = inner.get("zones") or []
     zone_ids = [z.get("zone_id") for z in zone_list if isinstance(z, dict) and z.get("zone_id")]
     if len(zone_ids) < len(agent_ids):
-        zone_ids = zone_ids + ["Z_SORTING_LANES", "Z_ANALYZER_HALL_A", "Z_ANALYZER_HALL_B"][: len(agent_ids) - len(zone_ids)]
+        zone_ids = (
+            zone_ids + ["Z_SORTING_LANES", "Z_ANALYZER_HALL_A", "Z_ANALYZER_HALL_B"][: len(agent_ids) - len(zone_ids)]
+        )
     obs = {}
     for i, aid in enumerate(agent_ids):
         zid = zone_ids[i % len(zone_ids)]

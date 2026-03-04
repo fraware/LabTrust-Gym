@@ -1,0 +1,18 @@
+# Prompt-injection defense policy v0.1 - PARANOID preset.
+# Same as default but block_severity_threshold: 1 (block on any detection).
+# Use for high-assurance or production when severity-1 patterns must also block the LLM call.
+# Load by path: pass this file as defense policy path where supported, or set
+# LABTRUST_PROMPT_INJECTION_DEFENSE_POLICY to this path.
+#
+version: "0.1"
+block_severity_threshold: 1
+block_reason_code: "PROMPT_INJECTION_DETECTED"
+sanitizer_mode: "none"
+max_untrusted_chars: 200
+sanitize_redaction_severity: 1
+output_consistency_check: true
+min_verbatim_len: 20
+output_consistency_normalize: false
+output_consistency_normalizers: []
+check_split_verbatim: false
+adversarial_policy: "adversarial_detection.v0.1.yaml"

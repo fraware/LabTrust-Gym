@@ -6,17 +6,14 @@ from __future__ import annotations
 
 import random
 
-import pytest
-
+from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import (
     AllocationDecision,
-    ScheduleDecision,
 )
 from labtrust_gym.baselines.coordination.kernel_components import (
     RC_SCHED_INFEASIBLE,
     EDFScheduler,
 )
-from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 
 
 def _context(t: int, scale_config: dict | None = None) -> KernelContext:
@@ -105,6 +102,7 @@ def test_edf_aging_starvation() -> None:
 def test_kernel_centralized_edf_stat_before_routine() -> None:
     """Composed kernel_centralized_edf: STAT is scheduled before ROUTINE (same agent, two devices in one zone)."""
     from pathlib import Path
+
     from labtrust_gym.baselines.coordination.registry import make_coordination_method
 
     repo_root = Path(__file__).resolve().parent.parent

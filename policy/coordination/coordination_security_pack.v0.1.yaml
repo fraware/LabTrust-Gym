@@ -79,6 +79,8 @@ matrix_presets:
       - INJ-ID-SPOOF-001
       - INJ-COMMS-POISON-001
       - INJ-COORD-PROMPT-INJECT-001
+      - INJ-COORD-PLAN-REPLAY-001
+      - INJ-COORD-BID-SHILL-001
   hospital_lab_full:
     scale_ids:
       - small_smoke
@@ -120,6 +122,34 @@ matrix_presets:
       - INJ-ID-SPOOF-001
       - INJ-COMMS-POISON-001
       - INJ-COORD-PROMPT-INJECT-001
+      - INJ-COORD-PLAN-REPLAY-001
+      - INJ-COORD-BID-SHILL-001
+  stress_at_scale:
+    scale_ids:
+      - small_smoke
+      - corridor_heavy
+    method_ids:
+      - kernel_auction_whca_shielded
+      - llm_repair_over_kernel_whca
+      - llm_local_decider_signed_bus
+    injection_ids:
+      - none
+      - INJ-ID-SPOOF-001
+      - INJ-COMMS-POISON-001
+      - INJ-COORD-PLAN-REPLAY-001
+      - INJ-SLOW-POISON-001
+      - INJ-REPLAY-001
+  stress_composite:
+    scale_ids:
+      - small_smoke
+    method_ids:
+      - kernel_auction_whca_shielded
+      - llm_local_decider_signed_bus
+    injection_ids:
+      - none
+      - POISON_THEN_REPLAY
+      - POISON_THEN_COLLUSION
+      - REPLAY_THEN_SPOOF
   full_matrix:
     scale_ids:
       - small_smoke
@@ -158,6 +188,41 @@ matrix_presets:
       - swarm_reactive
       - swarm_stigmergy_priority
     injection_ids: "policy"
+  exploratory_scale:
+    scale_ids:
+      - small_smoke
+      - medium_stress_signed_bus
+      - exploratory_scale
+    method_ids:
+      - kernel_auction_whca_shielded
+      - llm_repair_over_kernel_whca
+    injection_ids:
+      - none
+      - INJ-ID-SPOOF-001
+  exploratory_injection:
+    scale_ids:
+      - small_smoke
+    method_ids:
+      - kernel_auction_whca_shielded
+      - llm_repair_over_kernel_whca
+    injection_ids:
+      - none
+      - INJ-ID-SPOOF-001
+      - INJ-COMMS-POISON-001
+      - INJ-COMMS-POISON-001
+
+# Compound attacks: multiple injectors per cell (defined in risk_injections.COMPOUND_ATTACKS).
+# Keys are compound_attack_id; values are lists of injection_ids applied in order.
+compound_attacks:
+  POISON_THEN_REPLAY:
+    - INJ-COMMS-POISON-001
+    - INJ-COORD-PLAN-REPLAY-001
+  POISON_THEN_COLLUSION:
+    - INJ-COMMS-POISON-001
+    - INJ-COLLUSION-001
+  REPLAY_THEN_SPOOF:
+    - INJ-REPLAY-001
+    - INJ-ID-SPOOF-001
 
 # Injection list "default" = fixed set; "critical" = short high-signal subset; "policy" = all from injections.v0.2 that exist in INJECTION_REGISTRY (loaded at runtime).
 injection_ids:
@@ -168,8 +233,20 @@ injection_ids:
     - INJ-COORD-PROMPT-INJECT-001
     - INJ-CONSENSUS-POISON-001
     - INJ-TIMING-QUEUE-001
+    - INJ-COORD-PLAN-REPLAY-001
+    - INJ-COORD-BID-SHILL-001
+    - INJ-SLOW-POISON-001
+    - INJ-REPLAY-001
+    - INJ-DOS-PLANNER-001
+    - INJ-MEMORY-POISON-001
+    - INJ-BLAME-SHIFT-001
+    - INJ-LLM-TOOL-ESCALATION-001
   critical:
     - none
     - INJ-ID-SPOOF-001
     - INJ-COMMS-POISON-001
     - INJ-COORD-PROMPT-INJECT-001
+    - INJ-COORD-PLAN-REPLAY-001
+    - INJ-SLOW-POISON-001
+    - INJ-REPLAY-001
+    - INJ-LLM-TOOL-ESCALATION-001

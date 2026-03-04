@@ -1,6 +1,8 @@
 # Waivers for required_bench cells with missing evidence (validate-coverage --strict).
 # Each entry: risk_id, method_id, why, expires_on (YYYY-MM-DD), approved_by.
 # When --strict, missing evidence is allowed only if a non-expired waiver exists for (risk_id, method_id).
+# CI uses tests/fixtures/ui_fixtures + tests/fixtures/coord_pack_fixture_minimal; coord_pack_fixture_minimal provides
+# coordination_pack evidence for all required_bench risk_ids, so no waivers needed for fixture-based validation.
 
 version: "0.1"
 waivers: []

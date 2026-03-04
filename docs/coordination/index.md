@@ -9,12 +9,11 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Coordination methods](coordination_methods.md) | Baselines and methods at scale. |
 | [How coordination methods work (detailed)](coordination_methods_how_they_work.md) | Algorithms, data flow, invariants, and design choices for every method. |
 | [Coordination method contract (v0.1)](coordination_method_contract.md) | Method contract and schema. |
+| [Coordination and environment](coordination_and_env.md) | Data flow: runner owns env; coord methods never call env. |
 | [Coordination scale](coordination_scale.md) | Scale generator and configs. |
 | [Coordination matrix](coordination_matrix.md) | Matrix build and usage. |
 | [Coordination matrix contract (v0.1)](coordination_matrix_contract.md) | Matrix contract. |
 | [Fidelity notes](fidelity_notes.md) | Algorithm and invariant fidelity per method. |
-| [SOTA methods at scale](sota_methods_at_scale.md) | SOTA coordination methods roadmap. |
-| [SOTA method roles and checklist](sota_method_roles_and_checklist.md) | Primary / Experimental / Baselines / Legacy roles and per-method SOTA checklist (pass_budget, pass_evidence, strictly-better test, envelope). |
 | [Learning methods implementation strategy](learning_methods_implementation_strategy.md) | Implementation strategy for learning-based methods. |
 
 ## Studies and reports
@@ -24,7 +23,8 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Coordination studies](coordination_studies.md) | Run studies, Pareto, summarization. |
 | [Coordination benchmark card](coordination_benchmark_card.md) | Task G/H and metrics. |
 | [Coordination methods audit](coordination_methods_audit.md) | Method audit. |
-| [Lab coordination report](lab_coordination_report.md) | Canonical hospital lab flow. |
+| [Lab coordination report](lab_coordination_report.md) | Canonical pathology lab (blood sciences) flow. |
+| [Generalization and limits](generalization_and_limits.md) | What was tested, what was not; comparison with other benchmarks. |
 
 ## Risk and coverage
 

@@ -193,31 +193,37 @@ def test_collect_llm_live_metadata_from_results() -> None:
         results_dir = pack_dir / "baselines" / "results"
         results_dir.mkdir(parents=True)
         (results_dir / "throughput_sla_scripted_ops.json").write_text(
-            json.dumps({
-                "task": "throughput_sla",
-                "metadata": {
-                    "prompt_sha256": "abc123",
-                    "llm_backend_id": "openai_responses",
-                    "llm_model_id": "gpt-4o-mini",
-                    "mean_llm_latency_ms": 100.0,
-                    "p95_llm_latency_ms": 200.0,
-                    "total_tokens": 500,
-                    "estimated_cost_usd": 0.001,
+            json.dumps(
+                {
+                    "task": "throughput_sla",
+                    "metadata": {
+                        "prompt_sha256": "abc123",
+                        "llm_backend_id": "openai_responses",
+                        "llm_model_id": "gpt-4o-mini",
+                        "mean_llm_latency_ms": 100.0,
+                        "p95_llm_latency_ms": 200.0,
+                        "total_tokens": 500,
+                        "estimated_cost_usd": 0.001,
+                    },
+                    "tool_registry_fingerprint": "fp_xyz",
                 },
-                "tool_registry_fingerprint": "fp_xyz",
-            }, sort_keys=True),
+                sort_keys=True,
+            ),
             encoding="utf-8",
         )
         (results_dir / "stat_insertion_scripted_ops.json").write_text(
-            json.dumps({
-                "task": "stat_insertion",
-                "metadata": {
-                    "prompt_sha256": "def456",
-                    "llm_model_id": "gpt-4o-mini",
-                    "mean_llm_latency_ms": 150.0,
+            json.dumps(
+                {
+                    "task": "stat_insertion",
+                    "metadata": {
+                        "prompt_sha256": "def456",
+                        "llm_model_id": "gpt-4o-mini",
+                        "mean_llm_latency_ms": 150.0,
+                    },
+                    "tool_registry_fingerprint": "fp_xyz",
                 },
-                "tool_registry_fingerprint": "fp_xyz",
-            }, sort_keys=True),
+                sort_keys=True,
+            ),
             encoding="utf-8",
         )
         out = collect_llm_live_metadata_from_pack(pack_dir)

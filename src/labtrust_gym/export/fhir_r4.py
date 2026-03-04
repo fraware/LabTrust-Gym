@@ -12,10 +12,10 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC
-
-from labtrust_gym.util.json_utils import canonical_json
 from pathlib import Path
 from typing import Any
+
+from labtrust_gym.util.json_utils import canonical_json
 
 FHIR_BUNDLE_TYPE = "collection"
 FHIR_VERSION = "4.0.1"
@@ -283,8 +283,7 @@ def receipts_to_fhir_bundle(
     else:
         specimen_ref_or_extension = _specimen_reference_data_absent()
     fhir_observations: list[dict[str, Any]] = [
-        _receipt_to_fhir_observation(r, i, specimen_ref_or_extension)
-        for i, r in enumerate(result_receipts)
+        _receipt_to_fhir_observation(r, i, specimen_ref_or_extension) for i, r in enumerate(result_receipts)
     ]
     fhir_reports: list[dict[str, Any]] = []
     for i, r in enumerate(result_receipts):

@@ -80,6 +80,22 @@ def test_cli_validate_policy() -> None:
     _assert_cli_success(r, "validate-policy")
 
 
+def test_cli_validate_policy_verbose() -> None:
+    """validate-policy with -v (global): exit 0, success message on stderr."""
+    r = _run_labtrust(["-v", "validate-policy"], timeout=TIMEOUT_FAST)
+    _assert_cli_success(r, "validate-policy -v")
+    assert "Policy validation OK." in r.stderr or "OK" in r.stderr
+
+
+def test_cli_validate_policy_quiet() -> None:
+    """validate-policy with -q/--global-quiet (global): exit 0."""
+    r = _run_labtrust(["-q", "validate-policy"], timeout=TIMEOUT_FAST)
+    _assert_cli_success(r, "validate-policy -q")
+    r2 = _run_labtrust(["--global-quiet", "validate-policy"], timeout=TIMEOUT_FAST)
+    _assert_cli_success(r2, "validate-policy --global-quiet")
+
+
+@pytest.mark.slow
 def test_cli_run_benchmark(tmp_path: Path) -> None:
     """run-benchmark: 1 episode, results.json exists and has task/episodes."""
     out = tmp_path / "results.json"
@@ -138,6 +154,7 @@ def test_cli_bench_smoke() -> None:
     assert "bench-smoke all tasks OK" in r.stderr or "OK" in r.stderr
 
 
+@pytest.mark.slow
 def test_cli_quick_eval(tmp_path: Path) -> None:
     """quick-eval: 1 ep per task, run dir with throughput_sla.json and summary.md."""
     out_dir = tmp_path / "runs"
@@ -237,8 +254,9 @@ def test_cli_verify_release(tmp_path: Path) -> None:
     _assert_cli_success(r)
 
 
+@pytest.mark.slow
 def test_cli_run_security_suite(tmp_path: Path) -> None:
-    """run-security-suite: smoke, SECURITY/attack_results.json."""
+    """run-security-suite: smoke, SECURITY/attack_results.json. Slow: runs full smoke suite."""
     r = _run_labtrust(
         ["run-security-suite", "--out", str(tmp_path / "sec"), "--smoke", "--seed", "42"],
         timeout=TIMEOUT_MEDIUM,
@@ -377,6 +395,7 @@ def test_cli_summarize_results(tmp_path: Path) -> None:
     assert (out_dir / "summary.md").exists()
 
 
+@pytest.mark.slow
 def test_cli_determinism_report(tmp_path: Path) -> None:
     """determinism-report: 2 episodes, determinism_report.json and .md."""
     r = _run_labtrust(

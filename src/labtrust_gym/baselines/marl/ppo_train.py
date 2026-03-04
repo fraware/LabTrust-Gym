@@ -67,11 +67,7 @@ def train_ppo(
 
     cfg = dict(train_config or {})
     arch = (
-        net_arch
-        if net_arch is not None
-        else cfg.get("net_arch")
-        if isinstance(cfg.get("net_arch"), list)
-        else [64, 64]
+        net_arch if net_arch is not None else cfg.get("net_arch") if isinstance(cfg.get("net_arch"), list) else [64, 64]
     )
     learning_rate = cfg.get("learning_rate") if isinstance(cfg.get("learning_rate"), (int, float)) else None
     n_steps = cfg.get("n_steps") if isinstance(cfg.get("n_steps"), int) else None
@@ -91,6 +87,11 @@ def train_ppo(
         include_agent_id = bool(include_agent_id)
     num_agents = int(cfg.get("num_agents", 5))
     num_agents = max(1, min(num_agents, 64))
+    controlled_agents = cfg.get("controlled_agents")
+    if isinstance(controlled_agents, list) and controlled_agents:
+        controlled_agents = [str(a) for a in controlled_agents]
+    else:
+        controlled_agents = ["ops_0"]
     gym_env, raw = make_task_env(
         task_name=task_name,
         max_steps=getattr(task, "max_steps", 80),
@@ -99,6 +100,7 @@ def train_ppo(
         reward_scale_schedule=reward_schedule if reward_schedule else None,
         include_agent_id=include_agent_id,
         num_agents=num_agents,
+        controlled_agents=controlled_agents,
     )
     gym_env = _make_reset_wrapper(gym_env, task)
     gym_env = Monitor(gym_env)
@@ -109,6 +111,7 @@ def train_ppo(
     if not device_ids:
         try:
             from labtrust_gym.envs.pz_parallel import DEFAULT_DEVICE_IDS
+
             device_ids = list(DEFAULT_DEVICE_IDS)
         except Exception:
             device_ids = []
@@ -127,6 +130,7 @@ def train_ppo(
                 "n_status": n_status,
                 "include_agent_id": include_agent_id,
                 "num_agents": num_agents,
+                "controlled_agents": controlled_agents,
             },
             f,
             indent=2,
@@ -143,8 +147,9 @@ def train_ppo(
         n_steps=int(n_steps) if n_steps is not None else 2048,
     )
     try:
-        import tqdm  # noqa: F401
         import rich  # noqa: F401
+        import tqdm  # noqa: F401
+
         use_progress_bar = verbose > 0
     except ImportError:
         use_progress_bar = False
@@ -290,7 +295,7 @@ def run_ppo_optuna(
         import optuna
     except ImportError:
         raise ImportError(
-            "run_ppo_optuna requires optuna. Install with: pip install -e \".[marl_hpo]\" or pip install optuna"
+            'run_ppo_optuna requires optuna. Install with: pip install -e ".[marl_hpo]" or pip install optuna'
         ) from None
 
     out_dir = Path(out_dir) if out_dir else Path("runs") / "ppo_optuna"

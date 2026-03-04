@@ -2,7 +2,7 @@
 
 ## Scope
 
-Blood Sciences lane: specimen reception, accessioning, pre-analytics, routine and STAT analytics, QC, critical result notification, and release. Multi-site transport (hub + acute) with consignments and chain-of-custody.
+**Blood sciences lane** (pathology lab): specimen reception, accessioning, pre-analytics, routine and STAT analytics, QC, critical result notification, and release. Multi-site transport (hub + acute) with consignments and chain-of-custody. Terminology: [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab).
 
 ## Invariants and enforcement
 
@@ -30,7 +30,7 @@ coord_scale and coord_risk use a deterministic scale generator (`CoordinationSca
 - **adversary_v1** (adversarial_disruption): scripted adversary agent.
 - **insider_v1** (insider_key_misuse): deterministic insider adversary (phases 1–5: forbidden action, forged sig, replay, **revoked key** → SIG_KEY_REVOKED, token misuse); insider_key_misuse runs with **strict_signatures: True**; study sweep **strict_signatures** on/off shows effect on containment.
 - **ppo_v1**, **llm_safe_v1**: optional; see MARL/LLM baselines.
-- **Coordination suite (coord_scale/coord_risk)**: `coord_<method_id>` e.g. `coord_centralized_planner`, `coord_market_auction`, `coord_swarm_reactive`; methods defined in `policy/coordination/coordination_methods.v0.1.yaml`. Risk injections (e.g. INJ-COLLUSION-001, INJ-ID-SPOOF-001) are configured in the coordination study spec; INJ-ID-SPOOF-001 must be blocked when strict signatures are enabled.
+- **Coordination suite (coord_scale/coord_risk)**: Each run uses one **coordination method** (e.g. centralized_planner, market_auction, swarm_reactive) from `policy/coordination/coordination_methods.v0.1.yaml`; results use `coord_<method_id>` as agent_baseline_id. Risk injections (e.g. INJ-COLLUSION-001, INJ-ID-SPOOF-001) are configured in the coordination study spec; INJ-ID-SPOOF-001 must be blocked when strict signatures are enabled. See [Glossary](../reference/glossary.md) for the distinction between "official baselines" (v0.2 frozen results) and "coordination method."
 
 ## Timing mode (first-class dimension)
 

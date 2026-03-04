@@ -14,7 +14,7 @@ import csv
 import hashlib
 import json
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -110,8 +110,7 @@ def _assert_llm_live(pipeline_mode: str) -> None:
     """Raise if not llm_live with the required message."""
     if pipeline_mode != "llm_live":
         raise ValueError(
-            "Matrix builder is llm_live-only; offline pipelines are out of scope. "
-            f"Got pipeline_mode={pipeline_mode!r}."
+            f"Matrix builder is llm_live-only; offline pipelines are out of scope. Got pipeline_mode={pipeline_mode!r}."
         )
 
 
@@ -138,12 +137,7 @@ def _get_table_headers(path: Path) -> list[str]:
             return list(data[0].keys())
         if isinstance(data, dict):
             for key in ("results", "rows", "entries", "cells"):
-                if (
-                    key in data
-                    and isinstance(data[key], list)
-                    and data[key]
-                    and isinstance(data[key][0], dict)
-                ):
+                if key in data and isinstance(data[key], list) and data[key] and isinstance(data[key][0], dict):
                     return list(data[key][0].keys())
     return []
 
@@ -173,9 +167,7 @@ def _validate_canonical_table(
         if len(key) >= len(key_columns):
             tkey = key[: len(key_columns)]
             if tkey in seen:
-                errors.append(
-                    f"{role}: duplicate key {tkey} (rows {seen[tkey] + 1} and {i + 1})"
-                )
+                errors.append(f"{role}: duplicate key {tkey} (rows {seen[tkey] + 1} and {i + 1})")
             else:
                 seen[tkey] = i
     for mid in metric_ids:
@@ -272,19 +264,11 @@ def _derive_clean_cells_from_pack(
     """
     pack_path = _find_first_file(run_dir, CANONICAL_ATTACKED_SOURCE)
     if pack_path is None:
-        raise FileNotFoundError(
-            f"Cannot derive clean cells: {CANONICAL_ATTACKED_SOURCE} not found under {run_dir}"
-        )
+        raise FileNotFoundError(f"Cannot derive clean cells: {CANONICAL_ATTACKED_SOURCE} not found under {run_dir}")
     rows = _load_table(pack_path)
-    baseline_rows = [
-        r
-        for r in rows
-        if (str(r.get("injection_id") or "").strip().lower() in ("none", ""))
-    ]
+    baseline_rows = [r for r in rows if (str(r.get("injection_id") or "").strip().lower() in ("none", ""))]
     if not baseline_rows:
-        raise ValueError(
-            f"pack_summary has no baseline rows (injection_id=none) in {pack_path}"
-        )
+        raise ValueError(f"pack_summary has no baseline rows (injection_id=none) in {pack_path}")
     out: dict[tuple[str, str], dict[str, float | None]] = {}
     for r in baseline_rows:
         scale_id = str(r.get("scale_id") or "").strip()
@@ -347,12 +331,10 @@ def _extract_clean_metrics(
     canonical_path = _find_first_file(run_dir, CANONICAL_CLEAN_SOURCE)
     if canonical_path is None:
         attempted = [
-            (name, _find_first_file(run_dir, name) is not None)
-            for name in (sources or [CANONICAL_CLEAN_SOURCE])
+            (name, _find_first_file(run_dir, name) is not None) for name in (sources or [CANONICAL_CLEAN_SOURCE])
         ]
         metric_detail = "; ".join(
-            f"{mid!r}: candidates {column_map.get(mid, {}).get('candidates', [])!r}"
-            for mid in metric_ids
+            f"{mid!r}: candidates {column_map.get(mid, {}).get('candidates', [])!r}" for mid in metric_ids
         )
         raise FileNotFoundError(
             f"Canonical clean source {CANONICAL_CLEAN_SOURCE!r} not found under {run_dir}. "
@@ -363,10 +345,7 @@ def _extract_clean_metrics(
 
     all_rows = _load_table(canonical_path)
     if not all_rows:
-        raise ValueError(
-            f"Canonical clean source {canonical_path} has no rows. "
-            f"Required key columns: {key_columns}."
-        )
+        raise ValueError(f"Canonical clean source {canonical_path} has no rows. Required key columns: {key_columns}.")
 
     validation_errors = _validate_canonical_table(
         canonical_path,
@@ -376,10 +355,7 @@ def _extract_clean_metrics(
         role="clean",
     )
     if validation_errors:
-        raise ValueError(
-            f"Canonical clean source {canonical_path} failed validation: "
-            + "; ".join(validation_errors)
-        )
+        raise ValueError(f"Canonical clean source {canonical_path} failed validation: " + "; ".join(validation_errors))
 
     cells: dict[tuple[str, str], dict[str, Any]] = {}
     for row in all_rows:
@@ -404,9 +380,7 @@ def _extract_clean_metrics(
                 files_tried = [
                     (CANONICAL_CLEAN_SOURCE, True),
                 ]
-                raise _MetricExtractionError(
-                    mid, preferred, candidates, files_tried, attempted_columns=headers
-                )
+                raise _MetricExtractionError(mid, preferred, candidates, files_tried, attempted_columns=headers)
             out[cell_key][mid] = val
     return out
 
@@ -429,12 +403,10 @@ def _extract_attacked_metrics(
     canonical_path = _find_first_file(run_dir, CANONICAL_ATTACKED_SOURCE)
     if canonical_path is None:
         attempted = [
-            (name, _find_first_file(run_dir, name) is not None)
-            for name in (sources or [CANONICAL_ATTACKED_SOURCE])
+            (name, _find_first_file(run_dir, name) is not None) for name in (sources or [CANONICAL_ATTACKED_SOURCE])
         ]
         metric_detail = "; ".join(
-            f"{mid!r}: candidates {column_map.get(mid, {}).get('candidates', [])!r}"
-            for mid in metric_ids
+            f"{mid!r}: candidates {column_map.get(mid, {}).get('candidates', [])!r}" for mid in metric_ids
         )
         raise FileNotFoundError(
             f"Canonical attacked source {CANONICAL_ATTACKED_SOURCE!r} not found under {run_dir}. "
@@ -456,8 +428,7 @@ def _extract_attacked_metrics(
     )
     if validation_errors:
         raise ValueError(
-            f"Canonical attacked source {canonical_path} failed validation: "
-            + "; ".join(validation_errors)
+            f"Canonical attacked source {canonical_path} failed validation: " + "; ".join(validation_errors)
         )
 
     cells: dict[tuple[str, ...], dict[str, Any]] = {}
@@ -665,16 +636,8 @@ def build_coordination_matrix(
     ]
     column_map = column_map_policy.get("column_map") or {}
 
-    clean_metric_ids = [
-        m["metric_id"]
-        for m in (inputs_policy.get("clean_metrics") or [])
-        if isinstance(m, dict)
-    ]
-    attack_metric_ids = [
-        m["metric_id"]
-        for m in (inputs_policy.get("attack_metrics") or [])
-        if isinstance(m, dict)
-    ]
+    clean_metric_ids = [m["metric_id"] for m in (inputs_policy.get("clean_metrics") or []) if isinstance(m, dict)]
+    attack_metric_ids = [m["metric_id"] for m in (inputs_policy.get("attack_metrics") or []) if isinstance(m, dict)]
     directions = _direction_map(inputs_policy)
 
     # 1D) Extract clean metrics from canonical source only; in pack mode fallback to pack baseline
@@ -688,7 +651,7 @@ def build_coordination_matrix(
         )
     except _MetricExtractionError as e:
         raise ValueError(str(e)) from e
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         if matrix_mode == MATRIX_MODE_PACK:
             clean_cells = _derive_clean_cells_from_pack(run_dir, clean_metric_ids)
         else:
@@ -704,9 +667,7 @@ def build_coordination_matrix(
     )
     if not attacked_per_injection and attack_metric_ids:
         # No attacked source found; use empty attacked metrics per clean cell
-        attacked_cells = {
-            k: {mid: None for mid in attack_metric_ids} for k in clean_cells
-        }
+        attacked_cells = {k: {mid: None for mid in attack_metric_ids} for k in clean_cells}
     else:
         attacked_cells = _aggregate_attacked_worst_case(
             attacked_per_injection,
@@ -725,11 +686,7 @@ def build_coordination_matrix(
         atk_vals = attacked_cells.get(k) or {}
         deg: dict[str, float | None] = {}
         for mid in clean_metric_ids:
-            if (
-                mid in atk_vals
-                and clean_vals.get(mid) is not None
-                and atk_vals.get(mid) is not None
-            ):
+            if mid in atk_vals and clean_vals.get(mid) is not None and atk_vals.get(mid) is not None:
                 c, a = clean_vals[mid], atk_vals[mid]
                 if c and c != 0:
                     deg[f"deg.{mid}_ratio"] = (a or 0) / c
@@ -746,9 +703,7 @@ def build_coordination_matrix(
     feasible_clean: dict[tuple[str, str], bool] = {}
     feasible_attacked: dict[tuple[str, str], bool] = {}
     gate_failures: dict[tuple[str, str], list[str]] = {}
-    penalties_applied: dict[tuple[str, str], list[tuple[str, float]]] = (
-        {}
-    )  # (gate_id, amount) per row
+    penalties_applied: dict[tuple[str, str], list[tuple[str, float]]] = {}  # (gate_id, amount) per row
 
     for key in clean_cells:
         feasible_clean[key] = True
@@ -784,9 +739,7 @@ def build_coordination_matrix(
     # Overall feasible: both clean and attacked feasible
     feasible_overall: dict[tuple[str, str], bool] = {}
     for key in clean_cells:
-        feasible_overall[key] = feasible_clean.get(key, True) and feasible_attacked.get(
-            key, True
-        )
+        feasible_overall[key] = feasible_clean.get(key, True) and feasible_attacked.get(key, True)
 
     # 1F) Normalization and scoring
     scale_ids = sorted({k[0] for k in clean_cells})
@@ -845,9 +798,7 @@ def build_coordination_matrix(
                     continue
                 clipped = max(p5, min(p95, v))
                 raw_norm = (clipped - p5) / span
-                norm_val = (
-                    raw_norm if direction == "higher_is_better" else (1.0 - raw_norm)
-                )
+                norm_val = raw_norm if direction == "higher_is_better" else (1.0 - raw_norm)
                 if key not in cq_scores:
                     cq_scores[key] = 0.0
                     ar_scores[key] = 0.0
@@ -866,28 +817,18 @@ def build_coordination_matrix(
 
     # 1H) Ranking per scale
     tie_breakers = inputs_policy.get("tie_breakers") or []
-    scale_ids_order = scale_ids
+    _scale_ids_order = scale_ids
 
-    def _rank_key(
-        key: tuple[str, str], score_map: dict[tuple[str, str], float], desc: bool
-    ) -> tuple:
+    def _rank_key(key: tuple[str, str], score_map: dict[tuple[str, str], float], desc: bool) -> tuple:
         scale_id, method_id = key
         score = score_map.get(key, 0.0)
         # Tie-break by tie_breakers (metric values from clean then attacked), then method_id
         tb_vals = []
         for mid in tie_breakers:
             if mid in clean_cells.get(key, {}):
-                tb_vals.append(
-                    clean_cells[key].get(mid) is not None
-                    and clean_cells[key].get(mid)
-                    or 0.0
-                )
+                tb_vals.append(clean_cells[key].get(mid) is not None and clean_cells[key].get(mid) or 0.0)
             elif mid in attacked_cells.get(key, {}):
-                tb_vals.append(
-                    attacked_cells[key].get(mid) is not None
-                    and attacked_cells[key].get(mid)
-                    or 0.0
-                )
+                tb_vals.append(attacked_cells[key].get(mid) is not None and attacked_cells[key].get(mid) or 0.0)
             else:
                 tb_vals.append(0.0)
         return ((-score if desc else score), tb_vals, method_id)
@@ -897,9 +838,7 @@ def build_coordination_matrix(
     overall_rank: dict[tuple[str, str], int] = {}
 
     for scale_id in scale_ids:
-        scale_keys = sorted(
-            [k for k in clean_cells if k[0] == scale_id], key=lambda k: k[1]
-        )
+        scale_keys = sorted([k for k in clean_cells if k[0] == scale_id], key=lambda k: k[1])
         # Sort by overall_score desc, then tie_breakers, then method_id
         sorted_overall = sorted(
             scale_keys,
@@ -938,23 +877,17 @@ def build_coordination_matrix(
 
     # Run metadata slot (builder may not have full run_meta per cell from CSV)
     allowed_backends = ["openai_live", "ollama_live"]
-    allowed_methods = (inputs_policy.get("scope") or {}).get(
-        "coordination_methods"
-    ) or []
+    allowed_methods = (inputs_policy.get("scope") or {}).get("coordination_methods") or []
 
     # Build rows for output schema
     rows_out: list[dict[str, Any]] = []
-    for key in sorted(
-        clean_cells.keys(), key=lambda k: (k[0], overall_rank.get(k, 999), k[1])
-    ):
+    for key in sorted(clean_cells.keys(), key=lambda k: (k[0], overall_rank.get(k, 999), k[1])):
         scale_id, method_id = key
         clean_metrics = clean_cells.get(key) or {}
         atk_metrics = attacked_cells.get(key) or {}
         deg_metrics = degradation_cells.get(key) or {}
         # Schema expects metricValueMap: string -> number | null
-        clean_map = {
-            k: (v if v is not None else None) for k, v in clean_metrics.items()
-        }
+        clean_map = {k: (v if v is not None else None) for k, v in clean_metrics.items()}
         atk_map = {k: (v if v is not None else None) for k, v in atk_metrics.items()}
         deg_map = {k: (v if v is not None else None) for k, v in deg_metrics.items()}
 
@@ -977,10 +910,7 @@ def build_coordination_matrix(
             "scores": {
                 "cq_score": cq_scores.get(key, 0.0),
                 "ar_score": ar_scores.get(key, 0.0),
-                "penalties": [
-                    {"reason": gid, "amount": amt}
-                    for gid, amt in penalties_applied.get(key, [])
-                ],
+                "penalties": [{"reason": gid, "amount": amt} for gid, amt in penalties_applied.get(key, [])],
             },
             "ranks": {
                 "cq_rank": coord_rank.get(key),
@@ -1012,8 +942,7 @@ def build_coordination_matrix(
             best_ar = max(feasible_rows, key=lambda r: r["scores"]["ar_score"])
             best_overall = max(
                 feasible_rows,
-                key=lambda r: r["scores"]["cq_score"] * alpha
-                + r["scores"]["ar_score"] * (1 - alpha),
+                key=lambda r: r["scores"]["cq_score"] * alpha + r["scores"]["ar_score"] * (1 - alpha),
             )
             ops_first = {
                 "method_id": best_cq["method_id"],
@@ -1050,11 +979,7 @@ def build_coordination_matrix(
         ("column_map", f"policy/coordination/{_COLUMN_MAP_FILENAME}"),
         ("matrix_spec", f"policy/coordination/{_SPEC_FILENAME}"),
     ]:
-        full = (
-            run_dir / path_rel
-            if not path_rel.startswith("policy/")
-            else policy_root / path_rel
-        )
+        full = run_dir / path_rel if not path_rel.startswith("policy/") else policy_root / path_rel
         if full.exists():
             inputs_list.append(
                 {
@@ -1064,17 +989,13 @@ def build_coordination_matrix(
                 }
             )
     if not inputs_list:
-        inputs_list.append(
-            {"path": spec_rel, "sha256": spec_sha, "role": "matrix_spec"}
-        )
+        inputs_list.append({"path": spec_rel, "sha256": spec_sha, "role": "matrix_spec"})
 
     policy_fingerprint = hashlib.sha256(
-        json.dumps(
-            {"inputs": inputs_policy, "spec": spec_policy}, sort_keys=True
-        ).encode()
+        json.dumps({"inputs": inputs_policy, "spec": spec_policy}, sort_keys=True).encode()
     ).hexdigest()
 
-    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    generated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
     matrix = {
         "version": "0.1",

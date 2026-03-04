@@ -60,9 +60,7 @@ def _get_config() -> tuple[str, str, list[str], int, int]:
     api_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
     model = (os.environ.get("LABTRUST_OPENAI_MODEL") or "gpt-4o-mini").strip()
     fallback_raw = (os.environ.get("LABTRUST_OPENAI_FALLBACK_MODEL") or "").strip()
-    fallback_models = [
-        m.strip() for m in fallback_raw.split(",") if m.strip()
-    ] if fallback_raw else []
+    fallback_models = [m.strip() for m in fallback_raw.split(",") if m.strip()] if fallback_raw else []
     if model in fallback_models:
         fallback_models = [m for m in fallback_models if m != model]
     try:
@@ -84,19 +82,45 @@ def _action_proposal_schema_for_api() -> dict[str, Any]:
     ActionProposal schema for OpenAI API (no allOf/if/then; API unsupported).
     Full validation is done locally with action_proposal.v0.1.
     Includes optional "reasoning" for chain-of-thought (SOTA); strip before engine.
+    OpenAI structured outputs require additionalProperties: false on every object;
+    args therefore lists optional properties for known action args.
     """
+    # Args object: OpenAI strict mode requires additionalProperties: false and required
+    # to list all properties. Use type ["string", "null"] so model can omit via null.
+    _arg_prop = {"type": ["string", "null"]}
+    args_schema: dict[str, Any] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "device_id",
+            "work_id",
+            "priority_class",
+            "result_id",
+            "from_zone",
+            "to_zone",
+            "door_id",
+            "specimen_id",
+        ],
+        "properties": {
+            "device_id": _arg_prop,
+            "work_id": _arg_prop,
+            "priority_class": _arg_prop,
+            "result_id": _arg_prop,
+            "from_zone": _arg_prop,
+            "to_zone": _arg_prop,
+            "door_id": _arg_prop,
+            "specimen_id": _arg_prop,
+        },
+    }
     return {
         "type": "object",
         "properties": {
             "action_type": {"type": "string", "minLength": 1},
-            "args": {"type": "object", "additionalProperties": True},
-            "reason_code": {
-                "anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]
-            },
+            "args": args_schema,
+            "reason_code": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
             "token_refs": {
                 "type": "array",
                 "items": {"type": "string", "minLength": 1},
-                "uniqueItems": True,
             },
             "rationale": {"type": "string", "minLength": 1},
             "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
@@ -114,6 +138,7 @@ def _action_proposal_schema_for_api() -> dict[str, Any]:
             "rationale",
             "confidence",
             "safety_notes",
+            "reasoning",
         ],
         "additionalProperties": False,
     }
@@ -174,9 +199,7 @@ def _estimated_cost_usd(
     if inp is None or out is None:
         return None
     try:
-        return (total_prompt_tokens / 1_000_000.0) * float(inp) + (
-            total_completion_tokens / 1_000_000.0
-        ) * float(out)
+        return (total_prompt_tokens / 1_000_000.0) * float(inp) + (total_completion_tokens / 1_000_000.0) * float(out)
     except (TypeError, ValueError):
         return None
 
@@ -269,9 +292,7 @@ class OpenAILiveBackend:
         estimated_cost_usd (when model_pricing available).
         """
         rate = self._error_count / self._total_calls if self._total_calls > 0 else 0.0
-        mean_ms = (
-            self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
-        )
+        mean_ms = self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
         sorted_lat = sorted(self._latency_ms_list) if self._latency_ms_list else []
         p50_ms = _percentile(sorted_lat, 50)
         p95_ms = _percentile(sorted_lat, 95)
@@ -339,6 +360,7 @@ class OpenAILiveBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass
@@ -381,17 +403,16 @@ class OpenAILiveBackend:
             os.environ.get("LABTRUST_LLM_RAG", "").strip().lower() in ("1", "true", "yes")
         )
         use_chain_of_thought = context.get("use_chain_of_thought") or (
-            os.environ.get("LABTRUST_LLM_CHAIN_OF_THOUGHT", "").strip().lower()
-            in ("1", "true", "yes")
+            os.environ.get("LABTRUST_LLM_CHAIN_OF_THOUGHT", "").strip().lower() in ("1", "true", "yes")
         )
         use_tools = context.get("use_tools") or (
-            os.environ.get("LABTRUST_LLM_TOOLS", "").strip().lower()
-            in ("1", "true", "yes")
+            os.environ.get("LABTRUST_LLM_TOOLS", "").strip().lower() in ("1", "true", "yes")
         )
         few_shot_block = ""
         if use_few_shot:
             try:
                 from labtrust_gym.baselines.llm.few_shot import get_few_shot_block_from_policy
+
                 few_shot_block = get_few_shot_block_from_policy()
             except Exception:
                 pass
@@ -399,6 +420,7 @@ class OpenAILiveBackend:
         if use_rag:
             try:
                 from labtrust_gym.baselines.llm.policy_rag import build_rag_context
+
                 rag_excerpts = build_rag_context(
                     state_summary=state_summary,
                     allowed_actions=allowed_actions,
@@ -479,9 +501,7 @@ class OpenAILiveBackend:
                 policy_summary = context.get("policy_summary") or {}
                 tool_context = {
                     "allowed_actions": allowed_actions,
-                    "restricted_zones": context.get("restricted_zones")
-                    or policy_summary.get("restricted_zones")
-                    or [],
+                    "restricted_zones": context.get("restricted_zones") or policy_summary.get("restricted_zones") or [],
                     "state_summary": state_summary,
                     "policy_summary": policy_summary,
                 }
@@ -534,6 +554,7 @@ class OpenAILiveBackend:
                     parse_and_normalize_raw,
                     retry_free_form_enabled,
                 )
+
                 if retry_free_form_enabled():
                     start_retry = time.perf_counter()
                     raw2, usage2 = self._call_api(messages, structured_output=False)
@@ -594,12 +615,16 @@ class OpenAILiveBackend:
             request_cache_after.set(prompt_sha256, raw, usage)
         # Strip optional SOTA fields not in engine contract (reasoning for CoT).
         out_engine = {k: v for k, v in out.items() if k != "reasoning"}
+        # Strip null args (OpenAI strict schema requires all keys; we use null for omitted).
+        if isinstance(out_engine.get("args"), dict):
+            out_engine["args"] = {k: v for k, v in out_engine["args"].items() if v is not None}
         return out_engine
 
     def _get_request_cache(self) -> tuple[bool, Any]:
         """Return (enabled, cache or None). Lazy import to avoid circular deps."""
         try:
             from labtrust_gym.baselines.llm.request_cache import get_request_cache
+
             return get_request_cache()
         except Exception:
             return (False, None)
@@ -616,9 +641,7 @@ class OpenAILiveBackend:
         try:
             from openai import OpenAI
         except ImportError as e:
-            raise RuntimeError(
-                "openai not installed; pip install -e '.[llm_openai]'"
-            ) from e
+            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
         from labtrust_gym.baselines.llm.tool_proxy import (
             execute_read_only_tool,
             get_read_only_tool_definitions_for_llm,
@@ -649,7 +672,9 @@ class OpenAILiveBackend:
             msg = choice.message
             usage = _usage_from_response(resp)
             total_usage["prompt_tokens"] = total_usage.get("prompt_tokens", 0) + usage.get("prompt_tokens", 0)
-            total_usage["completion_tokens"] = total_usage.get("completion_tokens", 0) + usage.get("completion_tokens", 0)
+            total_usage["completion_tokens"] = total_usage.get("completion_tokens", 0) + usage.get(
+                "completion_tokens", 0
+            )
             total_usage["total_tokens"] = total_usage.get("total_tokens", 0) + usage.get("total_tokens", 0)
             tool_calls = getattr(msg, "tool_calls", None) or []
             content = (getattr(msg, "content", None) or "").strip()
@@ -673,23 +698,27 @@ class OpenAILiveBackend:
             current.append(assistant_msg)
             for tc in msg.tool_calls:
                 name = getattr(getattr(tc, "function", None), "name", "")
-                args_str = getattr(getattr(tc, "function", None), "arguments", "{}") or "{}"
+                _args_str = getattr(getattr(tc, "function", None), "arguments", "{}") or "{}"
                 if name not in allowed_tool_names:
-                    current.append({
-                        "role": "tool",
-                        "tool_call_id": getattr(tc, "id", ""),
-                        "content": json.dumps({"error": "tool not allowed"}),
-                    })
+                    current.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": getattr(tc, "id", ""),
+                            "content": json.dumps({"error": "tool not allowed"}),
+                        }
+                    )
                     continue
                 try:
                     result = execute_read_only_tool(name, tool_context)
                 except Exception as e:
                     result = json.dumps({"error": str(e)[:200]})
-                current.append({
-                    "role": "tool",
-                    "tool_call_id": getattr(tc, "id", ""),
-                    "content": result,
-                })
+                current.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": getattr(tc, "id", ""),
+                        "content": result,
+                    }
+                )
         final_user = {
             "role": "user",
             "content": "Based on the tool results above, output a single ActionProposal JSON.",
@@ -697,7 +726,9 @@ class OpenAILiveBackend:
         current.append(final_user)
         final_content, final_usage = self._call_api(current, structured_output=True)
         total_usage["prompt_tokens"] = total_usage.get("prompt_tokens", 0) + final_usage.get("prompt_tokens", 0)
-        total_usage["completion_tokens"] = total_usage.get("completion_tokens", 0) + final_usage.get("completion_tokens", 0)
+        total_usage["completion_tokens"] = total_usage.get("completion_tokens", 0) + final_usage.get(
+            "completion_tokens", 0
+        )
         total_usage["total_tokens"] = total_usage.get("total_tokens", 0) + final_usage.get("total_tokens", 0)
         return (final_content, total_usage)
 
@@ -714,9 +745,7 @@ class OpenAILiveBackend:
         try:
             from openai import OpenAI
         except ImportError as e:
-            raise RuntimeError(
-                "openai not installed; pip install -e '.[llm_openai]'"
-            ) from e
+            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
 
         client = OpenAI(api_key=self._api_key)
         model = (model_override or self._model).strip() or self._model
@@ -737,13 +766,9 @@ class OpenAILiveBackend:
         prompt_cache_key = (os.environ.get("LABTRUST_LLM_PROMPT_CACHE_KEY") or "").strip()
         if prompt_cache_key:
             create_kwargs["prompt_cache_key"] = prompt_cache_key
-        prompt_cache_retention = (
-            os.environ.get("LABTRUST_LLM_PROMPT_CACHE_RETENTION") or ""
-        ).strip().lower()
+        prompt_cache_retention = (os.environ.get("LABTRUST_LLM_PROMPT_CACHE_RETENTION") or "").strip().lower()
         if prompt_cache_retention in ("24h", "in_memory", "in-memory"):
-            create_kwargs["prompt_cache_retention"] = (
-                "24h" if prompt_cache_retention == "24h" else "in_memory"
-            )
+            create_kwargs["prompt_cache_retention"] = "24h" if prompt_cache_retention == "24h" else "in_memory"
         attempt = 0
         last_exc: Exception | None = None
         while attempt <= self._retries:
@@ -834,9 +859,7 @@ class OpenAILiveBackend:
             raw, usage = self._call_api(messages)
         except Exception as e:
             latency_ms = (time.perf_counter() - start) * 1000
-            self._last_error_code = (
-                getattr(self, "_last_error_code", None) or LLM_PROVIDER_ERROR
-            )
+            self._last_error_code = getattr(self, "_last_error_code", None) or LLM_PROVIDER_ERROR
             self._error_count += 1
             self._sum_latency_ms += latency_ms
             self._last_metrics = {

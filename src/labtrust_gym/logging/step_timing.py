@@ -33,8 +33,19 @@ _step_ms: list[float] = []
 _obs_ms: list[float] = []
 _invariant_ms: list[float] = []
 
+# When True, step timing is enabled regardless of LABTRUST_STEP_TIMING (for capacity planning).
+_force_enabled: bool = False
+
+
+def force_enable_for_run(enable: bool) -> None:
+    """Force step timing on (True) or off (False) for the current process. Used when always_record_step_timing is set."""
+    global _force_enabled
+    _force_enabled = enable
+
 
 def _enabled() -> bool:
+    if _force_enabled:
+        return True
     return os.environ.get("LABTRUST_STEP_TIMING", "").strip().lower() in (
         "1",
         "true",

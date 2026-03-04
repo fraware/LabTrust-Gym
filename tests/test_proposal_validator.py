@@ -64,9 +64,7 @@ def test_validator_args_required_for_start_run() -> None:
         "token_refs": [],
         "rationale": "x",
     }
-    valid, errors = validate_proposal_deterministic(
-        proposal, ["NOOP", "TICK", "START_RUN"]
-    )
+    valid, errors = validate_proposal_deterministic(proposal, ["NOOP", "TICK", "START_RUN"])
     assert valid is False
     assert any("device_id" in e for e in errors)
 
@@ -107,9 +105,7 @@ def test_agent_proposed_invalid_no_repair_when_deterministic() -> None:
             return '{"action_type":"MOVE","args":{},"reason_code":null,"token_refs":[],"rationale":"POLICY:RBAC:allowed_actions MOVE.","confidence":0.9,"safety_notes":""}'
 
     rbac = {
-        "roles": [
-            {"role_id": "ROLE_RECEPTION", "allowed_actions": ["NOOP", "TICK", "MOVE"]}
-        ],
+        "roles": [{"role_id": "ROLE_RECEPTION", "allowed_actions": ["NOOP", "TICK", "MOVE"]}],
         "agents": {"ops_0": "ROLE_RECEPTION"},
     }
     agent = LLMAgentWithShield(

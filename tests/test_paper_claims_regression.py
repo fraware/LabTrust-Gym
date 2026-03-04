@@ -50,9 +50,7 @@ def test_paper_claims_regression_against_committed_snapshot(tmp_path: Path) -> N
             os.environ.pop("LABTRUST_PAPER_SMOKE", None)
 
     # SECURITY/coverage.json can contain non-deterministic fields (paths, timestamps)
-    passed, report = compare_paper_snapshot(
-        release_dir, SNAPSHOT_DIR, optional_keys={"coverage"}
-    )
+    passed, report = compare_paper_snapshot(release_dir, SNAPSHOT_DIR, optional_keys={"coverage"})
     if not passed:
         raise AssertionError("Paper claims snapshot regression:\n" + "\n".join(report))
 

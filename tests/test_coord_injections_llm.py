@@ -54,9 +54,7 @@ def _injection_sequence_signature(
     seed_offset: int = 0,
 ) -> str:
     """Deterministic signature of mutation pattern over steps (obs + actions)."""
-    inj = make_injector(
-        injection_id, intensity=intensity, seed_offset=seed_offset
-    )
+    inj = make_injector(injection_id, intensity=intensity, seed_offset=seed_offset)
     inj.reset(seed, None)
     obs = {
         "ops_0": {"queue_has_head": [0, 1], "zone_id": "Z_A"},
@@ -100,9 +98,7 @@ def test_llm_coord_injection_deterministic_triggers(
     steps = 20
     h1 = _injection_sequence_signature(seed, injection_id, steps)
     h2 = _injection_sequence_signature(seed, injection_id, steps)
-    assert h1 == h2, (
-        f"{injection_id}: same seed must yield same sequence hash"
-    )
+    assert h1 == h2, f"{injection_id}: same seed must yield same sequence hash"
 
 
 @pytest.mark.parametrize("injection_id", LLM_COORD_INJECTION_IDS)
@@ -111,16 +107,12 @@ def test_llm_coord_injection_make_and_reset(injection_id: str) -> None:
     inj = make_injector(injection_id, intensity=0.5, seed_offset=1)
     assert inj.injection_id == injection_id
     inj.reset(99, None)
-    assert inj._step == 0 or inj._rng is not None or hasattr(
-        inj, "get_comms_config"
-    )
+    assert inj._step == 0 or inj._rng is not None or hasattr(inj, "get_comms_config")
 
 
 def test_prompt_inject_coord_applies_at_deterministic_step() -> None:
     """INJ-LLM-PROMPT-INJECT-COORD-001 applies at a step determined by seed."""
-    inj = make_injector(
-        "INJ-LLM-PROMPT-INJECT-COORD-001", intensity=1.0, seed_offset=0
-    )
+    inj = make_injector("INJ-LLM-PROMPT-INJECT-COORD-001", intensity=1.0, seed_offset=0)
     inj.reset(7, None)
     obs = {"ops_0": {"zone_id": "Z_A"}, "runner_0": {"zone_id": "Z_B"}}
     applied_step = None
@@ -131,9 +123,7 @@ def test_prompt_inject_coord_applies_at_deterministic_step() -> None:
             break
         inj.observe_step([])
     assert applied_step is not None, "Injection must apply within 25 steps"
-    inj2 = make_injector(
-        "INJ-LLM-PROMPT-INJECT-COORD-001", intensity=1.0, seed_offset=0
-    )
+    inj2 = make_injector("INJ-LLM-PROMPT-INJECT-COORD-001", intensity=1.0, seed_offset=0)
     inj2.reset(7, None)
     obs2 = {"ops_0": {"zone_id": "Z_A"}, "runner_0": {"zone_id": "Z_B"}}
     for step in range(25):
@@ -146,9 +136,7 @@ def test_prompt_inject_coord_applies_at_deterministic_step() -> None:
 
 def test_tool_escalation_injection_produces_invalid_tool_action() -> None:
     """INJ-LLM-TOOL-ESCALATION-001 mutate_actions yields INVOKE_TOOL with invalid id."""
-    inj = make_injector(
-        "INJ-LLM-TOOL-ESCALATION-001", intensity=1.0, seed_offset=0
-    )
+    inj = make_injector("INJ-LLM-TOOL-ESCALATION-001", intensity=1.0, seed_offset=0)
     inj.reset(11, None)
     actions = {
         "ops_0": {"action_index": 5},
@@ -187,9 +175,7 @@ def test_detection_reason_codes_prevent_attack_success() -> None:
                 },
             ]
             inj.observe_step(step_outputs)
-            assert inj._attack_success is False, (
-                f"{injection_id}: BLOCKED with {reason} => no attack_success"
-            )
+            assert inj._attack_success is False, f"{injection_id}: BLOCKED with {reason} => no attack_success"
 
 
 def test_containment_sets_first_containment_step() -> None:
@@ -202,10 +188,7 @@ def test_containment_sets_first_containment_step() -> None:
     ]
     extra = inj.observe_step(step_outputs)
     assert inj._first_containment_step is not None
-    assert any(
-        "SECURITY_INJECTION_CONTAINED" in (e.get("emits") or [])
-        for e in extra
-    )
+    assert any("SECURITY_INJECTION_CONTAINED" in (e.get("emits") or []) for e in extra)
 
 
 def test_llm_injections_listed_in_injections_v02() -> None:
@@ -220,7 +203,7 @@ def test_llm_injections_listed_in_injections_v02() -> None:
     ids = {i.get("injection_id") for i in injections if i.get("injection_id")}
     for iid in LLM_COORD_INJECTION_IDS + COORD_PROTOCOL_INJECTION_IDS:
         assert iid in ids, f"{iid} must be in injections.v0.2.yaml"
-        entry = next((e for e in injections if e.get("injection_id") == iid))
+        entry = next(e for e in injections if e.get("injection_id") == iid)
         assert entry.get("success_definition")
         assert entry.get("detection_definition")
         assert entry.get("containment_definition")

@@ -14,7 +14,6 @@ from typing import Any, Literal
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import (
     AllocationDecision,
-    RouteDecision,
     ScheduleDecision,
 )
 from labtrust_gym.baselines.coordination.interface import (
@@ -23,18 +22,16 @@ from labtrust_gym.baselines.coordination.interface import (
     ACTION_START_RUN,
 )
 from labtrust_gym.baselines.coordination.kernel_components import (
-    EDFScheduler,
     TrivialRouter,
 )
 from labtrust_gym.baselines.coordination.obs_utils import (
     get_queue_by_device,
-    get_zone_from_obs,
-    log_frozen,
     queue_has_head,
 )
 from labtrust_gym.engine.zones import build_adjacency_set
 
 StrategyKind = Literal["greedy", "edf", "whca"]
+
 
 # Job id format for matching LLM assignment to current queue heads
 def _job_id(device_id: str, work_id: str) -> str:
@@ -121,8 +118,7 @@ def _allocation_from_intents(
     Greedy: use intents order and first match. EDF: sort available_work by priority then match.
     """
     job_to_work: dict[str, tuple[str, str, str, int]] = {
-        jid: (dev_id, work_id, zone_id, prio)
-        for jid, dev_id, work_id, zone_id, prio in available_work
+        jid: (dev_id, work_id, zone_id, prio) for jid, dev_id, work_id, zone_id, prio in available_work
     }
     assignments: list[tuple[str, str, str, int]] = []
     used_jobs: set[str] = set()
@@ -211,6 +207,7 @@ def intent_to_actions(
     if use_whca and strategy == "whca":
         try:
             from labtrust_gym.baselines.coordination.kernel_components import WHCARouter
+
             router = WHCARouter(horizon=whca_horizon)
             router.reset(seed)
             route = router.route(ctx, allocation, schedule)

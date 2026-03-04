@@ -37,9 +37,7 @@ class LabTrustEnvAdapter(ABC):
         ...
 
     @abstractmethod
-    def step(
-        self, event: StepEventDict | dict[str, Any]
-    ) -> dict[str, Any]:
+    def step(self, event: StepEventDict | dict[str, Any]) -> dict[str, Any]:
         """
         Apply one event.
 
@@ -67,3 +65,10 @@ class LabTrustEnvAdapter(ABC):
           - "system_state('log_frozen')"
         """
         ...
+
+    def step_batch(self, events: list[StepEventDict | dict[str, Any]]) -> list[dict[str, Any]]:
+        """
+        Optional: apply multiple events in order. Default implementation
+        calls step(e) for each e. Override for batch-optimized engines.
+        """
+        return [self.step(e) for e in events]

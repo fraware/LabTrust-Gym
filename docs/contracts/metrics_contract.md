@@ -38,6 +38,7 @@ This document defines units, when each metric is meaningful (explicit vs simulat
 | **device_utilization** | per-device [0, 1] | **Simulated only** | Mean over episodes (per device); v0.3 |
 | **device_queue_length_mean** | per-device float | **Simulated only** | Mean over episodes; v0.3 |
 | **device_queue_length_max** | per-device integer | **Simulated only** | Max over episodes; v0.3 |
+| **llm_confidence_calibration** | object (ece, mce) | Episodes with LLM decisions (action_proposal.confidence) | Optional; ECE/MCE over (confidence, accepted) per step; v0.3 summary: llm_confidence_ece_mean, llm_confidence_mce_mean |
 
 ## CI-stable subset (v0.2 regression)
 
@@ -54,14 +55,28 @@ v0.3 adds optional fields for reporting:
 
 - **Quantiles**: turnaround_quantiles_s (p10, p25, p50, p75, p90); throughput/summary quantiles in aggregated summary.
 - **Confidence intervals**: 95% CI (e.g. mean ± 1.96 * std/sqrt(n)) for throughput, p95_turnaround_s, etc., in summary.
+- **Binomial rate CIs**: For containment_success (adversarial_disruption), v0.3 summary includes **containment_success_rate_ci_lower** and **containment_success_rate_ci_upper** (Clopper-Pearson or Wilson 95% CI) when aggregating across episodes.
 - **Simulated-mode distributions**: device_utilization, device_queue_length_mean, device_queue_length_max per episode; aggregated in summary as mean/max over episodes.
 
 Summary outputs (from `labtrust summarize-results --in <paths> --out <dir> --basename summary`):
 
 - **summary_v0.2.csv** — CI-stable; backward compatible. Columns: task, agent_baseline_id, partner_id, n_episodes, plus for each metric only *_mean and *_std (e.g. throughput_mean, throughput_std, p95_turnaround_s_mean, p95_turnaround_s_std). No quantile or CI columns. Used for baseline regression guard.
-- **summary_v0.3.csv** — Same rows as v0.2; columns include v0.2 columns plus paper-grade: *_p50, *_p90, *_mean_ci_lower, *_mean_ci_upper (when computable). May contain empty/NaN for quantiles or CI when insufficient episodes.
+- **summary_v0.3.csv** — Same rows as v0.2; columns include v0.2 columns plus paper-grade: *_p50, *_p90, *_mean_ci_lower, *_mean_ci_upper (when computable), **containment_success_rate_ci_lower**, **containment_success_rate_ci_upper** (binomial 95% CI when task has containment_success), and **llm_confidence_ece_mean**, **llm_confidence_mce_mean** (when episodes have llm_confidence_calibration). May contain empty/NaN for quantiles or CI when insufficient episodes.
 - **summary.csv** — Copy of summary_v0.2.csv (identical content).
 - **summary.md** — Markdown table derived from v0.2 aggregates only (same columns as summary_v0.2.csv). No quantile or CI columns in the table. When any result has `metadata.run_duration_wall_s`, the markdown also includes a **Run info** section (table of run_duration_wall_s, episodes_per_second per result) and a short footer.
+
+## Uncertainty metrics in standard reports
+
+Uncertainty quantification fields are integrated into regular benchmark and coordination outputs so they appear in standard reports without custom tooling.
+
+| Output | Uncertainty fields reported |
+|--------|-----------------------------|
+| **summary_v0.3.csv** (summarize-results) | containment_success_rate_ci_lower, containment_success_rate_ci_upper; llm_confidence_ece_mean, llm_confidence_mce_mean (when applicable). |
+| **summary_coord.csv** (coordination study) | sec.attack_success_rate_ci_lower, sec.attack_success_rate_ci_upper, sec.worst_case_attack_success_upper_95. |
+| **pack_summary.csv** (coordination security pack) | sec.attack_success_rate_ci_lower, sec.attack_success_rate_ci_upper, sec.worst_case_attack_success_upper_95. |
+| **SECURITY/coordination_risk_matrix.csv** and **.md** (pack) | Same sec.* CI and worst-case columns as pack_summary. |
+
+Per-episode metrics (e.g. llm_confidence_calibration) are present in results JSON when computed; aggregation adds the summary columns above. See [Uncertainty quantification](../benchmarks/uncertainty_quantification.md) for epistemic vs aleatoric mapping.
 
 Schema compatibility: every v0.2 top-level field and every v0.2 episode.metrics field exists in v0.3 with compatible types; v0.3 may add optional fields. Enforced by `tests/test_metrics_contract.py`.
 
@@ -82,14 +97,17 @@ For LLM-based coordination methods (planner, allocator, bidder, repairer, local-
 
 Aggregation (e.g. coordination study summary): **cost.total_tokens** is the sum of episode `llm.total_tokens`; **cost.estimated_cost_usd** is the sum of episode `llm.estimated_cost_usd`; **llm.error_rate** and **llm.invalid_output_rate** are means over episodes. For cells with no coordination.llm in any episode, these summary fields are 0 or null.
 
+**Contract:** For any run that uses an LLM coordination method, results (and summary_coord.csv / pack_summary.csv) include cost and latency columns (`cost.estimated_cost_usd`, `p95_llm_latency_ms`, and related fields); they are null when the method is non-LLM or no LLM was invoked. The summarizer always emits these columns so downstream tools see a stable schema.
+
 ## Run metadata (optional)
 
 The benchmark runner writes optional fields under **metadata** for harness observability and environment fingerprinting (auditability for papers and release):
 
 | Field | Type | Meaning |
 |-------|------|--------|
-| **metadata.run_duration_wall_s** | number | Wall-clock duration of the full run (all episodes) in seconds. |
+| **metadata.run_duration_wall_s** | number | Wall-clock duration of the full run (all episodes) in seconds. When `always_record_step_timing` is true, this is always present; otherwise it is 0 for deterministic runs. |
 | **metadata.run_duration_episodes_per_s** | number | Episodes per second (num_episodes / run_duration_wall_s). |
+| **metadata.step_timing** | object | Present when `LABTRUST_STEP_TIMING=1` or `always_record_step_timing` is true. Contains step timing aggregates (e.g. step_ms_mean, step_ms_p95). Used for capacity planning. |
 | **metadata.python_version** | string | Python version at run time (e.g. 3.11.0). |
 | **metadata.platform** | string | Platform identifier (e.g. win32, linux). |
 

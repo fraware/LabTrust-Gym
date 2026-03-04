@@ -1,0 +1,1 @@
+No receipts/_repr in pack output; run export-receipts then transparency-log.

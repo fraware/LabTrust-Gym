@@ -8,8 +8,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.export.verify import REQUIRED_STRICT_FINGERPRINTS, verify_bundle
 
 
@@ -40,10 +38,9 @@ def test_verify_bundle_strict_fails_when_memory_policy_fingerprint_missing(
         strict_fingerprints=True,
     )
     assert passed is False
-    assert any(
-        "memory_policy_fingerprint" in e or "strict-fingerprints requires" in e
-        for e in errors
-    ), f"expected error about missing memory_policy_fingerprint; got {errors}"
+    assert any("memory_policy_fingerprint" in e or "strict-fingerprints requires" in e for e in errors), (
+        f"expected error about missing memory_policy_fingerprint; got {errors}"
+    )
 
 
 def test_verify_bundle_strict_fails_when_required_key_empty(tmp_path: Path) -> None:
@@ -69,10 +66,9 @@ def test_verify_bundle_strict_fails_when_required_key_empty(tmp_path: Path) -> N
         strict_fingerprints=True,
     )
     assert passed is False
-    assert any(
-        "memory_policy_fingerprint" in e or "strict-fingerprints requires" in e
-        for e in errors
-    ), f"expected error about empty memory_policy_fingerprint; got {errors}"
+    assert any("memory_policy_fingerprint" in e or "strict-fingerprints requires" in e for e in errors), (
+        f"expected error about empty memory_policy_fingerprint; got {errors}"
+    )
 
 
 def test_strict_required_keys_list_complete() -> None:

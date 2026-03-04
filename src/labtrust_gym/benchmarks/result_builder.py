@@ -27,9 +27,7 @@ def normalize_llm_economics(
     steps = max(1, steps)
 
     calls_main = (
-        raw.get("call_count")
-        if raw.get("call_count") is not None
-        else int(raw.get("proposal_total_count") or 0)
+        raw.get("call_count") if raw.get("call_count") is not None else int(raw.get("proposal_total_count") or 0)
     )
     calls_repair = int(repair.get("repair_call_count") or 0)
     call_count = calls_main + calls_repair
@@ -58,9 +56,7 @@ def normalize_llm_economics(
             k = (len(valid) - 1) * 0.95
             lo = int(k)
             hi = min(lo + 1, len(valid) - 1)
-            p95_latency_ms = round(
-                valid[lo] + (k - lo) * (valid[hi] - valid[lo]), 2
-            )
+            p95_latency_ms = round(valid[lo] + (k - lo) * (valid[hi] - valid[lo]), 2)
 
     invalid_main = 0
     if calls_main and raw.get("proposal_total_count"):
@@ -69,9 +65,7 @@ def normalize_llm_economics(
         invalid_main = max(0, prop_total - valid_count)
     invalid_repair = int(repair.get("repair_fallback_noop_count") or 0)
     total_calls = call_count or 1
-    invalid_output_rate = round(
-        (invalid_main + invalid_repair) / total_calls, 4
-    )
+    invalid_output_rate = round((invalid_main + invalid_repair) / total_calls, 4)
 
     cost = raw.get("estimated_cost_usd")
     if cost is None:

@@ -166,11 +166,7 @@ class SpecimenStore:
 
     def list_specimen_ids_by_status(self, status: str) -> list[str]:
         """Return specimen_ids with the given status. Deterministic order (sorted)."""
-        out = [
-            sid
-            for sid, spec in self._specimens.items()
-            if (spec.get("status") or "") == status
-        ]
+        out = [sid for sid, spec in self._specimens.items() if (spec.get("status") or "") == status]
         return sorted(out)
 
     def last_reason_code(self, specimen_id: str) -> str | None:
@@ -185,9 +181,7 @@ class SpecimenStore:
         spec["status"] = "accessioning"
         return True
 
-    def check_acceptance_rules(
-        self, specimen_id: str, id_match: bool | None = None
-    ) -> bool:
+    def check_acceptance_rules(self, specimen_id: str, id_match: bool | None = None) -> bool:
         """Store id_match for specimen (from args). True if specimen exists."""
         if specimen_id not in self._specimens:
             return False
@@ -251,9 +245,7 @@ class SpecimenStore:
         self._specimens[specimen_id]["last_reason_code"] = reason_code
         return True
 
-    def hold_specimen(
-        self, specimen_id: str, reason_code: str | None
-    ) -> tuple[bool, str | None]:
+    def hold_specimen(self, specimen_id: str, reason_code: str | None) -> tuple[bool, str | None]:
         """
         Hold specimen with reason_code. Returns (ok, blocked_reason_code).
         If reason_code is None/empty => (False, AUDIT_MISSING_REASON_CODE),

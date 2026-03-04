@@ -22,9 +22,7 @@ def coord_fixture_key(
     allowed_actions: list[str] | None = None,
 ) -> str:
     """Key for coordination fixture: method_id/digest_hex."""
-    digest = _coord_input_digest(
-        state_digest, step_id, method_id, allowed_actions
-    )
+    digest = _coord_input_digest(state_digest, step_id, method_id, allowed_actions)
     return f"{method_id}/{digest}"
 
 
@@ -50,9 +48,7 @@ def merge_and_write_coord_fixtures(
     path.parent.mkdir(parents=True, exist_ok=True)
     data = {
         "responses": existing,
-        "_comment": (
-            "Keys: method_id/digest_hex. Add via record-coordination-fixtures."
-        ),
+        "_comment": ("Keys: method_id/digest_hex. Add via record-coordination-fixtures."),
     }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return len(existing)
@@ -111,9 +107,7 @@ class RecordingProposalBackend:
             proposal = raw
             meta = proposal.get("meta") if isinstance(proposal, dict) else {}
         key = coord_fixture_key(state_digest, step_id, mid, allowed_actions)
-        self._records[key] = json.dumps(
-            {"proposal": proposal, "meta": meta or {}}, sort_keys=True
-        )
+        self._records[key] = json.dumps({"proposal": proposal, "meta": meta or {}}, sort_keys=True)
         return (proposal, meta or {})
 
     @property
@@ -173,12 +167,9 @@ class FixtureProposalBackend:
             from labtrust_gym.baselines.llm.exceptions import FixtureMissingError
 
             raise FixtureMissingError(
-                f"No coordination fixture for {key[:32]}...; run with "
-                "record-coordination-fixtures to capture.",
+                f"No coordination fixture for {key[:32]}...; run with record-coordination-fixtures to capture.",
                 key=key,
-                remediation=(
-                    "Run record-coordination-fixtures with network enabled."
-                ),
+                remediation=("Run record-coordination-fixtures with network enabled."),
             )
         parsed = json.loads(responses[key])
         proposal = parsed.get("proposal", {})

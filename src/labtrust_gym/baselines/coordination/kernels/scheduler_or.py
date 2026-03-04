@@ -4,6 +4,10 @@ Rolling-horizon OR scheduler: weighted tardiness, throughput, violation penaltie
 Deterministic, fast, respects RBAC and token constraints (never proposes
 illegal START_RUN). Optional CP-SAT (OR-Tools) when [or_solver] installed;
 strict time budget per step; fallback to heuristic on timeout/infeasible.
+
+Envelope (SOTA audit): Used by kernel_scheduler_or and kernel_scheduler_or_whca.
+time_budget_ms in scale_config; fallback=infeasible returns explain; max_latency_ms
+bounded.
 """
 
 from __future__ import annotations
@@ -76,9 +80,7 @@ def _try_cp_sat_schedule(
         per_agent[agent_id].append((work_id, s + 1, prio))
     for aid in per_agent:
         per_agent[aid].sort(key=lambda x: (x[1], -x[2], x[0]))
-    per_agent_tuple = tuple(
-        (aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst
-    )
+    per_agent_tuple = tuple((aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst)
     return (
         ScheduleDecision(
             per_agent=per_agent_tuple,
@@ -159,14 +161,11 @@ class ORScheduler:
 
         filtered = _filter_allocation_by_rbac(context, assignments)
         time_budget_ms = float(
-            (context.scale_config or {}).get("or_schedule_time_budget_ms")
-            or policy.get("time_budget_ms", 50.0)
+            (context.scale_config or {}).get("or_schedule_time_budget_ms") or policy.get("time_budget_ms", 50.0)
         )
         cp_infeasible_reason: str | None = None
         if policy.get("use_cp_sat"):
-            cp_result, cp_reason = _try_cp_sat_schedule(
-                context, filtered, horizon, time_budget_ms
-            )
+            cp_result, cp_reason = _try_cp_sat_schedule(context, filtered, horizon, time_budget_ms)
             if cp_result is not None:
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
                 self._plan_times_ms.append(elapsed_ms)
@@ -193,9 +192,7 @@ class ORScheduler:
             lst = per_agent[aid]
             lst.sort(key=lambda x: (-x[2], x[1], x[0]))
 
-        per_agent_tuple = tuple(
-            (aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst
-        )
+        per_agent_tuple = tuple((aid, tuple(lst)) for aid, lst in sorted(per_agent.items()) if lst)
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         self._plan_times_ms.append(elapsed_ms)
         if self._steps % max(1, replan_cadence) == 0 and self._steps > 1:

@@ -28,3 +28,18 @@ jobs:
           labtrust run-coordination-security-pack --out ./pack_smoke --methods-from fixed --injections-from critical --seed 42
       - name: Assert pack summary exists
         run: test -f pack_smoke/pack_summary.csv
+
+  pack-smoke-stress-composite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package with env deps
+        run: pip install -e ".[dev,env]"
+      - name: Coordination security pack stress_composite (compound attacks)
+        run: |
+          labtrust run-coordination-security-pack --out ./pack_smoke_stress_composite --matrix-preset stress_composite --seed 42
+      - name: Assert pack summary exists
+        run: test -f pack_smoke_stress_composite/pack_summary.csv

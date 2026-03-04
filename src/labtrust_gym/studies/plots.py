@@ -49,8 +49,14 @@ _PLOT_STYLE = {
     "ytick.color": "#333333",
 }
 _PLOT_PALETTE = [
-    "#2e7d32", "#1565c0", "#c62828", "#6a1b9a",
-    "#ef6c00", "#00838f", "#7b1fa2", "#558b2f",
+    "#2e7d32",
+    "#1565c0",
+    "#c62828",
+    "#6a1b9a",
+    "#ef6c00",
+    "#00838f",
+    "#7b1fa2",
+    "#558b2f",
 ]
 
 # Dark theme: dark background, light grid and text
@@ -80,8 +86,14 @@ _PLOT_STYLE_DARK = {
     "ytick.color": "#b0b0b0",
 }
 _PLOT_PALETTE_DARK = [
-    "#81c784", "#64b5f6", "#e57373", "#ba68c8",
-    "#ffb74d", "#4dd0e1", "#ce93d8", "#aed581",
+    "#81c784",
+    "#64b5f6",
+    "#e57373",
+    "#ba68c8",
+    "#ffb74d",
+    "#4dd0e1",
+    "#ce93d8",
+    "#aed581",
 ]
 
 
@@ -181,9 +193,7 @@ def _aggregate_per_condition(
             "violations_mean_per_episode": (sum(violations_totals) / n if n else 0.0),
             "p95_tat_mean": sum(p95_vals) / len(p95_vals) if p95_vals else None,
             "trust_cost_mean": sum(trust_costs) / n if n else 0.0,
-            "critical_compliance_mean": (
-                sum(crit_vals) / len(crit_vals) if crit_vals else None
-            ),
+            "critical_compliance_mean": (sum(crit_vals) / len(crit_vals) if crit_vals else None),
             "violations_by_invariant_id": dict(viol_by_inv),
             "blocked_by_reason_code": dict(blocked_by_rc),
         }
@@ -220,9 +230,7 @@ def write_data_tables(
     tables_dir.mkdir(parents=True, exist_ok=True)
 
     # throughput_vs_violations.csv: condition_id, throughput_mean, violations_total
-    with (tables_dir / "throughput_vs_violations.csv").open(
-        "w", newline="", encoding="utf-8"
-    ) as f:
+    with (tables_dir / "throughput_vs_violations.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["condition_id", "throughput_mean", "violations_total"])
         for cid in condition_ids:
@@ -236,9 +244,7 @@ def write_data_tables(
             )
 
     # trust_cost_vs_p95_tat.csv: condition_id, trust_cost_mean, p95_tat_mean
-    with (tables_dir / "trust_cost_vs_p95_tat.csv").open(
-        "w", newline="", encoding="utf-8"
-    ) as f:
+    with (tables_dir / "trust_cost_vs_p95_tat.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["condition_id", "trust_cost_mean", "p95_tat_mean"])
         for cid in condition_ids:
@@ -253,27 +259,21 @@ def write_data_tables(
             )
 
     # violations_by_invariant_id.csv: invariant_id, count
-    with (tables_dir / "violations_by_invariant_id.csv").open(
-        "w", newline="", encoding="utf-8"
-    ) as f:
+    with (tables_dir / "violations_by_invariant_id.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["invariant_id", "count"])
         for inv_id, count in sorted(global_agg["violations_by_invariant_id"].items()):
             w.writerow([inv_id, count])
 
     # blocked_by_reason_code_top10.csv: reason_code, count
-    with (tables_dir / "blocked_by_reason_code_top10.csv").open(
-        "w", newline="", encoding="utf-8"
-    ) as f:
+    with (tables_dir / "blocked_by_reason_code_top10.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["reason_code", "count"])
         for rc, count in global_agg["blocked_top10"]:
             w.writerow([rc, count])
 
     # critical_compliance_by_condition.csv: condition_id, critical_compliance_mean
-    with (tables_dir / "critical_compliance_by_condition.csv").open(
-        "w", newline="", encoding="utf-8"
-    ) as f:
+    with (tables_dir / "critical_compliance_by_condition.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["condition_id", "critical_compliance_mean"])
         for cid in condition_ids:
@@ -293,11 +293,7 @@ def write_summary_table(
     """Write summary.csv and paper_table.md for paper-ready tables. Returns TABLES dir."""
     tables_dir = out_dir / "figures" / "data_tables"
     tables_dir.mkdir(parents=True, exist_ok=True)
-    labels = (
-        condition_labels
-        if len(condition_labels) == len(condition_ids)
-        else condition_ids
-    )
+    labels = condition_labels if len(condition_labels) == len(condition_ids) else condition_ids
 
     # summary.csv: condition_id, condition_label, throughput_mean, violations_total, trust_cost_mean, p95_tat_mean
     with (tables_dir / "summary.csv").open("w", newline="", encoding="utf-8") as f:
@@ -358,14 +354,11 @@ def _plot_throughput_vs_violations(
 ) -> None:
     xs = [agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids]
     ys = [agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids]
-    labels = (
-        condition_labels
-        if condition_labels and len(condition_labels) == len(condition_ids)
-        else condition_ids
-    )
+    labels = condition_labels if condition_labels and len(condition_labels) == len(condition_ids) else condition_ids
     plt.figure(figsize=(5.5, 4.2))
     plt.scatter(
-        xs, ys,
+        xs,
+        ys,
         c=_CURRENT_PALETTE[0],
         s=72,
         alpha=0.85,
@@ -421,14 +414,11 @@ def _plot_trust_cost_vs_p95_tat(
         else:
             xs.append(0.0)
             ys.append(row.get("trust_cost_mean", 0))
-    labels = (
-        condition_labels
-        if condition_labels and len(condition_labels) == len(condition_ids)
-        else condition_ids
-    )
+    labels = condition_labels if condition_labels and len(condition_labels) == len(condition_ids) else condition_ids
     plt.figure(figsize=(5.5, 4.2))
     plt.scatter(
-        xs, ys,
+        xs,
+        ys,
         c=_CURRENT_PALETTE[1],
         s=72,
         alpha=0.85,
@@ -604,11 +594,7 @@ def _plot_throughput_box_by_condition(
             m = ep.get("metrics") or {}
             vals.append(float(m.get("throughput", 0)))
         data_by_cond.append(vals if vals else [0.0])
-    labels = (
-        condition_labels
-        if condition_labels and len(condition_labels) == len(condition_ids)
-        else condition_ids
-    )
+    labels = condition_labels if condition_labels and len(condition_labels) == len(condition_ids) else condition_ids
     fig, ax = plt.subplots(figsize=(max(6, len(condition_ids) * 0.8), 4.2))
     bp = ax.boxplot(
         data_by_cond,
@@ -641,23 +627,15 @@ def _plot_metrics_overview(
     subtitle: str | None = None,
 ) -> None:
     """Three horizontal bar charts: throughput mean, violations total, p95 TAT mean."""
-    labels = (
-        condition_labels
-        if condition_labels and len(condition_labels) == len(condition_ids)
-        else condition_ids
-    )
+    labels = condition_labels if condition_labels and len(condition_labels) == len(condition_ids) else condition_ids
     n = len(condition_ids)
     y_pos = list(range(n))
     thr = [agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids]
     viol = [agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids]
-    p95_raw = [
-        agg_per_cond.get(cid, {}).get("p95_tat_mean") for cid in condition_ids
-    ]
+    p95_raw = [agg_per_cond.get(cid, {}).get("p95_tat_mean") for cid in condition_ids]
     p95 = [x if x is not None else 0.0 for x in p95_raw]
 
-    fig, (ax1, ax2, ax3) = plt.subplots(
-        1, 3, figsize=(12, max(4.2, n * 0.35)), sharey=True
-    )
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, max(4.2, n * 0.35)), sharey=True)
     ax1.barh(y_pos, thr, color=_CURRENT_PALETTE[0], edgecolor=_CURRENT_EDGE, height=0.7)
     ax1.set_xlabel("Throughput (mean)")
     ax1.set_yticks(y_pos)
@@ -714,9 +692,7 @@ def _parse_pack_gate_md(gate_path: Path) -> dict[tuple[str, str, str], str]:
             verdict = parts[3].upper()
             if verdict in ("PASS", "FAIL", "NOT_SUPPORTED", "SKIP"):
                 out[(scale_id, method_id, injection_id)] = (
-                    "not_supported" if verdict == "NOT_SUPPORTED"
-                    else "skip" if verdict == "SKIP"
-                    else verdict.lower()
+                    "not_supported" if verdict == "NOT_SUPPORTED" else "skip" if verdict == "SKIP" else verdict.lower()
                 )
     return out
 
@@ -743,9 +719,7 @@ def _write_pack_gate_summary_table(
         verdict = verdict_map.get((scale_id, method_id, injection_id), "unknown")
         lines.append(f"| {method_id} | {injection_id} | {scale_id} | {verdict} |")
     lines.append("")
-    (data_tables / "pack_gate_summary.md").write_text(
-        "\n".join(lines), encoding="utf-8"
-    )
+    (data_tables / "pack_gate_summary.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def _plot_pack_gate_heatmap(
@@ -780,9 +754,7 @@ def _plot_pack_gate_heatmap(
         for j, inj in enumerate(injections):
             v = agg.get((m, inj), "unknown")
             data[i, j] = color_val.get(v, 1)
-    fig, ax = plt.subplots(
-        figsize=(max(5, len(injections) * 0.55), max(3.5, len(methods) * 0.45))
-    )
+    fig, ax = plt.subplots(figsize=(max(5, len(injections) * 0.55), max(3.5, len(methods) * 0.45)))
     im = ax.imshow(data, aspect="auto", cmap="RdYlGn", vmin=0, vmax=2)
     cbar = plt.colorbar(im, ax=ax, ticks=[0, 1, 2], shrink=0.8)
     cbar.set_label("Verdict", fontsize=10)
@@ -855,7 +827,8 @@ def _plot_resilience_vs_p95_tat(rows: list[dict[str, Any]], fig_dir: Path) -> No
         return
     plt.figure(figsize=(6, 4.2))
     plt.scatter(
-        xs, ys,
+        xs,
+        ys,
         c=_CURRENT_PALETTE[0],
         s=64,
         alpha=0.85,
@@ -865,7 +838,8 @@ def _plot_resilience_vs_p95_tat(rows: list[dict[str, Any]], fig_dir: Path) -> No
     )
     for i, lab in enumerate(labels):
         plt.annotate(
-            lab, (xs[i], ys[i]),
+            lab,
+            (xs[i], ys[i]),
             fontsize=7,
             alpha=0.9,
             xytext=(3, 3),
@@ -936,12 +910,8 @@ def _write_run_report(
     n_conditions = len(condition_ids)
     total_episodes = sum(len(r.get("episodes") or []) for r in results_list)
 
-    throughputs = [
-        agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids
-    ]
-    violations_totals = [
-        agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids
-    ]
+    throughputs = [agg_per_cond.get(cid, {}).get("throughput_mean", 0) for cid in condition_ids]
+    violations_totals = [agg_per_cond.get(cid, {}).get("violations_total", 0) for cid in condition_ids]
     all_zero_throughput = all(t == 0 for t in throughputs)
     all_zero_violations = all(v == 0 for v in violations_totals)
 
@@ -990,9 +960,7 @@ def _write_run_report(
             ]
         )
     else:
-        lines.append(
-            f"- **Throughput**: Min={min(throughputs):.2f}, Max={max(throughputs):.2f} (mean per condition)."
-        )
+        lines.append(f"- **Throughput**: Min={min(throughputs):.2f}, Max={max(throughputs):.2f} (mean per condition).")
         lines.append("")
     if all_zero_violations:
         lines.append("- **Violations**: No invariant violations recorded.")

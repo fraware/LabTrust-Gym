@@ -12,7 +12,7 @@ Common failures and how to fix or work around them.
 
 1. Pass a specific EvidenceBundle path, e.g.  
    `labtrust verify-bundle --bundle /path/to/release/receipts/taska_cond_0/EvidenceBundle.v0.1`
-2. To verify the whole release, run `labtrust verify-release --release-dir <path> [--strict-fingerprints]` (verifies every EvidenceBundle, risk register, and RELEASE_MANIFEST hashes), or use the E2E script: `bash scripts/ci_e2e_artifacts_chain.sh` (package-release → export-risk-register → build-release-manifest → verify-release --strict-fingerprints). See [Release checklist](../operations/release_checklist.md) and [Frozen contracts](../contracts/frozen_contracts.md) (verify-bundle, verify-release).
+2. To verify the whole release, run `labtrust verify-release --release-dir <path> [--strict-fingerprints]` (verifies every EvidenceBundle, risk register, and RELEASE_MANIFEST hashes), or use the E2E script: `bash scripts/ci_e2e_artifacts_chain.sh` (package-release → export-risk-register → build-release-manifest → verify-release --strict-fingerprints). See [Trust verification](../risk-and-security/trust_verification.md) and [Frozen contracts](../contracts/frozen_contracts.md) (verify-bundle, verify-release).
 
 ## verify-bundle: hashchain length mismatch
 
@@ -109,8 +109,28 @@ See [MARL baselines](../agents/marl_baselines.md).
 2. **verify-release:** See “verify-bundle: hashchain length mismatch” above. The script runs `labtrust verify-release --release-dir <release_dir>`, which verifies every EvidenceBundle under `receipts/*/EvidenceBundle.v0.1`. If a bundle fails, see "verify-bundle: hashchain length mismatch" above (same checks apply per bundle).
 3. **export-risk-register / schema-and-crosswalk:** If the risk register bundle fails schema or crosswalk checks, fix the policy or run dirs so that evidence and risk IDs align (see [Risk register](../risk-and-security/risk_register.md)).
 
+## Live LLM runs: zero throughput and 100% error rate
+
+**Symptom:** Cross-provider or llm_live pack runs complete but `throughput_sla` (and other tasks) show `throughput: 0`, `llm_error_rate: 1`, `total_tokens: 0` in the result JSON. The run did not crash; the pipeline executed 80 steps and made LLM calls, but every call was counted as an error.
+
+**Cause:** The live LLM backend (openai_live, anthropic_live) never got a successful API response. Common causes: **OPENAI_API_KEY** or **ANTHROPIC_API_KEY** not set or not visible to the process (e.g. wrong env, or key in a `.env` that is not loaded by the runner); network blocked; invalid API key. Schema errors (e.g. provider returning fields not in the strict ActionProposal schema) also yield NOOP and count as errors; the code uses strict schemas (`additionalProperties: false`) for OpenAI and Anthropic.
+
+**Logs:** The pipeline does not write stderr or a log file into the run directory. The result JSON records `error_count` and `error_rate` but not the underlying exception message. To see the actual error:
+
+1. **Minimal backend check:** From repo root, run:
+   ```bash
+   LABTRUST_ALLOW_NETWORK=1 python scripts/check_llm_backends_live.py --backends openai_live
+   ```
+   (Use `anthropic_live` or `openai_live,anthropic_live` as needed.) The script loads `.env` from the repo root when present (python-dotenv or fallback parser), so running it from repo root is sufficient for key visibility.
+   - It prints: `success`, `total_calls`, `error_count`, `error_rate`, `total_tokens`; and `last_metrics.error_code` and, when present, `last_metrics.error_message` (e.g. connection refused, invalid API key).
+2. **Interpretation:** If you see `error_code: LLM_PROVIDER_ERROR` and **no** `error_message`, the backend returned before calling the API (e.g. **API key missing or empty**). If you see an `error_message`, that is the exception from the HTTP client or API (e.g. 401, timeout, connection error).
+
+**Fix:** Set the correct API key in the environment used by the process (e.g. `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`), ensure the key is valid and has quota, then re-run `check_llm_backends_live.py`. Once that reports `success: true` and non-zero tokens, re-run the full pack.
+
+**Deterministic comparison:** Running `labtrust run-benchmark --task throughput_sla --episodes 1 --seed 42 --out <file>` **without** `--llm-backend` uses scripted agents only (deterministic). That confirms the task and env run; throughput can still be 0 with the default 80-step horizon if no specimen reaches RELEASE_RESULT in time.
+
 ## See also
 
 - [Forker guide](forkers.md) – pipeline and partner overlay.
-- [Release checklist](../operations/release_checklist.md) – mandatory E2E chain before release.
+- [Trust verification](../risk-and-security/trust_verification.md) and [CI](../operations/ci.md) – E2E chain before release.
 - [CI gates](../operations/ci.md) – what runs on push/PR and optional jobs.

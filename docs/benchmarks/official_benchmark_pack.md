@@ -12,7 +12,7 @@ Pack definition (llm_live): `policy/official/benchmark_pack.v0.2.yaml` (loaded w
 
 - **tasks**: core (throughput_sla through insider_key_misuse), coordination (coord_scale, coord_risk), experimental (optional device_outage_surge, reagent_stockout)
 - **scale_configs**: S (small), M (medium), L (large) with num_agents_total, horizon_steps, etc.
-- **baselines**: method ID per task (e.g. scripted_ops_v1, adversary_v1, kernel_scheduler_or_v0)
+- **baselines**: For core tasks, baseline/agent ID (e.g. scripted_ops_v1, adversary_v1). For coord_scale/coord_risk, the value is the **coordination method** ID (e.g. kernel_scheduler_or_v0; the runner strips _v0 to get the method_id). See [Glossary](../reference/glossary.md).
 - **coordination_methods**: list of method_ids (centralized_planner, hierarchical_hub_rr, llm_constrained)
 - **security_suite**: smoke (enabled by default), full (optional)
 - **required_reports**: security, safety_case, transparency_log
@@ -122,7 +122,7 @@ After a successful run, `<out>` contains:
   PACK_SUMMARY.md
 ```
 
-**Validation:** Each results JSON under `baselines/results/` conforms to `policy/schemas/results.v0.2.schema.json`. You can run `labtrust summarize-results --in <out>/baselines/results/ --out <dir>` and use the summarize module's `validate_results_v02()` (or the CLI validate path) to verify. The pack layout and filenames above are stable for tooling and scripts.
+**Validation:** Each results JSON under `baselines/results/` conforms to `policy/schemas/results.v0.2.schema.json`. You can run `labtrust summarize-results --in <out>/baselines/results/ --out <dir>` and use the summarize module's `validate_results_v02()` (or the CLI validate path) to verify. The pack layout and filenames above are stable for tooling and scripts. When `--in` is a directory, summarization discovers: (1) any file matching `**/results*.json`, and (2) any `*.json` inside a subdirectory named `results`. So pointing `--in` at the pack output dir or at `baselines/results/` will include all per-task result files.
 
 - **baselines/results/**  
   One `results.v0.2`-semantics JSON per task (task name + baseline suffix). Produced by the same logic as `generate-official-baselines` but driven by the pack policy.

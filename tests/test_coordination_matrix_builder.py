@@ -6,6 +6,7 @@ import hashlib
 import json
 import shutil
 import tempfile
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,20 +21,11 @@ def _repo_root() -> Path:
 
 
 def _fixture_run_dir() -> Path:
-    return (
-        Path(__file__).resolve().parent
-        / "fixtures"
-        / "coordination_matrix_run_fixture"
-    )
+    return Path(__file__).resolve().parent / "fixtures" / "coordination_matrix_run_fixture"
 
 
 def _schema_path() -> Path:
-    return (
-        _repo_root()
-        / "policy"
-        / "schemas"
-        / "coordination_matrix.v0.1.schema.json"
-    )
+    return _repo_root() / "policy" / "schemas" / "coordination_matrix.v0.1.schema.json"
 
 
 # Fixed timestamp for deterministic and snapshot tests.
@@ -74,9 +66,9 @@ def test_builder_determinism_identical_output(run_fixture_dir: Path) -> None:
     if not schema_path.exists():
         pytest.skip("coordination_matrix.v0.1.schema.json not found")
 
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    fixed_dt = datetime(2026, 2, 8, 0, 0, 0, tzinfo=timezone.utc)
+    fixed_dt = datetime(2026, 2, 8, 0, 0, 0, tzinfo=UTC)
     builder_dt = "labtrust_gym.studies.coordination_matrix_builder.datetime"
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -106,17 +98,13 @@ def test_builder_determinism_identical_output(run_fixture_dir: Path) -> None:
 
 def test_builder_output_matches_expected_fixture(run_fixture_dir: Path) -> None:
     """Builder output equals coordination_matrix_expected_output.v0.1.json."""
-    expected_path = (
-        Path(__file__).resolve().parent
-        / "fixtures"
-        / "coordination_matrix_expected_output.v0.1.json"
-    )
+    expected_path = Path(__file__).resolve().parent / "fixtures" / "coordination_matrix_expected_output.v0.1.json"
     if not expected_path.exists():
         pytest.skip("coordination_matrix_expected_output.v0.1.json not found")
 
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    fixed_dt = datetime(2026, 2, 8, 0, 0, 0, tzinfo=timezone.utc)
+    fixed_dt = datetime(2026, 2, 8, 0, 0, 0, tzinfo=UTC)
     builder_dt = "labtrust_gym.studies.coordination_matrix_builder.datetime"
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -147,9 +135,7 @@ def test_builder_raises_when_pipeline_mode_not_llm_live(
         tmp_path = Path(tmp) / "deterministic_run"
         shutil.copytree(run_fixture_dir, tmp_path)
         metadata = tmp_path / "metadata.json"
-        metadata.write_text(
-            '{"pipeline_mode": "deterministic"}', encoding="utf-8"
-        )
+        metadata.write_text('{"pipeline_mode": "deterministic"}', encoding="utf-8")
 
         out_path = tmp_path / "coordination_matrix.v0.1.json"
         with pytest.raises(ValueError) as exc_info:

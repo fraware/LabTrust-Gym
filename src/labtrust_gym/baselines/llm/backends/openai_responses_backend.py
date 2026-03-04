@@ -57,7 +57,21 @@ def _coordination_proposal_schema_for_api() -> dict[str, Any]:
                     "properties": {
                         "agent_id": {"type": "string"},
                         "action_type": {"type": "string"},
-                        "args": {"type": "object", "additionalProperties": True},
+                        "args": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [],
+                            "properties": {
+                                "device_id": {"type": "string"},
+                                "work_id": {"type": "string"},
+                                "priority_class": {"type": "string"},
+                                "result_id": {"type": "string"},
+                                "from_zone": {"type": "string"},
+                                "to_zone": {"type": "string"},
+                                "door_id": {"type": "string"},
+                                "specimen_id": {"type": "string"},
+                            },
+                        },
                         "reason_code": {"type": "string"},
                         "confidence": {"type": "number"},
                         "token_refs": {
@@ -137,6 +151,7 @@ def _load_model_pricing(repo_root: Path | None = None) -> dict[str, Any]:
         else:
             try:
                 from labtrust_gym.config import get_repo_root
+
                 root = get_repo_root()
             except Exception:
                 root = Path(__file__).resolve().parent.parent.parent.parent.parent
@@ -144,6 +159,7 @@ def _load_model_pricing(repo_root: Path | None = None) -> dict[str, Any]:
         if not path.exists():
             return {}
         import yaml
+
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         return data.get("models") or {}
     except Exception:
@@ -166,9 +182,7 @@ def _estimated_cost_usd(
     if inp is None or out is None:
         return None
     try:
-        return (prompt_tokens / 1_000_000.0) * float(inp) + (
-            completion_tokens / 1_000_000.0
-        ) * float(out)
+        return (prompt_tokens / 1_000_000.0) * float(inp) + (completion_tokens / 1_000_000.0) * float(out)
     except (TypeError, ValueError):
         return None
 
@@ -216,9 +230,7 @@ def generate_coordination_proposal(
     try:
         from openai import OpenAI
     except ImportError as e:
-        raise RuntimeError(
-            "openai not installed; pip install -e '.[llm_openai]'"
-        ) from e
+        raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
     client = OpenAI(api_key=key)
     response_format = {
         "type": "json_schema",
@@ -259,7 +271,7 @@ def generate_coordination_proposal(
         usage = getattr(resp, "usage", None)
         prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
         completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
-        total_tokens = int(getattr(usage, "total_tokens", 0) or 0)
+        _total_tokens = int(getattr(usage, "total_tokens", 0) or 0)
         request_id = getattr(resp, "id", None) or ""
         try:
             proposal = json.loads(content.strip())
@@ -289,9 +301,7 @@ def generate_coordination_proposal(
         }
         if "meta" not in proposal or not isinstance(proposal.get("meta"), dict):
             proposal["meta"] = {}
-        proposal["meta"].update(
-            {k: v for k, v in meta.items() if k != "prompt_fingerprint"}
-        )
+        proposal["meta"].update({k: v for k, v in meta.items() if k != "prompt_fingerprint"})
         if conversation_history is not None:
             new_user = {"role": "user", "content": prompt}
             new_assistant = {"role": "assistant", "content": content}
@@ -365,6 +375,7 @@ class OpenAICoordinationProposalBackend:
         include conversation_history_updated for the next step.
         """
         from labtrust_gym.pipeline import check_network_allowed
+
         check_network_allowed()
 
         self._total_calls += 1
@@ -415,6 +426,7 @@ class OpenAICoordinationProposalBackend:
         tracer = None
         try:
             from labtrust_gym.baselines.llm.llm_tracer import get_llm_tracer
+
             tracer = get_llm_tracer()
         except Exception:
             pass
@@ -480,14 +492,8 @@ class OpenAICoordinationProposalBackend:
         rate = self._error_count / n if n > 0 else 0.0
         mean_ms = self._sum_latency_ms / n if n > 0 else None
         sorted_lat = sorted(self._latency_ms_list) if self._latency_ms_list else []
-        p50 = (
-            sorted_lat[int((len(sorted_lat) - 1) * 0.50)]
-            if sorted_lat else None
-        )
-        p95 = (
-            sorted_lat[int((len(sorted_lat) - 1) * 0.95)]
-            if sorted_lat else None
-        )
+        p50 = sorted_lat[int((len(sorted_lat) - 1) * 0.50)] if sorted_lat else None
+        p95 = sorted_lat[int((len(sorted_lat) - 1) * 0.95)] if sorted_lat else None
         total_tok = self._total_tokens_in + self._total_tokens_out
         tokens_per_step = round(total_tok / n, 2) if n > 0 and total_tok is not None else None
         cost = _estimated_cost_usd(
@@ -523,6 +529,7 @@ class OpenAILocalProposalBackend:
         repo_root: Path | None = None,
     ) -> None:
         from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+
         self._backend = OpenAILiveBackend(api_key=api_key, model=model)
 
     def reset(self, seed: int) -> None:
@@ -550,11 +557,14 @@ class OpenAILocalProposalBackend:
         return self._backend.propose_action(context)
 
     def get_aggregate_metrics(self) -> dict[str, Any]:
-        return getattr(self._backend, "get_aggregate_metrics", lambda: {})()
+        val = getattr(self._backend, "get_aggregate_metrics", lambda: {})
+        out = val() if callable(val) else (val if isinstance(val, dict) else {})
+        return out
 
     @property
     def last_metrics(self) -> dict[str, Any]:
-        return getattr(self._backend, "last_metrics", lambda: {})()
+        val = getattr(self._backend, "last_metrics", lambda: {})
+        return val() if callable(val) else (val if isinstance(val, dict) else {})
 
 
 def _minimal_gossip_payload(agent_id: str, t: int) -> dict[str, Any]:
@@ -582,6 +592,7 @@ class OpenAIGossipSummaryBackend:
         repo_root: Path | None = None,
     ) -> None:
         from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+
         self._backend = OpenAILiveBackend(api_key=api_key, model=model)
 
     def get_summary(
@@ -598,6 +609,7 @@ class OpenAIGossipSummaryBackend:
             get_zone_from_obs,
             log_frozen,
         )
+
         o = obs.get(agent_id) or {}
         zone = get_zone_from_obs(o, zone_ids) or str(o.get("zone_id", ""))[:64]
         task = "frozen" if log_frozen(o) else "active"
@@ -607,23 +619,19 @@ class OpenAIGossipSummaryBackend:
             if idx >= len(qbd):
                 break
             d = qbd[idx] if isinstance(qbd[idx], dict) else {}
-            queue_preview.append({
-                "device_id": str(d.get("device_id", dev_id))[:32],
-                "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
-                "queue_head": str(d.get("queue_head", ""))[:64],
-            })
+            queue_preview.append(
+                {
+                    "device_id": str(d.get("device_id", dev_id))[:32],
+                    "queue_len": min(1024, max(0, int(d.get("queue_len", 0)))),
+                    "queue_head": str(d.get("queue_head", ""))[:64],
+                }
+            )
         prompt = (
-            "Return a single JSON object with keys: agent_id (string), step_id "
-            "(int), zone_id (string), queue_summary (array of objects with "
-            "device_id, queue_len, queue_head), task (string 'active' or 'frozen'). "
-            "agent_id=%s step_id=%s zone_id=%s task=%s queue_preview=%s. "
-            "Return only the JSON, no markdown."
-        ) % (
-            agent_id,
-            t,
-            zone,
-            task,
-            json.dumps(queue_preview, sort_keys=True),
+            f"Return a single JSON object with keys: agent_id (string), step_id "
+            f"(int), zone_id (string), queue_summary (array of objects with "
+            f"device_id, queue_len, queue_head), task (string 'active' or 'frozen'). "
+            f"agent_id={agent_id} step_id={t} zone_id={zone} task={task} queue_preview={json.dumps(queue_preview, sort_keys=True)}. "
+            f"Return only the JSON, no markdown."
         )
         messages = [{"role": "user", "content": prompt}]
         try:
@@ -631,7 +639,7 @@ class OpenAIGossipSummaryBackend:
         except Exception:
             return _minimal_gossip_payload(agent_id, t)
         raw = (raw or "").strip()
-        for part in (raw.split("```") if "```" in raw else [raw]):
+        for part in raw.split("```") if "```" in raw else [raw]:
             part = part.strip()
             if part.startswith("json") or part.startswith("{"):
                 raw = part.replace("json", "", 1).strip()
@@ -640,6 +648,7 @@ class OpenAIGossipSummaryBackend:
             from labtrust_gym.baselines.llm.parse_utils import (
                 extract_first_json_object,
             )
+
             extracted = extract_first_json_object(raw)
             if not extracted:
                 return _minimal_gossip_payload(agent_id, t)

@@ -7,13 +7,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.baselines.coordination.prompt_fingerprint import (
     allowed_actions_payload_sha256,
     canonical_prompt_representation,
-    coordination_policy_fingerprint_from_repo,
     compute_prompt_fingerprints,
+    coordination_policy_fingerprint_from_repo,
     prompt_template_id_for_method,
     recompute_prompt_sha256_from_inputs,
 )
@@ -65,7 +63,13 @@ def test_prompt_template_id_stable_per_method() -> None:
 
 def test_changing_allowed_actions_changes_payload_hash() -> None:
     """Different allowed_actions => different allowed_actions_payload_sha256."""
-    state = {"step": 0, "per_agent": [], "per_device": [], "per_specimen": [], "comms_stats": {"msg_count": 0, "drop_rate": 0.0}}
+    state = {
+        "step": 0,
+        "per_agent": [],
+        "per_device": [],
+        "per_specimen": [],
+        "comms_stats": {"msg_count": 0, "drop_rate": 0.0},
+    }
     h1 = allowed_actions_payload_sha256(["NOOP", "TICK"])
     h2 = allowed_actions_payload_sha256(["NOOP", "TICK", "MOVE"])
     assert h1 != h2
@@ -86,7 +90,13 @@ def test_changing_policy_file_changes_coordination_fingerprint(tmp_path: Path) -
 
 def test_recompute_prompt_sha256_matches() -> None:
     """Recomputed prompt_sha256 from stored inputs matches original compute_prompt_fingerprints."""
-    state = {"step": 1, "per_agent": [], "per_device": [], "per_specimen": [], "comms_stats": {"msg_count": 0, "drop_rate": 0.0}}
+    state = {
+        "step": 1,
+        "per_agent": [],
+        "per_device": [],
+        "per_specimen": [],
+        "comms_stats": {"msg_count": 0, "drop_rate": 0.0},
+    }
     out = compute_prompt_fingerprints(
         "llm_central_planner",
         state,
@@ -106,7 +116,13 @@ def test_recompute_prompt_sha256_matches() -> None:
 
 def test_canonical_prompt_representation_deterministic() -> None:
     """canonical_prompt_representation is deterministic for same inputs."""
-    state = {"step": 0, "per_agent": [{"agent_id": "x", "zone": "Z"}], "per_device": [], "per_specimen": [], "comms_stats": {}}
+    state = {
+        "step": 0,
+        "per_agent": [{"agent_id": "x", "zone": "Z"}],
+        "per_device": [],
+        "per_specimen": [],
+        "comms_stats": {},
+    }
     payload = '[{"action_type":"NOOP","args_examples":[{}],"description":"Do nothing."}]'
     a = canonical_prompt_representation("coordination_llm_central_planner_v0.1", state, payload, None)
     b = canonical_prompt_representation("coordination_llm_central_planner_v0.1", state, payload, None)

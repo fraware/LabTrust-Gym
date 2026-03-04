@@ -1,6 +1,6 @@
 # FHIR R4 Export
 
-See [Frozen contracts](../contracts/frozen_contracts.md) and [Release checklist](../operations/release_checklist.md) for verifying an EvidenceBundle.v0.1 (including integrity, schema, hashchain, and invariant trace) with `labtrust verify-bundle --bundle <dir>`.
+See [Frozen contracts](../contracts/frozen_contracts.md) and [Trust verification](../risk-and-security/trust_verification.md) for verifying an EvidenceBundle.v0.1 (including integrity, schema, hashchain, and invariant trace) with `labtrust verify-bundle --bundle <dir>`.
 
 The FHIR R4 exporter converts **Receipt.v0.1** (from an evidence bundle or receipts directory) into **valid HL7 FHIR R4 JSON**. The repo targets valid FHIR R4: no placeholder IDs, and missing data is represented using the standard **data-absent-reason** extension and `Observation.dataAbsentReason` where appropriate.
 
@@ -53,6 +53,8 @@ labtrust export-fhir --receipts <dir> --out <dir> [--filename fhir_bundle.json]
 - **Structural checks**: Bundle has `resourceType` "Bundle", `type` "collection", and `entry[]` with `fullUrl` and `resource`. Each resource has `resourceType` and `id`. References that use `reference` resolve within the bundle (same-bundle references use `#ResourceType/id`). Specimen may be represented by a Reference with only the data-absent-reason extension (no `reference`), in which case no resolution is required. No resource `id` or fullUrl may contain "placeholder".
 - **Determinism**: Same receipts directory (same file order and content) produces identical bundle JSON (canonical key ordering).
 - **Export contract schema**: `policy/schemas/fhir_bundle_export.v0.1.schema.json` describes the minimal export contract (required keys, entry structure). This is not full FHIR profile validation.
+
+**Terminology validation (optional):** The CLI command `labtrust validate-fhir --bundle <path> --terminology <value_set_json> [--strict]` checks coded elements (e.g. Observation.code, Observation.interpretation) in a FHIR bundle against a value set. Use this when you need to ensure codes conform to a specific terminology; it is not part of the minimal export contract. See [Coordination benchmark card – Full FHIR or terminology validation](../coordination/coordination_benchmark_card.md#what-this-benchmark-is-not-measuring).
 
 ## When specimen is missing (data-absent-reason)
 

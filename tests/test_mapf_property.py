@@ -22,7 +22,7 @@ from labtrust_gym.baselines.coordination.routing.whca_router import whca_route_a
 def _make_linear(n: int) -> RoutingGraph:
     """Linear chain: n0-n1-n2-..."""
     nodes = {f"n{i}" for i in range(n)}
-    edges = {(f"n{i}", f"n{i+1}") for i in range(n - 1)}
+    edges = {(f"n{i}", f"n{i + 1}") for i in range(n - 1)}
     return RoutingGraph(nodes=nodes, edges=edges)
 
 
@@ -41,10 +41,10 @@ def _make_grid(rows: int, cols: int) -> RoutingGraph:
         for j in range(cols):
             n = f"g_{i}_{j}"
             if i + 1 < rows:
-                edges.add((n, f"g_{i+1}_{j}"))
+                edges.add((n, f"g_{i + 1}_{j}"))
             if j + 1 < cols:
-                edges.add((n, f"g_{i}_{j+1}"))
-    for (a, b) in list(edges):
+                edges.add((n, f"g_{i}_{j + 1}"))
+    for a, b in list(edges):
         edges.add((b, a))
     return RoutingGraph(nodes=nodes, edges=edges)
 
@@ -54,7 +54,13 @@ def _all_graphs() -> list[tuple[str, RoutingGraph]]:
     out: list[tuple[str, RoutingGraph]] = []
     for k in range(2, 9):
         out.append((f"linear_{k}", _make_linear(k)))
-    for leaves in (["a", "b", "c"], ["u", "v", "w"], ["p", "q", "r", "s"], ["p", "q", "r", "s", "t"], ["a", "b", "c", "d", "e", "f"]):
+    for leaves in (
+        ["a", "b", "c"],
+        ["u", "v", "w"],
+        ["p", "q", "r", "s"],
+        ["p", "q", "r", "s", "t"],
+        ["a", "b", "c", "d", "e", "f"],
+    ):
         out.append((f"star_{len(leaves)}", _make_star("c", leaves)))
     for rows, cols in [(2, 2), (2, 3), (2, 4), (2, 5), (3, 2), (3, 3), (3, 4), (4, 2), (4, 3)]:
         out.append((f"grid_{rows}x{cols}", _make_grid(rows, cols)))
@@ -192,7 +198,7 @@ def test_mapf_property_whca_multi_agent_collision_free(
         assert not v003, f"INV-ROUTE-SWAP: {v003}"
 
 
-@pytest.mark.skip(reason="CBS not in [mapf]; add when CBS backend available. See SOTA_REMAINING_STEPS.md Phase 1 MAPF backend equivalence.")
+@pytest.mark.skip(reason="CBS not in [mapf]; add when CBS backend available.")
 def test_mapf_cbs_equivalence() -> None:
     """Placeholder: when CBS is available, same instance WHCA vs CBS, CBS cost <= WHCA, both collision-free. Blocked on [mapf] CBS backend."""
     pass

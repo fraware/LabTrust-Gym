@@ -15,11 +15,11 @@ import pytest
 
 from labtrust_gym.policy.coordination import (
     get_required_bench_cells,
+    list_scale_capable_method_ids,
     load_coordination_methods,
     load_coordination_study_spec,
     load_method_risk_matrix,
 )
-from labtrust_gym.studies.coverage_gate import check_summary_coverage
 from labtrust_gym.policy.loader import (
     PolicyLoadError,
     load_json,
@@ -30,6 +30,7 @@ from labtrust_gym.policy.validate import (
     validate_policy,
     validate_policy_file_against_schema,
 )
+from labtrust_gym.studies.coverage_gate import check_summary_coverage
 
 
 def _repo_root() -> Path:
@@ -222,11 +223,13 @@ def test_check_summary_coverage_full_passes(tmp_path: Path) -> None:
         w = csv.DictWriter(f, fieldnames=["method_id", "risk_id", "scale_id"])
         w.writeheader()
         for c in required:
-            w.writerow({
-                "method_id": c.get("method_id", ""),
-                "risk_id": c.get("risk_id", ""),
-                "scale_id": "scale_0",
-            })
+            w.writerow(
+                {
+                    "method_id": c.get("method_id", ""),
+                    "risk_id": c.get("risk_id", ""),
+                    "scale_id": "scale_0",
+                }
+            )
     assert check_summary_coverage(summary_csv, matrix_path, strict=False) is True
 
 
@@ -259,3 +262,36 @@ def test_check_summary_coverage_missing_strict_exits(tmp_path: Path) -> None:
     with pytest.raises(SystemExit) as exc_info:
         check_summary_coverage(summary_csv, matrix_path, strict=True)
     assert exc_info.value.code == 1
+
+
+def test_list_scale_capable_method_ids_from_policy() -> None:
+    """When policy has scale_capable: true on methods, list_scale_capable_method_ids returns them."""
+    root = _repo_root()
+    path = root / "policy/coordination/coordination_methods.v0.1.yaml"
+    if not path.exists():
+        pytest.skip("coordination_methods.v0.1.yaml not found")
+    ids = list_scale_capable_method_ids(path)
+    assert isinstance(ids, list)
+    assert "llm_constrained" in ids
+    assert "llm_central_planner" in ids
+    assert ids == sorted(ids)
+    for mid in ids:
+        methods = load_coordination_methods(path)
+        assert methods.get(mid, {}).get("scale_capable") is True
+
+
+def test_list_scale_capable_method_ids_fallback_when_no_scale_capable(tmp_path: Path) -> None:
+    """When no method has scale_capable true, list_scale_capable_method_ids returns legacy set."""
+    yaml_path = tmp_path / "coordination_methods.v0.1.yaml"
+    yaml_path.write_text(
+        "coordination_methods:\n"
+        "  version: '0.1'\n"
+        "  methods:\n"
+        "    - method_id: some_method\n"
+        "      name: Some\n"
+        "      coordination_class: llm\n",
+        encoding="utf-8",
+    )
+    ids = list_scale_capable_method_ids(yaml_path)
+    assert set(ids) == {"llm_constrained", "llm_central_planner"}
+    assert ids == sorted(ids)

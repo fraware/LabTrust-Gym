@@ -170,6 +170,36 @@ def test_receipt_blocked() -> None:
     assert "CRIT_NO_ACK" in res["reason_codes"]
 
 
+def test_receipt_security_event_reflected() -> None:
+    """
+    Episode log with BLOCKED + security reason code (SECURITY_REASON_CODES) produces
+    receipt that reflects the block (decision BLOCKED, reason code in reason_codes).
+    """
+    from labtrust_gym.benchmarks.metrics import SECURITY_REASON_CODES
+
+    reason_code = "SIG_INVALID"
+    assert reason_code in SECURITY_REASON_CODES
+    entries = [
+        {
+            "t_s": 100,
+            "action_type": "CREATE_ACCESSION",
+            "args": {"specimen_id": "S_SEC"},
+            "status": "ACCEPTED",
+        },
+        {
+            "t_s": 200,
+            "action_type": "RELEASE_RESULT",
+            "args": {"result_id": "R_SEC"},
+            "status": "BLOCKED",
+            "blocked_reason_code": reason_code,
+        },
+    ]
+    receipts = build_receipts_from_log(entries)
+    res = next(r for r in receipts if r.get("result_id") == "R_SEC")
+    assert res["decision"] == "BLOCKED"
+    assert reason_code in res["reason_codes"]
+
+
 def test_receipt_forensic_freeze_hashchain() -> None:
     """Step with FORENSIC_FREEZE_LOG emit => hashchain break_status broken in proof."""
     entries = [
@@ -282,6 +312,35 @@ def test_export_determinism() -> None:
         assert [f.name for f in files1] == [f.name for f in files2]
         for f1, f2 in zip(files1, files2):
             assert f1.read_text(encoding="utf-8") == f2.read_text(encoding="utf-8"), f"Content diff: {f1.name}"
+
+
+def test_evidence_bundle_manifest_has_tool_registry_fingerprint() -> None:
+    """R-DATA-001/SEC-DATA-PROV-001: Export with policy_root yields manifest with tool_registry_fingerprint."""
+    import tempfile
+
+    root = _repo_root()
+    entries = [
+        {
+            "t_s": 10,
+            "agent_id": "A",
+            "action_type": "CREATE_ACCESSION",
+            "args": {"specimen_id": "S1"},
+            "status": "ACCEPTED",
+        },
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        log_path = Path(tmp) / "episode_log.jsonl"
+        with log_path.open("w", encoding="utf-8") as f:
+            for e in entries:
+                f.write(json.dumps(e, sort_keys=True) + "\n")
+        out = Path(tmp) / "export"
+        bundle = export_receipts(log_path, out, policy_root=root, partner_id="test_partner")
+        manifest_path = bundle / "manifest.json"
+        assert manifest_path.exists()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert "tool_registry_fingerprint" in manifest
+        if (root / "policy" / "tool_registry.v0.1.yaml").exists():
+            assert isinstance(manifest["tool_registry_fingerprint"], str)
 
 
 def test_write_evidence_bundle_creates_manifest() -> None:
@@ -436,7 +495,6 @@ def test_receipt_tampering_fails_verification() -> None:
     """Tampering with a signed receipt causes verify_receipt to fail."""
     pytest.importorskip("cryptography")
     import base64
-    import tempfile
 
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey

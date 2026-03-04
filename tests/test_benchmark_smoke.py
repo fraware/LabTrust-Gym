@@ -64,9 +64,7 @@ def test_benchmark_determinism_same_seed() -> None:
         assert data1["seeds"] == data2["seeds"]
         for i, (ep1, ep2) in enumerate(zip(data1["episodes"], data2["episodes"])):
             assert ep1["seed"] == ep2["seed"], f"episode {i} seed"
-            assert (
-                ep1["metrics"] == ep2["metrics"]
-            ), f"episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
+            assert ep1["metrics"] == ep2["metrics"], f"episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
 
 
 def test_task_initial_state_deterministic() -> None:
@@ -93,29 +91,23 @@ def test_initial_state_has_policy_root_and_reagent_stock_for_reset() -> None:
         overrides["timing_mode"] = task.timing_mode
     merged = {**initial_state, **overrides}
 
-    assert (
-        "policy_root" in merged
-    ), "initial_state passed to reset must include policy_root"
-    assert (
-        "reagent_initial_stock" in merged
-    ), "initial_state passed to reset must include reagent_initial_stock (throughput_sla/B/C provide it)"
+    assert "policy_root" in merged, "initial_state passed to reset must include policy_root"
+    assert "reagent_initial_stock" in merged, (
+        "initial_state passed to reset must include reagent_initial_stock (throughput_sla/B/C provide it)"
+    )
 
     policy_root = Path(merged["policy_root"])
-    reagent_policy_path = (
-        policy_root / "policy" / "reagents" / "reagent_policy.v0.1.yaml"
+    reagent_policy_path = policy_root / "policy" / "reagents" / "reagent_policy.v0.1.yaml"
+    assert reagent_policy_path.exists(), (
+        f"reagent policy file must exist at {reagent_policy_path} so engine can load stock"
     )
-    assert (
-        reagent_policy_path.exists()
-    ), f"reagent policy file must exist at {reagent_policy_path} so engine can load stock"
 
     stock = merged["reagent_initial_stock"]
     assert isinstance(stock, dict), "reagent_initial_stock must be a dict"
-    assert (
-        "R_CHEM_CORE" in stock
-    ), "reagent_initial_stock must include R_CHEM_CORE for BIOCHEM panels"
-    assert (
-        float(stock["R_CHEM_CORE"]) >= 14.0
-    ), "R_CHEM_CORE stock must be >= 14 (quantity_per_run for BIOCHEM_PANEL_CORE) for at least one START_RUN"
+    assert "R_CHEM_CORE" in stock, "reagent_initial_stock must include R_CHEM_CORE for BIOCHEM panels"
+    assert float(stock["R_CHEM_CORE"]) >= 14.0, (
+        "R_CHEM_CORE stock must be >= 14 (quantity_per_run for BIOCHEM_PANEL_CORE) for at least one START_RUN"
+    )
 
 
 @pytest.mark.slow
@@ -173,12 +165,8 @@ def test_task_e_emits_dispatch_transport_at_least_once() -> None:
 
     agents_map = {
         "ops_0": ScriptedOpsAgent(),
-        "runner_0": ScriptedRunnerAgent(
-            zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
-        ),
-        "runner_1": ScriptedRunnerAgent(
-            zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
-        ),
+        "runner_0": ScriptedRunnerAgent(zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS),
+        "runner_1": ScriptedRunnerAgent(zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS),
     }
     metrics, step_results_per_step = run_episode(
         task, episode_seed=50, env_factory=_env_factory, scripted_agents_map=agents_map
@@ -209,9 +197,9 @@ def test_task_e_determinism() -> None:
         assert data1["seeds"] == data2["seeds"]
         for i, (ep1, ep2) in enumerate(zip(data1["episodes"], data2["episodes"])):
             assert ep1["seed"] == ep2["seed"], f"episode {i} seed"
-            assert (
-                ep1["metrics"] == ep2["metrics"]
-            ), f"multi_site_stat episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
+            assert ep1["metrics"] == ep2["metrics"], (
+                f"multi_site_stat episode {i} metrics differ: {ep1['metrics']} vs {ep2['metrics']}"
+            )
 
 
 @pytest.mark.slow
@@ -246,12 +234,8 @@ def test_task_e_deterministic_transport_path() -> None:
     def _run():
         agents_map = {
             "ops_0": ScriptedOpsAgent(),
-            "runner_0": ScriptedRunnerAgent(
-                zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
-            ),
-            "runner_1": ScriptedRunnerAgent(
-                zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS
-            ),
+            "runner_0": ScriptedRunnerAgent(zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS),
+            "runner_1": ScriptedRunnerAgent(zone_ids=DEFAULT_ZONE_IDS, device_ids=DEFAULT_DEVICE_IDS),
         }
         metrics, step_results_per_step = run_episode(
             task,
@@ -278,13 +262,9 @@ def test_task_e_deterministic_transport_path() -> None:
 
     count1, coc1, seq1 = _run()
     count2, coc2, seq2 = _run()
-    assert (
-        count1 == count2
-    ), f"transport_consignment_count must be deterministic: {count1} vs {count2}"
+    assert count1 == count2, f"transport_consignment_count must be deterministic: {count1} vs {count2}"
     assert coc1 == coc2, f"coc_breaks_count must be deterministic: {coc1} vs {coc2}"
-    assert (
-        seq1 == seq2
-    ), f"Transport emit sequence must be deterministic: {seq1} vs {seq2}"
+    assert seq1 == seq2, f"Transport emit sequence must be deterministic: {seq1} vs {seq2}"
 
 
 @pytest.mark.slow
@@ -310,10 +290,7 @@ def test_task_f_insider_runs() -> None:
             assert "throughput" in m
             assert "steps" in m
             assert "fraction_of_attacks_contained" in m
-            assert (
-                "time_to_first_detected_security_violation" in m
-                or "fraction_of_attacks_contained" in m
-            )
+            assert "time_to_first_detected_security_violation" in m or "fraction_of_attacks_contained" in m
             assert "forensic_quality_score" in m
 
 

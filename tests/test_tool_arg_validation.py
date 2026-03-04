@@ -22,6 +22,11 @@ from labtrust_gym.tools.arg_validation import (
 from labtrust_gym.tools.registry import get_tool_entry, load_tool_registry
 
 
+def _noop_tool_adapter(tool_id: str, args: dict) -> dict:
+    """No-op adapter so env.step() with tool_id does not raise; used for arg/registry gate tests."""
+    return {}
+
+
 def _minimal_initial_state(registry: dict, policy_root: Path | None = None) -> dict:
     """Minimal initial_state so CoreEnv reset and step (tool + arg gate) run."""
     state = {
@@ -37,6 +42,7 @@ def _minimal_initial_state(registry: dict, policy_root: Path | None = None) -> d
         "tokens": [],
         "audit_fault_injection": None,
         "tool_registry": registry,
+        "tool_adapter": _noop_tool_adapter,
     }
     if policy_root is not None:
         state["policy_root"] = policy_root

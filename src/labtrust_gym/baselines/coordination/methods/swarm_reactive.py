@@ -211,7 +211,11 @@ class SwarmReactive(CoordinationMethod):
                 if neighbors and (self._congestion_scale > 0 or self._inertia_weight > 0):
                     zone_agent_count: dict[str, int] = {}
                     for aid in agents:
-                        z = get_zone_from_obs(obs.get(aid) or {}, self._zone_ids) or (obs.get(aid) or {}).get("zone_id") or ""
+                        z = (
+                            get_zone_from_obs(obs.get(aid) or {}, self._zone_ids)
+                            or (obs.get(aid) or {}).get("zone_id")
+                            or ""
+                        )
                         zone_agent_count[z] = zone_agent_count.get(z, 0) + 1
                     last = self._last_move.get(agent_id)
                     best_score: float = -1e9

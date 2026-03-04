@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+  <defs>
+    <linearGradient id="shield-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d9488"/>
+      <stop offset="100%" style="stop-color:#0f766e"/>
+    </linearGradient>
+    <linearGradient id="flask-fill" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#ccfbf1"/>
+    </linearGradient>
+  </defs>
+  <!-- Shield (trust) -->
+  <path fill="url(#shield-fill)" d="M60 8 L100 24 L100 56 Q100 88 60 112 Q20 88 20 56 L20 24 Z"/>
+  <!-- Flask (lab): neck + body -->
+  <path fill="url(#flask-fill)" fill-opacity="0.95" stroke="#0f766e" stroke-width="1.5" stroke-linejoin="round"
+        d="M52 32 L52 44 L44 44 L44 72 Q44 84 60 84 Q76 84 76 72 L76 44 L68 44 L68 32 Z"/>
+  <!-- Flask opening -->
+  <rect x="50" y="28" width="20" height="6" rx="1" fill="url(#flask-fill)" stroke="#0f766e" stroke-width="1"/>
+</svg>

@@ -20,7 +20,6 @@ from labtrust_gym.security.transparency import (
     write_llm_live_transparency_log,
 )
 
-
 # Canonical metadata keys that all live backends must populate (runner.py metadata branch).
 LIVE_EVALUATION_METADATA_KEYS = ("model_id", "temperature", "tool_registry_fingerprint", "allow_network")
 LLM_LIVE_TOP_LEVEL_KEYS = (
@@ -63,7 +62,11 @@ def test_live_evaluation_metadata_schema_per_provider(tmp_path: Path, provider: 
     """For each provider, synthetic results produce live_evaluation_metadata with same required keys."""
     results_dir = tmp_path / "baselines" / "results"
     results_dir.mkdir(parents=True)
-    model_id = "gpt-4o-mini" if provider == "openai_live" else ("claude-3-5-haiku" if provider == "anthropic_live" else "ollama/llama2")
+    model_id = (
+        "gpt-4o-mini"
+        if provider == "openai_live"
+        else ("claude-3-5-haiku" if provider == "anthropic_live" else "ollama/llama2")
+    )
     results_dir.joinpath("throughput_sla_scripted.json").write_text(
         json.dumps(
             _make_result_json(provider, model_id, 120.5),
@@ -94,7 +97,11 @@ def test_llm_live_json_top_level_shape_per_provider(tmp_path: Path, provider: st
     """For each provider, llm_live.json has the same top-level shape (version, prompt_hashes, ...)."""
     results_dir = tmp_path / "baselines" / "results"
     results_dir.mkdir(parents=True)
-    model_id = "gpt-4o-mini" if provider == "openai_live" else ("claude-3-5-haiku" if provider == "anthropic_live" else "ollama/llama2")
+    model_id = (
+        "gpt-4o-mini"
+        if provider == "openai_live"
+        else ("claude-3-5-haiku" if provider == "anthropic_live" else "ollama/llama2")
+    )
     results_dir.joinpath("throughput_sla_scripted.json").write_text(
         json.dumps(
             _make_result_json(provider, model_id, 100.0),
@@ -165,7 +172,12 @@ def test_summary_cross_provider_contract_required_keys() -> None:
             {
                 "provider": "openai_live",
                 "out_dir": "/out/openai_live",
-                "live_metadata": {"model_id": "gpt-4o-mini", "temperature": None, "tool_registry_fingerprint": "fp", "allow_network": True},
+                "live_metadata": {
+                    "model_id": "gpt-4o-mini",
+                    "temperature": None,
+                    "tool_registry_fingerprint": "fp",
+                    "allow_network": True,
+                },
                 "llm_live_version": "0.1",
                 "latency_and_cost": {"mean_latency_ms": {"min": 50.0, "max": 200.0, "mean": 100.0, "sum": 300.0}},
             }

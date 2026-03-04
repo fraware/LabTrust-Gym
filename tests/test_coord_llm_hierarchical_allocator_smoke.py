@@ -7,17 +7,15 @@ vs violations and resilience under comms poison.
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.llm_contract import validate_proposal
 from labtrust_gym.baselines.coordination.local_controller import (
     _job_id,
     intent_to_actions,
 )
 from labtrust_gym.baselines.coordination.methods.llm_hierarchical_allocator import (
+    SET_INTENT,
     DeterministicAssignmentsBackend,
     LLMHierarchicalAllocator,
-    SET_INTENT,
 )
 
 
@@ -51,9 +49,7 @@ def test_deterministic_assignments_backend_proposal_validates() -> None:
         "device_zone": {"D1": "Z_A"},
     }
     allowed = [SET_INTENT, "NOOP", "TICK"]
-    proposal, meta = backend.generate_proposal(
-        digest, allowed, step_id=0, method_id="llm_hierarchical_allocator"
-    )
+    proposal, meta = backend.generate_proposal(digest, allowed, step_id=0, method_id="llm_hierarchical_allocator")
     valid, errors = validate_proposal(proposal, allowed_actions=allowed)
     assert valid, errors
     assert proposal.get("method_id") == "llm_hierarchical_allocator"
@@ -110,10 +106,24 @@ def test_intent_to_actions_returns_concrete_actions() -> None:
     zone_ids = ["Z_A"]
     device_ids = ["D0"]
     device_zone = {"D0": "Z_A"}
-    policy = {"zone_layout": {"zones": [{"zone_id": "Z_A"}], "device_placement": [{"device_id": "D0", "zone_id": "Z_A"}], "graph_edges": []}}
+    policy = {
+        "zone_layout": {
+            "zones": [{"zone_id": "Z_A"}],
+            "device_placement": [{"device_id": "D0", "zone_id": "Z_A"}],
+            "graph_edges": [],
+        }
+    }
     actions = intent_to_actions(
-        proposal, obs, agent_ids, zone_ids, device_ids, device_zone,
-        policy, t=0, seed=42, strategy="edf",
+        proposal,
+        obs,
+        agent_ids,
+        zone_ids,
+        device_ids,
+        device_zone,
+        policy,
+        t=0,
+        seed=42,
+        strategy="edf",
     )
     assert set(actions.keys()) == {"ops_0", "runner_0"}
     for aid, ad in actions.items():
@@ -203,7 +213,11 @@ def test_hierarchical_low_confidence_fallback() -> None:
     policy = {
         "pz_to_engine": {"a1": "r1"},
         "policy_summary": {},
-        "zone_layout": {"zones": [{"zone_id": "Z_A"}], "device_placement": [{"device_id": "D1", "zone_id": "Z_A"}], "graph_edges": []},
+        "zone_layout": {
+            "zones": [{"zone_id": "Z_A"}],
+            "device_placement": [{"device_id": "D1", "zone_id": "Z_A"}],
+            "graph_edges": [],
+        },
     }
     allocator = LLMHierarchicalAllocator(
         allocator_backend=backend,
@@ -213,7 +227,11 @@ def test_hierarchical_low_confidence_fallback() -> None:
     )
     allocator.reset(seed=0, policy=policy, scale_config={"confidence_threshold": 0.5})
     obs = {
-        "a1": {"zone_id": "Z_A", "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}], "queue_has_head": [1]},
+        "a1": {
+            "zone_id": "Z_A",
+            "queue_by_device": [{"device_id": "D1", "queue_head": "W1", "queue_len": 1}],
+            "queue_has_head": [1],
+        },
     }
     actions = allocator.propose_actions(obs, {}, 0)
     assert "a1" in actions
@@ -243,6 +261,7 @@ def test_hierarchical_assumption_mismatch_reject() -> None:
 def test_registry_creates_llm_hierarchical_allocator() -> None:
     """Registry instantiates llm_hierarchical_allocator with deterministic backend."""
     from pathlib import Path
+
     from labtrust_gym.baselines.coordination.registry import make_coordination_method
 
     repo_root = Path(__file__).resolve().parent.parent

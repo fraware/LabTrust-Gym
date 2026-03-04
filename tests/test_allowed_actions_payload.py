@@ -143,9 +143,7 @@ def test_payload_work_id_never_placeholder_and_matches_pattern() -> None:
             if "work_id" not in ex:
                 continue
             work_id = ex["work_id"]
-            assert work_id != legacy_marker, (
-                f"ACTION_SPEC_REGISTRY[{action_type!r}] must not use legacy work_id marker"
-            )
+            assert work_id != legacy_marker, f"ACTION_SPEC_REGISTRY[{action_type!r}] must not use legacy work_id marker"
             if action_type == "QUEUE_RUN":
                 assert WORK_ID_PATTERN.match(work_id), (
                     f"QUEUE_RUN work_id must match work_{{run_id}}_{{agent_id}}_{{step_idx}}, got {work_id!r}"

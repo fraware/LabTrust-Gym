@@ -24,18 +24,13 @@ def test_deterministic_run_cannot_call_network_even_with_openai_key() -> None:
     from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
     from labtrust_gym.pipeline import set_pipeline_config
 
-    set_pipeline_config(
-        pipeline_mode="deterministic", allow_network=False, llm_backend_id=None
-    )
+    set_pipeline_config(pipeline_mode="deterministic", allow_network=False, llm_backend_id=None)
     with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-key"}, clear=False):
         backend = OpenAILiveBackend()
     with pytest.raises(RuntimeError) as exc_info:
         backend.generate([{"role": "user", "content": "test"}])
     assert "Network is not allowed" in str(exc_info.value)
-    assert (
-        "deterministic" in str(exc_info.value).lower()
-        or "pipeline" in str(exc_info.value).lower()
-    )
+    assert "deterministic" in str(exc_info.value).lower() or "pipeline" in str(exc_info.value).lower()
 
 
 def test_deterministic_run_results_contain_pipeline_mode(tmp_path: Path) -> None:
@@ -114,9 +109,7 @@ def test_ollama_live_respects_network_gate() -> None:
     from labtrust_gym.baselines.llm.backends.ollama_live import OllamaLiveBackend
     from labtrust_gym.pipeline import set_pipeline_config
 
-    set_pipeline_config(
-        pipeline_mode="llm_offline", allow_network=False, llm_backend_id=None
-    )
+    set_pipeline_config(pipeline_mode="llm_offline", allow_network=False, llm_backend_id=None)
     backend = OllamaLiveBackend()
     with pytest.raises(RuntimeError) as exc_info:
         backend.generate([{"role": "user", "content": "test"}])
@@ -196,7 +189,4 @@ def test_pipeline_mode_llm_offline_rejects_live_backend(tmp_path: Path) -> None:
             allow_network=False,
         )
     assert "llm_offline" in str(exc_info.value).lower()
-    assert (
-        "deterministic" in str(exc_info.value).lower()
-        or "live" in str(exc_info.value).lower()
-    )
+    assert "deterministic" in str(exc_info.value).lower() or "live" in str(exc_info.value).lower()

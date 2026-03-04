@@ -57,7 +57,8 @@ def test_gate_fail_with_evidence() -> None:
 def test_gate_skip_with_reason() -> None:
     """
     Injection with no gate rule produces SKIP with reason not_applicable
-    (no PASS for unimplemented or missing rule).
+    (no PASS for unimplemented or missing rule). Use an injection_id not in the
+    real gate policy so the test does not depend on which rules are configured.
     """
     repo_root = _repo_root()
     gate_policy = load_gate_policy(repo_root)
@@ -65,7 +66,7 @@ def test_gate_skip_with_reason() -> None:
     row: dict[str, Any] = {
         "scale_id": "small_smoke",
         "method_id": "kernel_auction_whca_shielded",
-        "injection_id": "INJ-TIMING-QUEUE-001",
+        "injection_id": "INJ-NO-RULE-001",
         "sec.attack_success_rate": None,
         "safety.violations_total": 0,
     }
@@ -99,4 +100,6 @@ def test_gate_eval_vector(vector_path: Path) -> None:
     verdict, rationale = evaluate_gate(row, nominal, gate_policy)
     assert verdict == expected_verdict, f"vector={vector_path.name} rationale={rationale!r}"
     if expected_sub:
-        assert expected_sub in rationale, f"vector={vector_path.name} expected substring {expected_sub!r} in {rationale!r}"
+        assert expected_sub in rationale, (
+            f"vector={vector_path.name} expected substring {expected_sub!r} in {rationale!r}"
+        )

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "example-coord-plugin"
+version = "0.1.0"
+description = "Minimal LabTrust-Gym extension example: one custom coordination method (no new task)."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "labtrust-gym[env]",
+]
+
+[project.entry-points."labtrust_gym.coordination_methods"]
+example_noop_coord = "example_coord_plugin.method:factory"
+
+[tool.setuptools.packages.find]
+where = ["src"]

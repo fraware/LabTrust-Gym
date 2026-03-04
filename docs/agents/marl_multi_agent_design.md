@@ -36,11 +36,17 @@ This document describes the multi-agent MARL design in LabTrust-Gym: shared PPO 
 3. If custom CTDE: implement a training loop that (a) collects transitions with current env and agent_id in obs, (b) computes value from centralized state (e.g. concat of all obs), (c) updates policy with PPO-style loss using that value; save policy and train_config in the same shape as current PPO so `MarlPPOCoordination` and PPOAgent can load it.
 4. Document in [MARL baselines](marl_baselines.md) the new option and any extra dependencies.
 
-**Current status:** Design only; no MAPPO/CTDE implementation yet. Shared PPO with agent_id remains the supported MARL path.
+**Current status:** CTDE entry point and train_config shape are implemented; policy is trained with standard PPO. Full central critic training is future work. MAPPO (external) is not implemented.
 
-## Other optional future work
+## Train multiple agents (implemented)
 
-- **Train multiple agents:** Extend the training loop so more than one agent is learned (e.g. ops_0 and runners) with agent_id in obs; the current setup trains only ops_0 with agent_id so the same policy can be used at inference for all agents.
+The training loop supports **controlled_agents**: a list of agent ids (default `["ops_0"]`). When `controlled_agents = ["ops_0", "runner_0"]`, the wrapper rotates which agent is controlled each step (round-robin); the same shared policy receives that agent's obs plus one_hot(agent_index) and the reward from that agent. Other controlled agents use scripted policies (ScriptedOpsAgent, ScriptedRunnerAgent, etc.) so the env step is valid. The same saved model is used at inference by marl_ppo for all agents. See `sb3_wrapper.LabTrustGymnasiumWrapper` (controlled_agents, _current_agent, _agent_obs_histories) and `ppo_train.train_ppo` (controlled_agents in train_config).
+
+## CTDE (centralized training, decentralized execution)
+
+- **Entry point:** `labtrust_gym.baselines.marl.ctde_ppo_train.train_ctde_ppo` trains the policy (currently via standard PPO) and writes `algorithm: "ctde"` in train_config. Eval and marl_ppo load the policy unchanged.
+- **Global state:** `get_global_state(obs, agent_order, n_d, n_status)` in `sb3_wrapper` builds a centralized state vector as the concatenation of each agent's flat obs (for a future central critic). The wrapper exposes `global_state` and `global_state_prev` in step `info` for use in CTDE training.
+- **Future work:** Central critic (value from global state) and advantage from central value; current implementation uses shared PPO policy only.
 
 ## References
 

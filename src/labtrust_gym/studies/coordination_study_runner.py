@@ -20,24 +20,30 @@ from typing import Any
 
 # Method IDs that use LLM; only included in the study when --llm-backend is set.
 # Includes base methods and defended variants (shielded, safe_fallback).
-LLM_METHOD_IDS = frozenset({
-    "llm_central_planner",
-    "llm_hierarchical_allocator",
-    "llm_auction_bidder",
-    "llm_central_planner_shielded",
-    "llm_hierarchical_allocator_shielded",
-    "llm_auction_bidder_shielded",
-    "llm_central_planner_with_safe_fallback",
-    "llm_hierarchical_allocator_with_safe_fallback",
-    "llm_auction_bidder_with_safe_fallback",
-    "llm_gossip_summarizer",
-    "llm_local_decider_signed_bus",
-    "llm_repair_over_kernel_whca",
-    "llm_constrained",
-    "llm_detector_throttle_advisor",
-})
+LLM_METHOD_IDS = frozenset(
+    {
+        "llm_central_planner",
+        "llm_hierarchical_allocator",
+        "llm_auction_bidder",
+        "llm_central_planner_shielded",
+        "llm_hierarchical_allocator_shielded",
+        "llm_auction_bidder_shielded",
+        "llm_central_planner_with_safe_fallback",
+        "llm_hierarchical_allocator_with_safe_fallback",
+        "llm_auction_bidder_with_safe_fallback",
+        "llm_gossip_summarizer",
+        "llm_local_decider_signed_bus",
+        "llm_repair_over_kernel_whca",
+        "llm_constrained",
+        "llm_detector_throttle_advisor",
+    }
+)
 
 from labtrust_gym.benchmarks.coordination_scale import CoordinationScaleConfig
+from labtrust_gym.benchmarks.rate_uncertainty import (
+    clopper_pearson_ci,
+    worst_case_success_rate_upper,
+)
 from labtrust_gym.benchmarks.runner import run_benchmark
 from labtrust_gym.policy.coordination import (
     get_required_bench_cells,
@@ -256,7 +262,7 @@ def _coverage_preflight(
                 f"Missing: {[m['risk_id'] for m in missing]}. See {out_path}. "
                 "Add injections or waived_risks in the spec, or set LABTRUST_STRICT_COVERAGE=0 to warn only."
             )
-            raise SystemExit(1)
+            raise SystemExit(1, msg)
     return missing
 
 
@@ -273,6 +279,10 @@ def _empty_cell_metrics() -> dict[str, Any]:
         "safety.violations_total": 0,
         "safety.blocks_total": 0,
         "sec.attack_success_rate": None,
+        "sec.attack_success_rate_ci_lower": None,
+        "sec.attack_success_rate_ci_upper": None,
+        "sec.worst_case_attack_success_upper_95": None,
+        "sec.attack_success_observed": None,
         "sec.detection_latency_steps": None,
         "sec.containment_time_steps": None,
         "sec.stealth_success_rate": None,
@@ -308,6 +318,7 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
     violations_total = 0
     blocks_total = 0
     attack_success_sum = 0.0
+    attack_success_observed_sum = 0.0
     detection_steps: list[int | None] = []
     containment_steps: list[int | None] = []
     stealth_success_sum = 0.0
@@ -340,6 +351,7 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         p95_list.append(m.get("p95_turnaround_s"))
         sec = m.get("sec") or {}
         attack_success_sum += 1.0 if sec.get("attack_success_rate") else 0.0
+        attack_success_observed_sum += 1.0 if sec.get("attack_success_observed") else 0.0
         detection_steps.append(sec.get("detection_latency_steps"))
         containment_steps.append(sec.get("containment_time_steps"))
         stealth_success_sum += 1.0 if sec.get("stealth_success_rate") else 0.0
@@ -420,6 +432,16 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         "safety.violations_total": violations_total,
         "safety.blocks_total": blocks_total,
         "sec.attack_success_rate": attack_success_sum / n if n else None,
+        "sec.attack_success_rate_ci_lower": (
+            clopper_pearson_ci(int(attack_success_sum), n, 0.95)[0] if n >= 1 else None
+        ),
+        "sec.attack_success_rate_ci_upper": (
+            clopper_pearson_ci(int(attack_success_sum), n, 0.95)[1] if n >= 1 else None
+        ),
+        "sec.worst_case_attack_success_upper_95": (
+            worst_case_success_rate_upper(n, 0.95) if n >= 1 and attack_success_sum == 0 else None
+        ),
+        "sec.attack_success_observed": attack_success_observed_sum / n if n else None,
         "sec.detection_latency_steps": (sum(det_vals) / len(det_vals) if det_vals else None),
         "sec.containment_time_steps": (sum(cont_vals) / len(cont_vals) if cont_vals else None),
         "sec.stealth_success_rate": stealth_success_sum / n if n else None,
@@ -432,24 +454,18 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         "comm.partition_events": (sum(partition_vals) if partition_vals else None),
         "coordination.stale_action_rate": (sum(stale_vals) / len(stale_vals) if stale_vals else None),
         "coordination.deadlock_avoids": (sum(deadlock_vals) / len(deadlock_vals) if deadlock_vals else None),
-        "proposal_valid_rate": (sum(proposal_valid_rates) / len(proposal_valid_rates) if proposal_valid_rates else None),
+        "proposal_valid_rate": (
+            sum(proposal_valid_rates) / len(proposal_valid_rates) if proposal_valid_rates else None
+        ),
         "blocked_rate": (sum(blocked_rates) / len(blocked_rates) if blocked_rates else None),
         "repair_rate": (sum(repair_rates) / len(repair_rates) if repair_rates else None),
         "tokens_per_step": (sum(tok_vals) / len(tok_vals) if tok_vals else None),
         "p95_llm_latency_ms": _p95(llm_lat_vals),
         "cost.total_tokens": sum(cost_total_tokens_list),
-        "cost.estimated_cost_usd": (
-            sum(cost_estimated_usd_list) if cost_estimated_usd_list else None
-        ),
-        "llm.error_rate": (
-            sum(llm_error_rates) / len(llm_error_rates)
-            if llm_error_rates
-            else 0.0
-        ),
+        "cost.estimated_cost_usd": (sum(cost_estimated_usd_list) if cost_estimated_usd_list else None),
+        "llm.error_rate": (sum(llm_error_rates) / len(llm_error_rates) if llm_error_rates else 0.0),
         "llm.invalid_output_rate": (
-            sum(llm_invalid_output_rates) / len(llm_invalid_output_rates)
-            if llm_invalid_output_rates
-            else None
+            sum(llm_invalid_output_rates) / len(llm_invalid_output_rates) if llm_invalid_output_rates else None
         ),
     }
     return out
@@ -558,6 +574,9 @@ def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
         "safety.violations_total",
         "safety.blocks_total",
         "sec.attack_success_rate",
+        "sec.attack_success_rate_ci_lower",
+        "sec.attack_success_rate_ci_upper",
+        "sec.worst_case_attack_success_upper_95",
         "sec.detection_latency_steps",
         "sec.containment_time_steps",
         "sec.stealth_success_rate",
@@ -586,6 +605,9 @@ def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
     optional_empty = [
         "perf.p95_tat",
         "sec.attack_success_rate",
+        "sec.attack_success_rate_ci_lower",
+        "sec.attack_success_rate_ci_upper",
+        "sec.worst_case_attack_success_upper_95",
         "sec.detection_latency_steps",
         "sec.containment_time_steps",
         "sec.stealth_success_rate",
@@ -825,9 +847,7 @@ def run_coordination_study(
     for i, inj in enumerate(injections):
         inj_id = inj.get("injection_id", "")
         rids = inj_to_risk_ids.get(inj_id)
-        risk_id_by_injection[inj_id] = (
-            rids[0] if rids else (risks[i] if i < len(risks) else None) or inj_id
-        )
+        risk_id_by_injection[inj_id] = rids[0] if rids else (risks[i] if i < len(risks) else None) or inj_id
 
     cells_dir = out_dir / "cells"
     summary_dir = out_dir / "summary"
@@ -942,6 +962,7 @@ def run_coordination_study(
         if repo_root and (repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml").is_file():
             try:
                 from labtrust_gym.policy.coordination import load_coordination_methods
+
                 registry = load_coordination_methods(
                     repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
                 )

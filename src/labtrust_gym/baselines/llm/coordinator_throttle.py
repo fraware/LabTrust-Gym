@@ -31,33 +31,25 @@ def coordinator_throttle_config_from_env() -> dict[str, Any]:
     logger = logging.getLogger(__name__)
     out = dict(throttle_config_from_env())
     try:
-        t = os.environ.get(
-            "LABTRUST_COORD_CIRCUIT_BREAKER_THRESHOLD", ""
-        ).strip()
+        t = os.environ.get("LABTRUST_COORD_CIRCUIT_BREAKER_THRESHOLD", "").strip()
         if t.isdigit():
             out["circuit_consecutive_threshold"] = int(t)
     except (ValueError, TypeError) as e:
         logger.debug("Invalid LABTRUST_COORD_CIRCUIT_BREAKER_THRESHOLD, using default: %s", e)
     try:
-        c = os.environ.get(
-            "LABTRUST_COORD_CIRCUIT_BREAKER_COOLDOWN", ""
-        ).strip()
+        c = os.environ.get("LABTRUST_COORD_CIRCUIT_BREAKER_COOLDOWN", "").strip()
         if c.isdigit():
             out["circuit_cooldown_calls"] = int(c)
     except (ValueError, TypeError) as e:
         logger.debug("Invalid LABTRUST_COORD_CIRCUIT_BREAKER_COOLDOWN, using default: %s", e)
     try:
-        m = os.environ.get(
-            "LABTRUST_COORD_RATE_LIMIT_MAX_CALLS", ""
-        ).strip()
+        m = os.environ.get("LABTRUST_COORD_RATE_LIMIT_MAX_CALLS", "").strip()
         if m.isdigit():
             out["rate_max_calls"] = int(m)
     except (ValueError, TypeError) as e:
         logger.debug("Invalid LABTRUST_COORD_RATE_LIMIT_MAX_CALLS, using default: %s", e)
     try:
-        w = os.environ.get(
-            "LABTRUST_COORD_RATE_LIMIT_WINDOW_SECONDS", ""
-        ).strip()
+        w = os.environ.get("LABTRUST_COORD_RATE_LIMIT_WINDOW_SECONDS", "").strip()
         if w:
             out["rate_window_seconds"] = float(w)
     except (ValueError, TypeError) as e:
@@ -70,11 +62,7 @@ def _agent_ids_from_digest(digest: dict[str, Any]) -> list[str]:
     per_agent = digest.get("per_agent") or []
     if not isinstance(per_agent, list):
         return []
-    return [
-        str(p.get("agent_id", ""))
-        for p in per_agent
-        if isinstance(p, dict) and p.get("agent_id")
-    ]
+    return [str(p.get("agent_id", "")) for p in per_agent if isinstance(p, dict) and p.get("agent_id")]
 
 
 def _noop_proposal_for_digest(
@@ -125,9 +113,7 @@ def _noop_bid_proposal_for_digest(
     reason_code: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """NOOP bid proposal (empty market) and meta for guardrail fallback."""
-    proposal, meta = _noop_proposal_for_digest(
-        digest, step_id, method_id, reason_code
-    )
+    proposal, meta = _noop_proposal_for_digest(digest, step_id, method_id, reason_code)
     proposal["market"] = []
     return proposal, meta
 
@@ -166,21 +152,13 @@ class CoordinatorGuardrailProposalBackend:
         **kwargs: Any,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         if self._circuit.should_skip_llm():
-            return _noop_proposal_for_digest(
-                state_digest, step_id, method_id, "CIRCUIT_BREAKER_OPEN"
-            )
+            return _noop_proposal_for_digest(state_digest, step_id, method_id, "CIRCUIT_BREAKER_OPEN")
         if not self._rate.allow_call():
-            return _noop_proposal_for_digest(
-                state_digest, step_id, method_id, "RATE_LIMITED"
-            )
+            return _noop_proposal_for_digest(state_digest, step_id, method_id, "RATE_LIMITED")
         try:
-            out = self._inner.generate_proposal(
-                state_digest, allowed_actions, step_id, method_id, **kwargs
-            )
+            out = self._inner.generate_proposal(state_digest, allowed_actions, step_id, method_id, **kwargs)
         except Exception as e:
-            logging.getLogger(__name__).warning(
-                "Coordinator proposal generation failed, using fallback: %s", e
-            )
+            logging.getLogger(__name__).warning("Coordinator proposal generation failed, using fallback: %s", e)
             self._circuit.record_block()
             return _noop_proposal_for_digest(
                 state_digest,
@@ -229,21 +207,13 @@ class CoordinatorGuardrailBidBackend:
         **kwargs: Any,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         if self._circuit.should_skip_llm():
-            return _noop_bid_proposal_for_digest(
-                state_digest, step_id, method_id, "CIRCUIT_BREAKER_OPEN"
-            )
+            return _noop_bid_proposal_for_digest(state_digest, step_id, method_id, "CIRCUIT_BREAKER_OPEN")
         if not self._rate.allow_call():
-            return _noop_bid_proposal_for_digest(
-                state_digest, step_id, method_id, "RATE_LIMITED"
-            )
+            return _noop_bid_proposal_for_digest(state_digest, step_id, method_id, "RATE_LIMITED")
         try:
-            out = self._inner.generate_proposal(
-                state_digest, step_id, method_id, **kwargs
-            )
+            out = self._inner.generate_proposal(state_digest, step_id, method_id, **kwargs)
         except Exception as e:
-            logging.getLogger(__name__).warning(
-                "Coordinator bid proposal generation failed, using fallback: %s", e
-            )
+            logging.getLogger(__name__).warning("Coordinator bid proposal generation failed, using fallback: %s", e)
             self._circuit.record_block()
             return _noop_bid_proposal_for_digest(
                 state_digest,
@@ -312,9 +282,7 @@ class CoordinatorGuardrailRepairBackend:
         try:
             per_agent, meta = self._inner.repair(repair_input, agent_ids)
         except Exception as e:
-            logging.getLogger(__name__).warning(
-                "Coordinator repair failed, using fallback: %s", e
-            )
+            logging.getLogger(__name__).warning("Coordinator repair failed, using fallback: %s", e)
             self._circuit.record_block()
             return _noop_repair_result(agent_ids, "CIRCUIT_BREAKER_OPEN")
         self._rate.record_call()
@@ -382,9 +350,7 @@ class CoordinatorGuardrailDetectorBackend:
         try:
             out = self._inner.detect(step, event_summary, comms_stats)
         except Exception as e:
-            logging.getLogger(__name__).warning(
-                "Coordinator detector failed, using fallback: %s", e
-            )
+            logging.getLogger(__name__).warning("Coordinator detector failed, using fallback: %s", e)
             self._circuit.record_block()
             return _safe_detector_fallback_for_guardrail()
         self._rate.record_call()

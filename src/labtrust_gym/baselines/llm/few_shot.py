@@ -21,6 +21,7 @@ def _get_repo_root() -> Path:
     """Resolve repo root for policy paths."""
     try:
         from labtrust_gym.config import get_repo_root
+
         return Path(get_repo_root())
     except Exception:
         return Path(__file__).resolve().parent.parent.parent.parent.parent
@@ -41,6 +42,7 @@ def load_few_shot_examples(
         return []
     try:
         import yaml
+
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception:
         return []
@@ -72,9 +74,7 @@ def _example_to_user_assistant_pair(
     action = ex.get("action_proposal")
     if isinstance(state, dict) and isinstance(action, dict):
         user_content = (
-            "STATE_SUMMARY_JSON:\n"
-            + json.dumps(state, sort_keys=True)
-            + "\n\nReturn a single ActionProposal JSON."
+            "STATE_SUMMARY_JSON:\n" + json.dumps(state, sort_keys=True) + "\n\nReturn a single ActionProposal JSON."
         )
         assistant_content = json.dumps(action, sort_keys=True)
         return (user_content, assistant_content)

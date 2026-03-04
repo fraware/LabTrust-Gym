@@ -1,6 +1,6 @@
 # Lab coordination report
 
-This document describes the **canonical flow for hospital lab** coordination evaluation: run the security pack matrix, aggregate results, choose the optimal method per scale, and produce a single lab report bundle.
+This document describes the **canonical flow for pathology lab (blood sciences)** coordination evaluation: run the security pack matrix, aggregate results, choose the optimal method per scale, and produce a single lab report bundle.
 
 ## Canonical flow
 
@@ -34,7 +34,7 @@ The **recommended method** is produced by `recommend-coordination-method`, which
 - Ranks admissible methods by the **objective** (e.g. `maximize_overall_score`). When `robustness.resilience_score` is present (e.g. from a matrix build), that is used; otherwise the fallback is throughput (max) then violations (min).
 - Outputs one **chosen method per scale** (or "no admissible method" if none pass).
 
-The **hospital lab at scale** profile uses the scale `medium_stress_signed_bus` (75 agents, 2 sites, signed bus). The selection policy’s per-scale rule for that scale prioritizes resilience over raw throughput (`resilience_weight_override: 1.2`). So the optimal method for the lab is the one that satisfies the constraints and ranks highest under that objective.
+The **pathology lab at scale** (blood sciences) profile uses the scale `medium_stress_signed_bus` (75 agents, 2 sites, signed bus). The selection policy’s per-scale rule for that scale prioritizes resilience over raw throughput (`resilience_weight_override: 1.2`). So the optimal method for the lab is the one that satisfies the constraints and ranks highest under that objective.
 
 Evidence for the decision comes from the same run: `pack_summary.csv` (and optionally `pack_gate.md`, `SECURITY/coordination_risk_matrix`) provide the metrics that the decision builder uses. The lab report ties these together in one place.
 
@@ -42,4 +42,4 @@ Evidence for the decision comes from the same run: `pack_summary.csv` (and optio
 
 - [Coordination studies](coordination_studies.md) – study runner, summary CSV, Pareto, SOTA leaderboard.
 - [Security attack suite – Coordination security pack](../risk-and-security/security_attack_suite.md#coordination-security-pack-internal-regression) – pack matrix, gate rules, risk matrix.
-- [Benchmarking plan](../benchmarks/benchmarking_plan.md) – Layer 1–3 and security pack outputs.
+- [Security attack suite](../risk-and-security/security_attack_suite.md) – Coordination security pack and gate.

@@ -68,6 +68,10 @@ else
   RUN_DIRS+=("$COORD_SMOKE")
 fi
 
+# Verify run evidence before using for export (bundles + SECURITY checksums)
+echo "Verifying run evidence..."
+python3 scripts/verify_run_evidence.py --policy-root "$REPO_ROOT" "${RUN_DIRS[@]}" || exit 1
+
 # Export risk register
 echo "Exporting risk register..."
 ARGS=("--out" "$OUT_DIR")

@@ -46,20 +46,14 @@ COMPARISON_CLASS_BY_METHOD: dict[str, str] = {
 }
 
 
-def _comparison_class(
-    method_id: str, registry: dict[str, dict[str, Any]] | None
-) -> str:
+def _comparison_class(method_id: str, registry: dict[str, dict[str, Any]] | None) -> str:
     """Map method_id to comparison class for method-class table."""
     if method_id in COMPARISON_CLASS_BY_METHOD:
         return COMPARISON_CLASS_BY_METHOD[method_id]
     if registry and method_id in registry:
         cls = (registry[method_id] or {}).get("coordination_class") or ""
         if cls == "centralized":
-            return (
-                "kernel_schedulers"
-                if method_id.startswith("kernel_")
-                else "centralized"
-            )
+            return "kernel_schedulers" if method_id.startswith("kernel_") else "centralized"
         if cls == "hierarchical":
             return "centralized"
         if cls == "market":
@@ -125,9 +119,7 @@ def load_summary_rows(csv_path: Path) -> list[dict[str, Any]]:
                 "sec.stealth_success_rate",
             ):
                 row[k] = _parse_float(row.get(k))
-            row["safety.violations_total"] = _parse_float(
-                row.get("safety.violations_total")
-            )
+            row["safety.violations_total"] = _parse_float(row.get("safety.violations_total"))
             if row["safety.violations_total"] is not None:
                 row["safety.violations_total"] = int(row["safety.violations_total"])
             rows.append(row)
@@ -158,15 +150,9 @@ def build_sota_leaderboard(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "method_id": method_id,
                 "throughput_mean": sum(tp_vals) / len(tp_vals) if tp_vals else None,
-                "violations_mean": (
-                    sum(viol_vals) / len(viol_vals) if viol_vals else None
-                ),
-                "resilience_score_mean": (
-                    sum(res_vals) / len(res_vals) if res_vals else None
-                ),
-                "stealth_success_rate_mean": (
-                    sum(stealth_vals) / len(stealth_vals) if stealth_vals else None
-                ),
+                "violations_mean": (sum(viol_vals) / len(viol_vals) if viol_vals else None),
+                "resilience_score_mean": (sum(res_vals) / len(res_vals) if res_vals else None),
+                "stealth_success_rate_mean": (sum(stealth_vals) / len(stealth_vals) if stealth_vals else None),
                 "n_cells": len(group),
             }
         )
@@ -199,15 +185,9 @@ def build_sota_leaderboard_by_phase(rows: list[dict[str, Any]]) -> list[dict[str
                 "method_id": method_id,
                 "application_phase": application_phase,
                 "throughput_mean": sum(tp_vals) / len(tp_vals) if tp_vals else None,
-                "violations_mean": (
-                    sum(viol_vals) / len(viol_vals) if viol_vals else None
-                ),
-                "resilience_score_mean": (
-                    sum(res_vals) / len(res_vals) if res_vals else None
-                ),
-                "stealth_success_rate_mean": (
-                    sum(stealth_vals) / len(stealth_vals) if stealth_vals else None
-                ),
+                "violations_mean": (sum(viol_vals) / len(viol_vals) if viol_vals else None),
+                "resilience_score_mean": (sum(res_vals) / len(res_vals) if res_vals else None),
+                "stealth_success_rate_mean": (sum(stealth_vals) / len(stealth_vals) if stealth_vals else None),
                 "n_cells": len(group),
             }
         )
@@ -238,26 +218,22 @@ def build_method_class_comparison(
             {
                 "method_class": class_id,
                 "throughput_mean": (
-                    sum(x for x in tp if x is not None)
-                    / len([x for x in tp if x is not None])
+                    sum(x for x in tp if x is not None) / len([x for x in tp if x is not None])
                     if any(x is not None for x in tp)
                     else None
                 ),
                 "violations_mean": (
-                    sum(x for x in viol if x is not None)
-                    / len([x for x in viol if x is not None])
+                    sum(x for x in viol if x is not None) / len([x for x in viol if x is not None])
                     if any(x is not None for x in viol)
                     else None
                 ),
                 "resilience_score_mean": (
-                    sum(x for x in res if x is not None)
-                    / len([x for x in res if x is not None])
+                    sum(x for x in res if x is not None) / len([x for x in res if x is not None])
                     if res and any(x is not None for x in res)
                     else None
                 ),
                 "stealth_success_rate_mean": (
-                    sum(x for x in stealth if x is not None)
-                    / len([x for x in stealth if x is not None])
+                    sum(x for x in stealth if x is not None) / len([x for x in stealth if x is not None])
                     if stealth and any(x is not None for x in stealth)
                     else None
                 ),
@@ -267,9 +243,7 @@ def build_method_class_comparison(
     return out
 
 
-def write_leaderboard_by_phase_csv(
-    out_path: Path, leaderboard: list[dict[str, Any]]
-) -> None:
+def write_leaderboard_by_phase_csv(out_path: Path, leaderboard: list[dict[str, Any]]) -> None:
     """Write sota_leaderboard_by_phase.csv."""
     columns = [
         "method_id",
@@ -299,9 +273,7 @@ def write_leaderboard_by_phase_csv(
             w.writerow(row)
 
 
-def write_leaderboard_by_phase_md(
-    out_path: Path, leaderboard: list[dict[str, Any]]
-) -> None:
+def write_leaderboard_by_phase_md(out_path: Path, leaderboard: list[dict[str, Any]]) -> None:
     """Write sota_leaderboard_by_phase.md (markdown table)."""
     lines = [
         "# SOTA leaderboard by method and phase (coordination)",
@@ -484,8 +456,7 @@ def run_summarize(
     csv_path = _find_summary_csv(in_dir)
     if not csv_path:
         raise FileNotFoundError(
-            f"No summary CSV under {in_dir}. "
-            "Looked for summary/summary_coord.csv, summary_coord.csv, pack_summary.csv."
+            f"No summary CSV under {in_dir}. Looked for summary/summary_coord.csv, summary_coord.csv, pack_summary.csv."
         )
 
     rows = load_summary_rows(csv_path)
@@ -502,9 +473,7 @@ def run_summarize(
 
     registry: dict[str, dict[str, Any]] | None = None
     if repo_root is not None:
-        reg_path = (
-            repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
-        )
+        reg_path = repo_root / "policy" / "coordination" / "coordination_methods.v0.1.yaml"
         if reg_path.is_file():
             try:
                 from labtrust_gym.policy.coordination import load_coordination_methods
@@ -519,18 +488,10 @@ def run_summarize(
     summary_out = out_dir / "summary"
     summary_out.mkdir(parents=True, exist_ok=True)
     write_leaderboard_csv(summary_out / "sota_leaderboard.csv", leaderboard)
-    write_leaderboard_md(
-        summary_out / "sota_leaderboard.md", leaderboard, source_note=source_note
-    )
+    write_leaderboard_md(summary_out / "sota_leaderboard.md", leaderboard, source_note=source_note)
     write_method_class_csv(summary_out / "method_class_comparison.csv", comparison)
-    write_method_class_md(
-        summary_out / "method_class_comparison.md", comparison, source_note=source_note
-    )
+    write_method_class_md(summary_out / "method_class_comparison.md", comparison, source_note=source_note)
     if has_phase:
         leaderboard_by_phase = build_sota_leaderboard_by_phase(rows)
-        write_leaderboard_by_phase_csv(
-            summary_out / "sota_leaderboard_by_phase.csv", leaderboard_by_phase
-        )
-        write_leaderboard_by_phase_md(
-            summary_out / "sota_leaderboard_by_phase.md", leaderboard_by_phase
-        )
+        write_leaderboard_by_phase_csv(summary_out / "sota_leaderboard_by_phase.csv", leaderboard_by_phase)
+        write_leaderboard_by_phase_md(summary_out / "sota_leaderboard_by_phase.md", leaderboard_by_phase)

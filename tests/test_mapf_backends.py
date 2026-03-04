@@ -4,8 +4,6 @@ Tests for MAPF/TAPF router backend ladder (make_router, router_backend in scale_
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.routing.mapf_backends import make_router
 
 

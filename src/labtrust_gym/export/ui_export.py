@@ -34,20 +34,23 @@ EVENT_FIELDS = (
 
 
 def _detect_run_type(run_dir: Path) -> str:
-    """Return 'quick_eval' or 'package_release' based on directory layout."""
+    """Return 'quick_eval', 'package_release', or 'full_pipeline' based on directory layout."""
     run_dir = run_dir.resolve()
     if not run_dir.is_dir():
         raise FileNotFoundError(f"Run directory does not exist: {run_dir}")
     # package-release: _baselines, _repr, _study, metadata.json, RELEASE_NOTES.md
     has_release_dirs = (
-        (run_dir / "_baselines").is_dir()
-        or (run_dir / "_repr").is_dir()
-        or (run_dir / "_study").is_dir()
+        (run_dir / "_baselines").is_dir() or (run_dir / "_repr").is_dir() or (run_dir / "_study").is_dir()
     )
     if has_release_dirs:
         return "package_release"
     if (run_dir / "metadata.json").exists() or (run_dir / "RELEASE_NOTES.md").exists():
         return "package_release"
+    # full-pipeline (hospital lab): baselines/, SECURITY/ or SAFETY_CASE/, optional coordination_pack/
+    has_baselines = (run_dir / "baselines").is_dir()
+    has_security_or_safety = (run_dir / "SECURITY").is_dir() or (run_dir / "SAFETY_CASE").is_dir()
+    if has_baselines and has_security_or_safety:
+        return "full_pipeline"
     # quick-eval: throughput_sla.json, adversarial_disruption.json, multi_site_stat.json and logs/
     if (run_dir / "throughput_sla.json").exists() and (run_dir / "logs").is_dir():
         return "quick_eval"
@@ -57,14 +60,13 @@ def _detect_run_type(run_dir: Path) -> str:
         return "quick_eval"
     raise ValueError(
         f"Unrecognized run layout under {run_dir}. "
-        "Expected labtrust_runs/quick_eval_* (throughput_sla.json, logs/) or "
-        "package-release (_baselines, _repr, _study, receipts/)."
+        "Expected labtrust_runs/quick_eval_* (throughput_sla.json, logs/), "
+        "package-release (_baselines, _repr, _study, receipts/), or "
+        "full-pipeline (baselines/, SECURITY/ or SAFETY_CASE/)."
     )
 
 
-def _normalize_event(
-    raw: dict[str, Any], task: str = "", episode_index: int = 0
-) -> dict[str, Any]:
+def _normalize_event(raw: dict[str, Any], task: str = "", episode_index: int = 0) -> dict[str, Any]:
     """Normalize one JSONL step line to stable UI event fields."""
     out: dict[str, Any] = {}
     for k in EVENT_FIELDS:
@@ -121,6 +123,37 @@ def _get_pipeline_fields_from_run(
     Returns dict with pipeline_mode, llm_backend_id, llm_model_id, allow_network (when present).
     """
     out: dict[str, Any] = {}
+    if run_type == "full_pipeline":
+        # pack_manifest.json or first baselines/results/*.json
+        manifest_path = run_dir / "pack_manifest.json"
+        if manifest_path.exists():
+            try:
+                data = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if "pipeline_mode" in data:
+                    out["pipeline_mode"] = data["pipeline_mode"]
+                if "allow_network" in data:
+                    out["allow_network"] = data["allow_network"]
+            except (json.JSONDecodeError, OSError):
+                pass
+        bl_results = run_dir / "baselines" / "results"
+        if bl_results.is_dir():
+            for res_path in sorted(bl_results.glob("*.json")):
+                if res_path.name.startswith("metadata"):
+                    continue
+                try:
+                    data = json.loads(res_path.read_text(encoding="utf-8"))
+                    for key in (
+                        "pipeline_mode",
+                        "llm_backend_id",
+                        "llm_model_id",
+                        "allow_network",
+                    ):
+                        if key in data:
+                            out[key] = data[key]
+                except (json.JSONDecodeError, OSError):
+                    pass
+                break
+        return out
     if run_type == "package_release":
         meta_path = run_dir / "metadata.json"
         if meta_path.exists():
@@ -203,15 +236,55 @@ def _collect_quick_eval(
                     "task": task,
                     "episode_index": ep_idx,
                     "results_ref": str(res_path.relative_to(run_dir)),
-                    "log_ref": (
-                        str(log_path.relative_to(run_dir))
-                        if log_path.exists()
-                        else None
-                    ),
+                    "log_ref": (str(log_path.relative_to(run_dir)) if log_path.exists() else None),
                     "receipts_ref": None,
                 }
             )
     return tasks, episodes, receipts_index
+
+
+def _collect_full_pipeline(
+    run_dir: Path,
+) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    """
+    Collect tasks, episodes, receipts_index, baselines for full-pipeline layout.
+
+    Layout: baselines/results/*.json, optional coordination_pack/, SECURITY/, SAFETY_CASE/.
+    Each results.json is one task; episode 0 with results_ref and log_ref if episodes.jsonl exists.
+    """
+    tasks: list[str] = []
+    episodes: list[dict[str, Any]] = []
+    receipts_index: list[dict[str, Any]] = []
+    baselines: list[str] = []
+
+    bl_results = run_dir / "baselines" / "results"
+    if not bl_results.is_dir():
+        return tasks, episodes, receipts_index, baselines
+
+    for res_path in sorted(bl_results.glob("*.json")):
+        if res_path.name in ("metadata.json", "METHOD_TRACE.jsonl"):
+            continue
+        task = res_path.stem
+        tasks.append(task)
+        baselines.append(task)
+        log_path = res_path.parent / "episodes.jsonl"
+        log_ref = str(log_path.relative_to(run_dir)) if log_path.exists() else None
+        episodes.append(
+            {
+                "task": task,
+                "episode_index": 0,
+                "results_ref": str(res_path.relative_to(run_dir)),
+                "log_ref": log_ref,
+                "receipts_ref": None,
+                "episode_key": f"{task}_0",
+            }
+        )
+
+    # coordination_pack/pack_results/* are not added as tasks to keep the bundle small;
+    # coordination_artifacts (pack_summary.csv, pack_gate.md, etc.) are still collected
+    # when present under run_dir/coordination_pack/ via _collect_coordination_artifacts().
+
+    return tasks, episodes, receipts_index, baselines
 
 
 def _collect_package_release(
@@ -248,11 +321,7 @@ def _collect_package_release(
                         "task": task,
                         "episode_index": ep_idx,
                         "results_ref": str(res_path.relative_to(run_dir)),
-                        "log_ref": (
-                            str(log_path.relative_to(run_dir))
-                            if log_path.exists()
-                            else None
-                        ),
+                        "log_ref": (str(log_path.relative_to(run_dir)) if log_path.exists() else None),
                         "receipts_ref": f"receipts/{task}",
                     }
                 )
@@ -266,11 +335,7 @@ def _collect_package_release(
                         if f.is_file() and f.suffix == ".json":
                             receipt_files.append(f.name)
                 for f in rec_dir.iterdir():
-                    if (
-                        f.is_file()
-                        and f.name.startswith("receipt_")
-                        and f.suffix == ".json"
-                    ):
+                    if f.is_file() and f.name.startswith("receipt_") and f.suffix == ".json":
                         receipt_files.append(f.name)
                 if receipt_files:
                     receipts_index.append(
@@ -358,10 +423,7 @@ def _collect_coord_telemetry(
         coord_path = log_path.parent / "coord_decisions.jsonl"
         if not coord_path.is_file():
             continue
-        episode_key = (
-            ep.get("episode_key")
-            or f"{ep.get('task', '')}_{ep.get('episode_index', 0)}"
-        )
+        episode_key = ep.get("episode_key") or f"{ep.get('task', '')}_{ep.get('episode_index', 0)}"
         refs.append(
             {
                 "episode_key": episode_key,
@@ -412,7 +474,7 @@ def export_ui_bundle(
     """
     Export a UI-ready zip from a labtrust run directory.
 
-    - run_dir: path to labtrust_runs/quick_eval_* or package-release output
+    - run_dir: path to labtrust_runs/quick_eval_*, package-release output, or full-pipeline (baselines/, SECURITY/, coordination_pack/)
     - out_zip_path: path to output .zip (e.g. ui_bundle.zip)
     - repo_root: policy root (for reason_codes); default from get_repo_root()
 
@@ -429,7 +491,9 @@ def export_ui_bundle(
 
     if run_type == "quick_eval":
         tasks, episodes, receipts_index = _collect_quick_eval(run_dir)
-        baselines: list[str] = []
+        baselines = []
+    elif run_type == "full_pipeline":
+        tasks, episodes, receipts_index, baselines = _collect_full_pipeline(run_dir)
     else:
         tasks, episodes, receipts_index, baselines = _collect_package_release(run_dir)
 
@@ -465,12 +529,8 @@ def export_ui_bundle(
             if full.is_file():
                 zf.write(full, f"coordination/{rel}")
         zf.writestr("events.json", json.dumps(events, indent=2, sort_keys=True))
-        zf.writestr(
-            "receipts_index.json", json.dumps(receipts_index, indent=2, sort_keys=True)
-        )
-        zf.writestr(
-            "reason_codes.json", json.dumps(reason_codes, indent=2, sort_keys=True)
-        )
+        zf.writestr("receipts_index.json", json.dumps(receipts_index, indent=2, sort_keys=True))
+        zf.writestr("reason_codes.json", json.dumps(reason_codes, indent=2, sort_keys=True))
         for ref in coord_telemetry_refs:
             episode_key = ref.get("episode_key", "")
             coord_ref = ref.get("coord_decisions_ref", "")
@@ -480,18 +540,12 @@ def export_ui_bundle(
                 (
                     e
                     for e in episodes
-                    if (
-                        e.get("episode_key")
-                        or f"{e.get('task', '')}_{e.get('episode_index', 0)}"
-                    )
-                    == episode_key
+                    if (e.get("episode_key") or f"{e.get('task', '')}_{e.get('episode_index', 0)}") == episode_key
                 ),
                 None,
             )
             if ep and ep.get("log_ref"):
-                coord_path = (
-                    run_dir / Path(ep["log_ref"]).parent / "coord_decisions.jsonl"
-                )
+                coord_path = run_dir / Path(ep["log_ref"]).parent / "coord_decisions.jsonl"
                 if coord_path.is_file():
                     zf.writestr(coord_ref, coord_path.read_text(encoding="utf-8"))
 

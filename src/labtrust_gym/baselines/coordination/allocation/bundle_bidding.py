@@ -5,7 +5,8 @@ Clearing: greedy within budget. Deterministic tie-breaks.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from labtrust_gym.baselines.coordination.allocation.auction import WorkItem
 
@@ -43,7 +44,7 @@ def run_bundle_auction_greedy(
                 best_agent = a
         if best_agent is None or best_bid >= 1e9:
             continue
-        for (dev_id, work_id) in bundle:
+        for dev_id, work_id in bundle:
             w = item_lookup.get((dev_id, work_id))
             if w is not None:
                 assignments.append((best_agent, work_id, dev_id, w.priority))

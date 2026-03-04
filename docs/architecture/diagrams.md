@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-High-level visual overview of the main pipeline and of the HSL (Blood Sciences Lab) topology we model. Diagrams are in Mermaid; they render on GitHub and in MkDocs when using a Mermaid plugin (e.g. `mkdocs-mermaid2-plugin`). Otherwise copy the code into [Mermaid Live](https://mermaid.live) to view.
+High-level visual overview of the main pipeline and of the blood sciences lab (pathology lab) topology we model. Terminology: [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab). Diagrams are in Mermaid; they render on GitHub and in MkDocs when using a Mermaid plugin (e.g. `mkdocs-mermaid2-plugin`). Otherwise copy the code into [Mermaid Live](https://mermaid.live) to view.
 
 ---
 
@@ -58,7 +58,7 @@ flowchart TB
 
 ## 2. HSL lab topology (modeled architecture)
 
-Zone layout and specimen flow for the Blood Sciences Lab (HSL) at 60 Whitfield Street (automation hub). Two sites: **SITE_ACUTE** (STAT ingress) and **SITE_HUB** (routine lab). Arrows show permitted graph edges; the restricted branch requires a token. Devices are placed in the zones listed.
+Zone layout and specimen flow for the blood sciences lab (HSL reference at 60 Whitfield Street, automation hub). Two sites: **SITE_ACUTE** (STAT ingress) and **SITE_HUB** (routine lab). Arrows show permitted graph edges; the restricted branch requires a token. Devices are placed in the zones listed.
 
 ```mermaid
 flowchart TB

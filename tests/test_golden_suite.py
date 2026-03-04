@@ -91,7 +91,7 @@ def test_post_run_hooks_parsing_and_execution(tmp_path: Path) -> None:
     No real engine, no network: uses a fake adapter that returns valid step results.
     Asserts EXPORT_RECEIPTS -> VERIFY_BUNDLE -> EXPORT_FHIR produce expected files.
     """
-    from labtrust_gym.runner import GoldenRunner, LabTrustEnvAdapter
+    from labtrust_gym.runner import GoldenRunner
 
     class FakeEnvForHooks(LabTrustEnvAdapter):
         """Minimal adapter: reset no-op, step returns ACCEPTED with hashchain/emits. Hashchain length increments so VERIFY_BUNDLE (proof length == episode_log entries) passes."""

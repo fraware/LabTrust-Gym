@@ -8,7 +8,7 @@ Minimal PPO baseline using stable-baselines3 on throughput_sla (or other tasks).
 pip install -e ".[marl]"
 ```
 
-This installs `stable-baselines3` and `gymnasium`. The PettingZoo env is wrapped to a single-agent Gymnasium env (ops_0 controlled by PPO; runners scripted).
+This installs `stable-baselines3` and `gymnasium`. The PettingZoo env is wrapped to a single-agent Gymnasium env (ops_0 controlled by PPO; runners scripted). For a flat observation vector **per agent** without the single-agent reduction, use **FlattenObsWrapper** from `labtrust_gym.baselines.marl` (see [PettingZoo API](pettingzoo_api.md)).
 
 ## Reproducibility
 
@@ -50,7 +50,7 @@ Writes:
 - `out_dir/train_config.json`: Training config (net_arch, obs_history_len, learning_rate, n_steps, device_ids). Written at training start so checkpoint evals and eval-ppo can use the same observation shape.
 - `out_dir/eval_metrics.json`: Eval over 5 episodes after training (mean_reward, episode_rewards).
 
-**train_config (optional):** Pass a dict via the API, or use `--train-config PATH` and/or `--obs-history-len`, `--learning-rate`, `--n-steps` on the CLI. Keys: `net_arch` (e.g. `[128, 128]`), `learning_rate`, `n_steps`, `obs_history_len`, `reward_scale_schedule` (list of `[step_frac, scale]` for reward curriculum). See `examples/ppo_train_config.example.json`.
+**train_config (optional):** Pass a dict via the API, or use `--train-config PATH` and/or `--obs-history-len`, `--learning-rate`, `--n-steps` on the CLI. Keys: `net_arch` (e.g. `[128, 128]`), `learning_rate`, `n_steps`, `obs_history_len`, `reward_scale_schedule` (list of `[step_frac, scale]` for reward curriculum), `controlled_agents` (list of agent ids to train, default `["ops_0"]`), `algorithm` (e.g. `"ctde"` when using `train_ctde_ppo`). See `examples/ppo_train_config.example.json`.
 
 ### Eval
 
@@ -117,7 +117,20 @@ Results are written in the same v0.2 format as other benchmarks so you can compa
 
 ## Multi-agent (shared policy with agent_id)
 
-The **marl_ppo** coordination method uses a **shared PPO policy** with **agent_id in observation** (one-hot). Training with `labtrust train-ppo` (default `include_agent_id=True`, `num_agents=5`) produces a model that accepts `flat_obs + one_hot(agent_index)`; at coordination time each agent's obs is flattened, stacked with history if configured, and concatenated with one-hot so the same policy conditions on agent identity. The coordination security pack and full method lists exclude marl_ppo when no checkpoint is supplied. See [MARL multi-agent design](marl_multi_agent_design.md).
+The **marl_ppo** coordination method uses a **shared PPO policy** with **agent_id in observation** (one-hot). Training with `labtrust train-ppo` (default `include_agent_id=True`, `num_agents=5`) produces a model that accepts `flat_obs + one_hot(agent_index)`; at coordination time each agent's obs is flattened, stacked with history if configured, and concatenated with one-hot so the same policy conditions on agent identity. See [MARL multi-agent design](marl_multi_agent_design.md).
+
+### Supplying the model path for marl_ppo
+
+The **model_path** for marl_ppo can be supplied in either of these ways:
+
+1. **scale_config:** When running scale tasks (e.g. coord_scale, coord_risk), set `scale_config["model_path"]` to the path to your trained `model.zip` (e.g. from `labtrust train-ppo --out runs/ppo`). The runner passes this into `make_coordination_method` so the coordination method loads the checkpoint.
+2. **Direct API:** When building the coordination method programmatically, call `make_coordination_method("marl_ppo", policy, repo_root=..., scale_config=..., model_path="path/to/model.zip")`.
+
+When no checkpoint is supplied, marl_ppo cannot run (it will raise at propose_actions). The **full coordination pack** and security coverage gate exclude marl_ppo from the method list when no checkpoint is present in the repo; see `tests/test_security_coverage_gate.py` and the coordination pack method list configuration.
+
+## Security and risk
+
+MARL (shared PPO, multi-agent training, CTDE) is subject to the same risk register as other coordination methods. The method `marl_ppo` is listed in `policy/coordination/coordination_methods.v0.1.yaml` with `known_weaknesses` and `compatible_injections` (e.g. `inj_poison_obs`, `inj_stuck_state`). Observation poisoning and policy extraction are in scope for MARL-specific hardening. New MARL code paths (scale path, CTDE, multi-agent training) remain consistent with the security suite (e.g. coord_pack_ref in `run-security-suite`). See [Risk register](../risk-and-security/risk_register.md) and [Security attack suite](../risk-and-security/security_attack_suite.md).
 
 ## Caveats
 

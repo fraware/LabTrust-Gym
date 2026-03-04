@@ -37,11 +37,7 @@ def _build_task_list(context: KernelContext) -> list[tuple[int, str, str, str]]:
             if my_zone != dev_zone:
                 continue
             head = (qbd[idx] if idx < len(qbd) else {}).get("queue_head", "W")
-            prio = (
-                2
-                if "STAT" in str(head).upper()
-                else (1 if "URGENT" in str(head).upper() else 0)
-            )
+            prio = 2 if "STAT" in str(head).upper() else (1 if "URGENT" in str(head).upper() else 0)
             key = (dev_id, head or "W")
             if key not in seen:
                 seen.add(key)

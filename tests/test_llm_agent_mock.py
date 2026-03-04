@@ -231,6 +231,7 @@ def test_llm_shield_safety_forbidden_action() -> None:
     assert info.get("action_type") == "NOOP"
 
 
+@pytest.mark.slow
 def test_task_e_llm_safe_v1_runs_deterministically() -> None:
     """TaskE runs with use_llm_safe_v1_ops (mocked) and produces deterministic metrics."""
     import tempfile

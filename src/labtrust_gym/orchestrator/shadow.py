@@ -12,9 +12,9 @@ from typing import Any
 
 from labtrust_gym.export.receipts import load_episode_log
 from labtrust_gym.orchestrator.replay import (
-    compare_episode_logs,
     _find_reference_log,
     _load_results_json,
+    compare_episode_logs,
 )
 
 
@@ -88,13 +88,9 @@ def run_shadow(
                 "shadow_log": None,
                 "baseline_run_dir": str(baseline_run_dir),
             },
-            "message": (
-                "baseline_run_dir has no episode_log.jsonl or episode_0.jsonl"
-            ),
+            "message": ("baseline_run_dir has no episode_log.jsonl or episode_0.jsonl"),
         }
-        comparison_path.write_text(
-            json.dumps(payload, indent=2), encoding="utf-8"
-        )
+        comparison_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return {
             "shadow_run_dir": str(out_dir),
             "comparison_path": str(comparison_path),
@@ -123,9 +119,7 @@ def run_shadow(
             },
             "message": "baseline_run_dir has no results.json",
         }
-        comparison_path.write_text(
-            json.dumps(payload, indent=2), encoding="utf-8"
-        )
+        comparison_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return {
             "shadow_run_dir": str(out_dir),
             "comparison_path": str(comparison_path),
@@ -155,9 +149,7 @@ def run_shadow(
             },
             "message": "results.json missing task or seeds",
         }
-        comparison_path.write_text(
-            json.dumps(payload, indent=2), encoding="utf-8"
-        )
+        comparison_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return {
             "shadow_run_dir": str(out_dir),
             "comparison_path": str(comparison_path),
@@ -170,9 +162,7 @@ def run_shadow(
         }
 
     seed = int(seeds[0])
-    shadow_log_path = _run_one_episode(
-        task_name, seed, shadow_method_id, out_dir, policy_root, config
-    )
+    shadow_log_path = _run_one_episode(task_name, seed, shadow_method_id, out_dir, policy_root, config)
     if shadow_log_path is None:
         comparison_path = out_dir / "shadow_comparison.json"
         payload = {
@@ -188,9 +178,7 @@ def run_shadow(
             },
             "message": "shadow run (re-execute) failed",
         }
-        comparison_path.write_text(
-            json.dumps(payload, indent=2), encoding="utf-8"
-        )
+        comparison_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return {
             "shadow_run_dir": str(out_dir),
             "comparison_path": str(comparison_path),
@@ -222,9 +210,7 @@ def run_shadow(
         "compare_metric": compare_metric,
     }
     comparison_path = out_dir / "shadow_comparison.json"
-    comparison_path.write_text(
-        json.dumps(payload, indent=2), encoding="utf-8"
-    )
+    comparison_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     return {
         "shadow_run_dir": str(out_dir),

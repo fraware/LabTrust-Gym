@@ -23,6 +23,23 @@ from labtrust_gym.pipeline import check_network_allowed
 
 LOG = logging.getLogger(__name__)
 
+# Args object for OpenAI structured output (additionalProperties false, required: [])
+_OPENAI_STRICT_ARGS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [],
+    "properties": {
+        "device_id": {"type": "string"},
+        "work_id": {"type": "string"},
+        "priority_class": {"type": "string"},
+        "result_id": {"type": "string"},
+        "from_zone": {"type": "string"},
+        "to_zone": {"type": "string"},
+        "door_id": {"type": "string"},
+        "specimen_id": {"type": "string"},
+    },
+}
+
 # Single-step decision schema for Responses API (strict)
 SINGLE_STEP_DECISION_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -30,7 +47,7 @@ SINGLE_STEP_DECISION_SCHEMA: dict[str, Any] = {
     "required": ["action", "args", "reason_code", "confidence", "explanation_short"],
     "properties": {
         "action": {"type": "string"},
-        "args": {"type": "object"},
+        "args": _OPENAI_STRICT_ARGS_SCHEMA,
         "reason_code": {"type": "string"},
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "explanation_short": {"type": "string", "maxLength": 280},
@@ -192,9 +209,7 @@ def _estimated_cost_usd(
     if inp is None or out is None:
         return None
     try:
-        return (total_prompt_tokens / 1_000_000.0) * float(inp) + (
-            total_completion_tokens / 1_000_000.0
-        ) * float(out)
+        return (total_prompt_tokens / 1_000_000.0) * float(inp) + (total_completion_tokens / 1_000_000.0) * float(out)
     except (TypeError, ValueError):
         return None
 
@@ -230,11 +245,7 @@ class OpenAILiveResponsesBackend:
         self._retries = retries if retries is not None else ret
         self._repo_root = repo_root
         self._trace_collector = trace_collector
-        self._output_mode = (
-            output_mode
-            if output_mode in ("json_schema", "tool_call")
-            else "json_schema"
-        )
+        self._output_mode = output_mode if output_mode in ("json_schema", "tool_call") else "json_schema"
         self._prompts_policy = "v0.2" if prompts_policy == "v0.2" else "v0.1"
         self._schema = SINGLE_STEP_DECISION_SCHEMA
         self._last_error_code: str | None = None
@@ -262,16 +273,12 @@ class OpenAILiveResponsesBackend:
     def get_aggregate_metrics(self) -> dict[str, Any]:
         """Aggregate stats for results metadata: backend_id, model_id, latency p50/p95, tokens, cost."""
         rate = self._error_count / self._total_calls if self._total_calls > 0 else 0.0
-        mean_ms = (
-            self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
-        )
+        mean_ms = self._sum_latency_ms / self._total_calls if self._total_calls > 0 else None
         sorted_lat = sorted(self._latency_ms_list) if self._latency_ms_list else []
         p50_ms = _percentile(sorted_lat, 50)
         p95_ms = _percentile(sorted_lat, 95)
         tokens_per_step = (
-            round(self._total_tokens / self._total_calls, 2)
-            if self._total_calls > 0 and self._total_tokens
-            else None
+            round(self._total_tokens / self._total_calls, 2) if self._total_calls > 0 and self._total_tokens else None
         )
         out: dict[str, Any] = {
             "backend_id": BACKEND_ID,
@@ -348,9 +355,9 @@ class OpenAILiveResponsesBackend:
             prompt_fingerprint_this_call = prompt_fp
         else:
             from labtrust_gym.baselines.llm.prompts import (
-                build_user_payload_from_context,
                 DEVELOPER_PROMPT_ACTION_PROPOSAL,
                 SYSTEM_PROMPT_ACTION_PROPOSAL,
+                build_user_payload_from_context,
             )
 
             user_content = build_user_payload_from_context(
@@ -365,11 +372,7 @@ class OpenAILiveResponsesBackend:
                 recent_violations=context.get("recent_violations"),
                 enforcement_state=context.get("enforcement_state"),
             )
-            system_content = (
-                SYSTEM_PROMPT_ACTION_PROPOSAL
-                + "\n\n"
-                + DEVELOPER_PROMPT_ACTION_PROPOSAL
-            )
+            system_content = SYSTEM_PROMPT_ACTION_PROPOSAL + "\n\n" + DEVELOPER_PROMPT_ACTION_PROPOSAL
         messages = [
             {"role": "system", "content": system_content},
             {"role": "user", "content": user_content},
@@ -383,9 +386,7 @@ class OpenAILiveResponsesBackend:
                 raw, usage = self._call_api(messages)
         except Exception as e:
             latency_ms = (time.perf_counter() - start) * 1000
-            self._last_error_code = (
-                getattr(self, "_last_error_code", None) or LLM_PROVIDER_ERROR
-            )
+            self._last_error_code = getattr(self, "_last_error_code", None) or LLM_PROVIDER_ERROR
             self._error_count += 1
             self._sum_latency_ms += latency_ms
             noop = dict(NOOP_ACTION_V01)
@@ -452,9 +453,7 @@ class OpenAILiveResponsesBackend:
         try:
             from openai import OpenAI
         except ImportError as e:
-            raise RuntimeError(
-                "openai not installed; pip install -e '.[llm_openai]'"
-            ) from e
+            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
 
         client = OpenAI(api_key=self._api_key)
         response_format = {
@@ -512,9 +511,7 @@ class OpenAILiveResponsesBackend:
             return (content.strip(), usage)
         raise last_exc or RuntimeError("No response")
 
-    def _call_api_tool_call(
-        self, messages: list[dict[str, Any]]
-    ) -> tuple[str, dict[str, int]]:
+    def _call_api_tool_call(self, messages: list[dict[str, Any]]) -> tuple[str, dict[str, int]]:
         """
         Call OpenAI Chat Completions with tools=[submit_action] and tool_choice
         requiring that function. Returns (arguments_json_string, usage).
@@ -522,9 +519,7 @@ class OpenAILiveResponsesBackend:
         try:
             from openai import OpenAI
         except ImportError as e:
-            raise RuntimeError(
-                "openai not installed; pip install -e '.[llm_openai]'"
-            ) from e
+            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
 
         client = OpenAI(api_key=self._api_key)
         tool_choice = {"type": "function", "function": {"name": "submit_action"}}

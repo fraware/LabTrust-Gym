@@ -18,6 +18,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from labtrust_gym.cli.console import (
+    CLIOutput,
+    Verbosity,
+    get_console,
+    set_console,
+    verbosity_from_args,
+)
+from labtrust_gym.cli.logging_config import configure_cli_logging
 from labtrust_gym.config import get_repo_root, load_lab_profile
 from labtrust_gym.plugins import load_plugins
 from labtrust_gym.policy.validate import validate_policy
@@ -55,6 +63,15 @@ def _git_sha() -> str | None:
 
 
 def main() -> int:
+    # Optional: load .env from cwd or LABTRUST_DOTENV_PATH when python-dotenv is installed
+    try:
+        from dotenv import load_dotenv
+
+        path = os.environ.get("LABTRUST_DOTENV_PATH", "").strip() or ".env"
+        load_dotenv(path)
+    except ImportError:
+        pass
+
     # Handle --version / -V before subparsers (so "labtrust --version" works)
     if "--version" in sys.argv or "-V" in sys.argv:
         sha = _git_sha()
@@ -73,6 +90,19 @@ def main() -> int:
         metavar="ID",
         help="Lab profile ID (loads policy/lab_profiles/<id>.v0.1.yaml); overrides partner_id and optional paths when set",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Verbose output (debug logs, progress detail, tracebacks).",
+    )
+    parser.add_argument(
+        "-q",
+        "--global-quiet",
+        dest="global_quiet",
+        action="store_true",
+        help="Minimal output (errors and summary only).",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     p_validate = sub.add_parser(
         "validate-policy",
@@ -82,6 +112,16 @@ def main() -> int:
         "--partner",
         default=None,
         help="Partner ID for overlay validation (e.g. hsl_like); also LABTRUST_PARTNER env",
+    )
+    p_validate.add_argument(
+        "--strict-tool-provenance",
+        action="store_true",
+        help="Also validate tool registry SBOM/attestation: require_sbom and ref existence when set.",
+    )
+    p_validate.add_argument(
+        "--domain",
+        default=None,
+        help="Domain ID for policy/domains/<domain_id>/; load and validate domain-merged policy.",
     )
     p_validate.set_defaults(func=_run_validate_policy_wrapper)
     p_bench = sub.add_parser(
@@ -243,6 +283,55 @@ def main() -> int:
         default=None,
         choices=["llm_live_eval"],
         help="Preset: llm_live_eval = adversarial_disruption, insider_key_misuse, coord_risk with llm_live + allow-network, writes LLM_TRACE/ (requires --allow-network).",
+    )
+    p_bench.add_argument(
+        "--agent-driven",
+        action="store_true",
+        help="Run in agent-centric mode: LLM drives the loop via step_lab tool. Requires --coord-method.",
+    )
+    p_bench.add_argument(
+        "--multi-agentic",
+        action="store_true",
+        help="With --agent-driven: N agents each submit via submit_my_action; coordinator combines and steps (requires --coord-method).",
+    )
+    p_bench.add_argument(
+        "--resume-from",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="Resume from a previous run: load checkpoint from DIR and skip completed episodes (DIR must contain checkpoint.json; use same --out/--log as original run).",
+    )
+    p_bench.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Write a checkpoint every N episodes to the run directory (derived from --log). Enables resume with --resume-from.",
+    )
+    p_bench.add_argument(
+        "--log-step-interval",
+        type=int,
+        default=0,
+        metavar="N",
+        help="When --log is set: append a step record to run_dir/steps.jsonl every N steps (0=off, 1=every step). Default: 0.",
+    )
+    p_bench.add_argument(
+        "--checkpoint-every-steps",
+        type=int,
+        default=0,
+        metavar="N",
+        help="When --log is set: write step checkpoint every N steps to run_dir (0=off). Best-effort resume; same code version recommended.",
+    )
+    p_bench.add_argument(
+        "--always-step-timing",
+        action="store_true",
+        help="Always record step_timing and run_duration_wall_s in metadata (for capacity planning). When set, timing is recorded even for deterministic runs; may affect determinism if metadata is hashed.",
+    )
+    p_bench.add_argument(
+        "--approval-hook",
+        choices=("none", "auto_approve"),
+        default="none",
+        help="Optional approval hook: none (default) or auto_approve (pass-through). When set, proposed actions are transformed after propose_actions and before env.step; the benchmark does not define human behavior.",
     )
     p_bench.set_defaults(func=_run_benchmark)
     p_bench_smoke = sub.add_parser(
@@ -624,6 +713,26 @@ def main() -> int:
         help="Output filename (default: fhir_bundle.json)",
     )
     p_export_fhir.set_defaults(func=_run_export_fhir)
+    p_validate_fhir = sub.add_parser(
+        "validate-fhir",
+        help="Validate FHIR Bundle coded elements against a terminology value set (optional extension; not part of minimal benchmark).",
+    )
+    p_validate_fhir.add_argument(
+        "--bundle",
+        required=True,
+        help="Path to FHIR Bundle JSON file (e.g. fhir_bundle.json from export-fhir)",
+    )
+    p_validate_fhir.add_argument(
+        "--terminology",
+        required=True,
+        help="Path to terminology value set JSON (value_sets: map system URI to list of allowed codes)",
+    )
+    p_validate_fhir.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero if any coded element is outside the value set",
+    )
+    p_validate_fhir.set_defaults(func=_run_validate_fhir)
     p_verify_bundle = sub.add_parser(
         "verify-bundle",
         help="Verify a single EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace",
@@ -696,7 +805,7 @@ def main() -> int:
     p_ui_export.add_argument(
         "--run",
         required=True,
-        help="Run directory: labtrust_runs/quick_eval_* or package-release output",
+        help="Run directory: labtrust_runs/quick_eval_*, package-release output, or full-pipeline (baselines/, SECURITY/, coordination_pack/)",
     )
     p_ui_export.add_argument(
         "--out",
@@ -704,6 +813,23 @@ def main() -> int:
         help="Output path for ui_bundle.zip",
     )
     p_ui_export.set_defaults(func=_run_ui_export)
+    p_build_episode_bundle = sub.add_parser(
+        "build-episode-bundle",
+        help="Build episode_bundle.json for the simulation viewer from a run directory",
+    )
+    p_build_episode_bundle.add_argument(
+        "--run-dir",
+        required=True,
+        metavar="PATH",
+        help="Run directory (episode_log.jsonl or logs/*.jsonl, optional METHOD_TRACE, coord_decisions)",
+    )
+    p_build_episode_bundle.add_argument(
+        "--out",
+        default=None,
+        metavar="PATH",
+        help="Output path (default: <run-dir>/episode_bundle.json)",
+    )
+    p_build_episode_bundle.set_defaults(func=_run_build_episode_bundle)
     p_risk_bundle = sub.add_parser(
         "build-risk-register-bundle",
         help="Build RiskRegisterBundle.v0.1 JSON (risk register + evidence links) from policy and optional run dirs",
@@ -990,6 +1116,41 @@ def main() -> int:
         metavar="MODEL",
         help="Optional model override for --llm-backend (e.g. gpt-4o, llama3.2).",
     )
+    p_security_suite.add_argument(
+        "--llm-attacker-max-chars",
+        type=int,
+        default=2000,
+        metavar="N",
+        help="Max characters for LLM-generated payload (default 2000). Use higher (e.g. 4000) for stress tests.",
+    )
+    p_security_suite.add_argument(
+        "--llm-attacker-rounds",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Rounds for iterative LLM attacker (default 1). When N>1, attacker receives block feedback and generates follow-up payloads; pass iff no round succeeds.",
+    )
+    p_security_suite.add_argument(
+        "--skip-system-level",
+        action="store_true",
+        help="Skip coord_pack_ref (system-level coordination-under-attack) entries; use when [env] is not installed.",
+    )
+    p_security_suite.add_argument(
+        "--agent-driven-mode",
+        choices=["single", "multi_agentic"],
+        default=None,
+        help="When set, scenario_ref and llm_attacker attacks use agent-driven entry points (single or multi_agentic).",
+    )
+    p_security_suite.add_argument(
+        "--use-full-driver-loop",
+        action="store_true",
+        help="When set with --agent-driven-mode, use full driver loop (minimal env + AgentDrivenDriver + run_episode_agent_driven) for scenario_ref/llm_attacker. Default: in-process check.",
+    )
+    p_security_suite.add_argument(
+        "--use-mock-env",
+        action="store_true",
+        help="When set with --use-full-driver-loop, use MockBenchmarkEnv instead of full sim for agent-driven scenario_ref/llm_attacker (no CoreEnv dependency).",
+    )
     p_security_suite.set_defaults(func=_run_security_suite)
     p_safety_case = sub.add_parser(
         "safety-case",
@@ -1059,6 +1220,22 @@ def main() -> int:
         help="Output basename (default: summary -> summary.csv, summary.md)",
     )
     p_summarize.set_defaults(func=_run_summarize_results)
+    p_run_summary = sub.add_parser(
+        "run-summary",
+        help="Print one-line stats (episodes, steps, violations, throughput) for a run directory",
+    )
+    p_run_summary.add_argument(
+        "--run",
+        required=True,
+        help="Run directory (containing results.json or episodes.jsonl)",
+    )
+    p_run_summary.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format: text (one-line) or json (default: text)",
+    )
+    p_run_summary.set_defaults(func=_run_run_summary)
     p_gen_baselines = sub.add_parser(
         "generate-official-baselines",
         help="Regenerate and freeze official baseline results (core tasks from registry); write results/, summary.csv, summary.md, metadata.json. Refuse to overwrite unless --force.",
@@ -1458,9 +1635,7 @@ def main() -> int:
         "train-ppo",
         help="Train PPO on throughput_sla (or other task); requires [marl] extra",
     )
-    p_train_ppo.add_argument(
-        "--task", default="throughput_sla", help="Task name (default throughput_sla)"
-    )
+    p_train_ppo.add_argument("--task", default="throughput_sla", help="Task name (default throughput_sla)")
     p_train_ppo.add_argument(
         "--timesteps",
         type=int,
@@ -1524,13 +1699,19 @@ def main() -> int:
     )
     p_eval_ppo.add_argument("--model", required=True, help="Path to model.zip")
     p_eval_ppo.add_argument("--task", default="throughput_sla", help="Task name")
-    p_eval_ppo.add_argument(
-        "--episodes", type=int, default=50, help="Evaluation episodes"
-    )
+    p_eval_ppo.add_argument("--episodes", type=int, default=50, help="Evaluation episodes")
     p_eval_ppo.add_argument("--seed", type=int, default=123, help="Random seed")
     p_eval_ppo.add_argument("--out", default=None, help="Output JSON path for metrics")
     p_eval_ppo.set_defaults(func=_run_eval_ppo)
     args = parser.parse_args()
+    # Set up CLI output and logging from global verbosity.
+    verbosity = verbosity_from_args(
+        verbose=getattr(args, "verbose", False),
+        quiet=getattr(args, "global_quiet", False),
+    )
+    console = CLIOutput(verbosity=verbosity)
+    set_console(console)
+    configure_cli_logging(verbosity)
     # Apply lab profile when --profile is set (override partner_id and optional provider/paths).
     profile_id = getattr(args, "profile", None)
     if profile_id:
@@ -1548,6 +1729,7 @@ def main() -> int:
             extension_packages = profile.get("extension_packages")
             if isinstance(extension_packages, list):
                 import importlib
+
                 for pkg in extension_packages:
                     if isinstance(pkg, str) and pkg.strip():
                         try:
@@ -1555,6 +1737,7 @@ def main() -> int:
                         except Exception:
                             pass
             from labtrust_gym.config import get_effective_path
+
             if profile.get("security_suite_path") is not None:
                 setattr(
                     args,
@@ -1577,7 +1760,9 @@ def main() -> int:
                 setattr(
                     args,
                     "coordination_study_spec_path",
-                    get_effective_path(root, profile, "coordination_study_spec_path", "coordination/coordination_study_spec.v0.1.yaml"),
+                    get_effective_path(
+                        root, profile, "coordination_study_spec_path", "coordination/coordination_study_spec.v0.1.yaml"
+                    ),
                 )
             if profile.get("domain_id") is not None:
                 setattr(args, "domain_id", profile["domain_id"])
@@ -1588,11 +1773,11 @@ def main() -> int:
                     get_security_suite_provider,
                     list_security_suite_providers,
                 )
+
                 if get_security_suite_provider(pid) is None:
                     known = list_security_suite_providers()
-                    print(
-                        f"Profile references security_suite_provider_id {pid!r} but no provider is registered for it. Known: {known}",
-                        file=sys.stderr,
+                    get_console().error(
+                        f"Profile references security_suite_provider_id {pid!r} but no provider is registered for it. Known: {known}"
                     )
                     return 1
             pid = getattr(args, "safety_case_provider_id", None)
@@ -1601,11 +1786,11 @@ def main() -> int:
                     get_safety_case_provider,
                     list_safety_case_providers,
                 )
+
                 if get_safety_case_provider(pid) is None:
                     known = list_safety_case_providers()
-                    print(
-                        f"Profile references safety_case_provider_id {pid!r} but no provider is registered for it. Known: {known}",
-                        file=sys.stderr,
+                    get_console().error(
+                        f"Profile references safety_case_provider_id {pid!r} but no provider is registered for it. Known: {known}"
                     )
                     return 1
             pid = getattr(args, "metrics_aggregator_id", None)
@@ -1614,11 +1799,11 @@ def main() -> int:
                     get_metrics_aggregator,
                     list_metrics_aggregators,
                 )
+
                 if get_metrics_aggregator(pid) is None:
                     known = list_metrics_aggregators()
-                    print(
-                        f"Profile references metrics_aggregator_id {pid!r} but no aggregator is registered for it. Known: {known}",
-                        file=sys.stderr,
+                    get_console().error(
+                        f"Profile references metrics_aggregator_id {pid!r} but no aggregator is registered for it. Known: {known}"
                     )
                     return 1
             did = getattr(args, "domain_id", None)
@@ -1627,37 +1812,67 @@ def main() -> int:
                     get_domain_adapter_factory,
                     list_domains,
                 )
+
                 if get_domain_adapter_factory(did) is None:
                     known = list_domains()
-                    print(
-                        f"Profile references domain_id {did!r} but no domain adapter is registered for it. Known: {known}",
-                        file=sys.stderr,
+                    get_console().error(
+                        f"Profile references domain_id {did!r} but no domain adapter is registered for it. Known: {known}"
                     )
                     return 1
     try:
         return cast(int, args.func(args))
     except Exception as e:
-        print(f"labtrust {getattr(args, 'command', '?')} failed: {e}", file=sys.stderr)
+        con = get_console()
+        con.error(f"labtrust {getattr(args, 'command', '?')} failed: {e}")
+        if con.verbosity >= Verbosity.VERBOSE:
+            con.print_exception(e)
         return 1
 
 
 def _run_validate_policy_wrapper(args: argparse.Namespace) -> int:
-    """Run policy validation (with optional partner)."""
+    """Run policy validation (with optional partner, strict-tool-provenance, domain)."""
+    get_console().info("Running validate-policy.")
     root = get_repo_root()
     partner_id = _get_partner_id(args)
-    return _run_validate_policy(root, partner_id)
+    strict_tool_provenance = getattr(args, "strict_tool_provenance", False)
+    domain_id = getattr(args, "domain", None)
+    return _run_validate_policy(
+        root,
+        partner_id=partner_id,
+        strict_tool_provenance=strict_tool_provenance,
+        domain_id=domain_id,
+    )
 
 
-def _run_validate_policy(root: Path, partner_id: str | None = None) -> int:
+def _run_validate_policy(
+    root: Path,
+    partner_id: str | None = None,
+    strict_tool_provenance: bool = False,
+    domain_id: str | None = None,
+) -> int:
     """Run policy validation; print errors to stderr; return 0 on success, 1 on failure."""
-    errors = validate_policy(root, partner_id=partner_id)
+    errors = validate_policy(
+        root,
+        partner_id=partner_id,
+        strict_tool_provenance=strict_tool_provenance,
+        domain_id=domain_id,
+    )
+    con = get_console()
     if errors:
         for e in errors:
-            print(e, file=sys.stderr)
+            con.error(str(e))
         return 1
-    print("Policy validation OK.", file=sys.stderr)
+    con.write_plain("Policy validation OK.")
     if partner_id:
-        print(f"Partner overlay {partner_id!r} validated.", file=sys.stderr)
+        con.info(f"Partner overlay {partner_id!r} validated.")
+    if con.verbosity >= Verbosity.VERBOSE:
+        summary_parts = [
+            "Runner output contract, policy schemas, coordination security pack gate,",
+            "LLM schema files, tool registry capabilities.",
+        ]
+        if partner_id:
+            summary_parts.append(f"Partner overlay: {partner_id!r}.")
+        con.panel("\n".join(summary_parts), title="Validated", border_style="dim")
     return 0
 
 
@@ -1667,17 +1882,28 @@ def _allow_network_from_env() -> bool:
     return v in ("1", "true", "yes")
 
 
+def _warn_reserved_injection(injection_id: str | None) -> None:
+    """If injection_id is a reserved no-op ID, print a one-line stderr warning."""
+    if not injection_id:
+        return
+    try:
+        from labtrust_gym.security.risk_injections import RESERVED_NOOP_INJECTION_IDS
+
+        if injection_id in RESERVED_NOOP_INJECTION_IDS:
+            get_console().warning(f"{injection_id!r} is a reserved no-op injection; no injection is applied.")
+    except ImportError:
+        pass
+
+
 def _run_benchmark(args: argparse.Namespace) -> int:
     """Run benchmark and write results.json."""
+    get_console().info("Running run-benchmark.")
     profile = getattr(args, "profile", None)
     if profile == "llm_live_eval":
         return _run_benchmark_llm_live_eval(args)
 
     if not getattr(args, "task", None):
-        print(
-            "run-benchmark requires --task (or use --profile llm_live_eval).",
-            file=sys.stderr,
-        )
+        get_console().error("run-benchmark requires --task (or use --profile llm_live_eval).")
         return 1
 
     from labtrust_gym.benchmarks.runner import run_benchmark as _run
@@ -1688,15 +1914,13 @@ def _run_benchmark(args: argparse.Namespace) -> int:
     if getattr(args, "use_llm_live_openai", False):
         llm_backend = "openai_live"
     if llm_backend == "openai_live" and not os.environ.get("OPENAI_API_KEY"):
-        print(
-            "OPENAI_API_KEY is required for --llm-backend openai_live. Reason code: OPENAI_API_KEY_MISSING",
-            file=sys.stderr,
+        get_console().error(
+            "OPENAI_API_KEY is required for --llm-backend openai_live. Reason code: OPENAI_API_KEY_MISSING"
         )
         return 1
     if llm_backend == "anthropic_live" and not os.environ.get("ANTHROPIC_API_KEY"):
-        print(
-            "ANTHROPIC_API_KEY is required for --llm-backend anthropic_live. Reason code: ANTHROPIC_API_KEY_MISSING",
-            file=sys.stderr,
+        get_console().error(
+            "ANTHROPIC_API_KEY is required for --llm-backend anthropic_live. Reason code: ANTHROPIC_API_KEY_MISSING"
         )
         return 1
     llm_agents_str = getattr(args, "llm_agents", "ops_0") or "ops_0"
@@ -1713,14 +1937,29 @@ def _run_benchmark(args: argparse.Namespace) -> int:
         try:
             scale_config_override = load_scale_config_by_id(root, args.scale)
         except (KeyError, FileNotFoundError, ValueError) as e:
-            print(f"Invalid --scale {args.scale!r}: {e}", file=sys.stderr)
+            get_console().error(f"Invalid --scale {args.scale!r}: {e}")
             return 1
     metrics_aggregator_id = getattr(args, "metrics_aggregator_id", None)
     domain_id = getattr(args, "domain_id", None)
     out_path = Path(args.out)
     if not args.out or not str(args.out).strip():
-        print("run-benchmark requires a non-empty --out path (e.g. --out results.json).", file=sys.stderr)
+        get_console().error("run-benchmark requires a non-empty --out path (e.g. --out results.json).")
         return 1
+    resume_from = getattr(args, "resume_from", None)
+    checkpoint_every = getattr(args, "checkpoint_every", None)
+    if checkpoint_every is not None and (checkpoint_every < 1 or not getattr(args, "log", None)):
+        if checkpoint_every < 1:
+            get_console().error("--checkpoint-every must be >= 1.")
+        else:
+            get_console().error("--checkpoint-every requires --log so checkpoints can be written to the run directory.")
+        return 1
+    injection_id = getattr(args, "injection", None)
+    _warn_reserved_injection(injection_id)
+    con = get_console()
+
+    def _progress_cb(current: int, total: int, _metrics: Any) -> None:
+        con.progress(f"Episode {current}/{total}")
+
     try:
         _run(
             task_name=args.task,
@@ -1736,56 +1975,59 @@ def _run_benchmark(args: argparse.Namespace) -> int:
             llm_model=getattr(args, "llm_model", None),
             timing_mode=getattr(args, "timing", None),
             coord_method=getattr(args, "coord_method", None),
-            injection_id=getattr(args, "injection", None),
+            injection_id=injection_id,
             scale_config_override=scale_config_override,
             pipeline_mode=pipeline_mode,
             allow_network=allow_network,
             metrics_aggregator_id=metrics_aggregator_id,
             domain_id=domain_id,
             coord_fixtures_path=getattr(args, "coord_fixtures_path", None),
-            record_coord_fixtures_path=getattr(
-                args, "record_coord_fixtures_path", None
-            ),
-            coord_planner_backend=getattr(
-                args, "coord_planner_backend", None
-            ),
+            record_coord_fixtures_path=getattr(args, "record_coord_fixtures_path", None),
+            coord_planner_backend=getattr(args, "coord_planner_backend", None),
             coord_bidder_backend=getattr(args, "coord_bidder_backend", None),
             coord_repair_backend=getattr(args, "coord_repair_backend", None),
-            coord_detector_backend=getattr(
-                args, "coord_detector_backend", None
-            ),
+            coord_detector_backend=getattr(args, "coord_detector_backend", None),
+            progress_callback=_progress_cb,
             coord_planner_model=getattr(args, "coord_planner_model", None),
             coord_bidder_model=getattr(args, "coord_bidder_model", None),
             coord_repair_model=getattr(args, "coord_repair_model", None),
             coord_detector_model=getattr(args, "coord_detector_model", None),
+            agent_driven=getattr(args, "agent_driven", False),
+            multi_agentic=getattr(args, "multi_agentic", False),
+            resume_from=resume_from,
+            checkpoint_every_n_episodes=checkpoint_every,
+            log_step_interval=getattr(args, "log_step_interval", 0) or None,
+            checkpoint_every_n_steps=getattr(args, "checkpoint_every_steps", 0) or None,
+            always_record_step_timing=getattr(args, "always_step_timing", False),
         )
     except ValueError as e:
         err = str(e)
         if "Unknown task" in err or "task" in err.lower():
             from labtrust_gym.benchmarks.tasks import list_tasks
+
             known = list_tasks()
-            print(f"Task {args.task!r} not found. Known tasks: {', '.join(known)}", file=sys.stderr)
+            get_console().error(f"Task {args.task!r} not found. Known tasks: {', '.join(known)}")
         else:
-            print(f"run-benchmark failed: {e}", file=sys.stderr)
+            get_console().error(f"run-benchmark failed: {e}")
         return 1
-    print(f"Wrote {args.out}", file=sys.stderr)
+    get_console().write_plain(f"Wrote {args.out}")
     if getattr(args, "log", None):
-        print(f"Episode log {args.log}", file=sys.stderr)
+        get_console().info(f"Episode log {args.log}")
     if partner_id:
-        print(f"Partner {partner_id!r}", file=sys.stderr)
+        get_console().info(f"Partner {partner_id!r}")
     return 0
 
 
 def _run_benchmark_llm_live_eval(args: argparse.Namespace) -> int:
     """Run llm_live_eval profile: adversarial_disruption, insider_key_misuse, coord_risk with llm_live, allow-network, LLM_TRACE bundle."""
+    get_console().info("Running run-benchmark (llm_live_eval profile).")
     from labtrust_gym.benchmarks.llm_trace import LLMTraceCollector
     from labtrust_gym.benchmarks.runner import run_benchmark
 
     allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
     if not allow_network:
-        print(
-            "llm_live_eval profile requires --allow-network (or LABTRUST_ALLOW_NETWORK=1). Refusing to run.",
-            file=sys.stderr,
+        get_console().error(
+            "llm_live_eval profile requires --allow-network (or LABTRUST_ALLOW_NETWORK=1). Refusing to run."
         )
         return 1
 
@@ -1831,11 +2073,11 @@ def _run_benchmark_llm_live_eval(args: argparse.Namespace) -> int:
             llm_trace_collector=collector,
             metrics_aggregator_id=getattr(args, "metrics_aggregator_id", None),
         )
-        print(f"Wrote {task_out}", file=sys.stderr)
+        get_console().write_plain(f"Wrote {task_out}")
 
     trace_dir = out_path / "LLM_TRACE"
     collector.write_to_dir(trace_dir)
-    print(f"LLM trace written to {trace_dir}", file=sys.stderr)
+    get_console().write_plain(f"LLM trace written to {trace_dir}")
 
     metadata = {
         "profile": "llm_live_eval",
@@ -1851,15 +2093,13 @@ def _run_benchmark_llm_live_eval(args: argparse.Namespace) -> int:
         json.dumps(metadata, indent=2, sort_keys=True),
         encoding="utf-8",
     )
-    print(
-        f"Metadata (non_deterministic=true) written to {out_path / 'metadata.json'}",
-        file=sys.stderr,
-    )
+    get_console().info(f"Metadata (non_deterministic=true) written to {out_path / 'metadata.json'}")
     return 0
 
 
 def _run_make_plots(args: argparse.Namespace) -> int:
     """Generate plots and data tables from study run."""
+    get_console().info("Running make-plots.")
     from labtrust_gym.studies.plots import make_plots
 
     root = get_repo_root()
@@ -1868,20 +2108,15 @@ def _run_make_plots(args: argparse.Namespace) -> int:
         run_dir = root / run_dir
     make_plots(run_dir, theme=getattr(args, "theme", "light"))
     fig_dir = run_dir / "figures"
-    print(f"Figures and data tables written to {fig_dir}", file=sys.stderr)
-    print(
-        f"  Read {fig_dir / 'RUN_REPORT.md'} for metric definitions and data summary.",
-        file=sys.stderr,
-    )
-    print(
-        f"  Read {run_dir / 'RUN_SUMMARY.md'} for run context and output layout.",
-        file=sys.stderr,
-    )
+    get_console().write_plain(f"Figures and data tables written to {fig_dir}")
+    get_console().info(f"  Read {fig_dir / 'RUN_REPORT.md'} for metric definitions and data summary.")
+    get_console().info(f"  Read {run_dir / 'RUN_SUMMARY.md'} for run context and output layout.")
     return 0
 
 
 def _run_export_receipts(args: argparse.Namespace) -> int:
     """Export receipts and evidence bundle from episode log."""
+    get_console().info("Running export-receipts.")
     from labtrust_gym.export.receipts import export_receipts
 
     root = get_repo_root()
@@ -1889,7 +2124,7 @@ def _run_export_receipts(args: argparse.Namespace) -> int:
     if not run_path.is_absolute():
         run_path = root / run_path
     if not run_path.exists():
-        print(f"Episode log not found: {run_path}", file=sys.stderr)
+        get_console().error(f"Episode log not found: {run_path}")
         return 1
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
@@ -1905,12 +2140,13 @@ def _run_export_receipts(args: argparse.Namespace) -> int:
         partner_id=partner_id,
         policy_root=policy_root,
     )
-    print(f"Evidence bundle written to {bundle_dir}", file=sys.stderr)
+    get_console().write_plain(f"Evidence bundle written to {bundle_dir}")
     return 0
 
 
 def _run_verify_bundle(args: argparse.Namespace) -> int:
     """Verify a single EvidenceBundle.v0.1: manifest integrity, schema, hashchain, invariant trace."""
+    get_console().info("Running verify-bundle.")
     from labtrust_gym.export.verify import verify_bundle
 
     root = get_repo_root()
@@ -1918,7 +2154,7 @@ def _run_verify_bundle(args: argparse.Namespace) -> int:
     if not bundle_path.is_absolute():
         bundle_path = root / bundle_path
     if not bundle_path.is_dir():
-        print(f"Bundle not found or not a directory: {bundle_path}", file=sys.stderr)
+        get_console().error(f"Bundle not found or not a directory: {bundle_path}")
         return 1
     allow_extra = getattr(args, "allow_extra_files", False)
     strict_fingerprints = getattr(args, "strict_fingerprints", False)
@@ -1928,15 +2164,16 @@ def _run_verify_bundle(args: argparse.Namespace) -> int:
         allow_extra_files=allow_extra,
         strict_fingerprints=strict_fingerprints,
     )
-    print(report)
+    get_console().write_plain(report)
     if errors:
         for e in errors:
-            print(e, file=sys.stderr)
+            get_console().error(str(e))
     return 0 if passed else 1
 
 
 def _run_verify_release(args: argparse.Namespace) -> int:
     """Verify all EvidenceBundle.v0.1 dirs under a release; exit non-zero if any fail."""
+    get_console().info("Running verify-release.")
     from labtrust_gym.export.verify import discover_evidence_bundles, verify_release
 
     root = get_repo_root()
@@ -1944,14 +2181,11 @@ def _run_verify_release(args: argparse.Namespace) -> int:
     if not release_path.is_absolute():
         release_path = root / release_path
     if not release_path.is_dir():
-        print(f"Release directory not found or not a directory: {release_path}", file=sys.stderr)
+        get_console().error(f"Release directory not found or not a directory: {release_path}")
         return 1
     bundles = discover_evidence_bundles(release_path)
     if not bundles:
-        print(
-            f"No EvidenceBundle.v0.1 found under {release_path / 'receipts'}",
-            file=sys.stderr,
-        )
+        get_console().error(f"No EvidenceBundle.v0.1 found under {release_path / 'receipts'}")
         return 1
     allow_extra = getattr(args, "allow_extra_files", False)
     quiet = getattr(args, "quiet", False)
@@ -1963,36 +2197,45 @@ def _run_verify_release(args: argparse.Namespace) -> int:
         quiet=quiet,
         strict_fingerprints=strict_fingerprints,
     )
+    con = get_console()
     if release_errors:
         for e in release_errors:
-            print(f"  Release: {e}", file=sys.stderr)
+            con.error(f"  Release: {e}")
+    n = len(results)
+    use_table = not quiet and results and con.verbosity >= Verbosity.NORMAL
+    if use_table:
+        table_rows = []
+        for bundle_path, passed, _report, _errs in results:
+            rel = bundle_path.relative_to(release_path) if bundle_path.is_relative_to(release_path) else bundle_path
+            status = "PASS" if passed else "FAIL"
+            table_rows.append([str(rel), status])
+        if table_rows:
+            con.table(["Bundle", "Status"], table_rows, title="verify-release")
     for bundle_path, passed, report, errors in results:
         rel = bundle_path.relative_to(release_path) if bundle_path.is_relative_to(release_path) else bundle_path
         status = "PASS" if passed else "FAIL"
-        if quiet:
-            print(f"  {rel}: {status}")
-        else:
-            print(f"  {rel}: {status}")
-            if not passed and errors:
-                for e in errors[:3]:
-                    print(f"    {e}", file=sys.stderr)
-                if len(errors) > 3:
-                    print(f"    ... and {len(errors) - 3} more", file=sys.stderr)
+        if not use_table:
+            con.write_plain(f"  {rel}: {status}")
+        if not quiet and not passed and errors:
+            for e in errors[:3]:
+                con.error(f"    {e}")
+            if len(errors) > 3:
+                con.error(f"    ... and {len(errors) - 3} more")
         if quiet and not passed:
             break
-    n = len(results)
     total = len(bundles)
     summary = f"verify-release: {n} bundle(s) checked, {'all passed' if all_passed else 'at least one failed'}."
     if not quiet and n < total:
         summary += f" (stopped after first failure; {total - n} remaining)"
     if release_errors:
         summary += f"; {len(release_errors)} release-level error(s)"
-    print(summary)
+    con.write_plain(summary)
     return 0 if all_passed else 1
 
 
 def _run_build_release_manifest(args: argparse.Namespace) -> int:
     """Build RELEASE_MANIFEST.v0.1.json in release dir with hashes of key artifacts."""
+    get_console().info("Running build-release-manifest.")
     from labtrust_gym.export.verify import build_release_manifest
 
     root = get_repo_root()
@@ -2000,15 +2243,16 @@ def _run_build_release_manifest(args: argparse.Namespace) -> int:
     if not release_path.is_absolute():
         release_path = root / release_path
     if not release_path.is_dir():
-        print(f"Release directory not found or not a directory: {release_path}", file=sys.stderr)
+        get_console().error(f"Release directory not found or not a directory: {release_path}")
         return 1
     out_path = build_release_manifest(release_path, policy_root=root)
-    print(f"Wrote {out_path}", file=sys.stderr)
+    get_console().write_plain(f"Wrote {out_path}")
     return 0
 
 
 def _run_check_security_gate(args: argparse.Namespace) -> int:
     """Check pack_gate.md under --run; exit 0 if all cells PASS or not_supported, else exit 1."""
+    get_console().info("Running check-security-gate.")
     from labtrust_gym.studies.coordination_decision_builder import check_security_gate
 
     root = get_repo_root()
@@ -2016,23 +2260,21 @@ def _run_check_security_gate(args: argparse.Namespace) -> int:
     if not run_path.is_absolute():
         run_path = root / run_path
     if not run_path.is_dir():
-        print(f"Run directory not found: {run_path}", file=sys.stderr)
+        get_console().error(f"Run directory not found: {run_path}")
         return 1
     passed, failed_cells = check_security_gate(run_path)
     if passed:
-        print("Security gate: PASS (no FAIL cells in pack_gate.md).")
+        get_console().write_plain("Security gate: PASS (no FAIL cells in pack_gate.md).")
         return 0
-    print("Security gate: FAIL.", file=sys.stderr)
+    get_console().error("Security gate: FAIL.")
     for c in failed_cells:
-        print(
-            f"  {c.get('scale_id')} / {c.get('method_id')} / {c.get('injection_id')}",
-            file=sys.stderr,
-        )
+        get_console().error(f"  {c.get('scale_id')} / {c.get('method_id')} / {c.get('injection_id')}")
     return 1
 
 
 def _run_ui_export(args: argparse.Namespace) -> int:
     """Export UI-ready zip (index, events, receipts_index, reason_codes) from run dir."""
+    get_console().info("Running ui-export.")
     from labtrust_gym.export.ui_export import export_ui_bundle
 
     root = get_repo_root()
@@ -2040,31 +2282,60 @@ def _run_ui_export(args: argparse.Namespace) -> int:
     if not run_path.is_absolute():
         run_path = root / run_path
     if not run_path.is_dir():
-        print(f"Run directory not found: {run_path}", file=sys.stderr)
+        get_console().error(f"Run directory not found: {run_path}")
         return 1
     out_path = Path(args.out)
     if not out_path.is_absolute():
         out_path = root / out_path
     try:
         export_ui_bundle(run_path, out_path, repo_root=root)
-        print(f"UI bundle written to {out_path}", file=sys.stderr)
+        get_console().write_plain(f"UI bundle written to {out_path}")
         return 0
     except (ValueError, FileNotFoundError) as e:
-        print(f"ui-export failed: {e}", file=sys.stderr)
+        get_console().error(f"ui-export failed: {e}")
+        return 1
+
+
+def _run_build_episode_bundle(args: argparse.Namespace) -> int:
+    """Build episode_bundle.json from run dir for the simulation viewer."""
+    get_console().info("Running build-episode-bundle.")
+    from labtrust_gym.export.episode_bundle import (
+        build_bundle_from_run_dir,
+        write_bundle,
+    )
+
+    root = get_repo_root()
+    run_dir = Path(args.run_dir)
+    if not run_dir.is_absolute():
+        run_dir = root / run_dir
+    if not run_dir.is_dir():
+        get_console().error(f"Run directory not found: {run_dir}")
+        return 1
+    out_path = Path(args.out) if args.out else run_dir / "episode_bundle.json"
+    if not out_path.is_absolute():
+        out_path = root / out_path
+    if out_path.is_dir():
+        out_path = out_path / "episode_bundle.json"
+    try:
+        bundle = build_bundle_from_run_dir(run_dir)
+        write_bundle(bundle, out_path)
+        get_console().write_plain(f"Wrote {out_path}")
+        return 0
+    except FileNotFoundError as e:
+        get_console().error(f"Error: {e}")
         return 1
 
 
 def _run_build_risk_register_bundle(args: argparse.Namespace) -> int:
     """Build RiskRegisterBundle.v0.1 from policy and optional run dirs."""
+    get_console().info("Running build-risk-register-bundle.")
     from labtrust_gym.export.risk_register_bundle import write_risk_register_bundle
 
     root = get_repo_root()
     out_path = Path(args.out)
     if not out_path.is_absolute():
         out_path = root / out_path
-    run_dirs = [
-        Path(r) if Path(r).is_absolute() else root / r for r in (args.run_dirs or [])
-    ]
+    run_dirs = [Path(r) if Path(r).is_absolute() else root / r for r in (args.run_dirs or [])]
     try:
         write_risk_register_bundle(
             repo_root=root,
@@ -2074,15 +2345,16 @@ def _run_build_risk_register_bundle(args: argparse.Namespace) -> int:
             include_git_hash=True,
             validate=not getattr(args, "no_validate", False),
         )
-        print(f"Risk register bundle written to {out_path}", file=sys.stderr)
+        get_console().write_plain(f"Risk register bundle written to {out_path}")
         return 0
     except (ValueError, FileNotFoundError) as e:
-        print(f"build-risk-register-bundle failed: {e}", file=sys.stderr)
+        get_console().error(f"build-risk-register-bundle failed: {e}")
         return 1
 
 
 def _run_export_risk_register(args: argparse.Namespace) -> int:
     """Export RiskRegisterBundle.v0.1 into --out dir; optional --runs and --include-official-pack."""
+    get_console().info("Running export-risk-register.")
     from labtrust_gym.export.risk_register_bundle import (
         RISK_REGISTER_BUNDLE_FILENAME,
         export_risk_register,
@@ -2111,15 +2383,16 @@ def _run_export_risk_register(args: argparse.Namespace) -> int:
             validate=not getattr(args, "no_validate", False),
             inject_ui_export=getattr(args, "inject_ui_export", False),
         )
-        print(f"{RISK_REGISTER_BUNDLE_FILENAME} written to {out_path}", file=sys.stderr)
+        get_console().write_plain(f"{RISK_REGISTER_BUNDLE_FILENAME} written to {out_path}")
         return 0
     except (ValueError, FileNotFoundError) as e:
-        print(f"export-risk-register failed: {e}", file=sys.stderr)
+        get_console().error(f"export-risk-register failed: {e}")
         return 1
 
 
 def _run_validate_coverage(args: argparse.Namespace) -> int:
     """Validate risk register bundle coverage; with --strict, fail if any required risk has missing evidence."""
+    get_console().info("Running validate-coverage.")
     import json
 
     from labtrust_gym.export.risk_register_bundle import (
@@ -2143,35 +2416,37 @@ def _run_validate_coverage(args: argparse.Namespace) -> int:
                 out_dir = root / out_dir
         bundle_path = out_dir / RISK_REGISTER_BUNDLE_FILENAME
     if not bundle_path.exists():
-        print(f"Bundle not found: {bundle_path}", file=sys.stderr)
+        get_console().error(f"Bundle not found: {bundle_path}")
         return 1
     try:
         bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
     except Exception as e:
-        print(f"Failed to load bundle: {e}", file=sys.stderr)
+        get_console().error(f"Failed to load bundle: {e}")
         return 1
     waived_cells = None
     if getattr(args, "strict", False):
         from labtrust_gym.export.risk_register_bundle import load_waivers
+
         waived_cells = load_waivers(root)
-    passed, missing_list = check_risk_register_coverage(
-        bundle, root, waived_cells=waived_cells
-    )
+    passed, missing_list = check_risk_register_coverage(bundle, root, waived_cells=waived_cells)
     if passed:
         if getattr(args, "strict", False):
-            print("Coverage OK: all required_bench cells evidenced or waived.", file=sys.stderr)
+            get_console().write_plain("Coverage OK: all required_bench cells evidenced or waived.")
         return 0
     if getattr(args, "strict", False):
-        print("Coverage FAIL: required risks with missing evidence (method_id, risk_id):", file=sys.stderr)
+        get_console().error("Coverage FAIL: required risks with missing evidence (method_id, risk_id):")
         for mid, rid in sorted(missing_list):
-            print(f"  {mid} {rid}", file=sys.stderr)
+            get_console().error(f"  {mid} {rid}")
         return 1
-    print(f"Coverage: {len(missing_list)} required cell(s) with evidence gaps (run with --strict to fail).", file=sys.stderr)
+    get_console().write_plain(
+        f"Coverage: {len(missing_list)} required cell(s) with evidence gaps (run with --strict to fail)."
+    )
     return 0
 
 
 def _run_show_method_risk_matrix(args: argparse.Namespace) -> int:
     """Print or export method x risk matrix (table/csv/markdown)."""
+    get_console().info("Running show-method-risk-matrix.")
     from labtrust_gym.policy.coordination import load_method_risk_matrix
     from labtrust_gym.studies.matrix_view import format_method_risk_matrix
 
@@ -2180,19 +2455,19 @@ def _run_show_method_risk_matrix(args: argparse.Namespace) -> int:
         root = get_repo_root() / root
     matrix_path = root / "policy" / "coordination" / "method_risk_matrix.v0.1.yaml"
     if not matrix_path.is_file():
-        print(f"Matrix not found: {matrix_path}", file=sys.stderr)
+        get_console().error(f"Matrix not found: {matrix_path}")
         return 1
     try:
         matrix = load_method_risk_matrix(matrix_path)
     except Exception as e:
-        print(f"Failed to load matrix: {e}", file=sys.stderr)
+        get_console().error(f"Failed to load matrix: {e}")
         return 1
     out_fmt = getattr(args, "format", "table")
     text = format_method_risk_matrix(matrix, output_format=out_fmt)
     out_path = getattr(args, "out", None)
     if out_path:
         Path(out_path).write_text(text, encoding="utf-8")
-        print(f"Wrote {out_path}", file=sys.stderr)
+        get_console().write_plain(f"Wrote {out_path}")
     else:
         print(text)
     return 0
@@ -2200,6 +2475,7 @@ def _run_show_method_risk_matrix(args: argparse.Namespace) -> int:
 
 def _run_show_pack_matrix(args: argparse.Namespace) -> int:
     """Print or export pack matrix (method x scale x injection) with scale taxonomy."""
+    get_console().info("Running show-pack-matrix.")
     from labtrust_gym.studies.matrix_view import format_pack_matrix
 
     root = Path(args.policy_root) if getattr(args, "policy_root", None) else get_repo_root()
@@ -2216,7 +2492,7 @@ def _run_show_pack_matrix(args: argparse.Namespace) -> int:
     out_path = getattr(args, "out", None)
     if out_path:
         Path(out_path).write_text(text, encoding="utf-8")
-        print(f"Wrote {out_path}", file=sys.stderr)
+        get_console().write_plain(f"Wrote {out_path}")
     else:
         print(text)
     return 0
@@ -2224,20 +2500,21 @@ def _run_show_pack_matrix(args: argparse.Namespace) -> int:
 
 def _run_show_pack_results(args: argparse.Namespace) -> int:
     """Show result matrix from a completed pack run (real results)."""
+    get_console().info("Running show-pack-results.")
     from labtrust_gym.studies.matrix_view import format_pack_results_from_run
 
     run_dir = Path(getattr(args, "run", ""))
     if not run_dir.is_absolute():
         run_dir = get_repo_root() / run_dir
     if not run_dir.is_dir():
-        print(f"Run directory not found: {run_dir}", file=sys.stderr)
+        get_console().error(f"Run directory not found: {run_dir}")
         return 1
     out_fmt = getattr(args, "format", "markdown")
     text = format_pack_results_from_run(run_dir, output_format=out_fmt)
     out_path = getattr(args, "out", None)
     if out_path:
         Path(out_path).write_text(text, encoding="utf-8")
-        print(f"Wrote {out_path}", file=sys.stderr)
+        get_console().write_plain(f"Wrote {out_path}")
     else:
         print(text)
     return 0
@@ -2245,6 +2522,7 @@ def _run_show_pack_results(args: argparse.Namespace) -> int:
 
 def _run_export_fhir(args: argparse.Namespace) -> int:
     """Export FHIR R4 Bundle from receipts directory."""
+    get_console().info("Running export-fhir.")
     from labtrust_gym.export.fhir_r4 import export_fhir
 
     root = get_repo_root()
@@ -2252,7 +2530,7 @@ def _run_export_fhir(args: argparse.Namespace) -> int:
     if not receipts_dir.is_absolute():
         receipts_dir = root / receipts_dir
     if not receipts_dir.exists():
-        print(f"Receipts directory not found: {receipts_dir}", file=sys.stderr)
+        get_console().error(f"Receipts directory not found: {receipts_dir}")
         return 1
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
@@ -2260,7 +2538,60 @@ def _run_export_fhir(args: argparse.Namespace) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     filename = getattr(args, "filename", "fhir_bundle.json")
     out_path = export_fhir(receipts_dir, out_dir, out_filename=filename)
-    print(f"FHIR bundle written to {out_path}", file=sys.stderr)
+    get_console().write_plain(f"FHIR bundle written to {out_path}")
+    return 0
+
+
+def _run_validate_fhir(args: argparse.Namespace) -> int:
+    """Validate FHIR Bundle coded elements against terminology value set."""
+    get_console().info("Running validate-fhir.")
+    import json
+
+    from labtrust_gym.export.fhir_terminology import validate_bundle_against_value_sets
+
+    root = get_repo_root()
+    bundle_path = Path(args.bundle)
+    if not bundle_path.is_absolute():
+        bundle_path = root / bundle_path
+    if not bundle_path.exists():
+        get_console().error(f"Bundle file not found: {bundle_path}")
+        return 1
+    terminology_path = Path(args.terminology)
+    if not terminology_path.is_absolute():
+        terminology_path = root / terminology_path
+    if not terminology_path.exists():
+        get_console().error(f"Terminology file not found: {terminology_path}")
+        return 1
+    try:
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        get_console().error(f"Failed to load bundle: {e}")
+        return 1
+    try:
+        term_data = json.loads(terminology_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        get_console().error(f"Failed to load terminology: {e}")
+        return 1
+    value_sets = term_data.get("value_sets")
+    if not isinstance(value_sets, dict):
+        get_console().error("Terminology file must have 'value_sets' object (system URI -> list of codes)")
+        return 1
+    value_sets_normalized = {}
+    for k, v in value_sets.items():
+        if isinstance(v, list):
+            value_sets_normalized[k] = [str(c) for c in v]
+        else:
+            value_sets_normalized[k] = []
+    violations = validate_bundle_against_value_sets(bundle, value_sets_normalized)
+    if violations:
+        for v in violations:
+            get_console().error(
+                f"{v.get('resourceType')} {v.get('id')} {v.get('path')}: code {v.get('code')!r} not in value set for system {v.get('system')!r}"
+            )
+        if getattr(args, "strict", False):
+            return 1
+    else:
+        get_console().write_plain("validate-fhir: no terminology violations")
     return 0
 
 
@@ -2306,12 +2637,12 @@ def _run_package_release(args: argparse.Namespace) -> int:
             allow_network=allow_network,
             include_coordination_pack=include_coordination_pack,
         )
-        print(f"Release artifact written to {result}", file=sys.stderr)
-        print("  MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json", file=sys.stderr)
-        print("  results.json, plots/, tables/, receipts/, fhir/", file=sys.stderr)
+        get_console().write_plain(f"Release artifact written to {result}")
+        get_console().info("  MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json")
+        get_console().info("  results.json, plots/, tables/, receipts/, fhir/")
         return 0
     except Exception as e:
-        print(f"package-release failed: {e}", file=sys.stderr)
+        get_console().error(f"package-release failed: {e}")
         return 1
 
 
@@ -2320,6 +2651,7 @@ def _run_security_suite(args: argparse.Namespace) -> int:
     from labtrust_gym.benchmarks.securitization import emit_securitization_packet
     from labtrust_gym.benchmarks.security_runner import run_suite_and_emit
 
+    get_console().info("Running run-security-suite (attack suite -> SECURITY/).")
     root = get_repo_root()
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
@@ -2328,21 +2660,17 @@ def _run_security_suite(args: argparse.Namespace) -> int:
     seed = getattr(args, "seed", 42)
     timeout_s = getattr(args, "timeout", 120)
     llm_attacker = getattr(args, "llm_attacker", False)
-    allow_network = getattr(args, "allow_network", False) or bool(
-        os.environ.get("LABTRUST_ALLOW_NETWORK")
-    )
+    allow_network = getattr(args, "allow_network", False) or bool(os.environ.get("LABTRUST_ALLOW_NETWORK"))
     llm_backend = getattr(args, "llm_backend", None)
     llm_model = getattr(args, "llm_model", None)
     if llm_attacker and (not allow_network or not llm_backend):
-        print(
-            "Warning: --llm-attacker requires --allow-network and --llm-backend; skipping LLM-attacker attacks.",
-            file=sys.stderr,
+        get_console().warning(
+            "--llm-attacker requires --allow-network and --llm-backend; skipping LLM-attacker attacks."
         )
         llm_attacker = False
     if llm_attacker and allow_network:
-        print(
-            "WILL MAKE NETWORK CALLS: LLM-attacker mode enabled; live LLM will generate adversarial payloads.",
-            file=sys.stderr,
+        get_console().info(
+            "WILL MAKE NETWORK CALLS: LLM-attacker mode enabled; live LLM will generate adversarial payloads."
         )
         from labtrust_gym.pipeline import set_pipeline_config
 
@@ -2353,6 +2681,14 @@ def _run_security_suite(args: argparse.Namespace) -> int:
         )
     provider_id = getattr(args, "security_suite_provider_id", None)
     security_suite_path = getattr(args, "security_suite_path", None)
+    max_payload_chars = getattr(args, "llm_attacker_max_chars", 2000)
+    llm_attacker_rounds = getattr(args, "llm_attacker_rounds", None)
+    skip_system_level = getattr(args, "skip_system_level", False)
+    con = get_console()
+
+    def _security_progress(current: int, total: int, attack_id: str) -> None:
+        con.progress(f"Security test {current}/{total}: {attack_id}")
+
     try:
         results = run_suite_and_emit(
             policy_root=root,
@@ -2373,29 +2709,28 @@ def _run_security_suite(args: argparse.Namespace) -> int:
             llm_model=llm_model,
             provider_id=provider_id,
             security_suite_path=security_suite_path,
+            max_payload_chars=max_payload_chars,
+            skip_system_level=skip_system_level,
+            llm_attacker_rounds=llm_attacker_rounds,
+            agent_driven_mode=getattr(args, "agent_driven_mode", None),
+            use_full_driver_loop=getattr(args, "use_full_driver_loop", False),
+            use_mock_env=getattr(args, "use_mock_env", False),
+            progress_callback=_security_progress,
         )
         emit_securitization_packet(root, out_dir)
         if any(r.get("llm_attacker") for r in results):
             model_ids = list(
-                dict.fromkeys(
-                    r.get("model_id")
-                    for r in results
-                    if r.get("llm_attacker") and r.get("model_id")
-                )
+                dict.fromkeys(r.get("model_id") for r in results if r.get("llm_attacker") and r.get("model_id"))
             )
             note_path = out_dir / "SECURITY" / "llm_attacker_note.txt"
             note_path.parent.mkdir(parents=True, exist_ok=True)
             note_path.write_text(
-                "LLM attacker (live) run. Model IDs: "
-                + ", ".join(model_ids or ["unknown"]),
+                "LLM attacker (live) run. Model IDs: " + ", ".join(model_ids or ["unknown"]),
                 encoding="utf-8",
             )
         passed = sum(1 for r in results if r.get("passed"))
-        print(
-            f"Security suite: {passed}/{len(results)} passed",
-            file=sys.stderr,
-        )
-        print(f"SECURITY/ written to {out_dir / 'SECURITY'}", file=sys.stderr)
+        get_console().write_plain(f"Security suite: {passed}/{len(results)} passed")
+        get_console().write_plain(f"SECURITY/ written to {out_dir / 'SECURITY'}")
         if passed == 0 and results:
             errors = [r.get("error") or "" for r in results]
             need_env = any("pettingzoo or gymnasium" in e for e in errors)
@@ -2409,28 +2744,20 @@ def _run_security_suite(args: argparse.Namespace) -> int:
                 exe = sys.executable
                 # PowerShell requires & to invoke a quoted path; Cmd does not
                 ps_cmd = f'& "{exe}" -m pip install {" ".join(pkgs)}'
-                print(
-                    "Hint: install into the same Python that runs labtrust (copy-paste):",
-                    file=sys.stderr,
-                )
-                print(f"  {ps_cmd}", file=sys.stderr)
-                print(
-                    "  (PowerShell: use as-is. Cmd: omit the leading & )",
-                    file=sys.stderr,
-                )
+                get_console().info("Hint: install into the same Python that runs labtrust (copy-paste):")
+                get_console().info(f"  {ps_cmd}")
+                get_console().info("  (PowerShell: use as-is. Cmd: omit the leading & )")
                 ensurepip_cmd = f'& "{exe}" -m ensurepip --upgrade'
-                print(
-                    f"  (If 'No module named pip', run first: {ensurepip_cmd})",
-                    file=sys.stderr,
-                )
+                get_console().info(f"  (If 'No module named pip', run first: {ensurepip_cmd})")
         return 0 if passed == len(results) else 1
     except Exception as e:
-        print(f"run-security-suite failed: {e}", file=sys.stderr)
+        get_console().error(f"run-security-suite failed: {e}")
         return 1
 
 
 def _run_safety_case(args: argparse.Namespace) -> int:
     """Generate safety case to SAFETY_CASE/safety_case.json and safety_case.md."""
+    get_console().info("Running safety-case.")
     from labtrust_gym.security.safety_case import emit_safety_case
 
     root = get_repo_root()
@@ -2443,15 +2770,16 @@ def _run_safety_case(args: argparse.Namespace) -> int:
     try:
         emit_safety_case(policy_root=root, out_dir=out_dir, provider_id=provider_id, claims_path=claims_path)
         safety_dir = out_dir / "SAFETY_CASE"
-        print(f"SAFETY_CASE/ written to {safety_dir}", file=sys.stderr)
+        get_console().write_plain(f"SAFETY_CASE/ written to {safety_dir}")
         return 0
     except Exception as e:
-        print(f"safety-case failed: {e}", file=sys.stderr)
+        get_console().error(f"safety-case failed: {e}")
         return 1
 
 
 def _run_deps_inventory(args: argparse.Namespace) -> int:
     """Write runtime dependency inventory to <out>/SECURITY/deps_inventory_runtime.json."""
+    get_console().info("Running deps-inventory.")
     from labtrust_gym.security.deps_inventory import write_deps_inventory_runtime
 
     root = get_repo_root()
@@ -2460,12 +2788,13 @@ def _run_deps_inventory(args: argparse.Namespace) -> int:
         out_dir = root / out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = write_deps_inventory_runtime(out_dir, repo_root=root)
-    print(f"Wrote {out_path}", file=sys.stderr)
+    get_console().write_plain(f"Wrote {out_path}")
     return 0
 
 
 def _run_audit_selfcheck(args: argparse.Namespace) -> int:
     """Run Phase A audit checks and doctor-style env checks; write AUDIT_SELF_CHECK.json."""
+    get_console().info("Running audit-selfcheck.")
     import subprocess
     import time
 
@@ -2482,6 +2811,7 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
 
     # Doctor-style checks (Python path, venv, extras, filesystem, policy)
     from labtrust_gym.cli.audit_checks import run_doctor_checks
+
     doctor_checks, doctor_pass = run_doctor_checks(root)
     all_pass = doctor_pass
 
@@ -2555,7 +2885,9 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
         passed = r.returncode == 0
     except Exception:
         passed = False
-    steps.append({"name": "risk_register_contract_gate", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)})
+    steps.append(
+        {"name": "risk_register_contract_gate", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)}
+    )
     if not passed:
         all_pass = False
 
@@ -2575,12 +2907,13 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
     }
     out_json = out_dir / "AUDIT_SELF_CHECK.json"
     out_json.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(f"Wrote {out_json}", file=sys.stderr)
+    get_console().write_plain(f"Wrote {out_json}")
     return 0 if all_pass else 1
 
 
 def _run_transparency_log(args: argparse.Namespace) -> int:
     """Build TRANSPARENCY_LOG/ from artifact dir (--in) into --out."""
+    get_console().info("Running transparency-log.")
     from labtrust_gym.security.transparency import write_transparency_log
 
     root = get_repo_root()
@@ -2591,16 +2924,17 @@ def _run_transparency_log(args: argparse.Namespace) -> int:
     if not out_dir.is_absolute():
         out_dir = root / out_dir
     if not in_dir.is_dir():
-        print(f"Input directory not found: {in_dir}", file=sys.stderr)
+        get_console().error(f"Input directory not found: {in_dir}")
         return 1
     out_dir.mkdir(parents=True, exist_ok=True)
     log_dir = write_transparency_log(in_dir, out_dir)
-    print(f"Wrote {log_dir} (log.json, root.txt, proofs/)", file=sys.stderr)
+    get_console().write_plain(f"Wrote {log_dir} (log.json, root.txt, proofs/)")
     return 0
 
 
 def _run_study(args: argparse.Namespace) -> int:
     """Run study from spec; write manifest, conditions.jsonl, results/, logs/."""
+    get_console().info("Running study.")
     from labtrust_gym.studies.study_runner import run_study
 
     root = get_repo_root()
@@ -2618,12 +2952,13 @@ def _run_study(args: argparse.Namespace) -> int:
         partner_id=partner_id,
         timing_mode=getattr(args, "timing", None),
     )
-    print(f"Study written to {out_dir}", file=sys.stderr)
+    get_console().write_plain(f"Study written to {out_dir}")
     return 0
 
 
 def _run_coordination_study(args: argparse.Namespace) -> int:
     """Run coordination study from spec; write cells/, summary/summary_coord.csv, summary/pareto.md."""
+    get_console().info("Running coordination-study.")
     from labtrust_gym.studies.coordination_study_runner import run_coordination_study
 
     root = get_repo_root()
@@ -2636,14 +2971,7 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
         spec_path = root / spec_path
     partner_id = getattr(args, "partner", None)
     if partner_id and profile_spec is None:
-        overlay_spec = (
-            root
-            / "policy"
-            / "partners"
-            / partner_id
-            / "coordination"
-            / "coordination_study_spec.v0.1.yaml"
-        )
+        overlay_spec = root / "policy" / "partners" / partner_id / "coordination" / "coordination_study_spec.v0.1.yaml"
         if overlay_spec.exists():
             spec_path = overlay_spec
     out_dir = Path(args.out)
@@ -2655,28 +2983,22 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
 
     if emit_matrix:
         pipeline_mode = (
-            "llm_live"
-            if llm_backend in ("openai_live", "ollama_live")
-            else (llm_backend or "deterministic")
+            "llm_live" if llm_backend in ("openai_live", "ollama_live") else (llm_backend or "deterministic")
         )
         if pipeline_mode != "llm_live":
-            print(
+            get_console().warning(
                 "emit-coordination-matrix requires llm_live pipeline (--llm-backend openai_live or ollama_live). "
-                f"This run uses pipeline_mode={pipeline_mode!r}. Matrix builder is llm_live-only; offline pipelines are out of scope.",
-                file=sys.stderr,
+                f"This run uses pipeline_mode={pipeline_mode!r}. Matrix builder is llm_live-only; offline pipelines are out of scope."
             )
             return 1
 
     if llm_backend == "openai_live" and not os.environ.get("OPENAI_API_KEY"):
-        print(
-            "OPENAI_API_KEY is required for --llm-backend openai_live. Reason code: OPENAI_API_KEY_MISSING",
-            file=sys.stderr,
+        get_console().error(
+            "OPENAI_API_KEY is required for --llm-backend openai_live. Reason code: OPENAI_API_KEY_MISSING"
         )
         return 1
-    run_coordination_study(
-        spec_path, out_dir, repo_root=root, llm_backend=llm_backend, llm_model=llm_model
-    )
-    print(f"Coordination study written to {out_dir}", file=sys.stderr)
+    run_coordination_study(spec_path, out_dir, repo_root=root, llm_backend=llm_backend, llm_model=llm_model)
+    get_console().write_plain(f"Coordination study written to {out_dir}")
 
     if emit_matrix:
         from labtrust_gym.studies.coordination_matrix_builder import (
@@ -2685,13 +3007,14 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
 
         matrix_path = out_dir / COORDINATION_MATRIX_CANONICAL_FILENAME
         build_coordination_matrix(out_dir, matrix_path, policy_root=root, strict=True)
-        print(f"Coordination matrix written to {matrix_path}", file=sys.stderr)
+        get_console().write_plain(f"Coordination matrix written to {matrix_path}")
 
     return 0
 
 
 def _run_coordination_security_pack(args: argparse.Namespace) -> int:
     """Run coordination security pack; write pack_results/, pack_summary.csv, pack_gate.md."""
+    get_console().info("Running coordination-security-pack.")
     from labtrust_gym.studies.coordination_security_pack import (
         run_coordination_security_pack,
     )
@@ -2724,7 +3047,7 @@ def _run_coordination_security_pack(args: argparse.Namespace) -> int:
         llm_backend=llm_backend,
         allow_network=allow_network,
     )
-    print(f"Coordination security pack written to {out_dir}", file=sys.stderr)
+    get_console().write_plain(f"Coordination security pack written to {out_dir}")
     return 0
 
 
@@ -2734,6 +3057,7 @@ COORDINATION_MATRIX_CANONICAL_FILENAME = "coordination_matrix.v0.1.json"
 
 def _run_build_coordination_matrix(args: argparse.Namespace) -> int:
     """Build CoordinationMatrix v0.1 from llm_live run dir; print summary."""
+    get_console().info("Running build-coordination-matrix.")
     from labtrust_gym.studies.coordination_matrix_builder import (
         build_coordination_matrix,
     )
@@ -2780,23 +3104,22 @@ def _run_build_coordination_matrix(args: argparse.Namespace) -> int:
         ar = float(s.get("ar_score", 0.0))
         overall = alpha * cq + (1.0 - alpha) * ar
         method_scores.setdefault(mid, []).append(overall)
-    global_avg = {
-        mid: (sum(s) / len(s)) if s else 0.0 for mid, s in method_scores.items()
-    }
+    global_avg = {mid: (sum(s) / len(s)) if s else 0.0 for mid, s in method_scores.items()}
     top3 = sorted(global_avg.items(), key=lambda x: -x[1])[:3]
-    print(f"Scales: {n_scales}", file=sys.stderr)
-    print(f"Methods: {n_methods}", file=sys.stderr)
+    get_console().info(f"Scales: {n_scales}")
+    get_console().info(f"Methods: {n_methods}")
     if top3:
-        print("Top-3 methods by global overall score:", file=sys.stderr)
+        get_console().info("Top-3 methods by global overall score:")
         for i, (mid, score) in enumerate(top3, 1):
-            print(f"  {i}. {mid}: {score:.4f}", file=sys.stderr)
-    print("llm_live-only enforced.", file=sys.stderr)
-    print(f"Matrix written to {out_path}", file=sys.stderr)
+            get_console().info(f"  {i}. {mid}: {score:.4f}")
+    get_console().info("llm_live-only enforced.")
+    get_console().write_plain(f"Matrix written to {out_path}")
     return 0
 
 
 def _run_recommend_coordination_method(args: argparse.Namespace) -> int:
     """Produce COORDINATION_DECISION.v0.1.json and COORDINATION_DECISION.md from run dir."""
+    get_console().info("Running recommend-coordination-method.")
     from labtrust_gym.studies.coordination_decision_builder import (
         run_recommend_coordination_method,
     )
@@ -2815,24 +3138,20 @@ def _run_recommend_coordination_method(args: argparse.Namespace) -> int:
             policy_root = root / policy_root
     else:
         policy_root = root
-    result = run_recommend_coordination_method(
-        run_dir=run_dir, out_dir=out_dir, policy_root=policy_root
-    )
+    result = run_recommend_coordination_method(run_dir=run_dir, out_dir=out_dir, policy_root=policy_root)
     decision = result["decision"]
-    print(f"Verdict: {decision.get('verdict')}", file=sys.stderr)
+    get_console().write_plain(f"Verdict: {decision.get('verdict')}")
     for sd in decision.get("scale_decisions") or []:
         chosen = sd.get("chosen_method_id")
-        print(
-            f"  {sd.get('scale_id')}: {chosen or '(no admissible method)'}",
-            file=sys.stderr,
-        )
-    print(f"JSON: {result['json_path']}", file=sys.stderr)
-    print(f"MD:   {result['md_path']}", file=sys.stderr)
+        get_console().info(f"  {sd.get('scale_id')}: {chosen or '(no admissible method)'}")
+    get_console().info(f"JSON: {result['json_path']}")
+    get_console().info(f"MD:   {result['md_path']}")
     return 0
 
 
 def _run_summarize_coordination(args: argparse.Namespace) -> int:
     """Aggregate coordination results: SOTA leaderboard + method-class comparison from summary_coord.csv."""
+    get_console().info("Running summarize-coordination.")
     from labtrust_gym.studies.coordination_summarizer import run_summarize
 
     root = get_repo_root()
@@ -2843,15 +3162,15 @@ def _run_summarize_coordination(args: argparse.Namespace) -> int:
     if not out_dir.is_absolute():
         out_dir = root / out_dir
     run_summarize(in_dir=in_dir, out_dir=out_dir, repo_root=root)
-    print(
-        f"Wrote summary/sota_leaderboard.csv, sota_leaderboard.md, method_class_comparison.csv, method_class_comparison.md under {out_dir}",
-        file=sys.stderr,
+    get_console().write_plain(
+        f"Wrote summary/sota_leaderboard.csv, sota_leaderboard.md, method_class_comparison.csv, method_class_comparison.md under {out_dir}"
     )
     return 0
 
 
 def _run_build_lab_coordination_report(args: argparse.Namespace) -> int:
     """Build lab coordination report: summarize + recommend + LAB_COORDINATION_REPORT.md."""
+    get_console().info("Running build-lab-coordination-report.")
     from labtrust_gym.studies.lab_report_builder import build_lab_coordination_report
 
     root = get_repo_root()
@@ -2883,12 +3202,13 @@ def _run_build_lab_coordination_report(args: argparse.Namespace) -> int:
         include_matrix=include_matrix,
         partner_id=partner_id,
     )
-    print(f"Lab coordination report written to {report_path}", file=sys.stderr)
+    get_console().write_plain(f"Lab coordination report written to {report_path}")
     return 0
 
 
 def _run_forker_quickstart(args: argparse.Namespace) -> int:
     """One-command forker flow: validate, pack (fixed + critical), report, export risk register; print artifact paths."""
+    get_console().info("Running forker-quickstart.")
     from labtrust_gym.export.risk_register_bundle import (
         RISK_REGISTER_BUNDLE_FILENAME,
         export_risk_register,
@@ -2907,7 +3227,7 @@ def _run_forker_quickstart(args: argparse.Namespace) -> int:
         return 1
 
     pack_dir = out_dir / "pack"
-    print("Running coordination security pack (fixed methods, critical injections)...", file=sys.stderr)
+    get_console().info("Running coordination security pack (fixed methods, critical injections)...")
     run_coordination_security_pack(
         out_dir=pack_dir,
         repo_root=root,
@@ -2917,7 +3237,7 @@ def _run_forker_quickstart(args: argparse.Namespace) -> int:
         partner_id=partner_id,
     )
 
-    print("Building lab coordination report...", file=sys.stderr)
+    get_console().info("Building lab coordination report...")
     build_lab_coordination_report(
         pack_dir=pack_dir,
         out_dir=pack_dir,
@@ -2926,7 +3246,7 @@ def _run_forker_quickstart(args: argparse.Namespace) -> int:
     )
 
     risk_out = out_dir / "risk_out"
-    print("Exporting risk register...", file=sys.stderr)
+    get_console().info("Exporting risk register...")
     export_risk_register(
         repo_root=root,
         out_dir=risk_out,
@@ -2937,15 +3257,16 @@ def _run_forker_quickstart(args: argparse.Namespace) -> int:
     decision_json = pack_dir / "COORDINATION_DECISION.v0.1.json"
     decision_md = pack_dir / "COORDINATION_DECISION.md"
     bundle_path = risk_out / RISK_REGISTER_BUNDLE_FILENAME
-    print("Forker quickstart done.", file=sys.stderr)
-    print(f"  COORDINATION_DECISION (JSON): {decision_json}", file=sys.stderr)
-    print(f"  COORDINATION_DECISION (MD):   {decision_md}", file=sys.stderr)
-    print(f"  Risk register bundle:         {bundle_path}", file=sys.stderr)
+    get_console().success("Forker quickstart done.")
+    get_console().info(f"  COORDINATION_DECISION (JSON): {decision_json}")
+    get_console().info(f"  COORDINATION_DECISION (MD):   {decision_md}")
+    get_console().info(f"  Risk register bundle:         {bundle_path}")
     return 0
 
 
 def _run_live_orchestrator(args: argparse.Namespace) -> int:
     """Run live orchestrator: chosen method, run dir with matrix + decision + receipts + defense."""
+    get_console().info("Running live-orchestrator.")
     from labtrust_gym.orchestrator.config import OrchestratorConfig
     from labtrust_gym.orchestrator.live import run_live_orchestrator
 
@@ -2960,45 +3281,86 @@ def _run_live_orchestrator(args: argparse.Namespace) -> int:
             policy_root = root / policy_root
     else:
         policy_root = root
+    injection_id = getattr(args, "injection", None)
+    _warn_reserved_injection(injection_id)
     config = OrchestratorConfig(
         run_dir=run_dir,
         chosen_method_id=args.method,
         policy_root=policy_root,
         allow_network=getattr(args, "allow_network", False),
         scale_id=getattr(args, "scale", "small_smoke"),
-        injection_id=getattr(args, "injection", None),
+        injection_id=injection_id,
         num_episodes=getattr(args, "episodes", 1),
         base_seed=getattr(args, "seed", 42),
         llm_backend=getattr(args, "llm_backend", "deterministic"),
         llm_model=getattr(args, "llm_model", None),
     )
     result = run_live_orchestrator(config)
-    print(f"Run dir: {result['run_dir']}", file=sys.stderr)
-    print(f"Cell: {result['cell_id']}", file=sys.stderr)
-    print(f"Defense state: {result.get('defense_state', 'n/a')}", file=sys.stderr)
+    get_console().info(f"Run dir: {result['run_dir']}")
+    get_console().info(f"Cell: {result['cell_id']}")
+    get_console().info(f"Defense state: {result.get('defense_state', 'n/a')}")
     return 0
 
 
 def _run_summarize_results(args: argparse.Namespace) -> int:
     """Load results.json from --in paths, aggregate, write summary.csv + summary.md to --out."""
+    get_console().info("Running summarize-results.")
     from labtrust_gym.benchmarks.summarize import run_summarize
 
     root = get_repo_root()
-    in_paths = [
-        root / p if not Path(p).is_absolute() else Path(p) for p in args.in_paths
-    ]
+    in_paths = [root / p if not Path(p).is_absolute() else Path(p) for p in args.in_paths]
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
         out_dir = root / out_dir
     basename = getattr(args, "basename", "summary")
     csv_path, md_path = run_summarize(in_paths, out_dir, out_basename=basename)
-    print(f"Wrote {csv_path}", file=sys.stderr)
-    print(f"Wrote {md_path}", file=sys.stderr)
+    get_console().write_plain(f"Wrote {csv_path}")
+    get_console().write_plain(f"Wrote {md_path}")
+    return 0
+
+
+def _run_run_summary(args: argparse.Namespace) -> int:
+    """Print one-line stats for a run directory (episodes, steps, violations, throughput)."""
+    get_console().info("Running run-summary.")
+    import json as _json
+
+    from labtrust_gym.benchmarks.summarize import run_dir_stats
+
+    root = get_repo_root()
+    run_dir = Path(args.run)
+    if not run_dir.is_absolute():
+        run_dir = root / run_dir
+    if not run_dir.is_dir():
+        get_console().error(f"Not a directory: {run_dir}")
+        return 1
+    stats = run_dir_stats(run_dir)
+    out_fmt = getattr(args, "format", "text")
+    if out_fmt == "json":
+        # Minimal dict for JSON (omit run_dir if desired; plan says one-line stats)
+        out = {
+            "num_episodes": stats["num_episodes"],
+            "total_steps": stats["total_steps"],
+            "violations_total": stats["violations_total"],
+            "throughput_mean": stats["throughput_mean"],
+        }
+        if stats.get("task"):
+            out["task"] = stats["task"]
+        print(_json.dumps(out, indent=0))
+    else:
+        parts = [f"episodes={stats['num_episodes']}"]
+        if stats.get("total_steps") is not None:
+            parts.append(f"steps={stats['total_steps']}")
+        if stats.get("violations_total") is not None:
+            parts.append(f"violations={stats['violations_total']}")
+        if stats.get("throughput_mean") is not None:
+            parts.append(f"throughput={stats['throughput_mean']:.4f}")
+        print(" ".join(parts))
     return 0
 
 
 def _run_determinism_report(args: argparse.Namespace) -> int:
     """Run benchmark twice in fresh temp dirs; write determinism_report.md and .json; exit 1 if non-deterministic."""
+    get_console().info("Running determinism-report.")
     from labtrust_gym.benchmarks.determinism_report import run_determinism_report
 
     root = get_repo_root()
@@ -3007,6 +3369,8 @@ def _run_determinism_report(args: argparse.Namespace) -> int:
         out_dir = root / out_dir
     partner_id = _get_partner_id(args)
     timing = getattr(args, "timing", "explicit") or "explicit"
+    injection_id = getattr(args, "injection", None)
+    _warn_reserved_injection(injection_id)
     passed, report, _ = run_determinism_report(
         task_name=args.task,
         num_episodes=args.episodes,
@@ -3018,20 +3382,21 @@ def _run_determinism_report(args: argparse.Namespace) -> int:
         coord_method=getattr(args, "coord_method", None),
         pipeline_mode=getattr(args, "pipeline_mode", None),
         llm_backend=getattr(args, "llm_backend", None),
-        injection_id=getattr(args, "injection", None),
+        injection_id=injection_id,
     )
-    print(f"Wrote {out_dir / 'determinism_report.json'}", file=sys.stderr)
-    print(f"Wrote {out_dir / 'determinism_report.md'}", file=sys.stderr)
+    get_console().write_plain(f"Wrote {out_dir / 'determinism_report.json'}")
+    get_console().write_plain(f"Wrote {out_dir / 'determinism_report.md'}")
     if passed:
-        print("Determinism check PASSED.", file=sys.stderr)
+        get_console().write_plain("Determinism check PASSED.")
         return 0
     for e in report.get("errors", []):
-        print(e, file=sys.stderr)
+        get_console().error(str(e))
     return 1
 
 
 def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     """Regenerate official baseline results: run core tasks (from registry), write results/, summary.csv, summary.md, metadata.json."""
+    get_console().info("Running generate-official-baselines.")
     import json
     from datetime import datetime, timedelta
 
@@ -3047,10 +3412,7 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
         out_dir = root / out_dir
 
     if out_dir.exists() and not getattr(args, "force", False):
-        print(
-            f"Refusing to overwrite existing directory: {out_dir}. Use --force to overwrite.",
-            file=sys.stderr,
-        )
+        get_console().error(f"Refusing to overwrite existing directory: {out_dir}. Use --force to overwrite.")
         return 1
 
     episodes = getattr(args, "episodes", 200)
@@ -3059,9 +3421,7 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     partner_id = _get_partner_id(args)
     git_sha = _git_sha()
 
-    tasks_in_order, task_to_baseline_id, task_to_suffix = (
-        load_official_baseline_registry(root)
-    )
+    tasks_in_order, task_to_baseline_id, task_to_suffix = load_official_baseline_registry(root)
     _schema_candidate = root / "policy" / "schemas" / "results.v0.2.schema.json"
     schema_path: Path | None = _schema_candidate if _schema_candidate.exists() else None
 
@@ -3078,14 +3438,9 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     results_dir.mkdir(parents=True, exist_ok=True)
 
     for task in tasks_in_order:
-        suffix = task_to_suffix.get(
-            task, task_to_baseline_id.get(task, "scripted_ops_v1").replace("_v1", "")
-        )
+        suffix = task_to_suffix.get(task, task_to_baseline_id.get(task, "scripted_ops_v1").replace("_v1", ""))
         out_path = results_dir / f"{task}_{suffix}.json"
-        print(
-            f"Running {task} ({episodes} episodes, seed={seed}, timing={timing}) -> {out_path}",
-            file=sys.stderr,
-        )
+        get_console().info(f"Running {task} ({episodes} episodes, seed={seed}, timing={timing}) -> {out_path}")
         run_benchmark(
             task_name=task,
             num_episodes=episodes,
@@ -3102,31 +3457,25 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
             errors = validate_results_v02(data, schema_path=schema_path)
             if errors:
                 for e in errors:
-                    print(f"Validation error {out_path}: {e}", file=sys.stderr)
+                    get_console().error(f"Validation error {out_path}: {e}")
                 return 1
 
-    result_paths = [
-        results_dir / f"{task}_{task_to_suffix[task]}.json" for task in tasks_in_order
-    ]
+    result_paths = [results_dir / f"{task}_{task_to_suffix[task]}.json" for task in tasks_in_order]
     csv_path, md_path = run_summarize(
         result_paths,
         out_dir,
         out_basename="summary",
     )
-    print(f"Wrote {csv_path}", file=sys.stderr)
-    print(f"Wrote {md_path}", file=sys.stderr)
+    get_console().write_plain(f"Wrote {csv_path}")
+    get_console().write_plain(f"Wrote {md_path}")
 
     # Deterministic timestamp when seed provided (UTC epoch + seed seconds)
     if seed is not None:
-        ts = (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed)).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        ts = (datetime(1970, 1, 1, tzinfo=UTC) + timedelta(seconds=seed)).strftime("%Y-%m-%dT%H:%M:%SZ")
     else:
         ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    baseline_ids_used = list(
-        dict.fromkeys(task_to_baseline_id[t] for t in tasks_in_order)
-    )
+    baseline_ids_used = list(dict.fromkeys(task_to_baseline_id[t] for t in tasks_in_order))
     metadata = {
         "version": "0.2",
         "baseline_version": "v0.2",
@@ -3148,7 +3497,7 @@ def _run_generate_official_baselines(args: argparse.Namespace) -> int:
     }
     metadata_path = out_dir / "metadata.json"
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    print(f"Wrote {metadata_path}", file=sys.stderr)
+    get_console().write_plain(f"Wrote {metadata_path}")
     return 0
 
 
@@ -3156,6 +3505,7 @@ def _run_official_pack(args: argparse.Namespace) -> int:
     """Run official benchmark pack: baselines, SECURITY, SAFETY_CASE, TRANSPARENCY_LOG."""
     from labtrust_gym.benchmarks.official_pack import run_official_pack
 
+    get_console().info("Running run-official-pack with baselines, SECURITY, SAFETY_CASE, TRANSPARENCY_LOG.")
     root = get_repo_root()
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
@@ -3180,6 +3530,11 @@ def _run_official_pack(args: argparse.Namespace) -> int:
     partner_id = getattr(args, "partner", None)
     metrics_aggregator_id = getattr(args, "metrics_aggregator_id", None)
     benchmark_pack_path = getattr(args, "benchmark_pack_path", None)
+    con = get_console()
+
+    def _pack_progress(current: int, total: int, label: str) -> None:
+        con.progress(f"Pack {current}/{total}: {label}")
+
     try:
         result = run_official_pack(
             out_dir=out_dir,
@@ -3194,30 +3549,30 @@ def _run_official_pack(args: argparse.Namespace) -> int:
             partner_id=partner_id,
             metrics_aggregator_id=metrics_aggregator_id,
             benchmark_pack_path=benchmark_pack_path,
+            progress_callback=_pack_progress,
         )
-        print(f"Official pack written to {result}", file=sys.stderr)
+        get_console().write_plain(f"Official pack written to {result}")
         return 0
     except Exception as e:
-        import traceback
-
-        print(f"run-official-pack failed: {e}", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
+        con = get_console()
+        con.error(f"run-official-pack failed: {e}")
+        if con.verbosity >= Verbosity.VERBOSE:
+            con.print_exception(e)
         return 1
 
 
 def _run_cross_provider_pack(args: argparse.Namespace) -> int:
     """Run official pack per provider; emit per-provider dirs and summary_cross_provider.json/.md."""
+    get_console().info("Running run-cross-provider-pack.")
     from labtrust_gym.benchmarks.official_pack import run_cross_provider_pack
 
     root = get_repo_root()
     out_dir = Path(args.out)
     if not out_dir.is_absolute():
         out_dir = root / out_dir
-    providers = [
-        p.strip() for p in getattr(args, "providers", "").split(",") if p.strip()
-    ]
+    providers = [p.strip() for p in getattr(args, "providers", "").split(",") if p.strip()]
     if not providers:
-        print("run-cross-provider-pack: --providers must be non-empty", file=sys.stderr)
+        get_console().error("run-cross-provider-pack: --providers must be non-empty")
         return 1
     seed_base = getattr(args, "seed_base", 100)
     smoke = not getattr(args, "no_smoke", False)
@@ -3229,18 +3584,19 @@ def _run_cross_provider_pack(args: argparse.Namespace) -> int:
             seed_base=seed_base,
             smoke=smoke,
         )
-        print(f"Cross-provider pack written to {result}", file=sys.stderr)
+        get_console().write_plain(f"Cross-provider pack written to {result}")
         return 0
     except Exception as e:
-        import traceback
-
-        print(f"run-cross-provider-pack failed: {e}", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
+        con = get_console()
+        con.error(f"run-cross-provider-pack failed: {e}")
+        if con.verbosity >= Verbosity.VERBOSE:
+            con.print_exception(e)
         return 1
 
 
 def _run_bench_smoke(args: argparse.Namespace) -> int:
     """Run 1 episode per task (throughput_sla, stat_insertion, qc_cascade); exit 0 if all succeed."""
+    get_console().info("Running bench-smoke.")
     from labtrust_gym.benchmarks.runner import run_benchmark
 
     root = get_repo_root()
@@ -3255,27 +3611,24 @@ def _run_bench_smoke(args: argparse.Namespace) -> int:
             repo_root=root,
             metrics_aggregator_id=getattr(args, "metrics_aggregator_id", None),
         )
-        print(f"bench-smoke {task} OK (1 episode, seed={seed})", file=sys.stderr)
-    print("bench-smoke all tasks OK.", file=sys.stderr)
+        get_console().write_plain(f"bench-smoke {task} OK (1 episode, seed={seed})")
+    get_console().write_plain("bench-smoke all tasks OK.")
     return 0
 
 
 def _run_record_llm_fixtures(args: argparse.Namespace) -> int:
     """Run a short benchmark with a live LLM backend and record fixtures. Manual use only; not for CI."""
+    get_console().info("Running record-llm-fixtures.")
     repo_root = getattr(args, "repo_root", None) or get_repo_root()
     repo_root = Path(repo_root)
     llm_backend = getattr(args, "llm_backend", "openai_hosted") or "openai_hosted"
     if llm_backend in ("openai_hosted", "openai_live", "openai_responses") and not os.environ.get("OPENAI_API_KEY"):
-        print(
-            "record-llm-fixtures with --llm-backend openai_hosted/openai_live/openai_responses requires OPENAI_API_KEY.",
-            file=sys.stderr,
+        get_console().error(
+            "record-llm-fixtures with --llm-backend openai_hosted/openai_live/openai_responses requires OPENAI_API_KEY."
         )
         return 1
     if llm_backend == "anthropic_live" and not os.environ.get("ANTHROPIC_API_KEY"):
-        print(
-            "record-llm-fixtures with --llm-backend anthropic_live requires ANTHROPIC_API_KEY.",
-            file=sys.stderr,
-        )
+        get_console().error("record-llm-fixtures with --llm-backend anthropic_live requires ANTHROPIC_API_KEY.")
         return 1
     from labtrust_gym.benchmarks.runner import run_benchmark
 
@@ -3305,26 +3658,21 @@ def _run_record_llm_fixtures(args: argparse.Namespace) -> int:
             n = meta.get("recorded_fixtures", 0)
         except (json.JSONDecodeError, OSError):
             pass
-    print(f"Recorded {n} fixture(s) to {fixtures_dir}", file=sys.stderr)
+    get_console().write_plain(f"Recorded {n} fixture(s) to {fixtures_dir}")
     return 0
 
 
 def _run_record_coordination_fixtures(args: argparse.Namespace) -> int:
     """Run coord_risk/coord_scale with live coord backend and record coordination fixtures."""
+    get_console().info("Running record-coordination-fixtures.")
     repo_root = getattr(args, "repo_root", None) or get_repo_root()
     repo_root = Path(repo_root)
     llm_backend = getattr(args, "llm_backend", "openai_live") or "openai_live"
     if llm_backend in ("openai_live",) and not os.environ.get("OPENAI_API_KEY"):
-        print(
-            "record-coordination-fixtures with --llm-backend openai_live requires OPENAI_API_KEY.",
-            file=sys.stderr,
-        )
+        get_console().error("record-coordination-fixtures with --llm-backend openai_live requires OPENAI_API_KEY.")
         return 1
     if llm_backend == "anthropic_live" and not os.environ.get("ANTHROPIC_API_KEY"):
-        print(
-            "record-coordination-fixtures with anthropic_live requires ANTHROPIC_API_KEY.",
-            file=sys.stderr,
-        )
+        get_console().error("record-coordination-fixtures with anthropic_live requires ANTHROPIC_API_KEY.")
         return 1
     from labtrust_gym.benchmarks.runner import run_benchmark
 
@@ -3357,27 +3705,24 @@ def _run_record_coordination_fixtures(args: argparse.Namespace) -> int:
             n = meta.get("recorded_coord_fixtures", 0)
         except (json.JSONDecodeError, OSError):
             pass
-    print(f"Recorded {n} coordination fixture(s) to {coord_fixtures_dir}", file=sys.stderr)
+    get_console().write_plain(f"Recorded {n} coordination fixture(s) to {coord_fixtures_dir}")
     return 0
 
 
 def _run_replay_from_fixtures(args: argparse.Namespace) -> int:
     """Replay benchmark from fixtures (llm_offline, deterministic, no network)."""
+    get_console().info("Running replay-from-fixtures.")
     repo_root = getattr(args, "repo_root", None) or get_repo_root()
     repo_root = Path(repo_root)
     task = getattr(args, "task", None)
     if not task:
-        print("replay-from-fixtures requires --task.", file=sys.stderr)
+        get_console().error("replay-from-fixtures requires --task.")
         return 1
     episodes = getattr(args, "episodes", 1)
     seed = getattr(args, "seed", 42)
     coord_method = getattr(args, "coord_method", None)
     if task in ("coord_risk", "coord_scale") and not coord_method:
-        print(
-            f"replay-from-fixtures for {task} requires --coord-method "
-            "(e.g. llm_central_planner).",
-            file=sys.stderr,
-        )
+        get_console().error(f"replay-from-fixtures for {task} requires --coord-method (e.g. llm_central_planner).")
         return 1
     coord_fixtures_path = getattr(args, "coord_fixtures_path", None)
     if coord_fixtures_path is None and task in ("coord_risk", "coord_scale"):
@@ -3402,20 +3747,18 @@ def _run_replay_from_fixtures(args: argparse.Namespace) -> int:
         pipeline_mode="llm_offline",
         coord_fixtures_path=coord_fixtures_path,
     )
-    print(f"Replay written to {out_path}", file=sys.stderr)
+    get_console().write_plain(f"Replay written to {out_path}")
     return 0
 
 
 def _run_llm_healthcheck(args: argparse.Namespace) -> int:
     """Run one minimal request to live LLM backend; print ok, model_id, latency, usage."""
+    get_console().info("Running llm-healthcheck.")
     from labtrust_gym.pipeline import set_pipeline_config
 
     allow_network = getattr(args, "allow_network", False) or _allow_network_from_env()
     if not allow_network:
-        print(
-            "llm-healthcheck requires network. Pass --allow-network or set LABTRUST_ALLOW_NETWORK=1.",
-            file=sys.stderr,
-        )
+        get_console().error("llm-healthcheck requires network. Pass --allow-network or set LABTRUST_ALLOW_NETWORK=1.")
         return 1
     set_pipeline_config(
         pipeline_mode="llm_live",
@@ -3446,19 +3789,20 @@ def _run_llm_healthcheck(args: argparse.Namespace) -> int:
         backend = OpenAILiveBackend(model=model_override)
     result = backend.healthcheck()
     ok = result.get("ok", False)
-    print(f"ok: {ok}", file=sys.stderr)
-    print(f"model_id: {result.get('model_id', 'n/a')}", file=sys.stderr)
-    print(f"latency_ms: {result.get('latency_ms')}", file=sys.stderr)
+    get_console().write_plain(f"ok: {ok}")
+    get_console().info(f"model_id: {result.get('model_id', 'n/a')}")
+    get_console().info(f"latency_ms: {result.get('latency_ms')}")
     usage = result.get("usage") or {}
     if usage:
-        print(f"usage: {usage}", file=sys.stderr)
+        get_console().info(f"usage: {usage}")
     if result.get("error"):
-        print(f"error: {result['error']}", file=sys.stderr)
+        get_console().error(f"error: {result['error']}")
     return 0 if ok else 1
 
 
 def _run_serve(args: argparse.Namespace) -> int:
     """Start online HTTP server with abuse controls (B004)."""
+    get_console().info("Running serve.")
     from labtrust_gym.online.config import load_online_config
     from labtrust_gym.online.server import run_server
 
@@ -3481,10 +3825,7 @@ def _run_serve(args: argparse.Namespace) -> int:
             auth_mode=config.auth_mode,
             key_registry=config.key_registry,
         )
-    print(
-        f"Serving at http://{config.host}:{config.port} (auth_required={config.auth_required})",
-        file=sys.stderr,
-    )
+    get_console().info(f"Serving at http://{config.host}:{config.port} (auth_required={config.auth_required})")
     run_server(config)
     return 0
 
@@ -3496,6 +3837,9 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
 
     from labtrust_gym.benchmarks.runner import run_benchmark
 
+    get_console().info(
+        "Running quick-eval (1 episode per task: throughput_sla, adversarial_disruption, multi_site_stat)."
+    )
     root = get_repo_root()
     seed = getattr(args, "seed", 42)
     out_dir = Path(getattr(args, "out_dir", "labtrust_runs"))
@@ -3512,7 +3856,9 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
 
     tasks = ["throughput_sla", "adversarial_disruption", "multi_site_stat"]
     rows: list[dict[str, Any]] = []
-    for task in tasks:
+    con = get_console()
+    for i, task in enumerate(tasks):
+        con.progress(f"Quick-eval task {i + 1}/{len(tasks)}: {task}")
         results_path = run_dir / f"{task}.json"
         log_path = logs_dir / f"{task}.jsonl"
         run_benchmark(
@@ -3551,20 +3897,19 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
         "|------|------------|------------|--------|",
     ]
     for r in rows:
-        lines.append(
-            f"| {r['task']} | {r['throughput']} | {r['violation_count']} | {r['blocked_count']} |"
-        )
+        lines.append(f"| {r['task']} | {r['throughput']} | {r['violation_count']} | {r['blocked_count']} |")
     lines.extend(["", f"Logs: `{logs_dir}`", ""])
     summary_path = run_dir / "summary.md"
     summary_path.write_text("\n".join(lines), encoding="utf-8")
 
-    print(f"quick-eval written to {run_dir}", file=sys.stderr)
+    get_console().write_plain(f"quick-eval written to {run_dir}")
     print(summary_path.read_text(), file=sys.stdout)
     return 0
 
 
 def _run_train_ppo(args: argparse.Namespace) -> int:
     """Train PPO and save model + eval metrics."""
+    get_console().info("Running train-ppo.")
     from labtrust_gym.baselines.marl.ppo_train import train_ppo
 
     root = get_repo_root()
@@ -3581,13 +3926,13 @@ def _run_train_ppo(args: argparse.Namespace) -> int:
         if not p.is_absolute():
             p = root / p
         if not p.exists():
-            print(f"train-config file not found: {p}", file=sys.stderr)
+            get_console().error(f"train-config file not found: {p}")
             return 1
         try:
             with open(p, encoding="utf-8") as f:
                 train_config = json.load(f)
         except (OSError, json.JSONDecodeError) as e:
-            print(f"Failed to load train-config: {e}", file=sys.stderr)
+            get_console().error(f"Failed to load train-config: {e}")
             return 1
     if getattr(args, "obs_history_len", None) is not None:
         train_config["obs_history_len"] = max(1, int(args.obs_history_len))
@@ -3605,13 +3950,14 @@ def _run_train_ppo(args: argparse.Namespace) -> int:
         checkpoint_every_steps=getattr(args, "checkpoint_every", None),
         keep_best_checkpoints=getattr(args, "keep_best", 0) or 0,
     )
-    print(f"Model saved to {result['model_path']}", file=sys.stderr)
-    print(f"Eval metrics to {result['eval_metrics_path']}", file=sys.stderr)
+    get_console().write_plain(f"Model saved to {result['model_path']}")
+    get_console().write_plain(f"Eval metrics to {result['eval_metrics_path']}")
     return 0
 
 
 def _run_eval_ppo(args: argparse.Namespace) -> int:
     """Evaluate trained PPO policy."""
+    get_console().info("Running eval-ppo.")
     from labtrust_gym.baselines.marl.ppo_eval import eval_ppo
 
     root = get_repo_root()
@@ -3628,9 +3974,9 @@ def _run_eval_ppo(args: argparse.Namespace) -> int:
         seed=args.seed,
         out_path=Path(out_path) if out_path else None,
     )
-    print(f"Mean reward: {metrics.get('mean_reward', 0):.2f}", file=sys.stderr)
+    get_console().write_plain(f"Mean reward: {metrics.get('mean_reward', 0):.2f}")
     if out_path:
-        print(f"Metrics written to {out_path}", file=sys.stderr)
+        get_console().write_plain(f"Metrics written to {out_path}")
     return 0
 
 

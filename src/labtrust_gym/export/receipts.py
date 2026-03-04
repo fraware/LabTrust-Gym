@@ -14,12 +14,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from labtrust_gym.util.json_utils import canonical_json
 from labtrust_gym.engine.signatures import (
     RECEIPT_SIGNATURE_ALGORITHM,
     canonical_for_signing,
@@ -27,6 +27,7 @@ from labtrust_gym.engine.signatures import (
     sign_payload_bytes,
 )
 from labtrust_gym.tools.registry import combined_policy_fingerprint
+from labtrust_gym.util.json_utils import canonical_json
 
 RECEIPT_VERSION = "0.1"
 
@@ -151,9 +152,7 @@ def compute_bundle_fingerprints_required(policy_root: Path) -> dict[str, str]:
 
     path_tool = policy_path(policy_root, "tool_registry.v0.1.yaml")
     if not path_tool.exists():
-        raise PolicyPathError(
-            f"required for tool_registry_fingerprint: {path_tool} not found"
-        )
+        raise PolicyPathError(f"required for tool_registry_fingerprint: {path_tool} not found")
     logger.info("tool_registry_fingerprint from %s", path_tool)
     try:
         from labtrust_gym.tools.registry import load_tool_registry, tool_registry_fingerprint
@@ -186,6 +185,34 @@ def load_episode_log(path: Path) -> list[dict[str, Any]]:
                 continue
             entries.append(json.loads(line))
     return entries
+
+
+def compute_coordination_audit_digest_sha256(entries: list[dict[str, Any]]) -> str | None:
+    """
+    Build a compact digest from LLM_COORD_AUDIT_DIGEST and step entries with proposal_hash/shield_outcome_hash,
+    then return SHA-256 hex. Returns None if no such entries.
+    """
+    digest_steps: list[tuple[int, str, str]] = []
+    for e in entries:
+        if e.get("log_type") == "LLM_COORD_AUDIT_DIGEST" and isinstance(e.get("steps"), list):
+            for s in e["steps"]:
+                if isinstance(s, dict) and "step_id" in s and "proposal_hash" in s:
+                    digest_steps.append(
+                        (
+                            int(s["step_id"]),
+                            str(s.get("proposal_hash", "")),
+                            str(s.get("shield_outcome_hash", "")),
+                        )
+                    )
+        elif "proposal_hash" in e and "shield_outcome_hash" in e:
+            step_id = int(e.get("step_id", e.get("t_s", 0)))
+            digest_steps.append((step_id, str(e["proposal_hash"]), str(e["shield_outcome_hash"])))
+    if not digest_steps:
+        return None
+    digest_steps.sort(key=lambda x: (x[0], x[1], x[2]))
+    payload = [{"step_id": s[0], "proposal_hash": s[1], "shield_outcome_hash": s[2]} for s in digest_steps]
+    canonical = canonical_json(payload)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _entity_ids_from_entries(
@@ -690,12 +717,7 @@ def write_evidence_bundle(
         return "".join(c if c.isalnum() or c in "_-" else "_" for c in s)
 
     # Optional signing: callback supplies private key; no disk read in core.
-    sign_receipts = (
-        sign_bundle
-        and get_private_key is not None
-        and sign_key_id is not None
-        and key_registry is not None
-    )
+    sign_receipts = sign_bundle and get_private_key is not None and sign_key_id is not None and key_registry is not None
     written_files: list[str] = []
     if policy_root_hash is not None:
         written_files.append(POLICY_PACK_MANIFEST_FILENAME)
@@ -730,6 +752,8 @@ def write_evidence_bundle(
         for e in entries:
             f.write(canonical_json(e) + "\n")
     written_files.append("episode_log_subset.jsonl")
+
+    coordination_audit_digest_sha256: str | None = compute_coordination_audit_digest_sha256(entries)
 
     # invariant_eval_trace.jsonl: one line per step with violations (t_s, step_index, violations)
     trace_path = bundle_dir / "invariant_eval_trace.jsonl"
@@ -791,6 +815,8 @@ def write_evidence_bundle(
         manifest["coordination_policy_fingerprint"] = coordination_policy_fingerprint
     if memory_policy_fingerprint is not None:
         manifest["memory_policy_fingerprint"] = memory_policy_fingerprint
+    if coordination_audit_digest_sha256 is not None:
+        manifest["coordination_audit_digest_sha256"] = coordination_audit_digest_sha256
     manifest["signature"] = None
 
     for rel in sorted(written_files):
@@ -879,7 +905,9 @@ def export_receipts(
     pid = partner_id or (entries[0].get("partner_id") if entries else None)
     tr_fp = tool_registry_fingerprint or (entries[0].get("tool_registry_fingerprint") if entries else None)
     rbac_fp = rbac_policy_fingerprint or (entries[0].get("rbac_policy_fingerprint") if entries else None)
-    coord_fp = coordination_policy_fingerprint or (entries[0].get("coordination_policy_fingerprint") if entries else None)
+    coord_fp = coordination_policy_fingerprint or (
+        entries[0].get("coordination_policy_fingerprint") if entries else None
+    )
     mem_fp = memory_policy_fingerprint or (entries[0].get("memory_policy_fingerprint") if entries else None)
 
     if policy_root is not None:
@@ -893,9 +921,10 @@ def export_receipts(
         if not mem_fp and computed.get("memory_policy_fingerprint"):
             mem_fp = computed["memory_policy_fingerprint"]
         # Fallback: if any fingerprint still missing, try get_repo_root() (e.g. when policy_root is relative or wrong cwd)
-        if (not tr_fp or not rbac_fp or not coord_fp or not mem_fp):
+        if not tr_fp or not rbac_fp or not coord_fp or not mem_fp:
             try:
                 from labtrust_gym.config import get_repo_root
+
                 alt_root = get_repo_root()
                 if alt_root != policy_root:
                     alt_computed = _compute_bundle_fingerprints_from_policy(Path(alt_root))
@@ -917,7 +946,12 @@ def export_receipts(
         try:
             results_data = json.loads(results_path.read_text(encoding="utf-8"))
             meta = results_data.get("metadata") or {}
-            for key in ("prompt_template_id", "prompt_sha256", "allowed_actions_payload_sha256", "coordination_policy_fingerprint"):
+            for key in (
+                "prompt_template_id",
+                "prompt_sha256",
+                "allowed_actions_payload_sha256",
+                "coordination_policy_fingerprint",
+            ):
                 if meta.get(key) is not None:
                     coord_meta[key] = meta[key]
         except Exception:

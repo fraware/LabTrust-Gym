@@ -9,12 +9,10 @@ fail, route to alternate device or hold. Purely deterministic given observations
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-# Action indices aligned with pz_parallel
-ACTION_NOOP = 0
-ACTION_TICK = 1
-ACTION_QUEUE_RUN = 2
+from labtrust_gym.envs.action_contract import ACTION_NOOP, ACTION_QUEUE_RUN, ACTION_TICK
 
 DEFAULT_DEVICE_IDS: list[str] = [
     "DEV_CENTRIFUGE_BANK_01",
@@ -100,12 +98,34 @@ class ScriptedOpsAgent:
         device_ids: list[str] | None = None,
         door_tick_threshold_s: float = 150.0,
         max_queue_len: int = 50,
+        policy_path: Path | None = None,
+        policy_dict: dict[str, Any] | None = None,
     ) -> None:
-        self.request_override_if_configured = request_override_if_configured
-        self.alternate_devices = alternate_devices or dict(DEFAULT_ALTERNATE_DEVICES)
-        self.device_ids = device_ids or list(DEFAULT_DEVICE_IDS)
-        self.door_tick_threshold_s = door_tick_threshold_s
-        self.max_queue_len = max_queue_len
+        policy: dict[str, Any] = {}
+        if policy_dict is not None:
+            policy = policy_dict
+        else:
+            try:
+                from labtrust_gym.policy.scripted import load_scripted_ops_policy
+
+                policy = load_scripted_ops_policy(
+                    policy_path_arg=policy_path,
+                    repo_root=None,
+                    validate=True,
+                )
+            except Exception:
+                pass
+        self.request_override_if_configured = policy.get(
+            "request_override_if_configured", request_override_if_configured
+        )
+        alt = policy.get("alternate_devices")
+        if alt is not None:
+            self.alternate_devices = {int(k): list(v) for k, v in alt.items()}
+        else:
+            self.alternate_devices = alternate_devices or dict(DEFAULT_ALTERNATE_DEVICES)
+        self.device_ids = policy.get("device_ids") or device_ids or list(DEFAULT_DEVICE_IDS)
+        self.door_tick_threshold_s = policy.get("door_tick_threshold_s", door_tick_threshold_s)
+        self.max_queue_len = policy.get("max_queue_len", max_queue_len)
 
     def act(
         self,
@@ -129,12 +149,24 @@ class ScriptedOpsAgent:
             rid = releasable[0]
             return (
                 0,
-                {"action_type": "RELEASE_RESULT", "args": {"result_id": str(rid)}},
+                {
+                    "action_type": "RELEASE_RESULT",
+                    "args": {"result_id": str(rid)},
+                    "reason_code": None,
+                    "rationale": "scripted_ops: STAT then EDF; release first releasable",
+                },
             )
 
         log_frozen = _scalar(observation.get("log_frozen"), 0)
         if log_frozen:
-            return (ACTION_NOOP, action_info)
+            return (
+                ACTION_NOOP,
+                {
+                    **action_info,
+                    "reason_code": "AGENT_SCRIPTED_NOOP",
+                    "rationale": "scripted_ops: log frozen",
+                },
+            )
 
         door_open = _scalar(observation.get("door_restricted_open"), 0)
         door_duration = _float_scalar(
@@ -142,9 +174,18 @@ class ScriptedOpsAgent:
             0.0,
         )
         if door_open and door_duration >= self.door_tick_threshold_s:
-            return (ACTION_TICK, action_info)
+            return (
+                ACTION_TICK,
+                {
+                    **action_info,
+                    "reason_code": None,
+                    "rationale": "scripted_ops: door tick threshold exceeded",
+                },
+            )
 
-        work_list = observation.get("work_list") or []
+        work_list = observation.get("work_list")
+        if not isinstance(work_list, (list, tuple)):
+            work_list = []
         token_override = _scalar(observation.get("token_count_override"), 0)
         _scalar(observation.get("token_count_restricted"), 0)
 
@@ -153,7 +194,35 @@ class ScriptedOpsAgent:
                 return True
             return bool(self.request_override_if_configured and token_override > 0)
 
-        eligible = [w for w in work_list if can_queue_without_override(w)]
+        eligible = [w for w in work_list if isinstance(w, dict) and can_queue_without_override(w)]
+
+        def has_any_qc_pass_device(work: dict[str, Any]) -> bool:
+            device_id_raw = work.get("device_id")
+            if device_id_raw is None:
+                return False
+            try:
+                if isinstance(device_id_raw, str):
+                    dev_idx = self.device_ids.index(device_id_raw)
+                else:
+                    dev_idx = int(device_id_raw) % len(self.device_ids)
+            except (ValueError, TypeError):
+                return False
+            if _device_qc_pass(observation, dev_idx):
+                return True
+            for a in self.alternate_devices.get(dev_idx, []):
+                if _device_qc_pass(observation, a):
+                    return True
+            return False
+
+        if eligible and not any(has_any_qc_pass_device(w) for w in eligible):
+            return (
+                ACTION_NOOP,
+                {
+                    **action_info,
+                    "reason_code": "ROUTE_DEVICE_UNAVAILABLE",
+                    "rationale": "scripted_ops: no device with QC pass for any work",
+                },
+            )
 
         # STAT first, then EDF (by deadline_s)
         def key(w: dict[str, Any]) -> tuple[int, int]:
@@ -185,19 +254,23 @@ class ScriptedOpsAgent:
                 if dev_idx < 0:
                     continue  # hold: no alternate with QC pass
 
-            if (
-                _queue_length(observation, dev_idx, self.max_queue_len)
-                >= self.max_queue_len
-            ):
+            if _queue_length(observation, dev_idx, self.max_queue_len) >= self.max_queue_len:
                 continue
 
             action_info = {
                 "work_id": str(work.get("work_id", "")),
-                "device_id": (
-                    self.device_ids[dev_idx] if dev_idx < len(self.device_ids) else ""
-                ),
+                "device_id": (self.device_ids[dev_idx] if dev_idx < len(self.device_ids) else ""),
                 "priority": str(work.get("priority", "ROUTINE")),
+                "reason_code": None,
+                "rationale": "scripted_ops: STAT then EDF; queue run",
             }
             return (ACTION_QUEUE_RUN, action_info)
 
-        return (ACTION_NOOP, action_info)
+        return (
+            ACTION_NOOP,
+            {
+                **action_info,
+                "reason_code": "AGENT_SCRIPTED_NOOP",
+                "rationale": "scripted_ops: no eligible work or all held",
+            },
+        )

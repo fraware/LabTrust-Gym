@@ -315,15 +315,9 @@ def collect_llm_live_metadata_from_pack(pack_out_dir: Path) -> dict[str, Any]:
                         "cost_usd_sum": 0.0,
                         "call_count": 0,
                     }
-                attribution_by_backend[backend_id]["latency_ms_sum"] += float(
-                    stats.get("latency_ms_sum") or 0
-                )
-                attribution_by_backend[backend_id]["cost_usd_sum"] += float(
-                    stats.get("cost_usd_sum") or 0
-                )
-                attribution_by_backend[backend_id]["call_count"] += int(
-                    stats.get("call_count") or 0
-                )
+                attribution_by_backend[backend_id]["latency_ms_sum"] += float(stats.get("latency_ms_sum") or 0)
+                attribution_by_backend[backend_id]["cost_usd_sum"] += float(stats.get("cost_usd_sum") or 0)
+                attribution_by_backend[backend_id]["call_count"] += int(stats.get("call_count") or 0)
         for meta_key, agg_key in meta_to_agg.items():
             v = meta.get(meta_key)
             if v is not None and agg_key in latency_cost_agg:
@@ -359,9 +353,7 @@ def collect_llm_live_metadata_from_pack(pack_out_dir: Path) -> dict[str, Any]:
     if latency_cost_agg["total_tokens"]:
         latency_and_cost_statistics["total_tokens"] = _agg(latency_cost_agg["total_tokens"])
     if latency_cost_agg["estimated_cost_usd"]:
-        latency_and_cost_statistics["estimated_cost_usd"] = _agg(
-            latency_cost_agg["estimated_cost_usd"]
-        )
+        latency_and_cost_statistics["estimated_cost_usd"] = _agg(latency_cost_agg["estimated_cost_usd"])
 
     out: dict[str, Any] = {
         "version": LLM_LIVE_TRANSPARENCY_VERSION,

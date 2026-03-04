@@ -63,9 +63,7 @@ class DeviceQueue:
         allow_duplicate_work_id: bool = True,
     ) -> bool:
         """Append item and re-sort. Returns False if duplicate work_id and duplicates disallowed."""
-        if not allow_duplicate_work_id and any(
-            it.work_id == work_id for it in self.items
-        ):
+        if not allow_duplicate_work_id and any(it.work_id == work_id for it in self.items):
             return False
         item = DeviceQueueItem(
             work_id=work_id,

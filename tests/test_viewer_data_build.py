@@ -34,11 +34,14 @@ def test_viewer_data_bundle_validates_schema_and_crosswalk() -> None:
     root = _repo_root()
     bundle_path = root / "viewer-data" / "latest" / "RISK_REGISTER_BUNDLE.v0.1.json"
     if not bundle_path.exists():
-        pytest.skip("viewer-data/latest/RISK_REGISTER_BUNDLE.v0.1.json not found (run build_viewer_data_from_release first)")
+        pytest.skip(
+            "viewer-data/latest/RISK_REGISTER_BUNDLE.v0.1.json not found (run build_viewer_data_from_release first)"
+        )
     from labtrust_gym.export.risk_register_bundle import (
         check_crosswalk_integrity,
         validate_bundle_against_schema,
     )
+
     bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
     err = validate_bundle_against_schema(bundle, root)
     assert not err, f"schema validation: {err}"

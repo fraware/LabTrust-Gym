@@ -12,12 +12,9 @@ import pytest
 from labtrust_gym.baselines.coordination.interface import VALID_ACTION_INDICES
 
 from .conftest import (
-    _conformance_config,
     _method_ids_from_policy,
     _minimal_obs,
-    _minimal_policy,
     _minimal_scale_config,
-    _repo_root,
     make_coord_method_for_conformance,
 )
 

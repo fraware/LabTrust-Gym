@@ -68,7 +68,7 @@ def check_extras_env() -> dict[str, Any]:
         "id": id_,
         "status": "fail",
         "detail": f"missing: {', '.join(missing)}",
-        "remediation": "pip install -e \".[env]\"",
+        "remediation": 'pip install -e ".[env]"',
     }
 
 
@@ -82,7 +82,7 @@ def check_extras_dev() -> dict[str, Any]:
         "id": id_,
         "status": "fail",
         "detail": "pytest not installed",
-        "remediation": "pip install -e \".[dev]\"",
+        "remediation": 'pip install -e ".[dev]"',
     }
 
 
@@ -95,7 +95,7 @@ def check_extras_plots() -> dict[str, Any]:
         "id": id_,
         "status": "warn",
         "detail": "matplotlib not installed",
-        "remediation": "pip install -e \".[plots]\" for make-plots.",
+        "remediation": 'pip install -e ".[plots]" for make-plots.',
     }
 
 
@@ -108,7 +108,7 @@ def check_extras_marl() -> dict[str, Any]:
         "id": id_,
         "status": "warn",
         "detail": "stable_baselines3 not installed",
-        "remediation": "pip install -e \".[marl]\" for PPO.",
+        "remediation": 'pip install -e ".[marl]" for PPO.',
     }
 
 
@@ -126,7 +126,7 @@ def check_llm_backends() -> dict[str, Any]:
             "id": id_,
             "status": "warn",
             "detail": "No openai or anthropic; llm_live backends unavailable",
-            "remediation": "pip install -e \".[llm_openai]\" or \".[llm_anthropic]\" for live LLM.",
+            "remediation": 'pip install -e ".[llm_openai]" or ".[llm_anthropic]" for live LLM.',
         }
     return {"id": id_, "status": "pass", "detail": ",".join(detail_parts), "remediation": ""}
 
@@ -134,6 +134,7 @@ def check_llm_backends() -> dict[str, Any]:
 def check_filesystem_temp() -> dict[str, Any]:
     id_ = "filesystem_temp"
     import tempfile
+
     try:
         with tempfile.NamedTemporaryFile(delete=True) as f:
             f.write(b"x")
@@ -150,10 +151,14 @@ def check_filesystem_temp() -> dict[str, Any]:
 def check_policy_resolution(root: Path) -> dict[str, Any]:
     id_ = "policy_resolution"
     try:
-        from labtrust_gym.config import get_policy_dir
+        from labtrust_gym.config import get_policy_dir, get_policy_source
         from labtrust_gym.policy.validate import validate_policy
+
         policy_dir = get_policy_dir(root)
+        source_info = get_policy_source()
         detail = f"policy_dir={policy_dir}"
+        if source_info:
+            detail += f"; policy_source={source_info[0]}"
         errs = validate_policy(root, partner_id=None)
         if errs:
             return {
@@ -168,11 +173,13 @@ def check_policy_resolution(root: Path) -> dict[str, Any]:
             "id": id_,
             "status": "fail",
             "detail": str(e),
-            "remediation": "Ensure policy/ is present and LABTRUST_POLICY_DIR valid.",
+            "remediation": "Run from repo root or set LABTRUST_POLICY_DIR to the policy directory.",
         }
 
 
-REQUIRED_CHECK_IDS = frozenset({"python_path", "venv", "extras_env", "extras_dev", "filesystem_temp", "policy_resolution"})
+REQUIRED_CHECK_IDS = frozenset(
+    {"python_path", "venv", "extras_env", "extras_dev", "filesystem_temp", "policy_resolution"}
+)
 
 
 def run_doctor_checks(root: Path) -> tuple[list[dict[str, Any]], bool]:
@@ -187,9 +194,6 @@ def run_doctor_checks(root: Path) -> tuple[list[dict[str, Any]], bool]:
     checks.append(check_llm_backends())
     checks.append(check_filesystem_temp())
     checks.append(check_policy_resolution(root))
-    required_failed = any(
-        c["status"] == "fail" and c["id"] in REQUIRED_CHECK_IDS
-        for c in checks
-    )
+    required_failed = any(c["status"] == "fail" and c["id"] in REQUIRED_CHECK_IDS for c in checks)
     overall_pass = not required_failed
     return checks, overall_pass

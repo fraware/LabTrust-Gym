@@ -8,6 +8,7 @@ limiter caps the number of LLM calls per time window.
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any
 
@@ -16,6 +17,11 @@ class CircuitBreaker:
     """
     Opens after consecutive_blocks blocks (pre-LLM or shield); then skips LLM
     for cooldown_calls calls. Resets on first successful (non-block) decision.
+
+    Thread-safe when shared by multiple agents (e.g. N agents sharing one
+    CircuitBreaker per backend). Use a single instance per backend and pass
+    it into each LLMAgentWithShield via the circuit_breaker argument to
+    reduce memory at scale.
     """
 
     def __init__(
@@ -27,31 +33,33 @@ class CircuitBreaker:
         self._cooldown_calls = max(0, cooldown_calls)
         self._consecutive_blocks = 0
         self._cooldown_remaining = 0
+        self._lock = threading.Lock()
 
     def record_block(self) -> None:
         """Call when pre-LLM or shield blocked this step."""
-        self._consecutive_blocks += 1
-        if (
-            self._consecutive_blocks >= self._consecutive_threshold
-            and self._cooldown_calls > 0
-        ):
-            self._cooldown_remaining = self._cooldown_calls
+        with self._lock:
+            self._consecutive_blocks += 1
+            if self._consecutive_blocks >= self._consecutive_threshold and self._cooldown_calls > 0:
+                self._cooldown_remaining = self._cooldown_calls
 
     def record_success(self) -> None:
         """Call when LLM was called and decision was not blocked."""
-        self._consecutive_blocks = 0
+        with self._lock:
+            self._consecutive_blocks = 0
 
     def should_skip_llm(self) -> bool:
         """True if circuit is open (cooldown): skip LLM call and return NOOP."""
-        if self._cooldown_remaining > 0:
-            self._cooldown_remaining -= 1
-            return True
-        return False
+        with self._lock:
+            if self._cooldown_remaining > 0:
+                self._cooldown_remaining -= 1
+                return True
+            return False
 
     def reset(self) -> None:
         """Reset state (e.g. at episode start)."""
-        self._consecutive_blocks = 0
-        self._cooldown_remaining = 0
+        with self._lock:
+            self._consecutive_blocks = 0
+            self._cooldown_remaining = 0
 
 
 class RateLimiter:

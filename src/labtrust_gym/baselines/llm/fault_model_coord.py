@@ -52,10 +52,7 @@ def _minimal_proposal(
         "step_id": step_id,
         "method_id": method_id,
         "horizon_steps": 1,
-        "per_agent": [
-            {"agent_id": aid, "action_type": "NOOP", "args": {}}
-            for aid in agent_ids
-        ],
+        "per_agent": [{"agent_id": aid, "action_type": "NOOP", "args": {}} for aid in agent_ids],
         "comms": [],
         "market": [],
         "meta": {"backend_id": "llm_fault_model_coord"},
@@ -94,9 +91,7 @@ class LLMFaultModelCoordWrapper:
         """Per-step RNG: same seed + step + digest -> same decision."""
         seed_offset = int(self._config.get("seed_offset", 0))
         digest_part = int(input_digest[:8], 16) % (2**31)
-        step_seed = (
-            self._seed + seed_offset + step_id * 7919 + digest_part
-        )
+        step_seed = self._seed + seed_offset + step_id * 7919 + digest_part
         return random.Random(step_seed)
 
     def generate_proposal(
@@ -113,9 +108,7 @@ class LLMFaultModelCoordWrapper:
         with fault_type / reason_code.
         """
         mid = method_id if method_id is not None else self._method_id
-        digest = _coord_input_digest(
-            state_digest, step_id, mid, allowed_actions
-        )
+        digest = _coord_input_digest(state_digest, step_id, mid, allowed_actions)
         faults = self._config.get("faults") or []
         step_rng = self._get_step_rng(step_id, digest)
 
@@ -124,14 +117,10 @@ class LLMFaultModelCoordWrapper:
                 continue
             if _should_inject_fault(fault, step_id, step_rng):
                 fault_id = fault.get("fault_id", "invalid_output")
-                reason_code = fault.get(
-                    "reason_code", RC_LLM_INVALID_OUTPUT
-                )
+                reason_code = fault.get("reason_code", RC_LLM_INVALID_OUTPUT)
                 self._fault_injected_count += 1
                 self._fallback_count += 1
-                proposal = _minimal_proposal(
-                    state_digest, step_id, mid, self._seed
-                )
+                proposal = _minimal_proposal(state_digest, step_id, mid, self._seed)
                 meta = {
                     "backend_id": "llm_fault_model_coord",
                     "fault_type": fault_id,
@@ -141,9 +130,7 @@ class LLMFaultModelCoordWrapper:
 
         gen = getattr(self._inner, "generate_proposal", None)
         if not callable(gen):
-            proposal = _minimal_proposal(
-                state_digest, step_id, mid, self._seed
-            )
+            proposal = _minimal_proposal(state_digest, step_id, mid, self._seed)
             return (proposal, {"backend_id": "no_inner"})
         try:
             raw = gen(

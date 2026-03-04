@@ -4,8 +4,6 @@ Tests for learning-to-bid: determinism, checksum, calibration MAE.
 
 from __future__ import annotations
 
-import pytest
-
 from labtrust_gym.baselines.coordination.allocation.learning_to_bid import (
     MinimalRegressor,
     calibration_mae,
@@ -51,6 +49,7 @@ def test_learning_to_bid_training_determinism() -> None:
 
 def test_calibration_mae_decreases_with_more_data() -> None:
     """Predicted vs observed error decreases over epochs as buffer grows (MinimalRegressor)."""
+
     def pred_from_fit(agent_id: str, work_id: str, device_id: str, buf: list) -> float:
         r = MinimalRegressor(seed=42)
         r.fit(buf)

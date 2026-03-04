@@ -157,6 +157,7 @@ def test_llm_repair_multi_candidate_validator_selects_first_valid() -> None:
     actions = method.propose_actions(obs, infos, 0)
     assert "a1" in actions and "a2" in actions
     from labtrust_gym.baselines.coordination.interface import ACTION_TICK
+
     assert actions["a1"].get("action_index") == ACTION_TICK
     assert actions["a2"].get("action_index") == ACTION_TICK
 

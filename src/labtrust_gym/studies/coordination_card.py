@@ -108,17 +108,49 @@ def render_coordination_card(
 
 
 def _default_coordination_card_content() -> str:
-    """Fallback card content when template is missing."""
-    return """# Coordination Benchmark Card (coord_scale / coord_risk)
+    """Fallback card content when template is missing. Includes all sections required for scientific review."""
+    return (
+        """# Coordination Benchmark Card (coord_scale / coord_risk)
 
 ## Scope
 
 coord_scale and coord_risk evaluate multi-agent coordination in the Blood Sciences lane.
 
+## Scenario generation
+
+Scenarios are defined in the coordination study spec and scale configs; see policy/coordination.
+
+## Scale configs
+
+Scale configs (policy/coordination/scale_configs.v0.1.yaml) define agent counts, devices, and episode length.
+
+## Methods
+
+Coordination methods are registered in policy/coordination/coordination_methods.v0.1.yaml.
+
+## Injections
+
+Injections (policy/coordination/injections.v0.2.yaml) define adversarial and fault-injection scenarios for the pack.
+
+## Metrics definitions
+
+Metrics (violations, detection latency, attack success) are defined in the study spec and gate policy.
+
+## Determinism guarantees
+
+Runs with the same seed and policy produce deterministic episode outcomes; fingerprint documents policy version.
+
+## What this benchmark is NOT measuring
+
+This card does not certify safety of deployed systems; it documents benchmark scope and policy for reproducibility.
+
 ## Policy fingerprint
 
-""" + COORDINATION_POLICY_FINGERPRINT_TOKEN + """
 """
+        + COORDINATION_POLICY_FINGERPRINT_TOKEN
+        + """
+"""
+    )
 
 
 def write_coordination_card(
@@ -153,6 +185,7 @@ def _get_llm_coordination_method_ids(coord_dir: Path) -> list[str]:
         return list(LLM_COORDINATION_METHOD_IDS_FALLBACK)
     try:
         from labtrust_gym.policy.coordination import list_llm_coordination_method_ids
+
         return list_llm_coordination_method_ids(reg_path)
     except Exception:
         return list(LLM_COORDINATION_METHOD_IDS_FALLBACK)
@@ -164,6 +197,7 @@ def _load_yaml_safe(path: Path) -> dict[str, Any]:
         return {}
     try:
         import yaml
+
         return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except Exception:
         return {}
@@ -192,7 +226,7 @@ def render_coordination_llm_card(
             method_rows.append(m)
 
     injection_ids: list[str] = []
-    for inj in (injections_cfg.get("injections") or []):
+    for inj in injections_cfg.get("injections") or []:
         iid = inj.get("injection_id")
         if iid:
             injection_ids.append(str(iid))
@@ -219,43 +253,47 @@ def render_coordination_llm_card(
         controls = ", ".join(m.get("required_controls") or [])
         lines.append(f"| {mid} | {name} | {weaknesses} | {controls} |")
 
-    lines.extend([
-        "",
-        "## Backends",
-        "",
-        "| backend_id | description |",
-        "|------------|-------------|",
-        "| deterministic | Seeded proposal backend; no network; reproducible. |",
-        "| openai_live | Live OpenAI (CoordinationProposal or market bids); used by llm_central_planner, llm_hierarchical_allocator, llm_auction_bidder; requires OPENAI_API_KEY. |",
-        "| ollama_live | Live Ollama (CoordinationProposal or market bids); same methods as openai_live when configured (LABTRUST_LOCAL_LLM_URL, LABTRUST_LOCAL_LLM_MODEL). |",
-        "",
-        "Default for `run-coordination-study` and `run-benchmark` when using LLM methods: **deterministic**. No API calls unless `--llm-backend openai_live` (or ollama_live) is passed.",
-        "",
-        "## Policy fingerprint",
-        "",
-        f"Same as coordination policy: **SHA-256** `{fingerprint}` (see COORDINATION_CARD.md for per-file hashes).",
-        "",
-        "## Injection coverage (security evaluation)",
-        "",
-        "coord_risk injections used for security evaluation (from injections.v0.2.yaml):",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Backends",
+            "",
+            "| backend_id | description |",
+            "|------------|-------------|",
+            "| deterministic | Seeded proposal backend; no network; reproducible. |",
+            "| openai_live | Live OpenAI (CoordinationProposal or market bids); used by llm_central_planner, llm_hierarchical_allocator, llm_auction_bidder; requires OPENAI_API_KEY. |",
+            "| ollama_live | Live Ollama (CoordinationProposal or market bids); same methods as openai_live when configured (LABTRUST_LOCAL_LLM_URL, LABTRUST_LOCAL_LLM_MODEL). |",
+            "",
+            "Default for `run-coordination-study` and `run-benchmark` when using LLM methods: **deterministic**. No API calls unless `--llm-backend openai_live` (or ollama_live) is passed.",
+            "",
+            "## Policy fingerprint",
+            "",
+            f"Same as coordination policy: **SHA-256** `{fingerprint}` (see COORDINATION_CARD.md for per-file hashes).",
+            "",
+            "## Injection coverage (security evaluation)",
+            "",
+            "coord_risk injections used for security evaluation (from injections.v0.2.yaml):",
+            "",
+        ]
+    )
     for iid in sorted(injection_ids):
         lines.append(f"- {iid}")
-    lines.extend([
-        "",
-        "LLM-relevant injections include: INJ-LLM-PROMPT-INJECT-COORD-001, INJ-LLM-TOOL-ESCALATION-001, INJ-COMMS-FLOOD-LLM-001, INJ-ID-REPLAY-COORD-001, INJ-COLLUSION-MARKET-001, INJ-MEMORY-POISON-COORD-001, INJ-ID-SPOOF-001, INJ-COMMS-POISON-001, INJ-BID-SPOOF-001, INJ-COLLUSION-001, and others as defined in the spec.",
-        "",
-        "Method-risk matrix (required_bench / coverage) for LLM methods is in policy/coordination/method_risk_matrix.v0.1.yaml. Run with `--llm-backend deterministic` to satisfy coverage gates without network.",
-        "",
-        "## Known limitations",
-        "",
-        "- **Deterministic backend**: Proposals are seeded NOOP or trivial; not representative of live LLM quality. Use for reproducibility and coverage only.",
-        "- **Live backends**: Require API key (openai_live) or local service (ollama_live); cost and latency vary; results non-deterministic.",
-        "- **Shield and repair**: LLM proposals are passed through RBAC/signature shield; blocked actions trigger repair loop. Repair caps (max_repairs, blocked_threshold) are configurable via scale_config. Security metrics (attack_success_rate, detection, containment) depend on injection and harness.",
-        "- **Injection set**: Only configured injections in the study spec are applied; no black-box adversary search.",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "LLM-relevant injections include: INJ-LLM-PROMPT-INJECT-COORD-001, INJ-LLM-TOOL-ESCALATION-001, INJ-COMMS-FLOOD-LLM-001, INJ-ID-REPLAY-COORD-001, INJ-COLLUSION-MARKET-001, INJ-MEMORY-POISON-COORD-001, INJ-ID-SPOOF-001, INJ-COMMS-POISON-001, INJ-BID-SPOOF-001, INJ-COLLUSION-001, and others as defined in the spec.",
+            "",
+            "Method-risk matrix (required_bench / coverage) for LLM methods is in policy/coordination/method_risk_matrix.v0.1.yaml. Run with `--llm-backend deterministic` to satisfy coverage gates without network.",
+            "",
+            "## Known limitations",
+            "",
+            "- **Deterministic backend**: Proposals are seeded NOOP or trivial; not representative of live LLM quality. Use for reproducibility and coverage only.",
+            "- **Live backends**: Require API key (openai_live) or local service (ollama_live); cost and latency vary; results non-deterministic.",
+            "- **Shield and repair**: LLM proposals are passed through RBAC/signature shield; blocked actions trigger repair loop. Repair caps (max_repairs, blocked_threshold) are configurable via scale_config. Security metrics (attack_success_rate, detection, containment) depend on injection and harness.",
+            "- **Injection set**: Only configured injections in the study spec are applied; no black-box adversary search.",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 

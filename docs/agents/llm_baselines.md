@@ -2,6 +2,10 @@
 
 Offline-safe, **constrained and reproducible by default** LLM agent interface for LabTrust-Gym.
 
+## Relationship to the environment
+
+The LLM agent is a **policy**: it receives observations and returns an action (with optional action_info). In **run-benchmark** (and coordination studies), those observations come from the **PettingZoo env** (LabTrustParallelEnv); the benchmark runner feeds obs to the agent and calls `env.step` with the returned action. The agent never creates or steps the env. In the **security suite** (scenario_ref, llm_attacker), the same agent is tested with **synthetic observations** and the env is not run. See [Simulation, LLMs, and agentic systems](../architecture/simulation_llm_agentic.md).
+
 ## Design
 
 - **LLMBackend protocol**: `generate(messages) -> text`. Backends are pluggable.
@@ -108,6 +112,7 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 - **Constrained decoder** (`src/labtrust_gym/baselines/llm/decoder.py`): At **decode time** (before env step), validates schema, **requires rationale**, restricts **action_type** to `allowed_actions`, and optionally checks zone/device. Refuses impossible actions (RBAC/devices/zones) so the agent cannot propose them without being rejected at decode time.
 - **Shield** (`src/labtrust_gym/baselines/llm/shield.py`): After decode, filters through **RBAC** (context) and **signature required** (when `strict_signatures`). Token validity is left to the engine.
 - If blocked (decode or shield): returns safe NOOP, `_shield_filtered=True`, and **reason_code** (e.g. `MISSING_RATIONALE`, `RBAC_ACTION_DENY`, `SIG_MISSING`). Step output records **LLM_ACTION_FILTERED** in emits and `blocked_reason_code`.
+- **Uncertainty-aware refusal**: When the policy enables `refuse_below_confidence` (via the shield’s `build_policy_summary(..., refuse_below_confidence=True, refusal_confidence_threshold=0.6)`), the **decoder** compares the candidate’s `confidence` (ActionProposal) to the threshold before the env step. If `confidence < refusal_confidence_threshold`, the decoder returns NOOP with **reason_code** `RC_LLM_LOW_CONFIDENCE_REFUSAL` and does not execute the proposed action. This is opt-in; with refusal disabled, behaviour is unchanged. The threshold is configurable so that “act only when P(correct) > theta” can be enforced without code change.
 - **multi_site_stat and insider_key_misuse** run with **llm_safe_v1** deterministically: `run_benchmark(..., use_llm_safe_v1_ops=True)` uses `--llm-backend deterministic_constrained` by default (seeded RNG). Use `--llm-backend deterministic` for FixtureBackend (requires recorded fixtures). insider_key_misuse demonstrates signature/RBAC attack containment with the LLM baseline.
 
 ## Deterministic vs non-deterministic
@@ -162,7 +167,7 @@ Runs stat_insertion with `LLMAgent(MockDeterministicBackend())` as ops_0 and scr
 ## Tests
 
 - **tests/test_llm_agent_mock.py**: Mock backend determinism, LLMAgent parse/validate, action schema validation. **LLM v1 + shield**: MockDeterministicBackendV2 determinism, llm_action.v0.2 schema validation, **shield determinism** (same obs → same (idx, info, meta)), **safety** (forbidden action e.g. RELEASE_RESULT for A_RECEPTION → shield blocks with RBAC_ACTION_DENY), **multi_site_stat/insider_key_misuse with use_llm_safe_v1_ops** (deterministic metrics). No real LLM calls; golden suite unchanged.
-- **tests/test_llm_constrained_decoder.py**: **Constrained decoder**: illegal action (not in allowed_actions) → rejected, NOOP, RBAC_ACTION_DENY; missing rationale → rejected, NOOP, MISSING_RATIONALE; valid action with rationale → pass. **DeterministicConstrainedBackend**: same seed ⇒ same action sequence; fixed seed reproducible. **insider_key_misuse** with LLM baseline: RBAC/insider containment demonstrated.
+- **tests/test_llm_constrained_decoder.py**: **Constrained decoder**: illegal action (not in allowed_actions) → rejected, NOOP, RBAC_ACTION_DENY; missing rationale → rejected, NOOP, MISSING_RATIONALE; valid action with rationale → pass; **uncertainty-aware refusal**: when refuse_below_confidence is True and confidence &lt; threshold → NOOP, RC_LLM_LOW_CONFIDENCE_REFUSAL; confidence above threshold → action passes. **DeterministicConstrainedBackend**: same seed ⇒ same action sequence; fixed seed reproducible. **insider_key_misuse** with LLM baseline: RBAC/insider containment demonstrated.
 - **tests/test_signing_proxy.py**: Key selection, sign_event_payload, ephemeral key, ensure_run_ephemeral_key.
 - **tests/test_prompt_registry.py**: get_prompt_id_for_role, role-to-prompt mapping, shift-change scenario.
 - **tests/test_parse_utils.py**: extract_first_json_object for robust JSON extraction.

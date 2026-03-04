@@ -1,6 +1,9 @@
 # Conformance suite: skip/xfail per (method_id, contract).
 # Remove entry when a method is upgraded to pass that contract.
 # Contracts: determinism, legality, safety_invariants, budget, evidence.
+#
+# CBS: Not in method list. Blocked until a [mapf] CBS backend exists; see
+# CBS/MAPF backend equivalence out of scope until [mapf] backend available.
 
 # marl_ppo: conformance skipped without model_path (scale_config or env). Optional conformance
 # when model_path points to a trained checkpoint (e.g. from labtrust train-ppo). Training
@@ -47,6 +50,9 @@ pass_evidence:
   - llm_gossip_summarizer
   - consensus_paxos_lite
   - kernel_centralized_edf
+  - kernel_whca
+  - kernel_scheduler_or
+  - kernel_scheduler_or_whca
   - llm_repair_over_kernel_whca
   - llm_local_decider_signed_bus
   - llm_constrained

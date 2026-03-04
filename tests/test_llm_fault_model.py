@@ -8,8 +8,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca import (
     DeterministicRepairBackend,
 )
@@ -194,9 +192,7 @@ def test_coord_fault_wrapper_fallback_and_metrics() -> None:
         ],
     }
     inner = DeterministicProposalBackend(seed=42, default_action_type="NOOP")
-    wrapper = LLMFaultModelCoordWrapper(
-        inner, config, seed=100, method_id="llm_central_planner"
-    )
+    wrapper = LLMFaultModelCoordWrapper(inner, config, seed=100, method_id="llm_central_planner")
     wrapper.reset(100)
     state_digest = {"per_agent": [{"agent_id": "ops_0"}], "per_device": []}
     proposal, meta = wrapper.generate_proposal(
@@ -206,13 +202,65 @@ def test_coord_fault_wrapper_fallback_and_metrics() -> None:
         method_id="llm_central_planner",
     )
     assert proposal.get("per_agent")
-    assert all(
-        p.get("action_type") == "NOOP" for p in proposal["per_agent"]
-    )
+    assert all(p.get("action_type") == "NOOP" for p in proposal["per_agent"])
     assert meta.get("reason_code") == "LLM_REFUSED"
     metrics = wrapper.get_fault_metrics()
     assert metrics["fault_injected_count"] == 1
     assert metrics["fallback_count"] == 1
+
+
+def test_fault_model_determinism_same_seed_same_fallback_counts() -> None:
+    """Two runs with same fault seed yield identical fallback counts (agent and proposal path)."""
+    from labtrust_gym.baselines.coordination.methods.llm_central_planner import (
+        DeterministicProposalBackend,
+    )
+    from labtrust_gym.baselines.llm.agent import DeterministicConstrainedBackend
+
+    config = {
+        "version": "0.1",
+        "enabled": True,
+        "seed_offset": 0,
+        "faults": [{"fault_id": "invalid_output", "probability": 0.3, "reason_code": "RC_LLM_INVALID_OUTPUT"}],
+    }
+    seed = 77
+    # Agent path: two wrappers, same seed, N calls each
+    inner_a = DeterministicConstrainedBackend(seed=0, default_action_type="NOOP")
+    w1 = LLMFaultModelAgentWrapper(inner_a, config, seed=seed)
+    w1.reset(seed)
+    for _ in range(5):
+        w1.generate([{"role": "user", "content": "x"}])
+    m1 = w1.get_fault_metrics()
+    inner_a2 = DeterministicConstrainedBackend(seed=0, default_action_type="NOOP")
+    w2 = LLMFaultModelAgentWrapper(inner_a2, config, seed=seed)
+    w2.reset(seed)
+    for _ in range(5):
+        w2.generate([{"role": "user", "content": "x"}])
+    m2 = w2.get_fault_metrics()
+    assert m1["fallback_count"] == m2["fallback_count"]
+    # Proposal path: same
+    inner_p = DeterministicProposalBackend(seed=0, default_action_type="NOOP")
+    pw1 = LLMFaultModelCoordWrapper(inner_p, config, seed=seed, method_id="test")
+    pw1.reset(seed)
+    for step in range(4):
+        pw1.generate_proposal(
+            {"per_agent": [{"agent_id": "ops_0"}]},
+            allowed_actions=["NOOP", "TICK"],
+            step_id=step,
+            method_id="test",
+        )
+    pm1 = pw1.get_fault_metrics()
+    inner_p2 = DeterministicProposalBackend(seed=0, default_action_type="NOOP")
+    pw2 = LLMFaultModelCoordWrapper(inner_p2, config, seed=seed, method_id="test")
+    pw2.reset(seed)
+    for step in range(4):
+        pw2.generate_proposal(
+            {"per_agent": [{"agent_id": "ops_0"}]},
+            allowed_actions=["NOOP", "TICK"],
+            step_id=step,
+            method_id="test",
+        )
+    pm2 = pw2.get_fault_metrics()
+    assert pm1["fallback_count"] == pm2["fallback_count"]
 
 
 def test_load_llm_fault_model_disabled_returns_empty() -> None:
@@ -251,7 +299,7 @@ def test_taskh_under_faults_produces_results_v02(tmp_path: Path) -> None:
     episodes = data.get("episodes") or []
     assert len(episodes) == 1
     metrics = episodes[0].get("metrics") or {}
-    violations = (metrics.get("violations_by_invariant_id") or {})
+    violations = metrics.get("violations_by_invariant_id") or {}
     total_violations = sum(violations.values())
     assert total_violations >= 0, "violations must be bounded (non-negative)"
     coord = (episodes[0].get("coordination") or {}).get("llm_repair") or {}
@@ -281,9 +329,7 @@ def test_coord_fixtures_record_then_replay(tmp_path: Path) -> None:
     )
     assert (fixtures_dir / "coordination_fixtures.json").exists()
     data_record = json.loads(out_record.read_text(encoding="utf-8"))
-    n_recorded = (data_record.get("metadata") or {}).get(
-        "recorded_coord_fixtures", 0
-    )
+    n_recorded = (data_record.get("metadata") or {}).get("recorded_coord_fixtures", 0)
     assert n_recorded > 0
 
     out_replay = tmp_path / "replay_results.json"
@@ -316,18 +362,15 @@ def test_coord_fixtures_record_then_replay(tmp_path: Path) -> None:
             "task": norm["task"],
             "seeds": norm["seeds"],
             "agent_baseline_id": norm.get("agent_baseline_id"),
-            "episodes": [
-                {"seed": ep.get("seed"), "metrics": ep.get("metrics") or {}}
-                for ep in episodes
-            ],
+            "episodes": [{"seed": ep.get("seed"), "metrics": ep.get("metrics") or {}} for ep in episodes],
         }
 
     payload_record = comparable_payload(data_record)
     payload_replay = comparable_payload(data_replay)
     assert payload_record and payload_replay
-    assert canonical_json(payload_record) == canonical_json(
-        payload_replay
-    ), "Record and replay results must match (v0.2 canonical)"
+    assert canonical_json(payload_record) == canonical_json(payload_replay), (
+        "Record and replay results must match (v0.2 canonical)"
+    )
 
 
 def test_coord_risk_central_planner_with_fault_model_produces_results(
