@@ -458,6 +458,8 @@ COORDINATION_ARTIFACT_REFS = [
     ("COORDINATION_DECISION.v0.1.json", "Coordination decision (JSON)"),
     ("COORDINATION_DECISION.md", "Coordination decision (MD)"),
     ("summary/sota_leaderboard.md", "SOTA leaderboard"),
+    ("summary/sota_leaderboard_full.md", "SOTA leaderboard (full metrics)"),
+    ("summary/sota_leaderboard_full.csv", "SOTA leaderboard full CSV"),
     ("summary/method_class_comparison.md", "Method class comparison"),
 ]
 

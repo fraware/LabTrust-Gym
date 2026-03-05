@@ -16,11 +16,17 @@ This document describes the **canonical flow for pathology lab (blood sciences)*
    This writes `pack_summary.csv`, `pack_gate.md`, and `SECURITY/coordination_risk_matrix.csv` (and `.md`) under `<dir>`.
 
 2. **Build report**  
-   From the pack output directory, run the lab report builder to add SOTA leaderboard, method-class comparison, coordination decision, and a single markdown report:
+   From the pack output directory, run the lab report builder to add SOTA leaderboard (main and full), method-class comparison, coordination decision, and a single markdown report:
    ```bash
    labtrust build-lab-coordination-report --pack-dir <dir> [--out <dir>] [--matrix-preset hospital_lab]
    ```
    If `--out` is omitted, artifacts are written into the pack directory. The builder runs `summarize-coordination` and `recommend-coordination-method` and then writes `LAB_COORDINATION_REPORT.md`.
+
+**Report artifacts: SOTA leaderboard and method-class comparison.** Under `summary/` the builder writes:
+
+- **sota_leaderboard.md**, **sota_leaderboard.csv** (main): One table per method with throughput_mean, throughput_std, violations_mean, blocks_mean, resilience_score_mean, resilience_score_std, p95_tat_mean, on_time_rate_mean, critical_compliance_mean, attack_success_rate_mean, stealth_success_rate_mean, n_cells. When `pack_manifest.json` exists in the run (or parent), the main Markdown includes a Run metadata line (seed_base, git_sha) at the top.
+- **sota_leaderboard_full.md**, **sota_leaderboard_full.csv**: All aggregated numeric metrics per method (security detection/containment, and when from summary_coord: comm, LLM economics). Columns depend on the data source.
+- **method_class_comparison.md**, **method_class_comparison.csv**: Same metrics aggregated by coordination class (e.g. kernel_schedulers, centralized, llm), including blocks_mean and attack_success_rate_mean. See [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
 
 3. **Use the decision**  
    Open `COORDINATION_DECISION.v0.1.json` or `COORDINATION_DECISION.md` for the **chosen method per scale**. Use `LAB_COORDINATION_REPORT.md` for a stakeholder-facing summary that links to the gate, risk matrix, leaderboard, and decision.

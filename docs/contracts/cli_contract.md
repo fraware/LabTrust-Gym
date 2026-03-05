@@ -40,7 +40,7 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | run-study | `--spec <yaml> --out <dir>` | 0 | `<out>/` (condition dirs, results, manifest) | studies.md |
 | run-coordination-study | `--spec <yaml> --out <dir>` | 0 | `<out>/summary/summary_coord.csv`, `summary/pareto.md`, cells/ | coordination_studies.md |
 | run-coordination-security-pack | `--out <dir> --seed 42` | 0 | `<out>/pack_summary.csv`, `pack_gate.md`, `pack_results/` | security_attack_suite.md |
-| summarize-coordination | `--in <dir> --out <dir>` | 0 | `<out>/summary/sota_leaderboard.csv`, `sota_leaderboard.md`, `method_class_comparison.csv`, `method_class_comparison.md` | coordination_studies.md |
+| summarize-coordination | `--in <dir> --out <dir>` | 0 | `<out>/summary/sota_leaderboard.csv`, `sota_leaderboard.md`, `sota_leaderboard_full.csv`, `sota_leaderboard_full.md`, `method_class_comparison.csv`, `method_class_comparison.md` | coordination_studies.md, hospital_lab_metrics.md |
 | recommend-coordination-method | `--run <dir> --out <dir>` | 0 | `<out>/COORDINATION_DECISION.v0.1.json`, `COORDINATION_DECISION.md` | howto_selection_policy.md |
 | build-coordination-matrix | `--run <dir> --out <path>` | 0 | `<path>` or `<path>/coordination_matrix.v0.1.json` | coordination studies |
 | build-episode-bundle | `--run-dir <path>` [--out <path>] | 0 | `<run-dir>/episode_bundle.json` or `<out>` (if --out given) | episode_viewer.md |

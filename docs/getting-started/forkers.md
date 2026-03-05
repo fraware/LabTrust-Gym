@@ -85,7 +85,7 @@ Run from repo root:
 3. `labtrust run-coordination-security-pack --out labtrust_runs/demo/pack --matrix-preset hospital_lab`
 4. `labtrust export-risk-register --out labtrust_runs/demo/risk_out --runs labtrust_runs/demo/pack`
 
-**Expected outputs:** Exit 0 at each step. You should see: `labtrust_runs/demo/quick_eval_*/summary.md`; `labtrust_runs/demo/pack/pack_summary.csv` and `pack_gate.md`; `labtrust_runs/demo/risk_out/RISK_REGISTER_BUNDLE.v0.1.json`. Optional: if a run produced receipts, run `labtrust verify-bundle --bundle <path>` on one EvidenceBundle under `receipts/.../EvidenceBundle.v0.1`.
+**Expected outputs:** Exit 0 at each step. You should see: `labtrust_runs/demo/quick_eval_*/summary.md`; `labtrust_runs/demo/pack/pack_summary.csv` and `pack_gate.md`; `labtrust_runs/demo/pack/summary/sota_leaderboard.md`, `sota_leaderboard_full.md`, `method_class_comparison.md` (when the pack is summarized); `labtrust_runs/demo/risk_out/RISK_REGISTER_BUNDLE.v0.1.json`. Optional: if a run produced receipts, run `labtrust verify-bundle --bundle <path>` on one EvidenceBundle under `receipts/.../EvidenceBundle.v0.1`.
 
 **Story 2 (HSL-like partner)**
 

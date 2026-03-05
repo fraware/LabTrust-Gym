@@ -194,3 +194,30 @@ def test_export_ui_bundle_unknown_layout(tmp_path: Path) -> None:
     empty.mkdir()
     with pytest.raises(ValueError, match="Unrecognized run layout"):
         export_ui_bundle(empty, tmp_path / "out.zip", repo_root=_repo_root())
+
+
+def test_export_ui_bundle_includes_full_sota_leaderboard_when_present(tmp_path: Path) -> None:
+    """Full-pipeline run with summary/sota_leaderboard_full.md gets it in coordination_artifacts and in zip."""
+    run_dir = tmp_path / "pack_run"
+    run_dir.mkdir()
+    (run_dir / "baselines" / "results").mkdir(parents=True)
+    (run_dir / "SECURITY").mkdir()
+    (run_dir / "pack_summary.csv").write_text("method_id,scale_id\nm1,s1\n", encoding="utf-8")
+    summary_dir = run_dir / "summary"
+    summary_dir.mkdir()
+    (summary_dir / "sota_leaderboard.md").write_text("# SOTA leaderboard\n\n| m |\n| --- |\n", encoding="utf-8")
+    (summary_dir / "sota_leaderboard_full.md").write_text(
+        "# SOTA leaderboard (full metrics)\n\n| method_id | throughput_mean |\n| --- | --- |\n",
+        encoding="utf-8",
+    )
+    out_zip = tmp_path / "bundle.zip"
+    export_ui_bundle(run_dir, out_zip, repo_root=_repo_root())
+    assert out_zip.is_file()
+    with zipfile.ZipFile(out_zip, "r") as zf:
+        names = zf.namelist()
+        assert "index.json" in names
+        assert any("sota_leaderboard_full" in n for n in names), "Zip should contain full leaderboard file"
+        index = json.loads(zf.read("index.json"))
+    artifacts = index.get("coordination_artifacts") or []
+    labels = [a.get("label", "") for a in artifacts]
+    assert any("full metrics" in L for L in labels), "index should list SOTA leaderboard (full metrics) in coordination_artifacts"

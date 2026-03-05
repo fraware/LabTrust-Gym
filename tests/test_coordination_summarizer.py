@@ -10,6 +10,7 @@ from labtrust_gym.studies.coordination_summarizer import (
     _find_summary_csv,
     build_method_class_comparison,
     build_sota_leaderboard,
+    build_sota_leaderboard_full,
     run_summarize,
 )
 
@@ -62,7 +63,7 @@ def test_build_sota_leaderboard() -> None:
 
 
 def test_build_sota_leaderboard_hospital_lab_metrics() -> None:
-    """When rows have perf.p95_tat, perf.on_time_rate, safety.critical_communication_compliance_rate they are aggregated correctly."""
+    """When rows have perf.p95_tat, perf.on_time_rate, safety.critical_communication_compliance_rate, blocks, attack_success_rate they are aggregated correctly; std present for 2+ cells."""
     rows = [
         {
             "method_id": "m1",
@@ -70,8 +71,10 @@ def test_build_sota_leaderboard_hospital_lab_metrics() -> None:
             "perf.p95_tat": 100.0,
             "perf.on_time_rate": 0.9,
             "safety.violations_total": 0,
+            "safety.blocks_total": 5,
             "safety.critical_communication_compliance_rate": 1.0,
             "robustness.resilience_score": 0.85,
+            "sec.attack_success_rate": 0.1,
             "sec.stealth_success_rate": 0.0,
         },
         {
@@ -80,8 +83,10 @@ def test_build_sota_leaderboard_hospital_lab_metrics() -> None:
             "perf.p95_tat": 120.0,
             "perf.on_time_rate": 0.8,
             "safety.violations_total": 1,
+            "safety.blocks_total": 3,
             "safety.critical_communication_compliance_rate": 0.5,
             "robustness.resilience_score": 0.75,
+            "sec.attack_success_rate": 0.2,
             "sec.stealth_success_rate": 0.0,
         },
     ]
@@ -95,6 +100,60 @@ def test_build_sota_leaderboard_hospital_lab_metrics() -> None:
     assert r["critical_compliance_mean"] == pytest.approx(0.75)
     assert r["resilience_score_mean"] == pytest.approx(0.8)
     assert r["n_cells"] == 2
+    assert r["blocks_mean"] == 4.0
+    assert r["attack_success_rate_mean"] == pytest.approx(0.15)
+    assert r["throughput_std"] is not None
+    assert r["resilience_score_std"] is not None
+
+
+def test_build_sota_leaderboard_full_aggregates_all_numeric() -> None:
+    """build_sota_leaderboard_full aggregates all numeric columns; detection/containment mean, cost sum."""
+    rows = [
+        {
+            "method_id": "m1",
+            "perf.throughput": 1.0,
+            "sec.detection_latency_steps": 2.0,
+            "sec.containment_time_steps": 3.0,
+            "cost.total_tokens": 100,
+            "cost.estimated_cost_usd": 0.01,
+        },
+        {
+            "method_id": "m1",
+            "perf.throughput": 3.0,
+            "sec.detection_latency_steps": 4.0,
+            "sec.containment_time_steps": 5.0,
+            "cost.total_tokens": 200,
+            "cost.estimated_cost_usd": 0.02,
+        },
+    ]
+    full = build_sota_leaderboard_full(rows)
+    assert len(full) == 1
+    r = full[0]
+    assert r["method_id"] == "m1"
+    assert r["throughput_mean"] == 2.0
+    assert r["detection_latency_steps_mean"] == 3.0
+    assert r["containment_time_steps_mean"] == 4.0
+    assert r["total_tokens_sum"] == 300
+    assert r["estimated_cost_usd_sum"] == pytest.approx(0.03)
+
+
+def test_run_summarize_includes_run_metadata_when_manifest_present(tmp_path: Path) -> None:
+    """When pack_manifest.json exists, sota_leaderboard.md includes Run metadata with seed_base and git_sha."""
+    (tmp_path / "pack_summary.csv").write_text(
+        "method_id,scale_id,injection_id,perf.throughput,safety.violations_total,robustness.resilience_score,sec.stealth_success_rate\n"
+        "m1,s1,none,1.0,0,0.8,0\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "pack_manifest.json").write_text(
+        '{"seed_base": 42, "git_sha": "abc1234"}',
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "out"
+    run_summarize(in_dir=tmp_path, out_dir=out_dir, repo_root=None)
+    md_content = (out_dir / "summary" / "sota_leaderboard.md").read_text()
+    assert "Run metadata" in md_content
+    assert "seed_base=42" in md_content or "42" in md_content
+    assert "abc1234" in md_content or "git_sha" in md_content
 
 
 def test_comparison_class() -> None:
@@ -129,6 +188,38 @@ def test_build_method_class_comparison() -> None:
     assert "centralized" in classes
     assert classes["ripple"]["resilience_score_mean"] == 0.9
     assert classes["centralized"]["violations_mean"] == 5.0
+
+
+def test_build_method_class_comparison_blocks_and_attack_success() -> None:
+    """Method-class comparison includes blocks_mean and attack_success_rate_mean when present in rows."""
+    rows = [
+        {
+            "method_id": "kernel_whca",
+            "perf.throughput": 1.0,
+            "safety.violations_total": 2,
+            "safety.blocks_total": 10,
+            "robustness.resilience_score": 0.8,
+            "sec.attack_success_rate": 0.1,
+            "sec.stealth_success_rate": 0.0,
+        },
+        {
+            "method_id": "kernel_centralized_edf",
+            "perf.throughput": 1.5,
+            "safety.violations_total": 1,
+            "safety.blocks_total": 5,
+            "robustness.resilience_score": 0.85,
+            "sec.attack_success_rate": 0.05,
+            "sec.stealth_success_rate": 0.0,
+        },
+    ]
+    comp = build_method_class_comparison(rows, None)
+    classes = {r["method_class"]: r for r in comp}
+    assert "kernel_schedulers" in classes
+    r = classes["kernel_schedulers"]
+    assert r["blocks_mean"] == 7.5
+    assert r["attack_success_rate_mean"] == pytest.approx(0.075)
+    assert r["throughput_mean"] == 1.25
+    assert r["violations_mean"] == 1.5
 
 
 def test_run_summarize_writes_all_artifacts(tmp_path: Path) -> None:
@@ -234,3 +325,16 @@ def test_run_summarize_pack_summary_with_hospital_lab_metrics(tmp_path: Path) ->
     assert "on_time_rate_mean" in md_content
     assert "critical_compliance_mean" in md_content
     assert "hospital_lab_metrics" in md_content or "hospital-lab" in md_content.lower()
+    full_md = out_dir / "summary" / "sota_leaderboard_full.md"
+    assert full_md.exists()
+    full_content = full_md.read_text()
+    assert "SOTA leaderboard (full metrics)" in full_content
+    assert "|" in full_content and "method_id" in full_content
+    # Method-class comparison includes blocks_mean and attack_success_rate_mean when CSV has them
+    method_class_csv = out_dir / "summary" / "method_class_comparison.csv"
+    assert method_class_csv.exists()
+    with method_class_csv.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        cols = reader.fieldnames or []
+    assert "blocks_mean" in cols
+    assert "attack_success_rate_mean" in cols

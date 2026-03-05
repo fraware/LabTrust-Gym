@@ -215,7 +215,7 @@ For MARL (PPO) and related tests, see [MARL baselines](../agents/marl_baselines.
 
 **Quickstart (paper artifact):** From repo root, run `bash scripts/quickstart_paper_v0.1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows). Runs: install → validate-policy → quick-eval → package-release paper_v0.1 → verify-bundle. See [Frozen contracts](../contracts/frozen_contracts.md) and [Paper provenance](../benchmarks/paper/README.md).
 
-**UI export:** To produce a UI-ready zip from a run (quick-eval or package-release output): `labtrust ui-export --run <dir> --out ui_bundle.zip`. The bundle contains normalized `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. See [UI data contract](../contracts/ui_data_contract.md).
+**UI export:** To produce a UI-ready zip from a run (quick-eval or package-release output): `labtrust ui-export --run <dir> --out ui_bundle.zip`. The bundle contains normalized `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. When the run includes coordination pack output, the zip also includes coordination artifacts (pack_summary.csv, SOTA leaderboard main and full, method-class comparison) under `coordination/`; see [UI data contract](../contracts/ui_data_contract.md).
 
 ## Troubleshooting
 

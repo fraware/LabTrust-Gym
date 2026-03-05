@@ -76,6 +76,12 @@ For a new method, the study spec defines the exact baseline set per scale and ri
 
 Summary output: `summary_coord.csv` (one row per cell: method_id, scale_id, risk_id, injection_id, plus the metrics above). Pareto report: `pareto.md` (per-scale Pareto front on p95_tat, violations_total, resilience_score; robust winner by mean resilience across cells).
 
+**SOTA and method-class report artifacts:** When the study or pack output is summarized (`summarize-coordination` or `build-lab-coordination-report`), the following are written under `summary/`:
+
+- **sota_leaderboard.md**, **sota_leaderboard.csv** (main): Per-method aggregates of the key metrics above, plus throughput_std and resilience_score_std when multiple cells exist. When `pack_manifest.json` is present, the main leaderboard Markdown includes Run metadata (seed_base, git_sha) at the top.
+- **sota_leaderboard_full.md**, **sota_leaderboard_full.csv**: All aggregated numeric columns (security detection/containment, and when source is summary_coord: comm, LLM economics). Use for detailed analysis.
+- **method_class_comparison.md**, **method_class_comparison.csv**: Same metrics aggregated by coordination class (kernel_schedulers, centralized, ripple, auctions, llm, etc.), including blocks_mean and attack_success_rate_mean. See [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
+
 ## Throughput-focused comparison
 
 For **throughput** as the primary metric (mean specimen releases per episode), use the **throughput_sla** task rather than the coordination pack. Example: `labtrust run-benchmark --task throughput_sla --num-episodes 10 --out <path>` (scripted baseline from the baseline registry). Use `labtrust run-summary --run <dir>` or `summarize-results` for throughput in the output. See [Throughput comparison](../benchmarks/throughput_comparison.md) for the full path and optional kernel coordination.
