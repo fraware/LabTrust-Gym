@@ -211,7 +211,9 @@ def build_sota_leaderboard(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "p95_tat_mean": sum(p95_vals) / len(p95_vals) if p95_vals else None,
                 "on_time_rate_mean": sum(on_time_vals) / len(on_time_vals) if on_time_vals else None,
                 "critical_compliance_mean": sum(crit_comp_vals) / len(crit_comp_vals) if crit_comp_vals else None,
-                "attack_success_rate_mean": (sum(attack_succ_vals) / len(attack_succ_vals) if attack_succ_vals else None),
+                "attack_success_rate_mean": (
+                    sum(attack_succ_vals) / len(attack_succ_vals) if attack_succ_vals else None
+                ),
                 "stealth_success_rate_mean": (sum(stealth_vals) / len(stealth_vals) if stealth_vals else None),
                 "n_cells": len(group),
             }
@@ -263,7 +265,9 @@ def build_sota_leaderboard_by_phase(rows: list[dict[str, Any]]) -> list[dict[str
                 "p95_tat_mean": sum(p95_vals) / len(p95_vals) if p95_vals else None,
                 "on_time_rate_mean": sum(on_time_vals) / len(on_time_vals) if on_time_vals else None,
                 "critical_compliance_mean": sum(crit_comp_vals) / len(crit_comp_vals) if crit_comp_vals else None,
-                "attack_success_rate_mean": (sum(attack_succ_vals) / len(attack_succ_vals) if attack_succ_vals else None),
+                "attack_success_rate_mean": (
+                    sum(attack_succ_vals) / len(attack_succ_vals) if attack_succ_vals else None
+                ),
                 "stealth_success_rate_mean": (sum(stealth_vals) / len(stealth_vals) if stealth_vals else None),
                 "n_cells": len(group),
             }

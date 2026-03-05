@@ -476,7 +476,8 @@ def generate_scaled_initial_state(
 
     initial_queue_entries: list[dict[str, Any]] = []
     if specimens and device_ids:
-        n_preload = min(3, len(specimens), len(device_ids))
+        # Preload queues so coordination methods see work and can produce non-zero throughput.
+        n_preload = min(6, len(specimens), max(1, len(device_ids) * 2))
         for i in range(n_preload):
             spec = specimens[i]
             sid = spec.get("specimen_id", "")

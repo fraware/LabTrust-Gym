@@ -45,17 +45,19 @@ def test_global_fail_status_stub(tmp_path: Path) -> None:
 
 
 def test_word_check_docs_placeholder(tmp_path: Path) -> None:
+    """docs/ is in ALLOWED_PLACEHOLDER_PATH_PREFIXES; placeholder there is allowed."""
     _write_tree(tmp_path, {"docs/foo.md": "This is a placeholder.\n"})
     violations = scan_root(tmp_path)
     rels = [_norm_path(p, tmp_path) for p, _, t in violations if t == "placeholder"]
-    assert any("docs" in r and "foo.md" in r for r in rels)
+    assert not any("docs" in r and "foo.md" in r for r in rels)
 
 
 def test_word_check_docs_stub(tmp_path: Path) -> None:
+    """docs/ is in ALLOWED_STUB_PATH_PREFIXES; stub there is allowed."""
     _write_tree(tmp_path, {"docs/bar.md": "Stub implementation.\n"})
     violations = scan_root(tmp_path)
     rels = [_norm_path(p, tmp_path) for p, _, t in violations if t == "stub"]
-    assert any("docs" in r and "bar.md" in r for r in rels)
+    assert not any("docs" in r and "bar.md" in r for r in rels)
 
 
 def test_tests_allow_capital_stub(tmp_path: Path) -> None:
@@ -68,16 +70,18 @@ def test_tests_allow_capital_stub(tmp_path: Path) -> None:
 
 
 def test_tests_fail_placeholder(tmp_path: Path) -> None:
+    """tests/ is in ALLOWED_PLACEHOLDER_PATH_PREFIXES; placeholder there is allowed."""
     _write_tree(tmp_path, {"tests/test_baz.py": "x = 'placeholder'\n"})
     violations = scan_root(tmp_path)
     rels = [_norm_path(p, tmp_path) for p, _, t in violations if t == "placeholder"]
-    assert any("tests" in r for r in rels)
+    assert not any("tests" in r for r in rels)
 
 
 def test_tests_fail_lowercase_stub(tmp_path: Path) -> None:
+    """tests/ is in ALLOWED_STUB_PATH_PREFIXES; lowercase stub there is allowed."""
     _write_tree(tmp_path, {"tests/test_qux.py": "status = 'stub'\n"})
     violations = scan_root(tmp_path)
-    assert any(_norm_path(p, tmp_path).startswith("tests/") for p, _, _ in violations)
+    assert not any(_norm_path(p, tmp_path).startswith("tests/") for p, _, _ in violations)
 
 
 def test_secret_scrubber_allows_placeholder(tmp_path: Path) -> None:

@@ -17,6 +17,11 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.export.coordination_graphs import (
+    GRAPH_ARTIFACT_LABELS,
+    build_coordination_graphs,
+)
+
 UI_BUNDLE_VERSION = "0.1"
 
 # Stable event field names (contract)
@@ -577,20 +582,31 @@ def export_ui_bundle(
     if coord_telemetry_refs:
         index[COORD_TELEMETRY_KEY] = coord_telemetry_refs
     coord_artifacts = _collect_coordination_artifacts(run_dir)
+    coord_graphs: list[tuple[str, str]] = []
+    if run_type == "full_pipeline" or coord_artifacts:
+        coord_graphs = build_coordination_graphs(run_dir)
+        for rel_path, _ in coord_graphs:
+            label = GRAPH_ARTIFACT_LABELS.get(rel_path, rel_path)
+            coord_artifacts.append({"path": rel_path, "label": label})
     if coord_artifacts:
         index["coordination_artifacts"] = coord_artifacts
     reason_codes = _load_reason_codes_json(Path(repo_root))
 
     out_zip_path.parent.mkdir(parents=True, exist_ok=True)
+    graph_paths = {p for p, _ in coord_graphs}
     with zipfile.ZipFile(out_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("index.json", json.dumps(index, indent=2, sort_keys=True))
         for art in coord_artifacts:
             rel = art.get("path", "")
             if not rel:
                 continue
-            full = run_dir / rel
-            if full.is_file():
-                zf.write(full, f"coordination/{rel}")
+            if rel in graph_paths:
+                html = next(h for p, h in coord_graphs if p == rel)
+                zf.writestr(f"coordination/{rel}", html)
+            else:
+                full = run_dir / rel
+                if full.is_file():
+                    zf.write(full, f"coordination/{rel}")
         zf.writestr("events.json", json.dumps(events, indent=2, sort_keys=True))
         zf.writestr("receipts_index.json", json.dumps(receipts_index, indent=2, sort_keys=True))
         zf.writestr("reason_codes.json", json.dumps(reason_codes, indent=2, sort_keys=True))

@@ -144,6 +144,7 @@ nav:
     - Code style and lint: reference/code_style_and_lint.md
     - State of the art and limits: reference/state_of_the_art_and_limits.md
     - Outputs and results: reference/outputs_and_results.md
+    - Frontend handoff (UI bundle): reference/frontend_handoff_ui_bundle.md
     - Episode viewer: reference/episode_viewer.md
     - LLM coord trials: reference/llm_coord_trials.md
     - Plan results coordination: reference/plan_results_coordination.md

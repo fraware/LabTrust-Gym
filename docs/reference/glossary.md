@@ -31,3 +31,11 @@ The LabTrust-Gym benchmark and env runs: deterministic or stochastic runs under 
 ## Production
 
 Live deployment with real users, keys, and adversaries. Transfer of results from simulation to production is not claimed; production assurance is the integrator's responsibility. See [Threat model](../architecture/threat_model.md) and [State of the art and limits](state_of_the_art_and_limits.md).
+
+## UI bundle and coordination artifacts
+
+- **UI bundle:** A zip produced by `labtrust ui-export --run <dir> --out <zip>`. Contains `index.json`, `events.json`, `receipts_index.json`, `reason_codes.json`, and when the run has coordination pack output, a **coordination_artifacts** list and files under `coordination/` (tables and HTML charts). See [UI data contract](../contracts/ui_data_contract.md), [Frontend handoff](frontend_handoff_ui_bundle.md).
+
+- **coordination_artifacts:** In `index.json`, an optional list of `{ path, label }` entries. Each file is stored in the zip at `coordination/` + `path`. Includes pack_summary, SOTA leaderboard (main and full), method-class comparison, and **coordination/graphs/** HTML charts (SOTA key metrics, throughput, violations, resilience, method-class).
+
+- **SOTA leaderboard:** State-of-the-art summary table(s) produced by `summarize-coordination` from pack_summary or summary_coord: main table (key metrics, run metadata), full table (all numeric aggregates), and method-class comparison. These are written to `summary/` and included in the UI bundle when present. See [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).

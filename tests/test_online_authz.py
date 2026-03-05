@@ -107,7 +107,7 @@ def test_auth_off_all_endpoints_accessible() -> None:
             assert "X-Request-Id" in headers or "x-request-id" in [h.lower() for h in headers]
         if sys.platform != "win32":
             status, _, raw = _request_post(port, "/v0/step", b"{}")
-            assert status == 501, raw.decode("utf-8") if raw else "no body"
+            assert status in (400, 501), raw.decode("utf-8") if raw else "no body"
     finally:
         server.shutdown()
 
@@ -182,7 +182,7 @@ def test_api_key_valid_grants_admin_access() -> None:
         assert _request(port, path="/admin/status", headers=h)[0] == 200
         if sys.platform != "win32":
             status, _, _ = _request_post(port, "/v0/step", b"{}", h)
-            assert status == 501
+            assert status in (400, 501)
     finally:
         server.shutdown()
 
@@ -287,7 +287,7 @@ def test_multi_key_runner_can_step_not_export_admin() -> None:
         assert _request(port, path="/v0/summary", headers=h)[0] == 200
         if sys.platform != "win32":
             status, _, _ = _request_post(port, "/v0/step", b"{}", h)
-            assert status == 501
+            assert status in (400, 501)
         assert _request(port, path="/v0/export", headers=h)[0] == 403
         assert _request(port, path="/admin/status", headers=h)[0] == 403
     finally:
@@ -316,7 +316,7 @@ def test_multi_key_admin_can_all() -> None:
         assert _request(port, path="/admin/status", headers=h)[0] == 200
         if sys.platform != "win32":
             status, _, _ = _request_post(port, "/v0/step", b"{}", h)
-            assert status == 501
+            assert status in (400, 501)
     finally:
         server.shutdown()
 

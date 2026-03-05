@@ -11,6 +11,7 @@ Repository layout, lab profile, observability, and testing strategy.
 | [State of the art and limits](state_of_the_art_and_limits.md) | What is SOTA, deployment ready, and reusable; coordination definition of done, rate limiter, debate, vectorized envs. |
 | [Episode viewer](episode_viewer.md) | Episode simulation viewer: data sources, bundle build, lab design, views. |
 | [Outputs and results](outputs_and_results.md) | Where CLI and CI write results, schemas, and quick reference. |
+| [Frontend handoff (UI bundle)](frontend_handoff_ui_bundle.md) | For frontend engineers: zip layout, index.coordination_artifacts, how to resolve and display tables and coordination graphs (SOTA key metrics + per-metric charts). |
 | [Lab profile reference](lab_profile_reference.md) | Lab profile and provider IDs. |
 | [Observability](observability.md) | Observability and logging. |
 | [Online mode](online_mode.md) | Online mode and server. |

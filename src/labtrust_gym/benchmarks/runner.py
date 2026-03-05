@@ -2594,10 +2594,18 @@ def run_benchmark(
     use_fresh_agents_taskf = task_name == "insider_key_misuse"
 
     # Create one env for all episodes (same task/config) to avoid per-episode construction and policy reload.
+    # For scale tasks with scale_config_override, use the scaled state (includes initial_queue_entries for throughput).
     _cal = (initial_state_overrides or {}).get("calibration")
-    _first_initial_state = task.get_initial_state(seeds[0], calibration=_cal, policy_root=repo_root)
-    if initial_state_overrides:
-        _first_initial_state = {**_first_initial_state, **initial_state_overrides}
+    if is_scale_task and scale_probe_state is not None and start_episode_index == 0:
+        _first_initial_state = dict(scale_probe_state)
+        if initial_state_overrides:
+            _first_initial_state = {**_first_initial_state, **initial_state_overrides}
+        if task_name == "coord_risk" and injection_id:
+            _first_initial_state["injection_id"] = injection_id
+    else:
+        _first_initial_state = task.get_initial_state(seeds[0], calibration=_cal, policy_root=repo_root)
+        if initial_state_overrides:
+            _first_initial_state = {**_first_initial_state, **initial_state_overrides}
     shared_env = env_factory(
         initial_state=_first_initial_state,
         reward_config=task.reward_config,
