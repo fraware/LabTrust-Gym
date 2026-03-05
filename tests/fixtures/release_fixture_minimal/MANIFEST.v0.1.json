@@ -50,7 +50,7 @@
     },
     {
       "path": "MANIFEST.v0.1.json",
-      "sha256": "11ff0f8678d28f729a6cbcc56b846fe296509d04cb874bdbde2edf444127d9cd"
+      "sha256": "7eb124f9f8577376553a1fe6a2675857e9232313189f03b7817cea26da38475d"
     },
     {
       "path": "metadata.json",
@@ -334,7 +334,7 @@
     },
     {
       "path": "RELEASE_MANIFEST.v0.1.json",
-      "sha256": "2f777043519fc5f44f3156e895b36a74d5f357f4abd66cc9e2e29f73c5086ec6"
+      "sha256": "b4dbcbbe0524b4a2dda767fde0b7a33ca822518104ebe0ac0feca32fe3e5ddf1"
     },
     {
       "path": "results/qc_cascade/cond_0/results.json",

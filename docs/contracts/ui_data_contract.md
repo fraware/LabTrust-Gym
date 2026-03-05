@@ -98,11 +98,26 @@ When present, **index.json** includes `coordination_artifacts`: a list of `{ "pa
 
 **index.json** (logical shape):
 
-- `run_type`: `"quick_eval"` | `"package_release"`.
-- `tasks`: list of task ids.
-- `episodes`: list of `{ "task", "episode_index", "results_ref", "log_ref", "receipts_ref" }` (refs = paths relative to run dir or keys into bundle).
-- `baselines`: list of baseline ids present in the run (if any).
+- `ui_bundle_version`: string (e.g. `"0.1"`). Always present.
+- `run_type`: `"quick_eval"` | `"package_release"` | `"full_pipeline"`. Always present.
+- `tasks`: list of task ids. Always present (may be empty).
+- `episodes`: list of episode objects. Always present (may be empty).
+- `baselines`: list of baseline ids. Always present (may be empty).
 - `coordination_artifacts` (optional): list of `{ "path": "<rel>", "label": "..." }` when run dir contains pack_summary.csv, LAB_COORDINATION_REPORT.md, or related files; paths are relative to run dir; files are also in the zip under `coordination/`.
+- `pipeline_mode`, `llm_backend_id`, `llm_model_id`, `allow_network` (optional): present when run is from official pack or full pipeline.
+- `receipts_note` (optional): present for `full_pipeline` when there are no receipts (explains why receipts_index is empty).
+- `coord_telemetry` (optional): present when episode logs have coord_decisions.jsonl.
+
+**Episode object** (each entry in `episodes`):
+
+- `task`: string. Required.
+- `episode_index`: number. Required.
+- `episode_key`: string (e.g. `"<task>_<episode_index>"`). Optional but emitted by backend.
+- `results_ref`: string (path relative to run dir). Required.
+- `log_ref`: string or **null** (path to episode log JSONL, or null when no log). Must accept null for full_pipeline and quick_eval without logs.
+- `receipts_ref`: string or **null** (path to receipts dir, or null). Must accept null for runs without receipts.
+
+**Frontend validation:** The UI bundle loader must treat `log_ref` and `receipts_ref` as optional or nullable (string | null). Do not require them to be non-empty strings, or validation will fail for bundles from full_pipeline or LLM live official pack runs.
 
 **events.json**:
 

@@ -85,8 +85,10 @@ SECRET_SCRUBBER_NAME = "secret_scrubber.py"
 EXCLUDE_FILES = {"tools/no_placeholders.py", "tests/test_no_placeholders.py"}
 
 # (rel_path, pattern): allow these global-fail patterns in config (e.g. coverage exclude_lines)
+# agent_api.py: base class default act() raises NotImplementedError; subclasses must implement.
 ALLOWED_GLOBAL_VIOLATIONS: set[tuple[str, str]] = {
     ("pyproject.toml", "NotImplementedError"),
+    ("src/labtrust_gym/baselines/agent_api.py", "NotImplementedError"),
 }
 
 # Path prefixes where "placeholder" / "stub" are allowed (docs, tests, and src may reference them for TBD/Stub).

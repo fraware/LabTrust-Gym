@@ -57,3 +57,5 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+        # If deploy fails with 404, enable Pages: repo Settings -> Pages -> Source: GitHub Actions

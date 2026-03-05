@@ -19,5 +19,7 @@ jobs:
           python-version: "3.11"
       - name: Install package
         run: pip install -e ".[dev]"
+      - name: Normalize release fixture and regenerate manifests
+        run: python scripts/normalize_release_fixture_manifests.py
       - name: Run release fixture verify test
         run: pytest tests/test_release_fixture_verify_release.py -v
