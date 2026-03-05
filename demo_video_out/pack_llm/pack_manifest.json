@@ -15,7 +15,7 @@
     "hierarchical_hub_rr",
     "llm_constrained"
   ],
-  "git_sha": "fe42dd1f2af3",
+  "git_sha": "7563446fff1e",
   "pack_policy": "policy/official/benchmark_pack.v0.2.yaml",
   "pipeline_mode": "llm_live",
   "required_reports": [

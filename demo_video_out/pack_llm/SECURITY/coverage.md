@@ -17,7 +17,7 @@ Each attack in coverage.json has a `layer` (`agent_shield` or `system`) and `use
   - Attacks: SEC-COORD-001, SEC-COORD-RT-001
 
 - **R-COMMS-002** (Agent communication poisoning)
-  - Controls: CTRL-DETECTOR-ADVISOR, CTRL-COORD-IDENTITY
+  - Controls: CTRL-COORD-IDENTITY, CTRL-DETECTOR-ADVISOR
   - Attacks: SEC-DETECTOR-001, SEC-COORD-MATRIX-001
 
 - **R-COORD-001** (Coordination security pack (multi-agentic combine path))

@@ -4,12 +4,7 @@ Summary of the coordination security pack run and gate result.
 
 ## Gate result
 
-**Overall:** FAIL.
-
-The following cells failed the gate:
-
-- small_smoke / kernel_auction_whca_shielded / INJ-COMMS-POISON-001
-- small_smoke / llm_detector_throttle_advisor / INJ-COMMS-POISON-001
+**Overall:** PASS.
 
 ## Artifacts
 

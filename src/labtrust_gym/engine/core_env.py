@@ -337,6 +337,22 @@ class CoreEnv(LabTrustEnvAdapter):
         self._critical.load_ladder(ladder)
         self._queues = QueueStore()
         self._queues.set_known_devices(list(self._device_zone.keys()))
+        for entry in initial_state.get("initial_queue_entries") or []:
+            _dev = entry.get("device_id")
+            _work = entry.get("work_id")
+            _prio = entry.get("priority_class", "ROUTINE")
+            if _prio not in ("STAT", "URGENT", "ROUTINE"):
+                _prio = "ROUTINE"
+            _ts = int(entry.get("enqueued_ts_s", 0))
+            if _dev and _work:
+                self._queues.enqueue(
+                    _dev,
+                    str(_work),
+                    cast(PriorityClass, _prio),
+                    _ts,
+                    "_init",
+                    None,
+                )
         self._timing_mode = str(initial_state.get("timing_mode", "explicit")).strip().lower()
         if self._timing_mode not in ("explicit", "simulated"):
             self._timing_mode = "explicit"

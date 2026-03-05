@@ -6,10 +6,14 @@ Deterministic: stable ordering, seeded tie-breaks.
 
 from __future__ import annotations
 
+import logging
+import os
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+_LOG_AUCTION = logging.getLogger(__name__)
 
 # Cost sentinel for "cannot bid" (RBAC/token forbidden)
 BID_FORBIDDEN = 1e9
@@ -410,6 +414,13 @@ class AuctionAllocator:
                         priority=prio,
                     )
                 )
+
+        if os.environ.get("LABTRUST_DEBUG_COORD_QUEUES") == "1" and getattr(context, "t", 0) < 3:
+            _LOG_AUCTION.warning(
+                "[LABTRUST_DEBUG_COORD_QUEUES] step=%s work_items_len=%s",
+                getattr(context, "t", 0),
+                len(work_items),
+            )
 
         price_signals = build_price_signals(obs, device_zone, zone_ids, device_ids)
         view_snapshots = getattr(context, "view_snapshots", None) or {}

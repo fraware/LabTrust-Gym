@@ -33,6 +33,37 @@ def test_empty_cell_metrics_includes_llm_economics_keys() -> None:
     assert out.get("llm.invalid_output_rate") is None
 
 
+def test_aggregate_cell_metrics_hospital_lab_metrics() -> None:
+    """_aggregate_cell_metrics aggregates on_time_rate and critical_communication_compliance_rate from episode metrics."""
+    episodes = [
+        {
+            "metrics": {
+                "throughput": 2,
+                "on_time_rate": 0.9,
+                "critical_communication_compliance_rate": 1.0,
+                "p95_turnaround_s": 100.0,
+                "violations_by_invariant_id": {},
+                "blocked_by_reason_code": {},
+            },
+        },
+        {
+            "metrics": {
+                "throughput": 3,
+                "on_time_rate": 0.8,
+                "critical_communication_compliance_rate": 0.5,
+                "p95_turnaround_s": 120.0,
+                "violations_by_invariant_id": {},
+                "blocked_by_reason_code": {},
+            },
+        },
+    ]
+    out = _aggregate_cell_metrics(episodes)
+    assert out["perf.throughput"] == 2.5
+    assert out["perf.p95_tat"] == 110.0
+    assert out["perf.on_time_rate"] == pytest.approx(0.85)
+    assert out["safety.critical_communication_compliance_rate"] == pytest.approx(0.75)
+
+
 def test_aggregate_cell_metrics_missing_llm_fills_zero_null() -> None:
     """When episodes have no coordination.llm, aggregator sets cost/llm to 0 or null."""
     episodes = [

@@ -34,7 +34,7 @@ scale_configs:
         CENTRIFUGE_BANK: 1
       num_sites: 1
       specimens_per_min: 1.0
-      horizon_steps: 50
+      horizon_steps: 80
       timing_mode: "explicit"
       coord_auction_protocol: "round_robin"
 

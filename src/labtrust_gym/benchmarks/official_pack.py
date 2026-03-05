@@ -262,6 +262,7 @@ def run_official_pack(
         bid = task_to_baseline.get(task) or "scripted_ops_v1"
         suffix = bid.replace("_v1", "").replace("_v0", "")
         out_path = results_dir / f"{task}_{suffix}.json"
+        log_path = results_dir / f"{task}_{suffix}_episodes.jsonl"
         coord_method: str | None = None
         if task in ("coord_scale", "coord_risk"):
             coord_method = bid.replace("_v0", "").replace("_v1", "")
@@ -281,6 +282,7 @@ def run_official_pack(
             base_seed=seed_base,
             out_path=out_path,
             repo_root=repo_root,
+            log_path=log_path,
             scale_config_override=scale_config_override,
             coord_method=coord_method,
             pipeline_mode=pipeline_mode,

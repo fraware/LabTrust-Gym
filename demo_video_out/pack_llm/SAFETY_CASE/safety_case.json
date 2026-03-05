@@ -108,11 +108,11 @@
       "artifact_sha256": [
         {
           "path": "SECURITY/attack_results.json",
-          "sha256": "9a2e19572a054be88f8dd900892abb6a8f8ff4c48dbf2b157122a826487fa303"
+          "sha256": "f8d54990d1f065852fcb82591194ad24a106594568d9c9e364f5b4fb4d73518b"
         },
         {
           "path": "SECURITY/coverage.json",
-          "sha256": "1e9a621a629b36f24d72a588120b7015e227db3a7c49cdd402b500f8e6703aa1"
+          "sha256": "69b2eeddfc062c9576aa3fff84fa2dc32f10b94ef5692bc04b83334b020c8cf2"
         }
       ],
       "artifacts": [

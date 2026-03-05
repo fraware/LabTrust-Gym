@@ -153,8 +153,8 @@
         "SEC-COORD-MATRIX-001"
       ],
       "controls": [
-        "CTRL-DETECTOR-ADVISOR",
-        "CTRL-COORD-IDENTITY"
+        "CTRL-COORD-IDENTITY",
+        "CTRL-DETECTOR-ADVISOR"
       ]
     },
     "R-COORD-001": {

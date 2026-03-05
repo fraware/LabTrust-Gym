@@ -8,8 +8,12 @@ TrivialRouter: BFS move or START_RUN from schedule; deterministic.
 
 from __future__ import annotations
 
+import logging
+import os
 from collections import deque
 from typing import Any
+
+_LOG_KERNEL = logging.getLogger(__name__)
 
 from labtrust_gym.baselines.coordination.coordination_kernel import KernelContext
 from labtrust_gym.baselines.coordination.decision_types import (
@@ -105,6 +109,13 @@ class CentralizedAllocator:
                 head = (qbd[idx] if idx < len(qbd) else {}).get("queue_head", "W")
                 prio = 2 if "STAT" in str(head).upper() else (1 if "URGENT" in str(head).upper() else 0)
                 worklist.append((prio, dev_id, head or "W", dev_zone))
+
+        if os.environ.get("LABTRUST_DEBUG_COORD_QUEUES") == "1" and getattr(context, "t", 0) < 3:
+            _LOG_KERNEL.warning(
+                "[LABTRUST_DEBUG_COORD_QUEUES] step=%s worklist_len=%s",
+                getattr(context, "t", 0),
+                len(worklist),
+            )
 
         worklist.sort(key=lambda x: (-x[0], x[1], x[2]))
         assigned: set[str] = set()

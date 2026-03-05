@@ -80,8 +80,8 @@
     "emits_vocab": "0.1",
     "catalogue_schema": "unknown"
   },
-  "git_sha": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
-  "git_commit_hash": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
+  "git_sha": "7563446fff1e6d0ff06858344ccc26dc9a0804a4",
+  "git_commit_hash": "7563446fff1e6d0ff06858344ccc26dc9a0804a4",
   "partner_id": null,
   "policy_fingerprint": null,
   "agent_baseline_id": "llm_live_openai_v1",
@@ -2198,8 +2198,8 @@
     "total_tokens": 0,
     "tokens_per_step": null,
     "estimated_cost_usd": 0.0,
-    "run_duration_wall_s": 9.403,
-    "run_duration_episodes_per_s": 5.3175,
+    "run_duration_wall_s": 7.438,
+    "run_duration_episodes_per_s": 6.7222,
     "python_version": "3.12.1",
     "platform": "win32"
   }
