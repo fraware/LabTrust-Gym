@@ -93,30 +93,13 @@
     {
       "artifacts": [
         {
-          "path": "coord_pack_fixture_minimal/pack_summary.csv"
+          "path": "SECURITY/attack_results.json"
         }
       ],
-      "evidence_id": "ev-coord-pack-summary-0",
-      "evidence_strength": "high",
-      "label": "Coordination pack summary",
-      "path": "coord_pack_fixture_minimal/pack_summary.csv",
-      "status": "present",
-      "summary": {
-        "row_count": 1
-      },
-      "synthetic": true,
-      "type": "coordination_pack"
-    },
-    {
-      "artifacts": [
-        {
-          "path": "ui_fixtures/SECURITY/attack_results.json"
-        }
-      ],
-      "evidence_id": "ev-security-1",
+      "evidence_id": "ev-security-0",
       "evidence_strength": "high",
       "label": "Security attack results",
-      "path": "ui_fixtures/SECURITY/attack_results.json",
+      "path": "SECURITY/attack_results.json",
       "status": "present",
       "summary": {
         "failed": 0,
@@ -124,6 +107,34 @@
         "total": 1
       },
       "type": "security_suite"
+    },
+    {
+      "evidence_id": "ev-missing-R-COMMS-001",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-COMMS-001",
+      "path": "",
+      "risk_ids": [
+        "R-COMMS-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-COMMS-002",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-COMMS-002",
+      "path": "",
+      "risk_ids": [
+        "R-COMMS-002"
+      ],
+      "status": "missing",
+      "type": "other"
     },
     {
       "evidence_id": "ev-missing-R-COORD-001",
@@ -139,6 +150,48 @@
       "type": "other"
     },
     {
+      "evidence_id": "ev-missing-R-DATA-001",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-DATA-001",
+      "path": "",
+      "risk_ids": [
+        "R-DATA-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-DATA-002",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-DATA-002",
+      "path": "",
+      "risk_ids": [
+        "R-DATA-002"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-DATA-003",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-DATA-003",
+      "path": "",
+      "risk_ids": [
+        "R-DATA-003"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
       "evidence_id": "ev-missing-R-FLOW-001",
       "expected_sources": [
         "security suite smoke"
@@ -147,6 +200,61 @@
       "path": "",
       "risk_ids": [
         "R-FLOW-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-FLOW-002",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-FLOW-002",
+      "path": "",
+      "risk_ids": [
+        "R-FLOW-002"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-SYS-001",
+      "expected_sources": [
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-SYS-001",
+      "path": "",
+      "risk_ids": [
+        "R-SYS-001"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-SYS-002",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-SYS-002",
+      "path": "",
+      "risk_ids": [
+        "R-SYS-002"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-001",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-TOOL-001",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-001"
       ],
       "status": "missing",
       "type": "other"
@@ -189,10 +297,38 @@
       ],
       "status": "missing",
       "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-005",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-TOOL-005",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-005"
+      ],
+      "status": "missing",
+      "type": "other"
+    },
+    {
+      "evidence_id": "ev-missing-R-TOOL-006",
+      "expected_sources": [
+        "security suite smoke",
+        "coordination study required_bench"
+      ],
+      "label": "Evidence gap: R-TOOL-006",
+      "path": "",
+      "risk_ids": [
+        "R-TOOL-006"
+      ],
+      "status": "missing",
+      "type": "other"
     }
   ],
   "evidence_level": "deterministic_only",
-  "git_commit_hash": "3bdc04ada72f78b46fbd7235cf8414b01cd88c98",
+  "git_commit_hash": "c043a15b61b2d592a18143ecc0dc9a672c3dcc7a",
   "injection_registry": [
     {
       "expected_effects": "active",
@@ -475,11 +611,6 @@
       "type": "repo_local"
     },
     {
-      "href": "tests/fixtures/coord_pack_fixture_minimal/pack_summary.csv",
-      "label": "Pack summary",
-      "type": "run_local"
-    },
-    {
       "href": "tests/fixtures/ui_fixtures/SECURITY/attack_results.json",
       "label": "Attack results",
       "type": "run_local"
@@ -494,17 +625,20 @@
   "reproduce": [
     {
       "commands": [
-        "labtrust run-coordination-security-pack --out <output_dir> [--matrix-preset hospital_lab]"
-      ],
-      "evidence_id": "ev-coord-pack-summary-0",
-      "label": "Coordination pack"
-    },
-    {
-      "commands": [
         "labtrust run-security-suite --out <output_dir> --seed 42"
       ],
-      "evidence_id": "ev-security-1",
+      "evidence_id": "ev-security-0",
       "label": "Security suite"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-COMMS-001",
+      "label": "Evidence gap: R-COMMS-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-COMMS-002",
+      "label": "Evidence gap: R-COMMS-002"
     },
     {
       "commands": [],
@@ -513,8 +647,43 @@
     },
     {
       "commands": [],
+      "evidence_id": "ev-missing-R-DATA-001",
+      "label": "Evidence gap: R-DATA-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-DATA-002",
+      "label": "Evidence gap: R-DATA-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-DATA-003",
+      "label": "Evidence gap: R-DATA-003"
+    },
+    {
+      "commands": [],
       "evidence_id": "ev-missing-R-FLOW-001",
       "label": "Evidence gap: R-FLOW-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-FLOW-002",
+      "label": "Evidence gap: R-FLOW-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-SYS-001",
+      "label": "Evidence gap: R-SYS-001"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-SYS-002",
+      "label": "Evidence gap: R-SYS-002"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-001",
+      "label": "Evidence gap: R-TOOL-001"
     },
     {
       "commands": [],
@@ -530,6 +699,16 @@
       "commands": [],
       "evidence_id": "ev-missing-R-TOOL-004",
       "label": "Evidence gap: R-TOOL-004"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-005",
+      "label": "Evidence gap: R-TOOL-005"
+    },
+    {
+      "commands": [],
+      "evidence_id": "ev-missing-R-TOOL-006",
+      "label": "Evidence gap: R-TOOL-006"
     }
   ],
   "risks": [
@@ -545,8 +724,7 @@
       "coverage_status": "partially_covered",
       "description": "Adversarial prompts or inputs cause LLM or policy to bypass safety constraints.",
       "evidence_refs": [
-        "ev-coord-pack-summary-0",
-        "ev-security-1"
+        "ev-security-0"
       ],
       "mitigation_options": [
         "Adversarial detection",
@@ -581,7 +759,7 @@
       "coverage_status": "partially_covered",
       "description": "Agent or channel pretends to be another agent or role to gain privileges.",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-COMMS-001"
       ],
       "mitigation_options": [
         "Signed actions",
@@ -617,7 +795,7 @@
       "coverage_status": "partially_covered",
       "description": "Messages between agents or from environment are altered to mislead or trigger failures.",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-COMMS-002"
       ],
       "mitigation_options": [
         "Message authentication",
@@ -686,7 +864,7 @@
       "coverage_status": "partially_covered",
       "description": "Data from untrusted source (external API, other agent) used without validation.",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-DATA-001"
       ],
       "mitigation_options": [
         "Message auth",
@@ -718,7 +896,7 @@
       "coverage_status": "uncovered",
       "description": "Training or runtime data is corrupted to degrade model or decision quality.",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-DATA-002"
       ],
       "mitigation_options": [
         "Data validation",
@@ -751,7 +929,7 @@
       "coverage_status": "partially_covered",
       "description": "Long-horizon or episodic state is corrupted to cause downstream wrong decisions.",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-DATA-003"
       ],
       "mitigation_options": [
         "State integrity checks",
@@ -818,7 +996,7 @@
       "coverage_status": "partially_covered",
       "description": "Agent fails to make progress toward goal (deadlock, livelock, or repeated failures).",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-FLOW-002"
       ],
       "mitigation_options": [
         "Progress metrics",
@@ -849,7 +1027,7 @@
       "coverage_status": "partially_covered",
       "description": "Agent or adversary causes service degradation or unavailability (resource exhaustion, spam).",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-SYS-001"
       ],
       "mitigation_options": [
         "Rate limit",
@@ -885,7 +1063,7 @@
       "coverage_status": "partially_covered",
       "description": "Multiple agents coordinate to circumvent policy or achieve unauthorized outcomes.",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-SYS-002"
       ],
       "mitigation_options": [
         "Independent verification",
@@ -919,7 +1097,7 @@
       "coverage_status": "partially_covered",
       "description": "Agent selects wrong tool or action type for the current state; leads to wasted steps or incorrect workflow.",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-TOOL-001"
       ],
       "mitigation_options": [
         "Structured output schema",
@@ -1050,7 +1228,7 @@
       "coverage_status": "partially_covered",
       "description": "Structured call has wrong or out-of-range parameters (e.g. wrong device_id, invalid zone).",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-TOOL-005"
       ],
       "mitigation_options": [
         "Entity resolution",
@@ -1083,7 +1261,7 @@
       "coverage_status": "partially_covered",
       "description": "Adversary exploits tool or API contract (injection, overflow, privilege escalation).",
       "evidence_refs": [
-        "ev-coord-pack-summary-0"
+        "ev-missing-R-TOOL-006"
       ],
       "mitigation_options": [
         "Input sanitization",

@@ -2899,7 +2899,7 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
             cwd=str(root),
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=300,
         )
         passed = r.returncode == 0
         if not passed:

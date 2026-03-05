@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from labtrust_gym.export.coordination_graphs import (
     build_coordination_graphs,
     build_primary_graph_html,
