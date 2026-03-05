@@ -57,6 +57,8 @@ Or run the script directly: `bash scripts/run_verification_battery.sh` (from rep
 
 **Windows:** Run the full verification battery with `powershell -File scripts/run_verification_battery.ps1` from repo root (or `.\scripts\run_verification_battery.ps1`). The script mirrors `scripts/run_verification_battery.sh`. Other PowerShell scripts: `scripts/build_release_fixture.ps1`, `scripts/run_llm_live_coord_checks.ps1`, `scripts/run_required_bench_matrix.ps1`.
 
+**Full local audit (all CI-relevant checks):** To run ruff, no-placeholders, audit-selfcheck, verification battery, release-fixture-verify, and coverage in one go: Windows `.\scripts\run_full_audit_local.ps1`, Unix `bash scripts/run_full_audit_local.sh`. Set `LABTRUST_FULL_AUDIT_WHEEL=1` to also run the wheel-smoke simulation.
+
 ## Coverage report and ratchet
 
 Job **coverage** runs on **every push/PR**. It runs `pytest -q -m "not slow" --cov=src/labtrust_gym --cov-report=xml --cov-report=term` and uploads **coverage.xml** as a workflow artifact. Configuration: `[tool.coverage.run]` and `[tool.coverage.report]` in `pyproject.toml` at repo root.
