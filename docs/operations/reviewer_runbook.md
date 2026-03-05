@@ -47,7 +47,7 @@ See [Risk register](../risk-and-security/risk_register.md) for bundle structure 
 ## How to interpret the security gate
 
 - **Security suite:** `labtrust run-security-suite` produces SECURITY/ (attack_results.json, coverage, reason codes). Pass/fail is per attack scenario; the suite defines which controls are tested and how success is measured.
-- **Coordination security pack:** When the run includes coordination pack output (pack_summary.csv, pack_gate.md), the pack gate summarizes pass/fail per cell (method, scale, injection). See [How to handle security gate failures](howto_security_gate_failures.md).
+- **Coordination security pack:** When the run includes coordination pack output (pack_summary.csv, pack_gate.md), the pack gate summarizes pass/fail per cell (method, scale, injection). Under `summary/` expect SOTA leaderboard (main: sota_leaderboard.md/.csv; full: sota_leaderboard_full.md/.csv) and method_class_comparison.md/.csv (including blocks_mean, attack_success_rate_mean). See [How to handle security gate failures](howto_security_gate_failures.md) and [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
 - **Reason codes:** Blocked or held actions carry reason codes (e.g. RBAC_ACTION_DENY, SIG_MISSING); these appear in results and logs and indicate why an action was not applied.
 
 ## See also

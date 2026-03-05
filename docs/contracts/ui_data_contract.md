@@ -80,9 +80,18 @@ When `--run <dir>` is a directory that contains coordination security pack outpu
 | `SECURITY/coordination_risk_matrix.csv`, `.md` | Method x injection x phase outcomes. |
 | `LAB_COORDINATION_REPORT.md` | Single lab report with scope, decision, artifact table. |
 | `COORDINATION_DECISION.v0.1.json`, `.md` | Chosen method per scale. |
-| `summary/sota_leaderboard.md`, `method_class_comparison.md` | SOTA and method-class comparison. |
+| `summary/sota_leaderboard.md` | SOTA leaderboard (main): compact table with key metrics and optional run metadata. |
+| `summary/sota_leaderboard_full.md` | SOTA leaderboard (full metrics): all aggregated numeric columns. |
+| `summary/sota_leaderboard_full.csv` | Full leaderboard in CSV form for programmatic use. |
+| `summary/method_class_comparison.md` | Method-class comparison (throughput, violations, blocks, resilience, attack_success_rate, stealth, n_cells). |
 
-When present, **index.json** includes `coordination_artifacts`: a list of `{ "path": "<rel>", "label": "..." }` for each found file. Paths may be under `coordination_pack/` when the run is an official pack with `--include-coordination-pack`. The same files are included in the zip under the prefix **coordination/** (e.g. `coordination/pack_summary.csv`, `coordination/coordination_pack/LAB_COORDINATION_REPORT.md`) so the UI can link to or load them without reading the raw run dir.
+When present, **index.json** includes `coordination_artifacts`: a list of `{ "path": "<rel>", "label": "..." }` for each found file. Paths may be under `coordination_pack/` when the run is an official pack with `--include-coordination-pack`. The same files are included in the zip under the prefix **coordination/** (e.g. `coordination/pack_summary.csv`, `coordination/summary/sota_leaderboard_full.md`) so the UI can link to or load them without reading the raw run dir.
+
+#### SOTA leaderboard (main and full) and method-class comparison
+
+- **Main leaderboard** (`summary/sota_leaderboard.md`, `.csv`): Single table with the most important hospital-lab metrics per method: throughput_mean, throughput_std, violations_mean, blocks_mean, resilience_score_mean, resilience_score_std, p95_tat_mean, on_time_rate_mean, critical_compliance_mean, attack_success_rate_mean, stealth_success_rate_mean, n_cells. When `pack_manifest.json` exists, the Markdown includes a Run metadata line (seed_base, git_sha) at the top.
+- **Full leaderboard** (`summary/sota_leaderboard_full.md`, `.csv`): All aggregated numeric metrics per method; columns depend on the data source (pack_summary vs summary_coord). Use for detailed analysis (security detection/containment, comm, LLM economics). See [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
+- **Method-class comparison** (`summary/method_class_comparison.md`, `.csv`): Same metrics aggregated by coordination class (e.g. kernel_schedulers, centralized, llm), including blocks_mean and attack_success_rate_mean. The UI may show the main leaderboard by default and link to the full leaderboard and method-class comparison for drill-down.
 
 ---
 

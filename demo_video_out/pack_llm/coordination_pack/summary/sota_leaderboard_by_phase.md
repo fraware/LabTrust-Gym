@@ -2,17 +2,17 @@
 
 Per-method and per-application_phase means.
 
-| method_id | application_phase | throughput_mean | violations_mean | resilience_score_mean | stealth_success_rate_mean | n_cells |
-| --- | --- | --- | --- | --- | --- | --- |
-| kernel_auction_whca_shielded | early | 0.0000 | 0.00 | 0.7858 | 0.0000 | 2 |
-| kernel_auction_whca_shielded | full | 0.0000 | 128.50 | 0.6252 | 0.0000 | 8 |
-| kernel_auction_whca_shielded | late | 0.0000 | 128.50 | 0.6252 | 0.0000 | 2 |
-| llm_detector_throttle_advisor | early | 0.0000 | 0.00 | 0.2642 | 0.0000 | 2 |
-| llm_detector_throttle_advisor | full | 0.0000 | 16341.50 | 0.1000 | 0.0000 | 8 |
-| llm_detector_throttle_advisor | late | 0.0000 | 16341.50 | 0.1000 | 0.0000 | 2 |
-| llm_local_decider_signed_bus | early | 0.0000 | 0.00 | 0.5000 | 0.0000 | 2 |
-| llm_local_decider_signed_bus | full | 0.0000 | 16200.00 | 0.5000 | 0.0000 | 8 |
-| llm_local_decider_signed_bus | late | 0.0000 | 16200.00 | 0.5000 | 0.0000 | 2 |
-| llm_repair_over_kernel_whca | early | 0.0000 | 0.00 | 0.5000 | 0.0000 | 2 |
-| llm_repair_over_kernel_whca | full | 0.0000 | 16200.00 | 0.5000 | 0.0000 | 8 |
-| llm_repair_over_kernel_whca | late | 0.0000 | 16200.00 | 0.5000 | 0.0000 | 2 |
+| method_id | application_phase | throughput_mean | throughput_std | violations_mean | blocks_mean | resilience_score_mean | resilience_score_std | p95_tat_mean | on_time_rate_mean | critical_compliance_mean | attack_success_rate_mean | stealth_success_rate_mean | n_cells |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| kernel_auction_whca_shielded | early | 0.0000 | 0.0000 | 0.00 | 257.00 | 0.7858 | 0.3029 | — | — | — | 0.0000 | 0.0000 | 2 |
+| kernel_auction_whca_shielded | full | 0.0000 | 0.0000 | 128.50 | 257.00 | 0.6252 | 0.4007 | — | — | — | 0.0000 | 0.0000 | 8 |
+| kernel_auction_whca_shielded | late | 0.0000 | 0.0000 | 128.50 | 257.00 | 0.6252 | 0.5300 | — | — | — | 0.0000 | 0.0000 | 2 |
+| llm_detector_throttle_advisor | early | 0.0000 | 0.0000 | 0.00 | 56083.00 | 0.2642 | 0.3736 | — | — | — | 0.0000 | 0.0000 | 2 |
+| llm_detector_throttle_advisor | full | 0.0000 | 0.0000 | 16341.50 | 32683.00 | 0.1000 | 0.1069 | — | — | — | 0.0000 | 0.0000 | 8 |
+| llm_detector_throttle_advisor | late | 0.0000 | 0.0000 | 16341.50 | 32683.00 | 0.1000 | 0.1414 | — | — | — | 0.0000 | 0.0000 | 2 |
+| llm_local_decider_signed_bus | early | 0.0000 | 0.0000 | 0.00 | 55800.00 | 0.5000 | 0.7071 | — | — | — | 0.0000 | 0.0000 | 2 |
+| llm_local_decider_signed_bus | full | 0.0000 | 0.0000 | 16200.00 | 32400.00 | 0.5000 | 0.5345 | — | — | — | 0.0000 | 0.0000 | 8 |
+| llm_local_decider_signed_bus | late | 0.0000 | 0.0000 | 16200.00 | 32400.00 | 0.5000 | 0.7071 | — | — | — | 0.0000 | 0.0000 | 2 |
+| llm_repair_over_kernel_whca | early | 0.0000 | 0.0000 | 0.00 | 55800.00 | 0.5000 | 0.7071 | — | — | — | 0.0000 | 0.0000 | 2 |
+| llm_repair_over_kernel_whca | full | 0.0000 | 0.0000 | 16200.00 | 32400.00 | 0.5000 | 0.5345 | — | — | — | 0.0000 | 0.0000 | 8 |
+| llm_repair_over_kernel_whca | late | 0.0000 | 0.0000 | 16200.00 | 32400.00 | 0.5000 | 0.7071 | — | — | — | 0.0000 | 0.0000 | 2 |

@@ -107,9 +107,11 @@ The spec YAML must include:
   summary/
     summary_coord.csv            # one row per cell
     pareto.md                   # Pareto front and robust winner
-    sota_leaderboard.csv        # per-method means (throughput_mean, violations_mean, resilience_score_mean, stealth_success_rate_mean)
-    sota_leaderboard.md         # leaderboard markdown table
-    method_class_comparison.csv # per-class means (centralized vs ripple vs evolving vs auctions vs kernel_schedulers)
+    sota_leaderboard.csv        # main: per-method key metrics + throughput_std, resilience_score_std, blocks_mean, attack_success_rate_mean
+    sota_leaderboard.md         # main leaderboard markdown (optional Run metadata when pack_manifest.json present)
+    sota_leaderboard_full.csv   # full: all aggregated numeric columns per method
+    sota_leaderboard_full.md    # full leaderboard markdown
+    method_class_comparison.csv # per-class means (blocks_mean, attack_success_rate_mean included)
     method_class_comparison.md  # method-class comparison markdown table
     coverage_missing.json        # written by preflight when required risks have no covering injection (non-strict)
   PARETO/                        # multi-objective evaluation (v0.1)
@@ -149,16 +151,17 @@ The spec YAML must include:
 
 The study runner (and the standalone `summarize-coordination` command) produces:
 
-- **SOTA leaderboard**: One row per method with `throughput_mean`, `violations_mean`, `resilience_score_mean`, `stealth_success_rate_mean` (means over all cells for that method), plus `n_cells`. Written as `summary/sota_leaderboard.csv` and `summary/sota_leaderboard.md`.
-- **Method-class comparison**: Same metrics aggregated by *method class* (centralized, ripple, evolving, auctions, kernel_schedulers, and optionally decentralized, swarm, llm, other). Written as `summary/method_class_comparison.csv` and `summary/method_class_comparison.md`.
+- **SOTA leaderboard (main)**: One row per method with `throughput_mean`, `throughput_std`, `violations_mean`, `blocks_mean`, `resilience_score_mean`, `resilience_score_std`, `p95_tat_mean`, `on_time_rate_mean`, `critical_compliance_mean`, `attack_success_rate_mean`, `stealth_success_rate_mean`, `n_cells`. Written as `summary/sota_leaderboard.csv` and `summary/sota_leaderboard.md`. When `pack_manifest.json` exists in the run (or parent), the Markdown includes a Run metadata line (seed_base, git_sha) at the top.
+- **SOTA leaderboard (full)**: All aggregated numeric columns per method (security detection/containment, and when source is summary_coord: comm, LLM economics). Written as `summary/sota_leaderboard_full.csv` and `summary/sota_leaderboard_full.md`. See [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
+- **Method-class comparison**: Same metrics aggregated by *method class* (centralized, ripple, evolving, auctions, kernel_schedulers, llm, other), including `blocks_mean` and `attack_success_rate_mean`. Written as `summary/method_class_comparison.csv` and `summary/method_class_comparison.md`.
 
-To generate or refresh these from an existing run directory (e.g. after copying summary_coord.csv):
+To generate or refresh these from an existing run directory (e.g. after copying summary_coord.csv or pack_summary.csv):
 
 ```bash
 labtrust summarize-coordination --in <run_dir> --out <out_dir>
 ```
 
-Input: `--in` must contain `summary/summary_coord.csv` or `summary_coord.csv`. Output: `--out` receives `summary/sota_leaderboard.csv`, `sota_leaderboard.md`, `method_class_comparison.csv`, `method_class_comparison.md`. You can use the same path for `--in` and `--out` to add the aggregation artifacts to an existing run.
+Input: `--in` must contain `summary/summary_coord.csv`, `summary_coord.csv`, or `pack_summary.csv`. Output: `--out` receives under `summary/`: `sota_leaderboard.csv`, `sota_leaderboard.md`, `sota_leaderboard_full.csv`, `sota_leaderboard_full.md`, `method_class_comparison.csv`, `method_class_comparison.md`. You can use the same path for `--in` and `--out` to add the aggregation artifacts to an existing run.
 
 ## Interpreting the Pareto report
 

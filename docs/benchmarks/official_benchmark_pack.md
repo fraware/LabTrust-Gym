@@ -117,6 +117,9 @@ After a successful run, `<out>` contains:
     LAB_COORDINATION_REPORT.md
     COORDINATION_DECISION.v0.1.json, .md
     summary/
+      sota_leaderboard.csv, sota_leaderboard.md     (main: key metrics, optional run metadata)
+      sota_leaderboard_full.csv, sota_leaderboard_full.md
+      method_class_comparison.csv, method_class_comparison.md
   pack_manifest.json
   live_evaluation_metadata.json   (only when --pipeline-mode llm_live)
   PACK_SUMMARY.md
@@ -134,7 +137,7 @@ After a successful run, `<out>` contains:
   Safety case (claim → control → test → artifact → command). Same as `labtrust safety-case --out <dir>`.
 
 - **coordination_pack/** (when `--include-coordination-pack` or pack policy `coordination_pack.enabled`)  
-  Coordination security pack output plus lab report: pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.*, summary/. See [Lab coordination report](../coordination/lab_coordination_report.md).
+  Coordination security pack output plus lab report: pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.*, and under **summary/**: sota_leaderboard (main), sota_leaderboard_full (full metrics), method_class_comparison (with blocks_mean, attack_success_rate_mean). See [Lab coordination report](../coordination/lab_coordination_report.md) and [Hospital lab key metrics](hospital_lab_metrics.md).
 
 - **TRANSPARENCY_LOG/**  
   Global transparency log over episode digests (when receipts or _repr exist). Otherwise a README.txt explains how to produce it (e.g. export-receipts then transparency-log).
