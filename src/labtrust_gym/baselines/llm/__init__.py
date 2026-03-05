@@ -15,6 +15,10 @@ from labtrust_gym.baselines.llm.agent import (
     MockDeterministicBackend,
     MockDeterministicBackendV2,
 )
+from labtrust_gym.baselines.llm.credentials import (
+    require_credentials_for_backend,
+    resolve_credentials,
+)
 from labtrust_gym.baselines.llm.decoder import decode_constrained
 from labtrust_gym.baselines.llm.exceptions import (
     AuthError,
@@ -22,10 +26,6 @@ from labtrust_gym.baselines.llm.exceptions import (
     LLMBackendError,
     ProviderUnavailable,
     RateLimitError,
-)
-from labtrust_gym.baselines.llm.credentials import (
-    require_credentials_for_backend,
-    resolve_credentials,
 )
 from labtrust_gym.baselines.llm.provider import (
     ProviderBackend,

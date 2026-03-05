@@ -2,7 +2,7 @@
   "artifacts": [
     {
       "path": "MANIFEST.v0.1.json",
-      "sha256": "c030dc119f10133142a205f4a258a81241d7f28fd54ba6d53c3c7e5a8eca95d3"
+      "sha256": "c6b573cea81ad5d67381821459e58bc4eac10482b623cbac5cae53515bc1f5f2"
     },
     {
       "path": "receipts/qc_cascade_cond_0/EvidenceBundle.v0.1/manifest.json",
