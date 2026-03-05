@@ -93,10 +93,7 @@ def _html_wrapper(
     config_json = json.dumps(chart_config)
     explanation_block = ""
     if explanation:
-        explanation_block = (
-            f'  <p class="chart-explanation" aria-label="How to read the results">'
-            f"{explanation}</p>\n"
-        )
+        explanation_block = f'  <p class="chart-explanation" aria-label="How to read the results">{explanation}</p>\n'
     footnote_block = ""
     if footnote:
         footnote_block = f'  <p class="chart-footnote" aria-label="Chart annotation">{footnote}</p>\n'

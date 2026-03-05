@@ -26,6 +26,7 @@ jobs:
           python -m venv .venv-wheel
           .venv-wheel/bin/pip install dist/*.whl
           .venv-wheel/bin/pip install ".[env]"  # quick-eval uses env
+          .venv-wheel/bin/pip install pytest  # audit-selfcheck doctor (extras_dev) and risk_register_contract_gate
       - name: Audit selfcheck (doctor)
         run: .venv-wheel/bin/labtrust audit-selfcheck --out ./audit_out
       - name: Validate policy
