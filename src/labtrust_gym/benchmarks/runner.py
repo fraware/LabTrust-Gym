@@ -1039,6 +1039,26 @@ def run_benchmark(
         repo_root = get_repo_root()
     repo_root = Path(repo_root)
     overrides["policy_root"] = str(repo_root)
+    # Load .env from repo root when using a live LLM backend so OPENAI_API_KEY etc. are available
+    if llm_backend in (
+        "openai_live",
+        "openai_responses",
+        "anthropic_live",
+        "ollama_live",
+        "openai_hosted",
+    ):
+        try:
+            from dotenv import load_dotenv
+
+            env_path = repo_root / ".env"
+            if env_path.is_file():
+                load_dotenv(env_path)
+        except ImportError:
+            pass
+    # Fail-fast when a live backend requiring an API key is selected but the key is missing
+    from labtrust_gym.baselines.llm.credentials import require_credentials_for_backend
+
+    require_credentials_for_backend(llm_backend, repo_root)
     effective_policy: dict[str, Any] | None = None
     policy_fingerprint: str | None = None
     if domain_id:
@@ -1209,13 +1229,11 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.backends.openai_live import (
                     OpenAILiveBackend,
                 )
-                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
-                    require_openai_api_key,
-                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
+                creds = resolve_credentials(llm_backend, repo_root)
                 constrained_backend = OpenAILiveBackend(
-                    api_key=api_key,
+                    **creds,
                     model=llm_model,
                 )
                 llm_backend_ref = constrained_backend
@@ -1230,8 +1248,10 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.backends.anthropic_live import (
                     AnthropicLiveBackend,
                 )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                constrained_backend = AnthropicLiveBackend(model=llm_model)
+                creds = resolve_credentials(llm_backend, repo_root)
+                constrained_backend = AnthropicLiveBackend(**creds, model=llm_model)
                 llm_backend_ref = constrained_backend
             if constrained_backend is None:
                 constrained_backend = DeterministicConstrainedBackend(seed=base_seed, default_action_type="NOOP")
@@ -1307,12 +1327,12 @@ def run_benchmark(
             elif planner_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
                     OpenAICoordinationProposalBackend,
-                    require_openai_api_key,
                 )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
+                creds = resolve_credentials(planner_backend, repo_root)
                 proposal_backend = OpenAICoordinationProposalBackend(
-                    api_key=api_key,
+                    **creds,
                     model=planner_model,
                     repo_root=repo_root,
                 )
@@ -1418,12 +1438,12 @@ def run_benchmark(
             if alloc_planner_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
                     OpenAICoordinationProposalBackend,
-                    require_openai_api_key,
                 )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
+                creds = resolve_credentials(llm_backend, repo_root)
                 allocator_backend = OpenAICoordinationProposalBackend(
-                    api_key=api_key,
+                    **creds,
                     model=alloc_planner_model,
                     repo_root=repo_root,
                 )
@@ -1492,13 +1512,11 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.backends.openai_bid_backend import (
                     OpenAIBidBackend,
                 )
-                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
-                    require_openai_api_key,
-                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
+                creds = resolve_credentials(bidder_backend, repo_root)
                 bid_backend = OpenAIBidBackend(
-                    api_key=api_key,
+                    **creds,
                     model=bidder_model,
                     repo_root=repo_root,
                 )
@@ -1591,12 +1609,12 @@ def run_benchmark(
             if llm_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
                     OpenAIGossipSummaryBackend,
-                    require_openai_api_key,
                 )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
+                creds = resolve_credentials(llm_backend, repo_root)
                 summary_backend_gossip = OpenAIGossipSummaryBackend(
-                    api_key=api_key,
+                    **creds,
                     model=llm_model,
                     repo_root=repo_root,
                 )
@@ -1633,12 +1651,12 @@ def run_benchmark(
             if llm_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
                     OpenAILocalProposalBackend,
-                    require_openai_api_key,
                 )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
+                creds = resolve_credentials(llm_backend, repo_root)
                 local_proposal_backend = OpenAILocalProposalBackend(
-                    api_key=api_key,
+                    **creds,
                     model=llm_model,
                     repo_root=repo_root,
                 )
@@ -1685,12 +1703,12 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.backends.openai_live import (
                     OpenAILiveBackend,
                 )
-                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
-                    require_openai_api_key,
-                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
-                repair_backend_param = LiveRepairBackend(OpenAILiveBackend(api_key=api_key, model=repair_role_model))
+                creds = resolve_credentials(repair_role_backend, repo_root)
+                repair_backend_param = LiveRepairBackend(
+                    OpenAILiveBackend(**creds, model=repair_role_model)
+                )
                 llm_backend_ref = repair_backend_param._backend
             elif repair_role_backend == "ollama_live":
                 from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca import (
@@ -1709,8 +1727,12 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.backends.anthropic_live import (
                     AnthropicLiveBackend,
                 )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                repair_backend_param = LiveRepairBackend(AnthropicLiveBackend(model=repair_role_model))
+                creds = resolve_credentials(repair_role_backend, repo_root)
+                repair_backend_param = LiveRepairBackend(
+                    AnthropicLiveBackend(**creds, model=repair_role_model)
+                )
                 llm_backend_ref = repair_backend_param._backend
             if pipeline_mode == "llm_live" and repair_backend_param is not None:
                 from labtrust_gym.baselines.llm.coordinator_throttle import (
@@ -1743,12 +1765,10 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.backends.openai_live import (
                     OpenAILiveBackend,
                 )
-                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
-                    require_openai_api_key,
-                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
-                live_backend = OpenAILiveBackend(api_key=api_key, model=detector_role_model)
+                creds = resolve_credentials(detector_role_backend, repo_root)
+                live_backend = OpenAILiveBackend(**creds, model=detector_role_model)
                 scale_config_dict["detector_backend"] = LiveDetectorBackend(live_backend)
                 llm_backend_ref = live_backend
             elif detector_role_backend == "ollama_live":
@@ -1769,8 +1789,10 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.backends.anthropic_live import (
                     AnthropicLiveBackend,
                 )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                live_backend = AnthropicLiveBackend(model=detector_role_model)
+                creds = resolve_credentials(detector_role_backend, repo_root)
+                live_backend = AnthropicLiveBackend(**creds, model=detector_role_model)
                 scale_config_dict["detector_backend"] = LiveDetectorBackend(live_backend)
                 llm_backend_ref = live_backend
             if pipeline_mode == "llm_live" and scale_config_dict.get("detector_backend") is not None:
@@ -1808,14 +1830,14 @@ def run_benchmark(
             if planner_backend == "openai_live":
                 from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
                     OpenAICoordinationProposalBackend,
-                    require_openai_api_key,
                 )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
+                creds = resolve_credentials(planner_backend, repo_root)
                 for _ in range(n_proposers):
                     proposal_backends_list.append(
                         OpenAICoordinationProposalBackend(
-                            api_key=api_key,
+                            **creds,
                             model=planner_model,
                             repo_root=repo_root,
                         )
@@ -1885,13 +1907,11 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.backends.openai_agentic_coord_backend import (
                     OpenAIAgenticProposalBackend,
                 )
-                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
-                    require_openai_api_key,
-                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                api_key = require_openai_api_key()
+                creds = resolve_credentials(planner_backend, repo_root)
                 agentic_proposal_backend = OpenAIAgenticProposalBackend(
-                    api_key=api_key,
+                    **creds,
                     model=planner_model,
                     repo_root=repo_root,
                 )
@@ -2220,10 +2240,15 @@ def run_benchmark(
             from labtrust_gym.baselines.llm.backends.openai_live import (
                 OpenAILiveBackend,
             )
+            from labtrust_gym.baselines.llm.credentials import resolve_credentials
             from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
 
             pz_to_engine = _default_pz_to_engine(num_runners=num_runners, num_insiders=num_insiders)
-            base_backend = OpenAILiveBackend(trace_collector=llm_trace_collector)
+            creds = resolve_credentials(llm_backend, repo_root)
+            base_backend = OpenAILiveBackend(
+                **creds,
+                trace_collector=llm_trace_collector,
+            )
             backend = RecordingBackend(base_backend) if record_fixtures_path is not None else base_backend
             llm_backend_ref = cast(Any, backend)
             for aid in llm_agents:
@@ -2243,13 +2268,16 @@ def run_benchmark(
             from labtrust_gym.baselines.llm.backends.openai_responses import (
                 OpenAILiveResponsesBackend,
             )
+            from labtrust_gym.baselines.llm.credentials import resolve_credentials
             from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
 
             pz_to_engine = _default_pz_to_engine(num_runners=num_runners, num_insiders=num_insiders)
+            creds = resolve_credentials(llm_backend, repo_root)
             from labtrust_gym.policy.prompt_registry import load_use_prompts_v02
 
             prompts_policy = "v0.2" if load_use_prompts_v02(repo_root) else "v0.1"
             base_backend = OpenAILiveResponsesBackend(
+                **creds,
                 repo_root=repo_root,
                 output_mode=llm_output_mode,
                 prompts_policy=prompts_policy,
@@ -2297,10 +2325,15 @@ def run_benchmark(
             from labtrust_gym.baselines.llm.backends.anthropic_live import (
                 AnthropicLiveBackend,
             )
+            from labtrust_gym.baselines.llm.credentials import resolve_credentials
             from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
 
             pz_to_engine = _default_pz_to_engine(num_runners=num_runners, num_insiders=num_insiders)
-            base_backend = AnthropicLiveBackend(trace_collector=llm_trace_collector)
+            creds = resolve_credentials(llm_backend, repo_root)
+            base_backend = AnthropicLiveBackend(
+                **creds,
+                trace_collector=llm_trace_collector,
+            )
             backend = RecordingBackend(base_backend) if record_fixtures_path is not None else base_backend
             llm_backend_ref = cast(Any, backend)
             for aid in llm_agents:
@@ -2426,13 +2459,11 @@ def run_benchmark(
                     from labtrust_gym.baselines.llm.backends.openai_live import (
                         OpenAILiveBackend,
                     )
-                    from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
-                        require_openai_api_key,
-                    )
+                    from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                    api_key = require_openai_api_key()
+                    creds = resolve_credentials(llm_backend, repo_root)
                     constrained_backend_sim = OpenAILiveBackend(
-                        api_key=api_key,
+                        **creds,
                         model=llm_model,
                     )
                     if llm_backend_ref is None:
@@ -2449,8 +2480,10 @@ def run_benchmark(
                     from labtrust_gym.baselines.llm.backends.anthropic_live import (
                         AnthropicLiveBackend,
                     )
+                    from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                    constrained_backend_sim = AnthropicLiveBackend(model=llm_model)
+                    creds = resolve_credentials(llm_backend, repo_root)
+                    constrained_backend_sim = AnthropicLiveBackend(**creds, model=llm_model)
                     if llm_backend_ref is None:
                         llm_backend_ref = constrained_backend_sim
                 if constrained_backend_sim is None:
@@ -2620,13 +2653,11 @@ def run_benchmark(
                         from labtrust_gym.baselines.llm.backends.openai_live import (
                             OpenAILiveBackend,
                         )
-                        from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
-                            require_openai_api_key,
-                        )
+                        from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                        api_key = require_openai_api_key()
+                        creds = resolve_credentials(llm_backend, repo_root)
                         constrained_backend_par = OpenAILiveBackend(
-                            api_key=api_key,
+                            **creds,
                             model=llm_model,
                         )
                         if llm_backend_ref is None:
@@ -2643,8 +2674,10 @@ def run_benchmark(
                         from labtrust_gym.baselines.llm.backends.anthropic_live import (
                             AnthropicLiveBackend,
                         )
+                        from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                        constrained_backend_par = AnthropicLiveBackend(model=llm_model)
+                        creds = resolve_credentials(llm_backend, repo_root)
+                        constrained_backend_par = AnthropicLiveBackend(**creds, model=llm_model)
                         if llm_backend_ref is None:
                             llm_backend_ref = constrained_backend_par
                     if constrained_backend_par is None:

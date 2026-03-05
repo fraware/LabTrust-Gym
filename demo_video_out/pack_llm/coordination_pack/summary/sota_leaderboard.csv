@@ -1,0 +1,5 @@
+method_id,throughput_mean,violations_mean,resilience_score_mean,stealth_success_rate_mean,n_cells
+kernel_auction_whca_shielded,0.0,1.0833,,0.0,12
+llm_detector_throttle_advisor,0.0,4500.75,,0.0,12
+llm_local_decider_signed_bus,0.0,4500.0,,0.0,12
+llm_repair_over_kernel_whca,0.0,4500.0,,0.0,12

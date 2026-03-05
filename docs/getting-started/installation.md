@@ -48,7 +48,7 @@ If your repo or policy path contains spaces or special characters, use quoted pa
 
 LabTrust-Gym configuration is via **environment variables** (set in your shell or CI). You do **not** need a `.env` file for normal use. See `.env.example` in the repo root for a list of optional variables.
 
-**Default .env loading:** The CLI loads a `.env` file at startup from the current working directory by default, or from the path in `LABTRUST_DOTENV_PATH` if set. Place a `.env` file (e.g. with `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) in the directory from which you run `labtrust` for live LLM and cross-provider demos.
+**Default .env loading:** The CLI loads a `.env` file at startup from the current working directory, then from **repo root** (`<repo_root>/.env`) if the file exists. You can also set `LABTRUST_DOTENV_PATH` to the full path of your `.env` file. For live LLM backends, place `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in `.env` in **repo root** so they are available regardless of the directory from which you run `labtrust`. If you run from a directory other than repo root and do not have a repo-root `.env`, set `LABTRUST_DOTENV_PATH` to the full path to your `.env` (e.g. `C:\path\to\repo\.env` or `/path/to/repo/.env`).
 
 Optional env vars (all have defaults or CLI overrides):
 
@@ -64,7 +64,7 @@ Optional env vars (all have defaults or CLI overrides):
 | `LABTRUST_LOCAL_LLM_URL` | Base URL for local LLM (e.g. Ollama). Used when `--llm-backend ollama_live`. Default: `http://localhost:11434`. |
 | `LABTRUST_LOCAL_LLM_MODEL` | Model name for local LLM (e.g. `llama3.2`). Used when `--llm-backend ollama_live`. |
 | `LABTRUST_LOCAL_LLM_TIMEOUT` | Request timeout in seconds for local LLM. Default: 60. |
-| `LABTRUST_DOTENV_PATH` | Path to `.env` file to load (default: `.env` in cwd). |
+| `LABTRUST_DOTENV_PATH` | Path to `.env` file to load when not running from repo root (e.g. full path to `repo/.env`). |
 
 ### Loading a .env file (optional)
 
@@ -102,7 +102,7 @@ The **LLM baselines** (benchmarks, tests, quick-eval) do **not** call any extern
 - **DeterministicConstrainedBackend** — Official LLM baseline: chooses from allowed actions with a **seeded RNG**; no network, no API key.
 - **MockDeterministicBackend** / **MockDeterministicBackendV2** — Canned JSON responses for tests; no API.
 
-So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. To run benchmarks with a **live** LLM: use `labtrust run-benchmark --llm-backend openai_live` or `openai_responses` (requires `OPENAI_API_KEY`; install `.[llm_openai]`), `--llm-backend anthropic_live` (requires `ANTHROPIC_API_KEY`; install `.[llm_anthropic]`), or `--llm-backend ollama_live` (local Ollama; set `LABTRUST_LOCAL_LLM_URL`, `LABTRUST_LOCAL_LLM_MODEL`, optionally `LABTRUST_LOCAL_LLM_TIMEOUT`). Live runs are non-deterministic. See [LLM baselines](../agents/llm_baselines.md) and [Live LLM benchmark mode](../agents/llm_live.md).
+So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. To run benchmarks with a **live** LLM: set `OPENAI_API_KEY` (e.g. in `.env` in repo root) for `--llm-backend openai_live` or `openai_responses` (install `.[llm_openai]`); set `ANTHROPIC_API_KEY` for `--llm-backend anthropic_live` (install `.[llm_anthropic]`); or use `--llm-backend ollama_live` with `LABTRUST_LOCAL_LLM_URL`, `LABTRUST_LOCAL_LLM_MODEL`, optionally `LABTRUST_LOCAL_LLM_TIMEOUT`. If a live backend is selected and its API key is missing, the runner fails immediately with a clear error. Live runs are non-deterministic. See [LLM baselines](../agents/llm_baselines.md) and [Live LLM benchmark mode](../agents/llm_live.md).
 
 ## Quick eval
 

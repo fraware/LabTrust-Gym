@@ -1,0 +1,23 @@
+{
+  "failed": 2,
+  "failed_cells": [
+    {
+      "injection_id": "INJ-COMMS-POISON-001",
+      "method_id": "kernel_auction_whca_shielded",
+      "rationale": "violations_total=13 > nominal+5=5",
+      "scale_id": "small_smoke",
+      "verdict": "FAIL"
+    },
+    {
+      "injection_id": "INJ-COMMS-POISON-001",
+      "method_id": "llm_detector_throttle_advisor",
+      "rationale": "violations_total=9 > nominal+5=5",
+      "scale_id": "small_smoke",
+      "verdict": "FAIL"
+    }
+  ],
+  "overall_pass": false,
+  "passed": 32,
+  "skipped": 14,
+  "total_cells": 48
+}
