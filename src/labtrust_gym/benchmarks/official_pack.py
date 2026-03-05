@@ -156,6 +156,19 @@ def _scale_config_to_coordination_scale_config(scale_id: str, scale_row: dict[st
     )
 
 
+def _load_dotenv_from_repo_root(repo_root: Path) -> None:
+    """Load .env from repo root so OPENAI_API_KEY / ANTHROPIC_API_KEY are available for live pack runs."""
+    env_path = Path(repo_root) / ".env"
+    if not env_path.is_file():
+        return
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(env_path)
+    except ImportError:
+        pass
+
+
 def run_official_pack(
     out_dir: Path,
     repo_root: Path,
@@ -186,6 +199,10 @@ def run_official_pack(
     out_dir = Path(out_dir).resolve()
     repo_root = Path(repo_root).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load .env from repo root when using a live LLM so OPENAI_API_KEY / ANTHROPIC_API_KEY are available
+    if pipeline_mode == "llm_live" and llm_backend and str(llm_backend).strip():
+        _load_dotenv_from_repo_root(repo_root)
 
     prefer_v02 = pipeline_mode == "llm_live"
     pack, pack_version, pack_policy_path = load_benchmark_pack(
@@ -411,6 +428,8 @@ def run_official_pack(
                 repo_root=repo_root,
                 seed_base=seed_base,
                 matrix_preset=matrix_preset,
+                allow_network=allow_network,
+                llm_backend=llm_backend,
             )
             build_lab_coordination_report(
                 pack_dir=coord_pack_dir,

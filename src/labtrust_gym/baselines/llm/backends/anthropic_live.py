@@ -26,9 +26,24 @@ from labtrust_gym.baselines.llm.backends.openai_live import (
 
 BACKEND_ID = "anthropic_live"
 LOG = logging.getLogger(__name__)
+REASON_ANTHROPIC_API_KEY_MISSING = "ANTHROPIC_API_KEY_MISSING"
 
 # Usage dict: input_tokens, output_tokens (Anthropic naming)
 UsageDict = dict[str, int]
+
+
+def require_anthropic_api_key() -> str:
+    """
+    Return ANTHROPIC_API_KEY if set. Raise ValueError with reason code if not set.
+    Call before using anthropic_live backend.
+    """
+    key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    if not key:
+        raise ValueError(
+            f"{REASON_ANTHROPIC_API_KEY_MISSING}: ANTHROPIC_API_KEY must be set when using "
+            "--llm-backend anthropic_live. Set the env var or use another backend."
+        )
+    return key
 
 
 def _get_config() -> tuple[str, str, int]:

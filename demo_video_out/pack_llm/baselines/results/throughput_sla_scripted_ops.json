@@ -7,58 +7,58 @@
   "non_deterministic": true,
   "task": "throughput_sla",
   "num_episodes": 50,
-  "base_seed": 42,
+  "base_seed": 100,
   "seeds": [
-    42,
-    43,
-    44,
-    45,
-    46,
-    47,
-    48,
-    49,
-    50,
-    51,
-    52,
-    53,
-    54,
-    55,
-    56,
-    57,
-    58,
-    59,
-    60,
-    61,
-    62,
-    63,
-    64,
-    65,
-    66,
-    67,
-    68,
-    69,
-    70,
-    71,
-    72,
-    73,
-    74,
-    75,
-    76,
-    77,
-    78,
-    79,
-    80,
-    81,
-    82,
-    83,
-    84,
-    85,
-    86,
-    87,
-    88,
-    89,
-    90,
-    91
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149
   ],
   "config": {
     "max_steps": 80,
@@ -79,14 +79,14 @@
     "emits_vocab": "0.1",
     "catalogue_schema": "unknown"
   },
-  "git_sha": "3bdc04ada72f78b46fbd7235cf8414b01cd88c98",
-  "git_commit_hash": "3bdc04ada72f78b46fbd7235cf8414b01cd88c98",
+  "git_sha": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
+  "git_commit_hash": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
   "partner_id": null,
   "policy_fingerprint": null,
   "agent_baseline_id": "llm_live_openai_v1",
   "episodes": [
     {
-      "seed": 42,
+      "seed": 100,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -113,15 +113,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 18.64,
+        "mean_latency_ms": 0.85,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 43,
+      "seed": 101,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -148,15 +148,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.17,
+        "mean_latency_ms": 1.01,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 44,
+      "seed": 102,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -183,15 +183,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 20.04,
+        "mean_latency_ms": 0.91,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 45,
+      "seed": 103,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -218,15 +218,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.3,
+        "mean_latency_ms": 1.01,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 46,
+      "seed": 104,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -253,15 +253,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 21.31,
+        "mean_latency_ms": 0.97,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 47,
+      "seed": 105,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -288,15 +288,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 26.14,
+        "mean_latency_ms": 1.19,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 48,
+      "seed": 106,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -323,15 +323,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 21.07,
+        "mean_latency_ms": 0.96,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 49,
+      "seed": 107,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -358,15 +358,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.75,
+        "mean_latency_ms": 1.08,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 50,
+      "seed": 108,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -393,15 +393,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.31,
+        "mean_latency_ms": 1.06,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 51,
+      "seed": 109,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -428,15 +428,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 19.87,
+        "mean_latency_ms": 0.9,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 52,
+      "seed": 110,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -463,15 +463,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.29,
+        "mean_latency_ms": 1.01,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 53,
+      "seed": 111,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -498,15 +498,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.05,
+        "mean_latency_ms": 1.0,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 54,
+      "seed": 112,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -533,15 +533,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 20.87,
+        "mean_latency_ms": 0.95,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 55,
+      "seed": 113,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -568,15 +568,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.22,
+        "mean_latency_ms": 1.06,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 56,
+      "seed": 114,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -603,15 +603,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 20.01,
+        "mean_latency_ms": 0.91,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 57,
+      "seed": 115,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -638,15 +638,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 18.35,
+        "mean_latency_ms": 0.83,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 58,
+      "seed": 116,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -673,15 +673,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.62,
+        "mean_latency_ms": 1.03,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 59,
+      "seed": 117,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -708,15 +708,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 21.53,
+        "mean_latency_ms": 0.98,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 60,
+      "seed": 118,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -743,15 +743,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.13,
+        "mean_latency_ms": 1.01,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 61,
+      "seed": 119,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -778,15 +778,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.44,
+        "mean_latency_ms": 1.07,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 62,
+      "seed": 120,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -813,15 +813,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 20.37,
+        "mean_latency_ms": 0.93,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 63,
+      "seed": 121,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -848,15 +848,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 19.85,
+        "mean_latency_ms": 0.9,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 64,
+      "seed": 122,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -883,15 +883,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.8,
+        "mean_latency_ms": 1.08,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 65,
+      "seed": 123,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -918,15 +918,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.66,
+        "mean_latency_ms": 1.03,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 66,
+      "seed": 124,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -953,15 +953,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 20.11,
+        "mean_latency_ms": 0.91,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 67,
+      "seed": 125,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -988,15 +988,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.1,
+        "mean_latency_ms": 1.0,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 68,
+      "seed": 126,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1023,15 +1023,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.43,
+        "mean_latency_ms": 1.06,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 69,
+      "seed": 127,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1058,15 +1058,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 20.64,
+        "mean_latency_ms": 0.94,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 70,
+      "seed": 128,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1093,15 +1093,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.38,
+        "mean_latency_ms": 1.06,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 71,
+      "seed": 129,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1128,15 +1128,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.28,
+        "mean_latency_ms": 1.01,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 72,
+      "seed": 130,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1163,15 +1163,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 29.79,
+        "mean_latency_ms": 1.35,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 73,
+      "seed": 131,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1198,15 +1198,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 21.77,
+        "mean_latency_ms": 0.99,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 74,
+      "seed": 132,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1233,15 +1233,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.42,
+        "mean_latency_ms": 1.06,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 75,
+      "seed": 133,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1268,15 +1268,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 29.89,
+        "mean_latency_ms": 1.36,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 76,
+      "seed": 134,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1303,15 +1303,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.69,
+        "mean_latency_ms": 1.08,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 77,
+      "seed": 135,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1338,15 +1338,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 21.78,
+        "mean_latency_ms": 0.99,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 78,
+      "seed": 136,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1373,15 +1373,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 21.86,
+        "mean_latency_ms": 0.99,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 79,
+      "seed": 137,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1408,15 +1408,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.3,
+        "mean_latency_ms": 1.01,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 80,
+      "seed": 138,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1443,15 +1443,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 26.18,
+        "mean_latency_ms": 1.19,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 81,
+      "seed": 139,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1478,15 +1478,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 33.63,
+        "mean_latency_ms": 1.53,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 82,
+      "seed": 140,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1513,15 +1513,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 26.72,
+        "mean_latency_ms": 1.21,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 83,
+      "seed": 141,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1548,15 +1548,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 23.71,
+        "mean_latency_ms": 1.08,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 84,
+      "seed": 142,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1583,15 +1583,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.59,
+        "mean_latency_ms": 1.03,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 85,
+      "seed": 143,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1618,15 +1618,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 25.94,
+        "mean_latency_ms": 1.18,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 86,
+      "seed": 144,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1653,15 +1653,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 26.96,
+        "mean_latency_ms": 1.23,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 87,
+      "seed": 145,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1688,15 +1688,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.56,
+        "mean_latency_ms": 1.03,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 88,
+      "seed": 146,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1723,15 +1723,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 22.73,
+        "mean_latency_ms": 1.03,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 89,
+      "seed": 147,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1758,15 +1758,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 21.77,
+        "mean_latency_ms": 0.99,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 90,
+      "seed": 148,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1793,15 +1793,15 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 21.46,
+        "mean_latency_ms": 0.98,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
       }
     },
     {
-      "seed": 91,
+      "seed": 149,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1828,8 +1828,8 @@
         "total_calls": 22,
         "error_count": 22,
         "error_rate": 1.0,
-        "sum_latency_ms": 0.0,
-        "mean_latency_ms": 0.0,
+        "sum_latency_ms": 27.67,
+        "mean_latency_ms": 1.26,
         "total_tokens": 0,
         "tokens_per_step": 0.0,
         "estimated_cost_usd": 0.0
@@ -1841,15 +1841,15 @@
     "llm_backend_id": "openai_live",
     "llm_model_id": "gpt-4o-mini",
     "llm_error_rate": 1.0,
-    "mean_llm_latency_ms": 0.0,
+    "mean_llm_latency_ms": 1.26,
     "p50_llm_latency_ms": null,
     "p95_llm_latency_ms": null,
     "total_tokens": 0,
     "tokens_per_step": 0.0,
     "estimated_cost_usd": 0.0,
     "prompt_fingerprint": "ed110148a08c8d65bc13eb807792548f6473e585b858e08e52ed4739deeb046a",
-    "run_duration_wall_s": 785.715,
-    "run_duration_episodes_per_s": 0.0636,
+    "run_duration_wall_s": 506.519,
+    "run_duration_episodes_per_s": 0.0987,
     "python_version": "3.12.1",
     "platform": "win32"
   }

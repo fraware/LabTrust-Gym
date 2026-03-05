@@ -1,0 +1,272 @@
+{
+  "artifacts": [
+    "SECURITY/attack_results.json",
+    "receipts/"
+  ],
+  "control_names": {
+    "CTRL-COORD-IDENTITY": "Signed coordination and replay protection",
+    "CTRL-DETECTOR-ADVISOR": "LLM detector throttle advisor",
+    "CTRL-LLM-SHIELD": "LLM shield and constrained decoding",
+    "CTRL-MEMORY": "Memory hardening and poison filtering",
+    "CTRL-OBSERVABILITY": "Observability and forensic freeze",
+    "CTRL-RBAC": "Role-based access control",
+    "CTRL-TOOL-SANDBOX": "Tool sandbox and egress limits"
+  },
+  "control_to_tests": {
+    "CTRL-COORD-IDENTITY": [
+      "tests.test_coordination_identity_bus",
+      "tests.test_coord_red_team_definitions",
+      "tests.test_coord_red_team_definitions",
+      "SEC-COORD-MATRIX-001",
+      "SEC-COORD-PACK-MULTI-AGENTIC"
+    ],
+    "CTRL-DETECTOR-ADVISOR": [
+      "tests.test_detector_advisor_taskh"
+    ],
+    "CTRL-LLM-SHIELD": [
+      "PI-SPECIMEN-001",
+      "PI-SPECIMEN-002",
+      "PI-TRANSPORT-001",
+      "PI-TRANSPORT-002",
+      "PI-V02-UNTRUSTED-001",
+      "PI-SPECIMEN-005",
+      "PI-SPECIMEN-006",
+      "PI-SPECIMEN-007",
+      "PI-SPECIMEN-008",
+      "PI-SCENARIO-004",
+      "PI-SPECIMEN-009",
+      "PI-SPECIMEN-010",
+      "PI-DETECTOR-BYPASS-001",
+      "PI-SPECIMEN-011",
+      "PI-EVASION-HOMOGLYPH",
+      "PI-EVASION-B64",
+      "PI-EVASION-SPLIT",
+      "PI-CHAIN-001",
+      "PI-MULTITURN-001",
+      "PI-SPECIMEN-012",
+      "SEC-PI-021",
+      "SEC-LLM-ATTACK-001",
+      "SEC-LLM-ATTACK-002",
+      "SEC-LLM-ATTACK-003",
+      "SEC-LLM-ATTACK-004",
+      "SEC-LLM-ATTACK-005",
+      "SEC-LLM-ATTACK-006",
+      "SEC-LLM-ATTACK-007",
+      "SEC-LLM-ATTACK-008",
+      "SEC-LLM-ATTACK-009",
+      "SEC-LLM-ATTACK-010"
+    ],
+    "CTRL-MEMORY": [
+      "tests.test_memory_hardening",
+      "tests.test_data_provenance_r_data_002::test_poisoned_observation_blocked_or_constrained"
+    ],
+    "CTRL-OBSERVABILITY": [
+      "tests.test_flow_risks::test_flow_inefficiency_metrics_computed",
+      "tests.test_flow_risks::test_flow_progress_no_release_zero_throughput",
+      "tests.test_export_receipts",
+      "tests.test_export_receipts::test_evidence_bundle_manifest_has_tool_registry_fingerprint"
+    ],
+    "CTRL-TOOL-SANDBOX": [
+      "tests.test_tool_sandbox",
+      "tests.test_tool_sandbox::test_tool_sandbox_stress_egress_and_caps",
+      "tests.test_tool_sandbox::test_unregistered_tool_denied",
+      "tests.test_tool_sandbox::test_data_class_violation_phi_not_allowed",
+      "tests.test_tool_sandbox::test_unregistered_tool_denied",
+      "tests.test_tool_execution_failure",
+      "tests.test_llm_misparam_rejected",
+      "tests.test_tool_arg_fuzz",
+      "SEC-TOOL-MISPARAM-LLM-001",
+      "tests.test_tool_sandbox::test_tool_misuse_wrong_device_blocked",
+      "tests.test_tool_sandbox::test_tool_selection_wrong_tool_blocked_by_registry"
+    ]
+  },
+  "risk_names": {
+    "R-CAP-001": "Jailbreak attacks",
+    "R-COMMS-001": "Identity spoofing (agent impersonation)",
+    "R-COMMS-002": "Agent communication poisoning",
+    "R-COORD-001": "Coordination security pack (multi-agentic combine path)",
+    "R-DATA-001": "Untrusted Data Exchange Risk",
+    "R-DATA-002": "Data poisoning (train/run-time)",
+    "R-DATA-003": "Memory poisoning (long-horizon state)",
+    "R-FLOW-001": "Action Inefficiency Risk",
+    "R-FLOW-002": "Action Progress Risk",
+    "R-SYS-001": "Agent denial of service",
+    "R-SYS-002": "Agent collusion (multi-agent)",
+    "R-TOOL-001": "Tool Selection Errors",
+    "R-TOOL-002": "Tool Execution Failure",
+    "R-TOOL-003": "Unverified Tool Risk",
+    "R-TOOL-004": "Tool Misuse Risk",
+    "R-TOOL-005": "Function Call Misparameterization",
+    "R-TOOL-006": "Tool Vulnerability Exploitation Risk"
+  },
+  "risk_to_controls": {
+    "R-CAP-001": {
+      "attacks": [
+        "SEC-PI-001",
+        "SEC-PI-002",
+        "SEC-PI-003",
+        "SEC-PI-004",
+        "SEC-PI-005",
+        "SEC-PI-006",
+        "SEC-PI-007",
+        "SEC-PI-008",
+        "SEC-PI-009",
+        "SEC-PI-010",
+        "SEC-PI-011",
+        "SEC-PI-012",
+        "SEC-PI-013",
+        "SEC-PI-014",
+        "SEC-PI-017",
+        "SEC-PI-018",
+        "SEC-PI-019",
+        "SEC-PI-015",
+        "SEC-PI-016",
+        "SEC-PI-020",
+        "SEC-PI-021",
+        "SEC-LLM-ATTACK-001",
+        "SEC-LLM-ATTACK-002",
+        "SEC-LLM-ATTACK-003",
+        "SEC-LLM-ATTACK-004",
+        "SEC-LLM-ATTACK-005",
+        "SEC-LLM-ATTACK-006",
+        "SEC-LLM-ATTACK-007",
+        "SEC-LLM-ATTACK-008",
+        "SEC-LLM-ATTACK-009",
+        "SEC-LLM-ATTACK-010"
+      ],
+      "controls": [
+        "CTRL-LLM-SHIELD"
+      ]
+    },
+    "R-COMMS-001": {
+      "attacks": [
+        "SEC-COORD-001",
+        "SEC-COORD-RT-001"
+      ],
+      "controls": [
+        "CTRL-COORD-IDENTITY"
+      ]
+    },
+    "R-COMMS-002": {
+      "attacks": [
+        "SEC-DETECTOR-001",
+        "SEC-COORD-MATRIX-001"
+      ],
+      "controls": [
+        "CTRL-DETECTOR-ADVISOR",
+        "CTRL-COORD-IDENTITY"
+      ]
+    },
+    "R-COORD-001": {
+      "attacks": [
+        "SEC-COORD-PACK-MULTI-AGENTIC"
+      ],
+      "controls": [
+        "CTRL-COORD-IDENTITY"
+      ]
+    },
+    "R-DATA-001": {
+      "attacks": [
+        "SEC-OBS-001",
+        "SEC-DATA-PROV-001"
+      ],
+      "controls": [
+        "CTRL-OBSERVABILITY"
+      ]
+    },
+    "R-DATA-002": {
+      "attacks": [
+        "SEC-DATA-PROV-002"
+      ],
+      "controls": [
+        "CTRL-MEMORY"
+      ]
+    },
+    "R-DATA-003": {
+      "attacks": [
+        "SEC-MEM-001"
+      ],
+      "controls": [
+        "CTRL-MEMORY"
+      ]
+    },
+    "R-FLOW-001": {
+      "attacks": [
+        "SEC-FLOW-INEF-001"
+      ],
+      "controls": [
+        "CTRL-OBSERVABILITY"
+      ]
+    },
+    "R-FLOW-002": {
+      "attacks": [
+        "SEC-FLOW-PROGRESS-001"
+      ],
+      "controls": [
+        "CTRL-OBSERVABILITY"
+      ]
+    },
+    "R-SYS-002": {
+      "attacks": [
+        "SEC-COORD-RT-002"
+      ],
+      "controls": [
+        "CTRL-COORD-IDENTITY"
+      ]
+    },
+    "R-TOOL-001": {
+      "attacks": [
+        "SEC-TOOL-SELECT-001"
+      ],
+      "controls": [
+        "CTRL-TOOL-SANDBOX"
+      ]
+    },
+    "R-TOOL-002": {
+      "attacks": [
+        "SEC-TOOL-EXECFAIL-001"
+      ],
+      "controls": [
+        "CTRL-TOOL-SANDBOX"
+      ]
+    },
+    "R-TOOL-003": {
+      "attacks": [
+        "SEC-TOOL-UNVERIFIED-001"
+      ],
+      "controls": [
+        "CTRL-TOOL-SANDBOX"
+      ]
+    },
+    "R-TOOL-004": {
+      "attacks": [
+        "SEC-TOOL-MISUSE-001"
+      ],
+      "controls": [
+        "CTRL-TOOL-SANDBOX"
+      ]
+    },
+    "R-TOOL-005": {
+      "attacks": [
+        "SEC-TOOL-MISPARAM-001",
+        "SEC-TOOL-MISPARAM-FUZZ-001",
+        "SEC-TOOL-MISPARAM-LLM-001"
+      ],
+      "controls": [
+        "CTRL-TOOL-SANDBOX"
+      ]
+    },
+    "R-TOOL-006": {
+      "attacks": [
+        "SEC-TOOL-001",
+        "SEC-TOOL-002",
+        "SEC-TOOL-003",
+        "SEC-TOOL-DATACLASS-001"
+      ],
+      "controls": [
+        "CTRL-TOOL-SANDBOX"
+      ]
+    }
+  },
+  "version": "0.1"
+}

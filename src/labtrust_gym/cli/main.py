@@ -63,12 +63,20 @@ def _git_sha() -> str | None:
 
 
 def main() -> int:
-    # Optional: load .env from cwd or LABTRUST_DOTENV_PATH when python-dotenv is installed
+    # Load .env so OPENAI_API_KEY / ANTHROPIC_API_KEY are available for live LLM runs
     try:
         from dotenv import load_dotenv
 
         path = os.environ.get("LABTRUST_DOTENV_PATH", "").strip() or ".env"
         load_dotenv(path)
+        # Always try repo root .env (absolute path) so keys work regardless of cwd
+        try:
+            root = Path(get_repo_root())
+            env_at_root = root / ".env"
+            if env_at_root.is_file():
+                load_dotenv(env_at_root)
+        except Exception:
+            pass
     except ImportError:
         pass
 

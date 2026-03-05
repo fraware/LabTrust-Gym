@@ -7,58 +7,58 @@
   "non_deterministic": true,
   "task": "coord_risk",
   "num_episodes": 50,
-  "base_seed": 42,
+  "base_seed": 100,
   "seeds": [
-    42,
-    43,
-    44,
-    45,
-    46,
-    47,
-    48,
-    49,
-    50,
-    51,
-    52,
-    53,
-    54,
-    55,
-    56,
-    57,
-    58,
-    59,
-    60,
-    61,
-    62,
-    63,
-    64,
-    65,
-    66,
-    67,
-    68,
-    69,
-    70,
-    71,
-    72,
-    73,
-    74,
-    75,
-    76,
-    77,
-    78,
-    79,
-    80,
-    81,
-    82,
-    83,
-    84,
-    85,
-    86,
-    87,
-    88,
-    89,
-    90,
-    91
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149
   ],
   "config": {
     "max_steps": 100,
@@ -76,14 +76,14 @@
     "emits_vocab": "0.1",
     "catalogue_schema": "unknown"
   },
-  "git_sha": "4d269077b3feffcf6eeb3617b4691ef661f2619c",
-  "git_commit_hash": "4d269077b3feffcf6eeb3617b4691ef661f2619c",
+  "git_sha": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
+  "git_commit_hash": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
   "partner_id": null,
   "policy_fingerprint": null,
   "agent_baseline_id": "coord_kernel_scheduler_or",
   "episodes": [
     {
-      "seed": 42,
+      "seed": 100,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -129,7 +129,7 @@
       }
     },
     {
-      "seed": 43,
+      "seed": 101,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -175,7 +175,7 @@
       }
     },
     {
-      "seed": 44,
+      "seed": 102,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -221,7 +221,7 @@
       }
     },
     {
-      "seed": 45,
+      "seed": 103,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -267,7 +267,7 @@
       }
     },
     {
-      "seed": 46,
+      "seed": 104,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -313,7 +313,7 @@
       }
     },
     {
-      "seed": 47,
+      "seed": 105,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -359,7 +359,7 @@
       }
     },
     {
-      "seed": 48,
+      "seed": 106,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -405,7 +405,7 @@
       }
     },
     {
-      "seed": 49,
+      "seed": 107,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -451,7 +451,7 @@
       }
     },
     {
-      "seed": 50,
+      "seed": 108,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -497,7 +497,53 @@
       }
     },
     {
-      "seed": 51,
+      "seed": 109,
+      "metrics": {
+        "throughput": 0,
+        "p50_turnaround_s": null,
+        "p95_turnaround_s": null,
+        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
+        "timing_mode": "explicit",
+        "on_time_rate": null,
+        "violations_by_invariant_id": {
+          "INV-ZONE-001": 300
+        },
+        "blocked_by_reason_code": {
+          "RC_ILLEGAL_MOVE": 300
+        },
+        "critical_communication_compliance_rate": null,
+        "tokens_minted": 0,
+        "tokens_consumed": 0,
+        "holds_count": 0,
+        "transport_consignment_count": 0,
+        "transport_temp_excursions": 0,
+        "coc_breaks_count": 0,
+        "steps": 100,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "attribution_confidence_proxy": 1.0,
+        "coordination": {
+          "comm": {
+            "msg_count": 0,
+            "p95_latency_ms": 0.0,
+            "drop_rate": 0.0,
+            "dropped_count": 0
+          },
+          "timing": {
+            "stale_action_rate": 0.0,
+            "mean_view_age_ms": 0.0,
+            "p95_view_age_ms": 0.0
+          },
+          "sched": {
+            "mean_plan_time_ms": 0.01,
+            "replan_rate": 0.0,
+            "deadlock_avoids": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 110,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -543,7 +589,7 @@
       }
     },
     {
-      "seed": 52,
+      "seed": 111,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -589,7 +635,7 @@
       }
     },
     {
-      "seed": 53,
+      "seed": 112,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -635,7 +681,7 @@
       }
     },
     {
-      "seed": 54,
+      "seed": 113,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -681,7 +727,7 @@
       }
     },
     {
-      "seed": 55,
+      "seed": 114,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -727,7 +773,7 @@
       }
     },
     {
-      "seed": 56,
+      "seed": 115,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -773,7 +819,7 @@
       }
     },
     {
-      "seed": 57,
+      "seed": 116,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -819,7 +865,7 @@
       }
     },
     {
-      "seed": 58,
+      "seed": 117,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -865,7 +911,7 @@
       }
     },
     {
-      "seed": 59,
+      "seed": 118,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -911,7 +957,7 @@
       }
     },
     {
-      "seed": 60,
+      "seed": 119,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -957,7 +1003,7 @@
       }
     },
     {
-      "seed": 61,
+      "seed": 120,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1003,7 +1049,7 @@
       }
     },
     {
-      "seed": 62,
+      "seed": 121,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1049,7 +1095,7 @@
       }
     },
     {
-      "seed": 63,
+      "seed": 122,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1095,7 +1141,7 @@
       }
     },
     {
-      "seed": 64,
+      "seed": 123,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1141,7 +1187,7 @@
       }
     },
     {
-      "seed": 65,
+      "seed": 124,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1187,7 +1233,7 @@
       }
     },
     {
-      "seed": 66,
+      "seed": 125,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1233,7 +1279,7 @@
       }
     },
     {
-      "seed": 67,
+      "seed": 126,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1279,7 +1325,7 @@
       }
     },
     {
-      "seed": 68,
+      "seed": 127,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1325,7 +1371,7 @@
       }
     },
     {
-      "seed": 69,
+      "seed": 128,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1371,7 +1417,7 @@
       }
     },
     {
-      "seed": 70,
+      "seed": 129,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1417,7 +1463,7 @@
       }
     },
     {
-      "seed": 71,
+      "seed": 130,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1463,7 +1509,7 @@
       }
     },
     {
-      "seed": 72,
+      "seed": 131,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1509,7 +1555,7 @@
       }
     },
     {
-      "seed": 73,
+      "seed": 132,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1555,7 +1601,7 @@
       }
     },
     {
-      "seed": 74,
+      "seed": 133,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1601,7 +1647,7 @@
       }
     },
     {
-      "seed": 75,
+      "seed": 134,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1647,7 +1693,145 @@
       }
     },
     {
-      "seed": 76,
+      "seed": 135,
+      "metrics": {
+        "throughput": 0,
+        "p50_turnaround_s": null,
+        "p95_turnaround_s": null,
+        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
+        "timing_mode": "explicit",
+        "on_time_rate": null,
+        "violations_by_invariant_id": {
+          "INV-ZONE-001": 300
+        },
+        "blocked_by_reason_code": {
+          "RC_ILLEGAL_MOVE": 300
+        },
+        "critical_communication_compliance_rate": null,
+        "tokens_minted": 0,
+        "tokens_consumed": 0,
+        "holds_count": 0,
+        "transport_consignment_count": 0,
+        "transport_temp_excursions": 0,
+        "coc_breaks_count": 0,
+        "steps": 100,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "attribution_confidence_proxy": 1.0,
+        "coordination": {
+          "comm": {
+            "msg_count": 0,
+            "p95_latency_ms": 0.0,
+            "drop_rate": 0.0,
+            "dropped_count": 0
+          },
+          "timing": {
+            "stale_action_rate": 0.0,
+            "mean_view_age_ms": 0.0,
+            "p95_view_age_ms": 0.0
+          },
+          "sched": {
+            "mean_plan_time_ms": 0.01,
+            "replan_rate": 0.0,
+            "deadlock_avoids": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 136,
+      "metrics": {
+        "throughput": 0,
+        "p50_turnaround_s": null,
+        "p95_turnaround_s": null,
+        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
+        "timing_mode": "explicit",
+        "on_time_rate": null,
+        "violations_by_invariant_id": {
+          "INV-ZONE-001": 300
+        },
+        "blocked_by_reason_code": {
+          "RC_ILLEGAL_MOVE": 300
+        },
+        "critical_communication_compliance_rate": null,
+        "tokens_minted": 0,
+        "tokens_consumed": 0,
+        "holds_count": 0,
+        "transport_consignment_count": 0,
+        "transport_temp_excursions": 0,
+        "coc_breaks_count": 0,
+        "steps": 100,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "attribution_confidence_proxy": 1.0,
+        "coordination": {
+          "comm": {
+            "msg_count": 0,
+            "p95_latency_ms": 0.0,
+            "drop_rate": 0.0,
+            "dropped_count": 0
+          },
+          "timing": {
+            "stale_action_rate": 0.0,
+            "mean_view_age_ms": 0.0,
+            "p95_view_age_ms": 0.0
+          },
+          "sched": {
+            "mean_plan_time_ms": 0.1,
+            "replan_rate": 0.0,
+            "deadlock_avoids": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 137,
+      "metrics": {
+        "throughput": 0,
+        "p50_turnaround_s": null,
+        "p95_turnaround_s": null,
+        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
+        "timing_mode": "explicit",
+        "on_time_rate": null,
+        "violations_by_invariant_id": {
+          "INV-ZONE-001": 300
+        },
+        "blocked_by_reason_code": {
+          "RC_ILLEGAL_MOVE": 300
+        },
+        "critical_communication_compliance_rate": null,
+        "tokens_minted": 0,
+        "tokens_consumed": 0,
+        "holds_count": 0,
+        "transport_consignment_count": 0,
+        "transport_temp_excursions": 0,
+        "coc_breaks_count": 0,
+        "steps": 100,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "attribution_confidence_proxy": 1.0,
+        "coordination": {
+          "comm": {
+            "msg_count": 0,
+            "p95_latency_ms": 0.0,
+            "drop_rate": 0.0,
+            "dropped_count": 0
+          },
+          "timing": {
+            "stale_action_rate": 0.0,
+            "mean_view_age_ms": 0.0,
+            "p95_view_age_ms": 0.0
+          },
+          "sched": {
+            "mean_plan_time_ms": 0.01,
+            "replan_rate": 0.0,
+            "deadlock_avoids": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 138,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1693,7 +1877,7 @@
       }
     },
     {
-      "seed": 77,
+      "seed": 139,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1739,7 +1923,7 @@
       }
     },
     {
-      "seed": 78,
+      "seed": 140,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1785,7 +1969,7 @@
       }
     },
     {
-      "seed": 79,
+      "seed": 141,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1831,7 +2015,7 @@
       }
     },
     {
-      "seed": 80,
+      "seed": 142,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1877,7 +2061,7 @@
       }
     },
     {
-      "seed": 81,
+      "seed": 143,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1923,7 +2107,7 @@
       }
     },
     {
-      "seed": 82,
+      "seed": 144,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -1969,7 +2153,7 @@
       }
     },
     {
-      "seed": 83,
+      "seed": 145,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -2015,7 +2199,7 @@
       }
     },
     {
-      "seed": 84,
+      "seed": 146,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -2061,7 +2245,7 @@
       }
     },
     {
-      "seed": 85,
+      "seed": 147,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -2107,7 +2291,7 @@
       }
     },
     {
-      "seed": 86,
+      "seed": 148,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -2153,191 +2337,7 @@
       }
     },
     {
-      "seed": 87,
-      "metrics": {
-        "throughput": 0,
-        "p50_turnaround_s": null,
-        "p95_turnaround_s": null,
-        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
-        "timing_mode": "explicit",
-        "on_time_rate": null,
-        "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
-        },
-        "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
-        },
-        "critical_communication_compliance_rate": null,
-        "tokens_minted": 0,
-        "tokens_consumed": 0,
-        "holds_count": 0,
-        "transport_consignment_count": 0,
-        "transport_temp_excursions": 0,
-        "coc_breaks_count": 0,
-        "steps": 100,
-        "tool_selection_errors_count": 0,
-        "tool_selection_errors_rate": null,
-        "attribution_confidence_proxy": 1.0,
-        "coordination": {
-          "comm": {
-            "msg_count": 0,
-            "p95_latency_ms": 0.0,
-            "drop_rate": 0.0,
-            "dropped_count": 0
-          },
-          "timing": {
-            "stale_action_rate": 0.0,
-            "mean_view_age_ms": 0.0,
-            "p95_view_age_ms": 0.0
-          },
-          "sched": {
-            "mean_plan_time_ms": 0.0,
-            "replan_rate": 0.0,
-            "deadlock_avoids": 0
-          }
-        }
-      }
-    },
-    {
-      "seed": 88,
-      "metrics": {
-        "throughput": 0,
-        "p50_turnaround_s": null,
-        "p95_turnaround_s": null,
-        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
-        "timing_mode": "explicit",
-        "on_time_rate": null,
-        "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
-        },
-        "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
-        },
-        "critical_communication_compliance_rate": null,
-        "tokens_minted": 0,
-        "tokens_consumed": 0,
-        "holds_count": 0,
-        "transport_consignment_count": 0,
-        "transport_temp_excursions": 0,
-        "coc_breaks_count": 0,
-        "steps": 100,
-        "tool_selection_errors_count": 0,
-        "tool_selection_errors_rate": null,
-        "attribution_confidence_proxy": 1.0,
-        "coordination": {
-          "comm": {
-            "msg_count": 0,
-            "p95_latency_ms": 0.0,
-            "drop_rate": 0.0,
-            "dropped_count": 0
-          },
-          "timing": {
-            "stale_action_rate": 0.0,
-            "mean_view_age_ms": 0.0,
-            "p95_view_age_ms": 0.0
-          },
-          "sched": {
-            "mean_plan_time_ms": 0.0,
-            "replan_rate": 0.0,
-            "deadlock_avoids": 0
-          }
-        }
-      }
-    },
-    {
-      "seed": 89,
-      "metrics": {
-        "throughput": 0,
-        "p50_turnaround_s": null,
-        "p95_turnaround_s": null,
-        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
-        "timing_mode": "explicit",
-        "on_time_rate": null,
-        "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
-        },
-        "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
-        },
-        "critical_communication_compliance_rate": null,
-        "tokens_minted": 0,
-        "tokens_consumed": 0,
-        "holds_count": 0,
-        "transport_consignment_count": 0,
-        "transport_temp_excursions": 0,
-        "coc_breaks_count": 0,
-        "steps": 100,
-        "tool_selection_errors_count": 0,
-        "tool_selection_errors_rate": null,
-        "attribution_confidence_proxy": 1.0,
-        "coordination": {
-          "comm": {
-            "msg_count": 0,
-            "p95_latency_ms": 0.0,
-            "drop_rate": 0.0,
-            "dropped_count": 0
-          },
-          "timing": {
-            "stale_action_rate": 0.0,
-            "mean_view_age_ms": 0.0,
-            "p95_view_age_ms": 0.0
-          },
-          "sched": {
-            "mean_plan_time_ms": 0.0,
-            "replan_rate": 0.0,
-            "deadlock_avoids": 0
-          }
-        }
-      }
-    },
-    {
-      "seed": 90,
-      "metrics": {
-        "throughput": 0,
-        "p50_turnaround_s": null,
-        "p95_turnaround_s": null,
-        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
-        "timing_mode": "explicit",
-        "on_time_rate": null,
-        "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
-        },
-        "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
-        },
-        "critical_communication_compliance_rate": null,
-        "tokens_minted": 0,
-        "tokens_consumed": 0,
-        "holds_count": 0,
-        "transport_consignment_count": 0,
-        "transport_temp_excursions": 0,
-        "coc_breaks_count": 0,
-        "steps": 100,
-        "tool_selection_errors_count": 0,
-        "tool_selection_errors_rate": null,
-        "attribution_confidence_proxy": 1.0,
-        "coordination": {
-          "comm": {
-            "msg_count": 0,
-            "p95_latency_ms": 0.0,
-            "drop_rate": 0.0,
-            "dropped_count": 0
-          },
-          "timing": {
-            "stale_action_rate": 0.0,
-            "mean_view_age_ms": 0.0,
-            "p95_view_age_ms": 0.0
-          },
-          "sched": {
-            "mean_plan_time_ms": 0.0,
-            "replan_rate": 0.0,
-            "deadlock_avoids": 0
-          }
-        }
-      }
-    },
-    {
-      "seed": 91,
+      "seed": 149,
       "metrics": {
         "throughput": 0,
         "p50_turnaround_s": null,
@@ -2389,8 +2389,8 @@
     "llm_model_id": null,
     "llm_error_rate": null,
     "mean_llm_latency_ms": null,
-    "run_duration_wall_s": 15.389,
-    "run_duration_episodes_per_s": 3.2491,
+    "run_duration_wall_s": 21.696,
+    "run_duration_episodes_per_s": 2.3046,
     "python_version": "3.12.1",
     "platform": "win32"
   }

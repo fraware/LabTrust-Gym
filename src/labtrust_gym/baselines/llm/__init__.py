@@ -23,6 +23,10 @@ from labtrust_gym.baselines.llm.exceptions import (
     ProviderUnavailable,
     RateLimitError,
 )
+from labtrust_gym.baselines.llm.credentials import (
+    require_credentials_for_backend,
+    resolve_credentials,
+)
 from labtrust_gym.baselines.llm.provider import (
     ProviderBackend,
     supports_structured_outputs,
@@ -48,4 +52,6 @@ __all__ = [
     "supports_structured_outputs",
     "supports_tool_calls",
     "validate_action_proposal_dict",
+    "resolve_credentials",
+    "require_credentials_for_backend",
 ]
