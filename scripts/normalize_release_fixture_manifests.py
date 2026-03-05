@@ -61,9 +61,7 @@ def main() -> int:
                 else:
                     new_files.append(f)
             manifest["files"] = new_files
-            manifest_path.write_text(
-                json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
-            )
+            manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
 
     # 3. Update top-level MANIFEST.v0.1.json
     manifest_path = release_dir / "MANIFEST.v0.1.json"
@@ -81,9 +79,7 @@ def main() -> int:
             else:
                 new_files.append(entry)
         manifest["files"] = new_files
-        manifest_path.write_text(
-            json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
 
     # 4. Build RELEASE_MANIFEST.v0.1.json
     sys.path.insert(0, str(repo_root))

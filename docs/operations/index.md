@@ -14,7 +14,7 @@ CI, release, runbook, and how-to guides.
 | Document | Description |
 |----------|-------------|
 | [Operator's summary](operators_summary.md) | One page: what the sim proves, what it does not, minimal production checklist (links to threat model and policy pack). |
-| [Reviewer runbook](reviewer_runbook.md) | One command sequence, expected artifacts, and how to interpret risk register and security gate for auditors and reviewers. |
+| [Reviewer runbook](reviewer_runbook.md) | One command sequence, expected artifacts (including coordination SOTA leaderboards and graphs in UI bundle), and how to interpret risk register and security gate for auditors and reviewers. |
 | [Production runbook](production_runbook.md) | Config, key management, monitoring, rollback, and threat model scope for production deployment. |
 
 ## How-to guides

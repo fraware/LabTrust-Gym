@@ -44,6 +44,10 @@ The bundle (episode_bundle.v0.1) contains `version`, `lab_design`, `agents`, and
 
 See [viewer-episode/README.md](https://github.com/fraware/LabTrust-Gym/blob/main/viewer-episode/README.md) for details.
 
+## Related: run-level data and coordination
+
+For run-level data (episodes, tasks, and **coordination results** — SOTA leaderboards, method-class comparison, and HTML charts), use **ui-export**: `labtrust ui-export --run <dir> --out <zip>`. The zip contains `index.json` with `coordination_artifacts` and files under `coordination/` (including `coordination/graphs/` for charts). See [Frontend handoff](frontend_handoff_ui_bundle.md) and [UI data contract](../contracts/ui_data_contract.md).
+
 ## Lab design (single source of truth)
 
 Zones, devices, and specimen status order are defined in `src/labtrust_gym/logging/lab_design.py` and aligned with the env (`pz_parallel.DEFAULT_ZONE_IDS`, `DEFAULT_DEVICE_IDS`, and the observation status order). The bundle builder embeds this in the bundle; the viewer uses it from the bundle or from a built-in default so the pipeline strip and zone-centric view always show all 10 zones in the same order.

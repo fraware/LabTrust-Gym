@@ -12,6 +12,7 @@ Get LabTrust-Gym installed, run your first benchmarks, and optionally fork and e
 | Use as a library without forking | [Extension development](../agents/extension_development.md) + `--profile` + `extension_packages` in a lab profile |
 | Run the full security suite | `labtrust run-security-suite`; full suite needs `.[env]`; use `--skip-system-level` when env is not installed |
 | Connect the LabTrust Portal (Lovable) to live data | Set `VITE_DATA_BASE_URL` in the portal to this repo’s deployed viewer-data URL; see [Portal context — Portal live data connection](../labtrust-portal-context.md#portal-live-data-connection) |
+| Export a UI bundle (tables + coordination charts) for the portal | `labtrust ui-export --run <dir> --out <zip>`; when run has coordination pack output, zip includes SOTA leaderboards and **coordination/graphs/** HTML charts. See [Frontend handoff](../reference/frontend_handoff_ui_bundle.md). |
 
 ## New to the project
 
@@ -36,3 +37,4 @@ Get LabTrust-Gym installed, run your first benchmarks, and optionally fork and e
 - [Repository structure](../reference/repository_structure.md) — where to put outputs and how the repo is laid out.
 - [Architecture](../architecture/index.md) — system design and threat model.
 - [Benchmarks](../benchmarks/index.md) — tasks, studies, and reproduction.
+- [Frontend handoff (UI bundle)](../reference/frontend_handoff_ui_bundle.md) — for frontend engineers: zip layout, coordination_artifacts, and how to display SOTA tables and charts.

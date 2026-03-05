@@ -61,10 +61,17 @@ This document lists the metrics that matter most for hospital lab (blood science
 | SOTA leaderboard (full) | summary/sota_leaderboard_full.md, summary/sota_leaderboard_full.csv | summarize-coordination, build-lab-coordination-report |
 | Method-class comparison | summary/method_class_comparison.md, summary/method_class_comparison.csv | summarize-coordination, build-lab-coordination-report |
 | Run metadata (in main MD) | seed_base, git_sha in sota_leaderboard.md header | When pack_manifest.json exists in run dir |
+| Coordination graphs (UI bundle) | coordination/graphs/sota_key_metrics.html (+ throughput, violations, resilience, method_class) | labtrust ui-export when pack_summary or summary_coord present |
+
+The **primary graph** (`sota_key_metrics.html`) shows four key metrics (throughput, resilience, safety, security) per method in one chart; additional graphs provide single-metric and method-class views. See [UI data contract](../contracts/ui_data_contract.md).
 
 ## Throughput vs coordination pack
 
 For **throughput** as the main signal (e.g. comparing methods on specimen completion rate), use the **throughput_sla** task and scripted or kernel baselines; see [Throughput comparison](throughput_comparison.md). The coordination pack (coord_risk / coord_scale) emphasizes safety, security, and resilience under injections; its throughput can be zero when no releases occur in the short horizons used. For hospital labs, report both: throughput and on-time rate from throughput_sla when comparing capacity, and violations, blocks, and resilience from the coordination pack when comparing safety and robustness.
+
+### Why was perf.throughput 0 in my run?
+
+If **perf.throughput** is 0 for every cell in the coordination pack, the run was likely produced **before** the queue-preload fix: device queues were not pre-populated in scaled initial state, so the allocator saw no work and no RELEASE_RESULT events were emitted. The fix (initial_queue_entries in scaled state + core_env processing at reset, and the runner using that scaled state for the first episode) is in place; **you must re-run the coordination pack** (or full official pack with `--include-coordination-pack`) to get non-zero throughput. Re-running only `summarize-coordination` on old pack output will not change throughput values; it only re-aggregates existing cell results.
 
 ## See also
 

@@ -4,12 +4,12 @@
     {
       "path": "policy/coordination/coordination_matrix_column_map.v0.1.yaml",
       "role": "column_map",
-      "sha256": "624da5051b035a6e0dee8303a8770888cd51dcd4748ad7fd641d33420cabbc97"
+      "sha256": "1d29a7a0f20cef0f785de5da95302d3fc2da6d1fa01b7cca347eb8f8b36507ac"
     },
     {
       "path": "policy/coordination/coordination_matrix_spec.v0.1.yaml",
       "role": "matrix_spec",
-      "sha256": "80da82f11201b2c3f276be6bc3b908a11ea2630490fdd7805dcd2aadc60d2eed"
+      "sha256": "d5df39c6924b0f271b3ac57f47be94986cbf2b26d8fb849c878dff2e55757179"
     }
   ],
   "kind": "coordination_matrix",
@@ -360,7 +360,7 @@
       ],
       "pipeline_mode": "llm_live"
     },
-    "sha256": "sha256:80da82f11201b2c3f276be6bc3b908a11ea2630490fdd7805dcd2aadc60d2eed"
+    "sha256": "sha256:d5df39c6924b0f271b3ac57f47be94986cbf2b26d8fb849c878dff2e55757179"
   },
   "version": "0.1"
 }

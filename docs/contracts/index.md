@@ -12,7 +12,7 @@ Frozen contracts and formal API/data contracts. These define correctness and the
 
 | Document | Description |
 |----------|-------------|
-| [UI data contract](ui_data_contract.md) | ui-export bundle format. |
+| [UI data contract](ui_data_contract.md) | ui-export bundle format. When run has coordination data: **coordination_artifacts** (pack_summary, SOTA leaderboard main/full, method-class comparison) and **coordination/graphs/** (HTML charts: SOTA key metrics, throughput, violations, resilience, method-class). See [Frontend handoff](../reference/frontend_handoff_ui_bundle.md). |
 | [Risk register contract (v0.1)](risk_register_contract.v0.1.md) | RiskRegisterBundle.v0.1 format. |
 | [Queue contract (v0.1)](queue_contract.v0.1.md) | Queue contract. |
 | [CLI contract](cli_contract.md) | CLI behavior and output. |

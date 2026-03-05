@@ -20,8 +20,8 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 
 | Document | Description |
 |----------|-------------|
-| [Coordination studies](coordination_studies.md) | Run studies, Pareto, summarization. |
-| [Coordination benchmark card](coordination_benchmark_card.md) | Task G/H and metrics. |
+| [Coordination studies](coordination_studies.md) | Run studies, Pareto, summarization; SOTA leaderboard (main + full), method-class comparison; output layout and summarize-coordination. |
+| [Coordination benchmark card](coordination_benchmark_card.md) | Task G/H and metrics; SOTA and method-class report artifacts. |
 | [Coordination methods audit](coordination_methods_audit.md) | Method audit. |
 | [Lab coordination report](lab_coordination_report.md) | Canonical pathology lab (blood sciences) flow. |
 | [Generalization and limits](generalization_and_limits.md) | What was tested, what was not; comparison with other benchmarks. |

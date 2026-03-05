@@ -4,3 +4,7 @@
 # Fixture JSON/JSONL: normalize to LF so manifest hashes are stable across OS (CI runs on Linux).
 tests/fixtures/**/*.json text eol=lf
 tests/fixtures/**/*.jsonl text eol=lf
+
+# Policy YAML: LF so coordination matrix builder input hashes are stable on CI.
+policy/**/*.yaml text eol=lf
+policy/**/*.yml text eol=lf

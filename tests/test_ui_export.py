@@ -220,4 +220,47 @@ def test_export_ui_bundle_includes_full_sota_leaderboard_when_present(tmp_path: 
         index = json.loads(zf.read("index.json"))
     artifacts = index.get("coordination_artifacts") or []
     labels = [a.get("label", "") for a in artifacts]
-    assert any("full metrics" in L for L in labels), "index should list SOTA leaderboard (full metrics) in coordination_artifacts"
+    assert any("full metrics" in L for L in labels), (
+        "index should list SOTA leaderboard (full metrics) in coordination_artifacts"
+    )
+
+
+def test_export_ui_bundle_includes_coordination_graphs_when_pack_summary_present(tmp_path: Path) -> None:
+    """Full-pipeline run with pack_summary.csv gets SOTA key-metrics and additional graphs in the zip."""
+    run_dir = tmp_path / "pack_run"
+    run_dir.mkdir()
+    (run_dir / "baselines" / "results").mkdir(parents=True)
+    (run_dir / "SECURITY").mkdir()
+    header = (
+        "method_id,scale_id,injection_id,application_phase,perf.throughput,"
+        "safety.violations_total,safety.blocks_total,robustness.resilience_score,sec.attack_success_rate\n"
+    )
+    (run_dir / "pack_summary.csv").write_text(
+        header
+        + "kernel_auction_whca_shielded,small_smoke,none,full,2.0,50,10,0.7,0.0\n"
+        + "llm_repair_over_kernel_whca,small_smoke,none,full,1.0,100,20,0.5,0.1\n",
+        encoding="utf-8",
+    )
+    out_zip = tmp_path / "bundle.zip"
+    export_ui_bundle(run_dir, out_zip, repo_root=_repo_root())
+    assert out_zip.is_file()
+    with zipfile.ZipFile(out_zip, "r") as zf:
+        names = zf.namelist()
+        assert "coordination/graphs/sota_key_metrics.html" in names
+        assert "coordination/graphs/throughput_by_method.html" in names
+        assert "coordination/graphs/violations_by_method.html" in names
+        assert "coordination/graphs/resilience_by_method.html" in names
+        assert "coordination/graphs/method_class_comparison.html" in names
+        key_html = zf.read("coordination/graphs/sota_key_metrics.html").decode("utf-8")
+        assert "key metrics" in key_html.lower() and "new Chart(" in key_html
+        # Chart must be annotated: title, axis labels, footnote (state-of-the-art)
+        assert "Coordination method" in key_html, "Y-axis (category) must be titled"
+        assert "Score (normalized" in key_html or "normalized" in key_html, "X-axis (value) must be titled"
+        assert "Source:" in key_html and "chart-footnote" in key_html, "Footnote/source must be present"
+        assert "method(s)" in key_html or "cell(s)" in key_html, "Footnote must mention data scope"
+        index = json.loads(zf.read("index.json").decode("utf-8"))
+    artifacts = index.get("coordination_artifacts") or []
+    paths = [a.get("path", "") for a in artifacts]
+    assert "graphs/sota_key_metrics.html" in paths
+    labels = [a.get("label", "") for a in artifacts]
+    assert any("SOTA key metrics" in L and "chart" in L for L in labels)
