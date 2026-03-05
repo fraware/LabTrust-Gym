@@ -76,6 +76,10 @@ For a new method, the study spec defines the exact baseline set per scale and ri
 
 Summary output: `summary_coord.csv` (one row per cell: method_id, scale_id, risk_id, injection_id, plus the metrics above). Pareto report: `pareto.md` (per-scale Pareto front on p95_tat, violations_total, resilience_score; robust winner by mean resilience across cells).
 
+## Throughput-focused comparison
+
+For **throughput** as the primary metric (mean specimen releases per episode), use the **throughput_sla** task rather than the coordination pack. Example: `labtrust run-benchmark --task throughput_sla --num-episodes 10 --out <path>` (scripted baseline from the baseline registry). Use `labtrust run-summary --run <dir>` or `summarize-results` for throughput in the output. See [Throughput comparison](../benchmarks/throughput_comparison.md) for the full path and optional kernel coordination.
+
 ## Determinism guarantees
 
 - **Cell seed**: For a given study spec, `cell_seed = seed_base + scale_idx * 10000 + method_idx * 100 + injection_idx`. Same `seed_base` and spec yield identical cell seeds and thus identical episode sequences and metrics (modulo environment implementation).

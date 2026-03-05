@@ -196,6 +196,17 @@ module = [
 ]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+    "matplotlib",
+    "matplotlib.*",
+    "gymnasium",
+    "gymnasium.*",
+    "stable_baselines3",
+    "stable_baselines3.*",
+]
+ignore_missing_imports = true
+
 [tool.coverage.run]
 source = ["src/labtrust_gym"]
 branch = false

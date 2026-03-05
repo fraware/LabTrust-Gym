@@ -353,6 +353,28 @@ def main() -> int:
         help="Base seed for episodes (default 42)",
     )
     p_bench_smoke.set_defaults(func=_run_bench_smoke)
+    p_throughput_compare = sub.add_parser(
+        "throughput-compare",
+        help="Run throughput_sla with scripted baseline and print mean throughput (for throughput-focused comparison).",
+    )
+    p_throughput_compare.add_argument(
+        "--episodes",
+        type=int,
+        default=10,
+        help="Number of episodes (default 10)",
+    )
+    p_throughput_compare.add_argument(
+        "--out",
+        default="throughput_compare_results.json",
+        help="Output results JSON path (default throughput_compare_results.json)",
+    )
+    p_throughput_compare.add_argument(
+        "--seed",
+        type=int,
+        default=123,
+        help="Base seed (default 123)",
+    )
+    p_throughput_compare.set_defaults(func=_run_throughput_compare)
     p_study = sub.add_parser(
         "run-study",
         help="Run study from spec: expand ablations, run benchmark per condition, write artifact dir",
@@ -1901,6 +1923,47 @@ def _warn_reserved_injection(injection_id: str | None) -> None:
             get_console().warning(f"{injection_id!r} is a reserved no-op injection; no injection is applied.")
     except ImportError:
         pass
+
+
+def _run_throughput_compare(args: argparse.Namespace) -> int:
+    """Run throughput_sla with scripted baseline and print mean throughput."""
+    get_console().info("Running throughput-compare (throughput_sla, scripted baseline).")
+    root = get_repo_root()
+    out_path = Path(args.out)
+    if not out_path.is_absolute():
+        out_path = root / out_path
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    from labtrust_gym.benchmarks.runner import run_benchmark
+
+    try:
+        run_benchmark(
+            task_name="throughput_sla",
+            num_episodes=args.episodes,
+            base_seed=args.seed,
+            out_path=out_path,
+            repo_root=root,
+        )
+    except Exception as e:
+        get_console().error(f"throughput-compare failed: {e}")
+        return 1
+
+    try:
+        data = json.loads(out_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        get_console().error(f"Could not read results: {e}")
+        return 1
+
+    episodes = data.get("episodes") or []
+    if not episodes:
+        get_console().write_plain("throughput_mean: (no episodes)")
+        return 0
+
+    throughputs = [(ep.get("metrics") or {}).get("throughput", 0) for ep in episodes]
+    mean_tp = sum(throughputs) / len(throughputs)
+    get_console().write_plain(f"throughput_mean: {mean_tp:.4f} (n={len(episodes)})")
+    get_console().write_plain(f"Results written to {out_path}")
+    return 0
 
 
 def _run_benchmark(args: argparse.Namespace) -> int:

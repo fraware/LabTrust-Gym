@@ -47,10 +47,10 @@ PACK_INJECTIONS = [
     "INJ-CONSENSUS-POISON-001",
     "INJ-TIMING-QUEUE-001",
 ]
-PACK_EPISODES_PER_CELL = 1
+PACK_EPISODES_PER_CELL = 3
 PACK_LLM_BACKEND = "deterministic"
 
-# Subset of summary_coord columns for pack_summary.csv (include security metrics for gate and aggregation)
+# Subset of summary_coord columns for pack_summary.csv (include hospital-lab and security metrics for gate and aggregation)
 # application_phase is optional; written when injections.v0.2 or run use non-full phase.
 PACK_SUMMARY_COLUMNS = [
     "method_id",
@@ -58,8 +58,12 @@ PACK_SUMMARY_COLUMNS = [
     "injection_id",
     "application_phase",
     "perf.throughput",
+    "perf.p95_tat",
+    "perf.on_time_rate",
     "safety.violations_total",
     "safety.blocks_total",
+    "safety.critical_communication_compliance_rate",
+    "robustness.resilience_score",
     "sec.attack_success_rate",
     "sec.attack_success_rate_ci_lower",
     "sec.attack_success_rate_ci_upper",
@@ -393,8 +397,12 @@ def _run_cells_sequential(
                             "injection_id": injection_id,
                             "application_phase": application_phase,
                             "perf.throughput": None,
+                            "perf.p95_tat": None,
+                            "perf.on_time_rate": None,
                             "safety.violations_total": None,
                             "safety.blocks_total": None,
+                            "safety.critical_communication_compliance_rate": None,
+                            "robustness.resilience_score": None,
                             "sec.attack_success_rate": None,
                             "sec.attack_success_rate_ci_lower": None,
                             "sec.attack_success_rate_ci_upper": None,

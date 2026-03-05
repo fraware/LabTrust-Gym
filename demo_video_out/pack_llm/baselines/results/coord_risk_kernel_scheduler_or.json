@@ -76,8 +76,8 @@
     "emits_vocab": "0.1",
     "catalogue_schema": "unknown"
   },
-  "git_sha": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
-  "git_commit_hash": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
+  "git_sha": "7563446fff1e6d0ff06858344ccc26dc9a0804a4",
+  "git_commit_hash": "7563446fff1e6d0ff06858344ccc26dc9a0804a4",
   "partner_id": null,
   "policy_fingerprint": null,
   "agent_baseline_id": "coord_kernel_scheduler_or",
@@ -92,10 +92,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -138,10 +138,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -184,10 +184,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -213,7 +213,7 @@
             "p95_view_age_ms": 0.0
           },
           "sched": {
-            "mean_plan_time_ms": 0.0,
+            "mean_plan_time_ms": 0.01,
             "replan_rate": 0.0,
             "deadlock_avoids": 0
           }
@@ -230,10 +230,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -276,10 +276,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -322,10 +322,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -368,10 +368,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -414,10 +414,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -460,10 +460,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -506,10 +506,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -535,7 +535,7 @@
             "p95_view_age_ms": 0.0
           },
           "sched": {
-            "mean_plan_time_ms": 0.01,
+            "mean_plan_time_ms": 0.0,
             "replan_rate": 0.0,
             "deadlock_avoids": 0
           }
@@ -552,10 +552,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -598,10 +598,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -644,10 +644,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -690,10 +690,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -736,10 +736,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -782,10 +782,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -828,10 +828,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -874,10 +874,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -920,10 +920,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -966,10 +966,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1012,10 +1012,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1058,10 +1058,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1104,10 +1104,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1150,10 +1150,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1196,10 +1196,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1242,10 +1242,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1288,10 +1288,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1334,10 +1334,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1380,10 +1380,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1426,10 +1426,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1472,10 +1472,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1518,10 +1518,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1564,10 +1564,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1610,10 +1610,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1656,10 +1656,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1702,10 +1702,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1731,7 +1731,7 @@
             "p95_view_age_ms": 0.0
           },
           "sched": {
-            "mean_plan_time_ms": 0.01,
+            "mean_plan_time_ms": 0.0,
             "replan_rate": 0.0,
             "deadlock_avoids": 0
           }
@@ -1748,10 +1748,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1777,7 +1777,7 @@
             "p95_view_age_ms": 0.0
           },
           "sched": {
-            "mean_plan_time_ms": 0.1,
+            "mean_plan_time_ms": 0.0,
             "replan_rate": 0.0,
             "deadlock_avoids": 0
           }
@@ -1794,10 +1794,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1823,7 +1823,7 @@
             "p95_view_age_ms": 0.0
           },
           "sched": {
-            "mean_plan_time_ms": 0.01,
+            "mean_plan_time_ms": 0.0,
             "replan_rate": 0.0,
             "deadlock_avoids": 0
           }
@@ -1840,10 +1840,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1886,10 +1886,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1932,10 +1932,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -1978,10 +1978,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2024,10 +2024,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2070,10 +2070,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2116,10 +2116,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2162,10 +2162,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2208,10 +2208,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2254,10 +2254,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2300,10 +2300,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2346,10 +2346,10 @@
         "timing_mode": "explicit",
         "on_time_rate": null,
         "violations_by_invariant_id": {
-          "INV-ZONE-001": 300
+          "INV-ZONE-001": 400
         },
         "blocked_by_reason_code": {
-          "RC_ILLEGAL_MOVE": 300
+          "RC_ILLEGAL_MOVE": 400
         },
         "critical_communication_compliance_rate": null,
         "tokens_minted": 0,
@@ -2389,8 +2389,8 @@
     "llm_model_id": null,
     "llm_error_rate": null,
     "mean_llm_latency_ms": null,
-    "run_duration_wall_s": 21.696,
-    "run_duration_episodes_per_s": 2.3046,
+    "run_duration_wall_s": 22.224,
+    "run_duration_episodes_per_s": 2.2498,
     "python_version": "3.12.1",
     "platform": "win32"
   }

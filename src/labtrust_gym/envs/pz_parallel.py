@@ -40,27 +40,9 @@ except ImportError as _e:
     spaces = None  # type: ignore[assignment]
     _pettingzoo_import_error = _e
 
-# Default zone/device lists aligned with engine default layout (zones._default_layout)
-DEFAULT_ZONE_IDS: list[str] = [
-    "Z_SRA_RECEPTION",
-    "Z_ACCESSIONING",
-    "Z_SORTING_LANES",
-    "Z_PREANALYTICS",
-    "Z_CENTRIFUGE_BAY",
-    "Z_ALIQUOT_LABEL",
-    "Z_ANALYZER_HALL_A",
-    "Z_ANALYZER_HALL_B",
-    "Z_QC_SUPERVISOR",
-    "Z_RESTRICTED_BIOHAZARD",
-]
-DEFAULT_DEVICE_IDS: list[str] = [
-    "DEV_CENTRIFUGE_BANK_01",
-    "DEV_ALIQUOTER_01",
-    "DEV_CHEM_A_01",
-    "DEV_CHEM_B_01",
-    "DEV_HAEM_01",
-    "DEV_COAG_01",
-]
+# Re-export from zone_device_defaults (single source of truth; no [env] deps there).
+from labtrust_gym.envs.zone_device_defaults import DEFAULT_DEVICE_IDS, DEFAULT_ZONE_IDS
+
 RESTRICTED_DOOR_ID = "D_RESTRICTED_AIRLOCK"
 RESTRICTED_ZONE_ID = "Z_RESTRICTED_BIOHAZARD"
 

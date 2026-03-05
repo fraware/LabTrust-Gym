@@ -1,1 +1,29 @@
-{"coordination_policy_fingerprint":"d98b00dedfab2c22831754adc4b2defbf6607a2f66be5c5b72d557c52704a1c6","files":[{"path":"enforcement_actions.jsonl","sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},{"path":"episode_log_subset.jsonl","sha256":"03e95f2ea52e2b50846b28a6b93a71c919bb977d611aa766625bc688d284f3b5"},{"path":"hashchain_proof.json","sha256":"ea93a53bf85f8a20721e315c38c854aea43e5ab34d44541f17e79f76f6632389"},{"path":"invariant_eval_trace.jsonl","sha256":"7586835d34e5e057dce47f6e3f47743173b0f8da952adf594ec82f1de5cbd88a"}],"memory_policy_fingerprint":"97f0a013e63190052e5f486941ff0865119d8cdc88dccf10a8c98b5afbb05809","partner_id":null,"policy_fingerprint":"d43ab2ddfc663ae892c2697f858299c39a726467f0568346c57cef6941f66fad","policy_root_hash":null,"rbac_policy_fingerprint":"1f293d34c87f68ea1ae60e91159ffbc11478c1a27a8e630bc5e1ff1487745441","signature":null,"tool_registry_fingerprint":"03242dac72175c4bfeafa4c92ab888904b135e0f71af0cf68e62de89d5db844d","version":"0.1"}
+{
+  "coordination_policy_fingerprint": "d98b00dedfab2c22831754adc4b2defbf6607a2f66be5c5b72d557c52704a1c6",
+  "files": [
+    {
+      "path": "enforcement_actions.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "episode_log_subset.jsonl",
+      "sha256": "cab90564874ef382ce41caa27212fe459429597899744aa505b908fd6be869cb"
+    },
+    {
+      "path": "hashchain_proof.json",
+      "sha256": "22f59e07f32a28d81230b85372d5c3e87eb10bb5284f9b11dec142049803df1d"
+    },
+    {
+      "path": "invariant_eval_trace.jsonl",
+      "sha256": "0eede883f12528bad417793b6353c3c9ae3d7cd235789b5762c1b12f2ec69f71"
+    }
+  ],
+  "memory_policy_fingerprint": "97f0a013e63190052e5f486941ff0865119d8cdc88dccf10a8c98b5afbb05809",
+  "partner_id": null,
+  "policy_fingerprint": "d43ab2ddfc663ae892c2697f858299c39a726467f0568346c57cef6941f66fad",
+  "policy_root_hash": null,
+  "rbac_policy_fingerprint": "1f293d34c87f68ea1ae60e91159ffbc11478c1a27a8e630bc5e1ff1487745441",
+  "signature": null,
+  "tool_registry_fingerprint": "03242dac72175c4bfeafa4c92ab888904b135e0f71af0cf68e62de89d5db844d",
+  "version": "0.1"
+}

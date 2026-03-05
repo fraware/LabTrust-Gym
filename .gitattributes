@@ -1,2 +1,6 @@
 # Shell scripts: force LF on checkout so they run on Windows (e.g. WSL) and Unix
 *.sh text eol=lf
+
+# Fixture JSON/JSONL: normalize to LF so manifest hashes are stable across OS (CI runs on Linux).
+tests/fixtures/**/*.json text eol=lf
+tests/fixtures/**/*.jsonl text eol=lf

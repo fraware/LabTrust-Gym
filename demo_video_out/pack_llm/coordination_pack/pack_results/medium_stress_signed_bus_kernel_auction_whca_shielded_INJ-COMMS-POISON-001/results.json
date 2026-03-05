@@ -6,10 +6,12 @@
   "allow_network": true,
   "non_deterministic": true,
   "task": "coord_risk",
-  "num_episodes": 1,
+  "num_episodes": 3,
   "base_seed": 10102,
   "seeds": [
-    10102
+    10102,
+    10103,
+    10104
   ],
   "config": {
     "max_steps": 300,
@@ -27,8 +29,8 @@
     "emits_vocab": "0.1",
     "catalogue_schema": "unknown"
   },
-  "git_sha": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
-  "git_commit_hash": "fe42dd1f2af36e038df324ed047a87b78e5b1906",
+  "git_sha": "7563446fff1e6d0ff06858344ccc26dc9a0804a4",
+  "git_commit_hash": "7563446fff1e6d0ff06858344ccc26dc9a0804a4",
   "partner_id": null,
   "policy_fingerprint": null,
   "agent_baseline_id": "coord_kernel_auction_whca_shielded",
@@ -81,15 +83,148 @@
             "p95_view_age_ms": 0.0
           },
           "route": {
-            "replan_rate": 0.9984000000000008,
+            "replan_rate": 0.9742666666666683,
             "mean_plan_time_ms": 0.0,
-            "deadlock_avoids": 22464
+            "deadlock_avoids": 21921
           },
           "alloc": {
             "gini_work_distribution": 0.0,
-            "mean_bid": 0.0,
+            "mean_bid": 87.6667,
             "rebid_rate": 0.0,
-            "num_assignments": 0,
+            "num_assignments": 3,
+            "alloc_emits": [
+              {
+                "emit": "BID_ANOMALY_DETECTED",
+                "agent_id": "worker_41",
+                "work_id": "S_COORD_10102_1",
+                "bid": 81.0,
+                "mean_bid": 87.6667,
+                "reason_code": "BID_ANOMALY_SPOOF_SUSPECTED"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "seed": 10103,
+      "metrics": {
+        "throughput": 0,
+        "p50_turnaround_s": null,
+        "p95_turnaround_s": null,
+        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
+        "timing_mode": "explicit",
+        "on_time_rate": null,
+        "violations_by_invariant_id": {},
+        "blocked_by_reason_code": {},
+        "critical_communication_compliance_rate": null,
+        "tokens_minted": 0,
+        "tokens_consumed": 0,
+        "holds_count": 0,
+        "transport_consignment_count": 0,
+        "transport_temp_excursions": 0,
+        "coc_breaks_count": 0,
+        "steps": 300,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "sec": {
+          "attack_success_rate": 0.0,
+          "attack_success_observed": 0.0,
+          "detection_latency_steps": null,
+          "containment_time_steps": null,
+          "stealth_success_rate": 0.0,
+          "time_to_attribution_steps": null,
+          "blast_radius_proxy": 0,
+          "injection_id": "INJ-COMMS-POISON-001"
+        },
+        "robustness": {
+          "regret_vs_nominal": null,
+          "resilience_score": 1.0
+        },
+        "coordination": {
+          "comm": {
+            "msg_count": 0,
+            "p95_latency_ms": 0.0,
+            "drop_rate": 0.0,
+            "dropped_count": 0
+          },
+          "timing": {
+            "stale_action_rate": 0.0,
+            "mean_view_age_ms": 0.0,
+            "p95_view_age_ms": 0.0
+          },
+          "route": {
+            "replan_rate": 0.9975555555555569,
+            "mean_plan_time_ms": 0.0,
+            "deadlock_avoids": 22445
+          },
+          "alloc": {
+            "gini_work_distribution": 0.0,
+            "mean_bid": 91.0,
+            "rebid_rate": 0.0,
+            "num_assignments": 3,
+            "alloc_emits": []
+          }
+        }
+      }
+    },
+    {
+      "seed": 10104,
+      "metrics": {
+        "throughput": 0,
+        "p50_turnaround_s": null,
+        "p95_turnaround_s": null,
+        "p95_turnaround_s_note": "Derived from step timestamps only (explicit mode).",
+        "timing_mode": "explicit",
+        "on_time_rate": null,
+        "violations_by_invariant_id": {},
+        "blocked_by_reason_code": {},
+        "critical_communication_compliance_rate": null,
+        "tokens_minted": 0,
+        "tokens_consumed": 0,
+        "holds_count": 0,
+        "transport_consignment_count": 0,
+        "transport_temp_excursions": 0,
+        "coc_breaks_count": 0,
+        "steps": 300,
+        "tool_selection_errors_count": 0,
+        "tool_selection_errors_rate": null,
+        "sec": {
+          "attack_success_rate": 0.0,
+          "attack_success_observed": 0.0,
+          "detection_latency_steps": null,
+          "containment_time_steps": null,
+          "stealth_success_rate": 0.0,
+          "time_to_attribution_steps": null,
+          "blast_radius_proxy": 0,
+          "injection_id": "INJ-COMMS-POISON-001"
+        },
+        "robustness": {
+          "regret_vs_nominal": null,
+          "resilience_score": 1.0
+        },
+        "coordination": {
+          "comm": {
+            "msg_count": 0,
+            "p95_latency_ms": 0.0,
+            "drop_rate": 0.0,
+            "dropped_count": 0
+          },
+          "timing": {
+            "stale_action_rate": 0.0,
+            "mean_view_age_ms": 0.0,
+            "p95_view_age_ms": 0.0
+          },
+          "route": {
+            "replan_rate": 0.9975555555555569,
+            "mean_plan_time_ms": 0.0,
+            "deadlock_avoids": 22445
+          },
+          "alloc": {
+            "gini_work_distribution": 0.0,
+            "mean_bid": 91.0,
+            "rebid_rate": 0.0,
+            "num_assignments": 3,
             "alloc_emits": []
           }
         }
@@ -102,8 +237,8 @@
     "llm_model_id": null,
     "llm_error_rate": null,
     "mean_llm_latency_ms": null,
-    "run_duration_wall_s": 6.36,
-    "run_duration_episodes_per_s": 0.1572,
+    "run_duration_wall_s": 26.561,
+    "run_duration_episodes_per_s": 0.1129,
     "python_version": "3.12.1",
     "platform": "win32"
   },

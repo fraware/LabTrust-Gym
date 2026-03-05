@@ -474,6 +474,25 @@ def generate_scaled_initial_state(
     effective_policy["equipment_registry"] = equipment_registry
     effective_policy["sites_policy"] = sites_policy
 
+    initial_queue_entries: list[dict[str, Any]] = []
+    if specimens and device_ids:
+        n_preload = min(3, len(specimens), len(device_ids))
+        for i in range(n_preload):
+            spec = specimens[i]
+            sid = spec.get("specimen_id", "")
+            prio = spec.get("priority_class", "ROUTINE")
+            if prio not in ("STAT", "URGENT", "ROUTINE"):
+                prio = "ROUTINE"
+            dev_id = device_ids[i % len(device_ids)]
+            initial_queue_entries.append(
+                {
+                    "device_id": dev_id,
+                    "work_id": sid,
+                    "priority_class": prio,
+                    "enqueued_ts_s": 0,
+                }
+            )
+
     initial_state: dict[str, Any] = {
         "system": {"now_s": 0, "downtime_active": False},
         "agents": agents_list,
@@ -486,6 +505,8 @@ def generate_scaled_initial_state(
         "_scale_device_ids": device_ids,
         "_scale_zone_ids": list(DEFAULT_SCALE_ZONES),
     }
+    if initial_queue_entries:
+        initial_state["initial_queue_entries"] = initial_queue_entries
     if scale.partner_id:
         initial_state["partner_id"] = scale.partner_id
     return initial_state

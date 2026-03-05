@@ -276,8 +276,10 @@ def _empty_cell_metrics() -> dict[str, Any]:
     return {
         "perf.throughput": 0.0,
         "perf.p95_tat": None,
+        "perf.on_time_rate": None,
         "safety.violations_total": 0,
         "safety.blocks_total": 0,
+        "safety.critical_communication_compliance_rate": None,
         "sec.attack_success_rate": None,
         "sec.attack_success_rate_ci_lower": None,
         "sec.attack_success_rate_ci_upper": None,
@@ -340,10 +342,18 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
     cost_estimated_usd_list: list[float | None] = []
     llm_error_rates: list[float] = []
     llm_invalid_output_rates: list[float] = []
+    on_time_rates: list[float | None] = []
+    critical_compliance_rates: list[float | None] = []
 
     for ep in episodes:
         m = ep.get("metrics") or {}
         throughputs.append(m.get("throughput", 0))
+        ot = m.get("on_time_rate")
+        if ot is not None:
+            on_time_rates.append(float(ot))
+        cc = m.get("critical_communication_compliance_rate")
+        if cc is not None:
+            critical_compliance_rates.append(float(cc))
         vbi = m.get("violations_by_invariant_id") or {}
         violations_total += sum(vbi.values())
         bbr = m.get("blocked_by_reason_code") or {}
@@ -426,11 +436,17 @@ def _aggregate_cell_metrics(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         hi = min(lo + 1, len(s) - 1)
         return s[lo] + (k - lo) * (s[hi] - s[lo])
 
+    on_time_vals = [x for x in on_time_rates if x is not None]
+    critical_compliance_vals = [x for x in critical_compliance_rates if x is not None]
     out = {
         "perf.throughput": sum(throughputs) / n if n else 0.0,
         "perf.p95_tat": sum(p95_vals) / len(p95_vals) if p95_vals else None,
+        "perf.on_time_rate": sum(on_time_vals) / len(on_time_vals) if on_time_vals else None,
         "safety.violations_total": violations_total,
         "safety.blocks_total": blocks_total,
+        "safety.critical_communication_compliance_rate": (
+            sum(critical_compliance_vals) / len(critical_compliance_vals) if critical_compliance_vals else None
+        ),
         "sec.attack_success_rate": attack_success_sum / n if n else None,
         "sec.attack_success_rate_ci_lower": (
             clopper_pearson_ci(int(attack_success_sum), n, 0.95)[0] if n >= 1 else None
@@ -571,8 +587,10 @@ def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
         "injection_id",
         "perf.throughput",
         "perf.p95_tat",
+        "perf.on_time_rate",
         "safety.violations_total",
         "safety.blocks_total",
+        "safety.critical_communication_compliance_rate",
         "sec.attack_success_rate",
         "sec.attack_success_rate_ci_lower",
         "sec.attack_success_rate_ci_upper",
@@ -604,6 +622,8 @@ def _write_summary_csv(out_path: Path, rows: list[dict[str, Any]]) -> None:
     ]
     optional_empty = [
         "perf.p95_tat",
+        "perf.on_time_rate",
+        "safety.critical_communication_compliance_rate",
         "sec.attack_success_rate",
         "sec.attack_success_rate_ci_lower",
         "sec.attack_success_rate_ci_upper",

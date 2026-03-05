@@ -422,6 +422,20 @@ def run_episode(
                             submissions[agent_id] = {"action_index": 0}
                     actions_dict = coord_method.combine_submissions(submissions, obs_for_step, infos, step_t)
                 else:
+                    if os.environ.get("LABTRUST_DEBUG_COORD_QUEUES") == "1" and step_t < 3 and obs_for_step:
+                        _first_agent = next(iter(obs_for_step), None)
+                        if _first_agent:
+                            _o = obs_for_step.get(_first_agent) or {}
+                            _qbd = _o.get("queue_by_device") or []
+                            _non_empty = sum(1 for _d in _qbd if (_d or {}).get("queue_head"))
+                            _LOG.warning(
+                                "[LABTRUST_DEBUG_COORD_QUEUES] step=%s agent=%s "
+                                "queue_by_device_len=%s non_empty_queue_head=%s",
+                                step_t,
+                                _first_agent,
+                                len(_qbd),
+                                _non_empty,
+                            )
                     inj_id = getattr(risk_injector, "injection_id", None) if risk_injector is not None else None
                     if getattr(coord_method, "method_id", None) == "llm_repair_over_kernel_whca" and inj_id in (
                         "INJ-COMMS-POISON-001",
@@ -1706,9 +1720,7 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
                 creds = resolve_credentials(repair_role_backend, repo_root)
-                repair_backend_param = LiveRepairBackend(
-                    OpenAILiveBackend(**creds, model=repair_role_model)
-                )
+                repair_backend_param = LiveRepairBackend(OpenAILiveBackend(**creds, model=repair_role_model))
                 llm_backend_ref = repair_backend_param._backend
             elif repair_role_backend == "ollama_live":
                 from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca import (
@@ -1730,9 +1742,7 @@ def run_benchmark(
                 from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
                 creds = resolve_credentials(repair_role_backend, repo_root)
-                repair_backend_param = LiveRepairBackend(
-                    AnthropicLiveBackend(**creds, model=repair_role_model)
-                )
+                repair_backend_param = LiveRepairBackend(AnthropicLiveBackend(**creds, model=repair_role_model))
                 llm_backend_ref = repair_backend_param._backend
             if pipeline_mode == "llm_live" and repair_backend_param is not None:
                 from labtrust_gym.baselines.llm.coordinator_throttle import (

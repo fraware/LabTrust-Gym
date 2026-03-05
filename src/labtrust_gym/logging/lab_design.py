@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-# Import from env to keep a single source of truth; lab_design re-exports
-# for bundle builder and viewer. If env is not installed, callers get
-# ImportError when loading this module.
-from labtrust_gym.envs.pz_parallel import DEFAULT_DEVICE_IDS, DEFAULT_ZONE_IDS
+# Single source of truth: zone_device_defaults has no optional deps so
+# bundle builder and viewer work without [env].
+from labtrust_gym.envs.zone_device_defaults import DEFAULT_DEVICE_IDS, DEFAULT_ZONE_IDS
 
 # Specimen status order used in observation specimen_status_counts (same as
 # pz_parallel._collect_observations status_order). Not exported as a constant

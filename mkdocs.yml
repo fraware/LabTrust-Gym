@@ -26,7 +26,7 @@ nav:
     - Troubleshooting: getting-started/troubleshooting.md
     - Demo readiness: getting-started/demo_readiness.md
     - Windows setup: getting-started/windows_setup.md
-    - Presentation and demo guide: presentation_labtrust_gym.md
+    - Environment and .env: getting-started/env_and_dotenv.md
   - Architecture:
     - architecture/index.md
     - Architecture: architecture/architecture.md

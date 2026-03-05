@@ -1,11 +1,26 @@
 {
   "version": "0.1",
   "files": [
-    {"path": "enforcement_actions.jsonl", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
-    {"path": "episode_log_subset.jsonl", "sha256": "efbb63e9e679d7b61728ff24e7ea6feabd5603bea751e2219363421cb426c0fb"},
-    {"path": "hashchain_proof.json", "sha256": "f4a649c89407809f02463b1575937f18f7a6805652f28d0f358921bf031b3fde"},
-    {"path": "invariant_eval_trace.jsonl", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
-    {"path": "receipt_specimen_S1.v0.1.json", "sha256": "843c4fb327415a6e609125bb95273cc9c2929f4c9ef2bac4ea31a5fb312a5491"}
+    {
+      "path": "enforcement_actions.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "episode_log_subset.jsonl",
+      "sha256": "e4dae4d1b54e7eb9be0ddbad4a488f7c0e2cb723b5c50df3dfe2856f5333dae9"
+    },
+    {
+      "path": "hashchain_proof.json",
+      "sha256": "d9c89920d27720b0169075641495c758b5b56fb77727078d7387452351dce86d"
+    },
+    {
+      "path": "invariant_eval_trace.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "receipt_specimen_S1.v0.1.json",
+      "sha256": "cd3e208f19cfedc051de4da5036ba003cff8ad6e3f2e185da2f1c4cc59db725c"
+    }
   ],
   "policy_fingerprint": null,
   "partner_id": null,

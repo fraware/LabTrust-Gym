@@ -250,7 +250,9 @@ def _collect_full_pipeline(
     Collect tasks, episodes, receipts_index, baselines for full-pipeline layout.
 
     Layout: baselines/results/*.json, optional coordination_pack/, SECURITY/, SAFETY_CASE/.
-    Each results.json is one task; episode 0 with results_ref and log_ref if episodes.jsonl exists.
+    One episode entry per episode in each result file (episode_index 0..N-1).
+    Receipts are not produced by full_pipeline runs (no _repr/receipts/); only
+    package-release runs produce EvidenceBundle receipts.
     """
     tasks: list[str] = []
     episodes: list[dict[str, Any]] = []
@@ -265,20 +267,37 @@ def _collect_full_pipeline(
         if res_path.name in ("metadata.json", "METHOD_TRACE.jsonl"):
             continue
         task = res_path.stem
-        tasks.append(task)
+        if task not in tasks:
+            tasks.append(task)
         baselines.append(task)
-        log_path = res_path.parent / "episodes.jsonl"
-        log_ref = str(log_path.relative_to(run_dir)) if log_path.exists() else None
-        episodes.append(
-            {
-                "task": task,
-                "episode_index": 0,
-                "results_ref": str(res_path.relative_to(run_dir)),
-                "log_ref": log_ref,
-                "receipts_ref": None,
-                "episode_key": f"{task}_0",
-            }
-        )
+        # Episode count from result file so index has episode_index 0, 1, 2, ...
+        num_eps = 1
+        try:
+            data = json.loads(res_path.read_text(encoding="utf-8"))
+            eps = data.get("episodes") or []
+            num_eps = max(1, len(eps))
+        except (json.JSONDecodeError, OSError):
+            pass
+        # Log only for single-episode runs; multi-episode JSONL has no boundaries so we backfill only
+        log_ref_val: str | None = None
+        if num_eps == 1:
+            log_candidate = res_path.parent / f"{res_path.stem}_episodes.jsonl"
+            if not log_candidate.exists():
+                log_candidate = res_path.parent / "episodes.jsonl"
+            if log_candidate.exists():
+                log_ref_val = str(log_candidate.relative_to(run_dir))
+        results_ref = str(res_path.relative_to(run_dir))
+        for ep_idx in range(num_eps):
+            episodes.append(
+                {
+                    "task": task,
+                    "episode_index": ep_idx,
+                    "results_ref": results_ref,
+                    "log_ref": log_ref_val,
+                    "receipts_ref": None,
+                    "episode_key": f"{task}_{ep_idx}",
+                }
+            )
 
     # coordination_pack/pack_results/* are not added as tasks to keep the bundle small;
     # coordination_artifacts (pack_summary.csv, pack_gate.md, etc.) are still collected
@@ -369,23 +388,60 @@ def _collect_package_release(
     return tasks, episodes, receipts_index, baselines
 
 
+def _event_from_episode_summary(
+    task: str,
+    episode_index: int,
+    episode_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Build one UI event from a results JSON episode entry (no step log)."""
+    out: dict[str, Any] = {
+        "task": task,
+        "episode_index": episode_index,
+        "episode_key": f"{task}_{episode_index}",
+        "event_id": "episode_summary",
+    }
+    for k in EVENT_FIELDS:
+        out[k] = None
+    metrics = episode_data.get("metrics") or {}
+    out["episode_metrics"] = dict(metrics)
+    if "llm_episode" in episode_data:
+        out["llm_episode"] = episode_data["llm_episode"]
+    if "seed" in episode_data:
+        out["seed"] = episode_data["seed"]
+    return out
+
+
 def _build_events(
     run_dir: Path,
     run_type: str,
     tasks: list[str],
     episodes: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Build normalized events.json from episode logs."""
+    """Build normalized events.json from episode logs; backfill from results JSON when no log."""
     events: list[dict[str, Any]] = []
     for ep in episodes:
         task = ep.get("task", "")
         ep_idx = ep.get("episode_index", 0)
         log_ref = ep.get("log_ref")
-        if not log_ref:
+        if log_ref:
+            log_path = run_dir / log_ref
+            for raw in _load_jsonl(log_path):
+                events.append(_normalize_event(raw, task=task, episode_index=ep_idx))
             continue
-        log_path = run_dir / log_ref
-        for raw in _load_jsonl(log_path):
-            events.append(_normalize_event(raw, task=task, episode_index=ep_idx))
+        # No episode log (e.g. official pack run before logs were written): backfill from results JSON
+        results_ref = ep.get("results_ref")
+        if run_type != "full_pipeline" or not results_ref:
+            continue
+        res_path = run_dir / results_ref
+        if not res_path.is_file():
+            continue
+        try:
+            data = json.loads(res_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        eps = data.get("episodes") or []
+        if ep_idx < len(eps):
+            events.append(_event_from_episode_summary(task, ep_idx, eps[ep_idx]))
     return events
 
 
@@ -508,6 +564,11 @@ def export_ui_bundle(
         "episodes": episodes,
         "baselines": baselines,
     }
+    if run_type == "full_pipeline" and not receipts_index:
+        index["receipts_note"] = (
+            "No receipts (expected for full_pipeline runs). "
+            "Receipts (EvidenceBundle) are produced by package-release runs only."
+        )
     for key in ("pipeline_mode", "llm_backend_id", "llm_model_id", "allow_network"):
         if key in pipeline_fields:
             index[key] = pipeline_fields[key]

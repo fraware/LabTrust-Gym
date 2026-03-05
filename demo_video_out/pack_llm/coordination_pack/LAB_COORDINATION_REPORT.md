@@ -9,7 +9,7 @@ Matrix preset: `hospital_lab`.
 ## Recommended method per scale
 
 - **medium_stress_signed_bus**: chosen method `kernel_auction_whca_shielded`
-- **small_smoke**: chosen method `kernel_auction_whca_shielded`
+- **small_smoke**: chosen method `llm_local_decider_signed_bus`
 
 ## Artifacts in this bundle
 

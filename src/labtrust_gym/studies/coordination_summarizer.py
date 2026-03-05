@@ -115,8 +115,11 @@ def load_summary_rows(csv_path: Path) -> list[dict[str, Any]]:
             row = dict(r)
             for k in (
                 "perf.throughput",
+                "perf.p95_tat",
+                "perf.on_time_rate",
                 "robustness.resilience_score",
                 "sec.stealth_success_rate",
+                "safety.critical_communication_compliance_rate",
             ):
                 row[k] = _parse_float(row.get(k))
             row["safety.violations_total"] = _parse_float(row.get("safety.violations_total"))
@@ -127,7 +130,7 @@ def load_summary_rows(csv_path: Path) -> list[dict[str, Any]]:
 
 
 def build_sota_leaderboard(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Per-method aggregates: throughput_mean, violations_mean, resilience_score_mean, stealth_success_rate_mean."""
+    """Per-method aggregates: throughput_mean, violations_mean, resilience_score_mean, p95_tat_mean, on_time_rate_mean, critical_compliance_mean, stealth_success_rate_mean."""
     by_method: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         mid = (r.get("method_id") or "").strip()
@@ -141,10 +144,16 @@ def build_sota_leaderboard(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         tp = [_parse_float(r.get("perf.throughput")) for r in group]
         viol = [_parse_float(r.get("safety.violations_total")) for r in group]
         res = [_parse_float(r.get("robustness.resilience_score")) for r in group]
+        p95 = [_parse_float(r.get("perf.p95_tat")) for r in group]
+        on_time = [_parse_float(r.get("perf.on_time_rate")) for r in group]
+        crit_comp = [_parse_float(r.get("safety.critical_communication_compliance_rate")) for r in group]
         stealth = [_parse_float(r.get("sec.stealth_success_rate")) for r in group]
         tp_vals = [x for x in tp if x is not None]
         viol_vals = [x for x in viol if x is not None]
         res_vals = [x for x in res if x is not None]
+        p95_vals = [x for x in p95 if x is not None]
+        on_time_vals = [x for x in on_time if x is not None]
+        crit_comp_vals = [x for x in crit_comp if x is not None]
         stealth_vals = [x for x in stealth if x is not None]
         out.append(
             {
@@ -152,6 +161,9 @@ def build_sota_leaderboard(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "throughput_mean": sum(tp_vals) / len(tp_vals) if tp_vals else None,
                 "violations_mean": (sum(viol_vals) / len(viol_vals) if viol_vals else None),
                 "resilience_score_mean": (sum(res_vals) / len(res_vals) if res_vals else None),
+                "p95_tat_mean": sum(p95_vals) / len(p95_vals) if p95_vals else None,
+                "on_time_rate_mean": sum(on_time_vals) / len(on_time_vals) if on_time_vals else None,
+                "critical_compliance_mean": sum(crit_comp_vals) / len(crit_comp_vals) if crit_comp_vals else None,
                 "stealth_success_rate_mean": (sum(stealth_vals) / len(stealth_vals) if stealth_vals else None),
                 "n_cells": len(group),
             }
@@ -175,10 +187,16 @@ def build_sota_leaderboard_by_phase(rows: list[dict[str, Any]]) -> list[dict[str
         tp = [_parse_float(r.get("perf.throughput")) for r in group]
         viol = [_parse_float(r.get("safety.violations_total")) for r in group]
         res = [_parse_float(r.get("robustness.resilience_score")) for r in group]
+        p95 = [_parse_float(r.get("perf.p95_tat")) for r in group]
+        on_time = [_parse_float(r.get("perf.on_time_rate")) for r in group]
+        crit_comp = [_parse_float(r.get("safety.critical_communication_compliance_rate")) for r in group]
         stealth = [_parse_float(r.get("sec.stealth_success_rate")) for r in group]
         tp_vals = [x for x in tp if x is not None]
         viol_vals = [x for x in viol if x is not None]
         res_vals = [x for x in res if x is not None]
+        p95_vals = [x for x in p95 if x is not None]
+        on_time_vals = [x for x in on_time if x is not None]
+        crit_comp_vals = [x for x in crit_comp if x is not None]
         stealth_vals = [x for x in stealth if x is not None]
         out.append(
             {
@@ -187,6 +205,9 @@ def build_sota_leaderboard_by_phase(rows: list[dict[str, Any]]) -> list[dict[str
                 "throughput_mean": sum(tp_vals) / len(tp_vals) if tp_vals else None,
                 "violations_mean": (sum(viol_vals) / len(viol_vals) if viol_vals else None),
                 "resilience_score_mean": (sum(res_vals) / len(res_vals) if res_vals else None),
+                "p95_tat_mean": sum(p95_vals) / len(p95_vals) if p95_vals else None,
+                "on_time_rate_mean": sum(on_time_vals) / len(on_time_vals) if on_time_vals else None,
+                "critical_compliance_mean": sum(crit_comp_vals) / len(crit_comp_vals) if crit_comp_vals else None,
                 "stealth_success_rate_mean": (sum(stealth_vals) / len(stealth_vals) if stealth_vals else None),
                 "n_cells": len(group),
             }
@@ -304,14 +325,26 @@ def write_leaderboard_by_phase_md(out_path: Path, leaderboard: list[dict[str, An
 
 
 def write_leaderboard_csv(out_path: Path, leaderboard: list[dict[str, Any]]) -> None:
-    """Write sota_leaderboard.csv."""
+    """Write sota_leaderboard.csv (includes hospital-lab metrics)."""
     columns = [
         "method_id",
         "throughput_mean",
         "violations_mean",
         "resilience_score_mean",
+        "p95_tat_mean",
+        "on_time_rate_mean",
+        "critical_compliance_mean",
         "stealth_success_rate_mean",
         "n_cells",
+    ]
+    float_cols = [
+        "throughput_mean",
+        "violations_mean",
+        "resilience_score_mean",
+        "p95_tat_mean",
+        "on_time_rate_mean",
+        "critical_compliance_mean",
+        "stealth_success_rate_mean",
     ]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as f:
@@ -319,12 +352,7 @@ def write_leaderboard_csv(out_path: Path, leaderboard: list[dict[str, Any]]) -> 
         w.writeheader()
         for r in leaderboard:
             row = {k: r.get(k) for k in columns}
-            for k in (
-                "throughput_mean",
-                "violations_mean",
-                "resilience_score_mean",
-                "stealth_success_rate_mean",
-            ):
+            for k in float_cols:
                 if row.get(k) is None:
                     row[k] = ""
                 elif isinstance(row[k], float):
@@ -349,14 +377,17 @@ def write_leaderboard_md(
         lines.extend([source_note, ""])
     lines.extend(
         [
-            "| method_id | throughput_mean | violations_mean | resilience_score_mean | stealth_success_rate_mean | n_cells |",
-            "| --- | --- | --- | --- | --- | --- |",
+            "| method_id | throughput_mean | violations_mean | resilience_score_mean | p95_tat_mean | on_time_rate_mean | critical_compliance_mean | stealth_success_rate_mean | n_cells |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for r in leaderboard:
         tp = r.get("throughput_mean")
         viol = r.get("violations_mean")
         res = r.get("resilience_score_mean")
+        p95 = r.get("p95_tat_mean")
+        on_time = r.get("on_time_rate_mean")
+        crit = r.get("critical_compliance_mean")
         stealth = r.get("stealth_success_rate_mean")
         n = r.get("n_cells", 0)
         cells = [
@@ -364,10 +395,34 @@ def write_leaderboard_md(
             f"{tp:.4f}" if tp is not None else "—",
             f"{viol:.2f}" if viol is not None else "—",
             f"{res:.4f}" if res is not None else "—",
+            f"{p95:.1f}" if p95 is not None else "—",
+            f"{on_time:.4f}" if on_time is not None else "—",
+            f"{crit:.4f}" if crit is not None else "—",
             f"{stealth:.4f}" if stealth is not None else "—",
             str(n),
         ]
         lines.append("| " + " | ".join(cells) + " |")
+    lines.append("")
+    lines.append(
+        "Key hospital-lab metrics: throughput (releases/episode), p95_tat (s), on_time_rate (SLA), critical_compliance (notify/ack), violations, resilience. See docs/benchmarks/hospital_lab_metrics.md in the repository."
+    )
+    all_zero_throughput = all((r.get("throughput_mean") or 0) == 0 for r in leaderboard)
+    if all_zero_throughput and leaderboard:
+        lines.extend(
+            [
+                "",
+                "**Note (throughput_mean = 0):** Throughput is the mean number of "
+                "specimen releases (RELEASE_RESULT) per episode; higher is better. "
+                "When all methods show 0, no coordination cell produced any releases. "
+                "Common causes: (1) coord_risk pack cells use 1 episode per cell and "
+                "coordination methods may not yet assign work that completes the "
+                "accept -> process -> release pipeline in that horizon; (2) kernel "
+                "allocators can report num_assignments = 0 (no alloc_emits); (3) LLM "
+                "methods may error or return no valid release actions. For throughput "
+                "comparison, run the throughput_sla task with scripted or kernel "
+                "baselines; see coordination_benchmark_card.md.",
+            ]
+        )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines), encoding="utf-8")
 

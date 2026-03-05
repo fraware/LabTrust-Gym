@@ -11,6 +11,8 @@ Tasks, benchmark cards, official pack, studies, and reproduction.
 | [Coordination benchmark card](../coordination/coordination_benchmark_card.md) | Coord scale/risk (Task G/H). |
 | [Evaluation checklist](evaluation_checklist.md) | Baseline status, when to regenerate, full command sequence. |
 | [Scale and operational limits](scale_operational_limits.md) | Scale configs and limits. |
+| [Throughput comparison](throughput_comparison.md) | Throughput-focused comparison (throughput_sla, scripted baseline). |
+| [Hospital lab key metrics](hospital_lab_metrics.md) | Metrics that matter for hospital labs and where they are reported. |
 | [Uncertainty quantification](uncertainty_quantification.md) | Epistemic vs aleatoric; metric mapping. |
 | [Generalization and limits](../coordination/generalization_and_limits.md) | What was tested, what was not; comparison with other benchmarks. |
 
