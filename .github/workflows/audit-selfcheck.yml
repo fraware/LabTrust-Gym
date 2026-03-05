@@ -17,8 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install package
-        run: pip install -e ".[dev]"
+      - name: Install package (dev + env for doctor check extras_env)
+        run: pip install -e ".[dev,env]"
       - name: Run audit self-check
         run: labtrust audit-selfcheck --out ./audit_self_check
       - name: Upload audit self-check artifact

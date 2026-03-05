@@ -2979,6 +2979,13 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
     out_json = out_dir / "AUDIT_SELF_CHECK.json"
     out_json.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     get_console().write_plain(f"Wrote {out_json}")
+    if not all_pass:
+        failed_checks = [c["id"] for c in doctor_checks if c.get("status") == "fail"]
+        failed_steps = [s["name"] for s in steps if not s.get("pass")]
+        if failed_checks:
+            get_console().warning(f"Doctor checks failed: {failed_checks}")
+        if failed_steps:
+            get_console().warning(f"Audit steps failed: {failed_steps}")
     return 0 if all_pass else 1
 
 
