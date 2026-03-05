@@ -131,6 +131,16 @@ def test_mkdocs_checked(tmp_path: Path) -> None:
     assert any("mkdocs.yml" in _norm_path(p, tmp_path) for p, _, _ in violations)
 
 
+def test_github_excluded(tmp_path: Path) -> None:
+    """Workflow step names may mention placeholder/stub; .github is excluded from scanning."""
+    _write_tree(
+        tmp_path,
+        {".github/workflows/ci.yml": "steps:\n  - name: No placeholders / stubs gate\n"},
+    )
+    violations = scan_root(tmp_path)
+    assert not violations
+
+
 def test_clean_tree_no_violations(tmp_path: Path) -> None:
     _write_tree(
         tmp_path,

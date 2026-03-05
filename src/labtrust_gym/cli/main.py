@@ -2891,6 +2891,8 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
 
     # 1. no_placeholders
     t0 = time.perf_counter()
+    no_placeholders_out: str | None = None
+    no_placeholders_err: str | None = None
     try:
         r = subprocess.run(
             [sys.executable, str(root / "tools" / "no_placeholders.py"), str(root)],
@@ -2900,9 +2902,21 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
             timeout=60,
         )
         passed = r.returncode == 0
-    except Exception:
+        if not passed:
+            no_placeholders_out = r.stdout or ""
+            no_placeholders_err = r.stderr or ""
+    except Exception as e:
         passed = False
-    steps.append({"name": "no_placeholders", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)})
+        no_placeholders_err = str(e)
+    step_payload: dict[str, Any] = {
+        "name": "no_placeholders",
+        "pass": passed,
+        "duration_s": round(time.perf_counter() - t0, 3),
+    }
+    if not passed and (no_placeholders_out or no_placeholders_err):
+        step_payload["output"] = no_placeholders_out or ""
+        step_payload["error"] = no_placeholders_err or ""
+    steps.append(step_payload)
     if not passed:
         all_pass = False
 

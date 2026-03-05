@@ -12,9 +12,10 @@ import re
 import sys
 from pathlib import Path
 
-# Directories to skip when scanning
+# Directories to skip when scanning (e.g. .github workflow step names may mention "placeholder"/"stub")
 EXCLUDE_DIRS = {
     ".git",
+    ".github",
     ".venv",
     "venv",
     "dist",
