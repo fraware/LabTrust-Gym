@@ -64,6 +64,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.11", "3.12"]
+    defaults:
+      run:
+        # Use bash on all runners so pip/pytest commands and brackets in '.[dev,env]' work (Windows defaults to PowerShell).
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -72,20 +76,20 @@ jobs:
       - name: Install package (dev + env so env-dependent tests run)
         run: pip install -e '.[dev,env]'
       - name: Pytest
-        run: pytest -q -m "not slow"
+        run: python -m pytest -q -m "not slow"
       - name: Metamorphic properties (smoke)
-        run: pytest tests/test_metamorphic_properties.py -q
+        run: python -m pytest tests/test_metamorphic_properties.py -q
       - name: Install env deps and run security + CLI smoke
         run: |
           pip install -e '.[dev,env]'
-          pytest tests/test_security_property_fuzz.py tests/test_prompt_injection_defense.py tests/test_llm_prompt_injection_golden.py -q
-          pytest tests/test_cli_smoke_matrix.py -q -k "not train_ppo and not eval_ppo" -m "not slow"
+          python -m pytest tests/test_security_property_fuzz.py tests/test_prompt_injection_defense.py tests/test_llm_prompt_injection_golden.py -q
+          python -m pytest tests/test_cli_smoke_matrix.py -q -k "not train_ppo and not eval_ppo" -m "not slow"
       - name: Run security suite (smoke, includes coord_pack_ref when env available)
-        run: labtrust run-security-suite --out ./security_suite_out --smoke --seed 42
+        run: python -m labtrust_gym.cli.main run-security-suite --out ./security_suite_out --smoke --seed 42
       - name: Extension example (install plugin and run example_task)
         run: |
           pip install -e examples/extension_example
-          labtrust --profile example run-benchmark --task example_task --episodes 1 --out ./extension_example_out.json
+          python -m labtrust_gym.cli.main --profile example run-benchmark --task example_task --episodes 1 --out ./extension_example_out.json
 
   policy-validate:
     runs-on: ubuntu-latest
