@@ -62,12 +62,11 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Publish to PyPI (structure only; add TWINE_* secrets)
+      - name: Publish to PyPI
         run: |
           pip install twine
-          # Use repository secret TWINE_PASSWORD (and optionally TWINE_USERNAME) for PyPI.
-          # twine upload --non-interactive dist/*
-          echo "Configure TWINE_PASSWORD (and TWINE_USERNAME if needed) in repo secrets, then uncomment: twine upload --non-interactive dist/*"
+          # Requires repository secrets: TWINE_PASSWORD (and TWINE_USERNAME if not using token only).
+          twine upload --non-interactive dist/*
 
   # Optional: run live-LLM smoke when OPENAI_API_KEY is set; does not block release.
   live-llm-smoke:
