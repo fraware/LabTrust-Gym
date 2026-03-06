@@ -3,7 +3,6 @@ recursive-include policy *
 # Standard files
 include README.md
 include LICENSE
-include CHANGELOG.md
 include pyproject.toml
 include CITATION.cff
 # Exclude dev/build artifacts

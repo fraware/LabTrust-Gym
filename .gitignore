@@ -51,6 +51,10 @@ dmypy.json
 # Ruff
 .ruff_cache/
 
+# Lock files (optional; project may pin with pip/poetry instead)
+uv.lock
+/uv.lock
+
 # Quick-eval and run outputs (use labtrust_runs/ or --out; do not push)
 labtrust_runs/
 
@@ -58,17 +62,27 @@ labtrust_runs/
 /results*.json
 /out.json
 /bench_smoke_*.json
+/bench_smoke_qc_cascade.json
+/bench_smoke_stat_insertion.json
+/bench_smoke_throughput_sla.json
 /ep.jsonl
 /quick_eval_*/
 /ui_bundle.zip
 /results/
 /release/
+/release_artifact/
 /determinism_report/
 /determinism_report_*/
 /artifact/
 /out/
 /runs/
 /det_*/
+/audit_out/
+/llm_live_smoke_out/
+/security_suite_out/
+/pack_smoke/
+/pack_smoke_*/
+/pack_run_full_matrix/
 /external_reviewer_out/
 /external_reviewer_smoke_out/
 /risk_register_reviewer_out/

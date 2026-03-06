@@ -328,7 +328,7 @@
     }
   ],
   "evidence_level": "deterministic_only",
-  "git_commit_hash": "c043a15b61b2d592a18143ecc0dc9a672c3dcc7a",
+  "git_commit_hash": "2f6a0f01914137e7fb77f12662b22b9001b64041",
   "injection_registry": [
     {
       "expected_effects": "active",

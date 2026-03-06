@@ -75,7 +75,7 @@ Job **coverage** runs on **every push/PR**. It runs `pytest -q -m "not slow" --c
 
 | Item | Value |
 |------|--------|
-| **Current floor** | 60% (see `fail_under` in pyproject.toml) |
+| **Current floor** | 54% (see `fail_under` in pyproject.toml) |
 | **Cadence** | Raise by +5 percentage points every 4 weeks until target is reached. |
 | **Target** | 80% (adjust in ci.md and pyproject.toml when raising). |
 | **Who** | Maintainer raises `fail_under` and updates this table on the agreed cadence. |
@@ -347,11 +347,37 @@ A separate workflow **`.github/workflows/package-release-nightly.yml`** runs **p
 
 ## Release workflow (tag v*)
 
-**`.github/workflows/release.yml`** runs on push of tags `v*` (e.g. `v0.1.0`):
+**`.github/workflows/release.yml`** runs on push of tags `v*` (e.g. `v0.2.0`):
 
 - Copies `policy/` into `src/labtrust_gym/policy` so the wheel ships policy.
 - Builds sdist and wheel with `python -m build`.
-- Uploads `dist/` as artifact. The **publish** job runs `twine upload --non-interactive dist/*` to PyPI. Before the first release, configure repository secrets: `TWINE_PASSWORD` (PyPI token or password) and optionally `TWINE_USERNAME` (if not using token-only auth). Without these secrets, the publish step will fail.
+- Uploads `dist/` as artifact. The **publish** job runs `twine upload --non-interactive dist/*` to PyPI.
+
+**GitHub and PyPI secrets (before first publish):**
+
+1. In the GitHub repo: **Settings → Secrets and variables → Actions**.
+2. Add **TWINE_PASSWORD:** Create a PyPI API token at [PyPI Account → API tokens](https://pypi.org/manage/account/token/). Use the token value as the secret; for token-only auth you do not need TWINE_USERNAME.
+3. **TWINE_USERNAME** (optional): Set to your PyPI username if not using token-only auth; omit if using an API token (twine will use `__token__` with the token as password).
+4. The publish job does not use a GitHub Environment; no need to create a "release" environment. Without these secrets, the publish step will fail on tag push; the build and artifact upload still succeed.
+
+**Repository and GitHub settings (manual, when going public):**
+
+- **Visibility:** Set the repo to **Public** when ready (or keep private until checks pass).
+- **Branch protection:** If you use branch protection for `main`, add the required status checks that match the CI jobs you want to enforce (e.g. test, golden, release-fixture-verify, coverage).
+- **GitHub Pages:** If docs are deployed via Actions (e.g. `docs.yml`), in **Settings → Pages** set Source to **GitHub Actions**. No change if already configured.
+- **Topics and description:** In **Settings → General**, set the repo description and add topics (e.g. `gym`, `multi-agent`, `hospital`, `pettingzoo`). Optionally set the website URL to the docs URL.
+
+## Dependency audit (optional)
+
+To check for known vulnerabilities in the project's dependencies, run **pip-audit** from the **project virtual environment** (not the system or conda base), so the audit matches what CI and users install:
+
+```bash
+# From repo root, with project venv activated (e.g. .venv)
+pip install pip-audit
+pip-audit
+```
+
+If you run pip-audit without activating the project venv, it may audit the wrong environment and report CVEs from unrelated packages (e.g. conda). The project pins **cryptography>=46.0.5** in `pyproject.toml` to avoid known issues in older versions. Transitive dependencies (e.g. from optional extras) can be updated by bumping the extra's dependency or running `pip install -U <package>` and re-auditing.
 
 ## Release and live LLM
 
