@@ -8,7 +8,6 @@ Canonical layout of the LabTrust-Gym repo. Keep the root minimal; put CLI and bu
 |------|---------|
 | `README.md` | Project overview, installation, CLI summary. |
 | `LICENSE` | Apache-2.0. |
-| `CHANGELOG.md` | Version history. |
 | `CONTRIBUTING.md` | Contribution guidelines. |
 | `CODE_OF_CONDUCT.md` | Community standards. |
 | `CITATION.cff` | Citation metadata. |
