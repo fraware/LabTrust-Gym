@@ -1,5 +1,0 @@
-method_id,throughput_mean,throughput_std,violations_mean,blocks_mean,resilience_score_mean,resilience_score_std,p95_tat_mean,on_time_rate_mean,critical_compliance_mean,attack_success_rate_mean,stealth_success_rate_mean,n_cells
-kernel_auction_whca_shielded,0.0,0.0,107.0833,257.0,0.652,0.3741,,,,0.0,0.0,12
-llm_detector_throttle_advisor,0.0,0.0,13617.9167,36583.0,0.1274,0.1608,,,,0.0,0.0,12
-llm_local_decider_signed_bus,0.0,0.0,13500.0,36300.0,0.5,0.5222,,,,0.0,0.0,12
-llm_repair_over_kernel_whca,0.0,0.0,13500.0,36300.0,0.5,0.5222,,,,0.0,0.0,12
