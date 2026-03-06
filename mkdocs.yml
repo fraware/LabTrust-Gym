@@ -72,6 +72,8 @@ nav:
     - Official benchmark pack: benchmarks/official_benchmark_pack.md
     - Hospital lab full pipeline: benchmarks/hospital_lab_full_pipeline.md
     - Hospital lab full pipeline results: benchmarks/hospital_lab_full_pipeline_results_report.md
+    - Hospital lab metrics: benchmarks/hospital_lab_metrics.md
+    - Throughput comparison: benchmarks/throughput_comparison.md
     - Determinism contract: benchmarks/determinism_contract.md
     - Studies and plots: benchmarks/studies.md
     - Scale and operational limits: benchmarks/scale_operational_limits.md
@@ -154,6 +156,7 @@ nav:
     - Online mode: reference/online_mode.md
     - Testing strategy: reference/testing_strategy.md
     - Deterministic and llm_offline battery: testing/deterministic_and_llm_offline_battery.md
+    - Presentation and demo guide: presentation_labtrust_gym.md
   - API Reference: api/index.md
 
 plugins:

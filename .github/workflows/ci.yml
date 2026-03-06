@@ -94,8 +94,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install package
-        run: pip install -e ".[dev]"
+      - name: Install package (dev + env for policy/schema code that may touch env)
+        run: pip install -e ".[dev,env]"
       - name: Validate policy
         run: labtrust validate-policy
       - name: Validate policy (partner overlay hsl_like)
@@ -118,8 +118,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install package
-        run: pip install -e ".[dev]"
+      - name: Install package (dev + env so export/lab_design and pytest collection succeed)
+        run: pip install -e ".[dev,env]"
       - name: Verify ui_fixtures evidence bundle
         run: labtrust verify-bundle --bundle tests/fixtures/ui_fixtures/evidence_bundle/EvidenceBundle.v0.1
       - name: Export bundle from ui_fixtures (for artifact inspection; tests build bundle in memory)
@@ -134,8 +134,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install package
-        run: pip install -e ".[dev]"
+      - name: Install package (dev + env for export-risk-register)
+        run: pip install -e ".[dev,env]"
       # Plan completeness checked on every PR so required_bench_plan is runnable.
       - name: Required bench plan completeness
         run: python scripts/required_bench_plan_runs.py > /dev/null
@@ -309,8 +309,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install package
-        run: pip install -e ".[dev]"
+      - name: Install package (dev + env for CLI imports)
+        run: pip install -e ".[dev,env]"
       - name: Create minimal artifact and run transparency-log
         run: |
           mkdir -p artifact/_repr/throughput_sla
@@ -328,8 +328,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install package with docs extra
-        run: pip install -e ".[docs]"
+      - name: Install package (docs + env so mkdocstrings can import labtrust_gym)
+        run: pip install -e ".[docs,env]"
       - name: Build MkDocs
         run: mkdocs build --strict
 

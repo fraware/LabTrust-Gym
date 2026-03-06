@@ -26,7 +26,7 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | validate-fhir | `--bundle <path> --terminology <path>` [--strict] | 0 or 1 | (none; violations on stderr; exit 1 with --strict if any code outside value set) | Optional; not part of minimal benchmark. See fhir_export.md. |
 | verify-bundle | `--bundle <EvidenceBundle.v0.1 dir>` or `--strict-fingerprints` | 0 | (none; PASS on stderr) | frozen_contracts.md, trust_verification.md |
 | verify-release | `--release-dir <dir>` optional `--strict-fingerprints` | 0 | (none; summary on stderr; validates EvidenceBundles, risk register, RELEASE_MANIFEST hashes) | frozen_contracts.md, trust_verification.md |
-| build-release-manifest | `--release-dir <dir> --out <path>` | 0 | `<path>/RELEASE_MANIFEST.v0.1.json` (or into release-dir) | trust_verification.md |
+| build-release-manifest | `--release-dir <dir>` | 0 | `<release-dir>/RELEASE_MANIFEST.v0.1.json` | trust_verification.md |
 | run-security-suite | `--out <dir> --smoke` | 0 | `<dir>/SECURITY/attack_results.json` | security_attack_suite.md |
 | safety-case | `--out <dir>` | 0 | `<dir>/SAFETY_CASE/safety_case.json`, `safety_case.md` | risk_register.md, trust_verification.md |
 | run-official-pack | `--out <dir> --smoke` | 0 | `<dir>/pack_manifest.json`, `baselines/`, `baselines/results/`, `SECURITY/`, `SAFETY_CASE/` | official_benchmark_pack.md |

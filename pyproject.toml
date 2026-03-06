@@ -60,12 +60,13 @@ dotenv = []
 # Enhanced CLI output (Rich formatting, progress); install with: pip install -e ".[cli]"
 cli = ["rich>=13.0.0"]
 # Plotting pipeline for study outputs; install with: pip install -e ".[plots]"
-plots = ["matplotlib>=3.7"]
+plots = ["matplotlib>=3.7", "pillow>=12.1.1"]
 # Full dev/reuse: env + marl + docs + plots to minimize test skips; install with: pip install -e ".[full]"
 full = [
     "pettingzoo>=1.24",
     "gymnasium>=0.29",
     "matplotlib>=3.7",
+    "pillow>=12.1.1",
     "stable-baselines3>=2.0",
     "mkdocs>=1.5",
     "mkdocstrings[python]>=0.24",
@@ -78,9 +79,9 @@ marl_hpo = ["optuna>=3.0"]
 docs = ["mkdocs>=1.5", "mkdocstrings[python]>=0.24"]
 # Live OpenAI backend (Structured Outputs); install with: pip install -e ".[llm_openai]"
 # Base install remains unchanged; no network calls without this extra.
-llm_openai = ["openai>=1.40"]
+llm_openai = ["openai>=1.40", "urllib3>=2.6.3"]
 # Live Anthropic backend; install with: pip install -e ".[llm_anthropic]"
-llm_anthropic = ["anthropic>=0.39"]
+llm_anthropic = ["anthropic>=0.39", "urllib3>=2.6.3"]
 # Online serve mode (rate limiting, auth, etc.); stdlib-only by default; add deps here if needed
 online = []
 # OpenTelemetry OTLP export for LLM traces; install with: pip install -e ".[otel]"

@@ -141,6 +141,16 @@ def test_github_excluded(tmp_path: Path) -> None:
     assert not violations
 
 
+def test_hypothesis_excluded(tmp_path: Path) -> None:
+    """Hypothesis cache can contain fail-pattern strings; .hypothesis is excluded from scanning."""
+    _write_tree(
+        tmp_path,
+        {".hypothesis/constants/abc123": '["NotImplementedError", "501 Not Implemented"]\n'},
+    )
+    violations = scan_root(tmp_path)
+    assert not any(".hypothesis" in _norm_path(p, tmp_path) for p, _, _ in violations)
+
+
 def test_clean_tree_no_violations(tmp_path: Path) -> None:
     _write_tree(
         tmp_path,

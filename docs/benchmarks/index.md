@@ -21,6 +21,8 @@ Tasks, benchmark cards, official pack, studies, and reproduction.
 | Document | Description |
 |----------|-------------|
 | [Official benchmark pack](official_benchmark_pack.md) | v0.1/v0.2 and run commands. |
+| [Hospital lab full pipeline](hospital_lab_full_pipeline.md) | Full-pipeline script and orchestration. |
+| [Hospital lab full pipeline results](hospital_lab_full_pipeline_results_report.md) | Example results report (regenerate runs as needed). |
 | [Studies and plots](studies.md) | Study runner, make-plots. |
 | [Coordination studies](../coordination/coordination_studies.md) | Coordination study runner and Pareto. |
 | [LLM Coordination Protocol](llm_coordination_protocol.md) | LLM coordination protocol. |

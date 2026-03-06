@@ -7,37 +7,30 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
 
-**A multi-agent environment (PettingZoo/Gym) for hospital lab automation, with a reference trust skeleton.** The first instance models a pathology lab—specifically a blood sciences lane ([Glossary](docs/reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab)).
-
-**What it provides:** RBAC, signed actions, append-only audit log, invariants, and anomaly throttles—all driven by versioned policy and golden scenarios.
-
-**Trust skeleton (at a glance)**
-
-```mermaid
-flowchart LR
-    Policy["policy/ (YAML)"]
-    Policy --> RBAC["RBAC"]
-    Policy --> Sig["Signed\nactions"]
-    Policy --> Audit["Audit log\n(hash-chained)"]
-    Policy --> Inv["Invariants"]
-    Policy --> Codes["Reason\ncodes"]
-```
+**A multi-agent environment (PettingZoo/Gym) for hospital lab automation, with a reference trust skeleton.**
 
 ---
 
 ## Contents
 
-- [North star](#north-star)
-- [Who is this for?](#who-is-this-for--i-want-to)
-- [Installation](#installation-pip)
-- [Pipelines](#pipelines)
-- [Quick eval](#quick-eval)
-- [CLI](#cli)
-- [Repository structure](#repository-structure)
-- [Golden runner](#golden-runner)
-- [Reproducibility and citation](#reproducibility-and-citation)
-- [Release and contract freeze](#release-and-contract-freeze)
-- [Architecture diagrams](docs/architecture/diagrams.md) (full pipeline and lab topology)
+- [LabTrust-Gym](#labtrust-gym)
+  - [Contents](#contents)
+  - [North star](#north-star)
+  - [Who is this for? / I want to...](#who-is-this-for--i-want-to)
+  - [Installation (pip)](#installation-pip)
+  - [Pipelines](#pipelines)
+  - [Quick eval](#quick-eval)
+  - [CLI](#cli)
+    - [Policy and validation](#policy-and-validation)
+    - [Benchmarking and evaluation](#benchmarking-and-evaluation)
+    - [Export and verification](#export-and-verification)
+    - [Security and safety](#security-and-safety)
+    - [Risk register](#risk-register)
+    - [Coordination and studies](#coordination-and-studies)
+    - [Release and reproducibility](#release-and-reproducibility)
+  - [Repository structure](#repository-structure)
+  - [Reproducibility and citation](#reproducibility-and-citation)
+  - [License](#license)
 
 ---
 
@@ -67,7 +60,7 @@ System and threat model: [Systems and threat model](docs/architecture/systems_an
 | I want to... | First step |
 |--------------|------------|
 | Run benchmarks only | `pip install labtrust-gym[env,plots]` then `labtrust quick-eval` |
-| Add my coordination method (or task) | [Extension development](docs/agents/extension_development.md) + entry_points; see [examples/extension_example](examples/extension_example/) |
+| Add my coordination method (or task) | [Extension development](docs/agents/extension_development.md) + entry_points; see [examples/extension_example](https://github.com/fraware/LabTrust-Gym/tree/main/examples/extension_example) |
 | Fork and customize policy | [Forker guide](docs/getting-started/forkers.md) and `labtrust forker-quickstart` |
 | Use as a library without forking | [Extension development](docs/agents/extension_development.md) + `--profile` + `extension_packages` in a lab profile |
 | Run the full security suite | `labtrust run-security-suite`; needs `.[env]`; use `--skip-system-level` when env is not installed |
@@ -98,9 +91,6 @@ labtrust validate-policy
 pytest -q
 ```
 
-- **Live tests:** Run when `OPENAI_API_KEY` and `LABTRUST_RUN_LLM_LIVE=1` or `LABTRUST_RUN_LLM_ATTACKER=1` are set. Use **`pytest -m 'not slow'`**; avoid `-m 'not slow and not live'` if you want live tests to run.
-- **Policy path:** Run from repo root so `policy/` is found; otherwise **PolicyPathError**. Override with **LABTRUST_POLICY_DIR**. See [Installation](docs/getting-started/installation.md) and [Troubleshooting](docs/getting-started/troubleshooting.md#policy-directory-not-found-policypatherror).
-
 **Full stack** (benchmarks, studies, plots)
 
 ```bash
@@ -121,7 +111,7 @@ labtrust reproduce --profile minimal
 | Extra | Purpose |
 |-------|---------|
 | `[env]` | PettingZoo/Gymnasium (benchmarks and full security suite including coord_pack_ref) |
-| `[plots]` | Matplotlib |
+| `[plots]` | Matplotlib and Pillow (study figures, data tables) |
 | `[llm_openai]` | OpenAI live backend (openai_live) |
 | `[llm_anthropic]` | Anthropic live backend (anthropic_live) |
 | `[marl]` | Stable-Baselines3 (PPO train/eval) |
@@ -139,9 +129,9 @@ Benchmarks run in one of three modes: **deterministic** | **llm_offline** | **ll
 ```mermaid
 flowchart LR
     Run["Run benchmark"]
-    Run --> D["deterministic\n(default)"]
+    Run --> D["deterministic (default)"]
     Run --> O["llm_offline"]
-    Run --> L["llm_live\n+ --allow-network"]
+    Run --> L["llm_live + --allow-network"]
     D --> NoNet["No network"]
     O --> NoNet
     L --> Net["Network / API"]
@@ -154,11 +144,6 @@ flowchart LR
 | **llm_live** | Yes (opt-in) | Live OpenAI/Ollama | Interactive or cost-accepting runs; requires `--allow-network` |
 
 Set mode with `--pipeline-mode`; for live LLM add `--allow-network` or `LABTRUST_ALLOW_NETWORK=1`.
-
-> **Why you saw no OpenAI calls**  
-> Runs are **offline by default**. `quick-eval`, `run-benchmark`, `reproduce`, and `package-release` use `pipeline_mode=deterministic` unless you pass `--pipeline-mode llm_live` and `--allow-network`. The CLI loads `.env` (or `LABTRUST_DOTENV_PATH`); keys there are used for live LLM.  
-> **Live LLM:** `--pipeline-mode llm_live --allow-network --llm-backend openai_live` (or `anthropic_live`, `ollama_live`). The CLI prints **WILL MAKE NETWORK CALLS / MAY INCUR COST**.  
-> Every run records `pipeline_mode`, `llm_backend_id`, `llm_model_id`, and `allow_network` in **results.json** and UI **index.json**; result files also record **non_deterministic** for audit.
 
 ---
 
@@ -270,12 +255,6 @@ Put CLI outputs in `labtrust_runs/` or `--out`. Exit codes, minimal smoke args, 
 
 ---
 
-## Golden runner
-
-The golden runner (`labtrust_gym.runner`) runs scenarios from `policy/golden/golden_scenarios.v0.1.yaml` against an environment adapter implementing `LabTrustEnvAdapter` (reset, step, query). Step results must conform to the runner output contract (status, emits, violations, hashchain, etc.); unknown emits fail the suite. Full suite: `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py`.
-
----
-
 ## Reproducibility and citation
 
 Cite using [CITATION.cff](CITATION.cff).
@@ -288,16 +267,6 @@ Cite using [CITATION.cff](CITATION.cff).
 | **Standardized evaluation** | [Benchmark card](docs/benchmarks/benchmark_card.md), official baselines v0.2 — [Use cases and impact](docs/reference/use_cases_and_impact.md). |
 | **Official baselines** | v0.2 in `benchmarks/baselines_official/v0.2/`. Regenerate: `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force`. Compare: `labtrust summarize-results --in benchmarks/baselines_official/v0.2/results/ your_results.json --out /tmp/compare`. |
 | **Cite** | [CITATION.cff](CITATION.cff) or *LabTrust-Gym: a multi-agent environment for hospital lab automation (pathology lab / blood sciences) with a trust skeleton*. https://github.com/fraware/LabTrust-Gym. |
-
----
-
-## Release and contract freeze
-
-- **Release** — E2E artifacts chain before tagging. [Trust verification](docs/risk-and-security/trust_verification.md), [CONTRIBUTING](CONTRIBUTING.md). **`make verify`** (full battery); **`make paper OUT=<dir>`** (paper artifact); **`labtrust audit-selfcheck --out <dir>`** (Phase A + doctor checks). Paper claims regression: [PAPER_CLAIMS](docs/benchmarks/PAPER_CLAIMS.md).
-- **Version** — `labtrust --version` (version + git SHA). Tag from clean main after checklist.
-- **Contract freeze** — [Frozen contracts](docs/contracts/frozen_contracts.md): runner output, queue, invariant registry, enforcement, receipt, evidence bundle, FHIR, results v0.2; v0.3 extensible only.
-- **Quickstart (paper)** — `bash scripts/quickstart_paper_v0_1.sh` or `scripts/quickstart_paper_v0.1.ps1`: install, validate-policy, quick-eval, package-release paper_v0.1, verify-release. Full release: export-risk-register into release dir, build-release-manifest, verify-release --strict-fingerprints. [Trust verification](docs/risk-and-security/trust_verification.md).
-- **UI** — [tests/fixtures/ui_fixtures/](tests/fixtures/ui_fixtures/). [UI data contract](docs/contracts/ui_data_contract.md).
 
 ---
 

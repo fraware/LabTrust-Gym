@@ -7,7 +7,7 @@ When the main metric of interest is **throughput** (number of specimen releases 
 1. **Run the benchmark** with the scripted baseline (default for throughput_sla in the baseline registry):
 
    ```bash
-   labtrust run-benchmark --task throughput_sla --num-episodes 10 --out ./out/throughput_sla.json
+   labtrust run-benchmark --task throughput_sla --episodes 10 --out ./out/throughput_sla.json
    ```
 
    The baseline registry maps `throughput_sla` to `scripted_ops_v1` (scripted agents that perform accept, process, and release). No coordination method is used; the task uses a fixed set of scripted agents and an initial state with specimens already in `accepted` status.

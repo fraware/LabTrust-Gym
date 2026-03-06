@@ -369,15 +369,48 @@ A separate workflow **`.github/workflows/package-release-nightly.yml`** runs **p
 
 ## Dependency audit (optional)
 
-To check for known vulnerabilities in the project's dependencies, run **pip-audit** from the **project virtual environment** (not the system or conda base), so the audit matches what CI and users install:
+To check for known vulnerabilities in the project's dependencies, run **pip-audit** against the **project virtual environment** (not the system or conda base). If you use conda, pip-audit may default to the conda interpreter and report CVEs from the wrong environment; force it to use the project venv:
+
+**PowerShell (Windows):**
+
+```powershell
+# From repo root
+$env:PIPAPI_PYTHON_LOCATION = (Resolve-Path .\.venv\Scripts\python.exe).Path
+pip-audit
+```
+
+**Bash (Linux/macOS):**
 
 ```bash
-# From repo root, with project venv activated (e.g. .venv)
+# From repo root
+export PIPAPI_PYTHON_LOCATION="$(pwd)/.venv/bin/python"
+pip-audit
+```
+
+Alternatively, activate the project venv first, then run `pip-audit` (so it uses the activated Python):
+
+```powershell
+.\.venv\Scripts\Activate.ps1
 pip install pip-audit
 pip-audit
 ```
 
-If you run pip-audit without activating the project venv, it may audit the wrong environment and report CVEs from unrelated packages (e.g. conda). The project pins **cryptography>=46.0.5** in `pyproject.toml` to avoid known issues in older versions. Transitive dependencies (e.g. from optional extras) can be updated by bumping the extra's dependency or running `pip install -U <package>` and re-auditing.
+The project pins **cryptography>=46.0.5**, **pillow>=12.1.1** (plots extra), and **urllib3>=2.6.3** (LLM extras) in `pyproject.toml` to avoid known CVEs. Packages like `pip` and `wheel` are from the environment, not project dependencies; use a project venv and upgrade them there if needed. Re-run pip-audit after installing or upgrading deps.
+
+**If pip-audit reports vulnerabilities**, upgrade the affected packages in the project venv (with the venv activated):
+
+```bash
+# Fix cryptography (CVE-2026-26007) and pillow (CVE-2026-25990)
+pip install -U 'cryptography>=46.0.5' 'pillow>=12.1.1'
+
+# Fix pip (PYSEC-2023-228, CVE-2025-8869, CVE-2026-1703) — pip is the installer, not a project dep
+python -m pip install -U pip
+
+# Re-run audit
+pip-audit
+```
+
+The skip for **labtrust-gym** ("Dependency not found on PyPI") is expected when the project is installed in editable mode from source; it is not a vulnerability.
 
 ## Release and live LLM
 
