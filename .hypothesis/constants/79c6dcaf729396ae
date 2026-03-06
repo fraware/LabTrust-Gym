@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\local_controller.py
-# hypothesis_version: 6.151.6
-
-['MOVE', 'NOOP', 'SET_INTENT', 'START_RUN', 'STAT', 'URGENT', 'W', '__int__', 'action_index', 'action_type', 'adjacency', 'agent_id', 'args', 'device_id', 'device_ids', 'device_zone', 'edf', 'from_zone', 'graph_edges', 'greedy', 'job_id', 'per_agent', 'priority_weight', 'queue_head', 'to_zone', 'whca', 'work_id', 'zone_ids', 'zone_layout']

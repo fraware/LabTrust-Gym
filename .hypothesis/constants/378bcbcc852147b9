@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\specimens.py
-# hypothesis_version: 6.151.6
-
-[600, 'ACCEPTED', 'ACCEPT_SPECIMEN', 'AMBIENT_20_25', 'BIOCHEM_PANEL_CORE', 'CITRATE', 'COAG_PANEL_CORE', 'HOLD_SPECIMEN', 'ID_MISMATCH', 'INT_LEAKING', 'INV-COAG-FILL-001', 'PLASMA', 'PLASMA_CITRATE', 'REJECT_SPECIMEN', 'S1', 'S2', 'SERUM', 'SERUM_SST', 'S_BIOCHEM_OK', 'S_COAG_OK', 'VIOLATION', 'accepted', 'accessioning', 'arrival_ts_s', 'arrived_at_reception', 'clot', 'collection_ts_s', 'container_type', 'fill_ratio_ok', 'hazard_flag', 'held', 'hemolysis', 'insufficient_volume', 'integrity_flags', 'invariant_id', 'label_issue', 'last_reason_code', 'leak', 'panel_id', 'pid:hash:001', 'pid:hash:002', 'rejected', 'separated_ts_s', 'specimen_id', 'specimen_type', 'status', 'temp_band', 'template_ref', 'unknown']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\llm_central_planner.py
-# hypothesis_version: 6.151.6
-
-[0.0, 'COORD_STALE_VIEW', 'NOOP', 'TICK', 'action_index', 'action_type', 'agent_id', 'allowed_actions', 'args', 'backend_id', 'blocked_threshold', 'comms', 'deterministic', 'estimated_cost_usd', 'generate_proposal', 'horizon_steps', 'latency_ms', 'latency_ms_list', 'llm_central_planner', 'max_repairs', 'meta', 'method_id', 'model_id', 'n/a', 'ops_0', 'per_agent', 'policy_summary', 'proposal_id', 'proposal_total_count', 'proposal_valid_count', 'pz_to_engine', 'reason_code', 'reset', 'safe_fallback', 'shielded', 'step_id', 'token_refs', 'tokens_in', 'tokens_out']

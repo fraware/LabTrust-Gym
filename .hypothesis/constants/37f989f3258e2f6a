@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\coordination\identity.py
-# hypothesis_version: 6.151.6
-
-[',', ':', 'ascii', 'epoch', 'message_type', 'nonce', 'payload', 'payload_hash', 'sender_id', 'signature', 'utf-8']

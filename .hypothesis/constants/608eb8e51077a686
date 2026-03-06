@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\telemetry.py
-# hypothesis_version: 6.151.6
-
-['action_index', 'action_type', 'actions', 'agent_id', 'args', 'method_id', 'plan_time_ms', 'policy', 'schemas', 't_step', 'utf-8', 'view_age_ms']

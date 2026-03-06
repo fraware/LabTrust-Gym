@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\kernels\scheduler_or.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.1, 0.2, 0.5, 1.0, 2.0, 1000.0, 'deadlock_avoids', 'fairness_regularizer', 'horizon_steps', 'mean_plan_time_ms', 'or_empty', 'replan_cadence_steps', 'replan_rate', 'scheduler_or', 'tardiness', 'throughput', 'violation_penalty', 'weights']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\repair_input.py
-# hypothesis_version: 6.151.6
-
-['NOOP', 'action_type', 'agent_id', 'blocked_actions', 'constraint_summary', 'reason_code', 'red_team_flags', 'utf-8']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\prompt_fingerprint.py
-# hypothesis_version: 6.151.6
-
-[b'no-coordination-identity-policy', 256, ',', ':', 'comms_stats', 'device_zone', 'per_agent', 'per_device', 'per_specimen', 'policy', 'policy_slice', 'prompt_sha256', 'prompt_template_id', 'state_digest_slice', 'step', 'utf-8']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\critical.py
-# hypothesis_version: 6.151.6
-
-[2.5, 6.5, 120, 160, 'BIOCHEM_POTASSIUM_K', 'BIOCHEM_SODIUM_NA', 'CRIT_A', 'CRIT_ACK_TIMEOUT', 'CRIT_NO_ACK', 'CRIT_NO_READBACK', 'INV-CRIT-002', 'INV-CRIT-004', 'ack', 'acknowledgment_ts_s', 'analyte_code', 'attempt_id', 'callee_role', 'caller_id', 'channel', 'class', 'communicated_ts', 'critical_thresholds', 'criticality_class', 'defaults_rcpath2017', 'escalate', 'high', 'low', 'max_ack_wait_s', 'message_template_id', 'mmol/L', 'mode', 'next_role', 'none', 'notify', 'outcome', 'read_back_confirmed', 'receiver_name_or_id', 'receiver_role', 'required_fields', 'requires_readback', 'result_id', 'role', 'sender_agent_id', 'thresholds', 'tier_index', 'tiers', 'timestamp', 'type', 'units']

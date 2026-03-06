@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\ripple_effect.py
-# hypothesis_version: 6.151.6
-
-[0.0, 'MOVE', 'NOOP', 'START_RUN', 'STAT', 'TICK', 'URGENT', 'W', 'Z_SORTING_LANES', 'action_index', 'action_type', 'agent_id', 'args', 'device_id', 'door_restricted_open', 'drop_rate', 'from_zone', 'graph_edges', 'invalid_msg_rate', 'invalid_sig_count', 'item', 'msg_count', 'priority', 'queue_head', 'queue_len', 'reason_code', 'replay_drop_count', 'ripple_effect', 'ripple_intent', 'spoof_attempt_count', 'step', 'to_zone', 'violations', 'work_id', 'zone_id', 'zone_layout']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\llm\fault_model.py
-# hypothesis_version: 6.151.6
-
-[0.0, 5000.0, 7919, 'LLM_REFUSED', 'NOOP', 'backend_id', 'enabled', 'fallback_count', 'fault_id', 'fault_injected_count', 'fault_type', 'faults', 'high_latency', 'invalid_output', 'latency_ms', 'llm', 'policy', 'probability', 'reason_code', 'reset', 'seed_offset', 'simulated_latency_ms', 'step_idx', 'step_intervals', 'tokens_in', 'tokens_out']

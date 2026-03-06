@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\llm_repair_over_kernel_whca.py
-# hypothesis_version: 6.151.6
-
-[0.0, 1000, '. agent_ids: ', 'COORD_SHIELD_REJECT', 'INV-ROUTE-001', 'INV-ROUTE-002', 'MOVE', 'NOOP', 'OPEN_DOOR', 'QUEUE_RUN', 'START_RUN', 'TICK', '[', '```', 'action_index', 'action_type', 'agent_id', 'allowed_actions', 'args', 'backend_id', 'blocked_actions', 'completion_tokens', 'constraint_summary', 'content', 'deterministic_repair', 'fallback_count', 'fallback_rate', 'fault_injected_count', 'fault_injected_rate', 'get_alloc_metrics', 'get_fault_metrics', 'get_route_metrics', 'invariants', 'json', 'last_metrics', 'latency_ms', 'live_repair', 'live_repair_fallback', 'llm_repair', 'prompt_tokens', 'reason_code', 'repair_call_count', 'repair_success_rate', 'reset', 'role', 'route_hash', 'seed', 'step', 'step_idx', 'system', 'tokens_in', 'tokens_out', 'total_repair_tokens', 'user']
