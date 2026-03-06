@@ -1,8 +1,0 @@
-{
-  "allow_network": true,
-  "model_id": null,
-  "pipeline_mode": "llm_live",
-  "python_version": "3.12.1",
-  "temperature": null,
-  "tool_registry_fingerprint": "03242dac72175c4bfeafa4c92ab888904b135e0f71af0cf68e62de89d5db844d"
-}
