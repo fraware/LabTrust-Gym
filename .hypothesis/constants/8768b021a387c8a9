@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\llm\backends\ollama_live.py
-# hypothesis_version: 6.151.6
-
-[0.0, 200, 1000, '/', '60', 'Content-Type', 'LLM_PROVIDER_ERROR', 'LLM_TIMEOUT', 'NOOP', 'Ollama URL error: %s', 'POST', 'action_type', 'api/chat', 'application/json', 'args', 'backend_id', 'confidence', 'content', 'error_code', 'error_count', 'error_message', 'error_rate', 'latency_ms', 'llama3.2', 'mean_latency_ms', 'message', 'messages', 'model', 'model_id', 'ollama_live', 'prompt_sha256', 'rationale', 'reason_code', 'response_sha256', 'role', 'safety_notes', 'stream', 'sum_latency_ms', 'timed out', 'token_refs', 'total_calls', 'user', 'utf-8', '{}']

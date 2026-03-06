@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\allocation\auction.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 1000000000.0, 999, 'BID_ANOMALY_DETECTED', 'INJ-BID-SPOOF-001', 'START_RUN', 'STAT', 'URGENT', 'W', 'agent_id', 'agents', 'alloc_emits', 'allowed_actions', 'bid', 'detector_enabled', 'device_id', 'emit', 'injection_id', 'max_bids_per_step', 'mean_bid', 'num_assignments', 'queue_by_device', 'queue_head', 'queue_len', 'rbac_policy', 'reason_code', 'rebid_rate', 'restricted', 'roles', 'spoof_agent_id', 'token_active', 'view_snapshots', 'work_id', 'zone_id', 'zone_layout', 'zones']

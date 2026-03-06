@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\qc.py
-# hypothesis_version: 6.151.6
-
-['QC_FAIL_ACTIVE', 'device_id', 'fail', 'flags', 'generated', 'held', 'pass', 'qc_state', 'released', 'result_id', 'run_id', 'status']

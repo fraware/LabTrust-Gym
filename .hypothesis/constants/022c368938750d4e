@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\benchmarks\pareto.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.95, 1.0, 150, 1000, '0.1', '0.3', 'Agg', 'C0', 'Pareto front', 'Throughput', 'ci_high', 'ci_low', 'cost.total_tokens', 'dominated', 'frontier.svg', 'fronts_per_scale', 'injection_id', 'lightgray', 'max', 'mean', 'method_id', 'min', 'objectives', 'p95 TAT (s)', 'pareto.json', 'pareto.md', 'pareto_cost.json', 'pareto_version', 'per_method_ci', 'perf.p95_tat', 'perf.throughput', 's', 'scale_id', 'security_success', 'seed', 'utf-8', 'version', 'w', '—']

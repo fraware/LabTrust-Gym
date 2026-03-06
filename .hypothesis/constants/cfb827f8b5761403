@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\studies\resilience_scoring.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.25, 0.5, 1.0, 'cell_key', 'component_perf', 'component_safety', 'component_security', 'components', 'coordination', 'direction', 'higher_better', 'lower_better', 'omit', 'one', 'perf', 'policy', 'range', 'safety', 'saturation', 'security', 'sub_metrics', 'weights', 'zero']

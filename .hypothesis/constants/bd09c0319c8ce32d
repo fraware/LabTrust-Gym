@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\llm_gossip_summarizer.py
-# hypothesis_version: 6.151.6
-
-[128, 512, 1024, 3000, 4096, ',', ':', 'COORD_VIOLATION', 'MOVE', 'NOOP', 'START_RUN', 'W', 'Z_SORTING_LANES', 'action_index', 'action_type', 'active', 'agent_id', 'args', 'device_id', 'from_zone', 'frozen', 'get_summary', 'gossip_summary', 'graph_edges', 'ignore', 'instruction', 'policy', 'previous', 'queue_head', 'queue_len', 'queue_summary', 'reason_code', 'schemas', 'sender_id', 'step_id', 'task', 'to_zone', 'utf-8', 'violations', 'work_id', 'zone_id', 'zone_layout']

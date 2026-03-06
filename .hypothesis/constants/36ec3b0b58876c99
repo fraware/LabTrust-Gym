@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\gossip_consensus.py
-# hypothesis_version: 6.151.6
-
-[0.1, 100, 1000, 'MOVE', 'START_RUN', 'W', 'action_index', 'action_type', 'args', 'byzantine_mode', 'device_id', 'from_zone', 'gossip_aggregation', 'gossip_consensus', 'gossip_rounds', 'graph_edges', 'log_frozen', 'median', 'queue_head', 'queue_len', 'sum', 'to_zone', 'trim_mean', 'work_id', 'zone_id', 'zone_layout']
