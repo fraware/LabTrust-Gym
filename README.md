@@ -40,14 +40,16 @@
 |--------|------|
 | **Environment** | Pip-installable, standard multi-agent API (PettingZoo AEC or parallel). |
 | **Trust skeleton** | Roles/permissions, signed actions, hash-chained audit log, invariants, reason codes. |
-| **Benchmarks** | Tasks and baselines (scripted, MARL, LLM) with clear safety/throughput trade-offs. |
+| **Benchmarks** | Tasks (throughput_sla, adversarial_disruption, insider_key_misuse, coord_scale, coord_risk) and baselines (scripted, MARL, LLM). The **golden suite** defines correctness; regression means passing the suite. Safety/throughput trade-offs are measurable. |
+| **Coordination** | Pluggable coordination methods; **coord_scale** (scale stress) and **coord_risk** (under injection). Method–risk matrix and coordination security pack with gate thresholds; SOTA and method-class comparison. |
+| **Security & safety** | **Security attack suite** (prompt injection, tool, memory, detector, coordination-under-attack); **risk register** bundle with evidence and gaps; **coverage gate** (required_bench); **safety case**. Evidence bundles and verify-release chain for auditability. |
 
 **Principles**
 
 - **Golden scenarios drive development** — Correctness is defined as passing the golden suite; the suite is the specification for regression. It does not cover all failure modes; gaps imply gaps in assured behavior.
 - **Policy is data** — Invariants, tokens, reason codes, catalogue, zones live in versioned files under `policy/`.
-- **Determinism** — Golden runs are deterministic (seeded RNG, no ambient randomness). Same Python version and OS as CI for reproducible baselines; see [Determinism contract](docs/benchmarks/determinism_contract.md).
 - **No silent failure** — Missing hooks or invalid data fail loudly with reason codes.
+- **Evidence over claims** — Security and safety are evidenced by the attack suite, coordination security pack, and risk register; required_bench cells must be covered or explicitly waived.
 
 System and threat model: [Systems and threat model](docs/architecture/systems_and_threat_model.md).
 
