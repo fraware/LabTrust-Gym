@@ -67,7 +67,7 @@ To run steps 1–3 and docs in one go (same as CI):
 bash scripts/run_verification_battery.sh
 ```
 
-Or: `make verify` (same effect). On Windows, run the equivalent steps manually or use the PowerShell equivalents where available; the script is bash-only.
+Or: `make verify` (same effect). On Windows, use the PowerShell equivalent: `powershell -File scripts/run_verification_battery.ps1` (or `.\scripts\run_verification_battery.ps1` from repo root). The bash script is Unix-only.
 
 ---
 

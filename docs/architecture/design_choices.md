@@ -327,4 +327,4 @@ Two code paths contribute to this population:
 
 ---
 
-*Document version: 1.0. Last updated to reflect current codebase (scale, coordination, agent-driven driver, security suite, parallel execution, backward compatibility, future extensions).*
+*Document version: 1.0. Last updated to reflect current codebase (scale, coordination, agent-driven driver, security suite, parallel execution, backward compatibility, future extensions). Line numbers in code references are approximate and may shift with code changes.*

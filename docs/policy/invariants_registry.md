@@ -49,7 +49,7 @@ The **Invariant Registry** is a strict, machine-readable YAML file that defines 
 
 ## Logic template types
 
-Templates are compiled into callable checks in `engine/invariants_runtime.py`. Supported types and parameters:
+Templates are compiled into callable checks in `src/labtrust_gym/engine/invariants_runtime.py`. Supported types and parameters:
 
 ### state
 
@@ -84,10 +84,10 @@ Reserved for future (e.g. state-transition checks).
 1. **Add an entry** to `policy/invariants/invariant_registry.v1.0.yaml`:
    - Set `invariant_id`, `title`, `severity`, `scope`.
    - Set `logic_template.type` to one of `state`, `temporal`, `transition`.
-   - Set `logic_template.parameters` to the parameters required by the template (see handlers in `invariants_runtime.py`).
+   - Set `logic_template.parameters` to the parameters required by the template (see handlers in `src/labtrust_gym/engine/invariants_runtime.py`).
    - Optionally set `exception_hooks`, `enforcement_hint`, `reason_code`, `triggers`.
 
-2. **Implement or reuse a handler** in `engine/invariants_runtime.py`:
+2. **Implement or reuse a handler** in `src/labtrust_gym/engine/invariants_runtime.py`:
    - If the template type + parameters (e.g. `state` + `check: "my_check"`) already exist, no code change.
    - Otherwise add a function `_check_my_check(env, event, params)` returning `(passed, reason_code, details)` or `None`, and register it in `_TEMPLATE_HANDLERS`.
 

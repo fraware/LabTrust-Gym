@@ -11,7 +11,7 @@ This document gives a single narrative of how LabTrust-Gym is layered and how th
 | **Envs** | `envs/` | PettingZoo Parallel (and AEC) wrappers over the engine; observations, actions, rewards, infos. |
 | **Baselines** | `baselines/` | Who chooses actions: scripted ops, scripted runner, adversary, insider, LLM agent, coordination methods. |
 | **Benchmarks** | `benchmarks/` | Task definitions, metrics, and the **runner** that owns the env and drives the step loop. |
-| **Studies / Export / Security** | `studies/`, `export/`, `benchmarks/security_runner.py` | Studies run many (scale × method × injection) cells; export builds the risk-register bundle; security runs the attack suite. |
+| **Studies / Export / Security** | `studies/`, `export/`, `benchmarks/security_runner.py` (run-security-suite) | Studies run many (scale × method × injection) cells; export builds the risk-register bundle; security suite runs from `benchmarks/security_runner` and emits SECURITY/ + securitization packet. |
 
 The **benchmark runner owns the env**. Baselines and coordination methods never call the env; they only receive observations and infos and return action dicts. See [Coordination and env data flow](../coordination/coordination_and_env.md).
 
@@ -62,8 +62,10 @@ Initial state for each episode comes from the task (`task.get_initial_state(seed
 | `run-security-suite` | `security_runner` → attack suite from policy → `SECURITY/attack_results.json` |
 | `export-risk-register` | `export/risk_register_bundle` → policy + run dirs → `RISK_REGISTER_BUNDLE.v0.1.json` |
 | `validate-coverage --strict` | Risk register bundle + `required_bench_plan` + waivers → exit 1 if required risk has missing evidence |
-| `package-release` | `official_pack` → baselines, SECURITY/, SAFETY_CASE/, transparency log into one output tree |
-| Golden suite (e.g. `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py`) | `golden_runner` → `LabTrustEnvAdapter`, scenarios from `policy/golden` |
+| `package-release` | Reproduce (or paper profile), baselines, SECURITY/, SAFETY_CASE/, TRANSPARENCY_LOG/, receipts, FIGURES/TABLES, MANIFEST, BENCHMARK_CARD; see [Paper provenance](../benchmarks/paper/README.md). |
+| `run-official-pack` | Official pack (tasks, baselines, coordination, security) into one output tree; optional `--include-coordination-pack`, `--pipeline-mode llm_live`. |
+| `build-release-manifest`, `verify-release` | Write RELEASE_MANIFEST.v0.1.json; verify all EvidenceBundles and manifest hashes (e.g. after package-release). |
+| Golden suite (e.g. `LABTRUST_RUN_GOLDEN=1 pytest tests/test_golden_suite.py`) | `runner/golden_runner` → `LabTrustEnvAdapter`, scenarios from `policy/golden` |
 
 ## Simulation, LLMs, and agentic systems
 

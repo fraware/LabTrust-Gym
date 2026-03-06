@@ -15,6 +15,9 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Coordination matrix contract (v0.1)](coordination_matrix_contract.md) | Matrix contract. |
 | [Fidelity notes](fidelity_notes.md) | Algorithm and invariant fidelity per method. |
 | [Learning methods implementation strategy](learning_methods_implementation_strategy.md) | Implementation strategy for learning-based methods. |
+| [Handoff protocol](handoff_protocol.md) | Hub-to-region handoff and ACK protocol. |
+| [Multi-LLM protocols](multi_llm_protocols.md) | Multi-LLM coordination protocols. |
+| [Phase 5 LLM upgrades](phase5_llm_upgrades.md) | Phase 5 LLM coordination upgrades. |
 
 ## Studies and reports
 
@@ -23,7 +26,6 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Coordination studies](coordination_studies.md) | Run studies, Pareto, summarization; SOTA leaderboard (main + full), method-class comparison; output layout and summarize-coordination. |
 | [Coordination benchmark card](coordination_benchmark_card.md) | Task G/H and metrics; SOTA and method-class report artifacts. |
 | [Coordination methods audit](coordination_methods_audit.md) | Method audit. |
-| [Lab coordination report](lab_coordination_report.md) | Canonical pathology lab (blood sciences) flow. |
 | [Generalization and limits](generalization_and_limits.md) | What was tested, what was not; comparison with other benchmarks. |
 
 ## Risk and coverage

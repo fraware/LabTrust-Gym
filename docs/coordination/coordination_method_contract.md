@@ -43,5 +43,5 @@ Schema: `policy/schemas/coord_method_output_contract.v0.1.schema.json`.
 
 ## See also
 
-- `docs/coordination_methods.md` for method registry and kernel composition.
+- [Coordination methods](coordination_methods.md) for method registry and kernel composition.
 - `policy/schemas/coord_method_output_contract.v0.1.schema.json` for the full JSON Schema.

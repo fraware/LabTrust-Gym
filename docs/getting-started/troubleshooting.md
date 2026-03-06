@@ -42,7 +42,7 @@ Common failures and how to fix or work around them.
 
 1. Run `labtrust validate-policy` and read the reported file and key (e.g. missing required key, wrong type). Fix the YAML/JSON under `policy/` to match the schema in `policy/schemas/`.
 2. For partner overlay: ensure `policy/partners/<id>/` exists and overlay files follow the same schema as base policy. Use `labtrust validate-policy --partner <id>` to validate the overlay.
-3. If you added a new policy file, ensure it is listed in the loader’s validation list (see `policy/validate.py` or the validate-policy implementation) and that the schema exists under `policy/schemas/` if applicable.
+3. If you added a new policy file, ensure it is listed in the loader’s validation list (see `src/labtrust_gym/policy/validate.py`) and that the schema exists under `policy/schemas/` if applicable.
 
 ## Pack gate failures (security_gate_failed)
 

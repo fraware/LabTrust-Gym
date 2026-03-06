@@ -11,7 +11,7 @@ The coordination benchmark uses scale configs defined in [policy/coordination/sc
 | scale_id | num_agents_total | num_sites | horizon_steps |
 |----------|------------------|-----------|---------------|
 | corridor_heavy | 200 | 2 | 150 |
-| small_smoke | 4 | 1 | 50 |
+| small_smoke | 4 | 1 | 80 |
 | small_8 | 8 | 1 | 60 |
 | medium_stress_signed_bus | 75 | 2 | 300 |
 

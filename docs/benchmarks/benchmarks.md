@@ -53,11 +53,11 @@ Benchmark harness for running multiple episodes with fixed seeds, recording metr
 
 ### insider_key_misuse (Insider and key misuse)
 
-- **Goal**: Trust skeleton under insider + key misuse: RBAC deny, forged signature, replay, token misuse; measure containment and forensic quality.
+- **Goal**: Trust skeleton under insider + key misuse: RBAC deny, forged signature, replay, revoked key, token misuse; measure containment and forensic quality.
 - **Initial state**: Deterministic from seed; 2–3 specimens.
 - **Episode length**: 50 steps.
 - **Agents**: Scripted ops + runner_0 + **adversary_insider_0** (A_INSIDER_0 with limited RBAC).
-- **Attack phases** (deterministic steps): (1) RELEASE_RESULT → RBAC_ACTION_DENY; (2) MOVE with forged signature → SIG_INVALID; (3) replay same signature → SIG_INVALID; (4) RELEASE_RESULT_OVERRIDE with fake token → RBAC_ACTION_DENY.
+- **Attack phases** (deterministic steps): (1) RELEASE_RESULT → RBAC_ACTION_DENY; (2) MOVE with forged signature → SIG_INVALID; (3) replay same signature → SIG_INVALID; (4) revoked key → SIG_KEY_REVOKED; (5) RELEASE_RESULT_OVERRIDE with fake token / token misuse → RBAC_ACTION_DENY or token blocked.
 - **Reward config**: throughput_reward 0.3, violation_penalty 0.2, blocked_penalty 0.1.
 - **Metrics**: `time_to_first_detected_security_violation`, `fraction_of_attacks_contained`, `forensic_quality_score` (receipts include signature + RBAC + token evidence).
 - **Study sweep**: `policy/studies/study_spec.taskf_insider.v0.1.yaml` sweeps **strict_signatures** [false, true] to show effect on containment.
@@ -169,7 +169,7 @@ labtrust quick-eval --seed 42
 labtrust run-benchmark --task throughput_sla --episodes 50 --seed 123 --out results.json
 ```
 
-- **quick-eval**: 1 episode each of throughput_sla, adversarial_disruption, multi_site_stat; writes summary.md and logs under `./labtrust_runs/quick_eval_<timestamp>/` (`--seed`, `--out-dir`).
+- **quick-eval**: 1 episode each of throughput_sla, adversarial_disruption, multi_site_stat; writes summary.md and logs under the output directory (default `labtrust_runs/`; runner creates a subdir such as `quick_eval_<timestamp>/`). Use `--seed` and `--out-dir` to customize.
 - **run-benchmark** — `--task`: throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse, coord_scale, coord_risk. For coord_scale/coord_risk use `--coord-method <method_id>`; for coord_risk add `--injection <injection_id>`.
 - `--episodes`: Number of episodes (default 10).
 - `--seed`: Base seed (default 123).

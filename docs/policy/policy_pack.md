@@ -34,7 +34,7 @@ All policy files are validated in CI. Unknown emits in step results fail the gol
 
 ## Policy resolution at reset
 
-When the engine resets (`core_env.reset()`), each policy value (e.g. RBAC, key registry, zones) is resolved by `engine/policy_resolution.py`: **effective_policy[key]** if present and valid, else **load from policy_root** (file on disk), else **default**. Initial state can supply `effective_policy` (e.g. from a partner overlay via `load_effective_policy`) and `policy_root`. This keeps scenario overrides and file-based policy in one place. See [System overview: Policy at runtime](../architecture/system_overview.md#policy-at-runtime).
+When the engine resets (`core_env.reset()`), each policy value (e.g. RBAC, key registry, zones) is resolved by `src/labtrust_gym/engine/policy_resolution.py`: **effective_policy[key]** if present and valid, else **load from policy_root** (file on disk), else **default**. Initial state can supply `effective_policy` (e.g. from a partner overlay via `load_effective_policy`) and `policy_root`. This keeps scenario overrides and file-based policy in one place. See [System overview: Policy at runtime](../architecture/system_overview.md#policy-at-runtime).
 
 ## Partner overlays
 

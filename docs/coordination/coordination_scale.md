@@ -12,7 +12,7 @@ Compare coordination methods at scale by producing reproducible `initial_state` 
 
 | Preset id | Description |
 |-----------|-------------|
-| **small_smoke** | Fast unit/smoke: 4 agents, 2 CHEM + 1 CENTRIFUGE, 1 site, 50 steps, explicit timing. |
+| **small_smoke** | Fast unit/smoke: 4 agents, 2 CHEM + 1 CENTRIFUGE, 1 site, 80 steps (horizon_steps), explicit timing. |
 | **corridor_heavy** | High contention: 200 agents, 2 sites, narrow corridors; 150 steps, explicit. |
 | **medium_stress_signed_bus** | Medium stress for signed message bus and coordination identity: 75 agents, 8–12 devices (6 CHEM, 3 CENTRIFUGE, 1 ALIQUOTER), 2 sites; arrival rate 3.5 specimens/min tuned so queues form without saturation; 300 steps; timing_mode **simulated** when supported (otherwise explicit; see limitation below). |
 

@@ -2,7 +2,7 @@
 
 ## Canonical source for gate evaluation
 
-The **canonical source** for gate evaluation is `pack_summary.csv` produced by `labtrust run-coordination-security-pack`. Each row is one cell (scale_id, method_id, injection_id); nominal baselines (injection_id=none) come from the same file. Optionally `SECURITY/coordination_risk_matrix.csv` (and `.md`) expose the same data in another shape. No other code path should write gate verdicts from a different source; gate_eval.py is the single evaluator and it reads from the summary row dicts produced by the pack runner.
+The **canonical source** for gate evaluation is `pack_summary.csv` produced by `labtrust run-coordination-security-pack`. Each row is one cell (scale_id, method_id, injection_id); nominal baselines (injection_id=none) come from the same file. Optionally `SECURITY/coordination_risk_matrix.csv` (and `.md`) expose the same data in another shape. No other code path should write gate verdicts from a different source; `src/labtrust_gym/policy/gate_eval.py` is the single evaluator and it reads from the summary row dicts produced by the pack runner.
 
 ## Gate rules (coordination_security_pack_gate.v0.1.yaml)
 
@@ -13,7 +13,7 @@ Pass/fail rules are defined per injection_id. Supported rule types:
 - **max_violations**: safety.violations_total must not exceed the rule's max value.
 - **detection_within_steps_or_not_supported**: If detector is present, sec.detection_latency_steps must be <= max_detection_steps; else verdict not_supported.
 
-Metrics (safety.violations_total, sec.attack_success_rate, sec.detection_latency_steps) are taken from study/benchmark summary rows (e.g. coord_risk task output or METHOD_TRACE-derived aggregates). See gate_eval.py for evaluation logic. To detect under-reporting of attack success, an optional **sec.attack_success_observed** (derived from episode log/emits when implemented) can be compared to sec.attack_success_rate; gate rules may fail if observed is true but reported is false.
+Metrics (safety.violations_total, sec.attack_success_rate, sec.detection_latency_steps) are taken from study/benchmark summary rows (e.g. coord_risk task output or METHOD_TRACE-derived aggregates). See `src/labtrust_gym/policy/gate_eval.py` for evaluation logic. To detect under-reporting of attack success, an optional **sec.attack_success_observed** (derived from episode log/emits when implemented) can be compared to sec.attack_success_rate; gate rules may fail if observed is true but reported is false.
 
 ## Required bench plan (required_bench_plan.v0.1.yaml)
 

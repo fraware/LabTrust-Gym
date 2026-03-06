@@ -6,7 +6,7 @@ The **labtrust serve** command starts a local HTTP API for evaluation or integra
 
 - Expose a small HTTP API (health, POST /v0/step) for online or scripted clients.
 - Default: **local-only** binding (`127.0.0.1`) and **no API key** required; suitable for development (deterministic mode).
-- When deploying with **online_mode** (API key or `LABTRUST_API_TOKEN` set), require Bearer token or API key for protected routes. See [Security controls for online mode](../risk-and-security/security_online.md).
+- When deploying with **online_mode** (API key set via `LABTRUST_ONLINE_API_KEY` or `LABTRUST_AUTH_KEY`; legacy: `LABTRUST_API_TOKEN`), require Bearer token or `X-API-Key` for protected routes. See [Security controls for online mode](../risk-and-security/security_online.md).
 
 ## Running the server
 
@@ -82,7 +82,7 @@ Example response:
 }
 ```
 
-When the server runs with **online_mode** (e.g. `LABTRUST_API_TOKEN` set), send the Bearer token: `Authorization: Bearer <token>`.
+When the server runs with **online_mode** (e.g. `LABTRUST_ONLINE_API_KEY` or `LABTRUST_AUTH_KEY` set), send the API key in the `X-API-Key` header or as Bearer token: `Authorization: Bearer <token>`.
 
 ## Dependencies
 

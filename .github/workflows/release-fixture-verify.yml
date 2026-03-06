@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install package (dev + env for verify_release/export code paths)
-        run: pip install -e ".[dev,env]"
+        run: pip install -e '.[dev,env]'
       - name: Normalize release fixture and regenerate manifests
         run: python scripts/normalize_release_fixture_manifests.py
       - name: Run release fixture verify test

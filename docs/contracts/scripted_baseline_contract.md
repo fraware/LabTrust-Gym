@@ -6,7 +6,7 @@ Scripted ops and runner agents can be configured via YAML policy files. No file 
 
 - **Scripted ops:** `policy/scripted/scripted_ops_policy.v0.1.yaml`
 - **Scripted runner:** `policy/scripted/scripted_runner_policy.v0.1.yaml`
-- **Schemas:** `policy/schemas/scripted_ops_policy.v0.1.schema.json`, `scripted_runner_policy.v0.1.schema.json`
+- **Schemas:** `policy/schemas/scripted_ops_policy.v0.1.schema.json`, `policy/schemas/scripted_runner_policy.v0.1.schema.json`
 
 ## Scripted ops policy (v0.1)
 

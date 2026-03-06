@@ -15,4 +15,4 @@ Policy is versioned under `policy/`. For the canonical list of frozen contracts 
 | Document | Description |
 |----------|-------------|
 | [Invariant registry](invariants_registry.md) | Invariants and reason codes. |
-| [Enforcement](enforcement.md) | Throttle, kill_switch, forensic_freeze. |
+| [Enforcement](enforcement.md) | Throttle, kill_switch, freeze_zone, forensic_freeze. |

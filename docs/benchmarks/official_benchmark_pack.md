@@ -33,7 +33,7 @@ labtrust run-official-pack --out <dir> --seed-base N
 - **`--pipeline-mode`**: `deterministic` (default) or `llm_live`. With `llm_live`, the pack loads v0.2 policy, runs baselines with a live LLM backend, writes `TRANSPARENCY_LOG/llm_live.json` (prompt hashes, tool registry fingerprint, model identifiers, latency/cost stats; no sensitive prompt text) and `live_evaluation_metadata.json` (model_id, temperature, tool_registry_fingerprint, allow_network).
 - **`--llm-backend`**: When `--pipeline-mode llm_live`, which backend to use: `openai_live`, `anthropic_live`, or `ollama_live`. Default is `openai_live` if not set. Requires the corresponding extra (e.g. `.[llm_anthropic]`) and env vars (e.g. `ANTHROPIC_API_KEY`).
 - **`--allow-network`**: Allow network access (required for llm_live when using a remote API).
-- **`--include-coordination-pack`**: Run the coordination security pack into `coordination_pack/` and build the lab report there (pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.*). Uses the pack policy `coordination_pack.matrix_preset` (default `hospital_lab`) when set; otherwise you can enable it in `policy/official/benchmark_pack.v0.1.yaml` with `coordination_pack: { enabled: true, matrix_preset: hospital_lab }`. See [Lab coordination report](../coordination/lab_coordination_report.md).
+- **`--include-coordination-pack`**: Run the coordination security pack into `coordination_pack/` and build the lab report there (pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.*). Uses the pack policy `coordination_pack.matrix_preset` (default `hospital_lab`) when set; otherwise you can enable it in `policy/official/benchmark_pack.v0.1.yaml` with `coordination_pack: { enabled: true, matrix_preset: hospital_lab }`. See [Coordination studies](../coordination/coordination_studies.md) and [Hospital lab full pipeline](hospital_lab_full_pipeline.md).
 
 Example (smoke, fast):
 
@@ -53,7 +53,7 @@ Example (with coordination pack and lab report):
 labtrust run-official-pack --out ./official_pack_result --seed-base 100 --include-coordination-pack
 ```
 
-This produces `coordination_pack/` under the output dir with pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, and COORDINATION_DECISION.*. See [Lab coordination report](../coordination/lab_coordination_report.md) for the canonical flow.
+This produces `coordination_pack/` under the output dir with pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, and COORDINATION_DECISION.*. See [Coordination studies](../coordination/coordination_studies.md) for the canonical flow.
 
 Example (llm_live, external reproducibility):
 
@@ -137,7 +137,7 @@ After a successful run, `<out>` contains:
   Safety case (claim → control → test → artifact → command). Same as `labtrust safety-case --out <dir>`.
 
 - **coordination_pack/** (when `--include-coordination-pack` or pack policy `coordination_pack.enabled`)  
-  Coordination security pack output plus lab report: pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.*, and under **summary/**: sota_leaderboard (main), sota_leaderboard_full (full metrics), method_class_comparison (with blocks_mean, attack_success_rate_mean). See [Lab coordination report](../coordination/lab_coordination_report.md) and [Hospital lab key metrics](hospital_lab_metrics.md).
+  Coordination security pack output plus lab report: pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.*, and under **summary/**: sota_leaderboard (main), sota_leaderboard_full (full metrics), method_class_comparison (with blocks_mean, attack_success_rate_mean). See [Coordination studies](../coordination/coordination_studies.md) and [Hospital lab key metrics](hospital_lab_metrics.md).
 
 - **TRANSPARENCY_LOG/**  
   Global transparency log over episode digests (when receipts or _repr exist). Otherwise a README.txt explains how to produce it (e.g. export-receipts then transparency-log).

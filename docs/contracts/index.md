@@ -18,6 +18,7 @@ Frozen contracts and formal API/data contracts. These define correctness and the
 | [CLI contract](cli_contract.md) | CLI behavior and output. |
 | [Scripted baseline policy](scripted_baseline_contract.md) | Scripted ops/runner policy YAML paths, keys, and loader; no file => in-code defaults. |
 | [Metrics contract](metrics_contract.md) | Metrics schema, stability, and uncertainty metrics in standard reports. |
+| [Injector get_metrics contract](injector_get_metrics_contract.md) | Risk injector `get_metrics()` return shape for `sec.*` episode metrics (coordination security pack). |
 | [Cross-provider contract](cross_provider_contract.md) | Cross-provider comparability. |
 
 Coordination method and matrix contracts are under [Coordination](../coordination/index.md).

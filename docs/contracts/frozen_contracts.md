@@ -8,7 +8,7 @@ This page is the **canonical list of frozen contracts and schema versions** for 
 | **Queue contract** | v0.1 | [queue_contract.v0.1.md](queue_contract.v0.1.md) | Device queue semantics: item fields, priority ordering (STAT/URGENT/ROUTINE), `QUEUE_RUN` / `START_RUN` interaction, meaning of `queue_head(device_id)`. Fairness vs. latency vs. safety knob. |
 | **Invariant registry schema** | v1.0 | `policy/schemas/invariant_registry.v1.0.schema.json` | Schema for `policy/invariants/invariant_registry.v1.0.yaml`: invariant_id, title, severity, scope, signals, logic_template, exception_hooks, enforcement_hint. |
 | **Enforcement map schema** | v0.1 | `policy/schemas/enforcement_map.v0.1.schema.json` | Schema for `policy/enforcement/enforcement_map.v0.1.yaml`: rules matching invariant_id/severity/scope → actions (throttle_agent, kill_switch, freeze_zone, forensic_freeze); escalation tiers. |
-| **Study spec schema** | v0.1 | `policy/studies/study_spec.schema.v0.1.json` | Schema for study specs: task, episodes, seed_base, ablations; used by `labtrust run-study` for reproducible experiment definitions. |
+| **Study spec (run-study)** | v0.1 | `policy/studies/*.yaml` (e.g. `study_spec.example.v0.1.yaml`); structure implied by run-study loader | Study specs: task, episodes, seed_base, ablations; used by `labtrust run-study` for reproducible experiment definitions. No separate JSON schema in repo. |
 | **Receipt schema** | v0.1 | `policy/schemas/receipt.v0.1.schema.json` | Per-specimen/result receipt (identifiers, timestamps, decision, reason_codes, tokens, invariant/enforcement summary, hashchain). Used by export-receipts. |
 | **Evidence bundle manifest schema** | v0.1 | `policy/schemas/evidence_bundle_manifest.v0.1.schema.json` | Manifest for EvidenceBundle.v0.1: files (path, sha256), policy_fingerprint, partner_id. |
 | **FHIR bundle export schema** | v0.1 | `policy/schemas/fhir_bundle_export.v0.1.schema.json` | Minimal structural contract for FHIR R4 Bundle export (resourceType, type, entry). Not full FHIR validation. |
@@ -46,9 +46,9 @@ Defines the structure of the machine-readable invariant registry (`policy/invari
 
 Defines the structure of the enforcement map (`policy/enforcement/enforcement_map.v0.1.yaml`). Maps violation conditions to actions (throttle, kill_switch, freeze_zone, forensic_freeze). Validated by `labtrust validate-policy`; consumed by `engine/enforcement.py`.
 
-## Study spec schema (v0.1)
+## Study spec (run-study) (v0.1)
 
-Defines the structure of study specification YAMLs (e.g. `policy/studies/study_spec.example.v0.1.yaml`). Used by `labtrust run-study` to expand ablations and run benchmark conditions. Ensures reproducible experiment definitions.
+Study specification YAMLs (e.g. `policy/studies/study_spec.example.v0.1.yaml`) define task, episodes, seed_base, ablations, and agent_config. The run-study loader parses these; there is no separate JSON schema file in the repo. Used by `labtrust run-study` to expand ablations and run benchmark conditions. Ensures reproducible experiment definitions.
 
 ## Receipt and evidence bundle (v0.1)
 
