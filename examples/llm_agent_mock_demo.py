@@ -1,5 +1,5 @@
 """
-Demo: TaskB with LLMAgent(mock) + scripted runners.
+Demo: throughput_sla with LLMAgent(mock) + scripted runners.
 
 Uses MockDeterministicBackend (offline-safe, deterministic). No API calls.
 """
@@ -30,7 +30,7 @@ except ImportError as e:
 
 
 def main() -> None:
-    task = get_task("TaskB")
+    task = get_task("throughput_sla")
 
     def env_factory(initial_state, reward_config, log_path=None):
         return LabTrustParallelEnv(
@@ -61,7 +61,7 @@ def main() -> None:
         env_factory,
         scripted_agents_map=scripted_agents_map,
     )
-    print("TaskB with LLMAgent(mock) + scripted runners:")
+    print("throughput_sla with LLMAgent(mock) + scripted runners:")
     print("  throughput:", metrics.get("throughput", 0))
     print("  steps:", metrics.get("steps", 0))
     print("  violations:", metrics.get("violations_by_invariant_id", {}))

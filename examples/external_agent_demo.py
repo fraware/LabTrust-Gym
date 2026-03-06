@@ -2,7 +2,7 @@
 Example external agent using the LabTrustAgent protocol.
 
 SafeNoOpAgent: policy-aware trivial agent that does NOOP or TICK only.
-Use with: labtrust eval-agent --task TaskA --episodes 2 --agent "examples.external_agent_demo:SafeNoOpAgent" --out results.json
+Use with: labtrust eval-agent --task throughput_sla --episodes 2 --agent "examples.external_agent_demo:SafeNoOpAgent" --out results.json
 """
 
 from __future__ import annotations

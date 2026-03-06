@@ -11,9 +11,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_root = str(Path(__file__).resolve().parent.parent)
-if __name__ == "__main__" and _root not in sys.path:
-    sys.path.insert(0, _root)
+# Add project src for imports when run as script (package lives in src/)
+_root = Path(__file__).resolve().parent.parent
+_src = _root / "src"
+if __name__ == "__main__" and str(_src) not in sys.path:
+    sys.path.insert(0, str(_src))
 
 try:
     from labtrust_gym.baselines.scripted_ops import (
