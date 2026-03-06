@@ -76,6 +76,9 @@ labtrust_runs/
 /SAFETY_CASE/
 /SECURITY/
 
+# Demo/run outputs (do not commit; regenerate via package-release or run-official-pack)
+demo_video_out/
+
 # Local env and secrets (do not commit)
 .env
 .env.local

@@ -1,9 +1,0 @@
-agent_baseline_id,episodes_per_second,n_episodes,partner_id,run_duration_wall_s,task
-scripted_ops_v1,,2,,0,qc_cascade
-scripted_ops_v1,,2,,0,qc_cascade
-scripted_ops_v1,,2,,0,qc_cascade
-scripted_ops_v1,,2,,0,qc_cascade
-scripted_ops_v1,,2,,0,throughput_sla
-scripted_ops_v1,,2,,0,throughput_sla
-scripted_ops_v1,,2,,0,throughput_sla
-scripted_ops_v1,,2,,0,throughput_sla
