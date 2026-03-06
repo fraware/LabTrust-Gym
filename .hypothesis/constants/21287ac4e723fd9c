@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\security\prompt_injection_defense.py
-# hypothesis_version: 6.151.6
-
-[200, 500, 2000, '...', '0.1', 'block_reason_code', 'max_untrusted_chars', 'min_verbatim_len', 'none', 'note', 'placeholder', 'policy', 'samples', 'sanitizer_mode', 'scenario_notes', 'security', 'source', 'specimen_notes', 'text', 'truncate', 'untrusted_notes', 'version']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\studies\coordination_security_pack.py
-# hypothesis_version: 6.151.6
-
-[100, 10000, '---', '0.1', ':', 'FAIL', 'INJ-COMMS-POISON-001', 'INJ-ID-SPOOF-001', 'INJ-TIMING-QUEUE-001', 'PASS', 'SECURITY', '_', 'application_phase', 'coord_risk', 'coordination', 'critical', 'default', 'deterministic', 'episodes', 'episodes.jsonl', 'fixed', 'full', 'group_evolving_study', 'ignore', 'injection_id', 'injection_ids', 'injections', 'injections.v0.2.yaml', 'marl_ppo', 'matrix_presets', 'max_delta', 'max_detection_steps', 'method_id', 'method_ids', 'methods', 'none', 'not_supported', 'pack_gate.md', 'pack_results', 'pack_summary.csv', 'perf.throughput', 'policy', 'results.json', 'rule', 'rules', 'safety.blocks_total', 'scale_id', 'scale_ids', 'security', 'small_smoke', 'utf-8', 'verdict', 'version', 'w']

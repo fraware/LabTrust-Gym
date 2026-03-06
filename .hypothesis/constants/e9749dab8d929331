@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\obs_utils.py
-# hypothesis_version: 6.151.6
-
-[0.0, '__len__', 'device_id', 'device_placement', 'device_qc_pass', 'door_restricted_open', 'flat', 'item', 'log_frozen', 'my_zone_idx', 'queue_by_device', 'queue_has_head', 'zone_id', 'zone_layout', 'zones']

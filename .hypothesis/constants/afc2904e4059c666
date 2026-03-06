@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\orchestrator\shadow.py
-# hypothesis_version: 6.151.6
-
-['.', 'action_index', 'artifact_pointers', 'baseline_log', 'baseline_run_dir', 'compare_metric', 'comparison_path', 'config', 'diffs', 'drift_summary', 'failed', 'message', 'results_shadow.json', 'seeds', 'shadow_log', 'shadow_method_id', 'shadow_run_dir', 'status', 'steps_compared', 'steps_differed', 'task', 'timing_mode', 'utf-8']

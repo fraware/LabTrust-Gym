@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\testing\fuzz.py
-# hypothesis_version: 6.151.6
-
-[0.3, 100, 128, 1000, 'ACCEPTED', 'A_OPS_0', 'A_RECEPTION_0', 'BLOCKED', 'CREATE_ACCESSION', 'D1', 'F1', 'MOVE', 'OPEN_DOOR', 'QUEUE_RUN', 'TICK', '_', 'accession_id', 'action_type', 'agent_id', 'agents', 'arg_schema_ref', 'args', 'blocked_reason_code', 'contract_violation', 'device_id', 'emits', 'emits must be list', 'event', 'events', 'f', 'failure_type', 'initial_state', 'integer', 'maxLength', 'maximum', 'message', 'minLength', 'minimum', 'non_determinism', 'properties', 'query_queue_v1', 'random', 'read_lims_v1', 'required', 'result', 'runs/fuzz_failures', 'seed', 'sequence_index', 'status', 'string', 't_s', 'tool_id', 'tool_registry', 'tools', 'type', 'utf-8', 'val', 'violations', 'violations_count', 'w', 'write_lims_v1', 'x']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\benchmarks\securitization.py
-# hypothesis_version: 6.151.6
-
-['# Security coverage', '## Artifacts', '## Control to tests', '## Risk to controls', '0.1', 'ADV', 'COORD', 'MEM', 'SECURITY', 'TOOL', 'artifacts', 'attack_id', 'attacks', 'control_id', 'control_names', 'control_to_tests', 'controls', 'coverage.json', 'coverage.md', 'deps_inventory.json', 'description', 'expected_outcome', 'fingerprint', 'name', 'namespace', 'path', 'policy', 'policy_paths', 'rbac', 'rbac_policy_path', 'reason_codes', 'reason_codes.md', 'receipts/', 'risk_id', 'risk_names', 'risk_to_controls', 'risks', 'scenario_ref', 'severity', 'sha256', 'smoke', 'test_ref', 'tool_registry', 'unknown', 'utf-8', 'version']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\transport.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.2, 0.5, 0.99, 2.0, 600, 'AMBIENT_20_25', 'arrived', 'coc_signed_by', 'consignment_id', 'current_temp_drift_c', 'dest_site', 'dispatch_ts', 'dispatched_by', 'enabled', 'expected_arrival_ts', 'from_site', 'in_transit', 'origin_site', 'received_by', 'received_ts', 'routes', 'site_graph', 'sites', 'sites_policy', 'specimen_ids', 'status', 'temp_band', 'temp_drift_max_c', 'to_site', 'transport_time_std_s']

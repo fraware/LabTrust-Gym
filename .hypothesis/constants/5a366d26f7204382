@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\security\safety_case.py
-# hypothesis_version: 6.151.6
-
-['(empty)', '**Artifacts:**', '**Controls:**', '**Tests:**', '---', '.', '.py', '/', '0.1', 'SAFETY_CASE', 'Source: ', 'artifact', 'artifacts', 'build_safety_case', 'claim_id', 'claim_version', 'claims', 'claims.v0.1.yaml', 'commands', 'control', 'control_sources', 'controls', 'default', 'errors', 'evidence_links', 'fail', 'id', 'pass', 'path', 'ref', 'results', 'safety_case', 'safety_case.json', 'safety_case.md', 'safety_case_claims', 'skip', 'smt_available', 'source', 'statement', 'test', 'tests', 'tests.', 'tests/', 'traceability', 'type', 'utf-8', 'version']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\studies\coordination_summarizer.py
-# hypothesis_version: 6.151.6
-
-[' |', ' | ', 'application_phase', 'auction', 'auctions', 'centralized', 'centralized_planner', 'coordination', 'coordination_class', 'decentralized', 'evolving', 'full', 'gossip_consensus', 'group_evolving', 'group_evolving_study', 'hierarchical', 'hierarchical_', 'hierarchical_hub_rr', 'ignore', 'kernel_', 'kernel_scheduler_or', 'kernel_schedulers', 'kernel_whca', 'learning', 'llm', 'llm_auction_bidder', 'llm_central_planner', 'llm_constrained', 'market', 'market_auction', 'marl_ppo', 'method_class', 'method_id', 'n_cells', 'other', 'pack_summary.csv', 'perf.throughput', 'policy', 'r', 'ripple', 'ripple_effect', 'sota_leaderboard.csv', 'sota_leaderboard.md', 'summary', 'summary_coord.csv', 'swarm', 'swarm_reactive', 'throughput_mean', 'utf-8', 'violations_mean', 'w', '| ', '—']

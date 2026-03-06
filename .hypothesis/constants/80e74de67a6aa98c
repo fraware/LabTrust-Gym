@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\online\authz.py
-# hypothesis_version: 6.151.6
-
-['/', '/admin/', '/health', '/v0/episode-log', '/v0/export', '/v0/step', '/v0/step/', '/v0/summary', '?', 'GET', 'POST', 'admin', 'runner', 'viewer']

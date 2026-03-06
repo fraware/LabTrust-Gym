@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\coordination\bus.py
-# hypothesis_version: 6.151.6
-
-['VIOLATION', '_allowed_senders', '_epoch_fn', '_key_store', '_seen_nonces', 'allowed_senders', 'countersign', 'emits', 'invariant_id', 'message_type', 'nonce', 'reason_code', 'sender_id', 'status', 'violations']

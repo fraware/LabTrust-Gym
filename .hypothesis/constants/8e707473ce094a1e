@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\engine\catalogue_runtime.py
-# hypothesis_version: 6.151.6
-
-[7200, 21600, 86400, '2_8', 'AMBIENT', 'AMBIENT_15_25C', 'AMBIENT_20_25', 'CHILLED_2_8C', 'HOLD', 'INV-STAB-BIOCHEM-001', 'INV-STAB-BIOCHEM-002', 'INV-ZONE-006', 'RC_REAGENT_STOCKOUT', 'REFRIGERATED', 'REFRIGERATED_2_8', 'TEMP_OUT_OF_BAND', 'TIME_EXPIRED', '_', 'allowed_temp_bands', 'initial_stock', 'panel_id', 'panel_requirements', 'panel_rules', 'panels', 'pre_separation_max_s', 'quantity_per_run', 'reagent_id', 'reagent_policy', 'reagents', 'stockout_action', 'temp_band', 'utf-8']

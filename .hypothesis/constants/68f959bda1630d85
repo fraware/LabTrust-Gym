@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\security\agent_capabilities.py
-# hypothesis_version: 6.151.6
-
-['0.1', 'AGENT_RATE_LIMIT', 'agent_capabilities', 'allowed_actions', 'allowed_tooling', 'high_risk_actions', 'llm', 'max_action_rate', 'max_override_tokens', 'policy', 'profiles', 'rationale', 'reason_code', 'security', 'signing_proxy', 'version']

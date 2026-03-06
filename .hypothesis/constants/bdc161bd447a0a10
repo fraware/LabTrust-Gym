@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\methods\llm_local_decider_signed_bus.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.9, 256, 2048, 'MOVE', 'NOOP', 'OPEN_DOOR', 'QUEUE_RUN', 'START_RUN', 'TICK', 'Z_SORTING_LANES', 'action_index', 'action_proposal', 'action_type', 'agent_id', 'args', 'confidence', 'conflict_rate', 'deterministic', 'device_id', 'drop_rate', 'from_zone', 'invalid_msg_rate', 'invalid_sig_count', 'msg_count', 'overridden_count', 'queue_head', 'queue_len', 'queue_summary', 'rationale', 'reason_code', 'reconciler_override', 'replay_drop_count', 'reset', 'safety_notes', 'spoof_attempt_count', 'step_id', 'to_zone', 'token_refs', 'total_proposals', 'violations', 'work_id', 'zone_id']

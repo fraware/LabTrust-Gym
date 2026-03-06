@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\decision_types.py
-# hypothesis_version: 6.151.6
-
-[200, 'allocation_hash', 'assignments', 'explain_allocation', 'explain_route', 'explain_schedule', 'method_id', 'per_agent', 'route_hash', 'schedule_hash', 'seed', 'state_hash', 'step_idx']

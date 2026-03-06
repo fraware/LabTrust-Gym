@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\scripted_runner.py
-# hypothesis_version: 6.151.6
-
-[0.0, 150.0, 'DISPATCH_TRANSPORT', 'D_RESTRICTED_AIRLOCK', 'RECEIVE_TRANSPORT', 'SITE_ACUTE', 'SITE_HUB', 'TRANSPORT_TICK', 'Z_ACCESSIONING', 'Z_ALIQUOT_LABEL', 'Z_ANALYZER_HALL_A', 'Z_ANALYZER_HALL_B', 'Z_CENTRIFUGE_BAY', 'Z_PREANALYTICS', 'Z_QC_SUPERVISOR', 'Z_SORTING_LANES', 'Z_SRA_RECEPTION', '__len__', 'action_type', 'args', 'arrived', 'consignment_id', 'dest_site', 'device_id', 'door_id', 'door_restricted_open', 'flat', 'graph_edges', 'in_transit', 'item', 'log_frozen', 'my_zone_idx', 'origin_site', 'queue_has_head', 'runner_0', 'specimen_ids', 'status', 'to_zone', 'transport_required']

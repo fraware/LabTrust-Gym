@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\routing\graph.py
-# hypothesis_version: 6.151.6
-
-['_capacity', '_neighbors', '_nodes', '_restricted_edges', 'doors', 'from', 'graph_edges', 'layout is empty', 'requires_token', 'restricted', 'to', 'via_door', 'zone_id', 'zone_layout_policy', 'zones']
