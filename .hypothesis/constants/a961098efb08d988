@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\policy\gate_eval.py
-# hypothesis_version: 6.151.6
-
-['0.1', 'FAIL', 'PASS', 'SKIP', 'coordination', 'disabled_by_config', 'injection_id', 'max_delta', 'max_detection_steps', 'method_id', 'no_data', 'none', 'not_applicable', 'not_supported', 'policy', 'rule', 'rules', 'scale_id', 'version']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\coordination\views.py
-# hypothesis_version: 6.151.6
-
-['AGENT_ZONE', 'DEVICE_STATUS', 'QUEUE_HEAD', 'SPECIMEN_STATUS', 'ZONE_OCCUPANCY', '_agent_id', '_agent_zones', '_device_status', '_last_event_id', '_last_event_t_event', '_queue_heads', '_specimen_statuses', '_zone_occupancy', 'agent_id', 'agent_ids', 'agent_zones', 'device_id', 'device_status', 'last_event_id', 'last_event_t_event', 'last_processing_step', 'queue_head_work_id', 'queue_heads', 'specimen_id', 'specimen_statuses', 'status', 'zone_id', 'zone_occupancy']

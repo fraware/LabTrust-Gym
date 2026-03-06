@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\llm\action_proposal.py
-# hypothesis_version: 6.151.6
-
-['Expected dict', 'ValidationError', 'action_type', 'args', 'confidence', 'message', 'rationale', 'reason_code', 'safety_notes', 'token_refs', 'utf-8']

@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\benchmarks\baseline_registry.py
-# hypothesis_version: 6.151.6
-
-['_v1', 'adversary_v1', 'baseline_id', 'benchmarks', 'insider_key_misuse', 'insider_v1', 'multi_site_stat', 'official_tasks', 'qc_cascade', 'scripted_ops_v1', 'stat_insertion', 'task', 'throughput_sla', 'utf-8']

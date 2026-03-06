@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\llm_contract.py
-# hypothesis_version: 6.151.6
-
-['action_type', 'agent_id', 'args', 'backend_id', 'bid', 'broadcast', 'bundle', 'channel', 'comms', 'confidence', 'constraints', 'from_agent_id', 'horizon_steps', 'intent', 'latency_ms', 'market', 'meta', 'method_id', 'model_id', 'payload_typed', 'per_agent', 'policy', 'policy_fingerprint', 'prompt_fingerprint', 'proposal_id', 'reason_code', 'schemas', 'step_id', 'to_agent_id', 'token_refs', 'tokens_in', 'tokens_out', 'ttl_steps', 'utf-8']

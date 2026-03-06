@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\security\transparency.py
-# hypothesis_version: 6.151.6
-
-['*.json', '0.1', 'EvidenceBundle.v0.1', 'TRANSPARENCY_LOG', '_', '_-', '_repr', 'baselines', 'digest', 'digest_version', 'entries', 'episode_id', 'episodes', 'episodes.jsonl', 'estimated_cost_usd', 'hash', 'leaf_index', 'left', 'llm_backend_id', 'llm_live.json', 'llm_model_id', 'log.json', 'manifest.json', 'max', 'mean', 'mean_latency_ms', 'mean_llm_latency_ms', 'metadata', 'metrics', 'min', 'p95_latency_ms', 'p95_llm_latency_ms', 'per_task', 'position', 'prompt_fingerprint', 'prompt_hashes', 'prompt_sha256', 'proofs', 'receipts', 'results', 'results.json', 'right', 'root', 'root.txt', 'seed', 'siblings', 'sum', 'task', 'total_tokens', 'utf-8', 'version']

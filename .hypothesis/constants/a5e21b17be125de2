@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\tools\execution.py
-# hypothesis_version: 6.151.6
-
-[30.0, 'TOOL_EGRESS_DENIED', 'TOOL_EXEC_EXCEPTION', 'TOOL_TIMEOUT', 'details', 'exception_type', 'message', 'output_schema_ref', 'policy', 'reason_code', 'sandbox', 'timeout_s', 'utf-8']

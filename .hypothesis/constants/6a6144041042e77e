@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\memory\store.py
-# hypothesis_version: 6.151.6
-
-[3600, 86400, ',', ':', 'MEM_PUT', '_', '_entries', '_expires_at', '_key_store', '_now_ts_fn', '_policy', '_policy_root', '_ttl', '_writer', 'content', 'default_ttl_s', 'epoch', 'matched_id', 'max_ttl_s', 'message_type', 'min_ttl_s', 'nonce', 'payload', 'payload_hash', 'reason', 'sender_id', 'signature', 'summary', 'ttl', 'ttl_bounds', 'ttl_out_of_bounds', 'utf-8']

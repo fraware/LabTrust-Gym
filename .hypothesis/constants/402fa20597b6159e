@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\coordination\comms_model.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.5, 0.95, 10.0, '_agent_ids', '_config', '_dropped_count', '_msg_count', '_network_model', '_pending_by_agent', '_rng', 'drop_rate', 'dropped_count', 'msg_count', 'network_policy', 'p95_latency_ms']

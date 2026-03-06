@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\coordination_kernel.py
-# hypothesis_version: 6.151.6
-
-[',', ':', '_state_hash', 'adjacency', 'agent_ids', 'agents', 'device_id', 'device_ids', 'device_placement', 'device_zone', 'global_log', 'graph_edges', 'infos', 'item', 'my_zone_idx', 'obs', 'policy', 'queue_by_device', 'queue_has_head', 'rng', 'scale_config', 'seed', 't', 'tolist', 'utf-8', 'view_snapshots', 'zone_id', 'zone_ids', 'zone_layout', 'zones']

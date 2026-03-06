@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\policy\tokens.py
-# hypothesis_version: 6.151.6
-
-['ACTIVE', 'CONSUMED', 'EXPIRED', 'INV-TOK-001', 'MINTED', 'REVOKED', 'approvals', 'approvals_required', 'approver_agent_id', 'approver_key_id', 'expires_at_ts_s', 'issued_at_ts_s', 'reason_code', 'state', 'subject_id', 'subject_type', 'token_id', 'token_registry', 'token_type', 'token_types']

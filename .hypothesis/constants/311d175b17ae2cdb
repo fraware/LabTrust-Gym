@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\benchmarks\result_builder.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.95, 'call_count', 'error_rate', 'estimated_cost_usd', 'fallback_rate', 'fault_injected_rate', 'invalid_output_rate', 'latency_ms', 'latency_ms_list', 'mean_latency_ms', 'p95_latency_ms', 'proposal_total_count', 'proposal_valid_count', 'repair_call_count', 'tokens_in', 'tokens_out', 'tokens_per_step', 'total_repair_tokens', 'total_tokens']

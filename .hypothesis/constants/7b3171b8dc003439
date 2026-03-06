@@ -1,4 +1,0 @@
-# file: C:\Users\mateo\LabTrust-Gym\src\labtrust_gym\baselines\coordination\market\auction.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.1, 0.5, 1000000.0, 999, 'bid_cv', 'bid_skew', 'collusion_details', 'cost', 'dominant_agent', 'high_win_share', 'low_bid_variance', 'mean_bid', 'num_assignments', 'suspicion_reason', 'time', 'win_share_max']
