@@ -9,13 +9,15 @@ Scans repo recursively with exclusions; prints file:line:token on failure; exit 
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
-# Directories to skip when scanning (e.g. .github workflow step names may mention "placeholder"/"stub")
+# Directories to skip when scanning (e.g. .github workflow step names; .hypothesis cache has fail-pattern strings)
 EXCLUDE_DIRS = {
     ".git",
     ".github",
+    ".hypothesis",
     ".venv",
     "venv",
     "dist",
@@ -182,9 +184,37 @@ def _check_word_placeholder_stub(path: Path, root: Path, lines: list[str]) -> li
     return violations
 
 
+def _git_tracked_files(root: Path) -> list[Path] | None:
+    """Return list of tracked file paths under root, or None if not a git repo / git unavailable / empty."""
+    try:
+        r = subprocess.run(
+            ["git", "ls-files", "--cached", "-z"],
+            cwd=str(root),
+            capture_output=True,
+            text=False,
+            timeout=30,
+        )
+        if r.returncode != 0:
+            return None
+        paths: list[Path] = []
+        for raw in r.stdout.split(b"\x00"):
+            if not raw:
+                continue
+            path = root / raw.decode("utf-8", errors="replace")
+            if path.is_file() and _should_scan_file(path, root):
+                paths.append(path)
+        # Use tracked list only when non-empty (real repo); else fall back to rglob (e.g. test tmp_path)
+        return paths if paths else None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
 def _iter_scannable_files(root: Path) -> list[Path]:
-    """Yield all scannable file paths under root (excluding EXCLUDE_DIRS and non-text)."""
+    """Yield all scannable file paths under root. Prefer git-tracked when repo has tracked files (faster, CI-aligned)."""
     root = root.resolve()
+    tracked = _git_tracked_files(root)
+    if tracked is not None and len(tracked) > 0:
+        return tracked
     out: list[Path] = []
     for path in root.rglob("*"):
         if not path.is_file():

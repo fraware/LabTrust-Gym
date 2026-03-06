@@ -1,4 +1,4 @@
-# Paper figure and table provenance (v0.1.0)
+# Paper figure and table provenance (paper_v0.1 profile)
 
 Figure/table to path, command, and seeds. Aligned with [PAPER_CLAIMS](../PAPER_CLAIMS.md). Update when the paper is written.
 
@@ -21,9 +21,9 @@ A single tarball (e.g. from GitHub Release or Zenodo) should contain or point to
 
 - Wheel/sdist: `pip install labtrust-gym[env,plots]`
 - Policy: bundled in wheel or `policy/` in repo
-- This provenance map: `docs/paper/README.md`
-- CONTRACTS: `docs/frozen_contracts.md`
-- PAPER_CLAIMS: `docs/PAPER_CLAIMS.md`
+- This provenance map: `docs/benchmarks/paper/README.md`
+- CONTRACTS: `docs/contracts/frozen_contracts.md`
+- PAPER_CLAIMS: `docs/benchmarks/PAPER_CLAIMS.md`
 
 Verification: run quick-eval, package-release paper_v0.1, verify-bundle on the produced bundle.
 

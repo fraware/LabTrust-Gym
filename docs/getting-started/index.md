@@ -7,7 +7,7 @@ Get LabTrust-Gym installed, run your first benchmarks, and optionally fork and e
 | I want to... | First step |
 |--------------|------------|
 | Run benchmarks only | `pip install labtrust-gym[env,plots]` then `labtrust quick-eval` |
-| Add my coordination method (or task) | [Extension development](../agents/extension_development.md) + entry_points; see [examples/extension_example](../../examples/extension_example/) for a minimal plugin |
+| Add my coordination method (or task) | [Extension development](../agents/extension_development.md) + entry_points; see [examples/extension_example](https://github.com/fraware/LabTrust-Gym/tree/main/examples/extension_example) for a minimal plugin |
 | Fork and customize policy | [Forker guide](forkers.md) and `labtrust forker-quickstart` |
 | Use as a library without forking | [Extension development](../agents/extension_development.md) + `--profile` + `extension_packages` in a lab profile |
 | Run the full security suite | `labtrust run-security-suite`; full suite needs `.[env]`; use `--skip-system-level` when env is not installed |

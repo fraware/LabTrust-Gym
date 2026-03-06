@@ -24,6 +24,10 @@ The word "baseline" is used in two distinct ways in this repo:
 
 See [Official benchmark pack](../benchmarks/official_benchmark_pack.md) and [Benchmark card](../benchmarks/benchmark_card.md) for how these are used in practice.
 
+## RBAC
+
+Role-based access control: policy-driven roles and permissions (e.g. in `policy/rbac/`) that restrict which agents can perform which actions. Validated by `labtrust validate-policy`; enforced by the engine.
+
 ## Simulation
 
 The LabTrust-Gym benchmark and env runs: deterministic or stochastic runs under policy. Used for development, regression, and security/safety evaluation.
@@ -38,4 +42,10 @@ Live deployment with real users, keys, and adversaries. Transfer of results from
 
 - **coordination_artifacts:** In `index.json`, an optional list of `{ path, label }` entries. Each file is stored in the zip at `coordination/` + `path`. Includes pack_summary, SOTA leaderboard (main and full), method-class comparison, and **coordination/graphs/** HTML charts (SOTA key metrics, throughput, violations, resilience, method-class).
 
-- **SOTA leaderboard:** State-of-the-art summary table(s) produced by `summarize-coordination` from pack_summary or summary_coord: main table (key metrics, run metadata), full table (all numeric aggregates), and method-class comparison. These are written to `summary/` and included in the UI bundle when present. See [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
+- **SOTA leaderboard:** State-of-the-art (SOTA) summary table(s) produced by `summarize-coordination` from pack_summary or summary_coord: main table (key metrics, run metadata), full table (all numeric aggregates), and method-class comparison. These are written to `summary/` and included in the UI bundle when present. See [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
+
+## Evidence bundle and release directory
+
+- **Evidence bundle (EvidenceBundle.v0.1):** A directory produced by `labtrust export-receipts` from an episode log; contains manifest, schema, hashchain, and invariant trace. Verified by `labtrust verify-bundle`. See [Trust verification](../risk-and-security/trust_verification.md).
+
+- **Release directory:** Output directory of `labtrust package-release`; contains MANIFEST.v0.1.json, receipts/, FIGURES/, and optionally RISK_REGISTER_BUNDLE. After `labtrust build-release-manifest --release-dir <dir>` and `labtrust verify-release --release-dir <dir>`, the directory is a verifiable release artifact.

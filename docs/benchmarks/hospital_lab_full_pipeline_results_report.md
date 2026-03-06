@@ -1,6 +1,6 @@
 # Hospital lab full pipeline – results report
 
-This document summarizes the results from full-pipeline runs for the pathology lab (blood sciences) design: what was run, what succeeded, and how to interpret the artifacts.
+This document summarizes **example** results from full-pipeline runs for the pathology lab (blood sciences) design: what was run, what succeeded, and how to interpret the artifacts. The run directories cited (e.g. `runs/hospital_lab_full_pipeline_smoke`) are from representative runs; regenerate them with [Hospital lab full pipeline](hospital_lab_full_pipeline.md) if needed.
 
 ---
 

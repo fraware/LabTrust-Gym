@@ -25,8 +25,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install package and docs extra
-        run: pip install -e ".[docs]"
+      - name: Install package (docs + env so mkdocstrings can import labtrust_gym)
+        run: pip install -e ".[docs,env]"
 
       - name: Build MkDocs
         run: mkdocs build --strict

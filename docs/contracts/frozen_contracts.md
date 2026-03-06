@@ -76,13 +76,13 @@ New envs must implement `BenchmarkEnv` (see `src/labtrust_gym/benchmarks/env_pro
 
 Every coordination method registered in `policy/coordination/coordination_methods.v0.1.yaml` must implement the interface in `src/labtrust_gym/baselines/coordination/interface.py` (CoordinationMethod): **reset(seed, policy, scale_config)** and **propose_actions(obs, infos, t)** returning a dict of agent_id to action_dict with at least **action_index** (int in 0..5). Optional hooks: **on_step_result(step_outputs)**, **on_episode_end(episode_metrics)**, **combine_submissions(submissions, obs, infos, t)**. The **combine_submissions** method combines per-agent submissions into a joint action dict; default implementation treats each submission as an action_dict and fills missing agents with NOOP. **For N <= N_max, only propose_actions (or step) is used; combine_submissions is never called.** At scale (simulation-centric when N > coord_propose_actions_max_agents, default 50), the runner uses per-agent submissions and **combine_submissions** only; **propose_actions** is not called. In agent-centric multi-agentic mode, the driver also uses **combine_submissions**. The set of methods that receive per-agent LLM at scale (scale-capable) is defined in policy (coordination_methods.v0.1.yaml, optional scale_capable: true) with a fallback for existing configs; see [design_choices §6.3](../architecture/design_choices.md). New methods cannot break CI: `pytest tests/test_coordination_interface_contract.py` loads every method_id, instantiates via registry (deterministic backends; no network), runs 5 steps in coord_scale with seed=42, and asserts actions for all agents, schema-valid proposals, and determinism. Conformance to this contract does not imply that the method's outputs are safe or correct; safety is a separate concern. See [Coordination methods](../coordination/coordination_methods.md).
 
-## Acceptance (v0.1.0 release)
+## Acceptance (v0.2.0 release)
 
 A fresh machine can run:
 
 ```bash
 pip install labtrust-gym[env,plots]
-labtrust --version          # prints v0.1.0 + git SHA
+labtrust --version          # prints v0.2.0 + git SHA
 labtrust quick-eval --seed 42
 labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>
 labtrust verify-bundle --bundle <bundle_dir>   # passes when bundle is from export-receipts
@@ -90,9 +90,9 @@ labtrust verify-bundle --bundle <bundle_dir>   # passes when bundle is from expo
 
 Use an EvidenceBundle path under `receipts/` (e.g. `receipts/taska_cond_0/EvidenceBundle.v0.1`), not the release root. To verify all bundles in a release: `labtrust verify-release --release-dir <path>`. See [Trust verification](../risk-and-security/trust_verification.md) for the full trust story and how to run each verification step.
 
-## Release artifacts (v0.1.0)
+## Release artifacts (v0.2.0)
 
-Attach to GitHub Release (tag v0.1.0):
+Attach to GitHub Release (tag v0.2.0):
 
 - **wheel + sdist** — Built by `.github/workflows/release.yml` on tag `v*`. `pip install labtrust-gym[env,plots]` from PyPI or from the wheel.
 - **paper_v0.1 package-release artifact** — Run `labtrust package-release --profile paper_v0.1 --seed-base 100 --out <dir>`; zip the output (FIGURES/, TABLES/, receipts, **SECURITY/** (attack_results.json, coverage.json, coverage.md, reason_codes.md, deps_inventory.json), RELEASE_NOTES.md, **COORDINATION_CARD.md**, **_coordination_policy/** with frozen coordination policy + manifest, etc.) or link to immutable storage.
