@@ -351,7 +351,7 @@ A separate workflow **`.github/workflows/package-release-nightly.yml`** runs **p
 
 - Copies `policy/` into `src/labtrust_gym/policy` so the wheel ships policy.
 - Builds sdist and wheel with `python -m build`.
-- Uploads `dist/` as artifact. A **publish** job (structure only) can use twine; add `TWINE_PASSWORD` (and optionally `TWINE_USERNAME`) in repo secrets to enable PyPI upload.
+- Uploads `dist/` as artifact. The **publish** job runs `twine upload --non-interactive dist/*` to PyPI. Before the first release, configure repository secrets: `TWINE_PASSWORD` (PyPI token or password) and optionally `TWINE_USERNAME` (if not using token-only auth). Without these secrets, the publish step will fail.
 
 ## Release and live LLM
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "labtrust-gym"
-version = "0.1.0"
+version = "0.2.0"
 description = "Multi-agent environment for hospital lab automation (PettingZoo/Gym style) with trust skeleton; first instance: pathology lab (blood sciences lane)."
 readme = "README.md"
 license = { text = "Apache-2.0" }
