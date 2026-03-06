@@ -56,9 +56,9 @@ labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ -
 
 - **CLI**: `--out <dir>` (required), `--episodes <int>` (default 200), `--seed <int>` (default 123), `--timing explicit|simulated` (default explicit), `--partner <partner_id>` (optional), `--force` (allow overwrite).
 - **Registry**: Task → baseline mapping is read from `benchmarks/baseline_registry.v0.1.yaml` (official_tasks: task, baseline_id). Not hard-coded in the CLI.
-- **Tasks**: Runs core tasks with the official baselines: throughput_sla, stat_insertion, qc_cascade, multi_site_stat → scripted_ops_v1, adversarial_disruption → adversary_v1, insider_key_misuse → insider_v1.
+- **Tasks**: Runs core and coordination tasks with the official baselines (from `benchmarks/baseline_registry.v0.1.yaml`): throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse (core), coord_scale, coord_risk (coordination; baseline_id kernel_scheduler_or_v0).
 - **Output layout** (stable directory structure and filenames):
-  - `results/throughput_sla_scripted_ops.json`, `results/stat_insertion_scripted_ops.json`, `results/qc_cascade_scripted_ops.json`, `results/adversarial_disruption_adversary.json`, `results/multi_site_stat_scripted_ops.json`, `results/insider_key_misuse_insider.json` (each validated against `policy/schemas/results.v0.2.schema.json` after write).
+  - `results/throughput_sla_scripted_ops.json`, `results/stat_insertion_scripted_ops.json`, `results/qc_cascade_scripted_ops.json`, `results/adversarial_disruption_adversary.json`, `results/multi_site_stat_scripted_ops.json`, `results/insider_key_misuse_insider.json`, `results/coord_scale_kernel_scheduler_or.json`, `results/coord_risk_kernel_scheduler_or.json` (each validated against `policy/schemas/results.v0.2.schema.json` after write).
   - `summary_v0.2.csv`, `summary_v0.3.csv`, `summary.csv`, and `summary.md` (via the existing summarize-results pipeline).
   - `metadata.json`: version, baseline_version (e.g. v0.2), git_sha, policy_fingerprint, cli_args (out, episodes, seed, timing, partner, force), tasks, baseline_ids / agent_baseline_ids, timestamp (deterministic when seed is provided).
 - **Overwrite**: The command **refuses to overwrite** an existing output directory unless `--force` is passed.
@@ -67,7 +67,7 @@ labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ -
 
 ### Official baselines layout and regeneration
 
-- **Canonical (v0.2)**: `benchmarks/baselines_official/v0.2/` contains the frozen baseline set: `results/` (throughput_sla through insider_key_misuse JSON, schema v0.2), `summary_v0.2.csv`, `summary_v0.3.csv`, `summary.csv`, `summary.md`, `metadata.json`. Baseline regression uses this directory only; test skips only if v0.2/results/ is missing or empty.
+- **Canonical (v0.2)**: `benchmarks/baselines_official/v0.2/` contains the frozen baseline set: `results/` (throughput_sla through insider_key_misuse plus coord_scale and coord_risk JSON, schema v0.2), `summary_v0.2.csv`, `summary_v0.3.csv`, `summary.csv`, `summary.md`, `metadata.json`. Baseline regression uses this directory only; test skips only if v0.2/results/ is missing or empty.
 - **Legacy (v0.1)**: `benchmarks/baselines_official/v0.1/` is legacy; not used for the regression guard.
 - **Regeneration**: From repo root, run `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` to refresh the CI baseline (episodes=3 matches the regression test), or `--episodes 200 --seed 123` for a fuller set. Timestamp in metadata is deterministic when `--seed` is set. Optional: `--timing simulated`, `--partner hsl_like`.
 - **Compare**: `labtrust summarize-results --in benchmarks/baselines_official/v0.2/results/ your_results.json --out <out_dir>`.

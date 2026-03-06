@@ -54,6 +54,6 @@ When a run uses coordination methods that invoke multiple LLM roles (e.g. planne
 
 ## References
 
-- Runner: `src/labtrust_gym/benchmarks/runner.py` (coordination method branches ~1037–1310).
+- Runner: `src/labtrust_gym/benchmarks/runner.py` (coordination method build and episode loop; line numbers may shift).
 - Registry: `src/labtrust_gym/baselines/coordination/registry.py`.
 - Study runner LLM_METHOD_IDS: `src/labtrust_gym/studies/coordination_study_runner.py`.

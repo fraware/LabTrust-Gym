@@ -46,7 +46,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install package (dev + env for run-benchmark and export-risk-register)
-        run: pip install -e ".[dev,env]"
+        run: pip install -e '.[dev,env]'
       - name: Verify fixture evidence (when receipts or SECURITY present)
         run: |
           dirs=$(python scripts/risk_coverage_fixture_dirs.py --dirs-only)

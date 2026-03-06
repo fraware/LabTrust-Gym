@@ -25,7 +25,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install package (dev, env, plots for package-release)
-        run: pip install -e ".[dev,env,plots]"
+        run: pip install -e '.[dev,env,plots]'
 
       - name: E2E artifacts chain (package-release -> verify-bundle -> export-risk-register)
         run: bash scripts/ci_e2e_artifacts_chain.sh

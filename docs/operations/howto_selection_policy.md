@@ -48,4 +48,4 @@ The coordination selection policy decides which method is “best” per scale b
 ## See also
 
 - [Forker guide – Coordination selection policy](../getting-started/forkers.md#coordination-selection-policy)
-- [Lab coordination report](../coordination/lab_coordination_report.md)
+- [Coordination studies](../coordination/coordination_studies.md)

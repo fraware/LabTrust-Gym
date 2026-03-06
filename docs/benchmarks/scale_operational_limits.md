@@ -52,5 +52,4 @@ The helper module `labtrust_gym.benchmarks.checkpoint` provides `write_checkpoin
 ## See also
 
 - [Coordination studies](../coordination/coordination_studies.md) – Study runner and matrix.
-- [Coordination studies](../coordination/coordination_studies.md) – study runner and matrix.
 - [CI](../operations/ci.md) – coordination-nightly and optional at-scale job.

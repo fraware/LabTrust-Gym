@@ -54,7 +54,7 @@ When enforcement runs, each applied action is recorded as an event in the audit 
 
 ## Implementation
 
-- **Loader**: `policy/loader` loads the enforcement map; schema validation is via `validate-policy`.
+- **Loader**: `src/labtrust_gym/policy/loader.py` loads the enforcement map (and partner overlay); schema validation is via `labtrust validate-policy`.
 - **Engine**: `src/labtrust_gym/engine/enforcement.py` — `EnforcementEngine` loads the map, matches violations, applies escalation, and returns a list of enforcement items. Violation counts are stored per (agent_id, rule_id); call `reset_counts()` on env reset.
 - **Integration**: `core_env._finalize_step()` calls the enforcement engine when `enforcement_enabled` is true and merges **enforcements** into the step result; each enforcement is appended to the audit log.
 

@@ -8,7 +8,7 @@ The Coordination Matrix is defined only for **online live** LLM coordination run
 
 - `pipeline_mode = llm_live`
 - `allow_network = true`
-- `llm_backend_id` in `{openai_live, ollama_live}`
+- `llm_backend_id` in `{openai_live, ollama_live, anthropic_live}`
 
 Any evidence that violates these constraints MUST be rejected.
 

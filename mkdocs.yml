@@ -14,7 +14,7 @@ theme:
   highlightjs: true
 
 nav:
-  - Overview: index.md
+  - Overview: getting-started/index.md
   - Getting started:
     - getting-started/index.md
     - Installation: getting-started/installation.md
@@ -62,7 +62,6 @@ nav:
     - Multi-LLM protocols: coordination/multi_llm_protocols.md
     - Phase 5 LLM upgrades: coordination/phase5_llm_upgrades.md
     - Coordination methods audit: coordination/coordination_methods_audit.md
-    - Lab coordination report: coordination/lab_coordination_report.md
     - Fidelity notes: coordination/fidelity_notes.md
     - Learning methods implementation strategy: coordination/learning_methods_implementation_strategy.md
   - Benchmarks and studies:
@@ -155,7 +154,6 @@ nav:
     - Observability: reference/observability.md
     - Online mode: reference/online_mode.md
     - Testing strategy: reference/testing_strategy.md
-    - Deterministic and llm_offline battery: testing/deterministic_and_llm_offline_battery.md
     - Presentation and demo guide: presentation_labtrust_gym.md
   - API Reference: api/index.md
 

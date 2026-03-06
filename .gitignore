@@ -103,6 +103,7 @@ site/
 
 # Presentation (local / generated)
 presentation_labtrust_gym.md
+docs/presentation_labtrust_gym.md
 
 # Audit self-check output (labtrust audit-selfcheck; do not push)
 audit_self_check/

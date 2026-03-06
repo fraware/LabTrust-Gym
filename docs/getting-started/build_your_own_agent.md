@@ -15,7 +15,7 @@ This page gives a 5–10 minute path from install to running a benchmark with yo
    ```
    You should see a markdown summary and logs under `./labtrust_runs/`.
 
-3. **Implement an agent.** Your agent must provide an interface compatible with the runner: e.g. a class with `act(obs, agent_id)` returning an action index and optional info dict. Use `examples/external_agent_demo.py` in the repository as a template (module path `examples.external_agent_demo`, class `MyAgent`).
+3. **Implement an agent.** Your agent must implement the **LabTrustAgent** protocol: `reset(seed, policy_summary, partner_id, timing_mode)` and `act(observation) -> int` (or `(int, action_info)`). Use `examples/external_agent_demo.py` as a template (module path `examples.external_agent_demo`, class `SafeNoOpAgent`).
 
 4. **Run a benchmark** with your agent:
    ```bash
@@ -23,7 +23,7 @@ This page gives a 5–10 minute path from install to running a benchmark with yo
    ```
    Example with the shipped external demo:
    ```bash
-   labtrust eval-agent --agent 'examples.external_agent_demo:MyAgent' --task throughput_sla --episodes 2 --out out.json
+   labtrust eval-agent --agent 'examples.external_agent_demo:SafeNoOpAgent' --task throughput_sla --episodes 2 --out out.json
    ```
 
 5. **Inspect** `results.json` (or `out.json`): episode metrics, rewards, violations, and run metadata.

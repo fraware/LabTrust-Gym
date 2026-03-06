@@ -47,7 +47,7 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | make-plots | `--run <dir>` [--theme light\|dark] | 0 | `<run>/figures/` (PNG/SVG, data_tables/, RUN_REPORT.md) | studies.md, pipeline_overview.md |
 | reproduce | `--profile minimal --out <dir>` | 0 | `<dir>/` (sweep results, figures) | reproduce.md |
 | package-release | `--profile minimal --out <dir>` | 0 | `<dir>/MANIFEST.v0.1.json`, `_repr/`, `receipts/`, `FIGURES/` (paper_v0.1) | paper_ready.md, trust_verification.md |
-| generate-official-baselines | `--out <dir> --episodes 2 --seed 42 --force` | 0 | `<dir>/results/`, `summary.csv`, `summary.md`, `metadata.json` | baseline_registry.v0.1.yaml, metrics_contract |
+| generate-official-baselines | `--out <dir> --episodes 2 --seed 42 --force` | 0 | `<dir>/results/` (throughput_sla through insider_key_misuse plus coord_scale, coord_risk JSON), `summary.csv`, `summary.md`, `summary_v0.2.csv`, `summary_v0.3.csv`, `metadata.json` | baseline_registry.v0.1.yaml, metrics_contract |
 | summarize-results | `--in <dir_or_file> --out <dir> --basename summary` | 0 | `<out>/summary_v0.2.csv`, `summary_v0.3.csv`, `summary.csv`, `summary.md`; when run metadata present: `run_info.csv`, Run info section in summary.md | metrics_contract.md |
 | determinism-report | `--task throughput_sla --episodes 2 --seed 42 --out <dir>` | 0 | `<dir>/determinism_report.json`, `determinism_report.md` (checks summary, run config, hash comparison) | reproducible_builds.md, benchmarks.md |
 | train-ppo | `--task throughput_sla --timesteps 100 --seed 42 --out <dir>` | 0 | `<dir>/model.zip` (or run dir with model) | marl_baselines.md |

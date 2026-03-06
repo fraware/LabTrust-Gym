@@ -26,13 +26,13 @@ jobs:
           python-version: "3.11"
 
       - name: Install package (docs + env so mkdocstrings can import labtrust_gym)
-        run: pip install -e ".[docs,env]"
+        run: pip install -e '.[docs,env]'
 
       - name: Build MkDocs
         run: mkdocs build --strict
 
       - name: Install package for viewer-data build
-        run: pip install -e ".[dev,env,plots]"
+        run: pip install -e '.[dev,env,plots]'
 
       - name: Build viewer-data from release
         run: bash scripts/build_viewer_data_from_release.sh

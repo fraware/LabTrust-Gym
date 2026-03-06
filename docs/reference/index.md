@@ -21,5 +21,4 @@ Repository layout, lab profile, observability, testing strategy, and documentati
 | [Observability](observability.md) | Observability and logging. |
 | [Online mode](online_mode.md) | Online mode and server. |
 | [Testing strategy](testing_strategy.md) | Fuzz and metamorphic testing. |
-| [Deterministic and llm_offline battery](../testing/deterministic_and_llm_offline_battery.md) | Deterministic and llm_offline test battery. |
 | [Presentation and demo guide](../presentation_labtrust_gym.md) | Presentation deck, demo plan, speaker notes. |

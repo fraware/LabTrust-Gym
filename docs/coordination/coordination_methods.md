@@ -12,7 +12,7 @@ For a **detailed description of how each method works** (algorithms, data flow, 
 
 ### Where coordination runs
 
-Coordination is **not** in the CLI. The CLI only parses arguments and invokes the runner (e.g. `run_benchmark`, `run_coordination_study`). The **runner** (`src/labtrust_gym/benchmarks/runner.py`) builds one `coord_method_instance` and a `scripted_agents_map`. The **episode loop** inside the runner (lines 213-387) does the following each step:
+Coordination is **not** in the CLI. The CLI only parses arguments and invokes the runner (e.g. `run_benchmark`, `run_coordination_study`). The **runner** (`src/labtrust_gym/benchmarks/runner.py`) builds one `coord_method_instance` and a `scripted_agents_map`. The **episode loop** inside the runner does the following each step:
 
 - If the method has `step(context)`: calls `coord_method.step(context)` (kernel-composed).
 - Else if the method has repair and `_backend.generate_proposal`: runs `run_proposal_with_repair` with an internal `_propose_fn` that calls the coordinator backend's `generate_proposal(...)`.

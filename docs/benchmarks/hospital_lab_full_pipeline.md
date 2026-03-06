@@ -8,7 +8,7 @@ This document describes how to collect end-to-end pipeline results for the **pat
 - **Scope options**: Choose matrix preset (hospital_lab for fast regression, hospital_lab_full for all methods), security mode (smoke, full, or both), and optional cross-provider or per-model sweep.
 - **Summary manifest**: `summary/full_pipeline_manifest.json` and `full_pipeline_manifest.md` list artifacts and parameters for quick comparison.
 
-See [Official benchmark pack](official_benchmark_pack.md), [Security attack suite](../risk-and-security/security_attack_suite.md), [Lab coordination report](../coordination/lab_coordination_report.md), and [Trust verification](../risk-and-security/trust_verification.md) for details on each component.
+See [Official benchmark pack](official_benchmark_pack.md), [Security attack suite](../risk-and-security/security_attack_suite.md), [Coordination studies](../coordination/coordination_studies.md), and [Trust verification](../risk-and-security/trust_verification.md) for details on each component.
 
 ## Scope options
 

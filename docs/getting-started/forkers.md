@@ -70,7 +70,7 @@ labtrust forker-quickstart --out labtrust_runs/forker_quickstart
 
 ### 1.5 Commands summary
 
-Outputs go to `labtrust_runs/` or `--out`. Key commands: `validate-policy`, `quick-eval`, `bench-smoke`, `run-benchmark`, `eval-agent`, `export-receipts`, `export-fhir`, `verify-bundle`, `verify-release`, `run-security-suite`, `safety-case`, `export-risk-register`, `run-coordination-security-pack`, `build-lab-coordination-report`, `run-coordination-study`, `summarize-coordination`, `run-study`, `make-plots`, `reproduce`, `package-release`, `run-official-pack`. See the main [index](../index.md) CLI table for full list.
+Outputs go to `labtrust_runs/` or `--out`. Key commands: `validate-policy`, `quick-eval`, `bench-smoke`, `run-benchmark`, `eval-agent`, `export-receipts`, `export-fhir`, `verify-bundle`, `verify-release`, `run-security-suite`, `safety-case`, `export-risk-register`, `run-coordination-security-pack`, `build-lab-coordination-report`, `run-coordination-study`, `summarize-coordination`, `run-study`, `make-plots`, `reproduce`, `package-release`, `run-official-pack`. See the main [Getting started](index.md) CLI table for full list.
 
 ### 1.6 End-to-end demo stories (<15 min)
 
@@ -190,7 +190,6 @@ The coordination security pack produces **pack_gate.md** (PASS/FAIL/not_supporte
 ## Related docs
 
 - [Troubleshooting](troubleshooting.md)
-- [Lab coordination report](../coordination/lab_coordination_report.md)
 - [Coordination studies](../coordination/coordination_studies.md)
 - [Security attack suite](../risk-and-security/security_attack_suite.md)
 - [Risk register](../risk-and-security/risk_register.md)

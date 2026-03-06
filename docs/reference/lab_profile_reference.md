@@ -30,7 +30,7 @@ All fields are optional. When a field is null or omitted, the default behavior i
 
 ## Path semantics
 
-- Path fields (`benchmark_pack_path`, `security_suite_path`, `safety_claims_path`, `coordination_study_spec_path`) are **relative to the policy root** (the directory such that `policy_root / "policy"` is the policy directory). Absolute paths are supported where the value starts with `/` (Unix) or is a Windows absolute path.
+- Path fields (`benchmark_pack_path`, `security_suite_path`, `safety_claims_path`, `coordination_study_spec_path`) are **relative to the policy directory** (the directory containing `emits/`, `schemas/`, etc.; when developing from source this is typically `repo_root/policy/`). Absolute paths are supported where the value starts with `/` (Unix) or is a Windows absolute path.
 - When a path field is null, the core uses its default path under the policy directory. Default paths are centralized in `labtrust_gym.config.get_effective_path()` (and in the CLI when applying a profile).
 
 ## Provider IDs
@@ -43,5 +43,4 @@ When `policy/lab_profiles/lab_profile.v0.1.schema.json` exists and the `jsonsche
 
 ## See also
 
-- [Extension development](../agents/extension_development.md) for provider contracts and entry_points
-- [Extension development](../agents/extension_development.md) for path overrides and provider contracts
+- [Extension development](../agents/extension_development.md) for provider contracts, entry_points, and path overrides.
