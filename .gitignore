@@ -59,6 +59,7 @@ uv.lock
 labtrust_runs/
 
 # Root: only core dirs. All run outputs go in labtrust_runs/ or --out <path>. Do not push results or local output folders.
+tmp_refuse_test/
 /results*.json
 /out.json
 /bench_smoke_*.json
