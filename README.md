@@ -34,7 +34,7 @@
 
 ---
 
-## North star
+## What is LabTrust-Gym?
 
 | Pillar | Goal |
 |--------|------|
