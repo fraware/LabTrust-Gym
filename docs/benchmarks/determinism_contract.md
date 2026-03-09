@@ -37,7 +37,7 @@ So: **same inputs => same outputs**. No global RNG; all randomness is derived fr
 
 - **RNG**: Simulation uses `labtrust_gym.engine.rng.RNG`, which wraps `random.Random(seed)`. Task `get_initial_state(seed)` uses `random.Random(seed)` per call. No module-level or global RNG is used in the deterministic path.
 - **Canonical write**: When `non_deterministic` is false, the runner writes results with `canonical_json(results)` (see `util.json_utils.canonical_json`) so the file is stable across runs. When non_deterministic is true, results are written with indent=2 for readability.
-- **Determinism report**: `labtrust determinism-report` runs the benchmark twice in separate temp dirs with identical args and asserts episode log SHA-256, results canonical SHA-256, v0.2 metrics canonical, and (when available) receipts bundle root hash are identical. The report includes python_version and platform so that reproducibility is auditable.
+- **Determinism report**: `labtrust determinism-report` runs the benchmark twice in separate temp dirs with identical args and asserts episode log SHA-256, results canonical SHA-256, v0.2 metrics canonical, and (when available) receipts bundle root hash are identical. It writes `determinism_report.json` and `determinism_report.md`; the markdown has an executive summary at the top (Result: PASSED/FAILED, one-line interpretation, and key deltas on failure). The report includes python_version and platform so that reproducibility is auditable.
 
 ## Commands
 

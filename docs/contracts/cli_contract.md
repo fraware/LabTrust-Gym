@@ -7,9 +7,10 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 - **Exit code:** 0 = success, 1 = failure. All commands use stderr for progress and errors; only `labtrust --version` prints to stdout.
 - **Output paths:** Commands write to explicit paths (e.g. `--out`, `--out-dir`, `--run` plus derived paths). Paths are relative to process CWD unless absolute.
 - **Schema refs:** Where applicable, output files conform to versioned schemas under `policy/schemas/` or contracts in `docs/`.
-- **Pipeline modes:** Benchmark result files (results.json and summaries built from them) always record **pipeline_mode**, **llm_backend_id**, **allow_network**, and **non_deterministic**. Regression and official baselines require deterministic pipelines. See [Outputs and results](../reference/outputs_and_results.md#11-pipeline-modes-and-result-audit) and [Metrics contract](metrics_contract.md).
+- **Pipeline modes:** Benchmark result files (results.json and summaries built from them) always record **pipeline_mode**, **llm_backend_id**, **allow_network**, and **non_deterministic**. Regression and official baselines require deterministic pipelines. See [Outputs and results](../reference/outputs_and_results.md#12-pipeline-modes-and-result-audit) and [Metrics contract](metrics_contract.md).
 - **Verbosity:** Global flags `-v` / `--verbose` and `-q` / `--global-quiet` control output detail. Default (normal): info, success, warnings, errors on stderr. Verbose: plus debug logs, progress detail, tracebacks. Quiet: minimal output (errors and summary only). Progress and errors remain on stderr in all cases.
 - **Output format:** When the optional `.[cli]` extra (Rich) is installed, stderr output may use colors and structured formatting. Without Rich, the same messages are printed in plain text. Critical one-line messages (e.g. "Policy validation OK.", "Wrote &lt;path&gt;") are stable for scripting.
+- **Console output convention:** Commands that write result artifacts print the output directory, key generated paths, and a one-line suggested next step (e.g. make-plots, summarize-results, or where to read layout).
 
 ## Contract table
 
@@ -18,7 +19,8 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | validate-policy | (none) or `--partner hsl_like` or `--domain <domain_id>` | 0 | (none; success message on stderr) | policy schemas. With `--domain`, loads and validates policy merged from base plus `policy/domains/<domain_id>/`. Checks schema and structural validity only; does **not** check logical correctness (e.g. zone connectivity, invariant feasibility, or that controls match risks). |
 | forker-quickstart | `--out <dir>` | 0 | `<out>/pack/pack_summary.csv`, `<out>/pack/COORDINATION_DECISION.v0.1.json`, `<out>/risk_out/RISK_REGISTER_BUNDLE.v0.1.json` | risk_register_contract.v0.1 |
 | quick-eval | `--seed 42 --out-dir <dir>` | 0 | `<dir>/quick_eval_*/throughput_sla.json`, `adversarial_disruption.json`, `multi_site_stat.json`, `logs/*.jsonl`, `summary.md` | results.v0.2, ui_data_contract |
-| run-benchmark | `--task throughput_sla --episodes 1 --seed 42 --out <path>` | 0 | `<path>` (results.json) | results.v0.2, metrics_contract |
+| run-benchmark | `--task throughput_sla --episodes 1 --seed 42 --out <path>` | 0 | `<path>` (results.json). On success prints next step (run-summary or summarize-results) and optionally one line: Episodes: n, mean throughput. | results.v0.2, metrics_contract |
+| run-summary | `--run <dir>` [--format json] | 0 | stdout (text or JSON): one-line stats (episodes, steps, violations, throughput) for the run dir. | metrics_contract |
 | eval-agent | `--task throughput_sla --episodes 1 --agent examples.external_agent_demo:SafeNoOpAgent --out <path> --seed 42` | 0 | `<path>` (results.json) | results.v0.2 |
 | bench-smoke | `--seed 42` | 0 | (writes under CWD or labtrust_runs; results JSON per task) | results.v0.2 |
 | export-receipts | `--run <log.jsonl> --out <dir>` | 0 | `<dir>/EvidenceBundle.v0.1/manifest.json`, receipt_*.v0.1.json | EvidenceBundle.v0.1 |
@@ -44,12 +46,12 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | recommend-coordination-method | `--run <dir> --out <dir>` | 0 | `<out>/COORDINATION_DECISION.v0.1.json`, `COORDINATION_DECISION.md` | howto_selection_policy.md |
 | build-coordination-matrix | `--run <dir> --out <path>` | 0 | `<path>` or `<path>/coordination_matrix.v0.1.json` | coordination studies |
 | build-episode-bundle | `--run-dir <path>` [--out <path>] | 0 | `<run-dir>/episode_bundle.json` or `<out>` (if --out given) | episode_viewer.md |
-| make-plots | `--run <dir>` [--theme light\|dark] | 0 | `<run>/figures/` (PNG/SVG, data_tables/, RUN_REPORT.md) | studies.md, pipeline_overview.md |
+| make-plots | `--run <dir>` [--theme light\|dark\|colorblind\|bw] [--pdf] | 0 | `<run>/figures/` (PNG/SVG, data_tables/, RUN_REPORT.md; optional run_figures.pdf) | studies.md, pipeline_overview.md |
 | reproduce | `--profile minimal --out <dir>` | 0 | `<dir>/` (sweep results, figures) | reproduce.md |
 | package-release | `--profile minimal --out <dir>` | 0 | `<dir>/MANIFEST.v0.1.json`, `_repr/`, `receipts/`, `FIGURES/` (paper_v0.1) | paper_ready.md, trust_verification.md |
 | generate-official-baselines | `--out <dir> --episodes 2 --seed 42 --force` | 0 | `<dir>/results/` (throughput_sla through insider_key_misuse plus coord_scale, coord_risk JSON), `summary.csv`, `summary.md`, `summary_v0.2.csv`, `summary_v0.3.csv`, `metadata.json` | baseline_registry.v0.1.yaml, metrics_contract |
-| summarize-results | `--in <dir_or_file> --out <dir> --basename summary` | 0 | `<out>/summary_v0.2.csv`, `summary_v0.3.csv`, `summary.csv`, `summary.md`; when run metadata present: `run_info.csv`, Run info section in summary.md | metrics_contract.md |
-| determinism-report | `--task throughput_sla --episodes 2 --seed 42 --out <dir>` | 0 | `<dir>/determinism_report.json`, `determinism_report.md` (checks summary, run config, hash comparison) | reproducible_builds.md, benchmarks.md |
+| summarize-results | `--in <dir_or_file> --out <dir> --basename summary` | 0 | `<out>/summary.csv`, `summary.md`, `summary_v0.2.csv`, `summary_v0.3.csv` (and optionally run_info.csv, llm_economics.csv). CLI prints the written paths. | metrics_contract.md |
+| determinism-report | `--task throughput_sla --episodes 2 --seed 42 --out <dir>` | 0 | `<dir>/determinism_report.json`, `determinism_report.md` (executive summary Result: PASSED/FAILED at top; run config, hash comparison) | reproducible_builds.md, benchmarks.md |
 | train-ppo | `--task throughput_sla --timesteps 100 --seed 42 --out <dir>` | 0 | `<dir>/model.zip` (or run dir with model) | marl_baselines.md |
 | eval-ppo | `--model <model.zip> --task throughput_sla --episodes 2 --seed 42 --out <path>` | 0 | `<path>` (metrics JSON) or stderr | marl_baselines.md |
 | serve | `--host 127.0.0.1 --port <port>` | 0 | (server runs; GET /v0/summary returns 200) | security_online.md, output_controls.md |
@@ -58,7 +60,7 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 
 - **train-ppo**, **eval-ppo:** Require `.[marl]` extra (stable-baselines3, torch). Smoke tests may skip if not installed.
 - **serve:** Long-running; smoke test starts server, GET /v0/summary, then terminates. Optional in CI.
-- **forker-quickstart:** Depends on validate-policy and coordination pack; full flow can be slow (timeout ~180s in smoke).
+- **forker-quickstart**, **run-security-suite:** Very long-running (10–30 min each). CLI smoke matrix **skips** them unless `LABTRUST_RUN_VERY_SLOW_TESTS=1`; when set, tests use a 30 min subprocess timeout. See [Testing strategy](../reference/testing_strategy.md).
 - **run-official-pack:** With `--smoke` is faster; full pack has higher timeout.
 - **run-coordination-study:** Use minimal spec (e.g. `tests/fixtures/coordination_study_llm_smoke_spec.yaml`) for smoke.
 
@@ -66,7 +68,8 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 
 Suggested per-command timeouts for minimal runs:
 
-- Light (30s): validate-policy, verify-bundle, verify-release, safety-case, deps-inventory, build-risk-register-bundle, export-risk-register (with fixtures), summarize-results, summarize-coordination, recommend-coordination-method, build-coordination-matrix, ui-export.
-- Medium (60s): quick-eval, run-benchmark (1 ep), eval-agent (1 ep), bench-smoke, export-receipts, export-fhir, run-security-suite (smoke), make-plots (small run), determinism-report (2 ep).
-- Heavy (120–180s): forker-quickstart, run-study (minimal spec), run-coordination-study (smoke spec), run-coordination-security-pack, reproduce (minimal), package-release (minimal), generate-official-baselines (2 ep), run-official-pack (smoke).
+- Light (30s): validate-policy, verify-bundle, verify-release, safety-case, deps-inventory, build-risk-register-bundle, export-risk-register (with fixtures), summarize-results, summarize-coordination, recommend-coordination-method, build-coordination-matrix, ui-export, run-summary.
+- Medium (60s): quick-eval, run-benchmark (1 ep), eval-agent (1 ep), bench-smoke, export-receipts, export-fhir, make-plots (small run), determinism-report (2 ep).
+- Heavy (120–180s): run-study (minimal spec), run-coordination-study (smoke spec), run-coordination-security-pack, reproduce (minimal), package-release (minimal), generate-official-baselines (2 ep), run-official-pack (smoke).
+- Very slow (skipped by default): **run-security-suite** (smoke), **forker-quickstart**. Smoke matrix skips these unless `LABTRUST_RUN_VERY_SLOW_TESTS=1`; when enabled, allow 30 min each. See [Testing strategy](../reference/testing_strategy.md#full-test-suite).
 - Optional / skip: train-ppo, eval-ppo (marl), serve (start + GET + stop).

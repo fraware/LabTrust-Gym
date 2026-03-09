@@ -300,11 +300,34 @@ def run_determinism_report(
     checks_line = f"**Checks:** {n_passed}/{n_total} passed."
     if not passed:
         checks_line += " See Errors below."
+    interpretation = (
+        "Two runs produced identical episode logs and results."
+        if passed
+        else "One or more checks failed; see Errors and Hash comparison below."
+    )
     md_lines = [
         "# Determinism report",
         "",
+        f"**Result: {status_label}**",
+        "",
+        interpretation,
+        "",
         checks_line,
         "",
+    ]
+    if not passed and report.get("actual_deltas"):
+        ad = report["actual_deltas"]
+        t_d, p_d = ad.get("max_throughput_delta"), ad.get("max_p95_latency_delta")
+        if t_d is not None or p_d is not None:
+            parts = []
+            if t_d is not None and t_d == t_d:  # not NaN
+                parts.append(f"Max throughput delta: {t_d}")
+            if p_d is not None and p_d == p_d:
+                parts.append(f"max p95 latency delta: {p_d} s")
+            if parts:
+                md_lines.append("- " + "; ".join(parts))
+                md_lines.append("")
+    md_lines.extend([
         "Two runs, identical args; hashes and v0.2 metrics must match.",
         "",
         "---",
@@ -320,7 +343,7 @@ def run_determinism_report(
         f"| Timing | {report['timing_mode']} |",
         f"| Python | {python_version or 'n/a'} |",
         f"| Platform | {platform_s} |",
-    ]
+    ])
     if coord_method:
         md_lines.append(f"| Coord method | {coord_method} |")
     if pipeline_mode is not None:

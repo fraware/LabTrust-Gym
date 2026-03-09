@@ -50,6 +50,7 @@ agent_config: scripted_runner
 ```
 out_dir/
   manifest.json      # Commit hash (if git), policy versions, python version, deps snapshot; condition_ids; result_hashes
+  README.md          # Written by run-study: task, episodes per condition, condition count, paths; next step: make-plots
   conditions.jsonl   # One JSON line per condition (condition_id, condition, seeds, overrides)
   results/
     <condition_id>/
@@ -72,6 +73,8 @@ labtrust run-study --spec policy/studies/study_spec.example.v0.1.yaml --out runs
 
 - `--spec`: Path to study spec YAML (relative to repo root or absolute).
 - `--out`: Output directory; created if missing. Use a timestamp or name (e.g. `runs/my_ablation_study`).
+
+After a successful run, the CLI prints the output directory, key paths (manifest.json, results/, logs/), and the suggested next step: `labtrust make-plots --run <out_dir>` to generate figures and RUN_REPORT. After make-plots, read RUN_SUMMARY.md in the run dir for layout and next steps.
 
 Requires `.[env]` (PettingZoo/Gymnasium) for the benchmark runner.
 
@@ -101,7 +104,7 @@ The **trust ablations** study (`policy/studies/trust_ablations.v0.1.yaml`) is a 
 
 ```bash
 labtrust run-study --spec policy/studies/trust_ablations.v0.1.yaml --out runs/trust_ablations
-labtrust make-plots runs/trust_ablations
+labtrust make-plots --run runs/trust_ablations
 ```
 
 Output: `manifest.json`, `conditions.jsonl`, `results/<cond_id>/results.json`, `logs/<cond_id>/episodes.jsonl`, `figures/*.png`, `figures/data_tables/summary.csv`, `figures/data_tables/paper_table.md`.
@@ -121,11 +124,14 @@ A **deterministic plotting pipeline** converts a study run into data tables (CSV
 ### CLI
 
 ```bash
-labtrust make-plots --run runs/<id> [--theme light|dark]
+labtrust make-plots --run runs/<id> [--theme light|dark|colorblind|bw] [--pdf]
 ```
 
 - `--run`: Path to a study output directory (must contain `manifest.json` and `results/<condition_id>/results.json`).
-- `--theme`: Figure theme: `light` (default) or `dark`. Applies to all PNG/SVG figures (face color, grid, palette).
+- `--theme`: Figure theme: `light` (default), `dark`, `colorblind`, or `bw`. Use `colorblind` for accessibility; `bw` for grayscale/print.
+- `--pdf`: Assemble all figures into `figures/run_figures.pdf`.
+
+Conditions listed in the manifest but missing `results/<condition_id>/results.json` are skipped; only conditions with results are included in data tables and figures. Summary tables include uncertainty columns (std, SE) and `n_episodes`; error bars on plots show ±1 SE where available. Conditions without p95 TAT are omitted from the trust-cost vs p95 figure.
 
 Requires matplotlib: `pip install -e ".[plots]"` (or `.[env,plots]`).
 
@@ -148,8 +154,12 @@ out_dir/figures/
   critical_compliance_by_condition.png, .svg
   throughput_box_by_condition.png, .svg
   metrics_overview.png, .svg
-  RUN_REPORT.md          # Metric definitions and figure descriptions
+  RUN_REPORT.md          # Metric definitions; "which figure for which question" guide; figure list with data_tables refs
+out_dir/
+  RUN_SUMMARY.md         # Written by make-plots: what was run, output layout, See also (report index + metrics contract)
 ```
+
+Report types and locations: [Outputs and results — Report artifacts](../reference/outputs_and_results.md#11-report-artifacts-index).
 
 ### Figures
 

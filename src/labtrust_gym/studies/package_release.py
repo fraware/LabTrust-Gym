@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import shutil
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+_LOG = logging.getLogger(__name__)
 
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.studies.reproduce import run_reproduce
@@ -166,6 +169,10 @@ Blood Sciences lane: specimen reception, accessioning, pre-analytics, routine an
 - **Adversary** (adversarial_disruption): scripted adversary agent.
 - **PPO/MARL**: optional Stable-Baselines3; train-ppo / eval-ppo.
 - **LLM mock**: optional LLM agent (deterministic backend).
+
+## Result artifacts (release package)
+
+- **FIGURES/**: study figures (make-plots). **TABLES/**: summary.csv, summary.md, paper_table.md. **_study/figures/**: RUN_REPORT.md, data_tables/. **_baselines/**: official baseline results. **receipts/<task>/**: EvidenceBundle and verify_report. **_repr/**: representative run per task.
 
 ## Known limitations and non-goals
 
@@ -467,8 +474,17 @@ def run_package_release_paper(
             for f in study_figures.iterdir():
                 if f.is_file() and f.suffix.lower() in (".png", ".svg"):
                     shutil.copy2(f, figures_dir / f.name)
+    except ImportError as e:
+        _LOG.warning(
+            "Figures skipped: plots extra not installed (%s). "
+            "Install with: pip install -e '.[plots]'",
+            e,
+        )
+    except ValueError as e:
+        _LOG.warning("Figures skipped: %s", e)
     except Exception:
-        pass
+        _LOG.exception("Figures generation failed; FIGURES/ may be incomplete")
+        raise
 
     # 6) RELEASE_NOTES.md
     git_sha = _git_commit_hash(repo_root)
@@ -487,12 +503,21 @@ def run_package_release_paper(
 - Seed base: {seed_base}
 - Timestamp (deterministic when seed-base set): {ts}
 
+## Result artifacts
+
+- **FIGURES/**: study figures from make-plots (insider_key_misuse study).
+- **TABLES/**: summary.csv, summary.md, paper_table.md (benchmark and study aggregates).
+- **_study/figures/**: RUN_REPORT.md, data_tables/ (study condition summary and plot data).
+- **_baselines/**: official baseline results (results/, summary.csv, summary.md, metadata.json).
+- **receipts/<task>/**: EvidenceBundle.v0.1 and verify_report.txt per task.
+- **_repr/**: one representative run per task (episodes.jsonl, results.json).
+
 ## Layout
 
 - `_baselines/`: official baseline results (results/, summary.csv, summary.md, metadata.json).
 - `_study/`: insider_key_misuse strict_signatures study (manifest.json, results/, logs/, figures/).
 - `FIGURES/`: canonical plots from insider_key_misuse study.
-- `TABLES/`: summary.csv, summary.md, paper_table.md.
+- `TABLES/`: summary.csv, summary.md, paper_table.md (benchmark summary from summarize-results). _study/figures/data_tables/ contains the study condition summary (make-plots) for the insider_key_misuse run.
 - `receipts/<task>/`: EvidenceBundle.v0.1 and verify_report.txt per task.
 - `_repr/`: one representative run per task (episodes.jsonl, results.json).
 - `SECURITY/`: attack_results.json (security attack suite), coverage.md, coverage.json, reason_codes.md, deps_inventory.json, deps_inventory_runtime.json (securitization packet).

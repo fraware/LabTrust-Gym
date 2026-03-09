@@ -37,6 +37,7 @@ Some tests skip when fixtures or environment are missing. To avoid unnecessary s
 | **cryptography** not installed | Gossip/signed-bus tests (e.g. `llm_gossip_summarizer`, `llm_local_decider_signed_bus`) | Install `.[env]`; tests that build key_store or use SignedMessageBus skip when cryptography is missing. |
 | **kernel_whca / optional coordination deps** | Conformance and method tests for kernel_whca, llm_repair_over_kernel_whca, etc. | Install `.[env]`; some tests skip when optional coordination backends are not available. |
 | **CBS backend** | `test_mapf_property.py::test_mapf_cbs_equivalence` | Permanently skipped until [mapf] CBS backend is available; WHCA tests run. |
+| **LABTRUST_RUN_VERY_SLOW_TESTS** unset | `test_cli_run_security_suite`, `test_cli_forker_quickstart` | Set `LABTRUST_RUN_VERY_SLOW_TESTS=1` to run these CLI smoke tests; each can take 10–30 min. Default skip keeps the suite fast. |
 
 **Optional extras:** To reduce skips, install the extras you need: `.[env]` for PettingZoo/coordination/security suite; `.[marl]` for PPO; `.[docs]` for docs build; `.[full]` for env+marl+docs+plots in one go. See [Installation](../getting-started/installation.md) for the full table.
 
