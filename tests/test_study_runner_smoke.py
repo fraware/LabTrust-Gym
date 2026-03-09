@@ -110,3 +110,9 @@ def test_study_runner_output_structure() -> None:
         for cid in ["cond_0", "cond_1"]:
             assert (out_dir / "results" / cid / "results.json").exists()
             assert (out_dir / "logs" / cid / "episodes.jsonl").exists()
+
+        readme_path = out_dir / "README.md"
+        assert readme_path.exists(), "run_study should write README.md with next-step hint"
+        readme_content = readme_path.read_text(encoding="utf-8")
+        assert "Study run" in readme_content
+        assert "make-plots" in readme_content

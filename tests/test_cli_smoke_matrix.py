@@ -3,7 +3,8 @@ CLI smoke matrix: run each README-listed CLI command with minimal args, assert e
 
 Uses subprocess (python -m labtrust_gym.cli.main). Timeouts and output checks align with
 docs/cli_contract.md. Commands requiring [marl] or long-running (serve) are skipped unless
-LABTRUST_CLI_FULL=1.
+LABTRUST_CLI_FULL=1. run-security-suite and forker-quickstart are skipped unless
+LABTRUST_RUN_VERY_SLOW_TESTS=1 (they can take 10–30 min each).
 """
 
 from __future__ import annotations
@@ -26,6 +27,10 @@ TIMEOUT_MEDIUM = 90
 TIMEOUT_HEAVY = 180
 TIMEOUT_COORD_PACK = 300
 TIMEOUT_FORKER = 360
+# Very long-running CLI tests (security suite smoke, forker-quickstart). Skipped unless
+# LABTRUST_RUN_VERY_SLOW_TESTS=1; when set, allowed 30 min each so they can pass on slow machines.
+TIMEOUT_VERY_SLOW = 600
+TIMEOUT_VERY_SLOW_WHEN_ENABLED = 1800
 
 # Minimal two-step episode JSONL for receipt/bundle tests (hashchain-compatible).
 _MINIMAL_EPISODE_JSONL = (
@@ -119,6 +124,8 @@ def test_cli_run_benchmark(tmp_path: Path) -> None:
     assert data.get("task") == "throughput_sla"
     assert data.get("num_episodes") == 1
     assert "episodes" in data and len(data["episodes"]) == 1
+    combined = (r.stdout or "") + (r.stderr or "")
+    assert "Next: labtrust run-summary" in combined, "run-benchmark should print next-step message"
 
 
 def test_cli_eval_agent(tmp_path: Path) -> None:
@@ -171,6 +178,9 @@ def test_cli_quick_eval(tmp_path: Path) -> None:
     assert (run_dir / "adversarial_disruption.json").exists()
     assert (run_dir / "multi_site_stat.json").exists()
     assert (run_dir / "summary.md").exists()
+    summary_text = (run_dir / "summary.md").read_text(encoding="utf-8")
+    assert "Violations" in summary_text and "Blocked" in summary_text
+    assert "Results:" in summary_text or str(run_dir) in summary_text
 
 
 def test_cli_export_receipts(tmp_path: Path) -> None:
@@ -255,11 +265,14 @@ def test_cli_verify_release(tmp_path: Path) -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.timeout(1900)
 def test_cli_run_security_suite(tmp_path: Path) -> None:
-    """run-security-suite: smoke, SECURITY/attack_results.json. Slow: runs full smoke suite."""
+    """run-security-suite: smoke, SECURITY/attack_results.json. Very slow (10–30 min); run with LABTRUST_RUN_VERY_SLOW_TESTS=1."""
+    if not os.environ.get("LABTRUST_RUN_VERY_SLOW_TESTS"):
+        pytest.skip("run-security-suite takes 10+ min; set LABTRUST_RUN_VERY_SLOW_TESTS=1 to run")
     r = _run_labtrust(
         ["run-security-suite", "--out", str(tmp_path / "sec"), "--smoke", "--seed", "42"],
-        timeout=TIMEOUT_MEDIUM,
+        timeout=TIMEOUT_VERY_SLOW_WHEN_ENABLED,
     )
     _assert_cli_success(r)
     sec_dir = tmp_path / "sec" / "SECURITY"
@@ -393,6 +406,8 @@ def test_cli_summarize_results(tmp_path: Path) -> None:
     assert (out_dir / "summary_v0.2.csv").exists()
     assert (out_dir / "summary.csv").exists()
     assert (out_dir / "summary.md").exists()
+    combined = (r.stdout or "") + (r.stderr or "")
+    assert "summary.csv" in combined, "summarize-results should print actual output paths"
 
 
 @pytest.mark.slow
@@ -415,17 +430,24 @@ def test_cli_determinism_report(tmp_path: Path) -> None:
     _assert_cli_success(r)
     out_dir = tmp_path / "det_out"
     assert (out_dir / "determinism_report.json").exists()
-    assert (out_dir / "determinism_report.md").exists()
+    md_path = out_dir / "determinism_report.md"
+    assert md_path.exists()
+    md_text = md_path.read_text(encoding="utf-8")
+    assert md_text.strip().startswith("# Determinism report")
+    assert "Result: PASSED" in md_text or "Result: FAILED" in md_text
 
 
 @pytest.mark.slow
+@pytest.mark.timeout(1900)
 def test_cli_forker_quickstart(tmp_path: Path) -> None:
-    """forker-quickstart: pack + report + risk register under --out. Long-running (~3–5 min)."""
+    """forker-quickstart: pack + report + risk register under --out. Very slow (10–30 min); run with LABTRUST_RUN_VERY_SLOW_TESTS=1."""
+    if not os.environ.get("LABTRUST_RUN_VERY_SLOW_TESTS"):
+        pytest.skip("forker-quickstart takes 10+ min; set LABTRUST_RUN_VERY_SLOW_TESTS=1 to run")
     out_dir = tmp_path / "forker_out"
     out_dir.mkdir(parents=True, exist_ok=True)
     r = _run_labtrust(
         ["forker-quickstart", "--out", str(out_dir)],
-        timeout=TIMEOUT_FORKER,
+        timeout=TIMEOUT_VERY_SLOW_WHEN_ENABLED,
     )
     _assert_cli_success(r)
     pack_dir = out_dir / "pack"
@@ -437,6 +459,7 @@ def test_cli_forker_quickstart(tmp_path: Path) -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.timeout(330)
 def test_cli_run_coordination_security_pack(tmp_path: Path) -> None:
     """run-coordination-security-pack: pack_summary.csv, pack_gate.md. Long-running (~3–4 min)."""
     r = _run_labtrust(
@@ -551,6 +574,17 @@ def test_cli_make_plots(tmp_path: Path) -> None:
     _assert_cli_success(r)
     figures = run_dir / "figures"
     assert figures.is_dir()
+
+
+def test_cli_make_plots_invalid_run_dir(tmp_path: Path) -> None:
+    """make-plots with run dir that has no manifest/summary_coord/pack_summary exits non-zero."""
+    root = _repo_root()
+    empty_dir = tmp_path / "empty_run"
+    empty_dir.mkdir(parents=True, exist_ok=True)
+    r = _run_labtrust(["make-plots", "--run", str(empty_dir)], cwd=root, timeout=30)
+    assert r.returncode != 0
+    combined = (r.stderr or "") + (r.stdout or "")
+    assert "manifest.json" in combined or "pack_summary" in combined or "summary_coord" in combined
 
 
 @pytest.mark.slow

@@ -72,6 +72,10 @@ labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ -
 - **Regeneration**: From repo root, run `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force` to refresh the CI baseline (episodes=3 matches the regression test), or `--episodes 200 --seed 123` for a fuller set. Timestamp in metadata is deterministic when `--seed` is set. Optional: `--timing simulated`, `--partner hsl_like`.
 - **Compare**: `labtrust summarize-results --in benchmarks/baselines_official/v0.2/results/ your_results.json --out <out_dir>`.
 
+### Result artifacts (paper release)
+
+In a `package-release --profile paper_v0.1` output: **FIGURES/** (study figures), **TABLES/** (summary.csv, summary.md, paper_table.md), **_study/figures/** (RUN_REPORT.md, data_tables/), **_baselines/** (official baseline results), **receipts/<task>/** (EvidenceBundle, verify_report), **_repr/** (representative run per task). See RELEASE_NOTES.md in the release dir for the full layout.
+
 ## Coordination suite (coord_scale, coord_risk)
 
 Coordination tasks and metrics are documented in [Coordination studies](../coordination/coordination_studies.md) and [Coordination methods](../coordination/coordination_methods.md). Summary:

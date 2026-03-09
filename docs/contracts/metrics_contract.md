@@ -1,6 +1,6 @@
 # Metrics contract
 
-This document defines units, when each metric is meaningful (explicit vs simulated timing mode), and aggregation rules for benchmark results. Used by results.v0.2 (CI-stable) and results.v0.3 (paper-grade).
+This document defines units, when each metric is meaningful (explicit vs simulated timing mode), and aggregation rules for benchmark results. Used by results.v0.2 (CI-stable) and results.v0.3 (paper-grade). RUN_REPORT, summary.md, and coordination leaderboards refer to this document for metric semantics.
 
 **Schema alignment:** The per-episode metrics table below is the source of truth for result fields. The JSON schema `policy/schemas/results.v0.2.schema.json` (and v0.3) should stay aligned with this table when adding or changing metrics.
 
@@ -61,7 +61,7 @@ v0.3 adds optional fields for reporting:
 Summary outputs (from `labtrust summarize-results --in <paths> --out <dir> --basename summary`):
 
 - **summary_v0.2.csv** — CI-stable; backward compatible. Columns: task, agent_baseline_id, partner_id, n_episodes, plus for each metric only *_mean and *_std (e.g. throughput_mean, throughput_std, p95_turnaround_s_mean, p95_turnaround_s_std). No quantile or CI columns. Used for baseline regression guard.
-- **summary_v0.3.csv** — Same rows as v0.2; columns include v0.2 columns plus paper-grade: *_p50, *_p90, *_mean_ci_lower, *_mean_ci_upper (when computable), **containment_success_rate_ci_lower**, **containment_success_rate_ci_upper** (binomial 95% CI when task has containment_success), and **llm_confidence_ece_mean**, **llm_confidence_mce_mean** (when episodes have llm_confidence_calibration). May contain empty/NaN for quantiles or CI when insufficient episodes.
+- **summary_v0.3.csv** — Same rows as v0.2; columns include v0.2 columns plus paper-grade: *_p50, *_p90, *_mean_ci_lower, *_mean_ci_upper (when computable), **containment_success_rate_ci_lower**, **containment_success_rate_ci_upper** (binomial 95% CI when task has containment_success), and **llm_confidence_ece_mean**, **llm_confidence_mce_mean** (when episodes have llm_confidence_calibration). May contain empty/NaN for quantiles or CI when insufficient episodes. Quantile and CI columns are non-empty when there are enough episodes per group (e.g. n_episodes >= 2 for standard error and 95% CI).
 - **summary.csv** — Copy of summary_v0.2.csv (identical content).
 - **summary.md** — Markdown table derived from v0.2 aggregates only (same columns as summary_v0.2.csv). No quantile or CI columns in the table. When any result has `metadata.run_duration_wall_s`, the markdown also includes a **Run info** section (table of run_duration_wall_s, episodes_per_second per result) and a short footer.
 

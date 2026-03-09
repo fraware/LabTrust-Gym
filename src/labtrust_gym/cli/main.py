@@ -698,9 +698,14 @@ def main() -> int:
     )
     p_plots.add_argument(
         "--theme",
-        choices=("light", "dark"),
+        choices=("light", "dark", "colorblind", "bw"),
         default="light",
-        help="Figure theme: light (default) or dark.",
+        help="Figure theme: light (default), dark, colorblind, or bw.",
+    )
+    p_plots.add_argument(
+        "--pdf",
+        action="store_true",
+        help="Assemble all figures into figures/run_figures.pdf.",
     )
     p_plots.set_defaults(func=_run_make_plots)
     p_export_receipts = sub.add_parser(
@@ -2082,6 +2087,27 @@ def _run_benchmark(args: argparse.Namespace) -> int:
             get_console().error(f"run-benchmark failed: {e}")
         return 1
     get_console().write_plain(f"Wrote {args.out}")
+    run_dir = out_path.parent if out_path.is_file() else out_path
+    run_dir_str = "." if run_dir.resolve() == Path.cwd().resolve() else str(run_dir)
+    get_console().write_plain(
+        f"  Next: labtrust run-summary --run {run_dir_str} for one-line stats, "
+        "or summarize-results --in <out> --out <dir> for aggregates."
+    )
+    if out_path.is_file():
+        try:
+            data = json.loads(out_path.read_text(encoding="utf-8"))
+            episodes = data.get("episodes") or []
+            n = len(episodes)
+            throughputs = [
+                ep.get("metrics", {}).get("throughput")
+                for ep in episodes
+                if isinstance(ep.get("metrics"), dict)
+            ]
+            throughputs = [float(t) for t in throughputs if t is not None]
+            mean_throughput = sum(throughputs) / len(throughputs) if throughputs else 0.0
+            get_console().write_plain(f"  Episodes: {n}, mean throughput: {mean_throughput:.2f}")
+        except Exception:
+            pass
     if getattr(args, "log", None):
         get_console().info(f"Episode log {args.log}")
     if partner_id:
@@ -2177,11 +2203,30 @@ def _run_make_plots(args: argparse.Namespace) -> int:
     run_dir = Path(args.run)
     if not run_dir.is_absolute():
         run_dir = root / run_dir
-    make_plots(run_dir, theme=getattr(args, "theme", "light"))
+    if not run_dir.exists():
+        get_console().error(f"Run directory does not exist: {run_dir}")
+        return 1
+    if not run_dir.is_dir():
+        get_console().error(f"Run path is not a directory: {run_dir}")
+        return 1
+    has_manifest = (run_dir / "manifest.json").exists()
+    has_coord = (run_dir / "summary" / "summary_coord.csv").exists()
+    has_pack = (run_dir / "pack_summary.csv").exists()
+    if not (has_manifest or has_coord or has_pack):
+        get_console().error(
+            f"Run directory must contain manifest.json, or summary/summary_coord.csv, "
+            f"or pack_summary.csv. Found none in {run_dir}"
+        )
+        return 1
+    make_plots(
+        run_dir,
+        theme=getattr(args, "theme", "light"),
+        pdf=getattr(args, "pdf", False),
+    )
     fig_dir = run_dir / "figures"
     get_console().write_plain(f"Figures and data tables written to {fig_dir}")
-    get_console().info(f"  Read {fig_dir / 'RUN_REPORT.md'} for metric definitions and data summary.")
-    get_console().info(f"  Read {run_dir / 'RUN_SUMMARY.md'} for run context and output layout.")
+    get_console().write_plain(f"  {fig_dir}/RUN_REPORT.md, {fig_dir}/data_tables/")
+    get_console().write_plain("  Next: inspect RUN_REPORT.md and data_tables/ for metrics and per-condition aggregates.")
     return 0
 
 
@@ -2709,8 +2754,7 @@ def _run_package_release(args: argparse.Namespace) -> int:
             include_coordination_pack=include_coordination_pack,
         )
         get_console().write_plain(f"Release artifact written to {result}")
-        get_console().info("  MANIFEST.v0.1.json, BENCHMARK_CARD.md, metadata.json")
-        get_console().info("  results.json, plots/, tables/, receipts/, fhir/")
+        get_console().write_plain("  See RELEASE_NOTES.md and BENCHMARK_CARD.md for layout and result artifacts.")
         return 0
     except Exception as e:
         get_console().error(f"package-release failed: {e}")
@@ -3045,6 +3089,11 @@ def _run_study(args: argparse.Namespace) -> int:
         timing_mode=getattr(args, "timing", None),
     )
     get_console().write_plain(f"Study written to {out_dir}")
+    get_console().write_plain(f"  manifest.json, results/, logs/")
+    get_console().write_plain(
+        f"  Next: labtrust make-plots --run {out_dir} [--theme light|dark|colorblind|bw] [--pdf] to generate figures and RUN_REPORT."
+    )
+    get_console().write_plain("  After make-plots, read RUN_SUMMARY.md in the run dir for layout and next steps.")
     return 0
 
 
@@ -3091,6 +3140,8 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
         return 1
     run_coordination_study(spec_path, out_dir, repo_root=root, llm_backend=llm_backend, llm_model=llm_model)
     get_console().write_plain(f"Coordination study written to {out_dir}")
+    get_console().write_plain("  summary/summary_coord.csv, summary/sota_leaderboard.md, cells/")
+    get_console().write_plain("  See summary/ for leaderboard and method-class comparison. Optional: run summarize-coordination if not already produced.")
 
     if emit_matrix:
         from labtrust_gym.studies.coordination_matrix_builder import (
@@ -3406,8 +3457,18 @@ def _run_summarize_results(args: argparse.Namespace) -> int:
         out_dir = root / out_dir
     basename = getattr(args, "basename", "summary")
     csv_path, md_path = run_summarize(in_paths, out_dir, out_basename=basename)
-    get_console().write_plain(f"Wrote {csv_path}")
-    get_console().write_plain(f"Wrote {md_path}")
+    get_console().write_plain(f"Summary written to {out_dir}")
+    paths = [
+        out_dir / f"{basename}.csv",
+        out_dir / f"{basename}.md",
+        out_dir / f"{basename}_v0.2.csv",
+        out_dir / f"{basename}_v0.3.csv",
+    ]
+    optional = [out_dir / "run_info.csv", out_dir / "llm_economics.csv"]
+    for p in optional:
+        if p.exists():
+            paths.append(p)
+    get_console().write_plain("  " + ", ".join(str(p) for p in paths))
     return 0
 
 
@@ -3968,12 +4029,19 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
             data = json.load(f)
         ep = (data.get("episodes") or [{}])[0]
         metrics = ep.get("metrics") or {}
+        violations_total = sum(
+            (metrics.get("violations_by_invariant_id") or {}).values()
+        )
+        blocked_by_reason = metrics.get("blocked_by_reason_code") or {}
+        blocked_total = sum(blocked_by_reason.values()) if blocked_by_reason else (
+            metrics.get("blocked_count", 0) if isinstance(metrics.get("blocked_count"), (int, float)) else 0
+        )
         rows.append(
             {
                 "task": task,
                 "throughput": metrics.get("throughput", 0),
-                "violation_count": metrics.get("violation_count", 0),
-                "blocked_count": metrics.get("blocked_count", 0),
+                "violations": violations_total,
+                "blocked": blocked_total,
             }
         )
 
@@ -3983,19 +4051,28 @@ def _run_quick_eval(args: argparse.Namespace) -> int:
         "",
         f"Run: {stamp}",
         f"Seed: {seed}",
+        f"Pipeline: {pipeline_mode}",
         f"Tasks: {', '.join(tasks)}",
+        "",
+        "Violations = sum of violations_by_invariant_id; Blocked = sum of blocked_by_reason_code (totals per episode).",
         "",
         "| Task | Throughput | Violations | Blocked |",
         "|------|------------|------------|--------|",
     ]
     for r in rows:
-        lines.append(f"| {r['task']} | {r['throughput']} | {r['violation_count']} | {r['blocked_count']} |")
-    lines.extend(["", f"Logs: `{logs_dir}`", ""])
+        lines.append(f"| {r['task']} | {r['throughput']} | {r['violations']} | {r['blocked']} |")
+    lines.extend([
+        "",
+        f"Results: `{run_dir}` (one JSON per task, e.g. {tasks[0]}.json).",
+        f"Logs: `{logs_dir}`",
+        "",
+    ])
     summary_path = run_dir / "summary.md"
     summary_path.write_text("\n".join(lines), encoding="utf-8")
 
     get_console().write_plain(f"quick-eval written to {run_dir}")
     print(summary_path.read_text(), file=sys.stdout)
+    get_console().write_plain("Next: run full benchmark or summarize-results for detailed aggregates.")
     return 0
 
 

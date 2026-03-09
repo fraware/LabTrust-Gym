@@ -768,7 +768,7 @@ def run_summarize(
         run_info_csv = out_dir / "run_info.csv"
         run_info_csv.write_text(rows_to_csv(run_info_rows), encoding="utf-8")
         md_content += "\n\n---\n\n## Run info\n\n" + rows_to_markdown_table(run_info_rows) + "\n\n"
-    md_content += "\n---\n\n*Summary generated from results.v0.2.*\n"
+    md_content += "\n---\n\n*Summary generated from results.v0.2. Metrics: see docs/contracts/metrics_contract.md.*\n"
     md_path.write_text(md_content, encoding="utf-8")
     if llm_rows:
         llm_csv = out_dir / "llm_economics.csv"

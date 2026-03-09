@@ -56,6 +56,26 @@ def _python_version() -> str:
     return f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
 
+def _write_study_readme(out_dir: Path, manifest: dict[str, Any]) -> None:
+    """Write out_dir/README.md with minimal study context and next step (make-plots)."""
+    task = manifest.get("task", "unknown")
+    episodes = manifest.get("episodes", 0)
+    condition_ids = manifest.get("condition_ids") or []
+    n_conditions = len(condition_ids)
+    lines = [
+        "# Study run",
+        "",
+        f"- **Task**: {task}",
+        f"- **Episodes per condition**: {episodes}",
+        f"- **Conditions**: {n_conditions}",
+        "- **Paths**: manifest.json, results/, logs/",
+        "",
+        f"Run `labtrust make-plots --run {out_dir}` to generate figures, data tables, and RUN_SUMMARY.md.",
+        "",
+    ]
+    (out_dir / "README.md").write_text("\n".join(lines), encoding="utf-8")
+
+
 def _deps_snapshot() -> dict[str, str] | None:
     """Return pip freeze or None if unavailable."""
     try:
@@ -275,6 +295,7 @@ def run_study(
         encoding="utf-8",
     )
 
+    _write_study_readme(out_dir, manifest)
     return manifest
 
 

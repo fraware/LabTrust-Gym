@@ -696,6 +696,48 @@ def write_method_class_md(
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_summary_readme(
+    summary_out: Path,
+    has_phase: bool,
+    repo_root: Path | None = None,
+) -> None:
+    """Write summary/README.md describing leaderboard and method-class files and metric reference."""
+    lines = [
+        "# Coordination summary",
+        "",
+        "This directory contains aggregated coordination results.",
+        "",
+        "| File | Description |",
+        "|------|-------------|",
+        "| sota_leaderboard.csv, .md | Key SOTA metrics per method (throughput, violations, blocks, resilience, p95 TAT, etc.). |",
+        "| sota_leaderboard_full.csv, .md | All aggregated numerics per method. |",
+        "| method_class_comparison.csv, .md | Same metrics grouped by method class. |",
+    ]
+    if has_phase:
+        lines.append(
+            "| sota_leaderboard_by_phase.csv, .md | Per-method and per-application_phase means. |"
+        )
+    metrics_link = "../../../docs/contracts/metrics_contract.md"
+    link_note = ""
+    if repo_root is not None:
+        try:
+            rel = summary_out.resolve().relative_to(repo_root.resolve())
+            up = "/".join(".." for _ in rel.parts)
+            metrics_link = f"{up}/docs/contracts/metrics_contract.md" if up else "docs/contracts/metrics_contract.md"
+        except ValueError:
+            link_note = " Links assume the repository root is three levels above this directory."
+    else:
+        link_note = " Links assume the repository root is three levels above this directory."
+    lines.extend(
+        [
+            "",
+            f"Metrics: see [Metrics contract]({metrics_link}) and the coordination benchmark card for sec.* and robustness.*.{link_note}",
+            "",
+        ]
+    )
+    (summary_out / "README.md").write_text("\n".join(lines), encoding="utf-8")
+
+
 def run_summarize(
     in_dir: Path,
     out_dir: Path,
@@ -754,6 +796,7 @@ def run_summarize(
 
     summary_out = out_dir / "summary"
     summary_out.mkdir(parents=True, exist_ok=True)
+    _write_summary_readme(summary_out, has_phase, repo_root=repo_root)
     write_leaderboard_csv(summary_out / "sota_leaderboard.csv", leaderboard)
     write_leaderboard_md(
         summary_out / "sota_leaderboard.md",
