@@ -7,32 +7,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
 
-**A multi-agent environment (PettingZoo/Gym) for hospital lab automation, with a reference trust skeleton.**
-
----
-
-## Contents
-
-- [LabTrust-Gym](#labtrust-gym)
-  - [Contents](#contents)
-  - [North star](#north-star)
-  - [Who is this for? / I want to...](#who-is-this-for--i-want-to)
-  - [Installation (pip)](#installation-pip)
-  - [Pipelines](#pipelines)
-  - [Quick eval](#quick-eval)
-  - [CLI](#cli)
-    - [Policy and validation](#policy-and-validation)
-    - [Benchmarking and evaluation](#benchmarking-and-evaluation)
-    - [Export and verification](#export-and-verification)
-    - [Security and safety](#security-and-safety)
-    - [Risk register](#risk-register)
-    - [Coordination and studies](#coordination-and-studies)
-    - [Release and reproducibility](#release-and-reproducibility)
-  - [Repository structure](#repository-structure)
-  - [Reproducibility and citation](#reproducibility-and-citation)
-  - [License](#license)
-
----
+**A multi-agent environment (PettingZoo/Gym) for hospital lab automation**
 
 ## What is LabTrust-Gym?
 
