@@ -139,6 +139,15 @@ class LLMCentralPlannerAgentic(CoordinationMethod):
         if isinstance(scale_config, dict):
             r = int(scale_config.get("coord_agentic_max_rounds", self._max_tool_rounds))
             self._max_tool_rounds = max(1, min(r, 10))
+        # Prime-compatible stabilization: keep a minimal two-round budget so
+        # one tool-call round can be followed by a final proposal round.
+        try:
+            gm = getattr(self._backend, "get_aggregate_metrics", None)
+            backend_id = (gm() or {}).get("backend_id") if callable(gm) else None
+            if backend_id == "prime_intellect_live":
+                self._max_tool_rounds = max(self._max_tool_rounds, 2)
+        except Exception:
+            pass
         if self._get_allowed_actions_fn and policy.get("pz_to_engine"):
             agents = list((policy.get("pz_to_engine") or {}).keys())
             if agents:

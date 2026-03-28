@@ -1,0 +1,111 @@
+# Run Prime Intellect coordination benchmarks on GitHub-hosted runners.
+# Use this when your laptop is off: Actions runs in the cloud (you pay Prime API + Actions minutes).
+#
+# Repo secret: PRIME_INTELLECT_API_KEY (or PRIME_API_KEY — see credentials.py)
+#
+# Full 29× medium_stress × many episodes can exceed the job timeout; narrow `methods_csv` or lower `episodes`.
+name: Prime Intellect benchmark (remote dispatch)
+
+on:
+  workflow_dispatch:
+    inputs:
+      episodes:
+        description: Episodes per method
+        type: string
+        default: "1"
+      scale_id:
+        description: Scale preset id
+        type: string
+        default: medium_stress_signed_bus
+      out_dir:
+        description: Output directory under repo root
+        type: string
+        default: runs/gh_prime_dispatch
+      methods_csv:
+        description: Comma-separated method ids (empty = all built-in methods)
+        type: string
+        default: ""
+      no_resume:
+        description: If true, pass --no-resume (fresh table; use with care)
+        type: boolean
+        default: false
+      job_timeout_minutes:
+        description: Job timeout (max 360 on free tier unless org allows more)
+        type: string
+        default: "360"
+
+jobs:
+  prime-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(github.event.inputs.job_timeout_minutes) }}
+    env:
+      LABTRUST_ALLOW_NETWORK: "1"
+    steps:
+      - name: Check for Prime API key
+        id: key
+        run: |
+          if [ -z "${{ secrets.PRIME_INTELLECT_API_KEY }}" ] && [ -z "${{ secrets.PRIME_API_KEY }}" ]; then
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "Set repository secret PRIME_INTELLECT_API_KEY (or PRIME_API_KEY) to run this workflow."
+          else
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.key.outputs.has_key == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.key.outputs.has_key == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        if: steps.key.outputs.has_key == 'true'
+        run: pip install -e ".[dev,env,plots,llm_prime_intellect]"
+
+      - name: Run Prime live full orchestrator
+        if: steps.key.outputs.has_key == 'true'
+        env:
+          PRIME_INTELLECT_API_KEY: ${{ secrets.PRIME_INTELLECT_API_KEY }}
+          PRIME_API_KEY: ${{ secrets.PRIME_API_KEY }}
+        run: |
+          set -eux
+          EP="${{ github.event.inputs.episodes }}"
+          SCALE="${{ github.event.inputs.scale_id }}"
+          OUT="${{ github.event.inputs.out_dir }}"
+          METHODS="${{ github.event.inputs.methods_csv }}"
+          ARGS=( python scripts/run_all_methods_prime_live_full.py
+            --episodes "$EP"
+            --scale-id "$SCALE"
+            --out-dir "$OUT"
+          )
+          if [ "${{ github.event.inputs.no_resume }}" = "true" ]; then
+            ARGS+=( --no-resume )
+          fi
+          if [ -n "$METHODS" ]; then
+            IFS=',' read -r -a ARR <<< "$METHODS"
+            CLEAN=()
+            for m in "${ARR[@]}"; do
+              t="$(echo "$m" | xargs)"
+              if [ -n "$t" ]; then CLEAN+=("$t"); fi
+            done
+            if [ "${#CLEAN[@]}" -gt 0 ]; then
+              ARGS+=( --methods "${CLEAN[@]}" )
+            fi
+          fi
+          "${ARGS[@]}"
+
+      - name: Upload run artifacts
+        if: steps.key.outputs.has_key == 'true' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prime-benchmark-${{ github.run_id }}
+          path: ${{ github.event.inputs.out_dir }}
+          if-no-files-found: warn
+
+      - name: Skip notice
+        if: steps.key.outputs.has_key != 'true'
+        run: |
+          echo "Skipping: no PRIME_INTELLECT_API_KEY or PRIME_API_KEY secret configured."

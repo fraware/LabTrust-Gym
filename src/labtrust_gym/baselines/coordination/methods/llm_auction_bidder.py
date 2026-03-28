@@ -427,6 +427,9 @@ class LLMAuctionBidder(CoordinationMethod):
         self._last_validation_errors: list[str] = []
         self._last_proposal: dict[str, Any] | None = None
         self._last_meta: dict[str, Any] | None = None
+        self._cached_market: list[dict[str, Any]] = []
+        self._last_market_step: int | None = None
+        self._refresh_every_steps: int = 1
 
     @property
     def method_id(self) -> str:
@@ -441,6 +444,26 @@ class LLMAuctionBidder(CoordinationMethod):
         self._policy_summary = (policy or {}).get("policy_summary") or policy or {}
         self._scale_config = scale_config or {}
         self._seed = seed
+        self._cached_market = []
+        self._last_market_step = None
+        refresh_raw = (
+            (scale_config or {}).get("coord_auction_refresh_every_steps")
+            or os.environ.get("LABTRUST_COORD_AUCTION_REFRESH_EVERY_STEPS")
+            or 0
+        )
+        try:
+            refresh = int(refresh_raw)
+        except (TypeError, ValueError):
+            refresh = 0
+        backend_id = str(
+            getattr(self._backend, "_meta_backend_id", "")
+            or getattr(self._backend, "backend_id", "")
+            or ""
+        ).strip()
+        if refresh <= 0:
+            # Live Prime stability default: reduce call pressure.
+            refresh = 5 if backend_id == "prime_intellect_live" else 1
+        self._refresh_every_steps = max(1, refresh)
         reset_fn = getattr(self._backend, "reset", None)
         if callable(reset_fn):
             reset_fn(seed)
@@ -466,9 +489,9 @@ class LLMAuctionBidder(CoordinationMethod):
             return out
         digest = build_state_digest(obs, infos or {}, t, policy)
         digest["device_zone"] = device_zone
-        protocol = self._scale_config.get("coord_auction_protocol") or os.environ.get(
-            "COORD_AUCTION_PROTOCOL", "single_call"
-        )
+        # Stability default for live sweeps: single aggregated market proposal per step.
+        # This avoids per-agent fan-out that amplifies transient API errors.
+        protocol = "single_call"
         safe_fallback = self._defense_profile == "safe_fallback"
         market: list[dict[str, Any]] = []
 
@@ -515,23 +538,61 @@ class LLMAuctionBidder(CoordinationMethod):
             }
             meta = {}
         else:
-            try:
-                raw = gen(
-                    state_digest=digest,
-                    step_id=t,
-                    method_id=self.method_id,
-                )
-            except Exception as e:
-                _LOG.warning("Proposal generation failed, using fallback: %s", e)
-                if safe_fallback:
-                    self._last_metrics = {}
-                    return out
-                raise
-            if isinstance(raw, tuple):
-                proposal, meta = raw[0], raw[1]
+            should_refresh = (
+                self._last_market_step is None
+                or (t - self._last_market_step) >= self._refresh_every_steps
+                or not self._cached_market
+            )
+            if should_refresh:
+                try:
+                    raw = gen(
+                        state_digest=digest,
+                        step_id=t,
+                        method_id=self.method_id,
+                    )
+                except Exception as e:
+                    _LOG.warning("Proposal generation failed, using fallback: %s", e)
+                    if safe_fallback and self._cached_market:
+                        proposal = {
+                            "proposal_id": f"cached_{t}",
+                            "step_id": t,
+                            "method_id": self.method_id,
+                            "per_agent": [],
+                            "comms": [],
+                            "market": list(self._cached_market),
+                            "meta": dict(self._last_meta or {}),
+                        }
+                        meta = proposal["meta"]
+                    elif safe_fallback:
+                        self._last_metrics = {}
+                        return out
+                    else:
+                        raise
+                else:
+                    if isinstance(raw, tuple):
+                        proposal, meta = raw[0], raw[1]
+                    else:
+                        proposal = raw
+                        meta = proposal.get("meta") or {}
+                    fresh_market = proposal.get("market") or []
+                    if isinstance(fresh_market, list):
+                        self._cached_market = list(fresh_market)
+                        self._last_market_step = t
             else:
-                proposal = raw
-                meta = proposal.get("meta") or {}
+                proposal = {
+                    "proposal_id": f"cached_{t}",
+                    "step_id": t,
+                    "method_id": self.method_id,
+                    "per_agent": [],
+                    "comms": [],
+                    "market": list(self._cached_market),
+                    "meta": dict(self._last_meta or {}),
+                }
+                meta = proposal["meta"]
+            if not isinstance(proposal, dict):
+                proposal = {}
+            if not isinstance(meta, dict):
+                meta = {}
             market = proposal.get("market") or []
 
         self._last_proposal = proposal

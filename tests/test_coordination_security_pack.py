@@ -19,6 +19,8 @@ from labtrust_gym.studies.coordination_security_pack import (
     PACK_SCALES,
     _load_pack_config,
     _resolve_methods,
+    _validate_results_metadata_for_live_cell,
+    assert_unique_llm_backend_for_coordination_model_sweep,
     run_coordination_security_pack,
 )
 
@@ -43,11 +45,18 @@ def _parse_cell_id(cell_id: str) -> tuple[str, str, str]:
     return ("small_smoke", "", cell_id.replace("_", "-"))
 
 
-def _minimal_results_json(scale_id: str, method_id: str, injection_id: str) -> dict:
+def _minimal_results_json(scale_id: str, method_id: str, injection_id: str, *, llm_backend: str = "deterministic") -> dict:
     """Minimal results.json so aggregation and gate logic can run."""
+    from labtrust_gym.studies.coordination_security_pack import LIVE_LLM_BACKEND_IDS
+
+    if llm_backend in LIVE_LLM_BACKEND_IDS:
+        meta = {"pipeline_mode": "llm_live", "llm_backend_id": llm_backend}
+    else:
+        meta = {"pipeline_mode": "llm_offline", "llm_backend_id": "fixture"}
     return {
         "task": "coord_risk",
         "num_episodes": 1,
+        "metadata": meta,
         "episodes": [
             {
                 "seed": 42,
@@ -94,7 +103,8 @@ def test_coordination_security_pack_outputs(repo_root: Path, tmp_path: Path) -> 
             method_id = coord_method
         if not inj_id:
             inj_id = injection_id
-        data = _minimal_results_json(scale_id, method_id, inj_id)
+        lb = str(kwargs.get("llm_backend") or "deterministic")
+        data = _minimal_results_json(scale_id, method_id, inj_id, llm_backend=lb)
         out_path.write_text(json.dumps(data), encoding="utf-8")
 
     import labtrust_gym.studies.coordination_security_pack as pack_mod
@@ -147,7 +157,8 @@ def test_coordination_security_pack_gate_verdicts_present(repo_root: Path, tmp_p
             method_id = coord_method
         if not inj_id:
             inj_id = injection_id
-        data = _minimal_results_json(scale_id, method_id, inj_id)
+        lb = str(kwargs.get("llm_backend") or "deterministic")
+        data = _minimal_results_json(scale_id, method_id, inj_id, llm_backend=lb)
         Path(out_path).write_text(json.dumps(data), encoding="utf-8")
 
     import labtrust_gym.studies.coordination_security_pack as pack_mod
@@ -175,7 +186,8 @@ def test_coordination_security_pack_no_reserved_injection_cells_when_disallow(re
         scale_id, method_id, inj_id = _parse_cell_id(cell_id)
         method_id = method_id or kwargs.get("coord_method", "kernel_auction_whca_shielded")
         inj_id = inj_id or kwargs.get("injection_id", "none")
-        data = _minimal_results_json(scale_id, method_id, inj_id)
+        lb = str(kwargs.get("llm_backend") or "deterministic")
+        data = _minimal_results_json(scale_id, method_id, inj_id, llm_backend=lb)
         out_path.write_text(json.dumps(data), encoding="utf-8")
 
     import labtrust_gym.studies.coordination_security_pack as pack_mod
@@ -257,7 +269,8 @@ def test_coordination_security_pack_allows_reserved_injections_when_disallow_fal
             method_id = coord_method
         if not inj_id:
             inj_id = injection_id
-        data = _minimal_results_json(scale_id, method_id, inj_id)
+        lb = str(kwargs.get("llm_backend") or "deterministic")
+        data = _minimal_results_json(scale_id, method_id, inj_id, llm_backend=lb)
         Path(out_path).write_text(json.dumps(data), encoding="utf-8")
 
     import labtrust_gym.studies.coordination_security_pack as pack_mod
@@ -313,7 +326,8 @@ def test_coordination_native_injection_discriminative_resistance(repo_root: Path
             attack_rate = 0.0
         elif inj_id == COORD_INJECTION:
             attack_rate = 1.0
-        data = _minimal_results_json(scale_id, method_id, inj_id)
+        lb = str(kwargs.get("llm_backend") or "deterministic")
+        data = _minimal_results_json(scale_id, method_id, inj_id, llm_backend=lb)
         if data["episodes"] and data["episodes"][0].get("metrics"):
             data["episodes"][0]["metrics"]["sec"] = {
                 "attack_success_rate": attack_rate,
@@ -380,7 +394,8 @@ def test_sec_coord_matrix_001_reduced_matrix(repo_root: Path, tmp_path: Path) ->
             method_id = coord_method
         if not inj_id:
             inj_id = injection_id
-        data = _minimal_results_json(scale_id, method_id, inj_id)
+        lb = str(kwargs.get("llm_backend") or "deterministic")
+        data = _minimal_results_json(scale_id, method_id, inj_id, llm_backend=lb)
         Path(out_path).write_text(json.dumps(data), encoding="utf-8")
 
     import labtrust_gym.studies.coordination_security_pack as pack_mod
@@ -412,3 +427,56 @@ def test_sec_coord_matrix_001_reduced_matrix(repo_root: Path, tmp_path: Path) ->
         gate_text = gate_path.read_text(encoding="utf-8")
         pass_count = gate_text.count("| PASS |")
         assert pass_count >= 1, "SEC-COORD-MATRIX-001: at least one cell must PASS (e.g. baseline injection 'none')"
+
+
+def test_live_llm_backend_ids_includes_prime_intellect() -> None:
+    from labtrust_gym.studies.coordination_security_pack import LIVE_LLM_BACKEND_IDS
+
+    assert "prime_intellect_live" in LIVE_LLM_BACKEND_IDS
+
+
+def test_assert_unique_llm_backend_for_coordination_model_sweep_ok() -> None:
+    assert (
+        assert_unique_llm_backend_for_coordination_model_sweep(
+            [("prime_intellect_live", "a"), ("prime_intellect_live", "b")]
+        )
+        == "prime_intellect_live"
+    )
+
+
+def test_assert_unique_llm_backend_for_coordination_model_sweep_mixed_raises() -> None:
+    with pytest.raises(ValueError, match="Cannot use"):
+        assert_unique_llm_backend_for_coordination_model_sweep(
+            [("openai_live", "a"), ("prime_intellect_live", "b")]
+        )
+
+
+def test_assert_unique_llm_backend_for_coordination_model_sweep_empty_raises() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        assert_unique_llm_backend_for_coordination_model_sweep([])
+
+
+def test_run_coordination_security_pack_live_requires_allow_network(repo_root: Path, tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="allow_network=True"):
+        run_coordination_security_pack(
+            out_dir=tmp_path / "pack_out",
+            repo_root=repo_root,
+            seed_base=42,
+            llm_backend="openai_live",
+            allow_network=False,
+        )
+
+
+def test_validate_live_metadata_rejects_offline_fixture_shape() -> None:
+    with pytest.raises(RuntimeError, match="pipeline_mode"):
+        _validate_results_metadata_for_live_cell(
+            "prime_intellect_live",
+            {"pipeline_mode": "llm_offline", "metadata": {"llm_backend_id": "fixture"}},
+        )
+
+
+def test_validate_live_metadata_accepts_matching() -> None:
+    _validate_results_metadata_for_live_cell(
+        "prime_intellect_live",
+        {"pipeline_mode": "llm_live", "metadata": {"llm_backend_id": "prime_intellect_live"}},
+    )

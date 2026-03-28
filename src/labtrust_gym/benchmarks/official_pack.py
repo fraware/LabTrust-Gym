@@ -259,6 +259,12 @@ def run_official_pack(
                 progress_callback(i + 1, len(tasks), f"baseline:{task}")
             except Exception:  # noqa: BLE001
                 pass
+        print(
+            f"[official_pack] baseline {i + 1}/{len(tasks)} start task={task} "
+            f"episodes={episodes_per_task} backend={llm_backend or 'deterministic'}",
+            file=sys.stderr,
+        )
+        task_t0 = datetime.now(UTC)
         bid = task_to_baseline.get(task) or "scripted_ops_v1"
         suffix = bid.replace("_v1", "").replace("_v0", "")
         out_path = results_dir / f"{task}_{suffix}.json"
@@ -289,6 +295,12 @@ def run_official_pack(
             allow_network=allow_network,
             llm_backend=llm_backend,
             metrics_aggregator_id=metrics_aggregator_id,
+        )
+        dt_s = (datetime.now(UTC) - task_t0).total_seconds()
+        print(
+            f"[official_pack] baseline {i + 1}/{len(tasks)} done task={task} "
+            f"elapsed={dt_s:.1f}s out={out_path.name}",
+            file=sys.stderr,
         )
 
     # 1b) LLM live: transparency log and live evaluation metadata

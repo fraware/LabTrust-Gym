@@ -13,9 +13,6 @@ import logging
 import os
 from typing import Any, cast
 
-from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
-    require_openai_api_key,
-)
 from labtrust_gym.benchmarks.agent_driven_driver import (
     END_EPISODE_TOOL_NAME,
     GET_CURRENT_OBS_TOOL_NAME,
@@ -57,11 +54,16 @@ class OpenAIAgentDrivenBackend:
         model: str | None = None,
         timeout_s: int = 60,
         max_turns: int = DEFAULT_MAX_TURNS,
+        *,
+        openai_base_url: str | None = None,
+        openai_default_headers: dict[str, str] | None = None,
     ) -> None:
         self._api_key = (api_key or os.environ.get("OPENAI_API_KEY") or "").strip()
         self._model = (model or os.environ.get("LABTRUST_OPENAI_MODEL") or "gpt-4o-mini").strip()
         self._timeout_s = max(10, timeout_s)
         self._max_turns = max(1, min(max_turns, 500))
+        self._openai_base_url = (openai_base_url or "").strip() or None
+        self._openai_default_headers = dict(openai_default_headers) if openai_default_headers else None
 
     @property
     def is_available(self) -> bool:
@@ -70,12 +72,18 @@ class OpenAIAgentDrivenBackend:
     def run_episode(self, driver: AgentDrivenDriver) -> None:
         """Run agent-driven loop until driver.is_done() or max_turns."""
         check_network_allowed()
-        require_openai_api_key(self._api_key)
+        if not (self._api_key or "").strip():
+            raise ValueError("API key required for agent-driven backend (e.g. OPENAI_API_KEY or provider key).")
         try:
             from openai import OpenAI
         except ImportError as e:
             raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
-        client = OpenAI(api_key=self._api_key)
+        _ckw: dict[str, Any] = {"api_key": self._api_key}
+        if self._openai_base_url:
+            _ckw["base_url"] = self._openai_base_url
+        if self._openai_default_headers:
+            _ckw["default_headers"] = self._openai_default_headers
+        client = OpenAI(**_ckw)
         tool_defs = agent_driven_tool_definitions(include_optional=True)
         system_content = _run_episode_system_prompt()
         initial = driver.get_current_obs()

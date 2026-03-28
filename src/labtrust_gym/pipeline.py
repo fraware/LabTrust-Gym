@@ -76,7 +76,7 @@ def check_network_allowed() -> None:
     raise RuntimeError(
         "Network is not allowed in this pipeline mode. "
         f"Current mode: {mode!r}. "
-        "To use live LLM backends (openai_live, ollama_live), set pipeline_mode "
+        "To use live LLM backends (openai_live, ollama_live, prime_intellect_live, etc.), set pipeline_mode "
         "to 'llm_live' and pass --allow-network or "
         "LABTRUST_ALLOW_NETWORK=1."
     )
@@ -85,14 +85,14 @@ def check_network_allowed() -> None:
 def require_llm_live_allow_network() -> None:
     """
     Raise RuntimeError if pipeline_mode is llm_live but allow_network is False.
-    Call when user requests openai_live or ollama_live to enforce explicit opt-in.
+    Call when user requests a live LLM backend to enforce explicit opt-in.
     """
     if _state["pipeline_mode"] != "llm_live":
         return
     if _state["allow_network"]:
         return
     raise RuntimeError(
-        "Live LLM backends (openai_live, ollama_live) require explicit network "
+        "Live LLM backends (openai_live, ollama_live, prime_intellect_live, etc.) require explicit network "
         "permission. Pass --allow-network or set LABTRUST_ALLOW_NETWORK=1."
     )
 

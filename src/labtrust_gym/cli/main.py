@@ -165,14 +165,15 @@ def main() -> int:
             "openai_responses",
             "ollama_live",
             "anthropic_live",
+            "prime_intellect_live",
         ],
         default=None,
-        help="LLM backend: deterministic (fixtures), deterministic_constrained (seeded RNG), deterministic_policy_v1 (preference-order policy, optional), openai_live, openai_responses, ollama_live, anthropic_live.",
+        help="LLM backend: deterministic (fixtures), deterministic_constrained (seeded RNG), deterministic_policy_v1 (preference-order policy, optional), openai_live, openai_responses, ollama_live, anthropic_live, prime_intellect_live (Prime Inference).",
     )
     p_bench.add_argument(
         "--llm-model",
         default=None,
-        help="Optional LLM model when using --llm-backend openai_live (e.g. gpt-4o). Overrides LABTRUST_OPENAI_MODEL.",
+        help="Optional LLM model override (e.g. gpt-4o for OpenAI, meta-llama/... for Prime). Overrides backend-specific env (LABTRUST_OPENAI_MODEL, LABTRUST_PRIME_INTELLECT_MODEL, etc.).",
     )
     p_bench.add_argument(
         "--llm-output-mode",
@@ -237,6 +238,7 @@ def main() -> int:
     _coord_backend_choices = [
         "inherit",
         "openai_live",
+        "prime_intellect_live",
         "ollama_live",
         "anthropic_live",
         "openai_responses",
@@ -417,9 +419,9 @@ def main() -> int:
     )
     p_coord_study.add_argument(
         "--llm-backend",
-        choices=["deterministic", "openai_live", "ollama_live", "anthropic_live"],
+        choices=["deterministic", "openai_live", "prime_intellect_live", "ollama_live", "anthropic_live"],
         default=None,
-        help="Include LLM coordination methods: deterministic, openai_live, or ollama_live. Omit to run only non-LLM methods.",
+        help="Include LLM coordination methods: deterministic, openai_live, prime_intellect_live, or ollama_live. Omit to run only non-LLM methods.",
     )
     p_coord_study.add_argument(
         "--llm-model",
@@ -501,7 +503,15 @@ def main() -> int:
         "--llm-backend",
         default=None,
         metavar="BACKEND",
-        choices=("deterministic", "openai_live", "openai_responses", "ollama_live", "anthropic_live", "openai_hosted"),
+        choices=(
+            "deterministic",
+            "openai_live",
+            "openai_responses",
+            "prime_intellect_live",
+            "ollama_live",
+            "anthropic_live",
+            "openai_hosted",
+        ),
         help="LLM backend for coordination/agents (default: deterministic). Use openai_live etc. to benchmark LLM methods with live API; requires --allow-network.",
     )
     p_coord_security_pack.add_argument(
@@ -1141,7 +1151,7 @@ def main() -> int:
     )
     p_security_suite.add_argument(
         "--llm-backend",
-        choices=["openai_live", "ollama_live", "anthropic_live"],
+        choices=["openai_live", "prime_intellect_live", "ollama_live", "anthropic_live"],
         default=None,
         help="Live LLM backend for attacker payload generation (required with --llm-attacker).",
     )
@@ -1501,9 +1511,9 @@ def main() -> int:
     )
     p_llm_health.add_argument(
         "--backend",
-        choices=["openai_live", "openai_responses", "anthropic_live", "ollama_live"],
+        choices=["openai_live", "openai_responses", "prime_intellect_live", "anthropic_live", "ollama_live"],
         default="openai_responses",
-        help="Backend to check (default: openai_responses). openai_live uses legacy Chat Completions; openai_responses uses Responses API; anthropic_live uses Anthropic Messages API.",
+        help="Backend to check (default: openai_responses). openai_live uses legacy Chat Completions; openai_responses uses Responses API; prime_intellect_live uses Prime Inference; anthropic_live uses Anthropic Messages API.",
     )
     p_llm_health.add_argument(
         "--model",
@@ -1523,7 +1533,14 @@ def main() -> int:
     p_record_fixtures.add_argument(
         "--llm-backend",
         default="openai_hosted",
-        choices=["openai_hosted", "openai_live", "openai_responses", "anthropic_live", "ollama_live"],
+        choices=[
+            "openai_hosted",
+            "openai_live",
+            "openai_responses",
+            "prime_intellect_live",
+            "anthropic_live",
+            "ollama_live",
+        ],
         help="Live backend to use for recording (default: openai_hosted).",
     )
     p_record_fixtures.add_argument(
@@ -1579,7 +1596,7 @@ def main() -> int:
     p_record_coord_fixtures.add_argument(
         "--llm-backend",
         default="openai_live",
-        choices=["openai_live", "ollama_live", "anthropic_live"],
+        choices=["openai_live", "prime_intellect_live", "ollama_live", "anthropic_live"],
         help="Live backend for coordination (default: openai_live).",
     )
     p_record_coord_fixtures.add_argument(
@@ -1999,6 +2016,13 @@ def _run_benchmark(args: argparse.Namespace) -> int:
             "ANTHROPIC_API_KEY is required for --llm-backend anthropic_live. Reason code: ANTHROPIC_API_KEY_MISSING"
         )
         return 1
+    if llm_backend == "prime_intellect_live" and not (
+        os.environ.get("PRIME_INTELLECT_API_KEY") or os.environ.get("PRIME_API_KEY")
+    ):
+        get_console().error(
+            "PRIME_INTELLECT_API_KEY (or PRIME_API_KEY) is required for --llm-backend prime_intellect_live."
+        )
+        return 1
     llm_agents_str = getattr(args, "llm_agents", "ops_0") or "ops_0"
     llm_agents = [a.strip() for a in llm_agents_str.split(",") if a.strip()]
     pipeline_mode = getattr(args, "pipeline_mode", None)
@@ -2135,7 +2159,7 @@ def _run_benchmark_llm_live_eval(args: argparse.Namespace) -> int:
     out_path.mkdir(parents=True, exist_ok=True)
 
     llm_backend = getattr(args, "llm_backend", None) or "openai_responses"
-    if llm_backend not in ("openai_live", "openai_responses"):
+    if llm_backend not in ("openai_live", "openai_responses", "prime_intellect_live"):
         llm_backend = "openai_responses"
     llm_agents_str = getattr(args, "llm_agents", "ops_0") or "ops_0"
     llm_agents = [a.strip() for a in llm_agents_str.split(",") if a.strip()]
@@ -3124,11 +3148,13 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
 
     if emit_matrix:
         pipeline_mode = (
-            "llm_live" if llm_backend in ("openai_live", "ollama_live") else (llm_backend or "deterministic")
+            "llm_live"
+            if llm_backend in ("openai_live", "ollama_live", "prime_intellect_live")
+            else (llm_backend or "deterministic")
         )
         if pipeline_mode != "llm_live":
             get_console().warning(
-                "emit-coordination-matrix requires llm_live pipeline (--llm-backend openai_live or ollama_live). "
+                "emit-coordination-matrix requires llm_live pipeline (--llm-backend openai_live, ollama_live, or prime_intellect_live). "
                 f"This run uses pipeline_mode={pipeline_mode!r}. Matrix builder is llm_live-only; offline pipelines are out of scope."
             )
             return 1
@@ -3137,6 +3163,11 @@ def _run_coordination_study(args: argparse.Namespace) -> int:
         get_console().error(
             "OPENAI_API_KEY is required for --llm-backend openai_live. Reason code: OPENAI_API_KEY_MISSING"
         )
+        return 1
+    if llm_backend == "prime_intellect_live" and not (
+        os.environ.get("PRIME_INTELLECT_API_KEY") or os.environ.get("PRIME_API_KEY")
+    ):
+        get_console().error("PRIME_INTELLECT_API_KEY or PRIME_API_KEY is required for --llm-backend prime_intellect_live.")
         return 1
     run_coordination_study(spec_path, out_dir, repo_root=root, llm_backend=llm_backend, llm_model=llm_model)
     get_console().write_plain(f"Coordination study written to {out_dir}")
@@ -3783,6 +3814,11 @@ def _run_record_llm_fixtures(args: argparse.Namespace) -> int:
     if llm_backend == "anthropic_live" and not os.environ.get("ANTHROPIC_API_KEY"):
         get_console().error("record-llm-fixtures with --llm-backend anthropic_live requires ANTHROPIC_API_KEY.")
         return 1
+    if llm_backend == "prime_intellect_live" and not (
+        os.environ.get("PRIME_INTELLECT_API_KEY") or os.environ.get("PRIME_API_KEY")
+    ):
+        get_console().error("record-llm-fixtures with --llm-backend prime_intellect_live requires PRIME_INTELLECT_API_KEY.")
+        return 1
     from labtrust_gym.benchmarks.runner import run_benchmark
 
     task = getattr(args, "task", "insider_key_misuse")
@@ -3823,6 +3859,13 @@ def _run_record_coordination_fixtures(args: argparse.Namespace) -> int:
     llm_backend = getattr(args, "llm_backend", "openai_live") or "openai_live"
     if llm_backend in ("openai_live",) and not os.environ.get("OPENAI_API_KEY"):
         get_console().error("record-coordination-fixtures with --llm-backend openai_live requires OPENAI_API_KEY.")
+        return 1
+    if llm_backend == "prime_intellect_live" and not (
+        os.environ.get("PRIME_INTELLECT_API_KEY") or os.environ.get("PRIME_API_KEY")
+    ):
+        get_console().error(
+            "record-coordination-fixtures with --llm-backend prime_intellect_live requires PRIME_INTELLECT_API_KEY."
+        )
         return 1
     if llm_backend == "anthropic_live" and not os.environ.get("ANTHROPIC_API_KEY"):
         get_console().error("record-coordination-fixtures with anthropic_live requires ANTHROPIC_API_KEY.")
@@ -3936,6 +3979,12 @@ def _run_llm_healthcheck(args: argparse.Namespace) -> int:
         from labtrust_gym.baselines.llm.backends.ollama_live import OllamaLiveBackend
 
         backend = OllamaLiveBackend(model=model_override)
+    elif backend_name == "prime_intellect_live":
+        from labtrust_gym.baselines.llm.backends.prime_intellect_live import (
+            PrimeIntellectLiveBackend,
+        )
+
+        backend = PrimeIntellectLiveBackend(model=model_override)
     else:
         from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
 

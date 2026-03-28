@@ -1,8 +1,8 @@
-# LabTrust-Gym
-
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="LabTrust-Gym logo" width="80" height="80"/>
+  <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="100" height="100"/>
 </p>
+
+# LabTrust-Gym
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
@@ -226,7 +226,7 @@ Put CLI outputs in `labtrust_runs/` or `--out`. Exit codes, minimal smoke args, 
 | **tests/** | Pytest: golden suite, policy, benchmarks, coordination, risk_injections, studies, export, online, CLI smoke (`test_cli_smoke_matrix.py`). |
 | **benchmarks/** | Baseline registry, official baselines (v0.1, v0.2). |
 | **examples/** | Example agents (external_agent_demo, scripted_ops_agent, llm_agent_mock_demo, etc.). |
-| **docs/** | MkDocs: architecture, benchmarks, coordination, contracts, getting started, security, LLM, MARL. [Forker guide](docs/getting-started/forkers.md). **docs/assets/** — repo logo (`logo.svg`). |
+| **docs/** | MkDocs: architecture, benchmarks, coordination, contracts, getting started, security, LLM, MARL. [Forker guide](docs/getting-started/forkers.md). **docs/assets/** — repo logo (`Logo.png`). |
 | **scripts/** | **run_hospital_lab_full_pipeline.py** (orchestrator; `--include-coordination-pack`, `--providers`), **check_llm_backends_live.py**, quickstart, run_required_bench_matrix, extract_paper_claims_snapshot, build_release_fixture, build_viewer_data_from_release, run_external_reviewer_checks. |
 | **tests/fixtures/ui_fixtures/** | Minimal results, episode log, evidence bundle for offline UI. |
 

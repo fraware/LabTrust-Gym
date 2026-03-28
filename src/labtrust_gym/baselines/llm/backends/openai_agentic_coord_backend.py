@@ -122,12 +122,19 @@ class OpenAIAgenticProposalBackend:
         timeout_s: int = 30,
         retries: int = 2,
         repo_root: Path | None = None,
+        *,
+        openai_base_url: str | None = None,
+        openai_default_headers: dict[str, str] | None = None,
+        metrics_backend_id: str | None = None,
     ) -> None:
         self._api_key = (api_key or os.environ.get("OPENAI_API_KEY") or "").strip()
         self._model = (model or os.environ.get("LABTRUST_OPENAI_MODEL") or "gpt-4o-mini").strip()
         self._timeout_s = max(5, timeout_s)
         self._retries = max(0, min(retries, 5))  # cap at 5 for sanity
         self._repo_root = Path(repo_root) if repo_root else None
+        self._openai_base_url = (openai_base_url or "").strip() or None
+        self._openai_default_headers = dict(openai_default_headers) if openai_default_headers else None
+        self._metrics_backend_id = metrics_backend_id or BACKEND_ID
         self._seed = 0
         self._step_id: int | None = None
         self._last_assistant_msg: dict[str, Any] | None = None
@@ -175,7 +182,7 @@ class OpenAIAgenticProposalBackend:
             agent_ids = ["ops_0"]
         fallback = _fallback_proposal(agent_ids, step_id, method_id)
         fallback_meta: dict[str, Any] = {
-            "backend_id": BACKEND_ID,
+            "backend_id": self._metrics_backend_id,
             "model_id": self._model,
             "latency_ms": 0.0,
             "tokens_in": 0,
@@ -186,7 +193,7 @@ class OpenAIAgenticProposalBackend:
         if not self._api_key:
             self._error_count += 1
             self._last_metrics = {
-                "backend_id": BACKEND_ID,
+                "backend_id": self._metrics_backend_id,
                 "model_id": self._model,
                 "error_code": REASON_OPENAI_API_KEY_MISSING,
             }
@@ -201,7 +208,7 @@ class OpenAIAgenticProposalBackend:
             pass
         if tracer is not None:
             tracer.start_span("coord_agentic")
-            tracer.set_attribute("backend_id", BACKEND_ID)
+            tracer.set_attribute("backend_id", self._metrics_backend_id)
             tracer.set_attribute("model_id", self._model)
 
         tool_results = tool_results or []
@@ -214,9 +221,31 @@ class OpenAIAgenticProposalBackend:
         try:
             from openai import OpenAI
         except ImportError as e:
-            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
+            self._error_count += 1
+            self._last_metrics = {
+                "backend_id": self._metrics_backend_id,
+                "model_id": self._model,
+                "error_code": f"OPENAI_IMPORT_ERROR:{str(e)[:140]}",
+            }
+            LOG.debug("Agentic coord backend import error: %s", scrub_secrets(str(e)[:200]))
+            return (fallback, fallback_meta)
 
-        client = OpenAI(api_key=self._api_key)
+        _ckw: dict[str, Any] = {"api_key": self._api_key}
+        if self._openai_base_url:
+            _ckw["base_url"] = self._openai_base_url
+        if self._openai_default_headers:
+            _ckw["default_headers"] = self._openai_default_headers
+        try:
+            client = OpenAI(**_ckw)
+        except Exception as e:
+            self._error_count += 1
+            self._last_metrics = {
+                "backend_id": self._metrics_backend_id,
+                "model_id": self._model,
+                "error_code": f"OPENAI_CLIENT_INIT_ERROR:{str(e)[:120]}",
+            }
+            LOG.debug("Agentic coord client init error: %s", scrub_secrets(str(e)[:200]))
+            return (fallback, fallback_meta)
         model = self._model.strip() or "gpt-4o-mini"
         tool_defs = _coord_tool_definitions()
 
@@ -233,7 +262,9 @@ class OpenAIAgenticProposalBackend:
             "You are a coordination planner. You may call tools to query queue state or detector recommendations. "
             "When you have enough information, respond with a single JSON object that is a coordination proposal: "
             '{"proposal_id": "...", "step_id": <int>, "method_id": "...", "horizon_steps": 1, "per_agent": [{"agent_id": "...", "action_type": "NOOP|TICK|QUEUE_RUN|MOVE|OPEN_DOOR|START_RUN", "args": {}, "reason_code": "..."}], "comms": []}. '
-            "No commentary outside the JSON when producing the final proposal."
+            "STRICT FORMAT RULES: return ONLY JSON (no markdown), include one per_agent entry for every agent_id in state_digest.per_agent, "
+            "always include args as an object ({} if empty), and always include reason_code as a short string such as 'OK'. "
+            "If uncertain, emit NOOP actions with reason_code='OK'."
         )
 
         messages: list[dict[str, Any]] = [
@@ -272,7 +303,7 @@ class OpenAIAgenticProposalBackend:
                 completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
                 cost = _estimated_cost_usd(model, prompt_tokens, completion_tokens, self._repo_root)
                 meta: dict[str, Any] = {
-                    "backend_id": BACKEND_ID,
+                    "backend_id": self._metrics_backend_id,
                     "model_id": model,
                     "latency_ms": round(latency_ms, 2),
                     "tokens_in": prompt_tokens,
@@ -356,7 +387,7 @@ class OpenAIAgenticProposalBackend:
 
         self._error_count += 1
         self._last_metrics = {
-            "backend_id": BACKEND_ID,
+            "backend_id": self._metrics_backend_id,
             "model_id": self._model,
             "error_code": str(last_exc)[:200] if last_exc else "unknown",
         }
@@ -379,11 +410,15 @@ class OpenAIAgenticProposalBackend:
             self._repo_root,
         )
         return {
-            "backend_id": BACKEND_ID,
+            "backend_id": self._metrics_backend_id,
             "model_id": self._model,
+            "total_calls": n,
+            "error_count": self._error_count,
+            "sum_latency_ms": round(self._sum_latency_ms, 2),
             "error_rate": round(rate, 4),
             "mean_latency_ms": round(mean_ms, 2) if mean_ms is not None else None,
             "total_tokens": total_tok,
             "tokens_per_step": tokens_per_step,
             "estimated_cost_usd": round(cost, 6) if cost is not None else None,
+            "last_error_code": self._last_metrics.get("error_code"),
         }

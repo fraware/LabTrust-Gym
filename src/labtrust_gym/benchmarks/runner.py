@@ -52,6 +52,40 @@ from labtrust_gym.logging.episode_log import (
 )
 from labtrust_gym.util.json_utils import canonical_json
 
+# Live backends that use OpenAI Chat Completions (OpenAI API or OpenAI-compatible gateways).
+_OPENAI_SHAPED_LIVE_BACKENDS = frozenset({"openai_live", "prime_intellect_live"})
+
+
+def _make_openai_shaped_live_backend(
+    backend_id: str,
+    model_override: str | None,
+    repo_root: Path,
+    trace_collector: Any | None = None,
+) -> Any:
+    from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+    creds = resolve_credentials(backend_id, repo_root)
+    if backend_id == "prime_intellect_live":
+        from labtrust_gym.baselines.llm.backends.prime_intellect_live import PrimeIntellectLiveBackend
+
+        return PrimeIntellectLiveBackend(**creds, model=model_override, trace_collector=trace_collector)
+    from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+
+    return OpenAILiveBackend(**creds, model=model_override, trace_collector=trace_collector)
+
+
+def _prime_inference_coord_kwargs() -> dict[str, Any]:
+    """OpenAI client routing + metadata id for Prime Intellect coordination helpers."""
+    from labtrust_gym.baselines.llm.backends.prime_intellect_live import prime_inference_openai_sdk_kwargs
+
+    return {**prime_inference_openai_sdk_kwargs(), "meta_backend_id": "prime_intellect_live"}
+
+
+def _prime_inference_agentic_kwargs() -> dict[str, Any]:
+    from labtrust_gym.baselines.llm.backends.prime_intellect_live import prime_inference_openai_sdk_kwargs
+
+    return {**prime_inference_openai_sdk_kwargs(), "metrics_backend_id": "prime_intellect_live"}
+
 
 def _git_commit_hash(cwd: Path | None = None) -> str | None:
     """Return current git commit hash or None."""
@@ -226,7 +260,42 @@ def run_episode(
         )
         dt_ms = float(env.get_dt_s()) * 1000.0
 
+    # In-episode heartbeat: prints step progress even when a single agent call is slow.
+    step_hb_every_steps = 0
+    step_hb_every_s = 0.0
+    try:
+        step_hb_every_steps = int(os.environ.get("LABTRUST_STEP_HEARTBEAT_EVERY_STEPS", "0") or "0")
+    except ValueError:
+        step_hb_every_steps = 0
+    try:
+        step_hb_every_s = float(os.environ.get("LABTRUST_STEP_HEARTBEAT_EVERY_S", "0") or "0")
+    except ValueError:
+        step_hb_every_s = 0.0
+    if step_hb_every_steps <= 0 and step_hb_every_s <= 0.0:
+        try:
+            from labtrust_gym.pipeline import get_pipeline_mode as _get_pm
+
+            if _get_pm() == "llm_live":
+                step_hb_every_s = 30.0
+        except Exception:
+            pass
+    episode_t0 = time.perf_counter()
+    last_step_hb_t = episode_t0
+
     for step_t in range(task.max_steps):
+        now_t = time.perf_counter()
+        due_steps = step_hb_every_steps > 0 and ((step_t + 1) % step_hb_every_steps == 0)
+        due_time = step_hb_every_s > 0.0 and (now_t - last_step_hb_t >= step_hb_every_s)
+        if due_steps or due_time:
+            elapsed_s = now_t - episode_t0
+            print(
+                f"[bench-step-heartbeat] task={task.name} episode_seed={episode_seed} "
+                f"step={step_t + 1}/{task.max_steps} elapsed_s={elapsed_s:.1f} "
+                f"agents={len(env.agents)}",
+                file=sys.stderr,
+                flush=True,
+            )
+            last_step_hb_t = now_t
         view_ages_ms_step: list[float] = []
         obs_for_step = obs
         audit_obs: dict[str, Any] | None = None
@@ -378,7 +447,15 @@ def run_episode(
             else:
                 # When N <= N_max, only propose_actions (or step) is used; combine_submissions is never called.
                 n_max = int(scale_config_dict.get("coord_propose_actions_max_agents", 50))
-                use_combine = len(env.agents) > n_max and hasattr(coord_method, "combine_submissions")
+                method_id_for_combine = str(getattr(coord_method, "method_id", "") or "")
+                # Live LLM methods must execute propose_actions directly so token/economics
+                # and error accounting reflect real backend calls at scale.
+                disable_combine_for_llm = method_id_for_combine.startswith("llm_")
+                use_combine = (
+                    len(env.agents) > n_max
+                    and hasattr(coord_method, "combine_submissions")
+                    and not disable_combine_for_llm
+                )
                 if use_combine:
                     submissions_shape = "action"
                     if repo_root is not None:
@@ -437,14 +514,18 @@ def run_episode(
                                 _non_empty,
                             )
                     inj_id = getattr(risk_injector, "injection_id", None) if risk_injector is not None else None
-                    if getattr(coord_method, "method_id", None) == "llm_repair_over_kernel_whca" and inj_id in (
-                        "INJ-COMMS-POISON-001",
-                        "INJ-ID-SPOOF-001",
+                    force_repair_raw = (os.environ.get("LABTRUST_FORCE_COORD_REPAIR_TRIGGER") or "").strip().lower()
+                    force_repair_trigger = force_repair_raw in ("1", "true", "yes", "on", "always")
+                    if getattr(coord_method, "method_id", None) == "llm_repair_over_kernel_whca" and (
+                        inj_id in ("INJ-COMMS-POISON-001", "INJ-ID-SPOOF-001") or force_repair_trigger
                     ):
                         infos = dict(infos) if isinstance(infos, dict) else {}
-                        infos["_coord_repair_triggers"] = (
-                            ["comms_poison"] if inj_id == "INJ-COMMS-POISON-001" else ["id_spoof"]
-                        )
+                        if inj_id == "INJ-COMMS-POISON-001":
+                            infos["_coord_repair_triggers"] = ["comms_poison"]
+                        elif inj_id == "INJ-ID-SPOOF-001":
+                            infos["_coord_repair_triggers"] = ["id_spoof"]
+                        else:
+                            infos["_coord_repair_triggers"] = ["forced_repair_trigger"]
                     actions_dict = coord_method.propose_actions(obs_for_step, infos, step_t)
             if run_dir is not None:
                 try:
@@ -995,11 +1076,19 @@ def run_benchmark(
             pipeline_mode = "llm_offline"
         else:
             pipeline_mode = "llm_live"
-    _live_backends = ("openai_live", "openai_responses", "ollama_live", "anthropic_live", "openai_hosted")
+    _live_backends = (
+        "openai_live",
+        "openai_responses",
+        "ollama_live",
+        "anthropic_live",
+        "openai_hosted",
+        "prime_intellect_live",
+    )
     if pipeline_mode == "deterministic" and llm_backend in _live_backends:
         raise ValueError(
             "pipeline_mode=deterministic does not allow live LLM backends. "
-            "Use --pipeline-mode llm_live and --allow-network to use openai_live, openai_responses, ollama_live, or anthropic_live."
+            "Use --pipeline-mode llm_live and --allow-network to use openai_live, openai_responses, "
+            "ollama_live, anthropic_live, prime_intellect_live, or openai_hosted."
         )
     if pipeline_mode == "llm_offline" and llm_backend in _live_backends:
         raise ValueError(
@@ -1023,6 +1112,8 @@ def run_benchmark(
         llm_backend_id_for_banner = "anthropic_live"
     elif llm_backend == "openai_hosted":
         llm_backend_id_for_banner = "openai_hosted"
+    elif llm_backend == "prime_intellect_live":
+        llm_backend_id_for_banner = "prime_intellect_live"
     set_pipeline_config(
         pipeline_mode=cast(PipelineMode, pipeline_mode),
         allow_network=allow_network,
@@ -1034,6 +1125,7 @@ def run_benchmark(
         "ollama_live",
         "anthropic_live",
         "openai_hosted",
+        "prime_intellect_live",
     ):
         require_llm_live_allow_network()
     print_startup_banner()
@@ -1060,6 +1152,7 @@ def run_benchmark(
         "anthropic_live",
         "ollama_live",
         "openai_hosted",
+        "prime_intellect_live",
     ):
         try:
             from dotenv import load_dotenv
@@ -1239,17 +1332,8 @@ def run_benchmark(
             rbac_policy = load_rbac_policy(rbac_path)
             capability_policy = load_agent_capabilities(repo_root)
             constrained_backend = None
-            if llm_backend == "openai_live":
-                from labtrust_gym.baselines.llm.backends.openai_live import (
-                    OpenAILiveBackend,
-                )
-                from labtrust_gym.baselines.llm.credentials import resolve_credentials
-
-                creds = resolve_credentials(llm_backend, repo_root)
-                constrained_backend = OpenAILiveBackend(
-                    **creds,
-                    model=llm_model,
-                )
+            if llm_backend in _OPENAI_SHAPED_LIVE_BACKENDS:
+                constrained_backend = _make_openai_shaped_live_backend(llm_backend, llm_model, repo_root)
                 llm_backend_ref = constrained_backend
             elif llm_backend == "ollama_live":
                 from labtrust_gym.baselines.llm.backends.ollama_live import (
@@ -1349,6 +1433,20 @@ def run_benchmark(
                     **creds,
                     model=planner_model,
                     repo_root=repo_root,
+                )
+                llm_backend_ref = proposal_backend
+            elif planner_backend == "prime_intellect_live":
+                from labtrust_gym.baselines.llm.backends.openai_agentic_coord_backend import (
+                    OpenAIAgenticProposalBackend,
+                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+                creds = resolve_credentials(planner_backend, repo_root)
+                proposal_backend = OpenAIAgenticProposalBackend(
+                    **creds,
+                    model=planner_model,
+                    repo_root=repo_root,
+                    **_prime_inference_agentic_kwargs(),
                 )
                 llm_backend_ref = proposal_backend
             elif planner_backend == "ollama_live":
@@ -1455,11 +1553,25 @@ def run_benchmark(
                 )
                 from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                creds = resolve_credentials(llm_backend, repo_root)
+                creds = resolve_credentials(alloc_planner_backend, repo_root)
                 allocator_backend = OpenAICoordinationProposalBackend(
                     **creds,
                     model=alloc_planner_model,
                     repo_root=repo_root,
+                )
+                llm_backend_ref = allocator_backend
+            elif alloc_planner_backend == "prime_intellect_live":
+                from labtrust_gym.baselines.llm.backends.openai_agentic_coord_backend import (
+                    OpenAIAgenticProposalBackend,
+                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+                creds = resolve_credentials(alloc_planner_backend, repo_root)
+                allocator_backend = OpenAIAgenticProposalBackend(
+                    **creds,
+                    model=alloc_planner_model,
+                    repo_root=repo_root,
+                    **_prime_inference_agentic_kwargs(),
                 )
                 llm_backend_ref = allocator_backend
             elif alloc_planner_backend == "ollama_live":
@@ -1513,6 +1625,16 @@ def run_benchmark(
             }
             scale_config_dict = dict(scale_config_dict)
             scale_config_dict.setdefault("seed", base_seed)
+            if llm_backend == "prime_intellect_live":
+                # Prime stability path: reduce per-step fan-out (round_robin) to one
+                # structured call, lowering transient API errors in smoke/live gating.
+                scale_config_dict["coord_auction_protocol"] = "single_call"
+                # Refresh bidder proposal every N steps instead of every step to
+                # reduce live call pressure and transient provider failures.
+                scale_config_dict["coord_auction_refresh_every_steps"] = max(
+                    1,
+                    int(scale_config_dict.get("coord_auction_refresh_every_steps", 5) or 5),
+                )
             if task_name == "coord_risk" and injection_id:
                 scale_config_dict["injection_id"] = injection_id
             policy_for_coord = (policy_for_coord or {}).copy()
@@ -1533,6 +1655,21 @@ def run_benchmark(
                     **creds,
                     model=bidder_model,
                     repo_root=repo_root,
+                )
+                llm_backend_ref = bid_backend
+            elif bidder_backend == "prime_intellect_live":
+                from labtrust_gym.baselines.llm.backends.openai_bid_backend import (
+                    OpenAIBidBackend,
+                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+                creds = resolve_credentials(bidder_backend, repo_root)
+                bid_backend = OpenAIBidBackend(
+                    **creds,
+                    model=bidder_model,
+                    repo_root=repo_root,
+                    retries=5,
+                    **_prime_inference_coord_kwargs(),
                 )
                 llm_backend_ref = bid_backend
             elif bidder_backend == "ollama_live":
@@ -1633,6 +1770,20 @@ def run_benchmark(
                     repo_root=repo_root,
                 )
                 llm_backend_ref = summary_backend_gossip._backend
+            elif llm_backend == "prime_intellect_live":
+                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
+                    OpenAIGossipSummaryBackend,
+                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+                creds = resolve_credentials(llm_backend, repo_root)
+                summary_backend_gossip = OpenAIGossipSummaryBackend(
+                    **creds,
+                    model=llm_model,
+                    repo_root=repo_root,
+                    chat_live_backend_id="prime_intellect_live",
+                )
+                llm_backend_ref = summary_backend_gossip._backend
             elif llm_backend == "ollama_live":
                 from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
                     OllamaGossipSummaryBackend,
@@ -1675,6 +1826,20 @@ def run_benchmark(
                     repo_root=repo_root,
                 )
                 llm_backend_ref = local_proposal_backend
+            elif llm_backend == "prime_intellect_live":
+                from labtrust_gym.baselines.llm.backends.openai_responses_backend import (
+                    OpenAILocalProposalBackend,
+                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+                creds = resolve_credentials(llm_backend, repo_root)
+                local_proposal_backend = OpenAILocalProposalBackend(
+                    **creds,
+                    model=llm_model,
+                    repo_root=repo_root,
+                    chat_live_backend_id="prime_intellect_live",
+                )
+                llm_backend_ref = local_proposal_backend
             elif llm_backend == "ollama_live":
                 from labtrust_gym.baselines.llm.backends.ollama_coordination_backend import (
                     OllamaLocalProposalBackend,
@@ -1710,17 +1875,13 @@ def run_benchmark(
                 coord_repair_model if (coord_repair_model and coord_repair_model != "inherit") else llm_model
             )
             repair_backend_param = None
-            if repair_role_backend == "openai_live":
+            if repair_role_backend in _OPENAI_SHAPED_LIVE_BACKENDS:
                 from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca import (
                     LiveRepairBackend,
                 )
-                from labtrust_gym.baselines.llm.backends.openai_live import (
-                    OpenAILiveBackend,
-                )
-                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                creds = resolve_credentials(repair_role_backend, repo_root)
-                repair_backend_param = LiveRepairBackend(OpenAILiveBackend(**creds, model=repair_role_model))
+                inner = _make_openai_shaped_live_backend(repair_role_backend, repair_role_model, repo_root)
+                repair_backend_param = LiveRepairBackend(inner)
                 llm_backend_ref = repair_backend_param._backend
             elif repair_role_backend == "ollama_live":
                 from labtrust_gym.baselines.coordination.methods.llm_repair_over_kernel_whca import (
@@ -1768,17 +1929,16 @@ def run_benchmark(
             detector_role_model = (
                 coord_detector_model if (coord_detector_model and coord_detector_model != "inherit") else llm_model
             )
-            if detector_role_backend == "openai_live":
+            if detector_role_backend in _OPENAI_SHAPED_LIVE_BACKENDS:
                 from labtrust_gym.baselines.coordination.assurance import (
                     LiveDetectorBackend,
                 )
-                from labtrust_gym.baselines.llm.backends.openai_live import (
-                    OpenAILiveBackend,
-                )
-                from labtrust_gym.baselines.llm.credentials import resolve_credentials
 
-                creds = resolve_credentials(detector_role_backend, repo_root)
-                live_backend = OpenAILiveBackend(**creds, model=detector_role_model)
+                live_backend = _make_openai_shaped_live_backend(
+                    detector_role_backend,
+                    detector_role_model,
+                    repo_root,
+                )
                 scale_config_dict["detector_backend"] = LiveDetectorBackend(live_backend)
                 llm_backend_ref = live_backend
             elif detector_role_backend == "ollama_live":
@@ -1818,6 +1978,7 @@ def run_benchmark(
                 policy_for_coord,
                 repo_root=repo_root,
                 scale_config=scale_config_dict,
+                detector_backend=scale_config_dict.get("detector_backend"),
             )
         elif coord_method_for_branch == "llm_central_planner_debate":
             scale_agents = (scale_probe_state or {}).get("agents") or []
@@ -1850,6 +2011,23 @@ def run_benchmark(
                             **creds,
                             model=planner_model,
                             repo_root=repo_root,
+                        )
+                    )
+                llm_backend_ref = proposal_backends_list[0] if proposal_backends_list else None
+            elif planner_backend == "prime_intellect_live":
+                from labtrust_gym.baselines.llm.backends.openai_agentic_coord_backend import (
+                    OpenAIAgenticProposalBackend,
+                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+                creds = resolve_credentials(planner_backend, repo_root)
+                for _ in range(n_proposers):
+                    proposal_backends_list.append(
+                        OpenAIAgenticProposalBackend(
+                            **creds,
+                            model=planner_model,
+                            repo_root=repo_root,
+                            **_prime_inference_agentic_kwargs(),
                         )
                     )
                 llm_backend_ref = proposal_backends_list[0] if proposal_backends_list else None
@@ -1909,6 +2087,12 @@ def run_benchmark(
             planner_backend = (
                 coord_planner_backend if (coord_planner_backend and coord_planner_backend != "inherit") else llm_backend
             )
+            if planner_backend == "prime_intellect_live":
+                # Ensure at least one tool round + one final proposal round.
+                scale_config_dict["coord_agentic_max_rounds"] = max(
+                    2,
+                    int(scale_config_dict.get("coord_agentic_max_rounds", 2) or 2),
+                )
             planner_model = (
                 coord_planner_model if (coord_planner_model and coord_planner_model != "inherit") else llm_model
             )
@@ -1926,8 +2110,22 @@ def run_benchmark(
                     repo_root=repo_root,
                 )
                 llm_backend_ref = agentic_proposal_backend
+            elif planner_backend == "prime_intellect_live":
+                from labtrust_gym.baselines.llm.backends.openai_agentic_coord_backend import (
+                    OpenAIAgenticProposalBackend,
+                )
+                from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+                creds = resolve_credentials(planner_backend, repo_root)
+                agentic_proposal_backend = OpenAIAgenticProposalBackend(
+                    **creds,
+                    model=planner_model,
+                    repo_root=repo_root,
+                    **_prime_inference_agentic_kwargs(),
+                )
+                llm_backend_ref = agentic_proposal_backend
             if agentic_proposal_backend is not None:
-                if pipeline_mode == "llm_live":
+                if pipeline_mode == "llm_live" and planner_backend != "prime_intellect_live":
                     from labtrust_gym.baselines.llm.coordinator_throttle import (
                         CoordinatorGuardrailProposalBackend,
                     )
@@ -2245,18 +2443,15 @@ def run_benchmark(
                     get_private_key=get_private_key_fn,
                     capability_policy=capability_policy_llm,
                 )
-        elif not is_scale_task and llm_backend == "openai_live":
+        elif not is_scale_task and llm_backend in _OPENAI_SHAPED_LIVE_BACKENDS:
             from labtrust_gym.baselines.llm.agent import LLMAgentWithShield
-            from labtrust_gym.baselines.llm.backends.openai_live import (
-                OpenAILiveBackend,
-            )
-            from labtrust_gym.baselines.llm.credentials import resolve_credentials
             from labtrust_gym.baselines.llm.record_fixtures import RecordingBackend
 
             pz_to_engine = _default_pz_to_engine(num_runners=num_runners, num_insiders=num_insiders)
-            creds = resolve_credentials(llm_backend, repo_root)
-            base_backend = OpenAILiveBackend(
-                **creds,
+            base_backend = _make_openai_shaped_live_backend(
+                llm_backend,
+                llm_model,
+                repo_root,
                 trace_collector=llm_trace_collector,
             )
             backend = RecordingBackend(base_backend) if record_fixtures_path is not None else base_backend
@@ -2465,17 +2660,8 @@ def run_benchmark(
                 rbac_policy_sim = load_rbac_policy(rbac_path_sim)
                 capability_policy_sim = load_agent_capabilities(repo_root)
                 constrained_backend_sim = None
-                if llm_backend == "openai_live":
-                    from labtrust_gym.baselines.llm.backends.openai_live import (
-                        OpenAILiveBackend,
-                    )
-                    from labtrust_gym.baselines.llm.credentials import resolve_credentials
-
-                    creds = resolve_credentials(llm_backend, repo_root)
-                    constrained_backend_sim = OpenAILiveBackend(
-                        **creds,
-                        model=llm_model,
-                    )
+                if llm_backend in _OPENAI_SHAPED_LIVE_BACKENDS:
+                    constrained_backend_sim = _make_openai_shaped_live_backend(llm_backend, llm_model, repo_root)
                     if llm_backend_ref is None:
                         llm_backend_ref = constrained_backend_sim
                 elif llm_backend == "ollama_live":
@@ -2667,17 +2853,8 @@ def run_benchmark(
                     rbac_policy_par = load_rbac_policy(rbac_path)
                     capability_policy_par = load_agent_capabilities(repo_root)
                     constrained_backend_par = None
-                    if llm_backend == "openai_live":
-                        from labtrust_gym.baselines.llm.backends.openai_live import (
-                            OpenAILiveBackend,
-                        )
-                        from labtrust_gym.baselines.llm.credentials import resolve_credentials
-
-                        creds = resolve_credentials(llm_backend, repo_root)
-                        constrained_backend_par = OpenAILiveBackend(
-                            **creds,
-                            model=llm_model,
-                        )
+                    if llm_backend in _OPENAI_SHAPED_LIVE_BACKENDS:
+                        constrained_backend_par = _make_openai_shaped_live_backend(llm_backend, llm_model, repo_root)
                         if llm_backend_ref is None:
                             llm_backend_ref = constrained_backend_par
                     elif llm_backend == "ollama_live":
@@ -2780,10 +2957,42 @@ def run_benchmark(
             )
 
             agent_driven_backend = OpenAIAgentDrivenBackend()
+        elif llm_backend == "prime_intellect_live":
+            from labtrust_gym.baselines.llm.backends.openai_agent_driven_backend import (
+                OpenAIAgentDrivenBackend,
+            )
+            from labtrust_gym.baselines.llm.backends.prime_intellect_live import (
+                prime_inference_openai_sdk_kwargs,
+            )
+            from labtrust_gym.baselines.llm.credentials import resolve_credentials
+
+            _c = resolve_credentials("prime_intellect_live", repo_root)
+            agent_driven_backend = OpenAIAgentDrivenBackend(
+                api_key=_c.get("api_key"),
+                model=llm_model,
+                **prime_inference_openai_sdk_kwargs(),
+            )
         else:
             agent_driven_backend = DeterministicAgentDrivenBackend(max_steps_to_run=task.max_steps)
 
     t0_wall = time.perf_counter()
+    heartbeat_every_ep = 0
+    try:
+        heartbeat_every_ep = int(os.environ.get("LABTRUST_BENCH_HEARTBEAT_EVERY_EP", "0") or "0")
+    except ValueError:
+        heartbeat_every_ep = 0
+    if heartbeat_every_ep <= 0 and pipeline_mode == "llm_live":
+        # Default heartbeat for live runs so long network-bound stages do not appear stuck.
+        heartbeat_every_ep = 1
+    if heartbeat_every_ep > 0:
+        _LOG.info(
+            "[bench-heartbeat] task=%s episodes=%s backend=%s mode=%s every=%s",
+            task_name,
+            num_episodes,
+            llm_backend or "none",
+            pipeline_mode,
+            heartbeat_every_ep,
+        )
     if always_record_step_timing:
         try:
             from labtrust_gym.logging.step_timing import force_enable_for_run
@@ -2926,9 +3135,48 @@ def run_benchmark(
                 approval_callback=approval_callback,
             )
         ep_record: dict[str, Any] = {"seed": ep_seed, "metrics": metrics}
-        if llm_backend_ref is not None and hasattr(llm_backend_ref, "snapshot_aggregate_metrics"):
-            ep_record["llm_episode"] = llm_backend_ref.snapshot_aggregate_metrics()
+        if llm_backend_ref is not None:
+            if hasattr(llm_backend_ref, "snapshot_aggregate_metrics"):
+                ep_record["llm_episode"] = llm_backend_ref.snapshot_aggregate_metrics()
+            elif hasattr(llm_backend_ref, "get_aggregate_metrics"):
+                # Some coordination backends only expose aggregate metrics; mirror them into
+                # llm_episode so per-episode tables are consistently populated.
+                _agg = llm_backend_ref.get_aggregate_metrics() or {}
+                ep_record["llm_episode"] = {
+                    "backend_id": _agg.get("backend_id"),
+                    "model_id": _agg.get("model_id"),
+                    "total_calls": _agg.get("total_calls"),
+                    "error_count": _agg.get("error_count"),
+                    "error_rate": _agg.get("error_rate"),
+                    "sum_latency_ms": _agg.get("sum_latency_ms"),
+                    "mean_latency_ms": _agg.get("mean_latency_ms"),
+                    "p50_latency_ms": _agg.get("p50_latency_ms"),
+                    "p95_latency_ms": _agg.get("p95_latency_ms"),
+                    "total_tokens": _agg.get("total_tokens"),
+                    "tokens_per_step": _agg.get("tokens_per_step"),
+                    "estimated_cost_usd": _agg.get("estimated_cost_usd"),
+                    "last_error_code": _agg.get("last_error_code"),
+                }
         episodes_metrics.append(ep_record)
+        if heartbeat_every_ep > 0 and ((i + 1) % heartbeat_every_ep == 0 or (i + 1) == num_episodes):
+            elapsed_s = time.perf_counter() - t0_wall
+            eps = (i + 1) / elapsed_s if elapsed_s > 0 else None
+            llm_ep = ep_record.get("llm_episode") or {}
+            _LOG.info(
+                (
+                    "[bench-heartbeat] task=%s progress=%s/%s seed=%s elapsed_s=%.1f eps=%.3f "
+                    "steps=%s throughput=%s llm_error_rate=%s"
+                ),
+                task_name,
+                i + 1,
+                num_episodes,
+                ep_seed,
+                elapsed_s,
+                (eps or 0.0),
+                metrics.get("steps"),
+                metrics.get("throughput"),
+                llm_ep.get("error_rate"),
+            )
         if progress_callback is not None:
             try:
                 progress_callback(ep_idx + 1, num_episodes, metrics)
@@ -2979,6 +3227,8 @@ def run_benchmark(
         agent_baseline_id = "llm_safe_v1"
     elif llm_backend == "openai_live":
         agent_baseline_id = "llm_live_openai_v1"
+    elif llm_backend == "prime_intellect_live":
+        agent_baseline_id = "llm_live_prime_intellect_v1"
     elif llm_backend == "openai_hosted":
         agent_baseline_id = "llm_live_openai_hosted_v1"
     elif llm_backend == "openai_responses":
@@ -3043,7 +3293,9 @@ def run_benchmark(
                 "llm_error_rate": 0.0,
                 "mean_llm_latency_ms": None,
             }
-        elif llm_backend in ("openai_live", "openai_responses") and llm_backend_ref is not None:
+        elif (
+            llm_backend in ("openai_live", "openai_responses", "prime_intellect_live") and llm_backend_ref is not None
+        ):
             agg = llm_backend_ref.get_aggregate_metrics()
             results["metadata"] = {
                 "llm_backend_id": agg.get("backend_id"),

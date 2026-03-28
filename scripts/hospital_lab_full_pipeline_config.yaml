@@ -27,6 +27,24 @@ default_providers:
   - openai_live
   - anthropic_live
   - ollama_live
+  - prime_intellect_live
+
+# Phase-1 Prime Intellect Inference sweep (used when --models is omitted and
+# scripts/run_hospital_lab_full_pipeline.py is run with --allow-network).
+# Reconcile input/output USD per 1M in policy/llm/model_pricing.v0.1.yaml with your billing dashboard.
+prime_intellect_benchmark_models:
+  - backend: prime_intellect_live
+    model_id: meta-llama/llama-3.1-70b-instruct
+  - backend: prime_intellect_live
+    model_id: anthropic/claude-3-5-sonnet-20241022
+  - backend: prime_intellect_live
+    model_id: meta-llama/llama-3.1-8b-instruct
+  - backend: prime_intellect_live
+    model_id: mistralai/mistral-small-latest
+  - backend: prime_intellect_live
+    model_id: deepseek/deepseek-chat
+  - backend: prime_intellect_live
+    model_id: Qwen/Qwen2.5-72B-Instruct
 
 # Optional explicit (backend, model_id) list for per-model sweep.
 # When empty, per-model sweep uses model_pricing.v0.1.yaml models with backend

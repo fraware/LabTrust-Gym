@@ -1,0 +1,5 @@
+{
+  "model": "openai/deepseek/deepseek-chat",
+  "base_url": "https://api.pinference.ai/api/v1",
+  "api_key": "${PRIME_INTELLECT_API_KEY}"
+}

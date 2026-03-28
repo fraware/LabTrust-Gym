@@ -813,6 +813,22 @@ def _create_attacker_backend(
             return backend, None
         except ImportError as e:
             return None, f"anthropic_live backend not available: {e}"
+    if llm_backend_id == "prime_intellect_live":
+        _pk = (os.environ.get("PRIME_INTELLECT_API_KEY") or os.environ.get("PRIME_API_KEY") or "").strip()
+        if not _pk:
+            return None, "PRIME_INTELLECT_API_KEY or PRIME_API_KEY not set (required for prime_intellect_live attacker)"
+        try:
+            from labtrust_gym.baselines.llm.backends.prime_intellect_live import (
+                PrimeIntellectLiveBackend,
+            )
+
+            backend = PrimeIntellectLiveBackend(
+                api_key=_pk,
+                model=model_override or os.environ.get("LABTRUST_PRIME_INTELLECT_MODEL"),
+            )
+            return backend, None
+        except ImportError as e:
+            return None, f"prime_intellect_live backend not available: {e}"
     return None, f"unknown llm_backend_id for attacker: {llm_backend_id!r}"
 
 

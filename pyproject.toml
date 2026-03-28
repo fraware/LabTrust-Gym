@@ -82,6 +82,8 @@ docs = ["mkdocs>=1.5", "mkdocstrings[python]>=0.24"]
 llm_openai = ["openai>=1.40", "urllib3>=2.6.3"]
 # Live Anthropic backend; install with: pip install -e ".[llm_anthropic]"
 llm_anthropic = ["anthropic>=0.39", "urllib3>=2.6.3"]
+# Prime Intellect Inference (OpenAI-compatible client to api.pinference.ai); pip install -e ".[llm_prime_intellect]"
+llm_prime_intellect = ["openai>=1.40", "urllib3>=2.6.3"]
 # Online serve mode (rate limiting, auth, etc.); stdlib-only by default; add deps here if needed
 online = []
 # OpenTelemetry OTLP export for LLM traces; install with: pip install -e ".[otel]"
