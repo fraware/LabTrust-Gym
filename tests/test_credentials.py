@@ -15,6 +15,7 @@ import pytest
 from labtrust_gym.baselines.llm.credentials import (
     ANTHROPIC_KEY_BACKENDS,
     OPENAI_KEY_BACKENDS,
+    PRIME_INTELLECT_KEY_BACKENDS,
     require_credentials_for_backend,
     resolve_credentials,
 )
@@ -28,6 +29,10 @@ def test_openai_key_backends_set() -> None:
 def test_anthropic_key_backends_set() -> None:
     """ANTHROPIC_KEY_BACKENDS contains anthropic_live."""
     assert ANTHROPIC_KEY_BACKENDS == frozenset({"anthropic_live"})
+
+
+def test_prime_intellect_key_backends_set() -> None:
+    assert PRIME_INTELLECT_KEY_BACKENDS == frozenset({"prime_intellect_live"})
 
 
 def test_resolve_credentials_deterministic_returns_empty() -> None:
@@ -117,3 +122,30 @@ def test_resolve_credentials_openai_responses_and_hosted_same_as_live() -> None:
     with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-unified"}, clear=False):
         assert resolve_credentials("openai_responses", None) == {"api_key": "sk-unified"}
         assert resolve_credentials("openai_hosted", None) == {"api_key": "sk-unified"}
+
+
+def test_resolve_credentials_prime_requires_key() -> None:
+    with patch.dict(os.environ, {}, clear=False):
+        pk = os.environ.pop("PRIME_INTELLECT_API_KEY", None)
+        pa = os.environ.pop("PRIME_API_KEY", None)
+        try:
+            with pytest.raises(ValueError) as exc_info:
+                resolve_credentials("prime_intellect_live", None)
+            assert "PRIME_INTELLECT_API_KEY" in str(exc_info.value)
+        finally:
+            if pk is not None:
+                os.environ["PRIME_INTELLECT_API_KEY"] = pk
+            if pa is not None:
+                os.environ["PRIME_API_KEY"] = pa
+
+
+def test_resolve_credentials_prime_accepts_either_env() -> None:
+    with patch.dict(os.environ, {"PRIME_INTELLECT_API_KEY": "pi-secret"}, clear=False):
+        assert resolve_credentials("prime_intellect_live", None) == {"api_key": "pi-secret"}
+    with patch.dict(os.environ, {"PRIME_API_KEY": "pi-alt"}, clear=False):
+        pk = os.environ.pop("PRIME_INTELLECT_API_KEY", None)
+        try:
+            assert resolve_credentials("prime_intellect_live", None) == {"api_key": "pi-alt"}
+        finally:
+            if pk is not None:
+                os.environ["PRIME_INTELLECT_API_KEY"] = pk

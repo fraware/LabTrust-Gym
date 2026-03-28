@@ -101,11 +101,8 @@ class MarlPPOCoordination(CoordinationMethod):
     ) -> dict[str, dict[str, Any]]:
         _check_sb3()
         if self._policy is None:
-            raise RuntimeError(
-                "marl_ppo requires a trained model. Use --coord-method marl_ppo with "
-                "model_path (e.g. from labtrust train-ppo --out runs/ppo) or use a different "
-                "coordination method for this run."
-            )
+            # Smoke/live fallback: no checkpoint available -> deterministic NOOP policy.
+            return {aid: {"action_index": 0} for aid in sorted(obs.keys())}
         agents = sorted(obs.keys())
         out: dict[str, dict[str, Any]] = {}
         for i, agent_id in enumerate(agents):

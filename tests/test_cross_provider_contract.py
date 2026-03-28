@@ -57,7 +57,7 @@ def _make_result_json(
     }
 
 
-@pytest.mark.parametrize("provider", ["openai_live", "anthropic_live", "ollama_live"])
+@pytest.mark.parametrize("provider", ["openai_live", "anthropic_live", "ollama_live", "prime_intellect_live"])
 def test_live_evaluation_metadata_schema_per_provider(tmp_path: Path, provider: str) -> None:
     """For each provider, synthetic results produce live_evaluation_metadata with same required keys."""
     results_dir = tmp_path / "baselines" / "results"
@@ -65,7 +65,15 @@ def test_live_evaluation_metadata_schema_per_provider(tmp_path: Path, provider: 
     model_id = (
         "gpt-4o-mini"
         if provider == "openai_live"
-        else ("claude-3-5-haiku" if provider == "anthropic_live" else "ollama/llama2")
+        else (
+            "claude-3-5-haiku"
+            if provider == "anthropic_live"
+            else (
+                "meta-llama/llama-3.1-70b-instruct"
+                if provider == "prime_intellect_live"
+                else "ollama/llama2"
+            )
+        )
     )
     results_dir.joinpath("throughput_sla_scripted.json").write_text(
         json.dumps(
@@ -100,7 +108,15 @@ def test_llm_live_json_top_level_shape_per_provider(tmp_path: Path, provider: st
     model_id = (
         "gpt-4o-mini"
         if provider == "openai_live"
-        else ("claude-3-5-haiku" if provider == "anthropic_live" else "ollama/llama2")
+        else (
+            "claude-3-5-haiku"
+            if provider == "anthropic_live"
+            else (
+                "meta-llama/llama-3.1-70b-instruct"
+                if provider == "prime_intellect_live"
+                else "ollama/llama2"
+            )
+        )
     )
     results_dir.joinpath("throughput_sla_scripted.json").write_text(
         json.dumps(
@@ -125,7 +141,7 @@ def test_llm_live_json_top_level_shape_per_provider(tmp_path: Path, provider: st
         assert key in data, f"llm_live.json must have {key!r} (provider={provider})"
 
 
-@pytest.mark.parametrize("provider", ["openai_live", "anthropic_live", "ollama_live"])
+@pytest.mark.parametrize("provider", ["openai_live", "anthropic_live", "ollama_live", "prime_intellect_live"])
 def test_latency_fields_canonical_per_provider(tmp_path: Path, provider: str) -> None:
     """Latency fields (mean_latency_ms) map correctly; aggregator produces min/max/mean/sum."""
     results_dir = tmp_path / "baselines" / "results"

@@ -1,6 +1,6 @@
 # Cross-provider output contract
 
-Cross-provider runs (e.g. `run-cross-provider-pack`) produce comparable outputs regardless of provider (openai_live, anthropic_live, ollama_live). This document freezes the required shape and normalization rules so that summary_cross_provider and per-provider outputs remain comparable.
+Cross-provider runs (e.g. `run-cross-provider-pack`) produce comparable outputs regardless of provider (openai_live, anthropic_live, ollama_live, prime_intellect_live). This document freezes the required shape and normalization rules so that summary_cross_provider and per-provider outputs remain comparable.
 
 ## Required fields
 

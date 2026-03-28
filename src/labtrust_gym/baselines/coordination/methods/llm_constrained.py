@@ -11,6 +11,7 @@ Envelope (SOTA audit):
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from labtrust_gym.baselines.coordination.interface import CoordinationMethod
@@ -32,6 +33,7 @@ class LLMConstrained(CoordinationMethod):
     ) -> None:
         self._llm_agent = llm_agent
         self._pz_to_engine = pz_to_engine or {}
+        self._max_agents_per_step: int | None = None
 
     @property
     def method_id(self) -> str:
@@ -44,6 +46,14 @@ class LLMConstrained(CoordinationMethod):
         reset_fn = getattr(self._llm_agent, "reset", None)
         if callable(reset_fn):
             reset_fn(seed, policy_summary, partner_id, timing_mode)
+        max_agents_raw = (scale_config or {}).get("llm_constrained_max_agents_per_step")
+        if max_agents_raw is None:
+            max_agents_raw = os.environ.get("LABTRUST_LLM_CONSTRAINED_MAX_AGENTS_PER_STEP")
+        try:
+            max_agents = int(max_agents_raw) if max_agents_raw is not None else 0
+        except (TypeError, ValueError):
+            max_agents = 0
+        self._max_agents_per_step = max_agents if max_agents > 0 else None
 
     def propose_actions(
         self,
@@ -51,8 +61,19 @@ class LLMConstrained(CoordinationMethod):
         infos: dict[str, dict[str, Any]],
         t: int,
     ) -> dict[str, dict[str, Any]]:
-        out: dict[str, dict[str, Any]] = {}
-        for agent_id in sorted(obs.keys()):
+        agent_ids = sorted(obs.keys())
+        if self._max_agents_per_step is not None and len(agent_ids) > self._max_agents_per_step:
+            # Bounded per-step LLM fan-out for large swarms; rotate the active slice by
+            # time-step so every agent is periodically evaluated by the LLM.
+            n = len(agent_ids)
+            k = self._max_agents_per_step
+            start = (t * k) % n
+            active_ids = [agent_ids[(start + i) % n] for i in range(k)]
+        else:
+            active_ids = agent_ids
+
+        out: dict[str, dict[str, Any]] = {aid: {"action_index": 0} for aid in agent_ids}
+        for agent_id in active_ids:
             o = obs.get(agent_id) or {}
             ret = self._llm_agent.act(o, agent_id)
             action_index = int(ret[0])

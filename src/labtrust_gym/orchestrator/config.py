@@ -30,7 +30,7 @@ class OrchestratorConfig:
     """Safe baseline method when defense triggers (e.g. kernel_centralized_edf or llm_central_planner_with_safe_fallback)."""
 
     allow_network: bool = False
-    """Allow network for llm_live backends (openai_live, ollama_live)."""
+    """Allow network for llm_live backends (openai_live, ollama_live, prime_intellect_live, ...)."""
 
     human_override_token: str | None = None
     """Token required to resume after kill_switch/freeze. Set via env or policy."""
@@ -51,7 +51,7 @@ class OrchestratorConfig:
     """Base seed for reproducibility."""
 
     llm_backend: str | None = None
-    """LLM backend: deterministic, openai_live, ollama_live. None => deterministic when no LLM in method."""
+    """LLM backend: deterministic, openai_live, ollama_live, prime_intellect_live, ... None => deterministic when no LLM in method."""
 
     llm_model: str | None = None
     """Optional model id for live backend."""

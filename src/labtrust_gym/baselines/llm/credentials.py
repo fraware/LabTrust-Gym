@@ -51,11 +51,30 @@ def _require_anthropic_api_key() -> str:
     return key
 
 
+def _require_prime_intellect_api_key() -> str:
+    """Return PRIME_INTELLECT_API_KEY or PRIME_API_KEY; raise ValueError if not."""
+    key = (
+        (os.environ.get("PRIME_INTELLECT_API_KEY") or os.environ.get("PRIME_API_KEY") or "")
+        .strip()
+        .strip('"')
+        .strip("'")
+    )
+    if not key:
+        raise ValueError(
+            "PRIME_INTELLECT_API_KEY_MISSING: PRIME_INTELLECT_API_KEY (or PRIME_API_KEY) must be set when using "
+            "--llm-backend prime_intellect_live. Set it in .env or export the variable."
+        )
+    return key
+
+
 # Backend IDs that require OpenAI API key (for resolve_credentials and fail-fast).
 OPENAI_KEY_BACKENDS = frozenset({"openai_live", "openai_responses", "openai_hosted"})
 
 # Backend IDs that require Anthropic API key.
 ANTHROPIC_KEY_BACKENDS = frozenset({"anthropic_live"})
+
+# Prime Intellect Inference (pinference.ai).
+PRIME_INTELLECT_KEY_BACKENDS = frozenset({"prime_intellect_live"})
 
 
 def resolve_credentials(
@@ -71,6 +90,7 @@ def resolve_credentials(
 
     - openai_live / openai_responses / openai_hosted: returns {"api_key": key}
     - anthropic_live: returns {"api_key": key}
+    - prime_intellect_live: returns {"api_key": key} (Prime Inference token)
     - ollama_live: returns {} (no secret)
     - deterministic / deterministic_constrained / etc.: returns {}
 
@@ -82,6 +102,8 @@ def resolve_credentials(
         return {"api_key": _require_openai_api_key()}
     if llm_backend in ANTHROPIC_KEY_BACKENDS:
         return {"api_key": _require_anthropic_api_key()}
+    if llm_backend in PRIME_INTELLECT_KEY_BACKENDS:
+        return {"api_key": _require_prime_intellect_api_key()}
     # ollama_live and any other backends that do not need a secret
     return {}
 
@@ -92,5 +114,9 @@ def require_credentials_for_backend(llm_backend: str, repo_root: Path | None = N
     Loads .env from repo_root, then raises ValueError if the backend needs
     an API key and it is not set. Call at runner entry before building envs.
     """
-    if llm_backend in OPENAI_KEY_BACKENDS or llm_backend in ANTHROPIC_KEY_BACKENDS:
+    if (
+        llm_backend in OPENAI_KEY_BACKENDS
+        or llm_backend in ANTHROPIC_KEY_BACKENDS
+        or llm_backend in PRIME_INTELLECT_KEY_BACKENDS
+    ):
         resolve_credentials(llm_backend, repo_root)

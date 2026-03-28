@@ -246,11 +246,26 @@ class OpenAILiveBackend:
         timeout_s: int | None = None,
         retries: int | None = None,
         trace_collector: Any = None,
+        *,
+        backend_id: str | None = None,
+        openai_base_url: str | None = None,
+        openai_default_headers: dict[str, str] | None = None,
+        missing_api_key_message: str = "OPENAI_API_KEY not set",
+        override_fallback_models: list[str] | None = None,
     ) -> None:
         key, mod, fall_list, to, ret = _get_config()
         self._api_key = (api_key or key).strip()
         self._model = (model or mod).strip() or "gpt-4o-mini"
-        if fallback_model is not None:
+        self._backend_id = backend_id or BACKEND_ID
+        self._missing_api_key_message = missing_api_key_message
+        bu = (openai_base_url or "").strip()
+        self._openai_base_url: str | None = bu or None
+        self._openai_default_headers: dict[str, str] | None = (
+            dict(openai_default_headers) if openai_default_headers else None
+        )
+        if override_fallback_models is not None:
+            self._fallback_models = [m for m in override_fallback_models if m and m != self._model]
+        elif fallback_model is not None:
             self._fallback_models = [fallback_model] if fallback_model != self._model else []
         else:
             self._fallback_models = [m for m in fall_list if m != self._model]
@@ -284,6 +299,36 @@ class OpenAILiveBackend:
         """model_id, backend_id, latency_ms, prompt_sha256, response_sha256."""
         return dict(self._last_metrics)
 
+    def _build_openai_client(self) -> Any:
+        """
+        Construct OpenAI SDK client. When openai_base_url is set (subclasses / callers),
+        routes to compatible gateways (e.g. Prime Inference at api.pinference.ai).
+        """
+        try:
+            from openai import OpenAI
+        except ImportError as e:
+            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
+        kwargs: dict[str, Any] = {"api_key": self._api_key}
+        if self._openai_base_url:
+            kwargs["base_url"] = self._openai_base_url
+        if self._openai_default_headers:
+            kwargs["default_headers"] = self._openai_default_headers
+        try:
+            return OpenAI(**kwargs)
+        except Exception as e:
+            # Some environments set SSL_CERT_FILE to a stale path; recover by unsetting it.
+            cert_file = (os.environ.get("SSL_CERT_FILE") or "").strip()
+            if cert_file:
+                try:
+                    from pathlib import Path
+
+                    if not Path(cert_file).is_file():
+                        os.environ.pop("SSL_CERT_FILE", None)
+                        return OpenAI(**kwargs)
+                except Exception:
+                    pass
+            raise e
+
     def get_aggregate_metrics(self) -> dict[str, Any]:
         """
         Aggregate stats over all generate/propose_action calls since init or last reset.
@@ -302,7 +347,7 @@ class OpenAILiveBackend:
             else None
         )
         out: dict[str, Any] = {
-            "backend_id": BACKEND_ID,
+            "backend_id": self._backend_id,
             "model_id": self._model,
             "total_calls": self._total_calls,
             "error_count": self._error_count,
@@ -367,17 +412,17 @@ class OpenAILiveBackend:
         if tracer is not None:
             tracer.start_span("propose_action")
             tracer.set_attribute("model_id", self._model)
-            tracer.set_attribute("backend_id", BACKEND_ID)
+            tracer.set_attribute("backend_id", self._backend_id)
             if context.get("agent_id") is not None:
                 tracer.set_attribute("agent_id", str(context["agent_id"]))
         if not self._api_key:
             if tracer is not None:
-                tracer.end_span("error", "OPENAI_API_KEY not set")
+                tracer.end_span("error", self._missing_api_key_message)
             self._last_error_code = LLM_PROVIDER_ERROR
             self._error_count += 1
             self._last_metrics = {
                 "model_id": self._model,
-                "backend_id": BACKEND_ID,
+                "backend_id": self._backend_id,
                 "latency_ms": 0,
                 "error_code": LLM_PROVIDER_ERROR,
             }
@@ -471,7 +516,7 @@ class OpenAILiveBackend:
                 self._total_completion_tokens += usage.get("completion_tokens", 0)
                 self._last_metrics = {
                     "model_id": self._model,
-                    "backend_id": BACKEND_ID,
+                    "backend_id": self._backend_id,
                     "latency_ms": 0,
                     "prompt_sha256": prompt_sha256,
                     "response_sha256": _sha256(raw),
@@ -515,7 +560,7 @@ class OpenAILiveBackend:
             self._sum_latency_ms += latency_ms
             self._last_metrics = {
                 "model_id": self._model,
-                "backend_id": BACKEND_ID,
+                "backend_id": self._backend_id,
                 "latency_ms": round(latency_ms, 2),
                 "prompt_sha256": prompt_sha256,
                 "error_code": LLM_PROVIDER_ERROR,
@@ -579,7 +624,7 @@ class OpenAILiveBackend:
                 self._error_count += 1
                 self._last_metrics = {
                     "model_id": self._model,
-                    "backend_id": BACKEND_ID,
+                    "backend_id": self._backend_id,
                     "latency_ms": round(latency_ms, 2),
                     "prompt_sha256": prompt_sha256,
                     "response_sha256": response_sha256,
@@ -593,7 +638,7 @@ class OpenAILiveBackend:
             tracer.end_span("ok")
         self._last_metrics = {
             "model_id": self._model,
-            "backend_id": BACKEND_ID,
+            "backend_id": self._backend_id,
             "latency_ms": round(latency_ms, 2),
             "prompt_sha256": prompt_sha256,
             "response_sha256": response_sha256,
@@ -638,16 +683,12 @@ class OpenAILiveBackend:
         Call API with read-only tools; handle tool_calls and optional follow-up.
         Returns (content, usage). Guardrails: only tools from tool_proxy allowlist.
         """
-        try:
-            from openai import OpenAI
-        except ImportError as e:
-            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
         from labtrust_gym.baselines.llm.tool_proxy import (
             execute_read_only_tool,
             get_read_only_tool_definitions_for_llm,
         )
 
-        client = OpenAI(api_key=self._api_key)
+        client = self._build_openai_client()
         model = self._model.strip() or "gpt-4o-mini"
         tool_defs = get_read_only_tool_definitions_for_llm()
         allowed_tool_names = {f["function"]["name"] for f in tool_defs}
@@ -742,12 +783,7 @@ class OpenAILiveBackend:
         Call OpenAI Chat Completions. Returns (content, usage).
         When structured_output=True use JSON schema; when False use free-form (for retry).
         """
-        try:
-            from openai import OpenAI
-        except ImportError as e:
-            raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
-
-        client = OpenAI(api_key=self._api_key)
+        client = self._build_openai_client()
         model = (model_override or self._model).strip() or self._model
         create_kwargs: dict[str, Any] = {
             "model": model,
@@ -763,12 +799,14 @@ class OpenAILiveBackend:
                     "schema": self._schema,
                 },
             }
-        prompt_cache_key = (os.environ.get("LABTRUST_LLM_PROMPT_CACHE_KEY") or "").strip()
-        if prompt_cache_key:
-            create_kwargs["prompt_cache_key"] = prompt_cache_key
-        prompt_cache_retention = (os.environ.get("LABTRUST_LLM_PROMPT_CACHE_RETENTION") or "").strip().lower()
-        if prompt_cache_retention in ("24h", "in_memory", "in-memory"):
-            create_kwargs["prompt_cache_retention"] = "24h" if prompt_cache_retention == "24h" else "in_memory"
+        # OpenAI-only prompt caching; omit for third-party OpenAI-compatible gateways.
+        if not self._openai_base_url:
+            prompt_cache_key = (os.environ.get("LABTRUST_LLM_PROMPT_CACHE_KEY") or "").strip()
+            if prompt_cache_key:
+                create_kwargs["prompt_cache_key"] = prompt_cache_key
+            prompt_cache_retention = (os.environ.get("LABTRUST_LLM_PROMPT_CACHE_RETENTION") or "").strip().lower()
+            if prompt_cache_retention in ("24h", "in_memory", "in-memory"):
+                create_kwargs["prompt_cache_retention"] = "24h" if prompt_cache_retention == "24h" else "in_memory"
         attempt = 0
         last_exc: Exception | None = None
         while attempt <= self._retries:
@@ -848,7 +886,7 @@ class OpenAILiveBackend:
             self._error_count += 1
             self._last_metrics = {
                 "model_id": self._model,
-                "backend_id": BACKEND_ID,
+                "backend_id": self._backend_id,
                 "latency_ms": 0,
                 "error_code": LLM_PROVIDER_ERROR,
             }
@@ -864,7 +902,7 @@ class OpenAILiveBackend:
             self._sum_latency_ms += latency_ms
             self._last_metrics = {
                 "model_id": self._model,
-                "backend_id": BACKEND_ID,
+                "backend_id": self._backend_id,
                 "latency_ms": round(latency_ms, 2),
                 "prompt_sha256": prompt_sha256,
                 "error_code": self._last_error_code,
@@ -881,7 +919,7 @@ class OpenAILiveBackend:
         response_sha256 = _sha256(raw)
         self._last_metrics = {
             "model_id": self._model,
-            "backend_id": BACKEND_ID,
+            "backend_id": self._backend_id,
             "latency_ms": round(latency_ms, 2),
             "prompt_sha256": prompt_sha256,
             "response_sha256": response_sha256,
@@ -905,7 +943,7 @@ class OpenAILiveBackend:
                 "model_id": self._model,
                 "latency_ms": None,
                 "usage": {},
-                "error": "OPENAI_API_KEY not set",
+                "error": self._missing_api_key_message,
             }
         messages = [
             {

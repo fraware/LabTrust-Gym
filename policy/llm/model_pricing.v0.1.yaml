@@ -33,3 +33,24 @@ models:
   claude-3-opus:
     input_price_per_1m: 15.00
     output_price_per_1m: 75.00
+
+  # Prime Intellect Inference (model_id as returned by /v1/models). Rates are estimates;
+  # align with https://app.primeintellect.ai dashboard billing for your account.
+  meta-llama/llama-3.1-70b-instruct:
+    input_price_per_1m: 0.90
+    output_price_per_1m: 0.90
+  anthropic/claude-3-5-sonnet-20241022:
+    input_price_per_1m: 3.00
+    output_price_per_1m: 15.00
+  meta-llama/llama-3.1-8b-instruct:
+    input_price_per_1m: 0.20
+    output_price_per_1m: 0.20
+  mistralai/mistral-small-latest:
+    input_price_per_1m: 0.50
+    output_price_per_1m: 0.50
+  deepseek/deepseek-chat:
+    input_price_per_1m: 0.30
+    output_price_per_1m: 0.90
+  Qwen/Qwen2.5-72B-Instruct:
+    input_price_per_1m: 0.90
+    output_price_per_1m: 0.90

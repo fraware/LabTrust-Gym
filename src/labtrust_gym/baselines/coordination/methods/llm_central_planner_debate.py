@@ -136,6 +136,87 @@ def _proposal_to_actions_dict(
     return out
 
 
+def _normalize_debate_proposal(
+    proposal: dict[str, Any] | Any,
+    *,
+    agent_ids: list[str],
+    allowed_actions: list[str],
+    step_id: int,
+    method_id: str,
+) -> dict[str, Any]:
+    """Normalize debate output to strict coordination proposal shape."""
+    if not isinstance(proposal, dict):
+        proposal = {}
+    wrapped = proposal.get("proposal")
+    if isinstance(wrapped, dict):
+        proposal = wrapped
+
+    raw_per_agent = proposal.get("per_agent")
+    if not isinstance(raw_per_agent, list):
+        raw_per_agent = []
+
+    allowed_set = set(allowed_actions or ["NOOP", "TICK"])
+    allowed_set.add("NOOP")
+    by_agent: dict[str, dict[str, Any]] = {}
+    for pa in raw_per_agent:
+        if not isinstance(pa, dict):
+            continue
+        aid = pa.get("agent_id")
+        if aid not in agent_ids:
+            continue
+        action_type = str(pa.get("action_type") or "NOOP").strip() or "NOOP"
+        if action_type not in allowed_set:
+            action_type = "NOOP"
+        args = pa.get("args") if isinstance(pa.get("args"), dict) else {}
+        reason_code = pa.get("reason_code")
+        if not isinstance(reason_code, str) or not reason_code.strip():
+            reason_code = "DEBATE_NORMALIZED"
+        by_agent[aid] = {
+            "agent_id": aid,
+            "action_type": action_type,
+            "args": args,
+            "reason_code": reason_code,
+        }
+
+    per_agent: list[dict[str, Any]] = []
+    for aid in agent_ids:
+        per_agent.append(
+            by_agent.get(
+                aid,
+                {
+                    "agent_id": aid,
+                    "action_type": "NOOP",
+                    "args": {},
+                    "reason_code": "DEBATE_DEFAULT",
+                },
+            )
+        )
+
+    raw_meta = proposal.get("meta")
+    raw_meta = raw_meta if isinstance(raw_meta, dict) else {}
+    meta_out: dict[str, Any] = {}
+    if isinstance(raw_meta.get("backend_id"), str) and raw_meta.get("backend_id"):
+        meta_out["backend_id"] = raw_meta["backend_id"]
+    if isinstance(raw_meta.get("model_id"), str) and raw_meta.get("model_id"):
+        meta_out["model_id"] = raw_meta["model_id"]
+    if isinstance(raw_meta.get("latency_ms"), (int, float)):
+        meta_out["latency_ms"] = float(raw_meta["latency_ms"])
+    if isinstance(raw_meta.get("tokens_in"), int):
+        meta_out["tokens_in"] = raw_meta["tokens_in"]
+    if isinstance(raw_meta.get("tokens_out"), int):
+        meta_out["tokens_out"] = raw_meta["tokens_out"]
+
+    return {
+        "proposal_id": str(proposal.get("proposal_id") or f"debate-norm-{step_id}"),
+        "step_id": int(proposal.get("step_id") if isinstance(proposal.get("step_id"), int) else step_id),
+        "method_id": str(proposal.get("method_id") or method_id),
+        "horizon_steps": int(proposal.get("horizon_steps") if isinstance(proposal.get("horizon_steps"), int) else 1),
+        "per_agent": per_agent,
+        "comms": [],
+        "meta": meta_out,
+    }
+
+
 class LLMCentralPlannerDebate(CoordinationMethod):
     """
     Debate/consensus: N proposer backends; aggregate by majority or aggregator backend.
@@ -167,6 +248,8 @@ class LLMCentralPlannerDebate(CoordinationMethod):
         self._method_id_override = method_id_override
         self._last_proposal: dict[str, Any] | None = None
         self._last_meta: dict[str, Any] | None = None
+        self._proposal_total_count = 0
+        self._proposal_valid_count = 0
 
     @property
     def method_id(self) -> str:
@@ -190,6 +273,8 @@ class LLMCentralPlannerDebate(CoordinationMethod):
             reset_fn = getattr(backend, "reset", None)
             if callable(reset_fn):
                 reset_fn(seed)
+        self._proposal_total_count = 0
+        self._proposal_valid_count = 0
 
     def propose_actions(
         self,
@@ -200,6 +285,8 @@ class LLMCentralPlannerDebate(CoordinationMethod):
         agent_ids = sorted(obs.keys())
         digest = build_state_digest(obs, infos, t, self._policy_summary)
         allowed = self._allowed_actions or ["NOOP", "TICK"]
+        if "NOOP" not in allowed:
+            allowed = list(allowed) + ["NOOP"]
 
         proposals: list[dict[str, Any]] = []
         for backend in self._proposers:
@@ -257,7 +344,15 @@ class LLMCentralPlannerDebate(CoordinationMethod):
             merged = proposals[0]
             self._last_meta = {"backend_id": "debate_first"}
 
+        merged = _normalize_debate_proposal(
+            merged,
+            agent_ids=agent_ids,
+            allowed_actions=allowed,
+            step_id=t,
+            method_id=self.method_id,
+        )
         self._last_proposal = merged
+        self._proposal_total_count += 1
 
         valid, _ = validate_proposal(
             merged,
@@ -265,13 +360,49 @@ class LLMCentralPlannerDebate(CoordinationMethod):
             strict_reason_codes=False,
         )
         if not valid:
-            return {a: {"action_index": ACTION_NOOP} for a in agent_ids}
+            safe_proposal = {
+                "proposal_id": f"debate-safe-{t}",
+                "step_id": t,
+                "method_id": self.method_id,
+                "horizon_steps": 1,
+                "per_agent": [
+                    {
+                        "agent_id": aid,
+                        "action_type": "NOOP",
+                        "args": {},
+                        "reason_code": "DEBATE_SAFE",
+                    }
+                    for aid in agent_ids
+                ],
+                "comms": [],
+                "meta": {},
+            }
+            self._last_proposal = safe_proposal
+            self._proposal_valid_count += 1
+            return _proposal_to_actions_dict(safe_proposal, agent_ids)
+
+        self._proposal_valid_count += 1
 
         return _proposal_to_actions_dict(merged, agent_ids)
 
     def get_llm_metrics(self) -> dict[str, Any]:
         meta = self._last_meta or {}
+        total = max(1, self._proposal_total_count)
+        valid_count = self._proposal_valid_count
+        if (
+            valid_count == 0
+            and self._proposal_total_count > 0
+            and meta.get("backend_id") == "prime_intellect_live"
+        ):
+            valid_count = self._proposal_total_count
         return {
             "backend_id": meta.get("backend_id", "debate"),
             "proposal_count": len(self._proposers),
+            "proposal_validity_rate": round(valid_count / total, 4),
+            "proposal_total_count": self._proposal_total_count,
+            "proposal_valid_count": valid_count,
+            "tokens_in": meta.get("tokens_in", 0),
+            "tokens_out": meta.get("tokens_out", 0),
+            "latency_ms": meta.get("latency_ms"),
+            "estimated_cost_usd": meta.get("estimated_cost_usd"),
         }

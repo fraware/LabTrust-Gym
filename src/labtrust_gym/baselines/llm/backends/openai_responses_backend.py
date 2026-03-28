@@ -200,6 +200,9 @@ def generate_coordination_proposal(
     api_key: str | None = None,
     *,
     conversation_history: list[dict[str, Any]] | None = None,
+    openai_base_url: str | None = None,
+    default_headers: dict[str, str] | None = None,
+    meta_backend_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Call OpenAI Chat Completions with structured output for CoordinationProposal.
@@ -231,7 +234,14 @@ def generate_coordination_proposal(
         from openai import OpenAI
     except ImportError as e:
         raise RuntimeError("openai not installed; pip install -e '.[llm_openai]'") from e
-    client = OpenAI(api_key=key)
+    client_kw: dict[str, Any] = {"api_key": key}
+    obu = (openai_base_url or "").strip()
+    if obu:
+        client_kw["base_url"] = obu
+    if default_headers:
+        client_kw["default_headers"] = dict(default_headers)
+    client = OpenAI(**client_kw)
+    report_backend_id = meta_backend_id or BACKEND_ID
     response_format = {
         "type": "json_schema",
         "json_schema": {
@@ -290,7 +300,7 @@ def generate_coordination_proposal(
             LOG.debug("Proposal payload (redacted): %s...", safe_log[:500])
         cost = _estimated_cost_usd(model, prompt_tokens, completion_tokens)
         meta = {
-            "backend_id": BACKEND_ID,
+            "backend_id": report_backend_id,
             "model_id": model,
             "request_id": request_id,
             "latency_ms": round(latency_ms, 2),
@@ -330,12 +340,19 @@ class OpenAICoordinationProposalBackend:
         timeout_s: int = 30,
         retries: int = 1,
         repo_root: Path | None = None,
+        *,
+        openai_base_url: str | None = None,
+        openai_default_headers: dict[str, str] | None = None,
+        meta_backend_id: str | None = None,
     ) -> None:
         self._api_key = (api_key or os.environ.get("OPENAI_API_KEY") or "").strip()
         self._model = (model or os.environ.get("LABTRUST_OPENAI_MODEL") or "gpt-4o-mini").strip()
         self._timeout_s = max(5, timeout_s)
         self._retries = max(0, retries)
         self._repo_root = Path(repo_root) if repo_root else None
+        self._openai_base_url = (openai_base_url or "").strip() or None
+        self._openai_default_headers = dict(openai_default_headers) if openai_default_headers else None
+        self._meta_backend_id = meta_backend_id or BACKEND_ID
         self._schema = _coordination_proposal_schema_for_api()
         self._seed = 0
         self._total_calls = 0
@@ -398,7 +415,7 @@ class OpenAICoordinationProposalBackend:
             ],
             "comms": [],
             "meta": {
-                "backend_id": BACKEND_ID,
+                "backend_id": self._meta_backend_id,
                 "model_id": self._model,
                 "latency_ms": 0,
                 "tokens_in": 0,
@@ -406,7 +423,7 @@ class OpenAICoordinationProposalBackend:
             },
         }
         fallback_meta = {
-            "backend_id": BACKEND_ID,
+            "backend_id": self._meta_backend_id,
             "model_id": self._model,
             "latency_ms": 0.0,
             "tokens_in": 0,
@@ -417,7 +434,7 @@ class OpenAICoordinationProposalBackend:
         if not self._api_key:
             self._error_count += 1
             self._last_metrics = {
-                "backend_id": BACKEND_ID,
+                "backend_id": self._meta_backend_id,
                 "model_id": self._model,
                 "error_code": REASON_OPENAI_API_KEY_MISSING,
             }
@@ -432,7 +449,7 @@ class OpenAICoordinationProposalBackend:
             pass
         if tracer is not None:
             tracer.start_span("coord_proposal")
-            tracer.set_attribute("backend_id", BACKEND_ID)
+            tracer.set_attribute("backend_id", self._meta_backend_id)
             tracer.set_attribute("model_id", self._model)
 
         prompt = json.dumps(
@@ -453,6 +470,9 @@ class OpenAICoordinationProposalBackend:
                 model=self._model,
                 api_key=self._api_key,
                 conversation_history=conversation_history,
+                openai_base_url=self._openai_base_url,
+                default_headers=self._openai_default_headers,
+                meta_backend_id=self._meta_backend_id,
             )
         except Exception as e:
             if tracer is not None:
@@ -460,7 +480,7 @@ class OpenAICoordinationProposalBackend:
                 tracer.end_span("error", str(e)[:200])
             self._error_count += 1
             self._last_metrics = {
-                "backend_id": BACKEND_ID,
+                "backend_id": self._meta_backend_id,
                 "model_id": self._model,
                 "error_code": getattr(e, "args", [""])[0] if getattr(e, "args", None) else str(e)[:200],
             }
@@ -503,8 +523,11 @@ class OpenAICoordinationProposalBackend:
             self._repo_root,
         )
         return {
-            "backend_id": BACKEND_ID,
+            "backend_id": self._meta_backend_id,
             "model_id": self._model,
+            "total_calls": n,
+            "error_count": self._error_count,
+            "sum_latency_ms": round(self._sum_latency_ms, 2),
             "error_rate": round(rate, 4),
             "mean_latency_ms": round(mean_ms, 2) if mean_ms is not None else None,
             "p50_latency_ms": round(p50, 2) if p50 is not None else None,
@@ -527,10 +550,19 @@ class OpenAILocalProposalBackend:
         api_key: str | None = None,
         model: str | None = None,
         repo_root: Path | None = None,
+        *,
+        chat_live_backend_id: str = "openai_live",
     ) -> None:
-        from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+        if chat_live_backend_id == "prime_intellect_live":
+            from labtrust_gym.baselines.llm.backends.prime_intellect_live import (
+                PrimeIntellectLiveBackend,
+            )
 
-        self._backend = OpenAILiveBackend(api_key=api_key, model=model)
+            self._backend = PrimeIntellectLiveBackend(api_key=api_key, model=model)
+        else:
+            from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+
+            self._backend = OpenAILiveBackend(api_key=api_key, model=model)
 
     def reset(self, seed: int) -> None:
         pass
@@ -590,10 +622,19 @@ class OpenAIGossipSummaryBackend:
         api_key: str | None = None,
         model: str | None = None,
         repo_root: Path | None = None,
+        *,
+        chat_live_backend_id: str = "openai_live",
     ) -> None:
-        from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+        if chat_live_backend_id == "prime_intellect_live":
+            from labtrust_gym.baselines.llm.backends.prime_intellect_live import (
+                PrimeIntellectLiveBackend,
+            )
 
-        self._backend = OpenAILiveBackend(api_key=api_key, model=model)
+            self._backend = PrimeIntellectLiveBackend(api_key=api_key, model=model)
+        else:
+            from labtrust_gym.baselines.llm.backends.openai_live import OpenAILiveBackend
+
+            self._backend = OpenAILiveBackend(api_key=api_key, model=model)
 
     def get_summary(
         self,

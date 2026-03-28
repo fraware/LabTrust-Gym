@@ -14,6 +14,8 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -269,14 +271,50 @@ def _cell_seed(seed_base: int, scale_idx: int, method_idx: int, injection_idx: i
     return seed_base + scale_idx * 10000 + method_idx * 100 + injection_idx
 
 
-# Live backends require allow_network=True in run_benchmark (must match runner's _live_backends)
-_LIVE_LLM_BACKENDS = (
+# Live backends require explicit allow_network=True in run_benchmark (must match runner's _live_backends)
+LIVE_LLM_BACKEND_IDS: tuple[str, ...] = (
     "openai_live",
     "openai_responses",
     "ollama_live",
     "anthropic_live",
     "openai_hosted",
+    "prime_intellect_live",
 )
+_LIVE_LLM_BACKENDS = LIVE_LLM_BACKEND_IDS
+
+
+def assert_unique_llm_backend_for_coordination_model_sweep(model_pairs: list[tuple[str, str]]) -> str:
+    """
+    Hospital full pipeline: when using --models with --include-coordination-pack, every
+    (backend, model_id) pair must share the same backend so the pack can use one API stack.
+    """
+    if not model_pairs:
+        raise ValueError("model_pairs must be non-empty when resolving coordination pack backend.")
+    backends = {b for b, _ in model_pairs}
+    if len(backends) > 1:
+        raise ValueError(
+            "Cannot use --include-coordination-pack with multiple LLM backends in --models / "
+            "config model sweep. Use one backend for every entry (e.g. only prime_intellect_live:...), "
+            "or run coordination pack separately using --providers with a single backend. "
+            f"Got backends: {sorted(backends)}"
+        )
+    return backends.pop()
+
+
+def _validate_results_metadata_for_live_cell(requested_backend: str, results: dict[str, Any]) -> None:
+    """If a live backend was requested, refuse results.json that look like offline/fixture runs."""
+    if requested_backend not in _LIVE_LLM_BACKENDS:
+        return
+    pm = results.get("pipeline_mode")
+    meta = results.get("metadata") if isinstance(results.get("metadata"), dict) else {}
+    bid = meta.get("llm_backend_id")
+    if pm != "llm_live" or bid != requested_backend:
+        raise RuntimeError(
+            "Coordination pack cell requested live backend "
+            f"{requested_backend!r} but results.json metadata has "
+            f"pipeline_mode={pm!r} llm_backend_id={bid!r}. "
+            "Expected pipeline_mode='llm_live' and matching llm_backend_id."
+        )
 
 
 def _run_one_cell(
@@ -311,6 +349,11 @@ def _run_one_cell(
     results_path = cell_out / "results.json"
     log_path = cell_out / "episodes.jsonl"
 
+    effective_cell_backend = (llm_backend or PACK_LLM_BACKEND).strip() or PACK_LLM_BACKEND
+    # Optional per-pack model override for live runs where the backend default model
+    # is unavailable from the provider at run time.
+    env_llm_model = (os.environ.get("LABTRUST_COORD_PACK_LLM_MODEL") or "").strip()
+    effective_llm_model = env_llm_model or None
     run_benchmark(
         task_name="coord_risk",
         num_episodes=PACK_EPISODES_PER_CELL,
@@ -321,8 +364,8 @@ def _run_one_cell(
         coord_method=method_id,
         injection_id=injection_id,
         scale_config_override=scale_config,
-        llm_backend=llm_backend or PACK_LLM_BACKEND,
-        llm_model=None,
+        llm_backend=effective_cell_backend,
+        llm_model=effective_llm_model,
         partner_id=partner_id,
         allow_network=allow_network,
         agent_driven=multi_agentic,
@@ -330,6 +373,7 @@ def _run_one_cell(
     )
 
     results = json.loads(results_path.read_text(encoding="utf-8"))
+    _validate_results_metadata_for_live_cell(effective_cell_backend, results)
     results.setdefault("coordination", {})["scale_id"] = scale_id
     results.setdefault("coordination", {})["method_id"] = method_id
     results.setdefault("security", {})["injection_id"] = injection_id
@@ -504,12 +548,26 @@ def run_coordination_security_pack(
     workers: number of parallel workers (default 1 = sequential). Use >1 to run cells in parallel.
     llm_backend: backend for coordination/agents (default deterministic). Use openai_live, ollama_live, etc.
         to benchmark LLM methods with live API; requires allow_network=True.
-    allow_network: when True and llm_backend is live, allows API calls. Required for openai_live, etc.
+    allow_network: must be True when llm_backend is a live backend (explicit opt-in). Network is not implied by backend id alone.
     multi_agentic: when True, run each cell with agent_driven=True and multi_agentic=True (combine path under attack).
     """
     root = Path(repo_root) if repo_root else Path.cwd()
     out_dir = Path(out_dir)
     pack_config = _load_pack_config(root)
+    effective_llm_backend = (llm_backend or PACK_LLM_BACKEND).strip() or PACK_LLM_BACKEND
+    if effective_llm_backend in LIVE_LLM_BACKEND_IDS and not allow_network:
+        raise ValueError(
+            "Coordination security pack: live llm_backend "
+            f"{effective_llm_backend!r} requires allow_network=True "
+            "(explicit opt-in via --allow-network or LABTRUST_ALLOW_NETWORK=1)."
+        )
+    effective_allow_network = bool(allow_network)
+    print(
+        f"[coordination_security_pack] llm_backend={effective_llm_backend!r} "
+        f"allow_network={effective_allow_network}",
+        file=sys.stderr,
+        flush=True,
+    )
     if matrix_preset:
         scales, methods, injections = _resolve_from_preset(root, matrix_preset, pack_config)
     else:
@@ -556,9 +614,6 @@ def run_coordination_security_pack(
     application_phase_by_injection = _get_application_phase_by_injection(root)
     root_str = str(root.resolve())
     pack_results_dir_str = str(pack_results_dir.resolve())
-
-    effective_llm_backend = (llm_backend or PACK_LLM_BACKEND).strip() or PACK_LLM_BACKEND
-    effective_allow_network = allow_network or (effective_llm_backend in _LIVE_LLM_BACKENDS)
 
     if workers <= 1:
         summary_rows = _run_cells_sequential(
