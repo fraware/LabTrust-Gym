@@ -1,8 +1,8 @@
-# LabTrust-Gym
-
 <p align="center">
-  <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="150" />
+  <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="200" height="300"/>
 </p>
+
+# LabTrust-Gym
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
