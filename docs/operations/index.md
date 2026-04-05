@@ -7,6 +7,7 @@ CI, release, runbook, and how-to guides.
 | Document | Description |
 |----------|-------------|
 | [CI](ci.md) | CI jobs, test matrix, gates. |
+| [Releasing](releasing.md) | PyPI Trusted Publishing, pre-flight checklist, GitHub Release assets. |
 | [Ops runbook](ops_runbook.md) | Operator runbook. |
 
 ## Operators and stakeholders

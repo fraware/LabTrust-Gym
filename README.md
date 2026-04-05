@@ -9,6 +9,12 @@
 
 **A multi-agent environment (PettingZoo/Gym) for hospital lab automation**
 
+**Docs:** [fraware.github.io/LabTrust-Gym](https://fraware.github.io/LabTrust-Gym/) · **Code:** [github.com/fraware/LabTrust-Gym](https://github.com/fraware/LabTrust-Gym)
+
+**Install:** `pip install labtrust-gym[env,plots]` then `labtrust --version` and `labtrust quick-eval`.
+
+> **Research and simulation only** — This project is for research, benchmarks, and regression testing. It is not production medical or laboratory software. See [SECURITY.md](SECURITY.md) for scope and reporting issues.
+
 ## What is LabTrust-Gym?
 
 | Pillar | Goal |

@@ -348,18 +348,19 @@ A separate workflow **`.github/workflows/package-release-nightly.yml`** runs **p
 
 ## Release workflow (tag v*)
 
-**`.github/workflows/release.yml`** runs on push of tags `v*` (e.g. `v0.2.0`):
+**`.github/workflows/release.yml`** runs on push of tags `v*` (e.g. `v0.2.0`). Full maintainer checklist: [Releasing](releasing.md).
 
 - Copies `policy/` into `src/labtrust_gym/policy` so the wheel ships policy.
-- Builds sdist and wheel with `python -m build`.
-- Uploads `dist/` as artifact. The **publish** job runs `twine upload --non-interactive dist/*` to PyPI.
+- Builds sdist and wheel with `python -m build`; **`dist/` contains only those files** for PyPI.
+- Writes `release-assets/SHA256SUMS.txt` (wheel + sdist) and `release-assets/policy-bundle-<tag>.tar.gz`; uploads **`dist/`** and **`release-assets/`** as one artifact.
+- **Publish** uses **`pypa/gh-action-pypi-publish`** (PyPI **Trusted Publishing** / OIDC, `id-token: write`). Configure the trusted publisher on PyPI for this repo and workflow; no `TWINE_PASSWORD` is required once OIDC is set up.
+- **GitHub Release** — Attaches wheel, sdist, `SHA256SUMS.txt`, and the policy bundle tarball to the tag release (`softprops/action-gh-release`).
 
-**GitHub and PyPI secrets (before first publish):**
+**PyPI setup (before first OIDC publish):**
 
-1. In the GitHub repo: **Settings → Secrets and variables → Actions**.
-2. Add **TWINE_PASSWORD:** Create a PyPI API token at [PyPI Account → API tokens](https://pypi.org/manage/account/token/). Use the token value as the secret; for token-only auth you do not need TWINE_USERNAME.
-3. **TWINE_USERNAME** (optional): Set to your PyPI username if not using token-only auth; omit if using an API token (twine will use `__token__` with the token as password).
-4. The publish job does not use a GitHub Environment; no need to create a "release" environment. Without these secrets, the publish step will fail on tag push; the build and artifact upload still succeed.
+1. On [PyPI publishing settings](https://pypi.org/manage/project/labtrust-gym/settings/publishing/) for the project, add a trusted publisher for GitHub (`fraware/LabTrust-Gym`, workflow `Release`, file `.github/workflows/release.yml`).
+2. Remove legacy **`TWINE_PASSWORD`** / **`PYPI_API_TOKEN`** secrets from GitHub after OIDC works, if they were only used for this workflow.
+3. Optional: use a GitHub Environment named `pypi` for approval gates; if so, add it to the `publish` job and register the same environment on PyPI. See [Releasing](releasing.md).
 
 **Repository and GitHub settings (manual, when going public):**
 
@@ -415,7 +416,7 @@ The skip for **labtrust-gym** ("Dependency not found on PyPI") is expected when 
 
 ## Release and live LLM
 
-The release workflow and package-release nightly job do **not** run cross-provider or live-LLM smoke by default (API keys are not in CI). For release-quality assurance with live LLM or cross-provider checks: run the **llm_live optional smoke** workflow (`.github/workflows/llm_live_optional_smoke.yml`) or the cross-provider script locally or in a trusted environment where API keys are available, then attach the resulting artifacts (e.g. `llm_live_smoke_out/`, `TRANSPARENCY_LOG/llm_live.json`) to the release. The nightly release job remains deterministic and does not depend on secrets.
+The release workflow and package-release nightly job do **not** run cross-provider or live-LLM smoke by default (API keys are not in CI). The tag workflow still creates a GitHub Release with wheel, sdist, `SHA256SUMS.txt`, and the policy bundle; for **additional** live-LLM evidence, run the **llm_live optional smoke** workflow (`.github/workflows/llm_live_optional_smoke.yml`) or the cross-provider script locally or in a trusted environment where API keys are available, then attach the resulting artifacts (e.g. `llm_live_smoke_out/`, `TRANSPARENCY_LOG/llm_live.json`) to the release. The nightly release job remains deterministic and does not depend on secrets.
 
 ## Summary
 

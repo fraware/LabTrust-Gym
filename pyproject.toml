@@ -22,7 +22,7 @@ keywords = [
     "gymnasium",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
@@ -41,6 +41,12 @@ dependencies = [
     "cryptography>=46.0.5",
     "python-dotenv>=1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/fraware/LabTrust-Gym"
+Documentation = "https://fraware.github.io/LabTrust-Gym/"
+Repository = "https://github.com/fraware/LabTrust-Gym"
+"Bug Tracker" = "https://github.com/fraware/LabTrust-Gym/issues"
 
 [project.optional-dependencies]
 dev = [
