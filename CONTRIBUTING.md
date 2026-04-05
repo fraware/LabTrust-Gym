@@ -49,7 +49,7 @@ The golden scenarios in `policy/golden/golden_scenarios.v0.1.yaml` define correc
 
 Preferred PR size: under 400 lines where practical.
 
-Before **tagging a release**, run the full E2E artifacts chain and ensure it passes (package-release → export-risk-register into release dir → build-release-manifest → verify-release --strict-fingerprints → schema/crosswalk). Run `python scripts/validate_security_safety_refs.py` to ensure risk_registry, security_attack_suite, and safety case claims stay aligned. See [CI](docs/operations/ci.md) and [Trust verification](docs/risk-and-security/trust_verification.md).
+Before **tagging a release**, follow [Releasing](docs/operations/releasing.md) (PyPI OIDC, pre-flight checklist, GitHub Release assets). Run the full E2E artifacts chain and ensure it passes (package-release → export-risk-register into release dir → build-release-manifest → verify-release --strict-fingerprints → schema/crosswalk). Run `python scripts/validate_security_safety_refs.py` to ensure risk_registry, security_attack_suite, and safety case claims stay aligned. See [CI](docs/operations/ci.md) and [Trust verification](docs/risk-and-security/trust_verification.md).
 
 ## Optional smoke tests (env vars)
 

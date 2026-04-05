@@ -127,6 +127,7 @@ nav:
   - Operations:
     - operations/index.md
     - CI: operations/ci.md
+    - Releasing: operations/releasing.md
     - Ops runbook: operations/ops_runbook.md
     - "How-to: Add coordination method": operations/howto_add_coordination_method.md
     - "How-to: Add risk injection": operations/howto_add_injection.md

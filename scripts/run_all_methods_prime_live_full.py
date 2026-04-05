@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
+import sys
 import traceback
 from datetime import UTC, datetime
 from pathlib import Path
@@ -135,6 +137,14 @@ def main() -> int:
     parser.add_argument("--step-heartbeat-every-s", type=float, default=45.0)
     parser.add_argument("--bench-heartbeat-every-ep", type=int, default=1)
     parser.add_argument("--no-resume", action="store_true")
+    parser.add_argument(
+        "--publish-report",
+        action="store_true",
+        help=(
+            "After the sweep finishes, run scripts/build_benchmark_report.py on this "
+            "out-dir (partial runs still get a useful bundle)."
+        ),
+    )
     parser.add_argument("--methods", nargs="+", default=None)
     args = parser.parse_args()
 
@@ -276,7 +286,25 @@ def main() -> int:
     _atomic_write_json(out_dir / "run_summary.json", final)
     print(f"WROTE {rows_path}", flush=True)
     print(f"WROTE {out_dir / 'run_summary.json'}", flush=True)
-    return 0 if final["fail_count"] == 0 else 2
+    exit_code = 0 if final["fail_count"] == 0 else 2
+    if args.publish_report:
+        report_script = root / "scripts" / "build_benchmark_report.py"
+        cmd = [
+            sys.executable,
+            str(report_script),
+            "--run-dir",
+            str(out_dir),
+            "--scale-id",
+            args.scale_id,
+        ]
+        print(f"PUBLISH_REPORT {' '.join(cmd)}", flush=True)
+        proc = subprocess.run(cmd, cwd=str(root))
+        if proc.returncode != 0:
+            print(
+                f"warning: report step exited {proc.returncode}",
+                flush=True,
+            )
+    return exit_code
 
 
 if __name__ == "__main__":

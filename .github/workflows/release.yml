@@ -1,14 +1,15 @@
 # Build and publish on tag vX.Y.Z.
-# Secrets: configure PyPI token as TWINE_PASSWORD (or TWINE_USERNAME + TWINE_PASSWORD) in repo secrets.
+#
+# PyPI: configure Trusted Publishing on https://pypi.org (OIDC) for this repo and
+# workflow file; no long-lived PyPI password required. See docs/operations/releasing.md.
+#
+# GitHub Release: attaches wheel, sdist, SHA256SUMS.txt, and policy-bundle tarball.
 name: Release
 
 on:
   push:
     tags:
       - "v*"
-  # Optional: also on GitHub Release published (uncomment if preferred over tag push)
-  # release:
-  #   types: [published]
 
 jobs:
   build:
@@ -31,23 +32,24 @@ jobs:
       - name: Build sdist and wheel
         run: python -m build
 
-      - name: Generate artifact hashes (SHA256SUMS.txt)
-        run: |
-          cd dist
-          sha256sum *.whl *.tar.gz > SHA256SUMS.txt
-          cat SHA256SUMS.txt
-
-      - name: Build policy bundle (for benchmark-only workflow)
+      - name: Prepare release assets (outside dist/ for clean PyPI upload)
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
-          tar czf "dist/policy-bundle-${VERSION}.tar.gz" policy/
-          echo "POLICY_BUNDLE=policy-bundle-${VERSION}.tar.gz" >> $GITHUB_ENV
+          mkdir -p release-assets
+          cd dist
+          sha256sum *.whl *.tar.gz > ../release-assets/SHA256SUMS.txt
+          cd ..
+          tar czf "release-assets/policy-bundle-${VERSION}.tar.gz" policy/
+          echo "=== SHA256SUMS (wheel + sdist only) ==="
+          cat release-assets/SHA256SUMS.txt
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: release-dist
+          path: |
+            dist/
+            release-assets/
 
   publish:
     needs: build
@@ -58,16 +60,37 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: release-dist
+          path: .
 
       - name: Publish to PyPI
-        run: |
-          pip install twine
-          # Requires repository secrets: TWINE_PASSWORD (and TWINE_USERNAME if not using token only).
-          twine upload --non-interactive dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
 
-  # Optional: run live-LLM smoke when OPENAI_API_KEY is set; does not block release.
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            release-assets/SHA256SUMS.txt
+            release-assets/policy-bundle-*.tar.gz
+
   live-llm-smoke:
     runs-on: ubuntu-latest
     needs: build
