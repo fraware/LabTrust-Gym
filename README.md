@@ -2,12 +2,16 @@
   <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="200" height="300"/>
 </p>
 
+<div align="center">
+
 # LabTrust-Gym
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
 
 **A multi-agent environment (PettingZoo/Gym) for hospital lab automation**
+
+</div>
 
 **Docs:** [fraware.github.io/LabTrust-Gym](https://fraware.github.io/LabTrust-Gym/) · **Code:** [github.com/fraware/LabTrust-Gym](https://github.com/fraware/LabTrust-Gym)
 
