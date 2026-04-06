@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="300" height=400"/>
+  <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="400" height=400"/>
 </p>
 
 <div align="center">
