@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="400" height=500"/>
+  <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="250" height=250"/>
 </p>
 
 <div align="center">
@@ -12,8 +12,6 @@
 **A multi-agent environment (PettingZoo/Gym) for hospital lab automation**
 
 </div>
-
-**Docs:** [fraware.github.io/LabTrust-Gym](https://fraware.github.io/LabTrust-Gym/) · **Code:** [github.com/fraware/LabTrust-Gym](https://github.com/fraware/LabTrust-Gym)
 
 **Install:** `pip install labtrust-gym[env,plots]` then `labtrust --version` and `labtrust quick-eval`.
 
