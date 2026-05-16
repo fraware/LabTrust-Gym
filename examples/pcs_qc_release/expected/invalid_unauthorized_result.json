@@ -1,0 +1,6 @@
+{
+  "run_id": "qc-release-invalid-unauthorized",
+  "status": "failed",
+  "released": false,
+  "final_reason_code": "unauthorized_release"
+}

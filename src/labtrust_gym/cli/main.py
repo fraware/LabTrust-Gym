@@ -1755,6 +1755,9 @@ def main() -> int:
     p_eval_ppo.add_argument("--seed", type=int, default=123, help="Random seed")
     p_eval_ppo.add_argument("--out", default=None, help="Output JSON path for metrics")
     p_eval_ppo.set_defaults(func=_run_eval_ppo)
+    from labtrust_gym.cli.pcs import register_pcs_commands
+
+    register_pcs_commands(sub)
     args = parser.parse_args()
     # Set up CLI output and logging from global verbosity.
     verbosity = verbosity_from_args(

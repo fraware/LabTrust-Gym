@@ -1,0 +1,18 @@
+# PCS QC-release demo roles (v0.1)
+version: "0"
+roles:
+  accession_tech:
+    description: Sample accession technician
+    release_capable: false
+  qc_tech:
+    description: Quality control technician
+    release_capable: false
+  analyst:
+    description: Laboratory analyst
+    release_capable: false
+  release_manager:
+    description: Authorized release manager
+    release_capable: true
+  unauthorized_user:
+    description: Actor without release authorization
+    release_capable: false

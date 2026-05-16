@@ -1,0 +1,13 @@
+# PCS QC-release reason codes (v0.1)
+version: "0"
+reason_codes:
+  ok:
+    description: Action permitted by policy
+  missing_qc:
+    description: Release attempted before QC completion
+  unauthorized_release:
+    description: Release attempted by a non-release-capable role
+  invalid_transition:
+    description: Action not valid in the current lifecycle state
+  policy_denied:
+    description: Generic policy denial

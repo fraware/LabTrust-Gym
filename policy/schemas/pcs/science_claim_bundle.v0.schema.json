@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcs.science_claim_bundle.v0",
+  "title": "PCS ScienceClaimBundle v0",
+  "type": "object",
+  "required": [
+    "artifact_kind",
+    "version",
+    "bundle_id",
+    "claim_artifact",
+    "assumption_set",
+    "runtime_receipts",
+    "certificates",
+    "evidence_bundle",
+    "verification_policy"
+  ],
+  "properties": {
+    "artifact_kind": { "const": "ScienceClaimBundle" },
+    "version": { "const": "0" },
+    "bundle_id": { "type": "string" },
+    "claim_artifact": { "type": "object" },
+    "assumption_set": { "type": "object" },
+    "runtime_receipts": { "type": "array", "minItems": 1 },
+    "certificates": { "type": "array" },
+    "evidence_bundle": { "type": "object" },
+    "verification_policy": { "type": "object" }
+  },
+  "additionalProperties": true
+}

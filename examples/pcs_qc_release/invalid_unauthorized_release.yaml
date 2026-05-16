@@ -1,0 +1,20 @@
+scenario_id: invalid_unauthorized_release
+run_id: qc-release-invalid-unauthorized
+sample_id: PCS-SAMPLE-003
+steps:
+  - action: accession_sample
+    actor_id: acc-tech-01
+    actor_role: accession_tech
+    timestamp: "2026-01-15T08:00:00+00:00"
+  - action: perform_qc
+    actor_id: qc-tech-01
+    actor_role: qc_tech
+    timestamp: "2026-01-15T09:00:00+00:00"
+  - action: record_analysis
+    actor_id: analyst-01
+    actor_role: analyst
+    timestamp: "2026-01-15T10:00:00+00:00"
+  - action: release_sample
+    actor_id: intern-01
+    actor_role: unauthorized_user
+    timestamp: "2026-01-15T11:00:00+00:00"

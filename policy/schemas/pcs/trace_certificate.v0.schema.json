@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcs.trace_certificate.v0",
+  "title": "PCS TraceCertificate v0",
+  "type": "object",
+  "required": ["artifact_kind", "version", "certificate_id", "trace_hash"],
+  "properties": {
+    "artifact_kind": { "const": "TraceCertificate" },
+    "version": { "const": "0" },
+    "certificate_id": { "type": "string" },
+    "trace_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "additionalProperties": true
+}

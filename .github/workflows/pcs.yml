@@ -1,0 +1,47 @@
+name: PCS QC-release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/labtrust_gym/pcs/**"
+      - "policy/pcs/**"
+      - "examples/pcs_qc_release/**"
+      - "tests/pcs/**"
+      - ".github/workflows/pcs.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/labtrust_gym/pcs/**"
+      - "policy/pcs/**"
+      - "examples/pcs_qc_release/**"
+      - "tests/pcs/**"
+      - ".github/workflows/pcs.yml"
+
+jobs:
+  pcs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pcs-core (validation)
+        run: pip install "git+https://github.com/SentinelOps-CI/pcs-core.git#subdirectory=python"
+      - name: Install LabTrust-Gym
+        run: pip install -e ".[dev]"
+      - name: PCS unit and golden tests
+        run: python -m pytest tests/pcs -q
+      - name: CLI smoke (valid demo + exports)
+        run: |
+          labtrust run-demo qc-release --out /tmp/qc-release
+          labtrust export-trace --run /tmp/qc-release --out /tmp/trace.json
+          labtrust export-runtime-receipt --run /tmp/qc-release --out /tmp/runtime_receipt.json
+          labtrust export-pcs --run /tmp/qc-release --out /tmp/science_claim_bundle.pending.json
+      - name: Invalid scenario reason codes
+        run: |
+          labtrust run-demo qc-release-invalid-missing-qc --out /tmp/missing-qc
+          labtrust run-demo qc-release-invalid-unauthorized --out /tmp/unauthorized

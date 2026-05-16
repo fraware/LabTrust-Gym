@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcs.claim_artifact.v0",
+  "title": "PCS ClaimArtifact v0",
+  "type": "object",
+  "required": [
+    "artifact_kind",
+    "version",
+    "claim_id",
+    "claim_kind",
+    "claim_text",
+    "status",
+    "assumption_set_ref",
+    "runtime_receipt_refs",
+    "certificate_refs",
+    "source_repo",
+    "source_commit"
+  ],
+  "properties": {
+    "artifact_kind": { "const": "ClaimArtifact" },
+    "version": { "const": "0" },
+    "claim_id": { "type": "string" },
+    "claim_kind": { "const": "protocol_safety_claim" },
+    "claim_text": { "type": "string" },
+    "status": { "type": "string" },
+    "assumption_set_ref": { "type": "string" },
+    "runtime_receipt_refs": { "type": "array", "items": { "type": "string" } },
+    "certificate_refs": { "type": "array", "items": { "type": "string" } },
+    "source_repo": { "type": "string" },
+    "source_commit": { "type": "string" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcs.trace.v0",
+  "title": "PCS Trace v0",
+  "type": "object",
+  "required": ["artifact_kind", "version", "run_id", "sample_id", "events", "trace_hash"],
+  "properties": {
+    "artifact_kind": { "const": "Trace" },
+    "version": { "const": "0" },
+    "run_id": { "type": "string" },
+    "sample_id": { "type": "string" },
+    "trace_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "run_id",
+          "sample_id",
+          "timestamp",
+          "actor_id",
+          "actor_role",
+          "action",
+          "pre_state",
+          "post_state",
+          "policy_decision",
+          "reason_code",
+          "event_hash",
+          "previous_event_hash"
+        ],
+        "properties": {
+          "event_id": { "type": "string" },
+          "run_id": { "type": "string" },
+          "sample_id": { "type": "string" },
+          "timestamp": { "type": "string" },
+          "actor_id": { "type": "string" },
+          "actor_role": { "type": "string" },
+          "action": { "type": "string" },
+          "pre_state": { "type": "object" },
+          "post_state": { "type": "object" },
+          "policy_decision": { "enum": ["allow", "deny"] },
+          "reason_code": { "type": "string" },
+          "event_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "previous_event_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

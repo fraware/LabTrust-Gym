@@ -1,0 +1,17 @@
+# PCS QC-release workflow policy (simulation semantics)
+version: "0"
+workflow_id: pcs_qc_release
+required_actions:
+  - accession_sample
+  - perform_qc
+  - record_analysis
+  - release_sample
+transitions:
+  accession_sample:
+    requires_lifecycle: registered
+  perform_qc:
+    requires_lifecycle: accessioned
+  record_analysis:
+    requires_lifecycle: qc_complete
+  release_sample:
+    requires_lifecycle: analyzed

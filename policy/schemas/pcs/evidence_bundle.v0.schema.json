@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcs.evidence_bundle.v0",
+  "title": "PCS EvidenceBundle v0",
+  "type": "object",
+  "required": [
+    "artifact_kind",
+    "version",
+    "bundle_id",
+    "run_id",
+    "sample_id",
+    "trace_ref",
+    "runtime_receipt_ref",
+    "event_count",
+    "content_digest",
+    "source_repo",
+    "source_commit",
+    "producer"
+  ],
+  "properties": {
+    "artifact_kind": { "const": "EvidenceBundle" },
+    "version": { "const": "0" },
+    "bundle_id": { "type": "string" },
+    "run_id": { "type": "string" },
+    "sample_id": { "type": "string" },
+    "trace_ref": { "type": "object" },
+    "runtime_receipt_ref": { "type": "object" },
+    "event_count": { "type": "integer", "minimum": 0 },
+    "content_digest": { "type": "string" },
+    "source_repo": { "type": "string" },
+    "source_commit": { "type": "string" },
+    "producer": { "type": "string" }
+  },
+  "additionalProperties": true
+}
