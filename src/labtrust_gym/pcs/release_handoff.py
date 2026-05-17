@@ -142,6 +142,15 @@ def _assert_manifest_artifact_digests(release_root: Path, manifest: dict[str, An
             raise ValueError(f"manifest artifact digest mismatch for {name}")
 
 
+def assert_pf_handoff_matches_release_manifest(release_root: Path | None = None) -> None:
+    """``pf_handoff.json`` certificate_id, certified_bundle_hash, and trace_hash match ``manifest.json``."""
+    from labtrust_gym.pcs.release_fixtures import release_dir
+
+    root = (release_root or release_dir()).resolve()
+    manifest = _load(root / MANIFEST_NAME)
+    _assert_pf_handoff_matches_manifest(root, manifest)
+
+
 def _assert_pf_handoff_matches_manifest(release_root: Path, manifest: dict[str, Any]) -> None:
     pf_path = release_root / PF_HANDOFF_NAME
     if not pf_path.is_file():

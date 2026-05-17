@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
 from labtrust_gym.pcs.release_fixtures import release_dir, validate_release_fixtures
-from labtrust_gym.pcs.release_handoff import verify_release_handoff
+from labtrust_gym.pcs.sync_pcs_core_rc import pcs_core_labtrust_release_dir
 
 
 def main() -> int:
@@ -42,21 +42,18 @@ def main() -> int:
         check=True,
         cwd=ROOT,
     )
-    for label in verify_release_handoff(release):
-        print("OK handoff", label)
-
-    subprocess.run(
-        [sys.executable, str(ROOT / "examples/pcs_qc_release/scripts/verify_release_handoff.py")],
-        check=True,
-        cwd=ROOT,
-    )
+    verify_cmd = [
+        sys.executable,
+        str(ROOT / "examples/pcs_qc_release/scripts/verify_release_handoff.py"),
+        "--release",
+        str(release),
+    ]
     try:
-        from labtrust_gym.pcs.sync_pcs_core_rc import assert_release_matches_pcs_core_rc
-
-        assert_release_matches_pcs_core_rc(release)
-        print("OK pcs-core RC chain identity")
+        canonical = pcs_core_labtrust_release_dir(ROOT)
+        verify_cmd.extend(["--pcs-core", str(canonical)])
     except FileNotFoundError as exc:
-        print("SKIP pcs-core RC compare:", exc)
+        print("SKIP pcs-core RC sync gate:", exc)
+    subprocess.run(verify_cmd, check=True, cwd=ROOT)
     print("PCS release fixture validation OK")
     return 0
 
