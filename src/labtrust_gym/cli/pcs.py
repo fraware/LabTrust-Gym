@@ -34,7 +34,7 @@ def _run_demo(args: argparse.Namespace) -> int:
     name = args.demo
     out = _resolve_path(args.out) if args.out else None
     try:
-        run_dir = execute_pcs_demo(name, out_dir=out)
+        run_dir = execute_pcs_demo(name, out_dir=out, deterministic=args.deterministic)
     except ValueError as e:
         get_console().error(str(e))
         return 1
@@ -207,6 +207,11 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         "--strict",
         action="store_true",
         help="Exit 1 unless release_sample succeeded (released=true)",
+    )
+    p_demo.add_argument(
+        "--deterministic",
+        action="store_true",
+        help="Fixture mode: freeze provenance and environment for golden artifacts (or set PCS_DETERMINISTIC=1)",
     )
     p_demo.set_defaults(func=_run_demo)
 

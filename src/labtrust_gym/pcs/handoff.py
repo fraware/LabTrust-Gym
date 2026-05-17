@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.config import get_repo_root
+from labtrust_gym.pcs.deterministic import deterministic_mode, is_deterministic_mode
 from labtrust_gym.pcs.demo import run_demo
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
 from labtrust_gym.pcs.integrity import validate_run_directory
@@ -47,32 +48,36 @@ def export_handoff_bundle(
     certify_dir.mkdir(parents=True, exist_ok=True)
     pf_dir.mkdir(parents=True, exist_ok=True)
 
+    use_deterministic = is_deterministic_mode()
     manifest: dict[str, Any] = {
         "handoff_version": "v0.1",
+        "deterministic": use_deterministic,
         "scenarios": {},
     }
 
-    for filename, demo in CERTIFYEDGE_TRACES:
-        run_dir = work / demo.replace("-", "_")
-        run_demo(demo, out_dir=run_dir, policy_root=root)
-        export_trace(run_dir, certify_dir / filename)
-        if validate:
-            errs = validate_run_directory(run_dir)
-            if errs:
-                raise ValueError(f"handoff validation failed for {demo}: " + "; ".join(errs))
-        manifest["scenarios"][demo] = {"trace": f"certifyedge/{filename}", "run_dir": str(run_dir)}
+    bundle: dict[str, Any]
+    with deterministic_mode(enabled=use_deterministic):
+        for filename, demo in CERTIFYEDGE_TRACES:
+            run_dir = work / demo.replace("-", "_")
+            run_demo(demo, out_dir=run_dir, policy_root=root, deterministic=use_deterministic)
+            export_trace(run_dir, certify_dir / filename)
+            if validate:
+                errs = validate_run_directory(run_dir)
+                if errs:
+                    raise ValueError(f"handoff validation failed for {demo}: " + "; ".join(errs))
+            manifest["scenarios"][demo] = {"trace": f"certifyedge/{filename}", "run_dir": str(run_dir)}
 
-    valid_dir = work / "qc_release"
-    run_demo("qc-release", out_dir=valid_dir, policy_root=root)
-    export_trace(valid_dir, pf_dir / "trace.json")
-    receipt = export_runtime_receipt(valid_dir, pf_dir / "runtime_receipt.json", policy_root=root)
-    bundle = export_pcs_bundle(valid_dir, pf_dir / "science_claim_bundle.pending.json", policy_root=root)
-    if validate:
-        validate_pcs_artifact(receipt)
-        validate_science_claim_bundle(bundle)
-        errs = validate_run_directory(valid_dir)
-        if errs:
-            raise ValueError("valid run integrity: " + "; ".join(errs))
+        valid_dir = work / "qc_release"
+        run_demo("qc-release", out_dir=valid_dir, policy_root=root, deterministic=use_deterministic)
+        export_trace(valid_dir, pf_dir / "trace.json")
+        receipt = export_runtime_receipt(valid_dir, pf_dir / "runtime_receipt.json", policy_root=root)
+        bundle = export_pcs_bundle(valid_dir, pf_dir / "science_claim_bundle.pending.json", policy_root=root)
+        if validate:
+            validate_pcs_artifact(receipt)
+            validate_science_claim_bundle(bundle)
+            errs = validate_run_directory(valid_dir)
+            if errs:
+                raise ValueError("valid run integrity: " + "; ".join(errs))
 
     manifest["provability_fabric"] = {
         "trace": "provability_fabric/trace.json",

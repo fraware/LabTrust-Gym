@@ -26,7 +26,21 @@ def assert_schema_version(
         raise ValueError(f"{path}: schema_version must be {expected!r}, got {actual!r}")
 
 
+def assert_canonical_bundle_shape(bundle: dict[str, Any]) -> None:
+    """ScienceClaimBundle must use PCS-core plural arrays, not PF legacy singular keys."""
+    if "runtime_receipt" in bundle:
+        raise ValueError(
+            "ScienceClaimBundle must not contain top-level runtime_receipt; use runtime_receipts"
+        )
+    receipts = bundle.get("runtime_receipts")
+    if not isinstance(receipts, list) or len(receipts) < 1:
+        raise ValueError("ScienceClaimBundle requires runtime_receipts array with at least one receipt")
+    if "certificates" not in bundle or not isinstance(bundle["certificates"], list):
+        raise ValueError("ScienceClaimBundle requires certificates array")
+
+
 def assert_science_claim_bundle_versions(bundle: dict[str, Any]) -> None:
+    assert_canonical_bundle_shape(bundle)
     assert_schema_version(bundle, path="ScienceClaimBundle")
     assert_schema_version(bundle["claim_artifact"], path="claim_artifact")
     assert_schema_version(bundle["assumption_set"], path="assumption_set")

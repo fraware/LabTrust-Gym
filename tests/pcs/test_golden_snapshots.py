@@ -1,4 +1,4 @@
-"""Golden trace and bundle snapshots for PCS QC-release demo."""
+"""Lightweight golden checks (non-deterministic runs). Authoritative byte equality: test_golden_deterministic.py."""
 
 from __future__ import annotations
 

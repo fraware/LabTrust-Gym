@@ -49,6 +49,7 @@ System and threat model: [Systems and threat model](docs/architecture/systems_an
 | Fork and customize policy | [Forker guide](docs/getting-started/forkers.md) and `labtrust forker-quickstart` |
 | Use as a library without forking | [Extension development](docs/agents/extension_development.md) + `--profile` + `extension_packages` in a lab profile |
 | Run the full security suite | `labtrust run-security-suite`; needs `.[env]`; use `--skip-system-level` when env is not installed |
+| Run the PCS QC-release demo (proof-carrying science) | [examples/pcs_qc_release](examples/pcs_qc_release/README.md) — `scripts/setup_pcs_dev.ps1`, then `labtrust run-demo qc-release` |
 
 Stable surface for extensions: [Public API](docs/reference/public_api.md).
 

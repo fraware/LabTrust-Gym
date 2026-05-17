@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from labtrust_gym.config import get_repo_root
+from labtrust_gym.pcs.deterministic import deterministic_mode, is_deterministic_mode
 from labtrust_gym.pcs.workflow import load_workflow_yaml, run_workflow, write_run_directory
 
 DEMO_SCENARIOS: dict[str, tuple[str, str]] = {
@@ -30,6 +31,7 @@ def run_demo(
     *,
     out_dir: Path | None = None,
     policy_root: Path | None = None,
+    deterministic: bool | None = None,
 ) -> Path:
     if demo_name not in DEMO_SCENARIOS:
         raise ValueError(f"unknown demo {demo_name!r}; choose from {list(DEMO_SCENARIOS)}")
@@ -39,6 +41,8 @@ def run_demo(
     workflow = load_workflow_yaml(workflow_path)
     if out_dir is None:
         out_dir = root / default_rel
-    result = run_workflow(workflow, policy_root=root)
-    write_run_directory(out_dir, result)
+    use_deterministic = deterministic if deterministic is not None else is_deterministic_mode()
+    with deterministic_mode(enabled=use_deterministic):
+        result = run_workflow(workflow, policy_root=root)
+        write_run_directory(out_dir, result)
     return out_dir

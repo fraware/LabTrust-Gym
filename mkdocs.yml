@@ -112,6 +112,12 @@ nav:
     - Tool registry SBOM attestation: risk-and-security/tool_registry_sbom_attestation.md
     - Method and pack matrix: risk-and-security/method_and_pack_matrix.md
     - Partner calibration: risk-and-security/partner_calibration.md
+  - Proof-Carrying Science (PCS):
+    - pcs_export.md
+    - pcs_qc_release_demo.md
+    - pcs_trace_model.md
+    - pcs_handoff.md
+    - pcs_limitations.md
   - Export:
     - export/index.md
     - FHIR R4 export: export/fhir_export.md

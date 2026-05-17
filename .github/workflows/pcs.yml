@@ -5,19 +5,23 @@ on:
     branches: [main]
     paths:
       - "src/labtrust_gym/pcs/**"
+      - "src/labtrust_gym/cli/pcs.py"
       - "policy/pcs/**"
       - "policy/schemas/pcs/**"
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
+      - "docs/pcs*.md"
       - ".github/workflows/pcs.yml"
   pull_request:
     branches: [main]
     paths:
       - "src/labtrust_gym/pcs/**"
+      - "src/labtrust_gym/cli/pcs.py"
       - "policy/pcs/**"
       - "policy/schemas/pcs/**"
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
+      - "docs/pcs*.md"
       - ".github/workflows/pcs.yml"
 
 jobs:
@@ -39,20 +43,46 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install pcs-core
-        run: pip install -e "pcs-core/python"
-      - name: Install LabTrust-Gym
-        run: pip install -e ".[dev]"
-      - name: PCS unit, integration, and golden tests
+      - name: Install pcs-core and LabTrust-Gym
+        run: |
+          pip install -e "pcs-core/python"
+          pip install -e ".[dev,pcs]"
+      - name: PCS tests
         run: python -m pytest tests/pcs -q
-      - name: CLI smoke (valid demo + exports)
+      - name: Validate committed golden artifacts (pcs-core)
         run: |
-          labtrust run-demo qc-release --out /tmp/qc-release
-          labtrust export-trace --run /tmp/qc-release --out /tmp/trace.json
-          labtrust export-runtime-receipt --run /tmp/qc-release --out /tmp/runtime_receipt.json
-          labtrust export-pcs --run /tmp/qc-release --out /tmp/science_claim_bundle.pending.json
-          python -c "from pcs_core.validate import validate_artifact; import json; validate_artifact(json.load(open('/tmp/runtime_receipt.json'))); validate_artifact(json.load(open('/tmp/science_claim_bundle.pending.json')))"
-      - name: Invalid scenario reason codes
+          python -c "
+          import json
+          from pathlib import Path
+          from pcs_core.validate import validate_artifact
+          root = Path('examples/pcs_qc_release/expected')
+          for name in (
+              'valid_runtime_receipt.json',
+              'valid_science_claim_bundle.pending.json',
+              'valid_science_claim_bundle.certified.json',
+              'trace_certificate.v0.json',
+              'invalid_missing_qc_runtime_receipt.json',
+              'invalid_unauthorized_runtime_receipt.json',
+          ):
+              path = root / name
+              validate_artifact(json.loads(path.read_text()))
+              print('OK', name)
+          "
+      - name: LabTrust-only smoke (deterministic)
+        run: bash examples/pcs_qc_release/scripts/labtrust_only_smoke.sh
+      - name: Invalid scenarios export receipts
         run: |
-          labtrust run-demo qc-release-invalid-missing-qc --out /tmp/missing-qc
-          labtrust run-demo qc-release-invalid-unauthorized --out /tmp/unauthorized
+          export PCS_DETERMINISTIC=1
+          labtrust run-demo qc-release-invalid-missing-qc --deterministic --out /tmp/missing-qc
+          labtrust run-demo qc-release-invalid-unauthorized --deterministic --out /tmp/unauthorized
+          labtrust export-runtime-receipt --run /tmp/missing-qc --out /tmp/missing_qc_receipt.json
+          labtrust export-runtime-receipt --run /tmp/unauthorized --out /tmp/unauthorized_receipt.json
+          python -c "
+          import json
+          from pcs_core.validate import validate_artifact
+          for p in ('/tmp/missing_qc_receipt.json', '/tmp/unauthorized_receipt.json'):
+              r = json.load(open(p))
+              assert r['run_outcome'] == 'failed', p
+              validate_artifact(r)
+              print('OK', p, r['final_reason_code'])
+          "

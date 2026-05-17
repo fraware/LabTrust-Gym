@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.config import get_repo_root
+from labtrust_gym.pcs.deterministic import DETERMINISTIC_SOURCE_COMMIT, is_deterministic_mode
 from labtrust_gym.pcs.hash import pcs_digest
 from labtrust_gym.pcs.schema_version import SCHEMA_VERSION
 from labtrust_gym.version import __version__
@@ -29,6 +30,8 @@ def resolve_source_commit(policy_root: Path | None = None) -> tuple[str, bool]:
     When git HEAD is unavailable, use explicit local-dev marker and local_dev=True
     instead of a silent placeholder hash.
     """
+    if is_deterministic_mode():
+        return DETERMINISTIC_SOURCE_COMMIT, False
     try:
         import subprocess
 

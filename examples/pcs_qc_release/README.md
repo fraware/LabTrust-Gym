@@ -41,10 +41,18 @@ labtrust export-pcs-handoff --out handoff/
 
 Trace/event model: [docs/pcs_trace_model.md](../../docs/pcs_trace_model.md).
 
-Regenerate golden snapshots (requires git checkout):
+Regenerate golden snapshots (uses `PCS_DETERMINISTIC=1`; no git HEAD required):
 
 ```bash
 python examples/pcs_qc_release/scripts/generate_golden.py
+```
+
+LabTrust-only smoke (valid + invalid demos, export, `pcs validate`, golden check):
+
+```bash
+bash examples/pcs_qc_release/scripts/labtrust_only_smoke.sh
+# Windows:
+# .\examples\pcs_qc_release\scripts\labtrust_only_smoke.ps1
 ```
 
 ### Manual install (same venv)
@@ -72,8 +80,9 @@ See [RUNBOOK.md](RUNBOOK.md) for the full end-to-end flow (CertifyEdge, Provabil
 | `valid_workflow.yaml` | Accession → QC → analysis → release (authorized) |
 | `invalid_missing_qc.yaml` | Release without QC (`missing_qc`) |
 | `invalid_unauthorized_release.yaml` | Release by `unauthorized_user` |
-| `expected/` | Golden traces, receipts, and bundles for CI |
-| `scripts/run_e2e_local.sh` | Local smoke script |
-| `scripts/generate_golden.py` | Regenerate `expected/` from current code |
+| `expected/` | Golden traces, receipts, bundles, `trace_certificate.v0.json` (pcs-core validated in CI) |
+| `scripts/run_e2e_local.sh` | Local smoke (`PCS_DETERMINISTIC=1`) |
+| `scripts/labtrust_only_smoke.sh` / `.ps1` | One-command LabTrust-only smoke |
+| `scripts/generate_golden.py` | Regenerate `expected/` (deterministic fixtures) |
 
 Policy: `policy/pcs/` (`roles.yaml`, `reason_codes.yaml`, `qc_release_policy.yaml`).

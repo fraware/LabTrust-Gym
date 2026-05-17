@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.config import get_repo_root
+from labtrust_gym.pcs.deterministic import DETERMINISTIC_ENVIRONMENT, is_deterministic_mode
 from labtrust_gym.pcs.hash import file_digest, pcs_digest
 from labtrust_gym.pcs.ids import receipt_id
 from labtrust_gym.pcs.policy import policy_hash
@@ -49,11 +50,15 @@ def build_runtime_receipt(
         "run_outcome": _run_outcome(meta),
         "final_reason_code": str(meta.get("final_reason_code", "policy_denied")),
         "released": bool(meta.get("released")),
-        "environment": {
-            "platform": platform.platform(),
-            "python": sys.version.split()[0],
-            "labtrust_version": __version__,
-        },
+        "environment": (
+            dict(DETERMINISTIC_ENVIRONMENT)
+            if is_deterministic_mode()
+            else {
+                "platform": platform.platform(),
+                "python": sys.version.split()[0],
+                "labtrust_version": __version__,
+            }
+        ),
         "started_at": normalize_timestamp(meta["started_at"]),
         "ended_at": normalize_timestamp(ended),
         "events_hash": events_hash,

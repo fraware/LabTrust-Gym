@@ -55,6 +55,13 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | train-ppo | `--task throughput_sla --timesteps 100 --seed 42 --out <dir>` | 0 | `<dir>/model.zip` (or run dir with model) | marl_baselines.md |
 | eval-ppo | `--model <model.zip> --task throughput_sla --episodes 2 --seed 42 --out <path>` | 0 | `<path>` (metrics JSON) or stderr | marl_baselines.md |
 | serve | `--host 127.0.0.1 --port <port>` | 0 | (server runs; GET /v0/summary returns 200) | security_online.md, output_controls.md |
+| run-demo | `qc-release` or invalid scenario names; `--out <dir>`; `--deterministic` or `PCS_DETERMINISTIC=1` | 0 | Run directory with `trace.json`, `run_meta.json` | examples/pcs_qc_release/RUNBOOK.md |
+| export-trace | `--run <dir> --out trace.json` | 0 | LabTrust trace JSON | docs/pcs_trace_model.md |
+| export-runtime-receipt | `--run <dir> --out runtime_receipt.json` | 0 | `RuntimeReceipt.v0` (pcs-core) | docs/pcs_export.md |
+| export-pcs | `--run <dir> --out science_claim_bundle.pending.json` | 0 | `ScienceClaimBundle.v0` pending (`runtime_receipts[]`, `certificates[]`) | docs/pcs_export.md |
+| attach-certificate | `--bundle <pending> --certificate trace_certificate.json --out certified.json` | 0 | Certified `ScienceClaimBundle.v0` | docs/pcs_export.md |
+| validate-pcs | `--run <dir>` or `--artifact <json>` | 0 | (stderr OK message) | pcs-core validation |
+| export-pcs-handoff | `--out handoff/`; optional `PCS_DETERMINISTIC=1` | 0 | `handoff/manifest.json`, `certifyedge/`, `provability_fabric/` | docs/pcs_handoff.md |
 
 ## Optional / conditional commands
 

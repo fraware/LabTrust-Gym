@@ -33,6 +33,31 @@ labtrust run-demo qc-release
 # default output: runs/qc-release/
 ```
 
+**LabTrust-only smoke** (requires `pcs-core` installed, e.g. `pip install -e ../pcs-core/python`):
+
+```bash
+bash examples/pcs_qc_release/scripts/labtrust_only_smoke.sh
+```
+
+**Deterministic fixture mode** (golden artifacts / CI only; freezes `source_commit`, environment, and digests):
+
+```bash
+labtrust run-demo qc-release --deterministic
+# or: PCS_DETERMINISTIC=1 labtrust run-demo qc-release
+```
+
+Regenerate committed goldens after schema changes:
+
+```bash
+python examples/pcs_qc_release/scripts/generate_golden.py
+```
+
+ScienceClaimBundle exports use PCS-core canonical shape: top-level `runtime_receipts` (array) and `certificates` (array). LabTrust does not emit PF legacy `runtime_receipt` (singular).
+
+Handoff bundle for CertifyEdge / Provability Fabric: `labtrust export-pcs-handoff --out handoff/` (see [docs/pcs_handoff.md](../../docs/pcs_handoff.md)).
+
+**In-repo CI scope:** LabTrust-only steps above plus `pytest tests/pcs`. CertifyEdge, Provability Fabric, and Scientific Memory steps are documented for cross-repo integration but are not executed in `.github/workflows/pcs.yml`.
+
 Verify `runs/qc-release/run_meta.json` has `"status": "completed"`, `"released": true`, `"final_reason_code": "ok"`.
 
 ## 5. Step 2: run invalid LabTrust workflows
