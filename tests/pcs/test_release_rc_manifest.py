@@ -15,11 +15,13 @@ from labtrust_gym.pcs.release_handoff import (
 )
 from labtrust_gym.pcs.release_run import file_content_digest
 from labtrust_gym.pcs.sync_pcs_core_rc import (
+    HANDOFF_ARTIFACTS,
+    assert_release_not_using_mock_or_placeholder,
     compare_release_to_pcs_core_rc,
     extract_rc_chain_identity,
     pcs_core_labtrust_release_dir,
+    sync_release_from_pcs_core_rc,
 )
-
 
 @pytest.fixture
 def pcs_core_canonical(repo_root: Path) -> Path:
@@ -72,3 +74,32 @@ def test_release_fixtures_reject_drift_from_pcs_core(
 
     with pytest.raises(ValueError, match="pcs_core_commit mismatch"):
         compare_release_to_pcs_core_rc(drift, pcs_core_canonical)
+
+
+def test_release_fixtures_do_not_use_mock_certificate(release_dir: Path) -> None:
+    assert_release_not_using_mock_or_placeholder(release_dir)
+
+
+def test_sync_from_pcs_core_rc_is_idempotent(
+    repo_root: Path, pcs_core_canonical: Path, tmp_path: Path
+) -> None:
+    """Two syncs from the same canonical tree produce identical handoff artifact bytes."""
+    work = tmp_path / "lt_work"
+    shutil.copytree(repo_root, work, ignore=shutil.ignore_patterns(".git", ".venv*", "tmp_*"))
+    release_rel = Path("examples/pcs_qc_release/release")
+    backup = tmp_path / "release_backup"
+    if (work / release_rel).is_dir():
+        shutil.copytree(work / release_rel, backup)
+
+    try:
+        first = sync_release_from_pcs_core_rc(labtrust_root=work, canonical=pcs_core_canonical)
+        digests_first = {name: file_content_digest(first / name) for name in HANDOFF_ARTIFACTS}
+        second = sync_release_from_pcs_core_rc(labtrust_root=work, canonical=pcs_core_canonical)
+        digests_second = {name: file_content_digest(second / name) for name in HANDOFF_ARTIFACTS}
+        assert digests_first == digests_second
+    finally:
+        if backup.is_dir():
+            dest = work / release_rel
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(backup, dest)

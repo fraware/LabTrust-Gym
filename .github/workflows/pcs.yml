@@ -53,6 +53,11 @@ jobs:
         run: python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
       - name: Validate committed release fixtures (pcs-core)
         run: python examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
+      - name: Gate release fixtures against canonical pcs-core RC
+        run: |
+          python -m labtrust_gym.pcs.sync_pcs_core_rc \
+            --verify-only \
+            --pcs-core pcs-core/examples/labtrust-release
       - name: LabTrust-only smoke (deterministic)
         run: bash examples/pcs_qc_release/scripts/labtrust_only_smoke.sh
       - name: Invalid scenarios export receipts
