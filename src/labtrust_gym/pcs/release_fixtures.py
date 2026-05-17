@@ -9,12 +9,11 @@ from typing import Any
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.manifest import validate_release_manifest
 from labtrust_gym.pcs.release_provenance import validate_release_artifact_provenance
-from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_PF_NAME
 from labtrust_gym.pcs.release_fragment import LABTRUST_RELEASE_FRAGMENT_NAME
 from labtrust_gym.pcs.release_protocol import assert_no_legacy_pf_handoff
 from labtrust_gym.pcs.release_handoff import verify_release_handoff
 from labtrust_gym.pcs.release_run import (
-    HANDOFF_FOR_PF_NAME,
+    HANDOFF_TO_PF_NAME,
     RELEASE_HANDOFF_MANIFEST_NAME,
     validate_certificate_id_chain,
     validate_handoff_directory,
@@ -178,10 +177,13 @@ def validate_release_fixtures(directory: Path | None = None) -> list[str]:
 
     handoff_root = root / "handoff"
     if handoff_root.is_dir():
+        from labtrust_gym.pcs.release_protocol import assert_no_legacy_handoff_subdir_guard
+
+        assert_no_legacy_handoff_subdir_guard(handoff_root)
         validate_handoff_directory(handoff_root)
         ok.append("handoff/")
-        if (handoff_root / HANDOFF_FOR_PF_NAME).is_file():
-            ok.append(f"handoff/{HANDOFF_FOR_PF_NAME}")
+        if (handoff_root / HANDOFF_TO_PF_NAME).is_file():
+            ok.append(f"handoff/{HANDOFF_TO_PF_NAME}")
         if (handoff_root / RELEASE_HANDOFF_MANIFEST_NAME).is_file():
             ok.append(f"handoff/{RELEASE_HANDOFF_MANIFEST_NAME}")
 

@@ -94,6 +94,16 @@ def test_release_phase2_protocol_gate(release_dir: Path) -> None:
     assert "labtrust_release_fragment_schema" in checks
 
 
+def test_handoff_subdir_rejects_legacy_handoff_for_pf_json(release_dir: Path, tmp_path: Path) -> None:
+    from labtrust_gym.pcs.release_protocol import assert_no_legacy_handoff_subdir_guard
+
+    drift = tmp_path / "handoff_legacy"
+    drift.mkdir()
+    (drift / "handoff_for_pf.json").write_text('{"legacy": true}\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="handoff_for_pf"):
+        assert_no_legacy_handoff_subdir_guard(drift)
+
+
 def test_release_rejects_legacy_pf_handoff_json(release_dir: Path, tmp_path: Path) -> None:
     drift = tmp_path / "release_legacy"
     import shutil

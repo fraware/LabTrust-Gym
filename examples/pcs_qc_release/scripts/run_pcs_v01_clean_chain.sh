@@ -70,20 +70,22 @@ pcs validate "$CERTIFIED_JSON"
 
 pcs_require_cmd "$PF_BIN"
 
-pcs_step "LabTrust: write PF handoff guard (release-run manifests)"
+pcs_step "LabTrust: write PF HandoffManifest.v0 (release-run manifests)"
 python "$SCRIPT_DIR/finalize_release_run.py" --run-dir "$WORK" --no-promote
 
 pcs_step "Provability Fabric: verify and sign (handoff certified bundle)"
 python -c "
 from pathlib import Path
-from labtrust_gym.pcs.release_run import HANDOFF_FOR_PF_NAME, validate_handoff_directory
+from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_PF_NAME
+from labtrust_gym.pcs.release_run import validate_handoff_directory
 work = Path('$WORK')
 validate_handoff_directory(work)
-guard = __import__('json').loads((work / HANDOFF_FOR_PF_NAME).read_text())
-cert = work / guard['certified_bundle']
+handoff = __import__('json').loads((work / HANDOFF_TO_PF_NAME).read_text())
+cert_name = 'science_claim_bundle.certified.json'
+cert = work / cert_name
 if not cert.is_file():
     raise SystemExit(f'missing PF input bundle: {cert}')
-print('OK PF input', cert.name, 'certificate_id', guard['expected_certificate_id'])
+print('OK PF input', cert.name, 'certificate_id', handoff['invariants']['certificate_id'])
 "
 
 "$PF_BIN" verify science-claim "$CERTIFIED_JSON" --out "$VERIFICATION_JSON"

@@ -15,6 +15,17 @@ from labtrust_gym.pcs.release_fragment import (
 )
 
 LEGACY_PF_HANDOFF_NAME = "pf_handoff.json"
+LEGACY_HANDOFF_SUBDIR_GUARD = "handoff_for_pf.json"
+
+
+def assert_no_legacy_handoff_subdir_guard(handoff_root: Path) -> None:
+    """``release/handoff/`` must use HandoffManifest.v0, not legacy guard JSON."""
+    legacy = handoff_root.resolve() / LEGACY_HANDOFF_SUBDIR_GUARD
+    if legacy.is_file():
+        raise ValueError(
+            f"handoff/ must not contain legacy {LEGACY_HANDOFF_SUBDIR_GUARD}; "
+            f"use {HANDOFF_TO_PF_NAME}"
+        )
 
 
 def assert_no_legacy_pf_handoff(release_root: Path) -> None:

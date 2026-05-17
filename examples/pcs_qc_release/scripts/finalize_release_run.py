@@ -52,7 +52,7 @@ def main() -> int:
     handoff_id = args.handoff_id.strip() or None
     write_run_manifests(run_dir, commits, generator=args.generator, handoff_id=handoff_id)
     print(f"OK {run_dir.name}/RELEASE_HANDOFF_MANIFEST.json")
-    print(f"OK {run_dir.name}/handoff_for_pf.json")
+    print(f"OK {run_dir.name}/handoff_to_pf.json")
     print(f"OK {run_dir.name}/RELEASE_FIXTURE_MANIFEST.json")
 
     if not args.no_promote:

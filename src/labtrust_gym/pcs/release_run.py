@@ -34,7 +34,8 @@ DOWNSTREAM_ARTIFACTS: tuple[str, ...] = (
 )
 
 RELEASE_HANDOFF_MANIFEST_NAME = "RELEASE_HANDOFF_MANIFEST.json"
-HANDOFF_FOR_PF_NAME = "handoff_for_pf.json"
+HANDOFF_TO_PF_NAME = "handoff_to_pf.json"
+HANDOFF_FOR_PF_NAME = HANDOFF_TO_PF_NAME  # deprecated alias
 RELEASE_FIXTURE_MANIFEST_NAME = "RELEASE_FIXTURE_MANIFEST.json"
 LEGACY_MANIFEST_NAME = "manifest.json"
 
@@ -196,16 +197,19 @@ def build_handoff_manifest(
     return manifest
 
 
-def build_handoff_for_pf(run_dir: Path) -> dict[str, Any]:
-    certified = _load_json(run_dir / "science_claim_bundle.certified.json")
-    _, certificate_id, trace_hash = certified_bundle_ids(certified)
-    return {
-        "schema_version": "v0",
-        "certified_bundle": "science_claim_bundle.certified.json",
-        "expected_certificate_id": certificate_id,
-        "expected_trace_hash": trace_hash,
-        "expected_bundle_id": certified["bundle_id"],
-    }
+def build_handoff_for_pf(
+    run_dir: Path,
+    *,
+    source_commit: str | None = None,
+) -> dict[str, Any]:
+    """Build HandoffManifest.v0 for PF signing (legacy name retained for callers)."""
+    from labtrust_gym.pcs.handoff_manifest import build_bundle_to_verifier_handoff
+
+    return build_bundle_to_verifier_handoff(
+        run_dir / "science_claim_bundle.certified.json",
+        release_mode=True,
+        source_commit=source_commit,
+    )
 
 
 def build_release_fixture_manifest(
@@ -248,7 +252,7 @@ def write_run_manifests(
     generator: str,
     handoff_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """Write RELEASE_HANDOFF_MANIFEST, handoff_for_pf, and RELEASE_FIXTURE_MANIFEST into run_dir."""
+    """Write RELEASE_HANDOFF_MANIFEST, HandoffManifest.v0, and RELEASE_FIXTURE_MANIFEST into run_dir."""
     for name in HANDOFF_ARTIFACTS:
         if not (run_dir / name).is_file():
             raise FileNotFoundError(f"release-run missing handoff artifact: {name}")
@@ -258,7 +262,7 @@ def write_run_manifests(
     handoff_manifest = build_handoff_manifest(
         run_dir, commits, generator=generator, handoff_id=handoff_id
     )
-    handoff_pf = build_handoff_for_pf(run_dir)
+    handoff_pf = build_handoff_for_pf(run_dir, source_commit=commits["labtrust_gym_commit"])
     fixture_manifest = build_release_fixture_manifest(
         run_dir, commits, handoff_manifest, generator=generator
     )
@@ -309,16 +313,30 @@ def validate_handoff_directory(handoff_root: Path) -> None:
         path = handoff_root / name
         if file_content_digest(path) != expected_digest:
             raise ValueError(f"handoff digest mismatch for {name}")
-    pf_guard = handoff_root / HANDOFF_FOR_PF_NAME
-    if not pf_guard.is_file():
-        raise FileNotFoundError(f"handoff missing: {HANDOFF_FOR_PF_NAME}")
-    pf_doc = _load_json(pf_guard)
-    certified = _load_json(handoff_root / pf_doc["certified_bundle"])
+    from labtrust_gym.pcs.handoff_manifest import assert_handoff_manifest_valid
+
+    handoff_path = handoff_root / HANDOFF_TO_PF_NAME
+    if not handoff_path.is_file():
+        raise FileNotFoundError(f"handoff missing: {HANDOFF_TO_PF_NAME}")
+    legacy_guard = handoff_root / "handoff_for_pf.json"
+    if legacy_guard.is_file() and legacy_guard != handoff_path:
+        raise ValueError(
+            "handoff/ must not contain legacy handoff_for_pf.json; use handoff_to_pf.json"
+        )
+    pf_doc = _load_json(handoff_path)
+    assert_handoff_manifest_valid(pf_doc)
+    certified_name = "science_claim_bundle.certified.json"
+    certified = _load_json(handoff_root / certified_name)
     _, cert_id, trace_hash = certified_bundle_ids(certified)
-    if pf_doc["expected_certificate_id"] != cert_id:
-        raise ValueError("handoff_for_pf.expected_certificate_id mismatch")
-    if pf_doc["expected_trace_hash"] != trace_hash:
-        raise ValueError("handoff_for_pf.expected_trace_hash mismatch")
+    inv = pf_doc.get("invariants") or {}
+    if inv.get("certificate_id") != cert_id:
+        raise ValueError("handoff_to_pf invariants.certificate_id mismatch")
+    if inv.get("trace_hash") != trace_hash:
+        raise ValueError("handoff_to_pf invariants.trace_hash mismatch")
+    entry = (pf_doc.get("input_artifacts") or {}).get(certified_name) or {}
+    on_disk = file_content_digest(handoff_root / certified_name)
+    if entry.get("sha256") != on_disk:
+        raise ValueError("handoff_to_pf input_artifacts certified bundle sha256 mismatch")
 
 
 def promote_release_run_atomic(

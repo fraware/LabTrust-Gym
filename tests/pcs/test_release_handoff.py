@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
+from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_PF_NAME
 from labtrust_gym.pcs.release_fixtures import release_fixture_present
 from labtrust_gym.pcs.release_run import (
-    HANDOFF_FOR_PF_NAME,
     RELEASE_HANDOFF_MANIFEST_NAME,
     build_handoff_for_pf,
     certificate_id_from_verification,
@@ -35,14 +35,15 @@ def test_release_handoff_directory_validates(release_root: Path) -> None:
     validate_handoff_directory(handoff)
 
 
-def test_release_handoff_for_pf_matches_certified_bundle(release_root: Path) -> None:
+def test_release_handoff_to_pf_matches_certified_bundle(release_root: Path) -> None:
     handoff = release_root / "handoff"
     certified = _load(handoff, "science_claim_bundle.certified.json")
-    guard = _load(handoff, HANDOFF_FOR_PF_NAME)
-    expected = build_handoff_for_pf(handoff)
-    assert guard["expected_certificate_id"] == expected["expected_certificate_id"]
-    assert guard["expected_trace_hash"] == expected["expected_trace_hash"]
-    assert certified["certificates"][0]["certificate_id"] == guard["expected_certificate_id"]
+    doc = _load(handoff, HANDOFF_TO_PF_NAME)
+    expected = build_handoff_for_pf(handoff, source_commit=doc["source_commit"])
+    inv = doc["invariants"]
+    assert inv["certificate_id"] == expected["invariants"]["certificate_id"]
+    assert inv["trace_hash"] == expected["invariants"]["trace_hash"]
+    assert certified["certificates"][0]["certificate_id"] == inv["certificate_id"]
 
 
 def test_release_handoff_manifest_certificate_id_matches_certified(release_root: Path) -> None:

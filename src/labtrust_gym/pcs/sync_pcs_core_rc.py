@@ -23,11 +23,9 @@ from labtrust_gym.pcs.release_handoff import (
 )
 from labtrust_gym.pcs.release_run import (
     HANDOFF_ARTIFACTS,
-    HANDOFF_FOR_PF_NAME,
     RELEASE_FIXTURE_MANIFEST_NAME,
     RELEASE_HANDOFF_MANIFEST_NAME,
     DOWNSTREAM_ARTIFACTS,
-    build_handoff_for_pf,
     build_handoff_manifest,
     file_content_digest,
     certified_bundle_ids,
@@ -39,6 +37,26 @@ PCS_CORE_RC_REL = Path("examples/labtrust-release")
 SYNC_ARTIFACTS: tuple[str, ...] = HANDOFF_ARTIFACTS + DOWNSTREAM_ARTIFACTS + (
     RELEASE_FIXTURE_MANIFEST_NAME,
 )
+
+_RELEASE_README_PATHS: tuple[str, ...] = ("README.md", "handoff/README.md")
+
+
+def _preserve_release_readmes(release_root: Path) -> dict[str, str]:
+    preserved: dict[str, str] = {}
+    release_root = release_root.resolve()
+    for rel in _RELEASE_README_PATHS:
+        path = release_root / rel
+        if path.is_file():
+            preserved[rel] = path.read_text(encoding="utf-8")
+    return preserved
+
+
+def _restore_release_readmes(release_root: Path, preserved: dict[str, str]) -> None:
+    release_root = release_root.resolve()
+    for rel, text in preserved.items():
+        path = release_root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
 
 
 def pcs_core_labtrust_release_dir(labtrust_root: Path | None = None) -> Path:
@@ -382,11 +400,6 @@ def sync_release_from_pcs_core_rc(
         json.dumps(handoff_manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    (handoff_staging / HANDOFF_FOR_PF_NAME).write_text(
-        json.dumps(build_handoff_for_pf(staging), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-
     build_canonical_release_manifest(
         staging,
         handoff_manifest,
@@ -394,12 +407,22 @@ def sync_release_from_pcs_core_rc(
         certifyedge_bin="certifyedge",
         certifyedge_spec="CertifyEdge/templates/hospital_lab/qc_release.stl",
     )
-    build_pf_handoff(staging, _load(staging / "manifest.json"))
+    manifest = _load(staging / "manifest.json")
+    build_pf_handoff(staging, manifest)
     write_trace_hash_alignment(staging)
 
+    from labtrust_gym.pcs.handoff_manifest import build_handoff_to_pf_from_release
+
+    build_handoff_to_pf_from_release(handoff_staging, manifest)
+    legacy_handoff_guard = handoff_staging / "handoff_for_pf.json"
+    if legacy_handoff_guard.is_file():
+        legacy_handoff_guard.unlink()
+
+    readmes = _preserve_release_readmes(local)
     if local.exists():
         shutil.rmtree(local)
     shutil.move(str(staging), str(local))
+    _restore_release_readmes(local, readmes)
 
     assert_release_matches_pcs_core_rc(local, canon)
     verify_release_handoff(local)
