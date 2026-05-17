@@ -9,6 +9,7 @@ from typing import Any
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.manifest import validate_release_manifest
 from labtrust_gym.pcs.release_provenance import validate_release_artifact_provenance
+from labtrust_gym.pcs.release_handoff import PF_HANDOFF_NAME, verify_release_handoff
 from labtrust_gym.pcs.release_run import (
     HANDOFF_FOR_PF_NAME,
     RELEASE_HANDOFF_MANIFEST_NAME,
@@ -180,6 +181,12 @@ def validate_release_fixtures(directory: Path | None = None) -> list[str]:
             ok.append(f"handoff/{HANDOFF_FOR_PF_NAME}")
         if (handoff_root / RELEASE_HANDOFF_MANIFEST_NAME).is_file():
             ok.append(f"handoff/{RELEASE_HANDOFF_MANIFEST_NAME}")
+
+    pf_handoff = root / PF_HANDOFF_NAME
+    if not pf_handoff.is_file():
+        raise FileNotFoundError(f"release fixture missing: {PF_HANDOFF_NAME}")
+    verify_release_handoff(root)
+    ok.append(PF_HANDOFF_NAME)
 
     signed = root / "signed_science_claim_bundle.json"
     if signed.is_file():

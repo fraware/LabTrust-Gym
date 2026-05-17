@@ -283,28 +283,17 @@ def _write_legacy_release_manifest(
     certifyedge_bin: str,
     certifyedge_spec: str,
 ) -> dict[str, Any]:
-    """Keep release/manifest.json for existing CI/tests (derived from handoff manifest)."""
-    certified = _load_json(release_root / "science_claim_bundle.certified.json")
-    certificate = _load_json(release_root / "trace_certificate.json")
-    manifest: dict[str, Any] = {
-        "schema_version": "v0",
-        "generated_at": handoff_manifest["generated_at"],
-        "generator": generator,
-        "mock_certificate": False,
-        "labtrust_gym_commit": handoff_manifest["labtrust_gym_commit"],
-        "certifyedge_commit": handoff_manifest["certifyedge_commit"],
-        "pcs_core_commit": handoff_manifest["pcs_core_commit"],
-        "certifyedge_bin": certifyedge_bin,
-        "certifyedge_spec": certifyedge_spec,
-        "certificate_id": handoff_manifest["certificate_id"],
-        "certificate_source_repo": certificate.get("source_repo"),
-        "certificate_producer": certificate.get("producer"),
-        "handoff_id": handoff_manifest["handoff_id"],
-        "trace_hash": handoff_manifest["trace_hash"],
-        "certified_bundle_id": certified["bundle_id"],
-    }
-    path = release_root / LEGACY_MANIFEST_NAME
-    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    """Write canonical ``release/manifest.json`` and ``release/pf_handoff.json``."""
+    from labtrust_gym.pcs.release_handoff import build_canonical_release_manifest, build_pf_handoff
+
+    manifest = build_canonical_release_manifest(
+        release_root,
+        handoff_manifest,
+        generator=generator,
+        certifyedge_bin=certifyedge_bin,
+        certifyedge_spec=certifyedge_spec,
+    )
+    build_pf_handoff(release_root, manifest)
     return manifest
 
 
@@ -416,6 +405,10 @@ def promote_release_run_atomic(
         legacy_manifest = _load_json(release_root / LEGACY_MANIFEST_NAME)
         validate_release_manifest(legacy_manifest)
         validate_release_artifact_provenance(release_root, legacy_manifest)
+
+        from labtrust_gym.pcs.release_handoff import verify_release_handoff
+
+        verify_release_handoff(release_root)
 
         signed = release_root / "signed_science_claim_bundle.json"
         if signed.is_file():

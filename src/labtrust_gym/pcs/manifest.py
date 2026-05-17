@@ -119,3 +119,9 @@ def validate_release_manifest(manifest: dict[str, Any]) -> None:
     repo = manifest.get("certificate_source_repo")
     if repo != CERTIFYEDGE_SOURCE_REPO:
         raise ValueError(f"manifest certificate_source_repo must be {CERTIFYEDGE_SOURCE_REPO}")
+    for key in ("handoff_id", "certificate_id", "trace_hash", "certified_bundle_hash"):
+        if not manifest.get(key):
+            raise ValueError(f"manifest.{key} is required for pcs-core handoff")
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict) or len(artifacts) < 5:
+        raise ValueError("manifest.artifacts must list all handoff artifact digests")

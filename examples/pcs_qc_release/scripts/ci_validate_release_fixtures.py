@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
 from labtrust_gym.pcs.release_fixtures import release_dir, validate_release_fixtures
+from labtrust_gym.pcs.release_handoff import verify_release_handoff
 
 
 def main() -> int:
@@ -38,6 +39,14 @@ def main() -> int:
             "--stage",
             "certified",
         ],
+        check=True,
+        cwd=ROOT,
+    )
+    for label in verify_release_handoff(release):
+        print("OK handoff", label)
+
+    subprocess.run(
+        [sys.executable, str(ROOT / "examples/pcs_qc_release/scripts/verify_release_handoff.py")],
         check=True,
         cwd=ROOT,
     )
