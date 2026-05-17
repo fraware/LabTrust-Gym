@@ -1,7 +1,7 @@
 {
   "certified_bundle": "science_claim_bundle.certified.json",
   "expected_bundle_id": "scb-pcs-qc-release-v0.1",
-  "expected_certificate_id": "cert-trace-cde5c89f-556c-4b12-8fc5-358418285d18",
+  "expected_certificate_id": "cert-trace-886c95f0-5d63-42d6-aa13-5891c12c5a6a",
   "expected_trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
   "schema_version": "v0"
 }

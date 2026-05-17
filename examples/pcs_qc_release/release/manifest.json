@@ -1,25 +1,25 @@
 {
   "artifacts": {
-    "runtime_receipt.json": "sha256:516c96399014c8e3983ed8a753307544b8f9728cc42d719a2d421bcb8194f845",
-    "science_claim_bundle.certified.json": "sha256:f321a35ba235a854bad1badf151dd5b4361487896415c249da5016ef82475f01",
-    "science_claim_bundle.pending.json": "sha256:8f1ebbad7b0c4879271ed42ff9e3577b3d3b3758eeefd998bb84e14864aabcc1",
+    "runtime_receipt.json": "sha256:8e642b59657d70b408be354323006421b963bb0c9fc9514f6abc7aab305345b6",
+    "science_claim_bundle.certified.json": "sha256:9b42d792199eb6f358d26f822699f0ed65bb4366eee306d4958d42121c656833",
+    "science_claim_bundle.pending.json": "sha256:677e0171743c4c129ad4b1931c62ba3fa0323f10c7d6d8d76290f8a4aabae45e",
     "trace.json": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c",
-    "trace_certificate.json": "sha256:be9039c86be7ffdef1aac0593d64c807094d496ecaf9512a1f30e3b2ccd2441f"
+    "trace_certificate.json": "sha256:c0e09949aaa8441a2adc5a0be05e6827a7ab6a12c3e0c85d77f0554f191d1a28"
   },
-  "certificate_id": "cert-trace-cde5c89f-556c-4b12-8fc5-358418285d18",
+  "certificate_id": "cert-trace-886c95f0-5d63-42d6-aa13-5891c12c5a6a",
   "certificate_producer": "CertifyEdge",
   "certificate_source_repo": "https://github.com/fraware/CertifyEdge",
-  "certified_bundle_hash": "sha256:f321a35ba235a854bad1badf151dd5b4361487896415c249da5016ef82475f01",
+  "certified_bundle_hash": "sha256:9b42d792199eb6f358d26f822699f0ed65bb4366eee306d4958d42121c656833",
   "certified_bundle_id": "scb-pcs-qc-release-v0.1",
   "certifyedge_bin": "certifyedge",
-  "certifyedge_commit": "4fbfe170d7b08e148329e95b38395f02a81729ec",
+  "certifyedge_commit": "cb6848001e2e60a484e04eba5ad6be3fe2e4eccc",
   "certifyedge_spec": "CertifyEdge/templates/hospital_lab/qc_release.stl",
-  "generated_at": "2026-05-17T15:08:54Z",
-  "generator": "refresh-manifest",
-  "handoff_id": "labtrust-qc-release-v0.1-44a5c4830c0d",
-  "labtrust_gym_commit": "44a5c4830c0d16194e2d0d3e65d39c8ccb52f911",
+  "generated_at": "2026-05-17T15:51:08Z",
+  "generator": "sync_release_from_pcs_core.py",
+  "handoff_id": "labtrust-qc-release-v0.1-4c5439ae3587",
+  "labtrust_gym_commit": "4c5439ae358733f9a4c4a58e33fdaed1ab0d29de",
   "mock_certificate": false,
-  "pcs_core_commit": "638c2b794a856ba746b4c370a065ed5801d0875d",
+  "pcs_core_commit": "6e01208e21d705e0c95163ac02709a6d45ac2856",
   "schema_version": "v0",
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
 }

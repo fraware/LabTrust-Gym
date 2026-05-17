@@ -50,6 +50,13 @@ def main() -> int:
         check=True,
         cwd=ROOT,
     )
+    try:
+        from labtrust_gym.pcs.sync_pcs_core_rc import assert_release_matches_pcs_core_rc
+
+        assert_release_matches_pcs_core_rc(release)
+        print("OK pcs-core RC chain identity")
+    except FileNotFoundError as exc:
+        print("SKIP pcs-core RC compare:", exc)
     print("PCS release fixture validation OK")
     return 0
 
