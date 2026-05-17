@@ -28,7 +28,10 @@ RELEASE_ARTIFACTS = (
     "science_claim_bundle.certified.json",
 )
 
+TRACE_HASH_ALIGNMENT_NAME = "trace_hash_alignment.json"
 MANIFEST_NAME = "manifest.json"
+EXPECTED_REL = Path("examples/pcs_qc_release/expected")
+VALID_EXPECTED_TRACE = "valid_trace.json"
 
 
 def release_dir(policy_root: Path | None = None) -> Path:
@@ -46,6 +49,42 @@ def release_fixture_present(root: Path | None = None) -> bool:
 
 def _load(directory: Path, name: str) -> dict[str, Any]:
     return json.loads((directory / name).read_text(encoding="utf-8"))
+
+
+def write_trace_hash_alignment(release_root: Path) -> dict[str, Any]:
+    """Write trace_hash_alignment.json for CertifyEdge / PF handoff checks."""
+    trace = _load(release_root, "trace.json")
+    receipt = _load(release_root, "runtime_receipt.json")
+    pending = _load(release_root, "science_claim_bundle.pending.json")
+    doc = {
+        "schema_version": "v0",
+        "property_id": "pcs.qc_release.trace_hash_alignment",
+        "trace_hash": trace["trace_hash"],
+        "runtime_receipt_trace_hash": receipt["trace_hash"],
+        "bundle_runtime_receipt_trace_hash": pending["runtime_receipts"][0]["trace_hash"],
+    }
+    path = release_root / TRACE_HASH_ALIGNMENT_NAME
+    path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return doc
+
+
+def assert_release_trace_matches_expected_goldens(
+    release_root: Path | None = None,
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    """Release trace must match LabTrust-local deterministic golden (same PCS_DETERMINISTIC=1 run)."""
+    root = release_root or release_dir(policy_root)
+    expected = (policy_root or get_repo_root()) / EXPECTED_REL / VALID_EXPECTED_TRACE
+    if not expected.is_file():
+        raise FileNotFoundError(f"missing expected golden {expected}")
+    release_trace = _load(root, "trace.json")
+    golden_trace = json.loads(expected.read_text(encoding="utf-8"))
+    if release_trace["trace_hash"] != golden_trace["trace_hash"]:
+        raise ValueError(
+            "release/ trace_hash must match expected/valid_trace.json "
+            f"({release_trace['trace_hash']!r} != {golden_trace['trace_hash']!r})"
+        )
 
 
 def validate_release_fixtures(directory: Path | None = None) -> list[str]:
@@ -99,10 +138,21 @@ def validate_release_fixtures(directory: Path | None = None) -> list[str]:
         raise ValueError("release certificate_id must not be LabTrust mock fixture id")
 
     manifest_path = root / MANIFEST_NAME
-    if manifest_path.is_file():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        validate_release_manifest(manifest)
-        ok.append(MANIFEST_NAME)
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"release fixture missing: {MANIFEST_NAME}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    validate_release_manifest(manifest)
+    ok.append(MANIFEST_NAME)
+
+    alignment_path = root / TRACE_HASH_ALIGNMENT_NAME
+    if alignment_path.is_file():
+        alignment = json.loads(alignment_path.read_text(encoding="utf-8"))
+        th = receipt["trace_hash"]
+        if alignment["trace_hash"] != th or alignment["runtime_receipt_trace_hash"] != th:
+            raise ValueError(f"{TRACE_HASH_ALIGNMENT_NAME}: trace_hash mismatch")
+        ok.append(TRACE_HASH_ALIGNMENT_NAME)
+
+    assert_release_trace_matches_expected_goldens(root)
 
     th = receipt["trace_hash"]
     if trace["trace_hash"] != th:

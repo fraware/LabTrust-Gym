@@ -126,6 +126,7 @@ See [RUNBOOK.md](RUNBOOK.md) for the full end-to-end flow (CertifyEdge, Provabil
 | `scripts/verify_pcs_v01_chain.py` | Post-chain pcs-core validation |
 | `scripts/generate_release_candidate.sh` / `.ps1` | Build `release/` with real CertifyEdge output |
 | `scripts/run_pcs_ci_local.sh` / `.ps1` | Full PCS CI (`pytest tests/pcs` + export validation) |
-| `scripts/ci_validate_pcs_exports.py` | CI export pipeline + pcs-core validate (also `.sh` / `.ps1`) |
+| `scripts/ci_validate_pcs_exports.py` | CI: `expected/` goldens + export pipeline |
+| `scripts/ci_validate_release_fixtures.py` | CI: committed `release/` fixtures |
 
 Policy: `policy/pcs/` (`roles.yaml`, `reason_codes.yaml`, `qc_release_policy.yaml`).

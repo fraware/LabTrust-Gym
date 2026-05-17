@@ -12,4 +12,5 @@ fi
 
 "$PYTHON" -m pytest tests/pcs -q
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
 echo "PCS local CI OK"

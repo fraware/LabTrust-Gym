@@ -4,11 +4,11 @@
   "certificate_source_repo": "https://github.com/fraware/CertifyEdge",
   "certifyedge_bin": "certifyedge",
   "certifyedge_commit": "f0725b3b987b27c9f23956362706d096effdb617",
-  "certifyedge_spec": "C:\\Users\\mateo\\CertifyEdge\\templates\\hospital_lab\\qc_release.stl",
-  "generated_at": "2026-05-17T13:48:14Z",
-  "generator": "generate_release_candidate.ps1",
-  "labtrust_gym_commit": "9f531e5b577e0ec3bd1c79809e2232ed3b661598",
+  "certifyedge_spec": "CertifyEdge/templates/hospital_lab/qc_release.stl",
+  "generated_at": "2026-05-17T14:08:55Z",
+  "generator": "regen",
+  "labtrust_gym_commit": "e401e4a2d0f995295009d53a3c09a469c8f730f8",
   "mock_certificate": false,
-  "pcs_core_commit": "f4e895b65e401d6936573276f913e079c8f7cd0b",
+  "pcs_core_commit": "b31f367deb22fd3a1c31b001d1b1acfba7777fe6",
   "schema_version": "v0"
 }

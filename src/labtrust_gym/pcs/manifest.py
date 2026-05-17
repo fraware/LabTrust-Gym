@@ -81,6 +81,15 @@ def build_release_manifest(
     cert_path = release_dir / "trace_certificate.json"
     cert = json.loads(cert_path.read_text(encoding="utf-8"))
 
+    spec_path = Path(certifyedge_spec)
+    if spec_path.is_absolute():
+        try:
+            certifyedge_spec_recorded = spec_path.relative_to(lt.parent).as_posix()
+        except ValueError:
+            certifyedge_spec_recorded = spec_path.as_posix()
+    else:
+        certifyedge_spec_recorded = spec_path.as_posix()
+
     manifest: dict[str, Any] = {
         "schema_version": "v0",
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -90,7 +99,7 @@ def build_release_manifest(
         "certifyedge_commit": certifyedge_commit,
         "pcs_core_commit": pcs_core_commit,
         "certifyedge_bin": certifyedge_bin,
-        "certifyedge_spec": certifyedge_spec,
+        "certifyedge_spec": certifyedge_spec_recorded,
         "certificate_id": cert.get("certificate_id"),
         "certificate_source_repo": cert.get("source_repo"),
         "certificate_producer": cert.get("producer"),

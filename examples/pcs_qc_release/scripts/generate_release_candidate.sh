@@ -60,15 +60,16 @@ done
 export PCS_RELEASE_DIR="$RELEASE"
 export PCS_MANIFEST_GENERATOR="generate_release_candidate.sh"
 export CERTIFYEDGE_ROOT="$CERTIFYEDGE_ROOT"
+python -c "
+from pathlib import Path
+from labtrust_gym.pcs.release_fixtures import write_trace_hash_alignment
+write_trace_hash_alignment(Path('$RELEASE'))
+print('OK trace_hash_alignment.json')
+"
 python "$ROOT/examples/pcs_qc_release/scripts/write_release_manifest.py"
 
 pcs validate "$WORK/science_claim_bundle.certified.json"
 python "$ROOT/examples/pcs_qc_release/scripts/verify_pcs_v01_chain.py" --work "$WORK" --stage certified
-python -c "
-from pathlib import Path
-from labtrust_gym.pcs.release_fixtures import validate_release_fixtures
-names = validate_release_fixtures(Path('$RELEASE'))
-print('validated release fixtures:', ', '.join(names))
-"
+python "$ROOT/examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py"
 
 echo "Release candidate fixtures written to $RELEASE"

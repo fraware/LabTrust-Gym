@@ -1,4 +1,4 @@
-"""Cross-repo release/ fixtures (real CertifyEdge certificate; required when release/ is committed)."""
+"""Cross-repo release/ fixtures (real CertifyEdge certificate; required on main)."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from labtrust_gym.pcs.manifest import PLACEHOLDER_COMMITS, validate_release_mani
 from labtrust_gym.pcs.mock_certificate import CERTIFYEDGE_SOURCE_REPO, is_mock_certificate
 from labtrust_gym.pcs.release_fixtures import (
     MANIFEST_NAME,
+    TRACE_HASH_ALIGNMENT_NAME,
+    assert_release_trace_matches_expected_goldens,
     release_fixture_present,
     validate_release_fixtures,
 )
@@ -19,16 +21,13 @@ from labtrust_gym.pcs.validate import require_pcs_core, validate_science_claim_b
 
 pcs_core = pytest.importorskip("pcs_core")
 
-pytestmark = pytest.mark.skipif(
-    not release_fixture_present(),
-    reason="release/ fixtures not committed; run generate_release_candidate.sh with CertifyEdge",
-)
-
 
 @pytest.fixture
 def release_artifacts(release_dir: Path) -> Path:
     if not release_fixture_present():
-        pytest.skip("release/ not populated")
+        pytest.fail(
+            "release/ fixtures missing on main; run generate_release_candidate.sh with CertifyEdge"
+        )
     return release_dir
 
 
@@ -54,6 +53,27 @@ def test_release_fixture_uses_real_certifyedge_certificate(release_artifacts: Pa
     validate_release_manifest(manifest)
     for key in ("labtrust_gym_commit", "certifyedge_commit", "pcs_core_commit"):
         assert manifest[key] not in PLACEHOLDER_COMMITS
+    assert "/" in manifest.get("certifyedge_spec", "") or manifest.get("certifyedge_spec", "").endswith(".stl")
+
+
+def test_release_trace_matches_expected_deterministic_golden(
+    release_artifacts: Path, expected_dir: Path
+) -> None:
+    assert_release_trace_matches_expected_goldens(release_artifacts)
+    golden = json.loads((expected_dir / "valid_trace.json").read_text(encoding="utf-8"))
+    release_trace = _load(release_artifacts, "trace.json")
+    assert release_trace["trace_hash"] == golden["trace_hash"]
+
+
+def test_release_trace_hash_alignment_file(release_artifacts: Path) -> None:
+    path = release_artifacts / TRACE_HASH_ALIGNMENT_NAME
+    assert path.is_file(), f"missing {TRACE_HASH_ALIGNMENT_NAME}"
+    alignment = json.loads(path.read_text(encoding="utf-8"))
+    receipt = _load(release_artifacts, "runtime_receipt.json")
+    th = receipt["trace_hash"]
+    assert alignment["trace_hash"] == th
+    assert alignment["runtime_receipt_trace_hash"] == th
+    assert alignment["bundle_runtime_receipt_trace_hash"] == th
 
 
 def test_release_certified_bundle_validates_against_pcs_core(release_artifacts: Path) -> None:
@@ -84,3 +104,4 @@ def test_release_fixtures_validate_helper(release_artifacts: Path) -> None:
     names = validate_release_fixtures(release_artifacts)
     assert "science_claim_bundle.certified.json" in names
     assert MANIFEST_NAME in names
+    assert TRACE_HASH_ALIGNMENT_NAME in names

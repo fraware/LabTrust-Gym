@@ -85,11 +85,13 @@ Invoke-PcsValidate (Join-Path $Work "trace_certificate.json")
 $env:PCS_RELEASE_DIR = $Release
 $env:PCS_MANIFEST_GENERATOR = "generate_release_candidate.ps1"
 $env:CERTIFYEDGE_ROOT = $CertifyEdgeRoot
+$env:CERTIFYEDGE_SPEC = $CertifyEdgeSpec
 if (-not $env:PCS_CORE_PATH) { $env:PCS_CORE_PATH = Join-Path $Parent "pcs-core\python" }
+& $Python -c "from pathlib import Path; from labtrust_gym.pcs.release_fixtures import write_trace_hash_alignment; write_trace_hash_alignment(Path(r'$Release')); print('OK trace_hash_alignment.json')"
 & $Python (Join-Path $PSScriptRoot "write_release_manifest.py")
 
 Invoke-PcsValidate (Join-Path $Work "science_claim_bundle.certified.json")
 & $Python (Join-Path $PSScriptRoot "verify_pcs_v01_chain.py") --work $Work --stage certified
-& $Python -c "from pathlib import Path; from labtrust_gym.pcs.release_fixtures import validate_release_fixtures; print('validated', validate_release_fixtures(Path(r'$Release')))"
+& $Python (Join-Path $PSScriptRoot "ci_validate_release_fixtures.py")
 
 Write-Host "Release candidate fixtures written to $Release"
