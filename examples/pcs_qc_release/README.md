@@ -6,11 +6,18 @@ LabTrust-Gym v0.1 flagship demo: simulate a hospital lab QC-release workflow, em
 
 Installing into **global Python** alongside other tools (MCP, corridor-os, crewai, etc.) often triggers pip dependency conflict warnings. Use the setup script instead:
 
-**Windows (PowerShell):**
+**Windows (PowerShell)** — run from the **repo root** (`LabTrust-Gym/`), not `examples/`:
 
 ```powershell
+cd C:\path\to\LabTrust-Gym
 .\scripts\setup_pcs_dev.ps1
 .\.venv-pcs\Scripts\Activate.ps1
+```
+
+Or one command from **any** directory:
+
+```powershell
+& "C:\path\to\LabTrust-Gym\examples\pcs_qc_release\scripts\setup_and_smoke.ps1"
 ```
 
 **Linux/macOS:**
@@ -50,9 +57,15 @@ python examples/pcs_qc_release/scripts/generate_golden.py
 LabTrust-only smoke (valid + invalid demos, export, `pcs validate`, golden check):
 
 ```bash
+# repo root:
 bash examples/pcs_qc_release/scripts/labtrust_only_smoke.sh
-# Windows:
-# .\examples\pcs_qc_release\scripts\labtrust_only_smoke.ps1
+```
+
+```powershell
+# any cwd (uses .venv-pcs automatically):
+& "$PWD\examples\pcs_qc_release\scripts\labtrust_only_smoke.ps1"
+# if you are already in examples/, use:
+& ".\pcs_qc_release\scripts\labtrust_only_smoke.ps1"
 ```
 
 ### Manual install (same venv)

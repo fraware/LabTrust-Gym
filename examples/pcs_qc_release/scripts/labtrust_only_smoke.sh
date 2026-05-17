@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # LabTrust-only PCS QC-release smoke (requires pcs-core on PATH: pip install -e pcs-core/python).
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 export PCS_DETERMINISTIC=1
 

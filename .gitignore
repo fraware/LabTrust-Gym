@@ -95,6 +95,11 @@ tmp_refuse_test/
 # Demo/run outputs (do not commit; regenerate via package-release or run-official-pack)
 demo_video_out/
 
+# PCS smoke exports (labtrust_only_smoke.* at repo root)
+/trace.json
+/runtime_receipt.json
+/science_claim_bundle.pending.json
+
 # Local env and secrets (do not commit)
 .env
 .env.local
