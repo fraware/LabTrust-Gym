@@ -1,5 +1,5 @@
 {
-  "certificate_id": "cert-trace-e6779edd-47fd-43e3-bfd1-dbd2a1b97dac",
+  "certificate_id": "cert-trace-862f6bee-7179-49a5-b436-4aa18f4e010f",
   "schema_version": "v0",
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
   "spec_hash": "sha256:7c66dfcf640d382653d8ce7c2c700371d72ff0d6fb59156d411cf2aa9a7dfe5e",
@@ -8,10 +8,10 @@
   "checker_version": "0.1.0",
   "status": "CertificateChecked",
   "counterexample_ref": null,
-  "created_at": "2026-05-17T13:47:07Z",
+  "created_at": "2026-05-17T14:34:58Z",
   "producer": "CertifyEdge",
   "producer_version": "0.1.0",
   "source_repo": "https://github.com/fraware/CertifyEdge",
-  "source_commit": "9f531e5b577e0ec3bd1c79809e2232ed3b661598",
-  "signature_or_digest": "sha256:49d1f1baeb7baf3227ca73c2297cd4d6b8a14a5cb8aea3bba3f6384d275b8018"
+  "source_commit": "68b79aa47bd1cdcc02b2605aaa988078cc41952f",
+  "signature_or_digest": "sha256:a934024d42797d01424f834da8a6dd9f81d22bd6e7ce8ca9d4282d7640b9c6b4"
 }

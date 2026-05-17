@@ -5,6 +5,7 @@ $ErrorActionPreference = "Stop"
 $Root = Get-PcsRepoRoot
 Set-Location $Root
 $env:PCS_DETERMINISTIC = "1"
+$env:PCS_RELEASE_FIXTURE = "1"
 
 $Release = if ($env:PCS_RELEASE_DIR) { $env:PCS_RELEASE_DIR } else { Join-Path $Root "examples\pcs_qc_release\release" }
 $RunDir = if ($env:PCS_RUN_DIR) { $env:PCS_RUN_DIR } else { Join-Path $Root "runs\qc-release" }
@@ -16,6 +17,9 @@ $CertifyEdgeSpec = if ($env:CERTIFYEDGE_SPEC) {
     $env:CERTIFYEDGE_SPEC
 } else {
     Join-Path $CertifyEdgeRoot "templates\hospital_lab\qc_release.stl"
+}
+if (-not [System.IO.Path]::IsPathRooted($CertifyEdgeSpec)) {
+    $CertifyEdgeSpec = Join-Path $CertifyEdgeRoot ($CertifyEdgeSpec -replace '^CertifyEdge[\\/]', '')
 }
 
 $Labtrust = Get-PcsTool "labtrust"
@@ -52,6 +56,16 @@ if (-not (Test-Path $CertifyEdgeSpec)) {
     throw "CertifyEdge spec not found: $CertifyEdgeSpec (set CERTIFYEDGE_SPEC or CERTIFYEDGE_ROOT)"
 }
 
+$PcsCoreRoot = if ($env:PCS_CORE_PATH) { $env:PCS_CORE_PATH } else { Join-Path $Parent "pcs-core" }
+$PcsCoreGitRoot = if ((Split-Path -Leaf $PcsCoreRoot) -eq "python") { Split-Path -Parent $PcsCoreRoot } else { $PcsCoreRoot }
+$LabtrustCommit = (git -C $Root rev-parse HEAD).Trim()
+$CertifyEdgeCommit = (git -C $CertifyEdgeRoot rev-parse HEAD).Trim()
+$PcsCoreCommit = (git -C $PcsCoreGitRoot rev-parse HEAD).Trim()
+$env:CERTIFYEDGE_SOURCE_COMMIT = $CertifyEdgeCommit
+Write-Host "labtrust_gym_commit=$LabtrustCommit"
+Write-Host "certifyedge_commit=$CertifyEdgeCommit"
+Write-Host "pcs_core_commit=$PcsCoreCommit"
+
 if (Test-Path $Work) { Remove-Item -Recurse -Force $Work }
 New-Item -ItemType Directory -Force -Path $Work, $Release | Out-Null
 
@@ -60,7 +74,8 @@ New-Item -ItemType Directory -Force -Path $Work, $Release | Out-Null
 & $Labtrust export-runtime-receipt --run $RunDir --out (Join-Path $Work "runtime_receipt.json")
 & $Labtrust export-pcs --run $RunDir --out (Join-Path $Work "science_claim_bundle.pending.json")
 
-& $CertifyEdgeBin emit-pcs-certificate `
+$env:CERTIFYEDGE_SOURCE_COMMIT = $CertifyEdgeCommit
+& $CertifyEdgeBin --release-mode emit-pcs-certificate `
     --spec $CertifyEdgeSpec `
     --trace (Join-Path $Work "trace.json") `
     --out (Join-Path $Work "trace_certificate.json")
@@ -85,6 +100,7 @@ Invoke-PcsValidate (Join-Path $Work "trace_certificate.json")
 $env:PCS_RELEASE_DIR = $Release
 $env:PCS_MANIFEST_GENERATOR = "generate_release_candidate.ps1"
 $env:CERTIFYEDGE_ROOT = $CertifyEdgeRoot
+$env:CERTIFYEDGE_BIN = $CertifyEdgeBin
 $env:CERTIFYEDGE_SPEC = $CertifyEdgeSpec
 if (-not $env:PCS_CORE_PATH) { $env:PCS_CORE_PATH = Join-Path $Parent "pcs-core\python" }
 & $Python -c "from pathlib import Path; from labtrust_gym.pcs.release_fixtures import write_trace_hash_alignment; write_trace_hash_alignment(Path(r'$Release')); print('OK trace_hash_alignment.json')"
