@@ -1,19 +1,22 @@
 {
   "artifacts": {
-    "runtime_receipt.json": "sha256:c2fe470bc51dd6a6081a8d3fe0809e35d1eb057c633e24a33ea0863967446a8a",
-    "science_claim_bundle.certified.json": "sha256:6cb7ad50ef9b569150a67f9904424ce875a0e62e6bad0d41f9c52dd0a503344b",
-    "science_claim_bundle.pending.json": "sha256:6be4e7d669fa8d4951a0bb30106a34dc1fc8953de8208772e9a772c5e629b634",
+    "runtime_receipt.json": "sha256:516c96399014c8e3983ed8a753307544b8f9728cc42d719a2d421bcb8194f845",
+    "science_claim_bundle.certified.json": "sha256:f321a35ba235a854bad1badf151dd5b4361487896415c249da5016ef82475f01",
+    "science_claim_bundle.pending.json": "sha256:8f1ebbad7b0c4879271ed42ff9e3577b3d3b3758eeefd998bb84e14864aabcc1",
+    "signed_science_claim_bundle.json": "sha256:dd30ad3ed5de9230e0001a95396da89328f7f7ab16050e795739e18c45f7c779",
     "trace.json": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c",
-    "trace_certificate.json": "sha256:ae72e37c1b01ba4d73899c6029ff1bcfd5532eab54ec1f0de1c28b044686a5d4"
+    "trace_certificate.json": "sha256:be9039c86be7ffdef1aac0593d64c807094d496ecaf9512a1f30e3b2ccd2441f",
+    "verification_result.json": "sha256:5ccfab71c8c389812290e1ee109f13f2c589fa4eb3d9fd7749f0a493e1fb413f"
   },
-  "certificate_id": "cert-trace-e95bcd7c-ceb8-44b4-9ca2-6bfcdd7fb50c",
+  "certificate_id": "cert-trace-cde5c89f-556c-4b12-8fc5-358418285d18",
   "certified_bundle_id": "scb-pcs-qc-release-v0.1",
   "certifyedge_commit": "4fbfe170d7b08e148329e95b38395f02a81729ec",
-  "generated_at": "2026-05-17T15:03:32Z",
-  "generator": "generate_release_candidate.ps1",
-  "handoff_id": "labtrust-qc-release-v0.1-122bfce57b05",
-  "labtrust_gym_commit": "122bfce57b05b2d64f17815a457ad0b19fbbfde8",
-  "pcs_core_commit": "0baa3fae6c48a2ff4c27b8c67210b9e3d405f5e9",
+  "generated_at": "2026-05-17T15:08:54Z",
+  "generator": "release-run-pf-promote",
+  "handoff_id": "labtrust-qc-release-v0.1-44a5c4830c0d",
+  "labtrust_gym_commit": "44a5c4830c0d16194e2d0d3e65d39c8ccb52f911",
+  "pcs_core_commit": "638c2b794a856ba746b4c370a065ed5801d0875d",
+  "provability_fabric_commit": "a9987359e60d12ef8f89079ecb433d0a424b81dc",
   "schema_version": "v0",
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
 }

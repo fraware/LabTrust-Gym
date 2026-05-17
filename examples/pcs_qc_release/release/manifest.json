@@ -1,17 +1,17 @@
 {
-  "certificate_id": "cert-trace-e95bcd7c-ceb8-44b4-9ca2-6bfcdd7fb50c",
+  "certificate_id": "cert-trace-cde5c89f-556c-4b12-8fc5-358418285d18",
   "certificate_producer": "CertifyEdge",
   "certificate_source_repo": "https://github.com/fraware/CertifyEdge",
   "certified_bundle_id": "scb-pcs-qc-release-v0.1",
   "certifyedge_bin": "c:\\Users\\mateo\\CertifyEdge\\target\\debug\\certifyedge.exe",
   "certifyedge_commit": "4fbfe170d7b08e148329e95b38395f02a81729ec",
   "certifyedge_spec": "c:\\Users\\mateo\\CertifyEdge\\templates\\hospital_lab\\qc_release.stl",
-  "generated_at": "2026-05-17T15:03:32Z",
-  "generator": "generate_release_candidate.ps1",
-  "handoff_id": "labtrust-qc-release-v0.1-122bfce57b05",
-  "labtrust_gym_commit": "122bfce57b05b2d64f17815a457ad0b19fbbfde8",
+  "generated_at": "2026-05-17T15:08:54Z",
+  "generator": "release-run-pf-promote",
+  "handoff_id": "labtrust-qc-release-v0.1-44a5c4830c0d",
+  "labtrust_gym_commit": "44a5c4830c0d16194e2d0d3e65d39c8ccb52f911",
   "mock_certificate": false,
-  "pcs_core_commit": "0baa3fae6c48a2ff4c27b8c67210b9e3d405f5e9",
+  "pcs_core_commit": "638c2b794a856ba746b4c370a065ed5801d0875d",
   "schema_version": "v0",
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
 }
