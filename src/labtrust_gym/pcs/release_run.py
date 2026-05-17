@@ -283,7 +283,7 @@ def _write_legacy_release_manifest(
     certifyedge_bin: str,
     certifyedge_spec: str,
 ) -> dict[str, Any]:
-    """Write canonical ``release/manifest.json`` and ``release/pf_handoff.json``."""
+    """Write canonical ``release/manifest.json`` and ``release/handoff_to_pf.json``."""
     from labtrust_gym.pcs.release_handoff import build_canonical_release_manifest, build_pf_handoff
 
     manifest = build_canonical_release_manifest(

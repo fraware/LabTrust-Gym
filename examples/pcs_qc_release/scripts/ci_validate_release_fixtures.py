@@ -25,6 +25,7 @@ def main() -> int:
         "trace_certificate.json",
         "science_claim_bundle.pending.json",
         "science_claim_bundle.certified.json",
+        "handoff_to_pf.json",
     ):
         path = release / artifact
         subprocess.run(["pcs", "validate", str(path)], check=True, cwd=ROOT)

@@ -14,6 +14,8 @@ from labtrust_gym.pcs.demo import DEMO_SCENARIOS
 from labtrust_gym.pcs.demo import run_demo as execute_pcs_demo
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
 from labtrust_gym.pcs.handoff import export_handoff_bundle
+from labtrust_gym.pcs.handoff_manifest import emit_handoff_manifest
+from labtrust_gym.pcs.release_fragment import emit_labtrust_release_fragment
 from labtrust_gym.pcs.validate import PcsValidationError, validate_artifact_file, validate_run_dir
 
 
@@ -151,6 +153,35 @@ def _run_validate_pcs(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_emit_release_fragment(args: argparse.Namespace) -> int:
+    release_dir = _resolve_path(args.release_dir)
+    out = _resolve_path(args.out) if args.out else release_dir / "labtrust_release_fragment.json"
+    try:
+        emit_labtrust_release_fragment(release_dir=release_dir, out_path=out)
+    except (ValueError, FileNotFoundError) as e:
+        get_console().error(str(e))
+        return 1
+    get_console().info(f"LabTrust release fragment written to {out}")
+    return 0
+
+
+def _run_emit_handoff(args: argparse.Namespace) -> int:
+    bundle = _resolve_path(args.bundle)
+    out = _resolve_path(args.out)
+    try:
+        emit_handoff_manifest(
+            kind=args.kind,
+            bundle_path=bundle,
+            out_path=out,
+            release_mode=args.release_mode,
+        )
+    except (ValueError, FileNotFoundError) as e:
+        get_console().error(str(e))
+        return 1
+    get_console().info(f"HandoffManifest.v0 written to {out}")
+    return 0
+
+
 def _run_export_handoff(args: argparse.Namespace) -> int:
     out = _resolve_path(args.out)
     try:
@@ -256,6 +287,44 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
     p_validate.add_argument("--run", default=None, help="Run directory with trace.json and pcs/")
     p_validate.add_argument("--artifact", default=None, help="Single PCS artifact JSON file")
     p_validate.set_defaults(func=_run_validate_pcs)
+
+    p_emit = sub.add_parser(
+        "emit-handoff",
+        help="Emit HandoffManifest.v0 for Provability Fabric (bundle_to_verifier)",
+    )
+    p_emit.add_argument(
+        "--kind",
+        required=True,
+        help="Handoff kind (bundle-to-verifier)",
+    )
+    p_emit.add_argument(
+        "--bundle",
+        required=True,
+        help="Certified science_claim_bundle.certified.json path",
+    )
+    p_emit.add_argument("--out", required=True, help="Output handoff_to_pf.json path")
+    p_emit.add_argument(
+        "--release-mode",
+        action="store_true",
+        help="Reject local-dev provenance (default when bundle is under release/)",
+    )
+    p_emit.set_defaults(func=_run_emit_handoff)
+
+    p_fragment = sub.add_parser(
+        "emit-release-fragment",
+        help="Emit LabTrust-owned ReleaseManifest fragment for pcs-core aggregation",
+    )
+    p_fragment.add_argument(
+        "--release-dir",
+        required=True,
+        help="Release directory (e.g. examples/pcs_qc_release/release)",
+    )
+    p_fragment.add_argument(
+        "--out",
+        default=None,
+        help="Output path (default: <release-dir>/labtrust_release_fragment.json)",
+    )
+    p_fragment.set_defaults(func=_run_emit_release_fragment)
 
     p_handoff = sub.add_parser(
         "export-pcs-handoff",

@@ -25,10 +25,22 @@ def attach_trace_certificate(
     if cert.get("trace_hash") != trace_hash:
         raise ValueError(f"certificate trace_hash {cert.get('trace_hash')!r} != receipt {trace_hash!r}")
     cert_id = cert["certificate_id"]
+    from_status = out["claim_artifact"].get("status", "RuntimeObserved")
+    from labtrust_gym.pcs.status_transitions import (
+        CERTIFIED_CLAIM_STATUS,
+        assert_claim_status_transition,
+        assert_pending_bundle_claim_status,
+        mark_bundle_stale_if_trace_diverged,
+    )
+
+    assert_pending_bundle_claim_status(out)
+    assert_claim_status_transition(from_status, CERTIFIED_CLAIM_STATUS)
+
     out["certificates"] = [cert]
+    mark_bundle_stale_if_trace_diverged(out, context="attach-certificate")
     claim = out["claim_artifact"]
     claim["certificate_refs"] = [cert_id]
-    claim["status"] = "CertificateChecked"
+    claim["status"] = CERTIFIED_CLAIM_STATUS
     evidence = out["evidence_bundle"]
     evidence["certificate_refs"] = [cert_id]
     evidence["artifact_hashes"][cert_id] = cert["signature_or_digest"]
@@ -38,6 +50,9 @@ def attach_trace_certificate(
     base = {k: v for k, v in out.items() if k != "signature_or_digest"}
     signed = with_signature(base)
     assert_science_claim_bundle_versions(signed)
+    from labtrust_gym.pcs.status_transitions import assert_certified_bundle_claim_status
+
+    assert_certified_bundle_claim_status(signed)
     return signed
 
 

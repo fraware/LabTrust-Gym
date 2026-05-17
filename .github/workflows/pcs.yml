@@ -49,6 +49,8 @@ jobs:
           pip install -e ".[dev,pcs]"
       - name: PCS tests
         run: python -m pytest tests/pcs -q
+      - name: Verify pcs-core canonical hash vectors
+        run: python -m pcs_core.hash_vectors --verify
       - name: Strict pcs-core validate exported artifacts + committed goldens
         run: python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
       - name: Validate committed release fixtures (pcs-core)
