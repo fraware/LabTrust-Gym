@@ -11,7 +11,7 @@ These artifacts are the **release candidate** set for CertifyEdge, Provability F
 | `science_claim_bundle.pending.json` | `labtrust export-pcs` |
 | `trace_certificate.json` | `certifyedge emit-pcs-certificate` |
 | `science_claim_bundle.certified.json` | `labtrust attach-certificate` |
-| `manifest.json` | Written by generator (records CertifyEdge path and generation time) |
+| `manifest.json` | Real `labtrust_gym_commit`, `certifyedge_commit`, `pcs_core_commit` (no placeholders) |
 
 ## Generate
 

@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.config import get_repo_root
+from labtrust_gym.pcs.manifest import validate_release_manifest
 from labtrust_gym.pcs.mock_certificate import CERTIFYEDGE_SOURCE_REPO, is_mock_certificate
+from labtrust_gym.pcs.deterministic import DETERMINISTIC_CERTIFICATE_ID
 from labtrust_gym.pcs.schema_version import assert_no_legacy_pf_bundle_keys
 from labtrust_gym.pcs.validate import (
     require_pcs_core,
@@ -35,9 +37,11 @@ def release_dir(policy_root: Path | None = None) -> Path:
 
 def release_fixture_present(root: Path | None = None) -> bool:
     directory = release_dir(root)
-    return (directory / "trace_certificate.json").is_file() and (
-        directory / "science_claim_bundle.certified.json"
-    ).is_file()
+    return (
+        (directory / "trace_certificate.json").is_file()
+        and (directory / "science_claim_bundle.certified.json").is_file()
+        and (directory / MANIFEST_NAME).is_file()
+    )
 
 
 def _load(directory: Path, name: str) -> dict[str, Any]:
@@ -88,6 +92,17 @@ def validate_release_fixtures(directory: Path | None = None) -> list[str]:
         )
     if certificate.get("source_repo") != CERTIFYEDGE_SOURCE_REPO:
         raise ValueError("release certificate source_repo must be CertifyEdge")
+    producer = str(certificate.get("producer", "")).lower()
+    if producer != "certifyedge":
+        raise ValueError(f"release certificate producer must be CertifyEdge, got {certificate.get('producer')!r}")
+    if certificate.get("certificate_id") == DETERMINISTIC_CERTIFICATE_ID:
+        raise ValueError("release certificate_id must not be LabTrust mock fixture id")
+
+    manifest_path = root / MANIFEST_NAME
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        validate_release_manifest(manifest)
+        ok.append(MANIFEST_NAME)
 
     th = receipt["trace_hash"]
     if trace["trace_hash"] != th:

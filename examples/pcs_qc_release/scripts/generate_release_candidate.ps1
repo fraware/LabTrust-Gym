@@ -20,6 +20,28 @@ $CertifyEdgeSpec = if ($env:CERTIFYEDGE_SPEC) {
 
 $Labtrust = Get-PcsTool "labtrust"
 $Python = Get-PcsTool "python"
+$Parent = Split-Path -Parent $Root
+
+$PcsExe = Join-Path $Root ".venv-pcs\Scripts\pcs.exe"
+$script:PcsInvokePrefix = $null
+if (-not (Test-Path $PcsExe)) {
+    $PcsCmd = Get-Command pcs -ErrorAction SilentlyContinue
+    if ($PcsCmd) {
+        $PcsExe = $PcsCmd.Source
+    } else {
+        $PcsExe = $Python
+        $script:PcsInvokePrefix = @("-m", "pcs_core.cli")
+    }
+}
+function Invoke-PcsValidate {
+    param([string]$ArtifactPath)
+    if ($script:PcsInvokePrefix) {
+        & $PcsExe @script:PcsInvokePrefix validate $ArtifactPath
+    } else {
+        & $PcsExe validate $ArtifactPath
+    }
+    if ($LASTEXITCODE -ne 0) { throw "pcs validate failed: $ArtifactPath" }
+}
 
 $CeCmd = Get-Command $CertifyEdgeBin -ErrorAction SilentlyContinue
 if (-not $CeCmd) {
@@ -42,7 +64,7 @@ New-Item -ItemType Directory -Force -Path $Work, $Release | Out-Null
     --spec $CertifyEdgeSpec `
     --trace (Join-Path $Work "trace.json") `
     --out (Join-Path $Work "trace_certificate.json")
-& $Pcs validate (Join-Path $Work "trace_certificate.json")
+Invoke-PcsValidate (Join-Path $Work "trace_certificate.json")
 & $CertifyEdgeBin verify-certificate (Join-Path $Work "trace_certificate.json") --trace (Join-Path $Work "trace.json")
 
 & $Labtrust attach-certificate `
@@ -61,26 +83,12 @@ New-Item -ItemType Directory -Force -Path $Work, $Release | Out-Null
 }
 
 $env:PCS_RELEASE_DIR = $Release
-& $Python -c @"
-import json, os
-from datetime import datetime, timezone
-from pathlib import Path
-release = Path(os.environ['PCS_RELEASE_DIR'])
-cert = json.loads((release / 'trace_certificate.json').read_text(encoding='utf-8'))
-manifest = {
-    'schema_version': 'v0',
-    'generated_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-    'generator': 'generate_release_candidate.ps1',
-    'mock_certificate': False,
-    'certifyedge_bin': os.environ.get('CERTIFYEDGE_BIN', 'certifyedge'),
-    'certifyedge_spec': os.environ.get('CERTIFYEDGE_SPEC', ''),
-    'certificate_id': cert.get('certificate_id'),
-    'certificate_source_repo': cert.get('source_repo'),
-}
-(release / 'manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-"@
+$env:PCS_MANIFEST_GENERATOR = "generate_release_candidate.ps1"
+$env:CERTIFYEDGE_ROOT = $CertifyEdgeRoot
+if (-not $env:PCS_CORE_PATH) { $env:PCS_CORE_PATH = Join-Path $Parent "pcs-core\python" }
+& $Python (Join-Path $PSScriptRoot "write_release_manifest.py")
 
-& $Pcs validate (Join-Path $Work "science_claim_bundle.certified.json")
+Invoke-PcsValidate (Join-Path $Work "science_claim_bundle.certified.json")
 & $Python (Join-Path $PSScriptRoot "verify_pcs_v01_chain.py") --work $Work --stage certified
 & $Python -c "from pathlib import Path; from labtrust_gym.pcs.release_fixtures import validate_release_fixtures; print('validated', validate_release_fixtures(Path(r'$Release')))"
 

@@ -57,26 +57,10 @@ for f in trace.json runtime_receipt.json trace_certificate.json \
   cp "$WORK/$f" "$RELEASE/$f"
 done
 
-python -c "
-import json
-from datetime import datetime, timezone
-from pathlib import Path
-import os
-release = Path('$RELEASE')
-cert = json.loads((release / 'trace_certificate.json').read_text(encoding='utf-8'))
-manifest = {
-    'schema_version': 'v0',
-    'generated_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-    'generator': 'generate_release_candidate.sh',
-    'mock_certificate': False,
-    'certifyedge_bin': os.environ.get('CERTIFYEDGE_BIN', 'certifyedge'),
-    'certifyedge_spec': os.environ.get('CERTIFYEDGE_SPEC', ''),
-    'certificate_id': cert.get('certificate_id'),
-    'certificate_source_repo': cert.get('source_repo'),
-}
-(release / 'manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-print('OK manifest.json')
-"
+export PCS_RELEASE_DIR="$RELEASE"
+export PCS_MANIFEST_GENERATOR="generate_release_candidate.sh"
+export CERTIFYEDGE_ROOT="$CERTIFYEDGE_ROOT"
+python "$ROOT/examples/pcs_qc_release/scripts/write_release_manifest.py"
 
 pcs validate "$WORK/science_claim_bundle.certified.json"
 python "$ROOT/examples/pcs_qc_release/scripts/verify_pcs_v01_chain.py" --work "$WORK" --stage certified

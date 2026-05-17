@@ -103,6 +103,7 @@ demo_video_out/
 /trace_certificate.json
 /verification_result.json
 /signed_science_claim_bundle.json
+/tmp_pcs_release_candidate/
 
 # Local env and secrets (do not commit)
 .env

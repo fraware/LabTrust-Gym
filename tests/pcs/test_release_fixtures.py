@@ -1,4 +1,4 @@
-"""Cross-repo release/ fixtures (real CertifyEdge certificate; optional in CI)."""
+"""Cross-repo release/ fixtures (real CertifyEdge certificate; required when release/ is committed)."""
 
 from __future__ import annotations
 
@@ -7,10 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from labtrust_gym.pcs.deterministic import DETERMINISTIC_CERT_DIGEST
+from labtrust_gym.pcs.deterministic import DETERMINISTIC_CERT_DIGEST, DETERMINISTIC_CERTIFICATE_ID
+from labtrust_gym.pcs.manifest import PLACEHOLDER_COMMITS, validate_release_manifest
 from labtrust_gym.pcs.mock_certificate import CERTIFYEDGE_SOURCE_REPO, is_mock_certificate
 from labtrust_gym.pcs.release_fixtures import (
-    release_dir,
+    MANIFEST_NAME,
     release_fixture_present,
     validate_release_fixtures,
 )
@@ -20,7 +21,7 @@ pcs_core = pytest.importorskip("pcs_core")
 
 pytestmark = pytest.mark.skipif(
     not release_fixture_present(),
-    reason="release/ fixtures not generated; run generate_release_candidate.sh with CertifyEdge",
+    reason="release/ fixtures not committed; run generate_release_candidate.sh with CertifyEdge",
 )
 
 
@@ -44,11 +45,15 @@ def test_mock_certificate_not_used_for_release_fixture(release_artifacts: Path) 
 def test_release_fixture_uses_real_certifyedge_certificate(release_artifacts: Path) -> None:
     cert = _load(release_artifacts, "trace_certificate.json")
     assert cert.get("source_repo") == CERTIFYEDGE_SOURCE_REPO
-    assert cert.get("checker") == "certifyedge"
-    manifest_path = release_artifacts / "manifest.json"
-    if manifest_path.is_file():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        assert manifest.get("mock_certificate") is False
+    assert str(cert.get("producer", "")).lower() == "certifyedge"
+    assert cert.get("signature_or_digest") != DETERMINISTIC_CERT_DIGEST
+    assert cert.get("certificate_id") != DETERMINISTIC_CERTIFICATE_ID
+
+    manifest = _load(release_artifacts, MANIFEST_NAME)
+    assert manifest.get("mock_certificate") is False
+    validate_release_manifest(manifest)
+    for key in ("labtrust_gym_commit", "certifyedge_commit", "pcs_core_commit"):
+        assert manifest[key] not in PLACEHOLDER_COMMITS
 
 
 def test_release_certified_bundle_validates_against_pcs_core(release_artifacts: Path) -> None:
@@ -78,3 +83,4 @@ def test_release_certified_bundle_trace_hash_matches_receipt(release_artifacts: 
 def test_release_fixtures_validate_helper(release_artifacts: Path) -> None:
     names = validate_release_fixtures(release_artifacts)
     assert "science_claim_bundle.certified.json" in names
+    assert MANIFEST_NAME in names

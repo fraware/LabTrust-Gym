@@ -51,6 +51,21 @@ jobs:
         run: python -m pytest tests/pcs -q
       - name: Strict pcs-core validate exported artifacts + committed goldens
         run: python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
+      - name: Validate committed release fixtures (pcs-core)
+        run: |
+          RELEASE=examples/pcs_qc_release/release
+          test -f "$RELEASE/manifest.json"
+          pcs validate "$RELEASE/runtime_receipt.json"
+          pcs validate "$RELEASE/trace_certificate.json"
+          pcs validate "$RELEASE/science_claim_bundle.pending.json"
+          pcs validate "$RELEASE/science_claim_bundle.certified.json"
+          python examples/pcs_qc_release/scripts/verify_pcs_v01_chain.py \
+            --work "$RELEASE" --stage certified
+          python -c "
+          from pathlib import Path
+          from labtrust_gym.pcs.release_fixtures import validate_release_fixtures
+          print('OK', validate_release_fixtures(Path('$RELEASE')))
+          "
       - name: LabTrust-only smoke (deterministic)
         run: bash examples/pcs_qc_release/scripts/labtrust_only_smoke.sh
       - name: Invalid scenarios export receipts
