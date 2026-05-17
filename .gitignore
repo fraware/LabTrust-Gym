@@ -104,6 +104,7 @@ demo_video_out/
 /verification_result.json
 /signed_science_claim_bundle.json
 /tmp_pcs_release_candidate/
+/examples/pcs_qc_release/release-run/
 
 # Local env and secrets (do not commit)
 .env

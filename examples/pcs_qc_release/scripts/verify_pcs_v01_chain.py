@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
 from labtrust_gym.pcs.mock_certificate import is_mock_certificate
-from labtrust_gym.pcs.release_fixtures import validate_release_fixtures
+from labtrust_gym.pcs.release_run import validate_certificate_id_chain
 from labtrust_gym.pcs.schema_version import assert_no_legacy_pf_bundle_keys
 from labtrust_gym.pcs.validate import (
     require_pcs_core,
@@ -92,6 +92,7 @@ def validate_full_chain(work: Path) -> list[str]:
         validate_artifact(doc)
         ok.append(name)
 
+    validate_certificate_id_chain(work)
     return ok
 
 

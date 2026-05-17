@@ -9,6 +9,12 @@ from typing import Any
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.manifest import validate_release_manifest
 from labtrust_gym.pcs.release_provenance import validate_release_artifact_provenance
+from labtrust_gym.pcs.release_run import (
+    HANDOFF_FOR_PF_NAME,
+    RELEASE_HANDOFF_MANIFEST_NAME,
+    validate_certificate_id_chain,
+    validate_handoff_directory,
+)
 from labtrust_gym.pcs.mock_certificate import CERTIFYEDGE_SOURCE_REPO, is_mock_certificate
 from labtrust_gym.pcs.deterministic import DETERMINISTIC_CERTIFICATE_ID
 from labtrust_gym.pcs.schema_version import assert_no_legacy_pf_bundle_keys
@@ -165,6 +171,20 @@ def validate_release_fixtures(directory: Path | None = None) -> list[str]:
         raise ValueError("release certificate trace_hash != runtime_receipt.trace_hash")
     if certified["certificates"][0]["trace_hash"] != th:
         raise ValueError("release certified bundle certificate trace_hash mismatch")
+
+    handoff_root = root / "handoff"
+    if handoff_root.is_dir():
+        validate_handoff_directory(handoff_root)
+        ok.append("handoff/")
+        if (handoff_root / HANDOFF_FOR_PF_NAME).is_file():
+            ok.append(f"handoff/{HANDOFF_FOR_PF_NAME}")
+        if (handoff_root / RELEASE_HANDOFF_MANIFEST_NAME).is_file():
+            ok.append(f"handoff/{RELEASE_HANDOFF_MANIFEST_NAME}")
+
+    signed = root / "signed_science_claim_bundle.json"
+    if signed.is_file():
+        validate_certificate_id_chain(root)
+        ok.append("signed_science_claim_bundle.json")
 
     for name in RELEASE_ARTIFACTS:
         ok.append(name)
