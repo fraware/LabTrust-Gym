@@ -12,6 +12,7 @@ from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.deterministic import DETERMINISTIC_CERT_DIGEST, DETERMINISTIC_CERTIFICATE_ID
 from labtrust_gym.pcs.manifest import PLACEHOLDER_COMMITS, resolve_pcs_core_root
 from labtrust_gym.pcs.mock_certificate import is_mock_certificate
+from labtrust_gym.pcs.provenance import LOCAL_DEV_COMMIT
 from labtrust_gym.pcs.release_handoff import (
     build_canonical_release_manifest,
     build_pf_handoff,
@@ -162,8 +163,16 @@ def _iter_source_commits(obj: Any, *, path: str = "") -> Iterator[tuple[str, str
             yield from _iter_source_commits(item, path=f"{path}[{i}]")
 
 
-def assert_release_not_using_mock_or_placeholder(release_root: Path) -> None:
-    """Release evidence must not contain mock certificates or placeholder provenance."""
+def _release_scan_json_paths(release_root: Path) -> tuple[str, ...]:
+    return HANDOFF_ARTIFACTS + (
+        "verification_result.json",
+        "signed_science_claim_bundle.json",
+        "scientific_memory_import_report.json",
+    )
+
+
+def assert_release_not_using_mock_certificate(release_root: Path) -> None:
+    """Release ``trace_certificate.json`` and embedded certs must not use LabTrust mock IDs."""
     release_root = release_root.resolve()
     cert = _load(release_root / "trace_certificate.json")
     if is_mock_certificate(cert):
@@ -178,12 +187,24 @@ def assert_release_not_using_mock_or_placeholder(release_root: Path) -> None:
         if embedded.get("certificate_id") == DETERMINISTIC_CERTIFICATE_ID:
             raise ValueError(f"certified.certificates[{i}] must not use mock certificate_id")
 
-    scan_names = HANDOFF_ARTIFACTS + (
-        "verification_result.json",
-        "signed_science_claim_bundle.json",
-        "scientific_memory_import_report.json",
-    )
-    for name in scan_names:
+
+def assert_release_not_using_deterministic_cert_digest(release_root: Path) -> None:
+    """Release certificate digests must not be the LabTrust deterministic mock value."""
+    release_root = release_root.resolve()
+    cert = _load(release_root / "trace_certificate.json")
+    if cert.get("signature_or_digest") == DETERMINISTIC_CERT_DIGEST:
+        raise ValueError("release/trace_certificate.json: deterministic mock digest")
+
+    certified = _load(release_root / "science_claim_bundle.certified.json")
+    for i, embedded in enumerate(certified.get("certificates", [])):
+        if embedded.get("signature_or_digest") == DETERMINISTIC_CERT_DIGEST:
+            raise ValueError(f"certified.certificates[{i}]: deterministic mock digest")
+
+
+def assert_release_not_using_placeholder_commits(release_root: Path) -> None:
+    """Release artifacts must not use golden-only or local-dev placeholder source_commit values."""
+    release_root = release_root.resolve()
+    for name in _release_scan_json_paths(release_root):
         path = release_root / name
         if not path.is_file():
             continue
@@ -191,8 +212,40 @@ def assert_release_not_using_mock_or_placeholder(release_root: Path) -> None:
         for field_path, commit in _iter_source_commits(doc):
             if commit in PLACEHOLDER_COMMITS:
                 raise ValueError(f"{name} {field_path}: placeholder source_commit {commit!r}")
-        if name == "trace_certificate.json" and doc.get("signature_or_digest") == DETERMINISTIC_CERT_DIGEST:
-            raise ValueError(f"{name}: deterministic mock digest")
+
+
+def assert_release_not_using_local_dev(release_root: Path) -> None:
+    """Release evidence must not mark local_dev or use the local-dev source_commit sentinel."""
+    release_root = release_root.resolve()
+    for name in _release_scan_json_paths(release_root):
+        path = release_root / name
+        if not path.is_file():
+            continue
+        doc = _load(path)
+        for field_path, commit in _iter_source_commits(doc):
+            if commit == LOCAL_DEV_COMMIT:
+                raise ValueError(f"{name} {field_path}: local-dev source_commit")
+        _assert_no_local_dev_flag(doc, name)
+
+
+def _assert_no_local_dev_flag(obj: Any, artifact_name: str, *, path: str = "") -> None:
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            child = f"{path}.{key}" if path else key
+            if key == "local_dev" and value is True:
+                raise ValueError(f"{artifact_name} {child}: local_dev must not be true in release/")
+            _assert_no_local_dev_flag(value, artifact_name, path=child)
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            _assert_no_local_dev_flag(item, artifact_name, path=f"{path}[{i}]")
+
+
+def assert_release_not_using_mock_or_placeholder(release_root: Path) -> None:
+    """Release evidence must not contain mock certificates, placeholders, or local-dev markers."""
+    assert_release_not_using_mock_certificate(release_root)
+    assert_release_not_using_deterministic_cert_digest(release_root)
+    assert_release_not_using_placeholder_commits(release_root)
+    assert_release_not_using_local_dev(release_root)
 
 
 def assert_manifest_matches_pcs_core_fixture_manifest(
