@@ -10,20 +10,28 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-from labtrust_gym.pcs.manifest import build_release_manifest
+import json
+
+from labtrust_gym.pcs.release_handoff import build_canonical_release_manifest, build_pf_handoff
+from labtrust_gym.pcs.release_run import RELEASE_HANDOFF_MANIFEST_NAME
 
 
 def main() -> int:
     release = Path(os.environ.get("PCS_RELEASE_DIR", ROOT / "examples/pcs_qc_release/release"))
-    build_release_manifest(
+    handoff_manifest_path = release / "handoff" / RELEASE_HANDOFF_MANIFEST_NAME
+    if not handoff_manifest_path.is_file():
+        handoff_manifest_path = release / RELEASE_HANDOFF_MANIFEST_NAME
+    handoff_manifest = json.loads(handoff_manifest_path.read_text(encoding="utf-8"))
+    manifest = build_canonical_release_manifest(
         release,
+        handoff_manifest,
         generator=os.environ.get("PCS_MANIFEST_GENERATOR", "write_release_manifest.py"),
         certifyedge_bin=os.environ.get("CERTIFYEDGE_BIN", "certifyedge"),
         certifyedge_spec=os.environ.get("CERTIFYEDGE_SPEC", ""),
-        certifyedge_root=Path(os.environ["CERTIFYEDGE_ROOT"]) if os.environ.get("CERTIFYEDGE_ROOT") else None,
-        labtrust_root=ROOT,
     )
+    build_pf_handoff(release, manifest)
     print("OK manifest.json")
+    print("OK pf_handoff.json")
     return 0
 
 

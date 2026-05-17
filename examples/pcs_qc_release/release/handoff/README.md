@@ -4,8 +4,11 @@ Provability Fabric must sign **only** the certified bundle in this directory.
 
 Before `pf sign science-claim`, confirm:
 
-1. `handoff_for_pf.json` `expected_certificate_id` equals `science_claim_bundle.certified.json` → `certificates[0].certificate_id`.
-2. `RELEASE_HANDOFF_MANIFEST.json` artifact digests match the files in this directory.
+1. `../pf_handoff.json` `certified_bundle_hash` matches the SHA-256 of `science_claim_bundle.certified.json` in this directory.
+2. `handoff_for_pf.json` `expected_certificate_id` equals `science_claim_bundle.certified.json` → `certificates[0].certificate_id`.
+3. `RELEASE_HANDOFF_MANIFEST.json` artifact digests match the files in this directory.
+
+Run `python examples/pcs_qc_release/scripts/verify_release_handoff.py` from the LabTrust-Gym root before copying into pcs-core.
 
 Example (from a sibling `provability-fabric` checkout):
 
