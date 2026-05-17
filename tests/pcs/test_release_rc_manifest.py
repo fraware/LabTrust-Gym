@@ -62,17 +62,20 @@ def test_release_manifest_matches_pcs_core_rc(release_dir: Path, pcs_core_canoni
 def test_pf_handoff_matches_release_manifest(release_dir: Path) -> None:
     assert_pf_handoff_matches_release_manifest(release_dir)
     manifest = _load(release_dir, MANIFEST_NAME)
-    pf = _load(release_dir, PF_HANDOFF_NAME)
-    assert pf["certified_bundle"] == "science_claim_bundle.certified.json"
-    assert pf["certificate_id"] == manifest["certificate_id"]
-    assert pf["certified_bundle_hash"] == manifest["certified_bundle_hash"]
-    assert pf["trace_hash"] == manifest["trace_hash"]
+    handoff = _load(release_dir, PF_HANDOFF_NAME)
+    inv = handoff["invariants"]
+    assert handoff["handoff_kind"] == "bundle_to_verifier"
+    assert inv["certificate_id"] == manifest["certificate_id"]
+    assert inv["certified_bundle_hash"] == manifest["certified_bundle_hash"]
+    assert inv["trace_hash"] == manifest["trace_hash"]
 
 
 def test_pf_handoff_matches_certified_bundle(release_dir: Path) -> None:
-    pf = _load(release_dir, PF_HANDOFF_NAME)
-    certified_path = release_dir / pf["certified_bundle"]
-    assert pf["certified_bundle_hash"] == file_content_digest(certified_path)
+    handoff = _load(release_dir, PF_HANDOFF_NAME)
+    certified_path = release_dir / "science_claim_bundle.certified.json"
+    digest = file_content_digest(certified_path)
+    assert handoff["invariants"]["certified_bundle_hash"] == digest
+    assert handoff["input_artifacts"]["science_claim_bundle.certified.json"]["sha256"] == digest
 
 
 def test_pf_handoff_certificate_id_matches_trace_certificate(release_dir: Path) -> None:
@@ -122,24 +125,20 @@ def test_sync_from_pcs_core_rc_is_idempotent(
 ) -> None:
     """Two syncs from the same canonical tree produce identical handoff artifact bytes."""
     work = tmp_path / "lt_work"
-    shutil.copytree(repo_root, work, ignore=shutil.ignore_patterns(".git", ".venv*", "tmp_*"))
+    work.mkdir()
     release_rel = Path("examples/pcs_qc_release/release")
-    backup = tmp_path / "release_backup"
-    if (work / release_rel).is_dir():
-        shutil.copytree(work / release_rel, backup)
+    src_release = repo_root / release_rel
+    shutil.copytree(src_release, work / release_rel)
+    for name in ("src", "policy"):
+        src = repo_root / name
+        if src.is_dir():
+            shutil.copytree(src, work / name)
 
-    try:
-        first = sync_release_from_pcs_core_rc(labtrust_root=work, canonical=pcs_core_canonical)
-        digests_first = {name: file_content_digest(first / name) for name in HANDOFF_ARTIFACTS}
-        second = sync_release_from_pcs_core_rc(labtrust_root=work, canonical=pcs_core_canonical)
-        digests_second = {name: file_content_digest(second / name) for name in HANDOFF_ARTIFACTS}
-        assert digests_first == digests_second
-    finally:
-        if backup.is_dir():
-            dest = work / release_rel
-            if dest.exists():
-                shutil.rmtree(dest)
-            shutil.copytree(backup, dest)
+    first = sync_release_from_pcs_core_rc(labtrust_root=work, canonical=pcs_core_canonical)
+    digests_first = {name: file_content_digest(first / name) for name in HANDOFF_ARTIFACTS}
+    second = sync_release_from_pcs_core_rc(labtrust_root=work, canonical=pcs_core_canonical)
+    digests_second = {name: file_content_digest(second / name) for name in HANDOFF_ARTIFACTS}
+    assert digests_first == digests_second
 
 
 @pytest.mark.parametrize("bundle_name", ("science_claim_bundle.pending.json", "science_claim_bundle.certified.json"))

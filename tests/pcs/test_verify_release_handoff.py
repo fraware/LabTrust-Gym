@@ -27,7 +27,7 @@ def release_root(release_dir: Path) -> Path:
 def test_verify_release_handoff_passes_on_committed_fixtures(release_root: Path) -> None:
     checks = verify_release_handoff(release_root)
     assert "certificate_id_propagation" in checks
-    assert "pf_handoff" in checks
+    assert "handoff_to_pf" in checks
 
 
 def test_verify_release_handoff_rejects_stale_cert_ref(release_root: Path, tmp_path: Path) -> None:
@@ -47,5 +47,5 @@ def test_manifest_includes_artifact_hashes(release_root: Path) -> None:
     assert "artifacts" in manifest
     assert len(manifest["artifacts"]) >= 5
     assert manifest.get("certified_bundle_hash", "").startswith("sha256:")
-    pf = json.loads((release_root / PF_HANDOFF_NAME).read_text(encoding="utf-8"))
-    assert pf["certified_bundle_hash"] == manifest["certified_bundle_hash"]
+    handoff = json.loads((release_root / PF_HANDOFF_NAME).read_text(encoding="utf-8"))
+    assert handoff["invariants"]["certified_bundle_hash"] == manifest["certified_bundle_hash"]

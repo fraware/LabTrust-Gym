@@ -34,10 +34,27 @@ python -m labtrust_gym.pcs.sync_pcs_core_rc \
   --pcs-core ../pcs-core/examples/labtrust-release
 ```
 
-This checks artifact hashes, commits, `pf_handoff.json` alignment, certificate/trace hash linkage,
-and rejects mock certificates or placeholder `source_commit` values.
+This checks artifact hashes, commits, `handoff_to_pf.json` (HandoffManifest.v0) alignment,
+`labtrust_release_fragment.json`, certificate/trace hash linkage, and rejects mock certificates
+or placeholder `source_commit` values.
+
+Legacy `pf_handoff.json` must not be present.
+
+## Protocol artifacts (Phase 2)
+
+| File | PCS type |
+|------|----------|
+| `handoff_to_pf.json` | HandoffManifest.v0 (LabTrust → Provability Fabric) |
+| `labtrust_release_fragment.json` | LabTrustReleaseFragment.v0 (LabTrust component pins) |
+
+```bash
+labtrust emit-handoff --kind bundle-to-verifier \
+  --bundle examples/pcs_qc_release/release/science_claim_bundle.certified.json \
+  --out examples/pcs_qc_release/release/handoff_to_pf.json --release-mode
+labtrust emit-release-fragment --release-dir examples/pcs_qc_release/release
+```
 
 ## PF signing
 
-Use `handoff/science_claim_bundle.certified.json` and confirm `pf_handoff.json` before
+Use `handoff/science_claim_bundle.certified.json` and confirm `handoff_to_pf.json` before
 `pf sign science-claim`.

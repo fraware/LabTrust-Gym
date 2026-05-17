@@ -31,7 +31,7 @@ def main() -> int:
     )
     build_pf_handoff(release, manifest)
     print("OK manifest.json")
-    print("OK pf_handoff.json")
+    print("OK handoff_to_pf.json")
     return 0
 
 

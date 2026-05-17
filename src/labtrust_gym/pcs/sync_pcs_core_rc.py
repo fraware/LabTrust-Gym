@@ -13,6 +13,9 @@ from labtrust_gym.pcs.deterministic import DETERMINISTIC_CERT_DIGEST, DETERMINIS
 from labtrust_gym.pcs.manifest import PLACEHOLDER_COMMITS, resolve_pcs_core_root
 from labtrust_gym.pcs.mock_certificate import is_mock_certificate
 from labtrust_gym.pcs.provenance import LOCAL_DEV_COMMIT
+from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_PF_NAME
+from labtrust_gym.pcs.release_fragment import LABTRUST_RELEASE_FRAGMENT_NAME
+from labtrust_gym.pcs.release_protocol import assert_release_phase2_protocol_artifacts
 from labtrust_gym.pcs.release_handoff import (
     build_canonical_release_manifest,
     build_pf_handoff,
@@ -165,6 +168,8 @@ def _iter_source_commits(obj: Any, *, path: str = "") -> Iterator[tuple[str, str
 
 def _release_scan_json_paths(release_root: Path) -> tuple[str, ...]:
     return HANDOFF_ARTIFACTS + (
+        HANDOFF_TO_PF_NAME,
+        LABTRUST_RELEASE_FRAGMENT_NAME,
         "verification_result.json",
         "signed_science_claim_bundle.json",
         "scientific_memory_import_report.json",
@@ -295,9 +300,11 @@ def verify_release_sync_gate(
     assert_release_not_using_mock_or_placeholder(local)
     checks.append("no_mock_or_placeholder_provenance")
 
+    checks.extend(assert_release_phase2_protocol_artifacts(local))
+
     checks.extend(verify_release_handoff(local))
     assert_pf_handoff_matches_release_manifest(local)
-    checks.append("pf_handoff_matches_manifest")
+    checks.append("handoff_to_pf_matches_manifest")
 
     if canonical is not None:
         canon = canonical.resolve()
@@ -329,7 +336,7 @@ def sync_release_from_pcs_core_rc(
     """
     Atomically replace LabTrust ``release/`` handoff + flat artifacts from pcs-core canonical dir.
 
-    Rebuilds ``manifest.json``, ``pf_handoff.json``, and ``handoff/`` metadata from synced bytes.
+    Rebuilds ``manifest.json``, ``handoff_to_pf.json``, and ``handoff/`` metadata from synced bytes.
     """
     from labtrust_gym.pcs.release_fixtures import write_trace_hash_alignment
 

@@ -6,6 +6,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+from labtrust_gym.pcs.handoff_manifest import (
+    CERTIFIED_BUNDLE_NAME,
+    HANDOFF_TO_PF_NAME,
+    assert_handoff_manifest_valid,
+    build_handoff_to_pf_from_release,
+)
+from labtrust_gym.pcs.release_fragment import (
+    LABTRUST_RELEASE_FRAGMENT_NAME,
+    emit_labtrust_release_fragment,
+)
 from labtrust_gym.pcs.manifest import validate_release_manifest
 from labtrust_gym.pcs.mock_certificate import CERTIFYEDGE_SOURCE_REPO
 from labtrust_gym.pcs.release_provenance import (
@@ -16,12 +26,11 @@ from labtrust_gym.pcs.release_provenance import (
 from labtrust_gym.pcs.release_run import (
     HANDOFF_ARTIFACTS,
     file_content_digest,
-    certified_bundle_ids,
 )
 
-CERTIFIED_BUNDLE_NAME = "science_claim_bundle.certified.json"
 MANIFEST_NAME = "manifest.json"
-PF_HANDOFF_NAME = "pf_handoff.json"
+# Legacy alias retained for tests/docs migrating from pf_handoff.json
+PF_HANDOFF_NAME = HANDOFF_TO_PF_NAME
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -78,17 +87,13 @@ def build_canonical_release_manifest(
 
 
 def build_pf_handoff(release_root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
-    """Write ``release/pf_handoff.json`` for Provability Fabric bundle-hash guard."""
-    doc = {
-        "schema_version": "v0",
-        "certified_bundle": CERTIFIED_BUNDLE_NAME,
-        "certified_bundle_hash": manifest["certified_bundle_hash"],
-        "certificate_id": manifest["certificate_id"],
-        "trace_hash": manifest["trace_hash"],
-    }
-    path = release_root / PF_HANDOFF_NAME
-    path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return doc
+    """Write ``release/handoff_to_pf.json`` (HandoffManifest.v0)."""
+    handoff = build_handoff_to_pf_from_release(release_root, manifest)
+    emit_labtrust_release_fragment(
+        release_dir=release_root,
+        source_commit=manifest.get("labtrust_gym_commit"),
+    )
+    return handoff
 
 
 def _assert_certificate_id_propagation(release_root: Path, certificate_id: str) -> None:
@@ -142,48 +147,79 @@ def _assert_manifest_artifact_digests(release_root: Path, manifest: dict[str, An
             raise ValueError(f"manifest artifact digest mismatch for {name}")
 
 
-def assert_pf_handoff_certificate_id_matches_trace_certificate(release_root: Path) -> None:
-    """``pf_handoff.certificate_id`` matches ``trace_certificate.json`` and certified bundle."""
+def _load_handoff_to_pf(release_root: Path) -> dict[str, Any]:
+    path = release_root / HANDOFF_TO_PF_NAME
+    if not path.is_file():
+        raise FileNotFoundError(f"missing {HANDOFF_TO_PF_NAME}")
+    doc = _load(path)
+    assert_handoff_manifest_valid(doc)
+    return doc
+
+
+def assert_handoff_to_pf_certificate_id_matches_trace_certificate(release_root: Path) -> None:
+    """HandoffManifest invariants.certificate_id matches trace and certified bundle."""
     root = release_root.resolve()
-    pf = _load(root / PF_HANDOFF_NAME)
+    handoff = _load_handoff_to_pf(root)
+    certificate_id = handoff["invariants"]["certificate_id"]
     certificate = _load(root / "trace_certificate.json")
-    if pf["certificate_id"] != certificate["certificate_id"]:
-        raise ValueError("pf_handoff.certificate_id != trace_certificate.certificate_id")
+    if certificate["certificate_id"] != certificate_id:
+        raise ValueError("handoff invariants.certificate_id != trace_certificate.certificate_id")
     certified = _load(root / CERTIFIED_BUNDLE_NAME)
-    if certified["certificates"][0]["certificate_id"] != pf["certificate_id"]:
-        raise ValueError("pf_handoff.certificate_id != certified.certificates[0].certificate_id")
+    if certified["certificates"][0]["certificate_id"] != certificate_id:
+        raise ValueError("handoff invariants.certificate_id != certified.certificates[0].certificate_id")
 
 
-def assert_pf_handoff_trace_hash_matches_runtime_receipt(release_root: Path) -> None:
-    """``pf_handoff.trace_hash`` matches trace, receipt, certificate, and certified bundle."""
+def assert_handoff_to_pf_trace_hash_matches_runtime_receipt(release_root: Path) -> None:
+    """HandoffManifest invariants.trace_hash matches runtime receipt and chain."""
     root = release_root.resolve()
-    pf = _load(root / PF_HANDOFF_NAME)
-    trace_hash = pf["trace_hash"]
+    handoff = _load_handoff_to_pf(root)
+    trace_hash = handoff["invariants"]["trace_hash"]
     receipt = _load(root / "runtime_receipt.json")
     if receipt["trace_hash"] != trace_hash:
-        raise ValueError("pf_handoff.trace_hash != runtime_receipt.trace_hash")
+        raise ValueError("handoff invariants.trace_hash != runtime_receipt.trace_hash")
     _assert_trace_hash_stable(root, trace_hash)
 
 
+def assert_handoff_to_pf_bundle_hash_matches_certified_bundle(release_root: Path) -> None:
+    """HandoffManifest input artifact and invariant hashes match certified bundle file."""
+    root = release_root.resolve()
+    handoff = _load_handoff_to_pf(root)
+    bundle_path = root / CERTIFIED_BUNDLE_NAME
+    on_disk = file_content_digest(bundle_path)
+    entry = handoff["input_artifacts"][CERTIFIED_BUNDLE_NAME]
+    if entry["sha256"] != on_disk:
+        raise ValueError("handoff input_artifacts certified bundle sha256 != file digest")
+    if handoff["invariants"]["certified_bundle_hash"] != on_disk:
+        raise ValueError("handoff invariants.certified_bundle_hash != certified bundle file digest")
+
+
+# Backward-compatible aliases for RC gate tests
+assert_pf_handoff_certificate_id_matches_trace_certificate = (
+    assert_handoff_to_pf_certificate_id_matches_trace_certificate
+)
+assert_pf_handoff_trace_hash_matches_runtime_receipt = assert_handoff_to_pf_trace_hash_matches_runtime_receipt
+
+
 def assert_pf_handoff_matches_release_manifest(release_root: Path | None = None) -> None:
-    """``pf_handoff.json`` certificate_id, certified_bundle_hash, and trace_hash match ``manifest.json``."""
+    """``handoff_to_pf.json`` invariants match ``manifest.json``."""
     from labtrust_gym.pcs.release_fixtures import release_dir
 
     root = (release_root or release_dir()).resolve()
     manifest = _load(root / MANIFEST_NAME)
-    _assert_pf_handoff_matches_manifest(root, manifest)
+    _assert_handoff_to_pf_matches_manifest(root, manifest)
 
 
-def _assert_pf_handoff_matches_manifest(release_root: Path, manifest: dict[str, Any]) -> None:
-    pf_path = release_root / PF_HANDOFF_NAME
-    if not pf_path.is_file():
-        raise FileNotFoundError(f"missing {PF_HANDOFF_NAME}")
-    pf = _load(pf_path)
-    if pf.get("certified_bundle") != CERTIFIED_BUNDLE_NAME:
-        raise ValueError("pf_handoff.certified_bundle must be science_claim_bundle.certified.json")
+def _assert_handoff_to_pf_matches_manifest(release_root: Path, manifest: dict[str, Any]) -> None:
+    handoff = _load_handoff_to_pf(release_root)
+    invariants = handoff.get("invariants") or {}
     for key in ("certified_bundle_hash", "certificate_id", "trace_hash"):
-        if pf.get(key) != manifest.get(key):
-            raise ValueError(f"pf_handoff.{key} != manifest.{key}")
+        if invariants.get(key) != manifest.get(key):
+            raise ValueError(f"handoff.invariants.{key} != manifest.{key}")
+    certified_entry = handoff["input_artifacts"].get(CERTIFIED_BUNDLE_NAME) or {}
+    if certified_entry.get("sha256") != manifest.get("certified_bundle_hash"):
+        raise ValueError("handoff input certified bundle sha256 != manifest.certified_bundle_hash")
+    if handoff.get("handoff_kind") != "bundle_to_verifier":
+        raise ValueError("handoff_to_pf handoff_kind must be bundle_to_verifier")
 
 
 def verify_release_handoff(release_root: Path | None = None) -> list[str]:
@@ -229,7 +265,21 @@ def verify_release_handoff(release_root: Path | None = None) -> list[str]:
     if manifest.get("certified_bundle_hash") != certified_hash:
         raise ValueError("manifest.certified_bundle_hash != science_claim_bundle.certified.json digest")
 
-    _assert_pf_handoff_matches_manifest(root, manifest)
+    _assert_handoff_to_pf_matches_manifest(root, manifest)
+    assert_handoff_to_pf_bundle_hash_matches_certified_bundle(root)
+
+    fragment_path = root / LABTRUST_RELEASE_FRAGMENT_NAME
+    if fragment_path.is_file():
+        from labtrust_gym.pcs.release_fragment import (
+            assert_release_fragment_source_commit_matches_artifacts,
+            assert_release_fragment_valid,
+        )
+
+        fragment = _load(fragment_path)
+        assert_release_fragment_valid(fragment)
+        assert_release_fragment_source_commit_matches_artifacts(root, fragment)
+        if fragment.get("source_commit") != lt:
+            raise ValueError("labtrust_release_fragment.source_commit != manifest.labtrust_gym_commit")
 
     handoff_manifest_path = root / "handoff" / "RELEASE_HANDOFF_MANIFEST.json"
     if handoff_manifest_path.is_file():
@@ -244,5 +294,6 @@ def verify_release_handoff(release_root: Path | None = None) -> list[str]:
         "trace_hash_alignment",
         "manifest_artifact_digests",
         "certified_bundle_hash",
-        "pf_handoff",
+        "handoff_to_pf",
+        "labtrust_release_fragment",
     ]

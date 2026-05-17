@@ -64,7 +64,20 @@ python -m labtrust_gym.pcs.sync_pcs_core_rc \
   --pcs-core ../pcs-core/examples/labtrust-release
 ```
 
-Before Provability Fabric signing, confirm `release/pf_handoff.json` matches `release/manifest.json` (`certified_bundle_hash`, `certificate_id`, `trace_hash`) and sign `release/handoff/science_claim_bundle.certified.json`.
+Before Provability Fabric signing, confirm `release/handoff_to_pf.json` (HandoffManifest.v0) matches `release/manifest.json` invariants and sign `release/handoff/science_claim_bundle.certified.json`.
+
+```bash
+labtrust emit-handoff \
+  --kind bundle-to-verifier \
+  --bundle examples/pcs_qc_release/release/science_claim_bundle.certified.json \
+  --out examples/pcs_qc_release/release/handoff_to_pf.json \
+  --release-mode
+
+labtrust emit-release-fragment \
+  --release-dir examples/pcs_qc_release/release
+```
+
+`handoff_to_pf.json` is **HandoffManifest.v0** (replaces legacy `pf_handoff.json`). `labtrust_release_fragment.json` is the LabTrust-owned portion of **ReleaseManifest.v0** for pcs-core aggregation (not the global cross-repo manifest).
 
 See also `examples/pcs_qc_release/release/README.md`.
 
