@@ -12,12 +12,8 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.pcs.attach_certificate import attach_trace_certificate
-from labtrust_gym.pcs.deterministic import (
-    DETERMINISTIC_CERT_DIGEST,
-    DETERMINISTIC_CERT_SOURCE_COMMIT,
-    DETERMINISTIC_CERTIFICATE_ID,
-    deterministic_mode,
-)
+from labtrust_gym.pcs.deterministic import deterministic_mode
+from labtrust_gym.pcs.mock_certificate import MOCK_CERTIFICATE_BASENAME, build_mock_trace_certificate
 from labtrust_gym.pcs.demo import run_demo
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
 from labtrust_gym.pcs.schema_version import LEGACY_PF_BUNDLE_TOP_LEVEL_KEYS, assert_no_legacy_pf_bundle_keys
@@ -34,26 +30,6 @@ RELEASE_GOLDEN_PCS_FILES = (
 
 def _load_expected(expected_dir: Path, name: str) -> dict:
     return json.loads((expected_dir / name).read_text(encoding="utf-8"))
-
-
-def _demo_certificate(receipt: dict) -> dict:
-    return {
-        "certificate_id": DETERMINISTIC_CERTIFICATE_ID,
-        "schema_version": "v0",
-        "trace_hash": receipt["trace_hash"],
-        "spec_hash": receipt["input_hashes"]["workflow"],
-        "property_id": "pcs.qc_release.protocol_safety",
-        "checker": "certifyedge",
-        "checker_version": "0.1.0",
-        "status": "CertificateChecked",
-        "counterexample_ref": None,
-        "created_at": receipt["ended_at"],
-        "producer": "certifyedge",
-        "producer_version": "0.1.0",
-        "source_repo": "https://github.com/fraware/CertifyEdge",
-        "source_commit": DETERMINISTIC_CERT_SOURCE_COMMIT,
-        "signature_or_digest": DETERMINISTIC_CERT_DIGEST,
-    }
 
 
 def test_runtime_receipt_validates_against_pcs_core(valid_run: Path, tmp_path: Path) -> None:
@@ -73,7 +49,7 @@ def test_pending_bundle_validates_against_pcs_core(valid_run: Path, tmp_path: Pa
 def test_certified_bundle_validates_against_pcs_core(valid_run: Path, tmp_path: Path) -> None:
     require_pcs_core()
     pending = export_pcs_bundle(valid_run, tmp_path / "pending.json")
-    certified = attach_trace_certificate(pending, _demo_certificate(pending["runtime_receipts"][0]))
+    certified = attach_trace_certificate(pending, build_mock_trace_certificate(pending["runtime_receipts"][0]))
     validate_science_claim_bundle(certified)
     pcs_core.validate.validate_artifact(certified)
 
@@ -96,7 +72,7 @@ def test_bundle_uses_runtime_receipts_array(valid_run: Path, tmp_path: Path) -> 
 def test_bundle_uses_certificates_array(valid_run: Path, tmp_path: Path) -> None:
     pending = export_pcs_bundle(valid_run, tmp_path / "pending.json")
     assert isinstance(pending["certificates"], list)
-    certified = attach_trace_certificate(pending, _demo_certificate(pending["runtime_receipts"][0]))
+    certified = attach_trace_certificate(pending, build_mock_trace_certificate(pending["runtime_receipts"][0]))
     assert isinstance(certified["certificates"], list)
     assert len(certified["certificates"]) == 1
 
@@ -106,7 +82,7 @@ def test_bundle_does_not_emit_legacy_singular_fields(valid_run: Path, tmp_path: 
     assert_no_legacy_pf_bundle_keys(pending)
     for key in LEGACY_PF_BUNDLE_TOP_LEVEL_KEYS:
         assert key not in pending
-    certified = attach_trace_certificate(pending, _demo_certificate(pending["runtime_receipts"][0]))
+    certified = attach_trace_certificate(pending, build_mock_trace_certificate(pending["runtime_receipts"][0]))
     assert_no_legacy_pf_bundle_keys(certified)
     for key in LEGACY_PF_BUNDLE_TOP_LEVEL_KEYS:
         assert key not in certified
@@ -139,7 +115,7 @@ RELEASE_GOLDEN_FILES = (
     "valid_runtime_receipt.json",
     "valid_science_claim_bundle.pending.json",
     "valid_science_claim_bundle.certified.json",
-    "trace_certificate.v0.json",
+    MOCK_CERTIFICATE_BASENAME,
     "valid_trace_hash_alignment.json",
     "invalid_missing_qc_trace.json",
     "invalid_missing_qc_runtime_receipt.json",
@@ -164,14 +140,14 @@ def test_deterministic_mode_reproduces_expected_artifacts(
         trace = export_trace(vd, tmp_path / "trace.json")
         receipt = export_runtime_receipt(vd, tmp_path / "receipt.json", policy_root=repo_root)
         pending = export_pcs_bundle(vd, tmp_path / "pending.json", policy_root=repo_root)
-        cert = _demo_certificate(receipt)
+        cert = build_mock_trace_certificate(receipt)
         certified = attach_trace_certificate(pending, cert)
 
         assert trace == _load_expected(expected_dir, "valid_trace.json")
         assert receipt == _load_expected(expected_dir, "valid_runtime_receipt.json")
         assert pending == _load_expected(expected_dir, "valid_science_claim_bundle.pending.json")
         assert certified == _load_expected(expected_dir, "valid_science_claim_bundle.certified.json")
-        assert cert == _load_expected(expected_dir, "trace_certificate.v0.json")
+        assert cert == _load_expected(expected_dir, MOCK_CERTIFICATE_BASENAME)
         assert_no_legacy_pf_bundle_keys(pending)
         assert_no_legacy_pf_bundle_keys(certified)
 

@@ -11,11 +11,11 @@ from typing import Any
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.attach_certificate import attach_trace_certificate
 from labtrust_gym.pcs.demo import run_demo
-from labtrust_gym.pcs.deterministic import (
-    DETERMINISTIC_CERT_DIGEST,
-    DETERMINISTIC_CERT_SOURCE_COMMIT,
-    DETERMINISTIC_CERTIFICATE_ID,
-    deterministic_mode,
+from labtrust_gym.pcs.deterministic import deterministic_mode
+from labtrust_gym.pcs.mock_certificate import (
+    MOCK_CERTIFICATE_BASENAME,
+    build_mock_trace_certificate,
+    is_mock_certificate,
 )
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
 from labtrust_gym.pcs.schema_version import assert_no_legacy_pf_bundle_keys
@@ -33,7 +33,7 @@ GOLDEN_PCS_ARTIFACTS = (
     "valid_runtime_receipt.json",
     "valid_science_claim_bundle.pending.json",
     "valid_science_claim_bundle.certified.json",
-    "trace_certificate.v0.json",
+    MOCK_CERTIFICATE_BASENAME,
     "invalid_missing_qc_runtime_receipt.json",
     "invalid_unauthorized_runtime_receipt.json",
 )
@@ -77,27 +77,6 @@ class PcsExportArtifacts:
 
 def expected_dir(policy_root: Path | None = None) -> Path:
     return (policy_root or get_repo_root()) / EXPECTED_REL
-
-
-def deterministic_trace_certificate(receipt: dict[str, Any]) -> dict[str, Any]:
-    """CertifyEdge-shaped TraceCertificate.v0 for demo attach (deterministic fields)."""
-    return {
-        "certificate_id": DETERMINISTIC_CERTIFICATE_ID,
-        "schema_version": "v0",
-        "trace_hash": receipt["trace_hash"],
-        "spec_hash": receipt["input_hashes"]["workflow"],
-        "property_id": "pcs.qc_release.protocol_safety",
-        "checker": "certifyedge",
-        "checker_version": "0.1.0",
-        "status": "CertificateChecked",
-        "counterexample_ref": None,
-        "created_at": receipt["ended_at"],
-        "producer": "certifyedge",
-        "producer_version": "0.1.0",
-        "source_repo": "https://github.com/fraware/CertifyEdge",
-        "source_commit": DETERMINISTIC_CERT_SOURCE_COMMIT,
-        "signature_or_digest": DETERMINISTIC_CERT_DIGEST,
-    }
 
 
 def _write_json(path: Path, doc: dict[str, Any]) -> None:
@@ -157,7 +136,7 @@ def run_deterministic_qc_release_export(
         receipt = export_runtime_receipt(run_dir, receipt_path, policy_root=root)
         pending = export_pcs_bundle(run_dir, pending_path, policy_root=root)
         validate_run_dir(run_dir)
-        cert = deterministic_trace_certificate(receipt)
+        cert = build_mock_trace_certificate(receipt)
         certified = attach_trace_certificate(pending, cert)
         _write_json(certified_path, certified)
 
@@ -195,12 +174,23 @@ def validate_committed_goldens(exp: Path | None = None) -> list[str]:
             validate_trace(doc)
         ok.append(name)
 
+    mock_path = directory / MOCK_CERTIFICATE_BASENAME
+    if mock_path.is_file():
+        mock_cert = json.loads(mock_path.read_text(encoding="utf-8"))
+        validate_artifact(mock_cert)
+        if not is_mock_certificate(mock_cert):
+            raise ValueError(f"{MOCK_CERTIFICATE_BASENAME} must use LabTrust mock digest")
+        ok.append(MOCK_CERTIFICATE_BASENAME)
+
     for name in GOLDEN_PCS_ARTIFACTS:
         data = json.loads((directory / name).read_text(encoding="utf-8"))
         validate_artifact(data)
         if "bundle_id" in data:
             validate_science_claim_bundle(data)
             assert_no_legacy_pf_bundle_keys(data)
+            if name == "valid_science_claim_bundle.certified.json" and data.get("certificates"):
+                if not is_mock_certificate(data["certificates"][0]):
+                    raise ValueError("expected/ certified bundle must use mock certificate only")
         elif "receipt_id" in data:
             validate_runtime_receipt(data)
         ok.append(name)

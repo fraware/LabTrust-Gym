@@ -54,6 +54,14 @@ Regenerate golden snapshots (uses `PCS_DETERMINISTIC=1`; no git HEAD required):
 python examples/pcs_qc_release/scripts/generate_golden.py
 ```
 
+**PCS v0.1 release gate** (full cross-repo chain; requires CertifyEdge, PF, Scientific Memory):
+
+```bash
+bash examples/pcs_qc_release/scripts/run_pcs_v01_clean_chain.sh
+```
+
+See [docs/pcs_v01_clean_chain.md](../../docs/pcs_v01_clean_chain.md).
+
 Full local CI (same as `.github/workflows/pcs.yml`):
 
 ```bash
@@ -109,10 +117,14 @@ See [RUNBOOK.md](RUNBOOK.md) for the full end-to-end flow (CertifyEdge, Provabil
 | `valid_workflow.yaml` | Accession → QC → analysis → release (authorized) |
 | `invalid_missing_qc.yaml` | Release without QC (`missing_qc`) |
 | `invalid_unauthorized_release.yaml` | Release by `unauthorized_user` |
-| `expected/` | Deterministic release fixtures (traces, receipts, bundles, `valid_trace_hash_alignment.json`; pcs-core validated in CI) |
+| `expected/` | LabTrust-local deterministic fixtures (includes `trace_certificate.mock.v0.json`; see `expected/README.md`) |
+| `release/` | Cross-repo release candidates (real CertifyEdge `trace_certificate.json`; see `release/README.md`) |
 | `scripts/run_e2e_local.sh` | Local smoke (`PCS_DETERMINISTIC=1`) |
 | `scripts/labtrust_only_smoke.sh` / `.ps1` | One-command LabTrust-only smoke |
-| `scripts/generate_golden.py` | Regenerate `expected/` (deterministic fixtures) |
+| `scripts/generate_golden.py` | Regenerate `expected/` (LabTrust-local mock certificate) |
+| `scripts/run_pcs_v01_clean_chain.sh` / `.ps1` | Full PCS v0.1 clean-checkout chain |
+| `scripts/verify_pcs_v01_chain.py` | Post-chain pcs-core validation |
+| `scripts/generate_release_candidate.sh` / `.ps1` | Build `release/` with real CertifyEdge output |
 | `scripts/run_pcs_ci_local.sh` / `.ps1` | Full PCS CI (`pytest tests/pcs` + export validation) |
 | `scripts/ci_validate_pcs_exports.py` | CI export pipeline + pcs-core validate (also `.sh` / `.ps1`) |
 

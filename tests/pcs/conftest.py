@@ -24,6 +24,11 @@ def expected_dir(repo_root: Path) -> Path:
 
 
 @pytest.fixture
+def release_dir(repo_root: Path) -> Path:
+    return repo_root / "examples" / "pcs_qc_release" / "release"
+
+
+@pytest.fixture
 def valid_run(tmp_path: Path, repo_root: Path) -> Path:
     out = tmp_path / "qc-release"
     run_demo("qc-release", out_dir=out, policy_root=repo_root)

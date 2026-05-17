@@ -22,7 +22,7 @@ def _load_golden(name: str, expected_dir: Path) -> dict:
         "valid_runtime_receipt.json",
         "valid_science_claim_bundle.pending.json",
         "valid_science_claim_bundle.certified.json",
-        "trace_certificate.v0.json",
+        "trace_certificate.mock.v0.json",
         "invalid_missing_qc_runtime_receipt.json",
         "invalid_unauthorized_runtime_receipt.json",
     ],

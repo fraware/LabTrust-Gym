@@ -5,6 +5,20 @@ function Get-PcsRepoRoot {
     return (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 }
 
+function Resolve-PcsChainBinary {
+    param(
+        [Parameter(Mandatory = $true)][string]$DefaultName,
+        [Parameter(Mandatory = $true)][string[]]$SiblingCandidates
+    )
+    if ($DefaultName -ne "certifyedge" -and $DefaultName -ne "pf") {
+        return $DefaultName
+    }
+    foreach ($path in $SiblingCandidates) {
+        if (Test-Path $path) { return $path }
+    }
+    return $DefaultName
+}
+
 function Get-PcsTool {
     param([Parameter(Mandatory = $true)][string]$Name)
     $Root = Get-PcsRepoRoot

@@ -25,6 +25,7 @@ DETERMINISTIC_ENVIRONMENT = {
     "python": "3.11.0",
     "labtrust_version": __version__,
 }
+# Mock TraceCertificate only (expected/trace_certificate.mock.v0.json). Not for release/ fixtures.
 DETERMINISTIC_CERTIFICATE_ID = "cert-trace-pcs-qc-release-v0.1"
 DETERMINISTIC_CERT_SOURCE_COMMIT = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 DETERMINISTIC_CERT_DIGEST = "sha256:" + "a" * 64

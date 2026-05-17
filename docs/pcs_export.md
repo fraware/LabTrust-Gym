@@ -46,7 +46,7 @@ Golden traces for CertifyEdge: `examples/pcs_qc_release/expected/valid_trace.jso
 | `released` | Whether `release_sample` succeeded |
 | `local_dev` | `true` when `source_commit` is not from git (local runs only) |
 
-Golden fixtures use deterministic mode (`PCS_DETERMINISTIC=1`); regenerate with `examples/pcs_qc_release/scripts/generate_golden.py`.
+**Fixture trees:** `examples/pcs_qc_release/expected/` holds LabTrust-local deterministic goldens including `trace_certificate.mock.v0.json` (not release evidence). `examples/pcs_qc_release/release/` holds cross-repo release candidates built with CertifyEdge (`generate_release_candidate.sh`). Regenerate local goldens with `generate_golden.py` (`PCS_DETERMINISTIC=1`).
 
 ## CI validation
 
