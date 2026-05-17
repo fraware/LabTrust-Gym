@@ -109,7 +109,7 @@ See [RUNBOOK.md](RUNBOOK.md) for the full end-to-end flow (CertifyEdge, Provabil
 | `valid_workflow.yaml` | Accession → QC → analysis → release (authorized) |
 | `invalid_missing_qc.yaml` | Release without QC (`missing_qc`) |
 | `invalid_unauthorized_release.yaml` | Release by `unauthorized_user` |
-| `expected/` | Golden traces, receipts, bundles, `trace_certificate.v0.json` (pcs-core validated in CI) |
+| `expected/` | Deterministic release fixtures (traces, receipts, bundles, `valid_trace_hash_alignment.json`; pcs-core validated in CI) |
 | `scripts/run_e2e_local.sh` | Local smoke (`PCS_DETERMINISTIC=1`) |
 | `scripts/labtrust_only_smoke.sh` / `.ps1` | One-command LabTrust-only smoke |
 | `scripts/generate_golden.py` | Regenerate `expected/` (deterministic fixtures) |

@@ -40,8 +40,18 @@ GOLDEN_PCS_ARTIFACTS = (
 
 GOLDEN_TRACE_FILES = (
     "valid_trace.json",
+    "valid_trace_hash_alignment.json",
     "invalid_missing_qc_trace.json",
     "invalid_unauthorized_trace.json",
+)
+
+GOLDEN_RELEASE_FIXTURES = (
+    "valid_trace.json",
+    "valid_runtime_receipt.json",
+    "valid_science_claim_bundle.pending.json",
+    "valid_science_claim_bundle.certified.json",
+    "invalid_missing_qc_result.json",
+    "invalid_unauthorized_result.json",
 )
 
 GOLDEN_BUNDLE_FILES = (
@@ -176,8 +186,13 @@ def validate_committed_goldens(exp: Path | None = None) -> list[str]:
 
     ok: list[str] = []
     for name in GOLDEN_TRACE_FILES:
-        trace = json.loads((directory / name).read_text(encoding="utf-8"))
-        validate_trace(trace)
+        doc = json.loads((directory / name).read_text(encoding="utf-8"))
+        if name == "valid_trace_hash_alignment.json":
+            th = doc["trace_hash"]
+            if doc["runtime_receipt_trace_hash"] != th or doc["bundle_runtime_receipt_trace_hash"] != th:
+                raise ValueError(f"{name}: trace_hash mismatch across handoff fields")
+        else:
+            validate_trace(doc)
         ok.append(name)
 
     for name in GOLDEN_PCS_ARTIFACTS:

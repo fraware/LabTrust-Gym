@@ -44,7 +44,7 @@ Assert-LastExitCode "pcs validate runtime_receipt"
 & $Pcs validate $BundleOut
 Assert-LastExitCode "pcs validate science_claim_bundle.pending"
 
-& $Python -m pytest tests/pcs/test_golden_deterministic.py::test_deterministic_mode_reproduces_expected_artifacts -q
+& $Python -m pytest tests/pcs/test_pcs_release_contract.py -q
 Assert-LastExitCode "pytest golden determinism"
 
 Write-Host "LabTrust-only PCS smoke OK (run=$RunDir)"

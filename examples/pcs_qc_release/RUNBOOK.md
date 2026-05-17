@@ -169,7 +169,37 @@ Golden references: `examples/pcs_qc_release/expected/` (regenerate with `python 
 - **attach-certificate fails:** Certificate `trace_hash` must match `runtime_receipt.trace_hash`.
 - **Invalid demos pass release:** Check `policy/pcs/roles.yaml`; only `release_manager` is `release_capable`.
 
-## 13. Limitations
+## 13. Golden artifacts and release fixtures
+
+The files under `examples/pcs_qc_release/expected/` are **deterministic release fixtures** for PCS v0.1. They must validate against pcs-core and must be regenerated only when the PCS schema, LabTrust workflow semantics, or certificate contract changes.
+
+| File | Role |
+|------|------|
+| `valid_trace.json` | Hash-chained workflow trace |
+| `valid_runtime_receipt.json` | `RuntimeReceipt.v0` (`status: RuntimeObserved`, `run_outcome: passed`) |
+| `valid_science_claim_bundle.pending.json` | Pending bundle (`runtime_receipts[]`, `certificates: []`) |
+| `valid_science_claim_bundle.certified.json` | Certified bundle after attach |
+| `valid_trace_hash_alignment.json` | CertifyEdge / PF handoff: `trace_hash` equality across trace, receipt, bundle |
+| `invalid_missing_qc_result.json` | `final_reason_code: missing_qc` |
+| `invalid_unauthorized_result.json` | `final_reason_code: unauthorized_release` |
+
+Regenerate (requires pcs-core installed, `PCS_DETERMINISTIC=1`):
+
+```bash
+python examples/pcs_qc_release/scripts/generate_golden.py
+```
+
+Validate locally (same gates as CI):
+
+```bash
+python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
+# or full suite:
+bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh
+```
+
+Release contract tests: `pytest tests/pcs/test_pcs_release_contract.py -q`.
+
+## 14. Limitations
 
 - Simulation only; no real LIS/hospital integration.
 - No clinical safety or regulatory claims.

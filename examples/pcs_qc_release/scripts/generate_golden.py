@@ -69,6 +69,17 @@ def main() -> int:
         _write_json(exp / "trace_certificate.v0.json", cert)
         certified = attach_trace_certificate(pending, cert)
         _write_json(exp / "valid_science_claim_bundle.certified.json", certified)
+        trace = json.loads((exp / "valid_trace.json").read_text(encoding="utf-8"))
+        _write_json(
+            exp / "valid_trace_hash_alignment.json",
+            {
+                "schema_version": "v0",
+                "property_id": "pcs.qc_release.trace_hash_alignment",
+                "trace_hash": trace["trace_hash"],
+                "runtime_receipt_trace_hash": receipt["trace_hash"],
+                "bundle_runtime_receipt_trace_hash": pending["runtime_receipts"][0]["trace_hash"],
+            },
+        )
 
         for demo, prefix in [
             ("qc-release-invalid-missing-qc", "invalid_missing_qc"),
