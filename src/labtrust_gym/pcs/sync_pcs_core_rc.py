@@ -53,13 +53,20 @@ def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _artifact_hash(release_root: Path, manifest: dict[str, Any], fixture: dict[str, Any], name: str) -> str:
+    artifacts = manifest.get("artifacts") or fixture.get("artifacts") or {}
+    if name in artifacts:
+        return artifacts[name]
+    path = release_root / name
+    if path.is_file():
+        return file_content_digest(path)
+    raise FileNotFoundError(f"missing artifact for hash: {name}")
+
+
 def extract_rc_chain_identity(release_root: Path) -> dict[str, str]:
     """Key fields that must match across repos for the v0.1 RC chain."""
     fixture_manifest_path = release_root / RELEASE_FIXTURE_MANIFEST_NAME
-    if fixture_manifest_path.is_file():
-        fixture = _load(fixture_manifest_path)
-    else:
-        fixture = {}
+    fixture = _load(fixture_manifest_path) if fixture_manifest_path.is_file() else {}
 
     manifest_path = release_root / "manifest.json"
     manifest = _load(manifest_path) if manifest_path.is_file() else {}
@@ -68,14 +75,16 @@ def extract_rc_chain_identity(release_root: Path) -> dict[str, str]:
     certified = _load(release_root / "science_claim_bundle.certified.json")
     _, cert_id, trace_hash = certified_bundle_ids(certified)
 
-    certified_hash = file_content_digest(release_root / "science_claim_bundle.certified.json")
-    fm_hash = fixture.get("artifacts", {}).get("science_claim_bundle.certified.json")
-    m_hash = manifest.get("certified_bundle_hash")
-
     return {
         "trace_hash": trace_hash,
         "certificate_id": cert_id,
-        "certified_bundle_hash": m_hash or fm_hash or certified_hash,
+        "certified_bundle_hash": _artifact_hash(
+            release_root, manifest, fixture, "science_claim_bundle.certified.json"
+        ),
+        "runtime_receipt_hash": _artifact_hash(release_root, manifest, fixture, "runtime_receipt.json"),
+        "pending_bundle_hash": _artifact_hash(
+            release_root, manifest, fixture, "science_claim_bundle.pending.json"
+        ),
         "labtrust_gym_commit": manifest.get("labtrust_gym_commit")
         or fixture.get("labtrust_gym_commit")
         or certified["source_commit"],
@@ -90,6 +99,35 @@ def extract_rc_chain_identity(release_root: Path) -> dict[str, str]:
     }
 
 
+RC_HANDOFF_COMPARE_KEYS: tuple[str, ...] = (
+    "trace_hash",
+    "certificate_id",
+    "certified_bundle_hash",
+    "runtime_receipt_hash",
+    "pending_bundle_hash",
+    "labtrust_gym_commit",
+    "certifyedge_commit",
+    "pcs_core_commit",
+)
+
+
+def compare_release_to_pcs_core_rc(
+    labtrust_release: Path,
+    canonical: Path,
+) -> list[str]:
+    """Compare canonical RC identity fields; return labels that matched."""
+    local_id = extract_rc_chain_identity(labtrust_release.resolve())
+    canon_id = extract_rc_chain_identity(canonical.resolve())
+    matched: list[str] = []
+    for key in RC_HANDOFF_COMPARE_KEYS:
+        if local_id.get(key) != canon_id.get(key):
+            raise ValueError(
+                f"{key} mismatch: local={local_id.get(key)!r} canonical={canon_id.get(key)!r}"
+            )
+        matched.append(key)
+    return matched
+
+
 def assert_release_matches_pcs_core_rc(
     labtrust_release: Path | None = None,
     canonical: Path | None = None,
@@ -102,17 +140,7 @@ def assert_release_matches_pcs_core_rc(
     local_id = extract_rc_chain_identity(local)
     canon_id = extract_rc_chain_identity(canon)
 
-    for key in (
-        "trace_hash",
-        "certificate_id",
-        "certified_bundle_hash",
-        "labtrust_gym_commit",
-        "certifyedge_commit",
-    ):
-        if local_id.get(key) != canon_id.get(key):
-            raise ValueError(
-                f"release {key} mismatch: local={local_id.get(key)!r} canonical={canon_id.get(key)!r}"
-            )
+    compare_release_to_pcs_core_rc(local, canon)
 
     for name in HANDOFF_ARTIFACTS:
         local_path = local / name
