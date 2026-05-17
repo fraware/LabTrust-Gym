@@ -91,6 +91,10 @@ pf sign science-claim science_claim_bundle.certified.json \
   --out signed_science_claim_bundle.json
 ```
 
+Provability Fabric emits a top-level **`SignedScienceClaimBundle.v0`** object in `signed_science_claim_bundle.json`. That wrapper includes the certified `ScienceClaimBundle.v0`, verification metadata, signer, and `schema_version` (see pcs-core `SignedScienceClaimBundle.v0.schema.json`).
+
+Invalid-run `RuntimeReceipt.v0` files use `status: RuntimeObserved` with `run_outcome: failed` and `final_reason_code` set to `missing_qc` or `unauthorized_release` so downstream UIs can explain failures without overloading artifact status.
+
 ## 10. Step 7: import into Scientific Memory
 
 ```bash
@@ -98,7 +102,7 @@ just pcs-import-bundle BUNDLE=signed_science_claim_bundle.json
 just pcs-render-claim CLAIM_ID=<claim_id>
 ```
 
-Use `claim_id` from the signed bundle (`claim-pcs-qc-release-v0.1` in the demo).
+Use `claim_id` from the signed bundle (`claim-pcs-qc-release-v0.1` in the demo). Scientific Memory imports **`SignedScienceClaimBundle.v0`**, not the pending bundle alone.
 
 ## 11. Expected output files
 
@@ -110,14 +114,23 @@ Use `claim_id` from the signed bundle (`claim-pcs-qc-release-v0.1` in the demo).
 | `science_claim_bundle.pending.json` | Pending `ScienceClaimBundle.v0` |
 | `science_claim_bundle.certified.json` | Certified bundle |
 | `trace_certificate.json` | `TraceCertificate.v0` |
-| `signed_science_claim_bundle.json` | PF-signed bundle |
+| `signed_science_claim_bundle.json` | `SignedScienceClaimBundle.v0` (PF output) |
 
-Golden references: `examples/pcs_qc_release/expected/`.
+Golden references: `examples/pcs_qc_release/expected/` (regenerate with `python examples/pcs_qc_release/scripts/generate_golden.py` from a git checkout).
+
+### Cross-repo handoff artifacts
+
+| Consumer | Files |
+|----------|--------|
+| CertifyEdge | `valid_trace.json`, `invalid_missing_qc_trace.json`, `invalid_unauthorized_trace.json` (under `expected/`), trace hash rule in [docs/pcs_export.md](../../docs/pcs_export.md) |
+| Provability Fabric | `science_claim_bundle.pending.json`, `science_claim_bundle.certified.json`, `runtime_receipt.json`, `trace_certificate.json` |
+| Scientific Memory | `signed_science_claim_bundle.json`, `claim_id`, limitations in [docs/pcs_limitations.md](../../docs/pcs_limitations.md) |
 
 ## 12. Troubleshooting
 
 - **`pcs validate` fails:** Install pcs-core; ensure digests use `sha256:` prefix and `schema_version` is `v0`.
 - **trace_hash mismatch:** Re-export trace and receipt from the same `run_dir`; do not edit events after export.
+- **`local_dev: true` on receipts:** Normal when not in a git checkout; release goldens must be built with a real `source_commit` (`generate_golden.py` enforces this).
 - **attach-certificate fails:** Certificate `trace_hash` must match `runtime_receipt.trace_hash`.
 - **Invalid demos pass release:** Check `policy/pcs/roles.yaml`; only `release_manager` is `release_capable`.
 

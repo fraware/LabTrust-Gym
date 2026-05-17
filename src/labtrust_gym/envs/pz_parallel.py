@@ -74,13 +74,12 @@ def _safe_int(x: Any, default: int = 0) -> int:
         return default
 
 
-if ParallelEnv is None:
-    raise ImportError(
-        'LabTrustParallelEnv requires pettingzoo and gymnasium. Install with: pip install -e ".[env]"'
-    ) from _pettingzoo_import_error
+# When [env] is not installed, inherit from object so the module can be imported;
+# __init__ raises with install instructions on first use.
+_ParallelEnvBase = ParallelEnv if ParallelEnv is not None else object
 
 
-class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
+class LabTrustParallelEnv(_ParallelEnvBase):  # type: ignore[misc]
     """
     PettingZoo Parallel environment wrapping CoreEnv.
 
@@ -109,7 +108,7 @@ class LabTrustParallelEnv(ParallelEnv):  # type: ignore[misc]
         if ParallelEnv is None or spaces is None:
             raise ImportError(
                 'PettingZoo and Gymnasium are required for LabTrustParallelEnv. Install with: pip install -e ".[env]"'
-            )
+            ) from _pettingzoo_import_error
         super().__init__()
         self._num_runners = max(0, num_runners)
         self._num_adversaries = max(0, num_adversaries)

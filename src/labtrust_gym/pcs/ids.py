@@ -9,8 +9,7 @@ SCIENCE_BUNDLE_ID = "scb-pcs-qc-release-v0.1"
 EVIDENCE_BUNDLE_ID = "evidence-pcs-qc-release-v0.1"
 VERIFICATION_POLICY_ID = "labtrust-pcs-qc-release-v0.1"
 FORMAL_STATEMENT = (
-    "release_sample implies prior accession_sample, perform_qc, record_analysis, "
-    "and release_capable actor_role"
+    "release_sample implies prior accession_sample, perform_qc, record_analysis, and release_capable actor_role"
 )
 
 

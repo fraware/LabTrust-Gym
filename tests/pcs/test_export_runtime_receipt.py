@@ -15,4 +15,8 @@ def test_runtime_receipt_validates_and_trace_hash_matches(valid_run: Path, tmp_p
     trace = json.loads((valid_run / "trace.json").read_text(encoding="utf-8"))
     assert receipt["trace_hash"] == trace["trace_hash"]
     assert receipt["status"] == "RuntimeObserved"
+    assert receipt["run_outcome"] == "passed"
+    assert receipt["final_reason_code"] == "ok"
+    assert receipt["released"] is True
+    assert receipt["schema_version"] == "v0"
     validate_pcs_artifact(receipt)

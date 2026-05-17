@@ -13,6 +13,7 @@ from labtrust_gym.pcs.ids import (
     receipt_id,
 )
 from labtrust_gym.pcs.provenance import base_provenance, normalize_timestamp, with_signature
+from labtrust_gym.pcs.schema_version import assert_schema_version
 
 
 def build_claim_artifact(
@@ -38,4 +39,6 @@ def build_claim_artifact(
         "certificate_refs": certificate_refs,
         "runtime_receipt_refs": [receipt_id(run_id)],
     }
-    return with_signature(doc)
+    signed = with_signature(doc)
+    assert_schema_version(signed)
+    return signed

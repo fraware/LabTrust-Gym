@@ -12,6 +12,7 @@ from labtrust_gym.pcs.ids import (
     receipt_id,
 )
 from labtrust_gym.pcs.provenance import base_provenance, normalize_timestamp, with_signature
+from labtrust_gym.pcs.schema_version import assert_schema_version
 
 
 def build_evidence_bundle(
@@ -39,4 +40,6 @@ def build_evidence_bundle(
         "certificate_refs": certificate_refs,
         "artifact_hashes": artifact_hashes,
     }
-    return with_signature(doc)
+    signed = with_signature(doc)
+    assert_schema_version(signed)
+    return signed

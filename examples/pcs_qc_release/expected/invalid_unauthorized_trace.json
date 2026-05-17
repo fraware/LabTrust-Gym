@@ -104,6 +104,7 @@
   ],
   "run_id": "qc-release-invalid-unauthorized",
   "sample_id": "PCS-SAMPLE-003",
-  "trace_hash": "sha256:e77f09622be9a352e3bbe0e6c555fcc5b918307b779f3bb2d4800ecd388e3db3",
+  "schema_version": "v0",
+  "trace_hash": "sha256:eb25cf8b1ebef7c56af577f9cfea290c1fd1e9ae583367aa57662418c5d5f914",
   "version": "0"
 }

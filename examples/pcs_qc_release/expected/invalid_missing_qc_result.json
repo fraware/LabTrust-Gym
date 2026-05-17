@@ -1,6 +1,7 @@
 {
-  "run_id": "qc-release-invalid-missing-qc",
-  "status": "failed",
+  "final_reason_code": "missing_qc",
   "released": false,
-  "final_reason_code": "missing_qc"
+  "run_id": "qc-release-invalid-missing-qc",
+  "run_outcome": "failed",
+  "status": "failed"
 }

@@ -98,8 +98,11 @@ otel = ["opentelemetry-api>=1.20", "opentelemetry-sdk>=1.20", "opentelemetry-exp
 mapf = []
 # OR solvers (CP-SAT for ORScheduler when use_cp_sat in policy); optional
 or_solver = ["ortools>=9.0"]
-# PCS artifact validation (pcs-core); install from sibling repo or PyPI when published
-pcs = ["pcs-core>=0.1.0"]
+# PCS QC-release demo + pcs-core validation; use scripts/setup_pcs_dev.* for isolated venv
+pcs = [
+    "pcs-core>=0.1.0",
+    "referencing>=0.35.0,<0.37.0",
+]
 
 # Extension points: other packages may add entries to these groups.
 # See docs/extension_development.md for contracts.
@@ -239,4 +242,5 @@ markers = [
     "security: security fuzz and property tests (injection points, no action outside allowed).",
     "security_fuzz_stress: hypothesis-based security fuzz with higher max_examples (nightly); use --hypothesis-max-examples=500.",
     "slow: long-running tests (golden suite, package-release, heavy CLI); exclude with -m 'not slow'.",
+    "pcs: proof-carrying science (PCS) artifact and qc-release demo tests.",
 ]

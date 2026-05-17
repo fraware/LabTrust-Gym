@@ -13,8 +13,18 @@ from labtrust_gym.pcs.hash import file_digest, pcs_digest
 from labtrust_gym.pcs.ids import receipt_id
 from labtrust_gym.pcs.policy import policy_hash
 from labtrust_gym.pcs.provenance import base_provenance, normalize_timestamp, with_signature
+from labtrust_gym.pcs.schema_version import assert_schema_version
 from labtrust_gym.pcs.trace import compute_trace_hash
 from labtrust_gym.version import __version__
+
+# Receipt status records observation of the run, not workflow success.
+RECEIPT_STATUS = "RuntimeObserved"
+
+
+def _run_outcome(meta: dict[str, Any]) -> str:
+    if meta.get("status") == "completed" and meta.get("released"):
+        return "passed"
+    return "failed"
 
 
 def build_runtime_receipt(
@@ -30,13 +40,15 @@ def build_runtime_receipt(
     events_hash = pcs_digest({"events": events})
     trace_hash = trace["trace_hash"]
     ended = meta["ended_at"]
-    status = "RuntimeObserved" if meta.get("released") else "RuntimeObserved"
 
     doc: dict[str, Any] = {
         "receipt_id": receipt_id(meta["run_id"]),
         **base_provenance(policy_root=root),
         "run_id": meta["run_id"],
-        "status": status,
+        "status": RECEIPT_STATUS,
+        "run_outcome": _run_outcome(meta),
+        "final_reason_code": str(meta.get("final_reason_code", "policy_denied")),
+        "released": bool(meta.get("released")),
         "environment": {
             "platform": platform.platform(),
             "python": sys.version.split()[0],
@@ -54,8 +66,9 @@ def build_runtime_receipt(
             "trace.json": file_digest(trace_path),
         },
     }
-    # Recompute trace_hash consistency check (events vs stored)
     expected = compute_trace_hash(events, run_id=meta["run_id"], sample_id=meta["sample_id"])
     if trace_hash != expected:
         doc["trace_hash"] = expected
-    return with_signature(doc)
+    signed = with_signature(doc)
+    assert_schema_version(signed)
+    return signed

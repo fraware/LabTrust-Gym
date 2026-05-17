@@ -23,9 +23,7 @@ def attach_trace_certificate(
     cert = dict(certificate)
     cert.setdefault("schema_version", "v0")
     if cert.get("trace_hash") != trace_hash:
-        raise ValueError(
-            f"certificate trace_hash {cert.get('trace_hash')!r} != receipt {trace_hash!r}"
-        )
+        raise ValueError(f"certificate trace_hash {cert.get('trace_hash')!r} != receipt {trace_hash!r}")
     cert_id = cert["certificate_id"]
     out["certificates"] = [cert]
     claim = out["claim_artifact"]
@@ -35,9 +33,12 @@ def attach_trace_certificate(
     evidence["certificate_refs"] = [cert_id]
     evidence["artifact_hashes"][cert_id] = cert["signature_or_digest"]
     from labtrust_gym.pcs.provenance import with_signature
+    from labtrust_gym.pcs.schema_version import assert_science_claim_bundle_versions
 
     base = {k: v for k, v in out.items() if k != "signature_or_digest"}
-    return with_signature(base)
+    signed = with_signature(base)
+    assert_science_claim_bundle_versions(signed)
+    return signed
 
 
 def attach_certificate_files(

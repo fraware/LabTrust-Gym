@@ -7,10 +7,12 @@ from typing import Any
 
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.hash import pcs_digest
+from labtrust_gym.pcs.schema_version import SCHEMA_VERSION
 from labtrust_gym.version import __version__
 
 SOURCE_REPO = "https://github.com/fraware/LabTrust-Gym"
 PRODUCER = "labtrust-gym"
+LOCAL_DEV_COMMIT = "local-dev"
 
 
 def normalize_timestamp(ts: str) -> str:
@@ -20,7 +22,13 @@ def normalize_timestamp(ts: str) -> str:
     return ts
 
 
-def source_commit(policy_root: Path | None = None) -> str:
+def resolve_source_commit(policy_root: Path | None = None) -> tuple[str, bool]:
+    """
+    Return (source_commit, local_dev).
+
+    When git HEAD is unavailable, use explicit local-dev marker and local_dev=True
+    instead of a silent placeholder hash.
+    """
     try:
         import subprocess
 
@@ -32,20 +40,24 @@ def source_commit(policy_root: Path | None = None) -> str:
             cwd=policy_root or get_repo_root(),
         )
         if out.returncode == 0 and out.stdout.strip():
-            return out.stdout.strip()
+            return out.stdout.strip(), False
     except Exception:
         pass
-    return "0000000000000000000000000000000000000000"
+    return LOCAL_DEV_COMMIT, True
 
 
 def base_provenance(*, policy_root: Path | None = None) -> dict[str, Any]:
-    return {
-        "schema_version": "v0",
+    commit, local_dev = resolve_source_commit(policy_root)
+    fields: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
         "producer": PRODUCER,
         "producer_version": __version__,
         "source_repo": SOURCE_REPO,
-        "source_commit": source_commit(policy_root),
+        "source_commit": commit,
     }
+    if local_dev:
+        fields["local_dev"] = True
+    return fields
 
 
 def with_signature(doc: dict[str, Any]) -> dict[str, Any]:

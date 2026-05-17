@@ -1,4 +1,4 @@
-"""Validate PCS artifacts against bundled schemas or optional pcs-core."""
+"""Validate PCS artifacts via pcs-core plus LabTrust integrity rules."""
 
 from __future__ import annotations
 
@@ -6,71 +6,112 @@ import json
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
-
-from labtrust_gym.config import get_repo_root, policy_path
-
-SCHEMA_MAP: dict[str, str] = {
-    "Trace": "trace.v0.schema.json",
-    "RuntimeReceipt": "runtime_receipt.v0.schema.json",
-    "EvidenceBundle": "evidence_bundle.v0.schema.json",
-    "AssumptionSet": "assumption_set.v0.schema.json",
-    "ClaimArtifact": "claim_artifact.v0.schema.json",
-    "ScienceClaimBundle": "science_claim_bundle.v0.schema.json",
-    "TraceCertificate": "trace_certificate.v0.schema.json",
-}
+from labtrust_gym.pcs.integrity import validate_run_directory, validate_trace_document
+from labtrust_gym.pcs.schema_version import (
+    SCHEMA_VERSION,
+    assert_schema_version,
+    assert_science_claim_bundle_versions,
+)
 
 
-def _schema_dir(policy_root: Path | None = None) -> Path:
-    root = policy_root or get_repo_root()
-    return policy_path(root, "schemas", "pcs")
+class PcsValidationError(Exception):
+    """Validation failed; see errors list."""
+
+    def __init__(self, message: str, errors: list[str] | None = None):
+        super().__init__(message)
+        self.errors = list(errors or [])
 
 
-def load_schema(artifact_kind: str, policy_root: Path | None = None) -> dict[str, Any]:
+def pcs_core_available() -> bool:
     try:
-        from pcs_core.artifact import ARTIFACT_SCHEMAS, schemas_dir
+        import pcs_core.validate  # noqa: F401
 
-        schema_name = ARTIFACT_SCHEMAS.get(f"{artifact_kind}.v0") or ARTIFACT_SCHEMAS.get(
-            artifact_kind
+        return True
+    except ImportError:
+        return False
+
+
+def require_pcs_core() -> None:
+    if not pcs_core_available():
+        raise RuntimeError(
+            "pcs-core is required; install with: pip install -e /path/to/pcs-core/python or scripts/setup_pcs_dev.ps1"
         )
-        if schema_name:
-            path = schemas_dir() / schema_name
-            return json.loads(path.read_text(encoding="utf-8"))
-    except ImportError:
-        pass
-    filename = SCHEMA_MAP.get(artifact_kind)
-    if not filename:
-        raise KeyError(f"no schema for {artifact_kind}")
-    path = _schema_dir(policy_root) / filename
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _detect_kind(artifact: dict[str, Any]) -> str:
+def _pcs_validate_artifact(artifact: dict[str, Any]) -> None:
+    from pcs_core.validate import ValidationError, validate_artifact
+
     try:
-        from pcs_core.artifact import detect_artifact_type
-
-        detected = detect_artifact_type(artifact)
-        if detected:
-            return detected.replace(".v0", "")
-    except ImportError:
-        pass
-    kind = artifact.get("artifact_kind")
-    if kind:
-        return str(kind)
-    raise ValueError("could not detect artifact type")
-
-
-def validate_with_jsonschema(artifact: dict[str, Any], policy_root: Path | None = None) -> None:
-    kind = _detect_kind(artifact)
-    schema = load_schema(kind, policy_root)
-    Draft202012Validator(schema).validate(artifact)
+        validate_artifact(artifact)
+    except ValidationError as e:
+        raise PcsValidationError(str(e), errors=list(e.errors)) from e
 
 
 def validate_pcs_artifact(artifact: dict[str, Any], policy_root: Path | None = None) -> None:
-    """Validate using pcs-core when installed, else local JSON Schema."""
-    try:
-        from pcs_core.validate import validate_artifact  # type: ignore[import-untyped]
+    """Schema + semantic validation (pcs-core). policy_root unused; kept for API stability."""
+    _ = policy_root
+    if artifact.get("bundle_id") and artifact.get("claim_artifact"):
+        assert_science_claim_bundle_versions(artifact)
+    elif "receipt_id" in artifact:
+        assert_schema_version(artifact)
+    elif artifact.get("schema_version") is not None:
+        assert_schema_version(artifact)
+    if pcs_core_available():
+        _pcs_validate_artifact(artifact)
+    else:
+        raise RuntimeError("pcs-core not installed; cannot validate PCS artifact")
 
-        validate_artifact(artifact)
-    except ImportError:
-        validate_with_jsonschema(artifact, policy_root)
+
+def validate_runtime_receipt(artifact: dict[str, Any], policy_root: Path | None = None) -> None:
+    _ = policy_root
+    assert_schema_version(artifact)
+    for key in ("run_outcome", "final_reason_code", "released"):
+        if key not in artifact:
+            raise PcsValidationError(f"RuntimeReceipt missing required field {key!r}")
+    validate_pcs_artifact(artifact)
+
+
+def validate_science_claim_bundle(bundle: dict[str, Any], policy_root: Path | None = None) -> None:
+    _ = policy_root
+    assert_science_claim_bundle_versions(bundle)
+    validate_pcs_artifact(bundle)
+
+
+def validate_trace(trace: dict[str, Any]) -> None:
+    errors = validate_trace_document(trace)
+    if errors:
+        raise PcsValidationError("trace validation failed", errors=errors)
+
+
+def validate_artifact_file(path: Path) -> str:
+    """Validate a JSON file; return detected pcs-core artifact type."""
+    require_pcs_core()
+    from pcs_core.validate import ValidationError, validate_file
+
+    try:
+        return validate_file(path)
+    except ValidationError as e:
+        raise PcsValidationError(str(e), errors=list(e.errors)) from e
+
+
+def validate_run_dir(run_dir: Path, *, policy_root: Path | None = None) -> None:
+    _ = policy_root
+    errors = validate_run_directory(run_dir)
+    pcs_dir = run_dir / "pcs"
+    for name in ("runtime_receipt.json", "science_claim_bundle.pending.json"):
+        p = pcs_dir / name
+        if p.is_file():
+            artifact = json.loads(p.read_text(encoding="utf-8"))
+            try:
+                validate_pcs_artifact(artifact)
+            except (PcsValidationError, RuntimeError) as e:
+                msg = getattr(e, "errors", None) or [str(e)]
+                errors.extend(f"{name}: {m}" for m in msg)
+    if errors:
+        raise PcsValidationError(f"run directory {run_dir} failed integrity checks", errors=errors)
+
+
+def validate_all_schema_versions_v0(bundle: dict[str, Any]) -> None:
+    assert_science_claim_bundle_versions(bundle)
+    if bundle.get("schema_version") != SCHEMA_VERSION:
+        raise PcsValidationError("top-level schema_version must be v0")

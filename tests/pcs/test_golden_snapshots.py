@@ -45,6 +45,9 @@ def test_invalid_missing_qc_reason(tmp_path: Path, expected_dir: Path, repo_root
     golden = json.loads((expected_dir / "invalid_missing_qc_result.json").read_text(encoding="utf-8"))
     meta = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
     assert meta["final_reason_code"] == golden["final_reason_code"] == "missing_qc"
+    receipt = export_runtime_receipt(run_dir, tmp_path / "receipt.json", policy_root=repo_root)
+    assert receipt["run_outcome"] == golden["run_outcome"] == "failed"
+    assert receipt["final_reason_code"] == "missing_qc"
 
 
 def test_invalid_unauthorized_reason(tmp_path: Path, expected_dir: Path, repo_root: Path) -> None:
@@ -53,3 +56,6 @@ def test_invalid_unauthorized_reason(tmp_path: Path, expected_dir: Path, repo_ro
     golden = json.loads((expected_dir / "invalid_unauthorized_result.json").read_text(encoding="utf-8"))
     meta = json.loads((run_dir / "run_meta.json").read_text(encoding="utf-8"))
     assert meta["final_reason_code"] == golden["final_reason_code"] == "unauthorized_release"
+    receipt = export_runtime_receipt(run_dir, tmp_path / "receipt.json", policy_root=repo_root)
+    assert receipt["run_outcome"] == "failed"
+    assert receipt["final_reason_code"] == "unauthorized_release"

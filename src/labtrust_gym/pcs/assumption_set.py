@@ -7,6 +7,7 @@ from typing import Any
 
 from labtrust_gym.pcs.ids import ASSUMPTION_SET_ID, SOURCE_SPAN_REF
 from labtrust_gym.pcs.provenance import base_provenance, normalize_timestamp, with_signature
+from labtrust_gym.pcs.schema_version import assert_schema_version
 
 MAIN_CLAIM_TEXT = (
     "A sample may be released only after accession, QC completion, analysis, "
@@ -66,4 +67,6 @@ def build_assumption_set(
         "human_review_status": "approved",
         "status": "HumanReviewed",
     }
-    return with_signature(doc)
+    signed = with_signature(doc)
+    assert_schema_version(signed)
+    return signed

@@ -72,14 +72,13 @@ class TraceBuilder:
 
     def to_trace_document(self) -> dict[str, Any]:
         return {
+            "schema_version": "v0",
             "version": "0",
             "artifact_kind": "Trace",
             "run_id": self.run_id,
             "sample_id": self.sample_id,
             "events": list(self.events),
-            "trace_hash": compute_trace_hash(
-                self.events, run_id=self.run_id, sample_id=self.sample_id
-            ),
+            "trace_hash": compute_trace_hash(self.events, run_id=self.run_id, sample_id=self.sample_id),
         }
 
 
@@ -90,6 +89,7 @@ def compute_trace_hash(
     sample_id: str,
 ) -> str:
     body = {
+        "schema_version": "v0",
         "version": "0",
         "run_id": run_id,
         "sample_id": sample_id,

@@ -407,6 +407,9 @@ def validate_policy(
     errors: list[str] = []
     errors.extend(validate_runner_output_contract_schema(root))
     errors.extend(validate_all_policy_schemas(root))
+    from labtrust_gym.pcs.policy_validate import validate_pcs_policy_files
+
+    errors.extend(validate_pcs_policy_files(root))
     errors.extend(validate_coordination_security_pack_gate_rules_supported(root))
     errors.extend(validate_llm_schema_files(root))
     errors.extend(validate_tool_registry_capabilities_subset(root))

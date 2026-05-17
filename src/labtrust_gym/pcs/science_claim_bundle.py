@@ -12,6 +12,7 @@ from labtrust_gym.pcs.evidence_bundle import build_evidence_bundle
 from labtrust_gym.pcs.ids import SCIENCE_BUNDLE_ID, VERIFICATION_POLICY_ID
 from labtrust_gym.pcs.provenance import base_provenance, normalize_timestamp, with_signature
 from labtrust_gym.pcs.runtime_receipt import build_runtime_receipt
+from labtrust_gym.pcs.schema_version import assert_science_claim_bundle_versions
 
 
 def build_science_claim_bundle(
@@ -64,4 +65,6 @@ def build_science_claim_bundle(
             ],
         },
     }
-    return with_signature(doc)
+    signed = with_signature(doc)
+    assert_science_claim_bundle_versions(signed)
+    return signed

@@ -2,16 +2,58 @@
 
 LabTrust-Gym v0.1 flagship demo: simulate a hospital lab QC-release workflow, emit hash-chained traces, and export PCS artifacts validated by [pcs-core](https://github.com/SentinelOps-CI/pcs-core).
 
-## Quick start
+## Quick start (recommended: isolated venv)
+
+Installing into **global Python** alongside other tools (MCP, corridor-os, crewai, etc.) often triggers pip dependency conflict warnings. Use the setup script instead:
+
+**Windows (PowerShell):**
+
+```powershell
+.\scripts\setup_pcs_dev.ps1
+.\.venv-pcs\Scripts\Activate.ps1
+```
+
+**Linux/macOS:**
 
 ```bash
-pip install -e ".[dev]"
-# optional: pip install -e ../pcs-core/python
+bash scripts/setup_pcs_dev.sh
+source .venv-pcs/bin/activate
+```
 
+If pcs-core is not at `../pcs-core/python`:
+
+```powershell
+$env:PCS_CORE_PATH = "C:\Users\mateo\pcs-core\python"
+.\scripts\setup_pcs_dev.ps1
+```
+
+Then:
+
+```bash
+pytest tests/pcs -q
 labtrust run-demo qc-release
 labtrust export-trace --run runs/qc-release --out trace.json
 labtrust export-runtime-receipt --run runs/qc-release --out runtime_receipt.json
 labtrust export-pcs --run runs/qc-release --out science_claim_bundle.pending.json
+labtrust validate-pcs --run runs/qc-release
+labtrust export-pcs-handoff --out handoff/
+```
+
+Trace/event model: [docs/pcs_trace_model.md](../../docs/pcs_trace_model.md).
+
+Regenerate golden snapshots (requires git checkout):
+
+```bash
+python examples/pcs_qc_release/scripts/generate_golden.py
+```
+
+### Manual install (same venv)
+
+```bash
+python -m venv .venv-pcs
+# activate venv, then:
+pip install -e /path/to/pcs-core/python
+pip install -e ".[dev,pcs]"
 ```
 
 Invalid scenarios:
@@ -32,5 +74,6 @@ See [RUNBOOK.md](RUNBOOK.md) for the full end-to-end flow (CertifyEdge, Provabil
 | `invalid_unauthorized_release.yaml` | Release by `unauthorized_user` |
 | `expected/` | Golden traces, receipts, and bundles for CI |
 | `scripts/run_e2e_local.sh` | Local smoke script |
+| `scripts/generate_golden.py` | Regenerate `expected/` from current code |
 
 Policy: `policy/pcs/` (`roles.yaml`, `reason_codes.yaml`, `qc_release_policy.yaml`).

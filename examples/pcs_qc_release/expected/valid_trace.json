@@ -104,6 +104,7 @@
   ],
   "run_id": "qc-release",
   "sample_id": "PCS-SAMPLE-001",
-  "trace_hash": "sha256:77c4115520b649ec23c7baff8617cd022c68bb7e17148354e2920c5f9c2e9eee",
+  "schema_version": "v0",
+  "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
   "version": "0"
 }
