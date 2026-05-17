@@ -89,18 +89,19 @@ Step "LabTrust-Gym: attach certificate"
 $PfCmd = Get-Command $PfBin -ErrorAction SilentlyContinue
 if (-not $PfCmd) { throw "Provability Fabric CLI not found: $PfBin" }
 
-Step "LabTrust: write PF handoff guard (release-run manifests)"
+Step "LabTrust: write PF HandoffManifest.v0 (release-run manifests)"
 & $Python (Join-Path $PSScriptRoot "finalize_release_run.py") --run-dir $Work --no-promote
 
 Step "Provability Fabric: verify and sign (handoff certified bundle)"
 & $Python -c @"
 from pathlib import Path
-from labtrust_gym.pcs.release_run import HANDOFF_FOR_PF_NAME, validate_handoff_directory
+from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_PF_NAME
+from labtrust_gym.pcs.release_run import validate_handoff_directory
 import json
 work = Path(r'$Work')
 validate_handoff_directory(work)
-guard = json.loads((work / HANDOFF_FOR_PF_NAME).read_text(encoding='utf-8'))
-print('OK PF input', guard['certified_bundle'], guard['expected_certificate_id'])
+handoff = json.loads((work / HANDOFF_TO_PF_NAME).read_text(encoding='utf-8'))
+print('OK PF input science_claim_bundle.certified.json', handoff['invariants']['certificate_id'])
 "@
 
 & $PfBin verify science-claim $CertifiedJson --out $VerificationJson

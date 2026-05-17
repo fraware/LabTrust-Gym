@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -30,6 +31,13 @@ def main() -> int:
         path = release / artifact
         subprocess.run(["pcs", "validate", str(path)], check=True, cwd=ROOT)
         print("OK pcs validate", artifact)
+
+    fragment = release / "labtrust_release_fragment.json"
+    if fragment.is_file():
+        from labtrust_gym.pcs.release_fragment import assert_release_fragment_valid
+
+        assert_release_fragment_valid(json.loads(fragment.read_text(encoding="utf-8")))
+        print("OK labtrust_release_fragment.json")
 
     subprocess.run(
         [
