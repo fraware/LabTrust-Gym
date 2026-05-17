@@ -1,46 +1,16 @@
-# Cross-repo PCS v0.1 release candidate fixtures (`release/`)
+# PCS v0.1 release candidate fixtures
 
-These artifacts are the **release candidate** set for CertifyEdge, Provability Fabric, and Scientific Memory handoff. They must use a **real** `TraceCertificate.v0` from the CertifyEdge CLI—not the LabTrust mock in `expected/trace_certificate.mock.v0.json`.
+These files are synchronized from the canonical chain in **pcs-core**:
 
-## Required files
+`pcs-core/examples/labtrust-release/`
 
-| File | Source |
-|------|--------|
-| `trace.json` | `labtrust export-trace` |
-| `runtime_receipt.json` | `labtrust export-runtime-receipt` |
-| `science_claim_bundle.pending.json` | `labtrust export-pcs` |
-| `trace_certificate.json` | `certifyedge emit-pcs-certificate` |
-| `science_claim_bundle.certified.json` | `labtrust attach-certificate` |
-| `trace_hash_alignment.json` | Handoff check: `trace_hash` equality across trace, receipt, bundle |
-| `manifest.json` | Real `labtrust_gym_commit`, `certifyedge_commit`, `pcs_core_commit` (no placeholders) |
-
-## Generate
-
-From LabTrust-Gym repo root, with sibling checkouts (or set env vars):
+Do not edit individual artifacts here. Regenerate the full cross-repo chain in pcs-core, then sync:
 
 ```bash
-export PCS_DETERMINISTIC=1
-# optional overrides:
-# export CERTIFYEDGE_BIN=certifyedge
-# export CERTIFYEDGE_ROOT=../CertifyEdge
-# export CERTIFYEDGE_SPEC=$CERTIFYEDGE_ROOT/templates/hospital_lab/qc_release.stl
-
-bash examples/pcs_qc_release/scripts/generate_release_candidate.sh
+export PCS_CORE_PATH=/path/to/pcs-core/python
+python examples/pcs_qc_release/scripts/sync_release_from_pcs_core.py
+python examples/pcs_qc_release/scripts/verify_release_handoff.py
+pytest tests/pcs/test_labtrust_release_fixtures_match_pcs_core_rc.py -q
 ```
 
-Windows:
-
-```powershell
-$env:PCS_DETERMINISTIC = "1"
-& examples/pcs_qc_release/scripts/generate_release_candidate.ps1
-```
-
-After generation, commit `release/` when the PCS schema or QC-release contract changes.
-
-## Validation
-
-```bash
-pytest tests/pcs/test_release_fixtures.py -q
-```
-
-Tests skip when `release/trace_certificate.json` is absent (typical in LabTrust-only CI). Run locally after generating with CertifyEdge installed.
+PF signing input: `handoff/science_claim_bundle.certified.json` and `pf_handoff.json`.
