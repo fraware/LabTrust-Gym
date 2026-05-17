@@ -63,6 +63,8 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | validate-pcs | `--run <dir>` or `--artifact <json>` | 0 | (stderr OK message) | pcs-core validation |
 | export-pcs-handoff | `--out handoff/`; optional `PCS_DETERMINISTIC=1` | 0 | `handoff/manifest.json`, `certifyedge/`, `provability_fabric/` | docs/pcs_handoff.md |
 
+**PCS CI scripts (not `labtrust` subcommands):** `examples/pcs_qc_release/scripts/run_pcs_ci_local.{sh,ps1}` runs `pytest tests/pcs` plus `ci_validate_pcs_exports.py` (matches `.github/workflows/pcs.yml`). `generate_golden.py` regenerates `expected/` in deterministic mode.
+
 ## Optional / conditional commands
 
 - **train-ppo**, **eval-ppo:** Require `.[marl]` extra (stable-baselines3, torch). Smoke tests may skip if not installed.

@@ -21,6 +21,6 @@ labtrust export-pcs --run "$RUN_DIR" --out "$BUNDLE_OUT"
 pcs validate "$RECEIPT_OUT"
 pcs validate "$BUNDLE_OUT"
 
-python -m pytest tests/pcs/test_golden_deterministic.py::test_golden_artifacts_match_deterministic_generation -q
+python -m pytest tests/pcs/test_golden_deterministic.py::test_deterministic_mode_reproduces_expected_artifacts -q
 
 echo "LabTrust-only PCS smoke OK (run=$RUN_DIR)"

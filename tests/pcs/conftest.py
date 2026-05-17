@@ -16,6 +16,14 @@ def repo_root() -> Path:
 
 
 @pytest.fixture
+def expected_dir(repo_root: Path) -> Path:
+    path = repo_root / "examples" / "pcs_qc_release" / "expected"
+    if not path.is_dir():
+        pytest.skip("expected/ snapshots not present")
+    return path
+
+
+@pytest.fixture
 def valid_run(tmp_path: Path, repo_root: Path) -> Path:
     out = tmp_path / "qc-release"
     run_demo("qc-release", out_dir=out, policy_root=repo_root)

@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.attach_certificate import attach_trace_certificate
 from labtrust_gym.pcs.demo import run_demo
 from labtrust_gym.pcs.deterministic import (
@@ -17,11 +16,10 @@ from labtrust_gym.pcs.deterministic import (
     deterministic_mode,
 )
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
+from labtrust_gym.pcs.schema_version import assert_no_legacy_pf_bundle_keys
 from labtrust_gym.pcs.validate import require_pcs_core, validate_runtime_receipt, validate_science_claim_bundle
 
 pcs_core = pytest.importorskip("pcs_core")
-
-EXPECTED = get_repo_root() / "examples" / "pcs_qc_release" / "expected"
 
 GOLDEN_FILES = (
     "valid_trace.json",
@@ -38,18 +36,11 @@ GOLDEN_FILES = (
 )
 
 
-@pytest.fixture
-def expected_dir() -> Path:
-    if not EXPECTED.is_dir():
-        pytest.skip("expected/ snapshots not present")
-    return EXPECTED
-
-
 def _load_golden(name: str, expected_dir: Path) -> dict:
     return json.loads((expected_dir / name).read_text(encoding="utf-8"))
 
 
-def test_golden_artifacts_match_deterministic_generation(
+def test_deterministic_mode_reproduces_expected_artifacts(
     tmp_path: Path, expected_dir: Path, repo_root: Path
 ) -> None:
     require_pcs_core()
@@ -63,28 +54,30 @@ def test_golden_artifacts_match_deterministic_generation(
         receipt = export_runtime_receipt(vd, tmp_path / "receipt.json", policy_root=repo_root)
         pending = export_pcs_bundle(vd, tmp_path / "pending.json", policy_root=repo_root)
         cert = {
-                "certificate_id": DETERMINISTIC_CERTIFICATE_ID,
-                "schema_version": "v0",
-                "trace_hash": receipt["trace_hash"],
-                "spec_hash": receipt["input_hashes"]["workflow"],
-                "property_id": "pcs.qc_release.protocol_safety",
-                "checker": "certifyedge",
-                "checker_version": "0.1.0",
-                "status": "CertificateChecked",
-                "counterexample_ref": None,
-                "created_at": receipt["ended_at"],
-                "producer": "certifyedge",
-                "producer_version": "0.1.0",
-                "source_repo": "https://github.com/fraware/CertifyEdge",
-                "source_commit": DETERMINISTIC_CERT_SOURCE_COMMIT,
-                "signature_or_digest": DETERMINISTIC_CERT_DIGEST,
-            }
+            "certificate_id": DETERMINISTIC_CERTIFICATE_ID,
+            "schema_version": "v0",
+            "trace_hash": receipt["trace_hash"],
+            "spec_hash": receipt["input_hashes"]["workflow"],
+            "property_id": "pcs.qc_release.protocol_safety",
+            "checker": "certifyedge",
+            "checker_version": "0.1.0",
+            "status": "CertificateChecked",
+            "counterexample_ref": None,
+            "created_at": receipt["ended_at"],
+            "producer": "certifyedge",
+            "producer_version": "0.1.0",
+            "source_repo": "https://github.com/fraware/CertifyEdge",
+            "source_commit": DETERMINISTIC_CERT_SOURCE_COMMIT,
+            "signature_or_digest": DETERMINISTIC_CERT_DIGEST,
+        }
         certified = attach_trace_certificate(pending, cert)
 
         assert trace == _load_golden("valid_trace.json", expected_dir)
         assert receipt == _load_golden("valid_runtime_receipt.json", expected_dir)
         assert pending == _load_golden("valid_science_claim_bundle.pending.json", expected_dir)
         assert certified == _load_golden("valid_science_claim_bundle.certified.json", expected_dir)
+        assert_no_legacy_pf_bundle_keys(pending)
+        assert_no_legacy_pf_bundle_keys(certified)
         assert cert == _load_golden("trace_certificate.v0.json", expected_dir)
 
         for demo, prefix in [

@@ -31,6 +31,7 @@ pip install "referencing>=0.35.0,<0.37.0"
 echo ""
 echo "PCS dev environment ready. Activate with: source $VENV/bin/activate"
 echo "Then run:  pytest tests/pcs -q"
+echo "           bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh"
 echo "           labtrust run-demo qc-release"
 if [[ "$INCLUDE_ENV" -eq 1 ]]; then
   echo "Full suite: pytest -q"

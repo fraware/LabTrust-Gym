@@ -54,6 +54,22 @@ Regenerate golden snapshots (uses `PCS_DETERMINISTIC=1`; no git HEAD required):
 python examples/pcs_qc_release/scripts/generate_golden.py
 ```
 
+Full local CI (same as `.github/workflows/pcs.yml`):
+
+```bash
+bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh
+```
+
+```powershell
+& examples/pcs_qc_release/scripts/run_pcs_ci_local.ps1
+```
+
+Export-only validation (deterministic qc-release + `pcs validate` + golden checks):
+
+```bash
+python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
+```
+
 LabTrust-only smoke (valid + invalid demos, export, `pcs validate`, golden check):
 
 ```bash
@@ -97,5 +113,7 @@ See [RUNBOOK.md](RUNBOOK.md) for the full end-to-end flow (CertifyEdge, Provabil
 | `scripts/run_e2e_local.sh` | Local smoke (`PCS_DETERMINISTIC=1`) |
 | `scripts/labtrust_only_smoke.sh` / `.ps1` | One-command LabTrust-only smoke |
 | `scripts/generate_golden.py` | Regenerate `expected/` (deterministic fixtures) |
+| `scripts/run_pcs_ci_local.sh` / `.ps1` | Full PCS CI (`pytest tests/pcs` + export validation) |
+| `scripts/ci_validate_pcs_exports.py` | CI export pipeline + pcs-core validate (also `.sh` / `.ps1`) |
 
 Policy: `policy/pcs/` (`roles.yaml`, `reason_codes.yaml`, `qc_release_policy.yaml`).

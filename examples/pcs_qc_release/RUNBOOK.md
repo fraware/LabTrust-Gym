@@ -56,7 +56,7 @@ ScienceClaimBundle exports use PCS-core canonical shape: top-level `runtime_rece
 
 Handoff bundle for CertifyEdge / Provability Fabric: `labtrust export-pcs-handoff --out handoff/` (see [docs/pcs_handoff.md](../../docs/pcs_handoff.md)).
 
-**In-repo CI scope:** LabTrust-only steps above plus `pytest tests/pcs`. CertifyEdge, Provability Fabric, and Scientific Memory steps are documented for cross-repo integration but are not executed in `.github/workflows/pcs.yml`.
+**In-repo CI scope:** `pytest tests/pcs` plus `python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py` (deterministic export, `pcs validate`, golden snapshot checks). CertifyEdge, Provability Fabric, and Scientific Memory steps are documented for cross-repo integration but are not executed in `.github/workflows/pcs.yml`.
 
 Verify `runs/qc-release/run_meta.json` has `"status": "completed"`, `"released": true`, `"final_reason_code": "ok"`.
 
@@ -116,7 +116,17 @@ pf sign science-claim science_claim_bundle.certified.json \
   --out signed_science_claim_bundle.json
 ```
 
-Provability Fabric emits a top-level **`SignedScienceClaimBundle.v0`** object in `signed_science_claim_bundle.json`. That wrapper includes the certified `ScienceClaimBundle.v0`, verification metadata, signer, and `schema_version` (see pcs-core `SignedScienceClaimBundle.v0.schema.json`).
+Provability Fabric emits a top-level **`SignedScienceClaimBundle.v0`** object in `signed_science_claim_bundle.json` (artifact class name; not the value of `schema_version`).
+
+**Signed bundle contract (pcs-core v0):**
+
+| Field | Rule |
+|-------|------|
+| `schema_version` | Always `"v0"` (PCS protocol version), including on `SignedScienceClaimBundle.v0` |
+| `science_claim_bundle` | Nested certified `ScienceClaimBundle.v0` from LabTrust |
+| Nested bundle shape | `runtime_receipts` (array) and `certificates` (array) only — never PF legacy top-level `runtime_receipt`, `trace_certificate`, or `trace_certificates` on the pending/certified bundle |
+
+LabTrust does not adapt exports to Provability Fabric’s older local schema; PF must consume pcs-core canonical `ScienceClaimBundle.v0`.
 
 Invalid-run `RuntimeReceipt.v0` files use `status: RuntimeObserved` with `run_outcome: failed` and `final_reason_code` set to `missing_qc` or `unauthorized_release` so downstream UIs can explain failures without overloading artifact status.
 
@@ -155,7 +165,7 @@ Golden references: `examples/pcs_qc_release/expected/` (regenerate with `python 
 
 - **`pcs validate` fails:** Install pcs-core; ensure digests use `sha256:` prefix and `schema_version` is `v0`.
 - **trace_hash mismatch:** Re-export trace and receipt from the same `run_dir`; do not edit events after export.
-- **`local_dev: true` on receipts:** Normal when not in a git checkout; release goldens must be built with a real `source_commit` (`generate_golden.py` enforces this).
+- **`local_dev: true` on receipts:** Normal when not in a git checkout (`source_commit: local-dev`). Golden fixtures use `--deterministic` / `PCS_DETERMINISTIC=1` instead (frozen `source_commit`, no `local_dev`).
 - **attach-certificate fails:** Certificate `trace_hash` must match `runtime_receipt.trace_hash`.
 - **Invalid demos pass release:** Check `policy/pcs/roles.yaml`; only `release_manager` is `release_capable`.
 

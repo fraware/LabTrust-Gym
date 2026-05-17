@@ -1,4 +1,13 @@
-"""Fixture-only deterministic PCS artifact generation (goldens, CI)."""
+"""Fixture-only deterministic PCS artifact generation (goldens, CI).
+
+When enabled (``PCS_DETERMINISTIC=1`` or ``labtrust run-demo --deterministic``):
+
+- ``source_commit`` and environment fields are frozen (no ``local_dev``).
+- Workflow ``run_id`` / event timestamps come from committed YAML (``examples/pcs_qc_release/*.yaml``).
+- Stable artifact IDs (``bundle_id``, ``claim_artifact_id``, certificate id in goldens).
+
+Normal runs use real git provenance, platform environment, and workflow YAML as-is.
+"""
 
 from __future__ import annotations
 

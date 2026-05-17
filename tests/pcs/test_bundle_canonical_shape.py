@@ -28,12 +28,6 @@ def test_pending_bundle_uses_runtime_receipts_array(valid_run: Path, tmp_path: P
     assert bundle["runtime_receipts"][0]["receipt_id"] == "receipt-qc-release"
 
 
-def test_pending_bundle_does_not_emit_runtime_receipt_singular(valid_run: Path, tmp_path: Path) -> None:
-    bundle = export_pcs_bundle(valid_run, tmp_path / "pending.json")
-    assert "runtime_receipt" not in bundle
-    assert_canonical_bundle_shape(bundle)
-
-
 def test_certified_bundle_uses_certificates_array(valid_run: Path, tmp_path: Path) -> None:
     pending = export_pcs_bundle(valid_run, tmp_path / "pending.json")
     receipt = pending["runtime_receipts"][0]

@@ -7,18 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.demo import run_demo
 from labtrust_gym.pcs.export import export_runtime_receipt, export_trace
-
-EXPECTED = get_repo_root() / "examples" / "pcs_qc_release" / "expected"
-
-
-@pytest.fixture
-def expected_dir() -> Path:
-    if not EXPECTED.is_dir():
-        pytest.skip("expected/ snapshots not present")
-    return EXPECTED
 
 
 def test_valid_trace_matches_golden(tmp_path: Path, expected_dir: Path, repo_root: Path) -> None:

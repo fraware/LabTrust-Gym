@@ -49,25 +49,8 @@ jobs:
           pip install -e ".[dev,pcs]"
       - name: PCS tests
         run: python -m pytest tests/pcs -q
-      - name: Validate committed golden artifacts (pcs-core)
-        run: |
-          python -c "
-          import json
-          from pathlib import Path
-          from pcs_core.validate import validate_artifact
-          root = Path('examples/pcs_qc_release/expected')
-          for name in (
-              'valid_runtime_receipt.json',
-              'valid_science_claim_bundle.pending.json',
-              'valid_science_claim_bundle.certified.json',
-              'trace_certificate.v0.json',
-              'invalid_missing_qc_runtime_receipt.json',
-              'invalid_unauthorized_runtime_receipt.json',
-          ):
-              path = root / name
-              validate_artifact(json.loads(path.read_text()))
-              print('OK', name)
-          "
+      - name: Strict pcs-core validate exported artifacts + committed goldens
+        run: python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
       - name: LabTrust-only smoke (deterministic)
         run: bash examples/pcs_qc_release/scripts/labtrust_only_smoke.sh
       - name: Invalid scenarios export receipts
@@ -83,6 +66,7 @@ jobs:
           for p in ('/tmp/missing_qc_receipt.json', '/tmp/unauthorized_receipt.json'):
               r = json.load(open(p))
               assert r['run_outcome'] == 'failed', p
+              assert r['status'] == 'RuntimeObserved', p
               validate_artifact(r)
               print('OK', p, r['final_reason_code'])
           "

@@ -11,7 +11,7 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-& (Join-Path $PSScriptRoot "labtrust_only_smoke.ps1")
+& (Join-Path $PSScriptRoot "run_pcs_ci_local.ps1")
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

@@ -23,6 +23,25 @@ def normalize_timestamp(ts: str) -> str:
     return ts
 
 
+def _read_git_head(cwd: Path) -> str | None:
+    """Return git HEAD for *cwd*, or None when git is unavailable."""
+    try:
+        import subprocess
+
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=cwd,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
 def resolve_source_commit(policy_root: Path | None = None) -> tuple[str, bool]:
     """
     Return (source_commit, local_dev).
@@ -32,20 +51,9 @@ def resolve_source_commit(policy_root: Path | None = None) -> tuple[str, bool]:
     """
     if is_deterministic_mode():
         return DETERMINISTIC_SOURCE_COMMIT, False
-    try:
-        import subprocess
-
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            cwd=policy_root or get_repo_root(),
-        )
-        if out.returncode == 0 and out.stdout.strip():
-            return out.stdout.strip(), False
-    except Exception:
-        pass
+    head = _read_git_head(policy_root or get_repo_root())
+    if head:
+        return head, False
     return LOCAL_DEV_COMMIT, True
 
 

@@ -40,6 +40,7 @@ Write-Host ""
 Write-Host "PCS dev environment ready." -ForegroundColor Green
 Write-Host "Activate:  $($Venv)\Scripts\Activate.ps1" -ForegroundColor Cyan
 Write-Host "Then run:  pytest tests/pcs -q" -ForegroundColor Cyan
+Write-Host "           examples\pcs_qc_release\scripts\run_pcs_ci_local.ps1" -ForegroundColor Cyan
 Write-Host "           labtrust run-demo qc-release" -ForegroundColor Cyan
 if ($IncludeEnv) {
     Write-Host "Full suite: pytest -q" -ForegroundColor Cyan

@@ -23,7 +23,9 @@ from labtrust_gym.pcs.deterministic import (
     DETERMINISTIC_CERTIFICATE_ID,
     deterministic_mode,
 )
+from labtrust_gym.pcs.ci_pipeline import validate_committed_goldens
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
+from labtrust_gym.pcs.validate import require_pcs_core
 
 
 def _write_json(path: Path, doc: dict) -> None:
@@ -89,7 +91,10 @@ def main() -> int:
             )
 
     shutil.rmtree(tmp)
+    require_pcs_core()
+    validated = validate_committed_goldens(exp)
     print(f"golden artifacts written to {exp} (PCS_DETERMINISTIC=1)")
+    print(f"validated {len(validated)} golden files against pcs-core")
     return 0
 
 

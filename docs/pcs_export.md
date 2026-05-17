@@ -46,7 +46,16 @@ Golden traces for CertifyEdge: `examples/pcs_qc_release/expected/valid_trace.jso
 | `released` | Whether `release_sample` succeeded |
 | `local_dev` | `true` when `source_commit` is not from git (local runs only) |
 
-Release goldens require a real git `source_commit`; use `examples/pcs_qc_release/scripts/generate_golden.py`.
+Golden fixtures use deterministic mode (`PCS_DETERMINISTIC=1`); regenerate with `examples/pcs_qc_release/scripts/generate_golden.py`.
+
+## CI validation
+
+GitHub Actions (`.github/workflows/pcs.yml`) runs:
+
+1. `pytest tests/pcs`
+2. `python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py` — deterministic export, `pcs validate`, and committed golden checks via `labtrust_gym.pcs.ci_pipeline`
+
+The same pipeline is importable in tests (`tests/pcs/test_ci_pipeline.py`).
 
 ## Hashing
 
