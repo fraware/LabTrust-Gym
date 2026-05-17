@@ -39,6 +39,20 @@ def is_deterministic_mode() -> bool:
     return os.environ.get("PCS_DETERMINISTIC", "").strip().lower() in ("1", "true", "yes")
 
 
+def is_release_fixture_mode() -> bool:
+    """Cross-repo ``release/`` generation: deterministic trace, real git provenance."""
+    return os.environ.get("PCS_RELEASE_FIXTURE", "").strip().lower() in ("1", "true", "yes")
+
+
+def use_frozen_provenance() -> bool:
+    """``expected/`` goldens only — not ``release/`` fixtures."""
+    return is_deterministic_mode() and not is_release_fixture_mode()
+
+
+def use_frozen_environment() -> bool:
+    return is_deterministic_mode() and not is_release_fixture_mode()
+
+
 @contextmanager
 def deterministic_mode(*, enabled: bool = True) -> Iterator[None]:
     """Enable deterministic PCS fields for the current context."""

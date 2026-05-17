@@ -8,6 +8,7 @@ from typing import Any
 
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.manifest import validate_release_manifest
+from labtrust_gym.pcs.release_provenance import validate_release_artifact_provenance
 from labtrust_gym.pcs.mock_certificate import CERTIFYEDGE_SOURCE_REPO, is_mock_certificate
 from labtrust_gym.pcs.deterministic import DETERMINISTIC_CERTIFICATE_ID
 from labtrust_gym.pcs.schema_version import assert_no_legacy_pf_bundle_keys
@@ -142,6 +143,7 @@ def validate_release_fixtures(directory: Path | None = None) -> list[str]:
         raise FileNotFoundError(f"release fixture missing: {MANIFEST_NAME}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     validate_release_manifest(manifest)
+    validate_release_artifact_provenance(root, manifest)
     ok.append(MANIFEST_NAME)
 
     alignment_path = root / TRACE_HASH_ALIGNMENT_NAME

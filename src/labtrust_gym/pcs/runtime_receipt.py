@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.config import get_repo_root
-from labtrust_gym.pcs.deterministic import DETERMINISTIC_ENVIRONMENT, is_deterministic_mode
+from labtrust_gym.pcs.deterministic import DETERMINISTIC_ENVIRONMENT, use_frozen_environment
 from labtrust_gym.pcs.hash import file_digest, pcs_digest
 from labtrust_gym.pcs.ids import receipt_id
 from labtrust_gym.pcs.policy import policy_hash
@@ -52,7 +52,7 @@ def build_runtime_receipt(
         "released": bool(meta.get("released")),
         "environment": (
             dict(DETERMINISTIC_ENVIRONMENT)
-            if is_deterministic_mode()
+            if use_frozen_environment()
             else {
                 "platform": platform.platform(),
                 "python": sys.version.split()[0],

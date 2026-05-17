@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
 export PCS_DETERMINISTIC=1
+export PCS_RELEASE_FIXTURE=1
 
 RELEASE="${PCS_RELEASE_DIR:-$ROOT/examples/pcs_qc_release/release}"
 RUN_DIR="${PCS_RUN_DIR:-$ROOT/runs/qc-release}"
@@ -12,6 +13,17 @@ WORK="${PCS_RELEASE_WORK:-$ROOT/tmp_pcs_release_candidate}"
 CERTIFYEDGE_ROOT="${CERTIFYEDGE_ROOT:-$ROOT/../CertifyEdge}"
 CERTIFYEDGE_BIN="${CERTIFYEDGE_BIN:-certifyedge}"
 CERTIFYEDGE_SPEC="${CERTIFYEDGE_SPEC:-$CERTIFYEDGE_ROOT/templates/hospital_lab/qc_release.stl}"
+PCS_CORE_ROOT="${PCS_CORE_PATH:-$ROOT/../pcs-core}"
+if [ "$(basename "$PCS_CORE_ROOT")" = "python" ]; then
+  PCS_CORE_GIT_ROOT="$(cd "$(dirname "$PCS_CORE_ROOT")" && pwd)"
+else
+  PCS_CORE_GIT_ROOT="$(cd "$PCS_CORE_ROOT" && pwd)"
+fi
+
+LABTRUST_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
+CERTIFYEDGE_COMMIT="$(git -C "$CERTIFYEDGE_ROOT" rev-parse HEAD)"
+PCS_CORE_COMMIT="$(git -C "$PCS_CORE_GIT_ROOT" rev-parse HEAD)"
+export CERTIFYEDGE_SOURCE_COMMIT="$CERTIFYEDGE_COMMIT"
 
 if ! command -v labtrust >/dev/null 2>&1; then
   if [ -x "$ROOT/.venv-pcs/bin/labtrust" ]; then
@@ -22,15 +34,25 @@ if ! command -v labtrust >/dev/null 2>&1; then
 fi
 
 if ! command -v "$CERTIFYEDGE_BIN" >/dev/null 2>&1; then
-  echo "error: CertifyEdge binary not found: $CERTIFYEDGE_BIN" >&2
-  echo "Set CERTIFYEDGE_BIN or install CertifyEdge; see release/README.md" >&2
-  exit 1
+  if [ -x "$CERTIFYEDGE_ROOT/target/debug/certifyedge" ]; then
+    CERTIFYEDGE_BIN="$CERTIFYEDGE_ROOT/target/debug/certifyedge"
+  elif [ -x "$CERTIFYEDGE_ROOT/target/debug/certifyedge.exe" ]; then
+    CERTIFYEDGE_BIN="$CERTIFYEDGE_ROOT/target/debug/certifyedge.exe"
+  else
+    echo "error: CertifyEdge binary not found: $CERTIFYEDGE_BIN" >&2
+    echo "Set CERTIFYEDGE_BIN or install CertifyEdge; see release/README.md" >&2
+    exit 1
+  fi
 fi
 if [ ! -f "$CERTIFYEDGE_SPEC" ]; then
   echo "error: CertifyEdge spec not found: $CERTIFYEDGE_SPEC" >&2
   echo "Set CERTIFYEDGE_SPEC or CERTIFYEDGE_ROOT (default: $CERTIFYEDGE_ROOT)" >&2
   exit 1
 fi
+
+echo "labtrust_gym_commit=${LABTRUST_COMMIT}"
+echo "certifyedge_commit=${CERTIFYEDGE_COMMIT}"
+echo "pcs_core_commit=${PCS_CORE_COMMIT}"
 
 rm -rf "$WORK"
 mkdir -p "$WORK" "$RELEASE"
@@ -40,7 +62,8 @@ labtrust export-trace --run "$RUN_DIR" --out "$WORK/trace.json"
 labtrust export-runtime-receipt --run "$RUN_DIR" --out "$WORK/runtime_receipt.json"
 labtrust export-pcs --run "$RUN_DIR" --out "$WORK/science_claim_bundle.pending.json"
 
-"$CERTIFYEDGE_BIN" emit-pcs-certificate \
+CERTIFYEDGE_SOURCE_COMMIT="$CERTIFYEDGE_COMMIT" \
+  "$CERTIFYEDGE_BIN" --release-mode emit-pcs-certificate \
   --spec "$CERTIFYEDGE_SPEC" \
   --trace "$WORK/trace.json" \
   --out "$WORK/trace_certificate.json"
@@ -60,6 +83,8 @@ done
 export PCS_RELEASE_DIR="$RELEASE"
 export PCS_MANIFEST_GENERATOR="generate_release_candidate.sh"
 export CERTIFYEDGE_ROOT="$CERTIFYEDGE_ROOT"
+export CERTIFYEDGE_BIN="$CERTIFYEDGE_BIN"
+export CERTIFYEDGE_SPEC="$CERTIFYEDGE_SPEC"
 python -c "
 from pathlib import Path
 from labtrust_gym.pcs.release_fixtures import write_trace_hash_alignment
