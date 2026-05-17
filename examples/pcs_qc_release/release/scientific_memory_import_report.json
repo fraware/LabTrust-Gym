@@ -4,12 +4,12 @@
   "claim_id": "claim-pcs-qc-release-v0.1",
   "imported_at": "2026-05-17T15:39:09Z",
   "render_path": "/pcs/claims/claim-pcs-qc-release-v0.1",
-  "scientific_memory_commit": "d49cbf78837d42883a3c73078f098669e69f5e3d",
+  "scientific_memory_commit": "5b4b81049b430d1b59ff5b51f688eb0feaeef76c",
   "source_bundle_path": "signed_science_claim_bundle.json",
   "stale_artifacts": [],
   "strict": true,
   "verification_status": "passed",
   "warnings": [],
   "source_repo": "https://github.com/fraware/scientific-memory",
-  "source_commit": "d49cbf78837d42883a3c73078f098669e69f5e3d"
+  "source_commit": "5b4b81049b430d1b59ff5b51f688eb0feaeef76c"
 }
