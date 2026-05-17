@@ -78,6 +78,8 @@ def extract_rc_chain_identity(release_root: Path) -> dict[str, str]:
     return {
         "trace_hash": trace_hash,
         "certificate_id": cert_id,
+        "trace_json_hash": _artifact_hash(release_root, manifest, fixture, "trace.json"),
+        "trace_certificate_hash": _artifact_hash(release_root, manifest, fixture, "trace_certificate.json"),
         "certified_bundle_hash": _artifact_hash(
             release_root, manifest, fixture, "science_claim_bundle.certified.json"
         ),
@@ -100,11 +102,13 @@ def extract_rc_chain_identity(release_root: Path) -> dict[str, str]:
 
 
 RC_HANDOFF_COMPARE_KEYS: tuple[str, ...] = (
-    "trace_hash",
-    "certificate_id",
-    "certified_bundle_hash",
+    "trace_json_hash",
     "runtime_receipt_hash",
+    "trace_certificate_hash",
     "pending_bundle_hash",
+    "certified_bundle_hash",
+    "certificate_id",
+    "trace_hash",
     "labtrust_gym_commit",
     "certifyedge_commit",
     "pcs_core_commit",
@@ -115,9 +119,11 @@ def compare_release_to_pcs_core_rc(
     labtrust_release: Path,
     canonical: Path,
 ) -> list[str]:
-    """Compare canonical RC identity fields; return labels that matched."""
-    local_id = extract_rc_chain_identity(labtrust_release.resolve())
-    canon_id = extract_rc_chain_identity(canonical.resolve())
+    """Compare LabTrust release/ to pcs-core canonical RC by hashes and commits."""
+    local = labtrust_release.resolve()
+    canon = canonical.resolve()
+    local_id = extract_rc_chain_identity(local)
+    canon_id = extract_rc_chain_identity(canon)
     matched: list[str] = []
     for key in RC_HANDOFF_COMPARE_KEYS:
         if local_id.get(key) != canon_id.get(key):
@@ -125,7 +131,43 @@ def compare_release_to_pcs_core_rc(
                 f"{key} mismatch: local={local_id.get(key)!r} canonical={canon_id.get(key)!r}"
             )
         matched.append(key)
+
+    for name in HANDOFF_ARTIFACTS:
+        if not (canon / name).is_file():
+            raise FileNotFoundError(f"canonical missing {name}")
+        local_digest = file_content_digest(local / name)
+        canon_digest = file_content_digest(canon / name)
+        if local_digest != canon_digest:
+            raise ValueError(
+                f"{name} hash mismatch: local={local_digest} canonical={canon_digest}"
+            )
+        matched.append(f"{name}")
+
     return matched
+
+
+def verify_release_sync_gate(
+    labtrust_release: Path,
+    canonical: Path | None = None,
+) -> list[str]:
+    """
+    Full RC sync gate: local handoff integrity plus optional pcs-core canonical compare.
+
+    When ``canonical`` is set, every handoff artifact must be byte-identical or share the
+    same canonical SHA-256 as recorded in both manifests.
+    """
+    from labtrust_gym.pcs.release_handoff import assert_pf_handoff_matches_release_manifest
+
+    local = labtrust_release.resolve()
+    checks: list[str] = []
+    checks.extend(verify_release_handoff(local))
+    assert_pf_handoff_matches_release_manifest(local)
+    checks.append("pf_handoff_matches_manifest")
+
+    if canonical is not None:
+        checks.extend(compare_release_to_pcs_core_rc(local, canonical.resolve()))
+
+    return checks
 
 
 def assert_release_matches_pcs_core_rc(
@@ -137,20 +179,8 @@ def assert_release_matches_pcs_core_rc(
     local = (labtrust_release or labtrust_release_dir(lt_root)).resolve()
     canon = (canonical or pcs_core_labtrust_release_dir(lt_root)).resolve()
 
-    local_id = extract_rc_chain_identity(local)
-    canon_id = extract_rc_chain_identity(canon)
-
     compare_release_to_pcs_core_rc(local, canon)
-
-    for name in HANDOFF_ARTIFACTS:
-        local_path = local / name
-        canon_path = canon / name
-        if not canon_path.is_file():
-            raise FileNotFoundError(f"canonical missing {name}")
-        if file_content_digest(local_path) != file_content_digest(canon_path):
-            raise ValueError(f"artifact bytes mismatch for {name}")
-
-    return local_id
+    return extract_rc_chain_identity(local)
 
 
 def sync_release_from_pcs_core_rc(
