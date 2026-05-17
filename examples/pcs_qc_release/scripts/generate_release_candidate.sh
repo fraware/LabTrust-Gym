@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build examples/pcs_qc_release/release/ using real CertifyEdge TraceCertificate output.
+# Build examples/pcs_qc_release/release/ via atomic release-run staging + handoff promotion.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$ROOT"
@@ -7,8 +7,8 @@ export PCS_DETERMINISTIC=1
 export PCS_RELEASE_FIXTURE=1
 
 RELEASE="${PCS_RELEASE_DIR:-$ROOT/examples/pcs_qc_release/release}"
+RELEASE_RUN="${PCS_RELEASE_RUN_DIR:-$ROOT/examples/pcs_qc_release/release-run}"
 RUN_DIR="${PCS_RUN_DIR:-$ROOT/runs/qc-release}"
-WORK="${PCS_RELEASE_WORK:-$ROOT/tmp_pcs_release_candidate}"
 
 CERTIFYEDGE_ROOT="${CERTIFYEDGE_ROOT:-$ROOT/../CertifyEdge}"
 CERTIFYEDGE_BIN="${CERTIFYEDGE_BIN:-certifyedge}"
@@ -20,9 +20,7 @@ else
   PCS_CORE_GIT_ROOT="$(cd "$PCS_CORE_ROOT" && pwd)"
 fi
 
-LABTRUST_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 CERTIFYEDGE_COMMIT="$(git -C "$CERTIFYEDGE_ROOT" rev-parse HEAD)"
-PCS_CORE_COMMIT="$(git -C "$PCS_CORE_GIT_ROOT" rev-parse HEAD)"
 export CERTIFYEDGE_SOURCE_COMMIT="$CERTIFYEDGE_COMMIT"
 
 if ! command -v labtrust >/dev/null 2>&1; then
@@ -40,61 +38,49 @@ if ! command -v "$CERTIFYEDGE_BIN" >/dev/null 2>&1; then
     CERTIFYEDGE_BIN="$CERTIFYEDGE_ROOT/target/debug/certifyedge.exe"
   else
     echo "error: CertifyEdge binary not found: $CERTIFYEDGE_BIN" >&2
-    echo "Set CERTIFYEDGE_BIN or install CertifyEdge; see release/README.md" >&2
     exit 1
   fi
 fi
 if [ ! -f "$CERTIFYEDGE_SPEC" ]; then
   echo "error: CertifyEdge spec not found: $CERTIFYEDGE_SPEC" >&2
-  echo "Set CERTIFYEDGE_SPEC or CERTIFYEDGE_ROOT (default: $CERTIFYEDGE_ROOT)" >&2
   exit 1
 fi
 
-echo "labtrust_gym_commit=${LABTRUST_COMMIT}"
-echo "certifyedge_commit=${CERTIFYEDGE_COMMIT}"
-echo "pcs_core_commit=${PCS_CORE_COMMIT}"
+echo "labtrust_gym_commit=$(git -C "$ROOT" rev-parse HEAD)"
+echo "certifyedge_commit=$CERTIFYEDGE_COMMIT"
+echo "pcs_core_commit=$(git -C "$PCS_CORE_GIT_ROOT" rev-parse HEAD)"
 
-rm -rf "$WORK"
-mkdir -p "$WORK" "$RELEASE"
+rm -rf "$RELEASE_RUN"
+mkdir -p "$RELEASE_RUN"
 
 labtrust run-demo qc-release --deterministic --out "$RUN_DIR"
-labtrust export-trace --run "$RUN_DIR" --out "$WORK/trace.json"
-labtrust export-runtime-receipt --run "$RUN_DIR" --out "$WORK/runtime_receipt.json"
-labtrust export-pcs --run "$RUN_DIR" --out "$WORK/science_claim_bundle.pending.json"
+labtrust export-trace --run "$RUN_DIR" --out "$RELEASE_RUN/trace.json"
+labtrust export-runtime-receipt --run "$RUN_DIR" --out "$RELEASE_RUN/runtime_receipt.json"
+labtrust export-pcs --run "$RUN_DIR" --out "$RELEASE_RUN/science_claim_bundle.pending.json"
 
 CERTIFYEDGE_SOURCE_COMMIT="$CERTIFYEDGE_COMMIT" \
   "$CERTIFYEDGE_BIN" --release-mode emit-pcs-certificate \
   --spec "$CERTIFYEDGE_SPEC" \
-  --trace "$WORK/trace.json" \
-  --out "$WORK/trace_certificate.json"
-pcs validate "$WORK/trace_certificate.json"
-"$CERTIFYEDGE_BIN" verify-certificate "$WORK/trace_certificate.json" --trace "$WORK/trace.json"
+  --trace "$RELEASE_RUN/trace.json" \
+  --out "$RELEASE_RUN/trace_certificate.json"
+pcs validate "$RELEASE_RUN/trace_certificate.json"
+"$CERTIFYEDGE_BIN" verify-certificate "$RELEASE_RUN/trace_certificate.json" --trace "$RELEASE_RUN/trace.json"
 
 labtrust attach-certificate \
-  --bundle "$WORK/science_claim_bundle.pending.json" \
-  --certificate "$WORK/trace_certificate.json" \
-  --out "$WORK/science_claim_bundle.certified.json"
+  --bundle "$RELEASE_RUN/science_claim_bundle.pending.json" \
+  --certificate "$RELEASE_RUN/trace_certificate.json" \
+  --out "$RELEASE_RUN/science_claim_bundle.certified.json"
 
-for f in trace.json runtime_receipt.json trace_certificate.json \
-  science_claim_bundle.pending.json science_claim_bundle.certified.json; do
-  cp "$WORK/$f" "$RELEASE/$f"
-done
+pcs validate "$RELEASE_RUN/science_claim_bundle.certified.json"
+python "$ROOT/examples/pcs_qc_release/scripts/verify_pcs_v01_chain.py" --work "$RELEASE_RUN" --stage certified
 
-export PCS_RELEASE_DIR="$RELEASE"
 export PCS_MANIFEST_GENERATOR="generate_release_candidate.sh"
 export CERTIFYEDGE_ROOT="$CERTIFYEDGE_ROOT"
 export CERTIFYEDGE_BIN="$CERTIFYEDGE_BIN"
 export CERTIFYEDGE_SPEC="$CERTIFYEDGE_SPEC"
-python -c "
-from pathlib import Path
-from labtrust_gym.pcs.release_fixtures import write_trace_hash_alignment
-write_trace_hash_alignment(Path('$RELEASE'))
-print('OK trace_hash_alignment.json')
-"
-python "$ROOT/examples/pcs_qc_release/scripts/write_release_manifest.py"
+python "$ROOT/examples/pcs_qc_release/scripts/finalize_release_run.py" \
+  --run-dir "$RELEASE_RUN" \
+  --release-dir "$RELEASE"
 
-pcs validate "$WORK/science_claim_bundle.certified.json"
-python "$ROOT/examples/pcs_qc_release/scripts/verify_pcs_v01_chain.py" --work "$WORK" --stage certified
 python "$ROOT/examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py"
-
-echo "Release candidate fixtures written to $RELEASE"
+echo "Release candidate promoted from release-run to $RELEASE (handoff/ + flat artifacts)"

@@ -70,7 +70,22 @@ pcs validate "$CERTIFIED_JSON"
 
 pcs_require_cmd "$PF_BIN"
 
-pcs_step "Provability Fabric: verify and sign"
+pcs_step "LabTrust: write PF handoff guard (release-run manifests)"
+python "$SCRIPT_DIR/finalize_release_run.py" --run-dir "$WORK" --no-promote
+
+pcs_step "Provability Fabric: verify and sign (handoff certified bundle)"
+python -c "
+from pathlib import Path
+from labtrust_gym.pcs.release_run import HANDOFF_FOR_PF_NAME, validate_handoff_directory
+work = Path('$WORK')
+validate_handoff_directory(work)
+guard = __import__('json').loads((work / HANDOFF_FOR_PF_NAME).read_text())
+cert = work / guard['certified_bundle']
+if not cert.is_file():
+    raise SystemExit(f'missing PF input bundle: {cert}')
+print('OK PF input', cert.name, 'certificate_id', guard['expected_certificate_id'])
+"
+
 "$PF_BIN" verify science-claim "$CERTIFIED_JSON" --out "$VERIFICATION_JSON"
 pcs validate "$VERIFICATION_JSON"
 "$PF_BIN" sign science-claim "$CERTIFIED_JSON" --out "$SIGNED_JSON"
@@ -96,16 +111,16 @@ fi
 pcs_step "Validate chain artifacts"
 python "$SCRIPT_DIR/verify_pcs_v01_chain.py" --work "$WORK" --stage full
 
-# Optional: refresh release/ fixtures
+# Optional: atomically promote release-run -> release/ (+ handoff/)
 if [ "${PCS_COPY_TO_RELEASE:-0}" = "1" ]; then
   RELEASE="$PCS_CHAIN_ROOT/examples/pcs_qc_release/release"
-  mkdir -p "$RELEASE"
-  for f in trace.json runtime_receipt.json trace_certificate.json \
-    science_claim_bundle.pending.json science_claim_bundle.certified.json; do
-    cp "$WORK/$f" "$RELEASE/$f"
-  done
-  cp "$SIGNED_JSON" "$RELEASE/signed_science_claim_bundle.json"
-  echo "copied chain outputs to $RELEASE"
+  export PCS_MANIFEST_GENERATOR="run_pcs_v01_clean_chain.sh"
+  export CERTIFYEDGE_ROOT
+  export CERTIFYEDGE_BIN
+  export CERTIFYEDGE_SPEC
+  python "$SCRIPT_DIR/finalize_release_run.py" --run-dir "$WORK" --release-dir "$RELEASE"
+  python "$SCRIPT_DIR/ci_validate_release_fixtures.py"
+  echo "promoted release-run to $RELEASE (handoff/ + downstream artifacts)"
 fi
 
 echo ""

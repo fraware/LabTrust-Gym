@@ -11,7 +11,7 @@ $Root = Get-PcsRepoRoot
 Set-Location $Root
 $env:PCS_DETERMINISTIC = if ($env:PCS_DETERMINISTIC) { $env:PCS_DETERMINISTIC } else { "1" }
 
-$Work = if ($env:PCS_CHAIN_WORK) { $env:PCS_CHAIN_WORK } else { $Root }
+$Work = if ($env:PCS_CHAIN_WORK) { $env:PCS_CHAIN_WORK } else { Join-Path $Root "examples\pcs_qc_release\release-run" }
 $RunDir = if ($env:RUN_DIR) { $env:RUN_DIR } else { Join-Path $Root "runs\qc-release" }
 $Parent = Split-Path -Parent $Root
 
@@ -89,7 +89,20 @@ Step "LabTrust-Gym: attach certificate"
 $PfCmd = Get-Command $PfBin -ErrorAction SilentlyContinue
 if (-not $PfCmd) { throw "Provability Fabric CLI not found: $PfBin" }
 
-Step "Provability Fabric: verify and sign"
+Step "LabTrust: write PF handoff guard (release-run manifests)"
+& $Python (Join-Path $PSScriptRoot "finalize_release_run.py") --run-dir $Work --no-promote
+
+Step "Provability Fabric: verify and sign (handoff certified bundle)"
+& $Python -c @"
+from pathlib import Path
+from labtrust_gym.pcs.release_run import HANDOFF_FOR_PF_NAME, validate_handoff_directory
+import json
+work = Path(r'$Work')
+validate_handoff_directory(work)
+guard = json.loads((work / HANDOFF_FOR_PF_NAME).read_text(encoding='utf-8'))
+print('OK PF input', guard['certified_bundle'], guard['expected_certificate_id'])
+"@
+
 & $PfBin verify science-claim $CertifiedJson --out $VerificationJson
 & $Pcs validate $VerificationJson
 & $PfBin sign science-claim $CertifiedJson --out $SignedJson
@@ -111,6 +124,17 @@ if (-not $SkipScientificMemory) {
 
 Step "Validate chain artifacts"
 & $Python (Join-Path $PSScriptRoot "verify_pcs_v01_chain.py") --work $Work --stage full
+
+if ($env:PCS_COPY_TO_RELEASE -eq "1") {
+    $Release = Join-Path $Root "examples\pcs_qc_release\release"
+    $env:PCS_MANIFEST_GENERATOR = "run_pcs_v01_clean_chain.ps1"
+    $env:CERTIFYEDGE_ROOT = $CertifyEdgeRoot
+    $env:CERTIFYEDGE_BIN = $CertifyEdgeBin
+    $env:CERTIFYEDGE_SPEC = $CertifyEdgeSpec
+    & $Python (Join-Path $PSScriptRoot "finalize_release_run.py") --run-dir $Work --release-dir $Release
+    & $Python (Join-Path $PSScriptRoot "ci_validate_release_fixtures.py")
+    Write-Host "promoted release-run to $Release"
+}
 
 Write-Host ""
 Write-Host "PCS v0.1 clean-checkout chain OK (workdir=$Work)"

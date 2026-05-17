@@ -11,7 +11,8 @@ pcs_chain_init() {
 
   export PCS_DETERMINISTIC="${PCS_DETERMINISTIC:-1}"
   export RUN_DIR="${RUN_DIR:-runs/qc-release}"
-  export WORK="${PCS_CHAIN_WORK:-$PCS_CHAIN_ROOT}"
+  export RELEASE_RUN_DIR="${PCS_RELEASE_RUN_DIR:-$PCS_CHAIN_ROOT/examples/pcs_qc_release/release-run}"
+  export WORK="${PCS_CHAIN_WORK:-$RELEASE_RUN_DIR}"
 
   export TRACE_JSON="${WORK}/trace.json"
   export RUNTIME_RECEIPT_JSON="${WORK}/runtime_receipt.json"
