@@ -142,6 +142,29 @@ def _assert_manifest_artifact_digests(release_root: Path, manifest: dict[str, An
             raise ValueError(f"manifest artifact digest mismatch for {name}")
 
 
+def assert_pf_handoff_certificate_id_matches_trace_certificate(release_root: Path) -> None:
+    """``pf_handoff.certificate_id`` matches ``trace_certificate.json`` and certified bundle."""
+    root = release_root.resolve()
+    pf = _load(root / PF_HANDOFF_NAME)
+    certificate = _load(root / "trace_certificate.json")
+    if pf["certificate_id"] != certificate["certificate_id"]:
+        raise ValueError("pf_handoff.certificate_id != trace_certificate.certificate_id")
+    certified = _load(root / CERTIFIED_BUNDLE_NAME)
+    if certified["certificates"][0]["certificate_id"] != pf["certificate_id"]:
+        raise ValueError("pf_handoff.certificate_id != certified.certificates[0].certificate_id")
+
+
+def assert_pf_handoff_trace_hash_matches_runtime_receipt(release_root: Path) -> None:
+    """``pf_handoff.trace_hash`` matches trace, receipt, certificate, and certified bundle."""
+    root = release_root.resolve()
+    pf = _load(root / PF_HANDOFF_NAME)
+    trace_hash = pf["trace_hash"]
+    receipt = _load(root / "runtime_receipt.json")
+    if receipt["trace_hash"] != trace_hash:
+        raise ValueError("pf_handoff.trace_hash != runtime_receipt.trace_hash")
+    _assert_trace_hash_stable(root, trace_hash)
+
+
 def assert_pf_handoff_matches_release_manifest(release_root: Path | None = None) -> None:
     """``pf_handoff.json`` certificate_id, certified_bundle_hash, and trace_hash match ``manifest.json``."""
     from labtrust_gym.pcs.release_fixtures import release_dir

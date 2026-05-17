@@ -35,7 +35,40 @@ LabTrust-only segment (CI / no sibling repos):
 bash examples/pcs_qc_release/scripts/run_pcs_v01_clean_chain.sh --labtrust-only
 ```
 
-## 4. Toolchain requirements
+## 4. Release candidate mode (pcs-v0.1.0-rc1)
+
+PCS v0.1 release evidence is **not** the same as LabTrust-local CI goldens.
+
+| Directory | Role |
+|-----------|------|
+| `examples/pcs_qc_release/expected/` | **LabTrust-local** deterministic fixtures for unit tests and `ci_validate_pcs_exports.py`. May use `trace_certificate.mock.v0.json` and frozen `source_commit` values. |
+| `examples/pcs_qc_release/release/` | **Canonical RC mirror** of [pcs-core](https://github.com/SentinelOps-CI/pcs-core) `examples/labtrust-release/`. This is the only tree valid as cross-repo release evidence for the trust loop. |
+
+**Rules**
+
+- Only `release/` counts as release evidence for CertifyEdge, Provability Fabric, and Scientific Memory handoff.
+- Do **not** manually edit individual files under `release/` (hash linkage and certificate propagation will break).
+- Regenerate the **entire** chain atomically (`run_pcs_v01_clean_chain.sh` with `PCS_COPY_TO_RELEASE=1`), or sync from pcs-core after the canonical chain is updated there.
+
+**Sync from canonical pcs-core**
+
+```bash
+python -m labtrust_gym.pcs.sync_pcs_core_rc --pcs-core ../pcs-core/examples/labtrust-release
+```
+
+**Verify local fixtures match canonical RC (CI gate)**
+
+```bash
+python -m labtrust_gym.pcs.sync_pcs_core_rc \
+  --verify-only \
+  --pcs-core ../pcs-core/examples/labtrust-release
+```
+
+Before Provability Fabric signing, confirm `release/pf_handoff.json` matches `release/manifest.json` (`certified_bundle_hash`, `certificate_id`, `trace_hash`) and sign `release/handoff/science_claim_bundle.certified.json`.
+
+See also `examples/pcs_qc_release/release/README.md`.
+
+## 5. Toolchain requirements
 
 - Python 3.11+
 - `pip install -e ".[dev]"` in LabTrust-Gym (use `scripts/setup_pcs_dev` for isolated `.venv-pcs`)
@@ -43,7 +76,7 @@ bash examples/pcs_qc_release/scripts/run_pcs_v01_clean_chain.sh --labtrust-only
 - Git (for `source_commit` in non-deterministic runs)
 - CertifyEdge, Provability Fabric, and Scientific Memory for the full clean chain (§3)
 
-## 5. Step 1: run valid LabTrust workflow
+## 6. Step 1: run valid LabTrust workflow
 
 ```bash
 labtrust run-demo qc-release
@@ -77,7 +110,7 @@ Handoff bundle for CertifyEdge / Provability Fabric: `labtrust export-pcs-handof
 
 Verify `runs/qc-release/run_meta.json` has `"status": "completed"`, `"released": true`, `"final_reason_code": "ok"`.
 
-## 6. Step 2: run invalid LabTrust workflows
+## 7. Step 2: run invalid LabTrust workflows
 
 ```bash
 labtrust run-demo qc-release-invalid-missing-qc
@@ -86,7 +119,7 @@ labtrust run-demo qc-release-invalid-unauthorized
 
 Expected: `final_reason_code` is `missing_qc` and `unauthorized_release` respectively; `released` is false.
 
-## 7. Step 3: export trace and runtime receipt
+## 8. Step 3: export trace and runtime receipt
 
 ```bash
 labtrust export-trace --run runs/qc-release --out trace.json
@@ -103,7 +136,7 @@ pcs validate science_claim_bundle.pending.json
 
 `runtime_receipt.json` field `trace_hash` must equal `trace.json` top-level `trace_hash`.
 
-## 8. Step 4: certify trace with CertifyEdge
+## 9. Step 4: certify trace with CertifyEdge
 
 ```bash
 certifyedge emit-pcs-certificate \
@@ -114,7 +147,7 @@ certifyedge emit-pcs-certificate \
 
 CertifyEdge emits `TraceCertificate.v0` with `trace_hash` aligned to the runtime receipt.
 
-## 9. Step 5: attach TraceCertificate to ScienceClaimBundle
+## 10. Step 5: attach TraceCertificate to ScienceClaimBundle
 
 ```bash
 labtrust attach-certificate \
@@ -125,7 +158,7 @@ labtrust attach-certificate \
 
 After attach: `certificates` is non-empty; `claim_artifact.certificate_refs` references the certificate id; `claim_artifact.status` is `CertificateChecked`.
 
-## 10. Step 6: verify and sign with Provability Fabric
+## 11. Step 6: verify and sign with Provability Fabric
 
 ```bash
 pf verify science-claim science_claim_bundle.certified.json \
@@ -151,7 +184,7 @@ LabTrust does not adapt exports to Provability Fabric’s older local schema; PF
 
 Invalid-run `RuntimeReceipt.v0` files use `status: RuntimeObserved` with `run_outcome: failed` and `final_reason_code` set to `missing_qc` or `unauthorized_release` so downstream UIs can explain failures without overloading artifact status.
 
-## 11. Step 7: import into Scientific Memory
+## 12. Step 7: import into Scientific Memory
 
 ```bash
 just pcs-import-bundle BUNDLE=signed_science_claim_bundle.json
@@ -160,7 +193,7 @@ just pcs-render-claim CLAIM_ID=<claim_id>
 
 Use `claim_id` from the signed bundle (`claim-pcs-qc-release-v0.1` in the demo). Scientific Memory imports **`SignedScienceClaimBundle.v0`**, not the pending bundle alone.
 
-## 12. Expected output files
+## 13. Expected output files
 
 | Path | Artifact |
 |------|----------|
@@ -182,7 +215,7 @@ Golden references: `examples/pcs_qc_release/expected/` (regenerate with `python 
 | Provability Fabric | `science_claim_bundle.pending.json`, `science_claim_bundle.certified.json`, `runtime_receipt.json`, `trace_certificate.json` |
 | Scientific Memory | `signed_science_claim_bundle.json`, `claim_id`, limitations in [docs/pcs_limitations.md](../../docs/pcs_limitations.md) |
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 - **`pcs validate` fails:** Install pcs-core; ensure digests use `sha256:` prefix and `schema_version` is `v0`.
 - **trace_hash mismatch:** Re-export trace and receipt from the same `run_dir`; do not edit events after export.
@@ -190,14 +223,9 @@ Golden references: `examples/pcs_qc_release/expected/` (regenerate with `python 
 - **attach-certificate fails:** Certificate `trace_hash` must match `runtime_receipt.trace_hash`.
 - **Invalid demos pass release:** Check `policy/pcs/roles.yaml`; only `release_manager` is `release_capable`.
 
-## 14. Golden artifacts and release fixtures
+## 15. Golden artifacts and release fixtures
 
-Two fixture trees serve different purposes:
-
-| Directory | Purpose |
-|-----------|---------|
-| `examples/pcs_qc_release/expected/` | **LabTrust-local** deterministic goldens (CI always runs). Uses `trace_certificate.mock.v0.json` — **not** PCS v0.1 release evidence. |
-| `examples/pcs_qc_release/release/` | **Cross-repo release candidates** with a real CertifyEdge `trace_certificate.json`. Regenerate when schema or QC contract changes. |
+See **§4 Release candidate mode** for the `expected/` vs `release/` split. Details below.
 
 ### LabTrust-local (`expected/`)
 
@@ -228,7 +256,7 @@ pytest tests/pcs/test_pcs_release_contract.py -q
 python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
 ```
 
-## 15. Limitations
+## 16. Limitations
 
 - Simulation only; no real LIS/hospital integration.
 - No clinical safety or regulatory claims.
