@@ -262,29 +262,37 @@ bash examples/pcs_qc_release/scripts/generate_release_candidate.sh
 Produces `trace.json`, `runtime_receipt.json`, `trace_certificate.json`, pending/certified bundles,
 `handoff_to_certifyedge.json`, `handoff_to_pf.json`, `labtrust_release_fragment.json`, and `manifest.json`.
 
-**Phase 2 protocol producer (LabTrust-owned, not mirror-only):**
+**Phase 2 protocol producer (stable CLI — one command per artifact):**
 
 ```bash
-labtrust emit-handoff --kind runtime-to-certificate \
+labtrust emit-handoff-to-certifyedge \
   --trace examples/pcs_qc_release/release/trace.json \
-  --receipt examples/pcs_qc_release/release/runtime_receipt.json \
+  --runtime-receipt examples/pcs_qc_release/release/runtime_receipt.json \
+  --property-id hospital_lab.qc_release \
   --out examples/pcs_qc_release/release/handoff_to_certifyedge.json
 
-labtrust emit-handoff --kind bundle-to-verifier \
+labtrust emit-handoff-to-pf \
   --bundle examples/pcs_qc_release/release/science_claim_bundle.certified.json \
   --out examples/pcs_qc_release/release/handoff_to_pf.json
 
 labtrust emit-release-fragment \
-  --release-dir examples/pcs_qc_release/release
-
-labtrust verify-release-fixtures \
   --release-dir examples/pcs_qc_release/release \
-  --pcs-core ../pcs-core/examples/labtrust-release
+  --out examples/pcs_qc_release/release/labtrust_release_fragment.json
 
-labtrust regenerate-release-chain \
-  --out examples/pcs_qc_release/release \
+labtrust verify-release-protocol \
+  --release-dir examples/pcs_qc_release/release \
+  --pcs-core ../pcs-core
+
+labtrust regenerate-release-protocol \
+  --pcs-core ../pcs-core \
   --certifyedge-bin certifyedge \
-  --pcs-core ../pcs-core/examples/labtrust-release
+  --out examples/pcs_qc_release/release
+```
+
+One-shot shell wrapper (same as above, sets `PCS_DETERMINISTIC=1`):
+
+```bash
+bash examples/pcs_qc_release/scripts/generate_release_protocol.sh
 ```
 
 After pcs-core updates, re-align committed `release/` from canonical fixtures:

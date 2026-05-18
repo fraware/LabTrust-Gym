@@ -240,6 +240,48 @@ def build_bundle_to_verifier_handoff(
     return _finalize_handoff_doc(doc, release_mode=release_mode)
 
 
+def emit_handoff_to_certifyedge(
+    *,
+    trace_path: Path,
+    runtime_receipt_path: Path,
+    out_path: Path,
+    policy_root: Path | None = None,
+    property_id: str = DEFAULT_PROPERTY_ID,
+    release_mode: bool | None = None,
+    handoff_id: str | None = None,
+) -> dict[str, Any]:
+    """Write ``handoff_to_certifyedge.json`` (runtime_to_certificate HandoffManifest.v0)."""
+    return emit_handoff_manifest(
+        kind="runtime-to-certificate",
+        trace_path=trace_path,
+        receipt_path=runtime_receipt_path,
+        out_path=out_path,
+        policy_root=policy_root,
+        property_id=property_id,
+        release_mode=release_mode,
+        handoff_id=handoff_id,
+    )
+
+
+def emit_handoff_to_pf(
+    *,
+    bundle_path: Path,
+    out_path: Path,
+    policy_root: Path | None = None,
+    release_mode: bool | None = None,
+    handoff_id: str | None = None,
+) -> dict[str, Any]:
+    """Write ``handoff_to_pf.json`` (bundle_to_verifier HandoffManifest.v0)."""
+    return emit_handoff_manifest(
+        kind="bundle-to-verifier",
+        bundle_path=bundle_path,
+        out_path=out_path,
+        policy_root=policy_root,
+        release_mode=release_mode,
+        handoff_id=handoff_id,
+    )
+
+
 def emit_handoff_manifest(
     *,
     kind: str,

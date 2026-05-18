@@ -77,6 +77,17 @@ def assert_release_fragment_valid(doc: dict[str, Any]) -> None:
         raise ValueError("ComponentReleaseFragment validation failed: " + "; ".join(errors))
 
 
+def assert_release_fragment_registry_check(path: Path) -> None:
+    """Run pcs-core registry check-artifact semantics on a fragment file."""
+    from pcs_core.registry import check_artifact_against_registry
+
+    drift = check_artifact_against_registry(path.resolve())
+    if drift:
+        raise ValueError(
+            f"ComponentReleaseFragment registry check failed for {path.name}: " + "; ".join(drift)
+        )
+
+
 def build_labtrust_release_fragment(
     release_dir: Path,
     *,

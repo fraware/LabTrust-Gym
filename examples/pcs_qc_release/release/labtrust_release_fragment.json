@@ -2,11 +2,11 @@
   "artifacts": {
     "handoff_to_certifyedge.json": {
       "artifact_type": "HandoffManifest.v0",
-      "sha256": "sha256:5d3ebb93b160a6e0af358c67088209f2592c0d954825db82ed580f211868cc99"
+      "sha256": "sha256:9ab20126abfbd2c0c3a601ce94cd8c027b027d7009bf6560ce4e52a20cd13c6d"
     },
     "handoff_to_pf.json": {
       "artifact_type": "HandoffManifest.v0",
-      "sha256": "sha256:ffc53bcb458422f49d1885c1e6d4255a04ada28c6bb9cd727526ab746ed66856"
+      "sha256": "sha256:c1f08d9cf1e3ca9fb866073bc62795b0c9b76338dd4f9235a76bc444b0de9f9a"
     },
     "runtime_receipt.json": {
       "artifact_type": "RuntimeReceipt.v0",
@@ -27,7 +27,7 @@
   },
   "component": "LabTrust-Gym",
   "schema_version": "v0",
-  "signature_or_digest": "sha256:90d003e94159256fec4d088282f4a71d6abd7fd93f08e3620ad734efc8953762",
+  "signature_or_digest": "sha256:17769156365234a22969e11ba4ee3dd17bbc42afbfb752455463a40b1dae89fb",
   "source_commit": "4c5439ae358733f9a4c4a58e33fdaed1ab0d29de",
   "source_repo": "https://github.com/fraware/LabTrust-Gym"
 }

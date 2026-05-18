@@ -59,6 +59,21 @@ def _restore_release_readmes(release_root: Path, preserved: dict[str, str]) -> N
         path.write_text(text, encoding="utf-8")
 
 
+def resolve_canonical_release_dir(
+    pcs_core: Path,
+    *,
+    policy_root: Path | None = None,
+) -> Path:
+    """Resolve pcs-core path to ``examples/labtrust-release`` when a repo root is passed."""
+    pcs_core = pcs_core.resolve()
+    if (pcs_core / "trace.json").is_file():
+        return pcs_core
+    candidate = pcs_core / "examples" / "labtrust-release"
+    if (candidate / "trace.json").is_file():
+        return candidate
+    return pcs_core_labtrust_release_dir(policy_root)
+
+
 def pcs_core_labtrust_release_dir(labtrust_root: Path | None = None) -> Path:
     root = labtrust_root or get_repo_root()
     canonical = resolve_pcs_core_root(root) / PCS_CORE_RC_REL

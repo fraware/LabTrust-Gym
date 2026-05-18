@@ -14,12 +14,12 @@
   "certifyedge_bin": "certifyedge",
   "certifyedge_commit": "cb6848001e2e60a484e04eba5ad6be3fe2e4eccc",
   "certifyedge_spec": "CertifyEdge/templates/hospital_lab/qc_release.stl",
-  "generated_at": "2026-05-17T22:23:22Z",
+  "generated_at": "2026-05-17T22:32:01Z",
   "generator": "labtrust_gym.pcs.sync_pcs_core_rc",
   "handoff_id": "labtrust-qc-release-v0.1-4c5439ae3587",
   "labtrust_gym_commit": "4c5439ae358733f9a4c4a58e33fdaed1ab0d29de",
   "mock_certificate": false,
-  "pcs_core_commit": "b133c2ed32293b02c4e28971da7b3a7fffcedc2a",
+  "pcs_core_commit": "a361fd2b388f88cdbc9e4e4691ae49dba714ab6c",
   "schema_version": "v0",
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
 }
