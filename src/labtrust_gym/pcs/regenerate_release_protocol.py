@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 from labtrust_gym.pcs.regenerate_release_chain import compare_release_hashes_to_canonical
-from labtrust_gym.pcs.protocol_summary import build_protocol_regeneration_summary
+from labtrust_gym.pcs.regeneration_report import REGENERATION_REPORT_NAME, build_regeneration_report
 from labtrust_gym.pcs.release_protocol_producer import (
     ProtocolRegenerationResult,
     emit_protocol_package_from_release,
@@ -40,12 +41,18 @@ def regenerate_release_protocol(
         workflow_profile=workflow_profile,
     )
     wf = default_workflow(policy_root=policy_root, profile_path=workflow_profile)
-    summary = build_protocol_regeneration_summary(
-        result,
-        workflow_id=wf.spec.workflow_id,
-        property_id=wf.handoff_policy.property_id,
-    )
-    summary["workflow_profile"] = str(wf.profile.path)
+    report_path = result.release_dir / REGENERATION_REPORT_NAME
+    if report_path.is_file():
+        summary = json.loads(report_path.read_text(encoding="utf-8"))
+    else:
+        summary = build_regeneration_report(
+            result, workflow_id=wf.workflow_id, duration_ms=0
+        ).to_dict()
+    summary["checks"] = result.checks
+    summary["release_dir"] = str(result.release_dir)
+    summary["commits"] = result.commits
+    summary["workflow_profile"] = str(wf.profile_path)
+    summary["property_id"] = wf.handoff_policy.property_id
     return result.release_dir, result.checks, summary
 
 

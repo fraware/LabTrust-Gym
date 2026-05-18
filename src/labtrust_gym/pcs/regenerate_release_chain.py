@@ -103,6 +103,8 @@ def regenerate_release_chain(
     )
 
     cert_path = release_run / "trace_certificate.json"
+    from labtrust_gym.pcs.certifyedge_client import normalize_certifyedge_certificate_provenance
+
     subprocess.run(
         [
             ce_bin,
@@ -118,6 +120,7 @@ def regenerate_release_chain(
         check=True,
         env={**os.environ, "CERTIFYEDGE_SOURCE_COMMIT": ce_commit},
     )
+    normalize_certifyedge_certificate_provenance(cert_path, source_commit=ce_commit)
     subprocess.run(["pcs", "validate", str(cert_path)], check=True, cwd=root)
     subprocess.run(
         [ce_bin, "verify-certificate", str(cert_path), "--trace", str(release_run / "trace.json")],

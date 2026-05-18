@@ -19,8 +19,9 @@ if (-not (Get-Command labtrust -ErrorAction SilentlyContinue) -and (Test-Path $v
 labtrust regenerate-release-protocol `
     --out $Release `
     --certifyedge-bin $CeBin `
-    --pcs-core $PcsCore `
-    --summary-out (Join-Path $Release "protocol_regeneration_summary.json")
+    --pcs-core $PcsCore
+
+python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
 
 labtrust check-status-policy --release-dir $Release --json
 

@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.pcs.failure_gallery import (
+    FAILURE_CASE_MANIFEST_NAME,
     demonstrate_case_failure,
     generate_failure_gallery,
     verify_failure_gallery,
@@ -43,10 +44,16 @@ def test_generate_failure_gallery_creates_all_cases(
         assert (case_dir / "artifacts").is_dir(), case_id
         assert (case_dir / "expected_failure.json").is_file(), case_id
         assert (case_dir / "repair_hint.json").is_file(), case_id
+        assert (case_dir / FAILURE_CASE_MANIFEST_NAME).is_file(), case_id
         meta = json.loads((case_dir / "expected_failure.json").read_text(encoding="utf-8"))
         hint = json.loads((case_dir / "repair_hint.json").read_text(encoding="utf-8"))
+        manifest = json.loads((case_dir / FAILURE_CASE_MANIFEST_NAME).read_text(encoding="utf-8"))
         assert hint["hint"]
         assert meta["expected_failing_check"]
+        assert manifest["failure_case_id"] == case_id
+        assert manifest["expected_failure_code"] == meta["expected_failure_code"]
+        assert manifest["repair_hint"] == hint["hint"]
+        assert manifest["responsible_component"]
 
 
 @pytest.mark.parametrize(

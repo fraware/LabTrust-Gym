@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/RegenerationReport.v0.schema.json",
+  "title": "RegenerationReport.v0",
+  "description": "Machine-readable outcome of a clean-run PCS protocol regeneration (pcs-bench).",
+  "type": "object",
+  "required": [
+    "workflow_id",
+    "artifacts_written",
+    "artifact_hashes",
+    "handoffs_written",
+    "certificate_id",
+    "trace_hash",
+    "certified_bundle_hash",
+    "duration_ms",
+    "status",
+    "failure_code"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "workflow_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifacts_written": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "artifact_hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
+    "handoffs_written": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "certificate_id": {
+      "type": ["string", "null"]
+    },
+    "trace_hash": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "certified_bundle_hash": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": ["passed", "failed"]
+    },
+    "failure_code": {
+      "type": ["string", "null"]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "passed" } } },
+      "then": { "properties": { "failure_code": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "failed" } } },
+      "then": { "properties": { "failure_code": { "type": "string", "minLength": 1 } } }
+    }
+  ]
+}

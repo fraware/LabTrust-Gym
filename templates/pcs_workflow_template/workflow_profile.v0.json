@@ -1,0 +1,24 @@
+{
+  "certificate_artifacts": [
+    "TraceCertificate.v0"
+  ],
+  "failure_modes": [
+    "example_runtime_failure",
+    "example_handoff_tamper"
+  ],
+  "handoffs": [
+    {
+      "handoff_id": "your.workflow.runtime_to_certificate.v0",
+      "kind": "runtime_to_certificate"
+    },
+    {
+      "handoff_id": "your.workflow.bundle_to_verifier.v0",
+      "kind": "bundle_to_verifier"
+    }
+  ],
+  "limitations_notice": "Replace with workflow-specific limitations.",
+  "property_id": "your_domain.your_workflow",
+  "required_admission_profile": "your_admission_profile",
+  "schema_version": "WorkflowProfile.v0",
+  "workflow_id": "your_org.your_workflow_v0.1"
+}

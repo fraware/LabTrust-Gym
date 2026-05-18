@@ -1,4 +1,4 @@
-"""QC release PCS workflow (hospital_lab.qc_release) — reference WorkflowProfile.v0 implementation."""
+"""QC release PCS workflow — reference WorkflowProfile.v0 implementation for LabTrust."""
 
 from __future__ import annotations
 
@@ -8,11 +8,12 @@ from typing import Any
 from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.deterministic import deterministic_mode, is_deterministic_mode
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt
-from labtrust_gym.pcs.workflows.base import PcsWorkflow, PcsWorkflowSpec
+from labtrust_gym.pcs.workflows.base import PCSWorkflow, PcsWorkflowSpec
 from labtrust_gym.pcs.workflow import load_workflow_yaml, run_workflow, write_run_directory
 
 DEMO_NAME = "qc-release"
 VALID_SCENARIO = "valid_workflow.yaml"
+EXAMPLES_REL = "examples/pcs_qc_release"
 
 FAILURE_CASES: tuple[str, ...] = (
     "qc-release-invalid-missing-qc",
@@ -30,8 +31,8 @@ _DEMO_TO_GALLERY: dict[str, str] = {
 }
 
 
-class QcReleaseWorkflow(PcsWorkflow):
-    """Hospital lab QC release — exemplary reference workflow for WorkflowProfile.v0."""
+class QcReleaseWorkflow(PCSWorkflow):
+    """Hospital lab QC release — LabTrust reference workflow (not a generic template)."""
 
     @property
     def spec(self) -> PcsWorkflowSpec:
@@ -47,20 +48,50 @@ class QcReleaseWorkflow(PcsWorkflow):
             default_run_rel="runs/qc-release",
         )
 
-    def generate_trace(
+    def examples_dir(self, policy_root: Path | None = None) -> Path:
+        return (policy_root or self._policy_root) / EXAMPLES_REL
+
+    def scenario_path(self, policy_root: Path | None = None) -> Path:
+        return self.examples_dir(policy_root) / self.spec.scenario_yaml
+
+    def default_certifyedge_spec(self, certifyedge_root: Path) -> Path:
+        return certifyedge_root / "templates" / "hospital_lab" / "qc_release.stl"
+
+    def execute_runtime(self, scratch_dir: Path) -> Path:
+        workflow_path = self.scenario_path()
+        workflow = load_workflow_yaml(workflow_path)
+        scratch_dir = scratch_dir.resolve()
+        scratch_dir.mkdir(parents=True, exist_ok=True)
+        with deterministic_mode(enabled=True):
+            result = run_workflow(workflow, policy_root=self._policy_root)
+            write_run_directory(scratch_dir, result)
+        return scratch_dir
+
+    def export_runtime_receipt(
         self,
+        run_dir: Path,
+        out_path: Path,
         *,
-        out_dir: Path | None = None,
         policy_root: Path | None = None,
-        deterministic: bool | None = None,
-    ) -> Path:
-        return self.trace_generator()(
-            out_dir=out_dir,
-            policy_root=policy_root,
-            deterministic=deterministic,
+    ) -> dict[str, Any]:
+        return export_runtime_receipt(
+            run_dir, out_path, policy_root=policy_root or self._policy_root
+        )
+
+    def export_pending_bundle(
+        self,
+        run_dir: Path,
+        out_path: Path,
+        *,
+        policy_root: Path | None = None,
+    ) -> dict[str, Any]:
+        return export_pcs_bundle(
+            run_dir, out_path, policy_root=policy_root or self._policy_root
         )
 
     def trace_generator(self):
+        """Back-compat callable for demos and tests."""
+
         def _run(
             *,
             out_dir: Path | None = None,
@@ -88,9 +119,7 @@ class QcReleaseWorkflow(PcsWorkflow):
             *,
             policy_root: Path | None = None,
         ) -> dict[str, Any]:
-            return export_runtime_receipt(
-                run_dir, out_path, policy_root=policy_root or self._policy_root
-            )
+            return self.export_runtime_receipt(run_dir, out_path, policy_root=policy_root)
 
         return _export
 
@@ -101,32 +130,24 @@ class QcReleaseWorkflow(PcsWorkflow):
             *,
             policy_root: Path | None = None,
         ) -> dict[str, Any]:
-            return export_pcs_bundle(
-                run_dir, out_path, policy_root=policy_root or self._policy_root
-            )
+            return self.export_pending_bundle(run_dir, out_path, policy_root=policy_root)
 
         return _export
 
-    def generate_failure_case(
-        self,
-        case_id: str,
-        *,
-        artifacts_dir: Path,
-        policy_root: Path | None = None,
-        release_baseline: Path | None = None,
-    ) -> list[str]:
+    def generate_failure_case(self, failure_id: str, out_dir: Path) -> Path:
         from labtrust_gym.pcs.failure_gallery import build_single_failure_case
 
-        root = policy_root or self._policy_root
-        release = release_baseline or (self.examples_dir(root) / "release")
-        case_dir = artifacts_dir.parent if artifacts_dir.name == "artifacts" else artifacts_dir
-        return build_single_failure_case(
-            case_id,
-            case_dir,
-            policy_root=root,
+        out_dir = out_dir.resolve()
+        out_dir.mkdir(parents=True, exist_ok=True)
+        release = self.examples_dir() / "release"
+        build_single_failure_case(
+            failure_id,
+            out_dir,
+            policy_root=self._policy_root,
             release_dir=release,
             profile_path=self._profile.path,
         )
+        return out_dir
 
 
 def run_failure_demo(
@@ -141,7 +162,7 @@ def run_failure_demo(
         raise ValueError(f"unknown failure case {case_id!r}; choose from {list(FAILURE_CASES)}")
     root = policy_root or get_repo_root()
     yaml_name = _FAILURE_YAML[case_id]
-    workflow = load_workflow_yaml(root / "examples" / "pcs_qc_release" / yaml_name)
+    workflow = load_workflow_yaml(root / EXAMPLES_REL / yaml_name)
     target = out_dir or (root / f"runs/{case_id}")
     use_deterministic = deterministic if deterministic is not None else is_deterministic_mode()
     with deterministic_mode(enabled=use_deterministic):

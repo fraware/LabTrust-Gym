@@ -14,6 +14,8 @@ fi
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_workflow_profile.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
 "$PYTHON" -m labtrust_gym.cli.main check-status-policy \
   --release-dir examples/pcs_qc_release/release
 labtrust generate-failure-gallery \

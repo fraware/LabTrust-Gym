@@ -1,6 +1,11 @@
 """PCS workflow registry and abstractions."""
 
-from labtrust_gym.pcs.workflows.base import HandoffPolicy, PcsWorkflow, PcsWorkflowSpec
+from labtrust_gym.pcs.workflows.base import (
+    HandoffPolicy,
+    PCSWorkflow,
+    PcsWorkflow,
+    PcsWorkflowSpec,
+)
 from labtrust_gym.pcs.workflows.qc_release import QcReleaseWorkflow
 from labtrust_gym.pcs.workflows.registry import (
     default_workflow,
@@ -12,6 +17,7 @@ from labtrust_gym.pcs.workflows.registry import (
 
 __all__ = [
     "HandoffPolicy",
+    "PCSWorkflow",
     "PcsWorkflow",
     "PcsWorkflowSpec",
     "QcReleaseWorkflow",

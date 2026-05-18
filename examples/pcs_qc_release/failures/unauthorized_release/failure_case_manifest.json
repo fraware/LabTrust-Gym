@@ -1,0 +1,12 @@
+{
+  "artifacts": [
+    "run_meta.json",
+    "runtime_receipt.json",
+    "trace.json"
+  ],
+  "expected_failure_code": "unauthorized_release",
+  "failure_case_id": "unauthorized_release",
+  "repair_hint": "Use an authorized actor role for release_sample.",
+  "responsible_component": "workflow.runtime",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

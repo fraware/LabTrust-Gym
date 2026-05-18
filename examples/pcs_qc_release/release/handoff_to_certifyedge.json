@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-18T21:29:18Z",
+  "created_at": "2026-05-18T23:17:38Z",
   "expected_outputs": {
     "trace_certificate.json": {
       "artifact_type": "TraceCertificate.v0"
@@ -11,7 +11,7 @@
   "input_artifacts": {
     "runtime_receipt.json": {
       "artifact_type": "RuntimeReceipt.v0",
-      "sha256": "sha256:3ad5c55458a79ef502508f86cd215c746d42b4f0cc5c9aa4feeba9c03b4e1d60"
+      "sha256": "sha256:10576e0d581c624f7988a937ffaacb47775dceb166050cd957379a929af65ac3"
     },
     "trace.json": {
       "artifact_type": "LabTrust.Trace.v0",
@@ -23,8 +23,8 @@
     "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
   },
   "schema_version": "v0",
-  "signature_or_digest": "sha256:437e9978b66d50721046cdcbae767a23e5ac6551b76c582d5060da765a7a0b8c",
-  "source_commit": "17ed831acfd775889ab497d11004cceb083a9c2d",
+  "signature_or_digest": "sha256:7adfc5945dda3368d8c8e833c015ce1d3116d5128dc2206b36a48efacef74bd7",
+  "source_commit": "8369892d8872bc08ef5acb6cf503f38665c36733",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "status": "Validated",
   "to_component": "CertifyEdge"

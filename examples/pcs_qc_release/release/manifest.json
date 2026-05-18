@@ -1,25 +1,25 @@
 {
   "artifacts": {
-    "runtime_receipt.json": "sha256:3ad5c55458a79ef502508f86cd215c746d42b4f0cc5c9aa4feeba9c03b4e1d60",
-    "science_claim_bundle.certified.json": "sha256:bb740698a01c4e918ca0f346e5bfaed83e6665da8df84e931c0d50e03ce82ffe",
-    "science_claim_bundle.pending.json": "sha256:406d376c6d26eb949c32f2b6c6f6578aa877f24c9ea0cb0a8b87bd377c72cfe0",
+    "runtime_receipt.json": "sha256:10576e0d581c624f7988a937ffaacb47775dceb166050cd957379a929af65ac3",
+    "science_claim_bundle.certified.json": "sha256:68d59a16ac4f5d1e6e5aff61a011be192fbb12f9b4476fa221079a934b1265fc",
+    "science_claim_bundle.pending.json": "sha256:e89b0866cd25a9308f7ba70deb68e8e3c8f072b6885ca6f2e9fcaaa55706e6c7",
     "trace.json": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c",
-    "trace_certificate.json": "sha256:e069f6ed1f5cbab25b49561684f6dc7f7f996953cbb1dd88237b52de079d5575"
+    "trace_certificate.json": "sha256:f25188838271cb394eeac93628d500e6b9ec9a7c0a8b7d6b0258d58790bd5c6c"
   },
-  "certificate_id": "cert-trace-a1b8ff9d-7d5f-489c-98b1-a3a630cb87d7",
+  "certificate_id": "cert-trace-02b3a7c1-35f7-4d23-85c2-dfd60aff7693",
   "certificate_producer": "CertifyEdge",
   "certificate_source_repo": "https://github.com/fraware/CertifyEdge",
-  "certified_bundle_hash": "sha256:bb740698a01c4e918ca0f346e5bfaed83e6665da8df84e931c0d50e03ce82ffe",
+  "certified_bundle_hash": "sha256:68d59a16ac4f5d1e6e5aff61a011be192fbb12f9b4476fa221079a934b1265fc",
   "certified_bundle_id": "scb-pcs-qc-release-v0.1",
   "certifyedge_bin": "C:\\Users\\mateo\\CertifyEdge\\target\\debug\\certifyedge.exe",
-  "certifyedge_commit": "635fca3771ad54fe3f8b49d1bb77ee35d0680ddc",
+  "certifyedge_commit": "11e079bc643b9e813c1a5516dc6d4db1d60a3f8a",
   "certifyedge_spec": "CertifyEdge/templates/hospital_lab/qc_release.stl",
-  "generated_at": "2026-05-18T21:29:17Z",
+  "generated_at": "2026-05-18T23:17:38Z",
   "generator": "regenerate_release_protocol",
   "handoff_id": "handoff-labtrust-qc_release_v0-1-to-pf",
-  "labtrust_gym_commit": "17ed831acfd775889ab497d11004cceb083a9c2d",
+  "labtrust_gym_commit": "8369892d8872bc08ef5acb6cf503f38665c36733",
   "mock_certificate": false,
-  "pcs_core_commit": "17e414501b3e1c58e8fbde1fe89a828440a945d9",
+  "pcs_core_commit": "5ed33a0f995df88392ee0fc849967e9c42038738",
   "schema_version": "v0",
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
 }

@@ -1,0 +1,20 @@
+{
+  "artifacts": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "manifest.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.certified.json",
+    "science_claim_bundle.pending.json",
+    "trace.json",
+    "trace_certificate.json",
+    "trace_hash_alignment.json",
+    "workflow_profile.v0.json"
+  ],
+  "expected_failure_code": "STALE_HANDOFF_DIGEST",
+  "failure_case_id": "trace_hash_tamper",
+  "repair_hint": "Regenerate trace.json from the workflow run; do not edit trace_hash in isolation.",
+  "responsible_component": "workflow.handoff",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

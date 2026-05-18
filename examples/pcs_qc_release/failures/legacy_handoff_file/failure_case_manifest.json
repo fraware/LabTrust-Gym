@@ -1,0 +1,21 @@
+{
+  "artifacts": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "manifest.json",
+    "pf_handoff.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.certified.json",
+    "science_claim_bundle.pending.json",
+    "trace.json",
+    "trace_certificate.json",
+    "trace_hash_alignment.json",
+    "workflow_profile.v0.json"
+  ],
+  "expected_failure_code": "LEGACY_HANDOFF_FILE",
+  "failure_case_id": "legacy_handoff_file",
+  "repair_hint": "Remove pf_handoff.json; emit handoff_to_pf.json (HandoffManifest.v0).",
+  "responsible_component": "workflow.handoff",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

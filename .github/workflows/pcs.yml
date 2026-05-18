@@ -11,7 +11,13 @@ on:
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
       - "docs/pcs*.md"
+      - "docs/pcs-workflow-implementation-guide.md"
+      - "docs/pcs-reference-implementation.md"
+      - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
+      - "policy/schemas/pcs/FailureCaseManifest.v0.schema.json"
       - "docs/reference-workflow-template.md"
+      - "schemas_or_docs/**"
+      - "templates/pcs_workflow_template/**"
       - ".github/workflows/pcs.yml"
   pull_request:
     branches: [main]
@@ -23,7 +29,13 @@ on:
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
       - "docs/pcs*.md"
+      - "docs/pcs-workflow-implementation-guide.md"
+      - "docs/pcs-reference-implementation.md"
+      - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
+      - "policy/schemas/pcs/FailureCaseManifest.v0.schema.json"
       - "docs/reference-workflow-template.md"
+      - "schemas_or_docs/**"
+      - "templates/pcs_workflow_template/**"
       - ".github/workflows/pcs.yml"
 
 jobs:
@@ -59,6 +71,10 @@ jobs:
         run: python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
       - name: Validate committed release fixtures (pcs-core + registry)
         run: python examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
+      - name: Validate regeneration_report.json (pcs-bench contract)
+        run: python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
+      - name: Validate failure_case_manifest.json gallery metadata
+        run: python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
       - name: Verify LabTrust release protocol package
         run: |
           labtrust verify-release-protocol \
