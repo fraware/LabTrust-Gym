@@ -259,13 +259,47 @@ export PCS_DETERMINISTIC=1
 bash examples/pcs_qc_release/scripts/generate_release_candidate.sh
 ```
 
-Produces `trace.json`, `runtime_receipt.json`, `trace_certificate.json`, pending/certified bundles, and `manifest.json`.
+Produces `trace.json`, `runtime_receipt.json`, `trace_certificate.json`, pending/certified bundles,
+`handoff_to_certifyedge.json`, `handoff_to_pf.json`, `labtrust_release_fragment.json`, and `manifest.json`.
+
+**Phase 2 protocol producer (LabTrust-owned, not mirror-only):**
+
+```bash
+labtrust emit-handoff --kind runtime-to-certificate \
+  --trace examples/pcs_qc_release/release/trace.json \
+  --receipt examples/pcs_qc_release/release/runtime_receipt.json \
+  --out examples/pcs_qc_release/release/handoff_to_certifyedge.json
+
+labtrust emit-handoff --kind bundle-to-verifier \
+  --bundle examples/pcs_qc_release/release/science_claim_bundle.certified.json \
+  --out examples/pcs_qc_release/release/handoff_to_pf.json
+
+labtrust emit-release-fragment \
+  --release-dir examples/pcs_qc_release/release
+
+labtrust verify-release-fixtures \
+  --release-dir examples/pcs_qc_release/release \
+  --pcs-core ../pcs-core/examples/labtrust-release
+
+labtrust regenerate-release-chain \
+  --out examples/pcs_qc_release/release \
+  --certifyedge-bin certifyedge \
+  --pcs-core ../pcs-core/examples/labtrust-release
+```
+
+After pcs-core updates, re-align committed `release/` from canonical fixtures:
+
+```bash
+python -m labtrust_gym.pcs.sync_pcs_core_rc --pcs-core ../pcs-core/examples/labtrust-release
+```
 
 Validate:
 
 ```bash
 pytest tests/pcs/test_release_fixtures.py -q   # skips if release/ not populated
 pytest tests/pcs/test_pcs_release_contract.py -q
+pytest tests/pcs/test_release_protocol_producer.py -q
+python examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
 python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
 ```
 

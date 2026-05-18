@@ -1,4 +1,4 @@
-"""LabTrust-owned ReleaseManifest fragment for pcs-core aggregation."""
+"""LabTrust ComponentReleaseFragment.v0 for pcs-core aggregation."""
 
 from __future__ import annotations
 
@@ -9,7 +9,11 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from labtrust_gym.config import get_repo_root
-from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_PF_NAME
+from labtrust_gym.pcs.handoff_manifest import (
+    HANDOFF_TO_CERTIFYEDGE_NAME,
+    HANDOFF_TO_PF_NAME,
+)
+from labtrust_gym.pcs.hash import pcs_digest
 from labtrust_gym.pcs.manifest import PLACEHOLDER_COMMITS, _git_head, resolve_pcs_core_root
 from labtrust_gym.pcs.provenance import SOURCE_REPO
 from labtrust_gym.pcs.release_provenance import assert_no_placeholder_commits, labtrust_source_commit_paths
@@ -19,26 +23,38 @@ LABTRUST_RELEASE_FRAGMENT_NAME = "labtrust_release_fragment.json"
 COMPONENT_NAME = "LabTrust-Gym"
 
 LABTRUST_FRAGMENT_ARTIFACTS: tuple[tuple[str, str], ...] = (
-    ("trace.json", "Trace"),
+    ("trace.json", "LabTrust.Trace.v0"),
     ("runtime_receipt.json", "RuntimeReceipt.v0"),
     ("science_claim_bundle.pending.json", "ScienceClaimBundle.v0"),
     ("science_claim_bundle.certified.json", "ScienceClaimBundle.v0"),
+    (HANDOFF_TO_CERTIFYEDGE_NAME, "HandoffManifest.v0"),
     (HANDOFF_TO_PF_NAME, "HandoffManifest.v0"),
 )
 
 
 def release_fragment_schema_paths() -> list[Path]:
-    """Prefer pcs-core schema when published; fall back to LabTrust policy copy."""
+    """Prefer pcs-core ComponentReleaseFragment.v0; fall back to LabTrust policy copy."""
     paths: list[Path] = []
-    try:
-        core = resolve_pcs_core_root() / "schemas" / "LabTrustReleaseFragment.v0.schema.json"
-        if core.is_file():
-            paths.append(core)
-    except FileNotFoundError:
-        pass
-    bundled = get_repo_root() / "policy" / "schemas" / "pcs" / "LabTrustReleaseFragment.v0.schema.json"
-    if bundled.is_file():
-        paths.append(bundled)
+    for name in (
+        "ComponentReleaseFragment.v0.schema.json",
+        "LabTrustReleaseFragment.v0.schema.json",
+    ):
+        try:
+            core = resolve_pcs_core_root() / "schemas" / name
+            if core.is_file():
+                paths.append(core)
+        except FileNotFoundError:
+            pass
+    bundled_component = (
+        get_repo_root() / "policy" / "schemas" / "pcs" / "ComponentReleaseFragment.v0.schema.json"
+    )
+    if bundled_component.is_file():
+        paths.append(bundled_component)
+    bundled_legacy = (
+        get_repo_root() / "policy" / "schemas" / "pcs" / "LabTrustReleaseFragment.v0.schema.json"
+    )
+    if bundled_legacy.is_file() and bundled_legacy not in paths:
+        paths.append(bundled_legacy)
     return paths
 
 
@@ -58,7 +74,7 @@ def validate_release_fragment(doc: dict[str, Any]) -> list[str]:
 def assert_release_fragment_valid(doc: dict[str, Any]) -> None:
     errors = validate_release_fragment(doc)
     if errors:
-        raise ValueError("LabTrustReleaseFragment validation failed: " + "; ".join(errors))
+        raise ValueError("ComponentReleaseFragment validation failed: " + "; ".join(errors))
 
 
 def build_labtrust_release_fragment(
@@ -67,7 +83,7 @@ def build_labtrust_release_fragment(
     policy_root: Path | None = None,
     source_commit: str | None = None,
 ) -> dict[str, Any]:
-    """Build LabTrust component fragment from ``release/`` directory artifacts."""
+    """Build LabTrust ComponentReleaseFragment.v0 from ``release/`` directory artifacts."""
     release_dir = release_dir.resolve()
     root = policy_root or get_repo_root()
     commit = source_commit or _git_head(root)
@@ -90,6 +106,7 @@ def build_labtrust_release_fragment(
         "source_commit": commit,
         "artifacts": artifacts,
     }
+    doc["signature_or_digest"] = pcs_digest(doc)
     assert_release_fragment_valid(doc)
     return doc
 

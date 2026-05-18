@@ -5,8 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from labtrust_gym.pcs.handoff_manifest import (
+    HANDOFF_TO_CERTIFYEDGE_NAME,
     HANDOFF_TO_PF_NAME,
     assert_handoff_manifest_valid,
+    assert_handoff_registry_check,
 )
 from labtrust_gym.pcs.release_fragment import (
     LABTRUST_RELEASE_FRAGMENT_NAME,
@@ -50,14 +52,18 @@ def assert_release_phase2_protocol_artifacts(release_root: Path) -> list[str]:
     assert_no_legacy_pf_handoff(release_root)
 
     checks: list[str] = ["no_legacy_pf_handoff"]
-    for name in (HANDOFF_TO_PF_NAME, LABTRUST_RELEASE_FRAGMENT_NAME):
+    for name in (HANDOFF_TO_CERTIFYEDGE_NAME, HANDOFF_TO_PF_NAME, LABTRUST_RELEASE_FRAGMENT_NAME):
         path = release_root / name
         if not path.is_file():
             raise FileNotFoundError(f"missing Phase 2 protocol artifact: {name}")
 
-    handoff = json.loads((release_root / HANDOFF_TO_PF_NAME).read_text(encoding="utf-8"))
-    assert_handoff_manifest_valid(handoff)
+    for name in (HANDOFF_TO_CERTIFYEDGE_NAME, HANDOFF_TO_PF_NAME):
+        path = release_root / name
+        handoff = json.loads(path.read_text(encoding="utf-8"))
+        assert_handoff_manifest_valid(handoff)
+        assert_handoff_registry_check(path)
     checks.append("handoff_manifest_schema")
+    checks.append("handoff_registry_check")
 
     fragment = json.loads(
         (release_root / LABTRUST_RELEASE_FRAGMENT_NAME).read_text(encoding="utf-8")

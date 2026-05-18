@@ -47,3 +47,34 @@ def test_cli_run_demo_and_validate_pcs(repo_root: Path, tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stderr
     proc = _run(["validate-pcs", "--artifact", str(receipt_out)], cwd=repo_root, env=env)
     assert proc.returncode == 0, proc.stderr
+
+
+def test_cli_verify_release_fixtures(repo_root: Path) -> None:
+    release = repo_root / "examples/pcs_qc_release/release"
+    if not (release / "manifest.json").is_file():
+        pytest.skip("release fixtures not committed")
+    args = ["verify-release-fixtures", "--release-dir", str(release)]
+    pcs_core = repo_root.parent / "pcs-core" / "examples" / "labtrust-release"
+    if pcs_core.is_dir():
+        args.extend(["--pcs-core", str(pcs_core)])
+    proc = _run(args, cwd=repo_root)
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_cli_emit_handoff_bundle_to_verifier(release_dir: Path, repo_root: Path, tmp_path: Path) -> None:
+    out = tmp_path / "handoff_to_pf.json"
+    proc = _run(
+        [
+            "emit-handoff",
+            "--kind",
+            "bundle-to-verifier",
+            "--bundle",
+            str(release_dir / "science_claim_bundle.certified.json"),
+            "--out",
+            str(out),
+            "--release-mode",
+        ],
+        cwd=repo_root,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert out.is_file()

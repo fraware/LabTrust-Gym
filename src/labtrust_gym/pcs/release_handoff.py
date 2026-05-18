@@ -8,8 +8,10 @@ from typing import Any
 
 from labtrust_gym.pcs.handoff_manifest import (
     CERTIFIED_BUNDLE_NAME,
+    HANDOFF_TO_CERTIFYEDGE_NAME,
     HANDOFF_TO_PF_NAME,
     assert_handoff_manifest_valid,
+    build_handoff_to_certifyedge_from_release,
     build_handoff_to_pf_from_release,
 )
 from labtrust_gym.pcs.release_fragment import (
@@ -87,7 +89,8 @@ def build_canonical_release_manifest(
 
 
 def build_pf_handoff(release_root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
-    """Write ``release/handoff_to_pf.json`` (HandoffManifest.v0)."""
+    """Write Phase 2 handoffs and component release fragment under ``release/``."""
+    build_handoff_to_certifyedge_from_release(release_root, manifest)
     handoff = build_handoff_to_pf_from_release(release_root, manifest)
     emit_labtrust_release_fragment(
         release_dir=release_root,
@@ -268,6 +271,22 @@ def verify_release_handoff(release_root: Path | None = None) -> list[str]:
     _assert_handoff_to_pf_matches_manifest(root, manifest)
     assert_handoff_to_pf_bundle_hash_matches_certified_bundle(root)
 
+    ce_handoff_path = root / HANDOFF_TO_CERTIFYEDGE_NAME
+    if not ce_handoff_path.is_file():
+        raise FileNotFoundError(f"missing {HANDOFF_TO_CERTIFYEDGE_NAME}")
+    ce_handoff = _load(ce_handoff_path)
+    assert_handoff_manifest_valid(ce_handoff)
+    if ce_handoff.get("handoff_kind") != "runtime_to_certificate":
+        raise ValueError("handoff_to_certifyedge handoff_kind must be runtime_to_certificate")
+    if ce_handoff.get("invariants", {}).get("trace_hash") != trace_hash:
+        raise ValueError("handoff_to_certifyedge invariants.trace_hash != manifest.trace_hash")
+
+    handoff_sub = root / "handoff"
+    for name in (HANDOFF_TO_CERTIFYEDGE_NAME, HANDOFF_TO_PF_NAME):
+        sub_path = handoff_sub / name
+        if sub_path.is_file() and file_content_digest(sub_path) != file_content_digest(root / name):
+            raise ValueError(f"handoff/{name} digest != release/{name}")
+
     fragment_path = root / LABTRUST_RELEASE_FRAGMENT_NAME
     if fragment_path.is_file():
         from labtrust_gym.pcs.release_fragment import (
@@ -295,5 +314,6 @@ def verify_release_handoff(release_root: Path | None = None) -> list[str]:
         "manifest_artifact_digests",
         "certified_bundle_hash",
         "handoff_to_pf",
+        "handoff_to_certifyedge",
         "labtrust_release_fragment",
     ]

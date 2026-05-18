@@ -26,18 +26,33 @@ def main() -> int:
         "trace_certificate.json",
         "science_claim_bundle.pending.json",
         "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
         "handoff_to_pf.json",
     ):
         path = release / artifact
         subprocess.run(["pcs", "validate", str(path)], check=True, cwd=ROOT)
         print("OK pcs validate", artifact)
 
+    for artifact in ("handoff_to_certifyedge.json", "handoff_to_pf.json"):
+        path = release / artifact
+        subprocess.run(
+            ["pcs", "registry", "check-artifact", str(path)],
+            check=True,
+            cwd=ROOT,
+        )
+        print("OK pcs registry check-artifact", artifact)
+
     fragment = release / "labtrust_release_fragment.json"
     if fragment.is_file():
         from labtrust_gym.pcs.release_fragment import assert_release_fragment_valid
 
         assert_release_fragment_valid(json.loads(fragment.read_text(encoding="utf-8")))
-        print("OK labtrust_release_fragment.json")
+        subprocess.run(
+            ["pcs", "registry", "check-artifact", str(fragment)],
+            check=True,
+            cwd=ROOT,
+        )
+        print("OK labtrust_release_fragment.json (schema + registry)")
 
     subprocess.run(
         [

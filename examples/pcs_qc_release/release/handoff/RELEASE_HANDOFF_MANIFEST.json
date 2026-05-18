@@ -9,11 +9,11 @@
   "certificate_id": "cert-trace-886c95f0-5d63-42d6-aa13-5891c12c5a6a",
   "certified_bundle_id": "scb-pcs-qc-release-v0.1",
   "certifyedge_commit": "cb6848001e2e60a484e04eba5ad6be3fe2e4eccc",
-  "generated_at": "2026-05-17T21:13:26Z",
+  "generated_at": "2026-05-17T22:23:22Z",
   "generator": "labtrust_gym.pcs.sync_pcs_core_rc",
   "handoff_id": "labtrust-qc-release-v0.1-4c5439ae3587",
   "labtrust_gym_commit": "4c5439ae358733f9a4c4a58e33fdaed1ab0d29de",
-  "pcs_core_commit": "19c715455ac97bc50d7b091aec577b21dd19d930",
+  "pcs_core_commit": "b133c2ed32293b02c4e28971da7b3a7fffcedc2a",
   "schema_version": "v0",
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
 }
