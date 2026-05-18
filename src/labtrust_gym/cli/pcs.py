@@ -283,6 +283,9 @@ def _run_regenerate_release_protocol(args: argparse.Namespace) -> int:
                 get_console().info(f"OK artifact {name}")
         for label in checks:
             get_console().info(f"OK {label}")
+        report_file = release_dir / "regeneration_report.json"
+        if report_file.is_file():
+            get_console().info(f"OK regeneration report {report_file.name}")
         get_console().info(f"release protocol regenerated at {release_dir}")
     return 0
 

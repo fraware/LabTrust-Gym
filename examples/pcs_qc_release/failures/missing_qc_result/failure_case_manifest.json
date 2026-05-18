@@ -1,0 +1,12 @@
+{
+  "artifacts": [
+    "run_meta.json",
+    "runtime_receipt.json",
+    "trace.json"
+  ],
+  "expected_failure_code": "missing_qc",
+  "failure_case_id": "missing_qc_result",
+  "repair_hint": "Complete the QC verification step before release_sample.",
+  "responsible_component": "workflow.runtime",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

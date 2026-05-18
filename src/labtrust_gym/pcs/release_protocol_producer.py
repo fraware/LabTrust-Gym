@@ -1,7 +1,7 @@
 """
 LabTrust PCS Phase 2 protocol package producer (delegates to workflow abstraction).
 
-Clean-run regeneration is implemented on ``PcsWorkflow.regenerate_protocol_package``;
+Clean-run regeneration is implemented on ``PCSWorkflow.regenerate_protocol_package``;
 this module re-exports artifact constants and thin wrappers for CLI compatibility.
 """
 
@@ -39,7 +39,7 @@ def regenerate_release_protocol(
     """
     Generate the complete LabTrust PCS protocol package from a clean deterministic run.
 
-    Delegates to the registered ``PcsWorkflow`` (WorkflowProfile-driven).
+    Delegates to the registered ``PCSWorkflow`` (WorkflowProfile-driven).
     """
     root = policy_root or get_repo_root()
     workflow = default_workflow(policy_root=root, profile_path=workflow_profile)

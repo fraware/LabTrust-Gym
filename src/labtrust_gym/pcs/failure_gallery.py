@@ -27,6 +27,7 @@ class FailureCaseSpec:
     description: str
     expected_failing_check: str
     expected_failure_code: str
+    responsible_component: str
     repair_hint: str
     builder: Callable[[Path, Path, Path, WorkflowProfileView], list[str]]
 
@@ -37,7 +38,19 @@ def _artifacts_dir(case_dir: Path) -> Path:
     return d
 
 
-def _write_case_metadata(case_dir: Path, spec: FailureCaseSpec) -> None:
+from labtrust_gym.pcs.failure_case_manifest import (
+    FAILURE_CASE_MANIFEST_NAME,
+    FailureCaseManifest,
+)
+
+
+def _write_case_metadata(
+    case_dir: Path,
+    spec: FailureCaseSpec,
+    *,
+    workflow_id: str,
+    artifact_names: list[str],
+) -> None:
     (case_dir / "expected_failure.json").write_text(
         json.dumps(
             {
@@ -55,6 +68,14 @@ def _write_case_metadata(case_dir: Path, spec: FailureCaseSpec) -> None:
         json.dumps({"hint": spec.repair_hint}, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    FailureCaseManifest(
+        failure_case_id=spec.case_id,
+        workflow_id=workflow_id,
+        expected_failure_code=spec.expected_failure_code,
+        responsible_component=spec.responsible_component,
+        artifacts=tuple(artifact_names),
+        repair_hint=spec.repair_hint,
+    ).write(case_dir)
     readme = (
         f"# {spec.case_id}\n\n"
         f"{spec.description}\n\n"
@@ -233,6 +254,7 @@ def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, 
             description="QC release workflow fails when required QC step is missing.",
             expected_failing_check="workflow.run_meta.released",
             expected_failure_code="missing_qc",
+            responsible_component="workflow.runtime",
             repair_hint="Complete the QC verification step before release_sample.",
             builder=_build_missing_qc,
         ),
@@ -241,6 +263,7 @@ def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, 
             description="Release rejected when actor lacks authorization.",
             expected_failing_check="workflow.run_meta.released",
             expected_failure_code="unauthorized_release",
+            responsible_component="workflow.runtime",
             repair_hint="Use an authorized actor role for release_sample.",
             builder=_build_unauthorized,
         ),
@@ -249,6 +272,7 @@ def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, 
             description="Handoff digest check fails when trace.json bytes disagree with declared trace_hash.",
             expected_failing_check="handoff_to_certifyedge_input_digests_fresh",
             expected_failure_code="STALE_HANDOFF_DIGEST",
+            responsible_component="workflow.handoff",
             repair_hint="Regenerate trace.json from the workflow run; do not edit trace_hash in isolation.",
             builder=_build_trace_hash_tamper,
         ),
@@ -257,6 +281,7 @@ def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, 
             description="Certificate id propagation fails after trace_certificate tampering.",
             expected_failing_check="certificate_id_propagation",
             expected_failure_code="CERTIFICATE_ID_MISMATCH",
+            responsible_component="certifyedge.certificate",
             repair_hint="Re-run CertifyEdge emit-pcs-certificate and attach-certificate without editing certificate_id.",
             builder=_build_certificate_id_tamper,
         ),
@@ -265,6 +290,7 @@ def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, 
             description="Certified bundle marked Stale when receipt trace_hash diverges from certificate.",
             expected_failing_check="certified_trace_hash_consistent",
             expected_failure_code="STALE_TRACE_AFTER_CERTIFICATE",
+            responsible_component="workflow.status_policy",
             repair_hint="Re-attach certificate after any trace change, or regenerate the protocol package.",
             builder=_build_stale_trace_after_certificate,
         ),
@@ -273,6 +299,7 @@ def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, 
             description="Release protocol rejects legacy pf_handoff.json at release root.",
             expected_failing_check="no_legacy_pf_handoff_root",
             expected_failure_code="LEGACY_HANDOFF_FILE",
+            responsible_component="workflow.handoff",
             repair_hint="Remove pf_handoff.json; emit handoff_to_pf.json (HandoffManifest.v0).",
             builder=_build_legacy_handoff_file,
         ),
@@ -281,6 +308,7 @@ def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, 
             description="Release evidence must not use placeholder source_commit values.",
             expected_failing_check="no_placeholder_commits",
             expected_failure_code="PLACEHOLDER_SOURCE_COMMIT",
+            responsible_component="workflow.provenance",
             repair_hint="Regenerate artifacts with real git provenance (PCS_RELEASE_FIXTURE=1, no placeholder commits).",
             builder=_build_placeholder_commit,
         ),
@@ -311,7 +339,12 @@ def build_single_failure_case(
     case_dir.mkdir(parents=True, exist_ok=True)
     artifacts = _artifacts_dir(case_dir)
     written = spec.builder(policy_root, release_dir, artifacts, profile)
-    _write_case_metadata(case_dir, spec)
+    _write_case_metadata(
+        case_dir,
+        spec,
+        workflow_id=profile.workflow_id,
+        artifact_names=written,
+    )
     return written
 
 
@@ -326,8 +359,8 @@ def generate_failure_gallery(
     """
     Generate failure gallery cases under ``out_dir/<case_id>/``.
 
-    Each case includes ``README.md``, ``artifacts/``, ``expected_failure.json``, and
-    ``repair_hint.json``.
+    Each case includes ``failure_case_manifest.json``, ``README.md``, ``artifacts/``,
+    ``expected_failure.json``, and ``repair_hint.json``.
     """
     profile = workflow_profile_view(profile_path, policy_root=policy_root)
     workflow = get_workflow_by_key(workflow_key, policy_root=policy_root, profile_path=profile.path)
@@ -346,7 +379,12 @@ def generate_failure_gallery(
         case_dir.mkdir(parents=True)
         artifacts = _artifacts_dir(case_dir)
         input_artifacts = spec.builder(policy_root, release, artifacts, profile)
-        _write_case_metadata(case_dir, spec)
+        _write_case_metadata(
+            case_dir,
+            spec,
+            workflow_id=profile.workflow_id,
+            artifact_names=input_artifacts,
+        )
         cases_out.append(
             {
                 "case_id": spec.case_id,
@@ -463,9 +501,19 @@ def verify_failure_gallery(gallery_root: Path, *, policy_root: Path | None = Non
         ]
         if label != expected:
             raise ValueError(f"{case_id}: got {label!r}, expected {expected!r}")
-        for name in ("README.md", "expected_failure.json", "repair_hint.json"):
+        for name in (
+            "README.md",
+            "expected_failure.json",
+            "repair_hint.json",
+            FAILURE_CASE_MANIFEST_NAME,
+        ):
             if not (case_dir / name).is_file():
                 raise FileNotFoundError(f"{case_id} missing {name}")
+        manifest = json.loads((case_dir / FAILURE_CASE_MANIFEST_NAME).read_text(encoding="utf-8"))
+        if manifest.get("failure_case_id") != case_id:
+            raise ValueError(f"{case_id}: manifest failure_case_id mismatch")
+        if manifest.get("workflow_id") != index.get("workflow_id"):
+            raise ValueError(f"{case_id}: manifest workflow_id mismatch")
         checks.append(f"gallery_case.{case_id}")
     profile_path = index.get("workflow_profile")
     if profile_path:

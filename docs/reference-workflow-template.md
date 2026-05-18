@@ -33,7 +33,7 @@ pcs registry check-artifact examples/<workflow>/workflow_profile.v0.json
 
 Under `src/labtrust_gym/pcs/workflows/`:
 
-- Subclass `PcsWorkflow` (`base.py`)
+- Subclass `PCSWorkflow` (`base.py`); see `docs/pcs-workflow-implementation-guide.md`
 - Load `WorkflowProfileView` in `__init__` (profile drives `workflow_id`, artifact types, handoff sequence, failure modes, status policy)
 - Implement **workflow-specific** methods: `generate_trace()`, `runtime_receipt_generator()`, `claim_bundle_generator()`, `generate_failure_case()`
 - Register in `registry.py`

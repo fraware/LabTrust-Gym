@@ -132,8 +132,14 @@ def test_regenerate_release_protocol_from_clean_directory(
         HANDOFF_TO_PF_NAME,
         "labtrust_release_fragment.json",
         "trace_certificate.json",
+        "regeneration_report.json",
     ):
         assert (out / name).is_file(), name
+    report = json.loads((out / "regeneration_report.json").read_text(encoding="utf-8"))
+    assert report["status"] == "passed"
+    assert report["failure_code"] is None
+    assert report["duration_ms"] >= 0
+    assert report["trace_hash"].startswith("sha256:")
 
 
 def test_regenerate_release_protocol_json_summary(repo_root: Path, tmp_path: Path) -> None:

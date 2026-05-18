@@ -348,6 +348,8 @@ def verify_release_sync_gate(
     return checks
 
 
+LABTRUST_BENCH_ARTIFACTS: tuple[str, ...] = ("regeneration_report.json",)
+
 LABTRUST_PUBLISH_FLAT_ARTIFACTS: tuple[str, ...] = (
     *HANDOFF_ARTIFACTS,
     HANDOFF_TO_CERTIFYEDGE_NAME,
@@ -357,6 +359,7 @@ LABTRUST_PUBLISH_FLAT_ARTIFACTS: tuple[str, ...] = (
     "trace_hash_alignment.json",
     "manifest.json",
     RELEASE_FIXTURE_MANIFEST_NAME,
+    *LABTRUST_BENCH_ARTIFACTS,
 )
 
 

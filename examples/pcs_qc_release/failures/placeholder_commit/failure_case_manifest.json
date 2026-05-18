@@ -1,0 +1,20 @@
+{
+  "artifacts": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "manifest.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.certified.json",
+    "science_claim_bundle.pending.json",
+    "trace.json",
+    "trace_certificate.json",
+    "trace_hash_alignment.json",
+    "workflow_profile.v0.json"
+  ],
+  "expected_failure_code": "PLACEHOLDER_SOURCE_COMMIT",
+  "failure_case_id": "placeholder_commit",
+  "repair_hint": "Regenerate artifacts with real git provenance (PCS_RELEASE_FIXTURE=1, no placeholder commits).",
+  "responsible_component": "workflow.provenance",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

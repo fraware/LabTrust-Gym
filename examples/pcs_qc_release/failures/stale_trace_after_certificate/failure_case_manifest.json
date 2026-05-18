@@ -1,0 +1,20 @@
+{
+  "artifacts": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "manifest.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.certified.json",
+    "science_claim_bundle.pending.json",
+    "trace.json",
+    "trace_certificate.json",
+    "trace_hash_alignment.json",
+    "workflow_profile.v0.json"
+  ],
+  "expected_failure_code": "STALE_TRACE_AFTER_CERTIFICATE",
+  "failure_case_id": "stale_trace_after_certificate",
+  "repair_hint": "Re-attach certificate after any trace change, or regenerate the protocol package.",
+  "responsible_component": "workflow.status_policy",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

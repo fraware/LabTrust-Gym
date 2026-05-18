@@ -23,8 +23,9 @@ fi
 labtrust regenerate-release-protocol \
   --out "$RELEASE" \
   --certifyedge-bin "$CERTIFYEDGE_BIN" \
-  --pcs-core "$PCS_CORE" \
-  --summary-out "$RELEASE/protocol_regeneration_summary.json"
+  --pcs-core "$PCS_CORE"
+
+python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
 
 labtrust check-status-policy --release-dir "$RELEASE" --json
 

@@ -286,8 +286,11 @@ labtrust verify-release-protocol \
 labtrust regenerate-release-protocol \
   --pcs-core ../pcs-core \
   --certifyedge-bin certifyedge \
-  --out examples/pcs_qc_release/release \
-  --summary-out examples/pcs_qc_release/release/protocol_regeneration_summary.json
+  --out examples/pcs_qc_release/release
+
+# Benchmark report (also written automatically by regenerate-release-protocol):
+# examples/pcs_qc_release/release/regeneration_report.json
+python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
 
 labtrust check-status-policy \
   --release-dir examples/pcs_qc_release/release
@@ -301,7 +304,9 @@ labtrust check-status-policy \
 ```
 
 **WorkflowProfile.v0** (protocol driver): `examples/pcs_qc_release/workflow_profile.v0.json`  
-Reference template for new workflows: `docs/reference-workflow-template.md`
+Implementation guide (second workflow): `docs/pcs-workflow-implementation-guide.md`  
+Starter template: `templates/pcs_workflow_template/`  
+PCS chain notes: `docs/reference-workflow-template.md`
 
 After editing the profile body, refresh its digest:
 
@@ -336,7 +341,10 @@ pytest tests/pcs/test_release_fixtures.py -q   # skips if release/ not populated
 pytest tests/pcs/test_pcs_release_contract.py -q
 pytest tests/pcs/test_release_protocol_producer.py -q
 python examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
+python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
+python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
 python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
+python examples/pcs_qc_release/scripts/write_failure_case_manifests.py
 ```
 
 ## 16. Limitations

@@ -21,6 +21,12 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $Python examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+& $Python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+& $Python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 & $Labtrust check-status-policy --release-dir examples/pcs_qc_release/release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

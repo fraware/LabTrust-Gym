@@ -1,16 +1,11 @@
-"""Machine-readable summaries for PCS protocol regeneration."""
+"""Machine-readable summaries for PCS protocol regeneration (legacy alias)."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
-from labtrust_gym.pcs.release_protocol_producer import (
-    LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS,
-    ProtocolRegenerationResult,
-)
-from labtrust_gym.pcs.release_run import file_content_digest
+from labtrust_gym.pcs.protocol_artifacts import ProtocolRegenerationResult
+from labtrust_gym.pcs.regeneration_report import build_regeneration_report
 
 
 def build_protocol_regeneration_summary(
@@ -18,24 +13,17 @@ def build_protocol_regeneration_summary(
     *,
     workflow_id: str,
     property_id: str,
+    duration_ms: int = 0,
 ) -> dict[str, Any]:
     """Build JSON summary after a successful ``regenerate_release_protocol`` run."""
-    release_dir = result.release_dir.resolve()
-    trace = json.loads((release_dir / "trace.json").read_text(encoding="utf-8"))
-    cert = json.loads((release_dir / "trace_certificate.json").read_text(encoding="utf-8"))
-    certified_path = release_dir / "science_claim_bundle.certified.json"
-
-    artifacts_written = [name for name in LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS if (release_dir / name).is_file()]
-
-    return {
-        "status": "passed",
-        "workflow_id": workflow_id,
-        "property_id": property_id,
-        "trace_hash": trace.get("trace_hash"),
-        "certificate_id": cert.get("certificate_id"),
-        "certified_bundle_hash": file_content_digest(certified_path),
-        "artifacts_written": artifacts_written,
-        "checks": result.checks,
-        "release_dir": str(release_dir),
-        "commits": result.commits,
-    }
+    report = build_regeneration_report(
+        result,
+        workflow_id=workflow_id,
+        duration_ms=duration_ms,
+    )
+    summary = report.to_dict()
+    summary["property_id"] = property_id
+    summary["checks"] = result.checks
+    summary["release_dir"] = str(result.release_dir)
+    summary["commits"] = result.commits
+    return summary

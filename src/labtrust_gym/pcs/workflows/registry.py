@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from labtrust_gym.pcs.workflows.base import PcsWorkflow
+from labtrust_gym.pcs.workflows.base import PCSWorkflow
 from labtrust_gym.pcs.workflows.qc_release import QcReleaseWorkflow
 
 _DEFAULT_WORKFLOW_ID = "qc_release"
 
-_REGISTRY: dict[str, type[PcsWorkflow]] = {
+_REGISTRY: dict[str, type[PCSWorkflow]] = {
     "qc_release": QcReleaseWorkflow,
 }
 
@@ -35,7 +35,7 @@ def resolve_workflow_id(key: str) -> str:
     )
 
 
-def get_workflow(workflow_id: str | None = None, *, profile_path: Path | None = None, **kwargs) -> PcsWorkflow:
+def get_workflow(workflow_id: str | None = None, *, profile_path: Path | None = None, **kwargs) -> PCSWorkflow:
     """Instantiate a workflow by id (default: qc_release)."""
     wid = resolve_workflow_id(workflow_id or _DEFAULT_WORKFLOW_ID)
     return _REGISTRY[wid](profile_path=profile_path, **kwargs)
@@ -46,5 +46,5 @@ def get_workflow_by_key(key: str, **kwargs) -> PcsWorkflow:
     return get_workflow(resolve_workflow_id(key), **kwargs)
 
 
-def default_workflow(**kwargs) -> PcsWorkflow:
+def default_workflow(**kwargs) -> PCSWorkflow:
     return get_workflow(_DEFAULT_WORKFLOW_ID, **kwargs)

@@ -76,6 +76,27 @@ def certifyedge_emit_supports_profile_registry(ce_bin: str) -> bool:
     return "--profile-registry" in _emit_pcs_certificate_help(ce_bin)
 
 
+def normalize_certifyedge_certificate_provenance(
+    certificate_path: Path,
+    *,
+    source_commit: str,
+    source_repo: str | None = None,
+) -> None:
+    """
+    Align ``trace_certificate.json`` provenance with the CertifyEdge repo HEAD.
+
+    Debug/release binaries may embed an older build-time commit; LabTrust regeneration
+    pins ``manifest.certifyedge_commit`` to ``git rev-parse HEAD`` at emit time.
+    """
+    from labtrust_gym.pcs.mock_certificate import CERTIFYEDGE_SOURCE_REPO
+
+    certificate_path = certificate_path.resolve()
+    cert = json.loads(certificate_path.read_text(encoding="utf-8"))
+    cert["source_commit"] = source_commit
+    cert["source_repo"] = source_repo or CERTIFYEDGE_SOURCE_REPO
+    certificate_path.write_text(json.dumps(cert, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def normalize_trace_trace_hash(trace_path: Path) -> str:
     """
     Recompute ``trace_hash`` from events (LabTrust canonical, CertifyEdge-aligned).
