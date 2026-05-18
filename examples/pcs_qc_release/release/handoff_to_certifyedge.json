@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-17T22:25:34Z",
+  "created_at": "2026-05-18T07:36:56Z",
   "expected_outputs": {
     "trace_certificate.json": {
       "artifact_type": "TraceCertificate.v0"
@@ -23,7 +23,7 @@
     "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
   },
   "schema_version": "v0",
-  "signature_or_digest": "sha256:3f680b374888794ca04a42593ab3fd7865f429dc1893ebc364bc8d553a0e8425",
+  "signature_or_digest": "sha256:9bf325edd0ddcd610e9b2cc5daac1a7a9a87e11f6b6bf99ce6f379207614f382",
   "source_commit": "4c5439ae358733f9a4c4a58e33fdaed1ab0d29de",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "status": "Validated",

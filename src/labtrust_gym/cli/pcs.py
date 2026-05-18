@@ -15,10 +15,16 @@ from labtrust_gym.pcs.demo import DEMO_SCENARIOS
 from labtrust_gym.pcs.demo import run_demo as execute_pcs_demo
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
 from labtrust_gym.pcs.handoff import export_handoff_bundle
-from labtrust_gym.pcs.handoff_manifest import emit_handoff_manifest
+from labtrust_gym.pcs.handoff_manifest import (
+    emit_handoff_manifest,
+    emit_handoff_to_certifyedge,
+    emit_handoff_to_pf,
+)
 from labtrust_gym.pcs.regenerate_release_chain import regenerate_release_chain
+from labtrust_gym.pcs.regenerate_release_protocol import regenerate_release_protocol
+from labtrust_gym.pcs.release_protocol_producer import LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS
 from labtrust_gym.pcs.release_fragment import emit_labtrust_release_fragment
-from labtrust_gym.pcs.sync_pcs_core_rc import pcs_core_labtrust_release_dir, verify_release_sync_gate
+from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
 from labtrust_gym.pcs.validate import PcsValidationError, validate_artifact_file, validate_run_dir
 
 
@@ -187,20 +193,78 @@ def _run_emit_handoff(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_verify_release_fixtures(args: argparse.Namespace) -> int:
+def _run_verify_release_protocol(args: argparse.Namespace) -> int:
     release_dir = _resolve_path(args.release_dir)
     pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
     try:
-        canonical = None
-        if pcs_core is not None:
-            canonical = pcs_core if (pcs_core / "trace.json").is_file() else pcs_core_labtrust_release_dir()
-        checks = verify_release_sync_gate(release_dir, canonical)
+        checks = verify_release_protocol(release_dir, pcs_core=pcs_core)
     except (ValueError, FileNotFoundError) as e:
         get_console().error(str(e))
         return 1
     for label in checks:
         get_console().info(f"OK {label}")
-    get_console().info(f"release fixtures verified: {release_dir}")
+    get_console().info(f"release protocol verified: {release_dir}")
+    return 0
+
+
+def _run_verify_release_fixtures(args: argparse.Namespace) -> int:
+    return _run_verify_release_protocol(args)
+
+
+def _run_emit_handoff_to_certifyedge(args: argparse.Namespace) -> int:
+    out = _resolve_path(args.out)
+    try:
+        emit_handoff_to_certifyedge(
+            trace_path=_resolve_path(args.trace),
+            runtime_receipt_path=_resolve_path(args.runtime_receipt),
+            out_path=out,
+            property_id=args.property_id,
+            release_mode=args.release_mode,
+        )
+    except (ValueError, FileNotFoundError) as e:
+        get_console().error(str(e))
+        return 1
+    get_console().info(f"handoff_to_certifyedge written to {out}")
+    return 0
+
+
+def _run_emit_handoff_to_pf(args: argparse.Namespace) -> int:
+    out = _resolve_path(args.out)
+    try:
+        emit_handoff_to_pf(
+            bundle_path=_resolve_path(args.bundle),
+            out_path=out,
+            release_mode=args.release_mode,
+        )
+    except (ValueError, FileNotFoundError) as e:
+        get_console().error(str(e))
+        return 1
+    get_console().info(f"handoff_to_pf written to {out}")
+    return 0
+
+
+def _run_regenerate_release_protocol(args: argparse.Namespace) -> int:
+    out = _resolve_path(args.out)
+    pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
+    ce_spec = _resolve_path(args.certifyedge_spec) if args.certifyedge_spec else None
+    ce_root = _resolve_path(args.certifyedge_root) if args.certifyedge_root else None
+    try:
+        release_dir, checks = regenerate_release_protocol(
+            out,
+            certifyedge_bin=args.certifyedge_bin,
+            certifyedge_spec=ce_spec,
+            certifyedge_root=ce_root,
+            pcs_core=pcs_core,
+        )
+    except (ValueError, FileNotFoundError, subprocess.CalledProcessError) as e:
+        get_console().error(str(e))
+        return 1
+    for name in LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS:
+        if (release_dir / name).is_file():
+            get_console().info(f"OK artifact {name}")
+    for label in checks:
+        get_console().info(f"OK {label}")
+    get_console().info(f"release protocol regenerated at {release_dir}")
     return 0
 
 
@@ -367,9 +431,61 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
     )
     p_emit.set_defaults(func=_run_emit_handoff)
 
+    p_emit_ce = sub.add_parser(
+        "emit-handoff-to-certifyedge",
+        help="Emit HandoffManifest.v0 for CertifyEdge (runtime_to_certificate)",
+    )
+    p_emit_ce.add_argument("--trace", required=True, help="trace.json path")
+    p_emit_ce.add_argument("--runtime-receipt", required=True, help="runtime_receipt.json path")
+    p_emit_ce.add_argument(
+        "--property-id",
+        default="hospital_lab.qc_release",
+        help="property_id invariant",
+    )
+    p_emit_ce.add_argument("--out", required=True, help="Output handoff_to_certifyedge.json path")
+    p_emit_ce.add_argument(
+        "--release-mode",
+        action="store_true",
+        help="Reject local-dev provenance",
+    )
+    p_emit_ce.set_defaults(func=_run_emit_handoff_to_certifyedge)
+
+    p_emit_pf = sub.add_parser(
+        "emit-handoff-to-pf",
+        help="Emit HandoffManifest.v0 for Provability Fabric (bundle_to_verifier)",
+    )
+    p_emit_pf.add_argument(
+        "--bundle",
+        required=True,
+        help="Certified science_claim_bundle.certified.json",
+    )
+    p_emit_pf.add_argument("--out", required=True, help="Output handoff_to_pf.json path")
+    p_emit_pf.add_argument(
+        "--release-mode",
+        action="store_true",
+        help="Reject local-dev provenance",
+    )
+    p_emit_pf.set_defaults(func=_run_emit_handoff_to_pf)
+
+    p_verify_protocol = sub.add_parser(
+        "verify-release-protocol",
+        help="Verify Phase 2 protocol artifacts, digests, and optional pcs-core RC alignment",
+    )
+    p_verify_protocol.add_argument(
+        "--release-dir",
+        required=True,
+        help="Release directory (e.g. examples/pcs_qc_release/release)",
+    )
+    p_verify_protocol.add_argument(
+        "--pcs-core",
+        default=None,
+        help="pcs-core root or examples/labtrust-release for RC compare",
+    )
+    p_verify_protocol.set_defaults(func=_run_verify_release_protocol)
+
     p_verify_release = sub.add_parser(
         "verify-release-fixtures",
-        help="Verify release/ handoff integrity and optional pcs-core RC alignment",
+        help="Alias for verify-release-protocol",
     )
     p_verify_release.add_argument(
         "--release-dir",
@@ -383,9 +499,40 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
     )
     p_verify_release.set_defaults(func=_run_verify_release_fixtures)
 
+    p_regen_protocol = sub.add_parser(
+        "regenerate-release-protocol",
+        help="Regenerate complete LabTrust-side PCS protocol package from scratch",
+    )
+    p_regen_protocol.add_argument(
+        "--out",
+        required=True,
+        help="Output release directory",
+    )
+    p_regen_protocol.add_argument(
+        "--certifyedge-bin",
+        default="certifyedge",
+        help="CertifyEdge CLI binary",
+    )
+    p_regen_protocol.add_argument(
+        "--certifyedge-spec",
+        default=None,
+        help="CertifyEdge STL spec path",
+    )
+    p_regen_protocol.add_argument(
+        "--certifyedge-root",
+        default=None,
+        help="CertifyEdge repo root (default: ../CertifyEdge)",
+    )
+    p_regen_protocol.add_argument(
+        "--pcs-core",
+        default=None,
+        help="pcs-core root or examples/labtrust-release for validation",
+    )
+    p_regen_protocol.set_defaults(func=_run_regenerate_release_protocol)
+
     p_regen = sub.add_parser(
         "regenerate-release-chain",
-        help="Regenerate LabTrust release chain from demo + CertifyEdge (not mirror-only)",
+        help="Alias for regenerate-release-protocol",
     )
     p_regen.add_argument(
         "--out",

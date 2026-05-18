@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from labtrust_gym.pcs.release_fixtures import release_dir, validate_release_fixtures
 from labtrust_gym.pcs.sync_pcs_core_rc import pcs_core_labtrust_release_dir
+from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
 
 
 def main() -> int:
@@ -43,16 +44,22 @@ def main() -> int:
         print("OK pcs registry check-artifact", artifact)
 
     fragment = release / "labtrust_release_fragment.json"
-    if fragment.is_file():
-        from labtrust_gym.pcs.release_fragment import assert_release_fragment_valid
+    if not fragment.is_file():
+        raise FileNotFoundError(f"missing {fragment.name}")
+    subprocess.run(["pcs", "validate", str(fragment)], check=True, cwd=ROOT)
+    subprocess.run(
+        ["pcs", "registry", "check-artifact", str(fragment)],
+        check=True,
+        cwd=ROOT,
+    )
+    print("OK pcs validate + registry labtrust_release_fragment.json")
 
-        assert_release_fragment_valid(json.loads(fragment.read_text(encoding="utf-8")))
-        subprocess.run(
-            ["pcs", "registry", "check-artifact", str(fragment)],
-            check=True,
-            cwd=ROOT,
-        )
-        print("OK labtrust_release_fragment.json (schema + registry)")
+    try:
+        canonical = pcs_core_labtrust_release_dir(ROOT)
+        for label in verify_release_protocol(release, pcs_core=canonical):
+            print("OK protocol", label)
+    except FileNotFoundError as exc:
+        print("SKIP verify_release_protocol pcs-core:", exc)
 
     subprocess.run(
         [

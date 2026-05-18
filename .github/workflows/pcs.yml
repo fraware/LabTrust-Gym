@@ -55,10 +55,17 @@ jobs:
         run: python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
       - name: Validate committed release fixtures (pcs-core + registry)
         run: python examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
-      - name: Registry check Phase 2 handoff manifests
+      - name: Verify LabTrust release protocol package
+        run: |
+          labtrust verify-release-protocol \
+            --release-dir examples/pcs_qc_release/release \
+            --pcs-core pcs-core/examples/labtrust-release
+      - name: Registry check Phase 2 protocol artifacts
         run: |
           pcs registry check-artifact examples/pcs_qc_release/release/handoff_to_certifyedge.json
           pcs registry check-artifact examples/pcs_qc_release/release/handoff_to_pf.json
+          pcs validate examples/pcs_qc_release/release/labtrust_release_fragment.json
+          pcs registry check-artifact examples/pcs_qc_release/release/labtrust_release_fragment.json
       - name: Gate release fixtures against canonical pcs-core RC
         run: |
           python -m labtrust_gym.pcs.sync_pcs_core_rc \

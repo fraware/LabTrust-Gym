@@ -24,6 +24,10 @@ from labtrust_gym.pcs.handoff_manifest import (
 )
 from labtrust_gym.pcs.mock_certificate import build_mock_trace_certificate
 from labtrust_gym.pcs.regenerate_release_chain import compare_release_hashes_to_canonical
+from labtrust_gym.pcs.release_protocol_producer import (
+    LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS,
+    assert_protocol_package_complete,
+)
 from labtrust_gym.pcs.release_fragment import (
     build_labtrust_release_fragment,
     validate_release_fragment,
@@ -39,6 +43,13 @@ from labtrust_gym.pcs.status_transitions import (
     mark_bundle_stale_if_trace_diverged,
 )
 from labtrust_gym.pcs.sync_pcs_core_rc import pcs_core_labtrust_release_dir
+
+
+def test_committed_release_protocol_package_complete(release_dir: Path) -> None:
+    assert_protocol_package_complete(release_dir)
+    assert set(LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS).issubset(
+        {p.name for p in release_dir.iterdir() if p.is_file()}
+    )
 
 
 def test_emit_handoff_to_certifyedge_validates_against_pcs_core(
