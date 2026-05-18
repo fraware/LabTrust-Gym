@@ -288,9 +288,11 @@ def write_run_manifests(
     (run_dir / RELEASE_HANDOFF_MANIFEST_NAME).write_text(
         json.dumps(handoff_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    (run_dir / HANDOFF_TO_CERTIFYEDGE_NAME).write_text(
-        json.dumps(handoff_ce, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    handoff_ce_text = json.dumps(handoff_ce, indent=2, sort_keys=True) + "\n"
+    (run_dir / HANDOFF_TO_CERTIFYEDGE_NAME).write_text(handoff_ce_text, encoding="utf-8")
+    from labtrust_gym.pcs.handoff_manifest import LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME
+
+    (run_dir / LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME).write_text(handoff_ce_text, encoding="utf-8")
     (run_dir / HANDOFF_FOR_PF_NAME).write_text(
         json.dumps(handoff_pf, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

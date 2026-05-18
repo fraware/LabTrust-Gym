@@ -22,8 +22,9 @@ from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, e
 from labtrust_gym.pcs.handoff_manifest import (
     HANDOFF_TO_CERTIFYEDGE_NAME,
     HANDOFF_TO_PF_NAME,
-    emit_handoff_to_certifyedge,
+    LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME,
     emit_handoff_to_pf,
+    write_certifyedge_chain_handoffs,
 )
 from labtrust_gym.pcs.manifest import resolve_pcs_core_root
 from labtrust_gym.pcs.release_fragment import (
@@ -48,6 +49,7 @@ LABTRUST_PROTOCOL_CORE_ARTIFACTS: tuple[str, ...] = (
 
 LABTRUST_PROTOCOL_HANDOFF_ARTIFACTS: tuple[str, ...] = (
     HANDOFF_TO_CERTIFYEDGE_NAME,
+    LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME,
     HANDOFF_TO_PF_NAME,
     LABTRUST_RELEASE_FRAGMENT_NAME,
 )
@@ -136,25 +138,24 @@ def regenerate_release_protocol(
     export_runtime_receipt(demo_run, work / "runtime_receipt.json", policy_root=root)
     export_pcs_bundle(demo_run, work / "science_claim_bundle.pending.json", policy_root=root)
 
-    emit_handoff_to_certifyedge(
+    write_certifyedge_chain_handoffs(
         trace_path=work / "trace.json",
         runtime_receipt_path=work / "runtime_receipt.json",
-        out_path=work / HANDOFF_TO_CERTIFYEDGE_NAME,
+        work_dir=work,
         policy_root=root,
         property_id=property_id,
         release_mode=True,
     )
 
     cert_path = work / "trace_certificate.json"
+    handoff_ce = work / LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME
     subprocess.run(
         [
             ce_bin,
             "--release-mode",
             "emit-pcs-certificate",
-            "--spec",
-            str(spec),
-            "--trace",
-            str(work / "trace.json"),
+            "--handoff",
+            str(handoff_ce),
             "--out",
             str(cert_path),
         ],
@@ -241,10 +242,10 @@ def emit_protocol_package_from_release(
     Returns summary dict with paths and digests.
     """
     release_dir = release_dir.resolve()
-    emit_handoff_to_certifyedge(
+    write_certifyedge_chain_handoffs(
         trace_path=release_dir / "trace.json",
         runtime_receipt_path=release_dir / "runtime_receipt.json",
-        out_path=release_dir / HANDOFF_TO_CERTIFYEDGE_NAME,
+        work_dir=release_dir,
         policy_root=policy_root,
         property_id=property_id,
         release_mode=True,

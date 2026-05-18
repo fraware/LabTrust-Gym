@@ -17,10 +17,12 @@ from labtrust_gym.pcs.export import export_pcs_bundle
 from labtrust_gym.pcs.handoff_manifest import (
     HANDOFF_TO_CERTIFYEDGE_NAME,
     HANDOFF_TO_PF_NAME,
+    LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME,
     assert_handoff_manifest_valid,
     assert_handoff_registry_check,
     build_runtime_to_certificate_handoff,
     emit_handoff_manifest,
+    write_certifyedge_chain_handoffs,
 )
 from labtrust_gym.pcs.mock_certificate import build_mock_trace_certificate
 from labtrust_gym.pcs.regenerate_release_chain import compare_release_hashes_to_canonical
@@ -50,6 +52,27 @@ def test_committed_release_protocol_package_complete(release_dir: Path) -> None:
     assert set(LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS).issubset(
         {p.name for p in release_dir.iterdir() if p.is_file()}
     )
+
+
+def test_write_certifyedge_chain_handoffs_staging_filename(
+    release_dir: Path, tmp_path: Path
+) -> None:
+    work = tmp_path / "staging"
+    work.mkdir()
+    doc = write_certifyedge_chain_handoffs(
+        trace_path=release_dir / "trace.json",
+        runtime_receipt_path=release_dir / "runtime_receipt.json",
+        work_dir=work,
+        release_mode=True,
+    )
+    staging = work / LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME
+    legacy = work / HANDOFF_TO_CERTIFYEDGE_NAME
+    assert staging.is_file()
+    assert legacy.is_file()
+    assert staging.read_text(encoding="utf-8") == legacy.read_text(encoding="utf-8")
+    assert doc["handoff_kind"] == "runtime_to_certificate"
+    assert_handoff_manifest_valid(doc)
+    assert_handoff_registry_check(staging)
 
 
 def test_emit_handoff_to_certifyedge_validates_against_pcs_core(

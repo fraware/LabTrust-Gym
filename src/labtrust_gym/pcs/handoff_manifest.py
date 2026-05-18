@@ -18,6 +18,8 @@ from labtrust_gym.pcs.release_run import certified_bundle_ids, file_content_dige
 
 HANDOFF_TO_PF_NAME = "handoff_to_pf.json"
 HANDOFF_TO_CERTIFYEDGE_NAME = "handoff_to_certifyedge.json"
+# Filename used by CertifyEdge release-run / clean-checkout staging (PCS Phase 2).
+LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME = "labtrust_to_certifyedge_handoff.json"
 CERTIFIED_BUNDLE_NAME = "science_claim_bundle.certified.json"
 TRACE_NAME = "trace.json"
 RUNTIME_RECEIPT_NAME = "runtime_receipt.json"
@@ -322,6 +324,39 @@ def emit_handoff_manifest(
     out_path = out_path.resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return doc
+
+
+def write_certifyedge_chain_handoffs(
+    *,
+    trace_path: Path,
+    runtime_receipt_path: Path,
+    work_dir: Path,
+    policy_root: Path | None = None,
+    property_id: str = DEFAULT_PROPERTY_ID,
+    release_mode: bool | None = None,
+    handoff_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Write runtime_to_certificate HandoffManifest.v0 for CertifyEdge clean-chain staging.
+
+    Emits ``labtrust_to_certifyedge_handoff.json`` (CertifyEdge convention) and
+    ``handoff_to_certifyedge.json`` (release fixture name) under ``work_dir``.
+    """
+    work_dir = work_dir.resolve()
+    doc = emit_handoff_to_certifyedge(
+        trace_path=trace_path,
+        runtime_receipt_path=runtime_receipt_path,
+        out_path=work_dir / LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME,
+        policy_root=policy_root,
+        property_id=property_id,
+        release_mode=release_mode,
+        handoff_id=handoff_id,
+    )
+    legacy = work_dir / HANDOFF_TO_CERTIFYEDGE_NAME
+    staging = work_dir / LABTRUST_TO_CERTIFYEDGE_HANDOFF_NAME
+    if legacy != staging:
+        legacy.write_text(staging.read_text(encoding="utf-8"), encoding="utf-8")
     return doc
 
 

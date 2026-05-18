@@ -15,6 +15,7 @@ pcs_chain_init() {
   export WORK="${PCS_CHAIN_WORK:-$RELEASE_RUN_DIR}"
 
   export TRACE_JSON="${WORK}/trace.json"
+  export HANDOFF_CE_JSON="${WORK}/labtrust_to_certifyedge_handoff.json"
   export RUNTIME_RECEIPT_JSON="${WORK}/runtime_receipt.json"
   export PENDING_JSON="${WORK}/science_claim_bundle.pending.json"
   export TRACE_CERT_JSON="${WORK}/trace_certificate.json"
