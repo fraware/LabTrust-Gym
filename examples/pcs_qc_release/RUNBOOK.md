@@ -286,7 +286,35 @@ labtrust verify-release-protocol \
 labtrust regenerate-release-protocol \
   --pcs-core ../pcs-core \
   --certifyedge-bin certifyedge \
-  --out examples/pcs_qc_release/release
+  --out examples/pcs_qc_release/release \
+  --summary-out examples/pcs_qc_release/release/protocol_regeneration_summary.json
+
+labtrust check-status-policy \
+  --release-dir examples/pcs_qc_release/release
+
+labtrust generate-failure-gallery \
+  --workflow hospital_lab.qc_release \
+  --out examples/pcs_qc_release/failures
+
+labtrust check-status-policy \
+  --release-dir examples/pcs_qc_release/release
+```
+
+**WorkflowProfile.v0** (protocol driver): `examples/pcs_qc_release/workflow_profile.v0.json`  
+Reference template for new workflows: `docs/reference-workflow-template.md`
+
+After editing the profile body, refresh its digest:
+
+```bash
+python examples/pcs_qc_release/scripts/materialize_workflow_profile.py
+python examples/pcs_qc_release/scripts/ci_validate_workflow_profile.py
+```
+
+**Local CI parity** (matches `.github/workflows/pcs.yml`):
+
+```bash
+bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh
+# or: examples/pcs_qc_release/scripts/run_pcs_ci_local.ps1
 ```
 
 One-shot shell wrapper (same as above, sets `PCS_DETERMINISTIC=1`):

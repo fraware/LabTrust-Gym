@@ -202,6 +202,7 @@ def build_handoff_for_pf(
     run_dir: Path,
     *,
     source_commit: str | None = None,
+    handoff_id: str | None = None,
 ) -> dict[str, Any]:
     """Build HandoffManifest.v0 for PF signing (legacy name retained for callers)."""
     from labtrust_gym.pcs.handoff_manifest import build_bundle_to_verifier_handoff
@@ -210,6 +211,7 @@ def build_handoff_for_pf(
         run_dir / "science_claim_bundle.certified.json",
         release_mode=True,
         source_commit=source_commit,
+        handoff_id=handoff_id,
     )
 
 
@@ -217,15 +219,22 @@ def build_handoff_for_certifyedge(
     run_dir: Path,
     *,
     source_commit: str | None = None,
+    handoff_id: str | None = None,
+    property_id: str | None = None,
 ) -> dict[str, Any]:
     """Build HandoffManifest.v0 for CertifyEdge certificate emission."""
-    from labtrust_gym.pcs.handoff_manifest import build_runtime_to_certificate_handoff
+    from labtrust_gym.pcs.handoff_manifest import (
+        DEFAULT_PROPERTY_ID,
+        build_runtime_to_certificate_handoff,
+    )
 
     return build_runtime_to_certificate_handoff(
         run_dir / "trace.json",
         receipt_path=run_dir / "runtime_receipt.json",
         release_mode=True,
         source_commit=source_commit,
+        handoff_id=handoff_id,
+        property_id=property_id or DEFAULT_PROPERTY_ID,
     )
 
 
@@ -268,6 +277,9 @@ def write_run_manifests(
     *,
     generator: str,
     handoff_id: str | None = None,
+    certifyedge_handoff_id: str | None = None,
+    pf_handoff_id: str | None = None,
+    property_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Write RELEASE_HANDOFF_MANIFEST, HandoffManifest.v0, and RELEASE_FIXTURE_MANIFEST into run_dir."""
     for name in HANDOFF_ARTIFACTS:
@@ -279,8 +291,17 @@ def write_run_manifests(
     handoff_manifest = build_handoff_manifest(
         run_dir, commits, generator=generator, handoff_id=handoff_id
     )
-    handoff_pf = build_handoff_for_pf(run_dir, source_commit=commits["labtrust_gym_commit"])
-    handoff_ce = build_handoff_for_certifyedge(run_dir, source_commit=commits["labtrust_gym_commit"])
+    handoff_pf = build_handoff_for_pf(
+        run_dir,
+        source_commit=commits["labtrust_gym_commit"],
+        handoff_id=pf_handoff_id,
+    )
+    handoff_ce = build_handoff_for_certifyedge(
+        run_dir,
+        source_commit=commits["labtrust_gym_commit"],
+        handoff_id=certifyedge_handoff_id,
+        property_id=property_id,
+    )
     fixture_manifest = build_release_fixture_manifest(
         run_dir, commits, handoff_manifest, generator=generator
     )

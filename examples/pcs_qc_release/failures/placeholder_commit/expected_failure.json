@@ -1,0 +1,5 @@
+{
+  "case_id": "placeholder_commit",
+  "expected_failing_check": "no_placeholder_commits",
+  "expected_failure_code": "PLACEHOLDER_SOURCE_COMMIT"
+}

@@ -1,0 +1,60 @@
+{
+  "artifact_kind": "Trace",
+  "events": [
+    {
+      "action": "accession_sample",
+      "actor_id": "acc-tech-01",
+      "actor_role": "accession_tech",
+      "event_hash": "291dada8f61b6e22ecc3c2fbbbb8144d4386c584bf2d79cf9094df1498e1efb1",
+      "event_id": "qc-release-invalid-missing-qc-evt-000",
+      "policy_decision": "allow",
+      "post_state": {
+        "analysis_complete": false,
+        "lifecycle": "accessioned",
+        "qc_complete": false,
+        "released": false
+      },
+      "pre_state": {
+        "analysis_complete": false,
+        "lifecycle": "registered",
+        "qc_complete": false,
+        "released": false
+      },
+      "previous_event_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "reason_code": "ok",
+      "run_id": "qc-release-invalid-missing-qc",
+      "sample_id": "PCS-SAMPLE-002",
+      "timestamp": "2026-01-15T08:00:00+00:00"
+    },
+    {
+      "action": "release_sample",
+      "actor_id": "rel-mgr-01",
+      "actor_role": "release_manager",
+      "event_hash": "1f83fc5c8fcc873aabcf9886c0ab6c061703ab673d5c67ddead9bc18bec67742",
+      "event_id": "qc-release-invalid-missing-qc-evt-001",
+      "policy_decision": "deny",
+      "post_state": {
+        "analysis_complete": false,
+        "lifecycle": "accessioned",
+        "qc_complete": false,
+        "released": false
+      },
+      "pre_state": {
+        "analysis_complete": false,
+        "lifecycle": "accessioned",
+        "qc_complete": false,
+        "released": false
+      },
+      "previous_event_hash": "291dada8f61b6e22ecc3c2fbbbb8144d4386c584bf2d79cf9094df1498e1efb1",
+      "reason_code": "missing_qc",
+      "run_id": "qc-release-invalid-missing-qc",
+      "sample_id": "PCS-SAMPLE-002",
+      "timestamp": "2026-01-15T10:00:00+00:00"
+    }
+  ],
+  "run_id": "qc-release-invalid-missing-qc",
+  "sample_id": "PCS-SAMPLE-002",
+  "schema_version": "v0",
+  "trace_hash": "sha256:6da498d6e8ed773e60fc25d3997b6541bd5601c843adb50c5d757f473aac483d",
+  "version": "0"
+}

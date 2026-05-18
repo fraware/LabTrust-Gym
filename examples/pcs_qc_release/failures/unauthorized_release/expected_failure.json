@@ -1,0 +1,5 @@
+{
+  "case_id": "unauthorized_release",
+  "expected_failing_check": "workflow.run_meta.released",
+  "expected_failure_code": "unauthorized_release"
+}

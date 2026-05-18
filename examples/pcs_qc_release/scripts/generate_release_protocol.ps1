@@ -19,7 +19,10 @@ if (-not (Get-Command labtrust -ErrorAction SilentlyContinue) -and (Test-Path $v
 labtrust regenerate-release-protocol `
     --out $Release `
     --certifyedge-bin $CeBin `
-    --pcs-core $PcsCore
+    --pcs-core $PcsCore `
+    --summary-out (Join-Path $Release "protocol_regeneration_summary.json")
+
+labtrust check-status-policy --release-dir $Release --json
 
 labtrust verify-release-protocol `
     --release-dir $Release `

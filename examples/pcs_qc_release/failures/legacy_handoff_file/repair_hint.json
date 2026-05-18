@@ -1,0 +1,3 @@
+{
+  "hint": "Remove pf_handoff.json; emit handoff_to_pf.json (HandoffManifest.v0)."
+}

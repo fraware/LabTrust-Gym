@@ -39,7 +39,11 @@ def test_release_handoff_to_pf_matches_certified_bundle(release_root: Path) -> N
     handoff = release_root / "handoff"
     certified = _load(handoff, "science_claim_bundle.certified.json")
     doc = _load(handoff, HANDOFF_TO_PF_NAME)
-    expected = build_handoff_for_pf(handoff, source_commit=doc["source_commit"])
+    expected = build_handoff_for_pf(
+        handoff,
+        source_commit=doc["source_commit"],
+        handoff_id=doc.get("handoff_id"),
+    )
     inv = doc["invariants"]
     assert inv["certificate_id"] == expected["invariants"]["certificate_id"]
     assert inv["trace_hash"] == expected["invariants"]["trace_hash"]

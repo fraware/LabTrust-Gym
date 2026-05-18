@@ -1,0 +1,3 @@
+{
+  "hint": "Regenerate trace.json from the workflow run; do not edit trace_hash in isolation."
+}

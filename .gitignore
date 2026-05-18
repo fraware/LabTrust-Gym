@@ -109,6 +109,12 @@ demo_video_out/
 /RELEASE_HANDOFF_MANIFEST.json
 /handoff_for_pf.json
 
+# PCS protocol regeneration staging (never commit)
+examples/pcs_qc_release/.protocol-regen-staging/
+**/.protocol-regen-staging/
+examples/pcs_qc_release/.pcs-chain-work/
+examples/pcs_qc_release/.test-cert.json
+
 # Local env and secrets (do not commit)
 .env
 .env.local

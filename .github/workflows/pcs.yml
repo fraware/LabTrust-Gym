@@ -11,6 +11,7 @@ on:
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
       - "docs/pcs*.md"
+      - "docs/reference-workflow-template.md"
       - ".github/workflows/pcs.yml"
   pull_request:
     branches: [main]
@@ -22,6 +23,7 @@ on:
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
       - "docs/pcs*.md"
+      - "docs/reference-workflow-template.md"
       - ".github/workflows/pcs.yml"
 
 jobs:
@@ -49,6 +51,8 @@ jobs:
           pip install -e ".[dev,pcs]"
       - name: PCS tests
         run: python -m pytest tests/pcs -q
+      - name: Validate WorkflowProfile.v0 reference
+        run: python examples/pcs_qc_release/scripts/ci_validate_workflow_profile.py
       - name: Verify pcs-core canonical hash vectors
         run: python -m pcs_core.hash_vectors --verify
       - name: Strict pcs-core validate exported artifacts + committed goldens
@@ -60,6 +64,18 @@ jobs:
           labtrust verify-release-protocol \
             --release-dir examples/pcs_qc_release/release \
             --pcs-core pcs-core/examples/labtrust-release
+      - name: LabTrust status-policy gate
+        run: |
+          labtrust check-status-policy \
+            --release-dir examples/pcs_qc_release/release \
+            --json
+      - name: Generate and verify failure gallery
+        run: |
+          labtrust generate-failure-gallery \
+            --workflow hospital_lab.qc_release \
+            --out examples/pcs_qc_release/failures \
+            --release-dir examples/pcs_qc_release/release
+          python examples/pcs_qc_release/scripts/validate_failure_gallery.py
       - name: Registry check Phase 2 protocol artifacts
         run: |
           pcs registry check-artifact examples/pcs_qc_release/release/handoff_to_certifyedge.json

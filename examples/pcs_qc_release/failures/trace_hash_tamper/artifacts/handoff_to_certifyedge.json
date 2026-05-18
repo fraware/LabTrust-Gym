@@ -1,0 +1,31 @@
+{
+  "created_at": "2026-05-18T21:00:43Z",
+  "expected_outputs": {
+    "trace_certificate.json": {
+      "artifact_type": "TraceCertificate.v0"
+    }
+  },
+  "from_component": "LabTrust-Gym",
+  "handoff_id": "handoff-labtrust-qc_release_v0-1-runtime-to-certifyedge",
+  "handoff_kind": "runtime_to_certificate",
+  "input_artifacts": {
+    "runtime_receipt.json": {
+      "artifact_type": "RuntimeReceipt.v0",
+      "sha256": "sha256:3ad5c55458a79ef502508f86cd215c746d42b4f0cc5c9aa4feeba9c03b4e1d60"
+    },
+    "trace.json": {
+      "artifact_type": "LabTrust.Trace.v0",
+      "sha256": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c"
+    }
+  },
+  "invariants": {
+    "property_id": "hospital_lab.qc_release",
+    "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
+  },
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:352ae4a199281a1c03551e2dedd41eddb6465e659f563f17a8cdc192607a7dab",
+  "source_commit": "17ed831acfd775889ab497d11004cceb083a9c2d",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym",
+  "status": "Validated",
+  "to_component": "CertifyEdge"
+}

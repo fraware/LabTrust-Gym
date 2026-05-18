@@ -1,0 +1,7 @@
+{
+  "bundle_runtime_receipt_trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
+  "property_id": "pcs.qc_release.trace_hash_alignment",
+  "runtime_receipt_trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
+  "schema_version": "v0",
+  "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
+}

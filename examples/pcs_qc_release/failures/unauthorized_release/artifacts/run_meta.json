@@ -1,0 +1,12 @@
+{
+  "ended_at": "2026-01-15T11:00:00+00:00",
+  "final_reason_code": "unauthorized_release",
+  "released": false,
+  "run_id": "qc-release-invalid-unauthorized",
+  "sample_id": "PCS-SAMPLE-003",
+  "scenario_id": "invalid_unauthorized_release",
+  "started_at": "2026-01-15T08:00:00+00:00",
+  "status": "failed",
+  "trace_hash": "sha256:eb25cf8b1ebef7c56af577f9cfea290c1fd1e9ae583367aa57662418c5d5f914",
+  "trace_path": "trace.json"
+}

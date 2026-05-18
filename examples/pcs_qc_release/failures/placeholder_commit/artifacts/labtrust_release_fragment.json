@@ -1,0 +1,33 @@
+{
+  "artifacts": {
+    "handoff_to_certifyedge.json": {
+      "artifact_type": "HandoffManifest.v0",
+      "sha256": "sha256:0fc716f0506f182b454996fc8529ac52fff5a10d413166d1837f289ff38aec9a"
+    },
+    "handoff_to_pf.json": {
+      "artifact_type": "HandoffManifest.v0",
+      "sha256": "sha256:594f3b1cdbc53f3fcd87ece5ad88ea5483e7c121379f414c8d47efd6830dbbe3"
+    },
+    "runtime_receipt.json": {
+      "artifact_type": "RuntimeReceipt.v0",
+      "sha256": "sha256:3ad5c55458a79ef502508f86cd215c746d42b4f0cc5c9aa4feeba9c03b4e1d60"
+    },
+    "science_claim_bundle.certified.json": {
+      "artifact_type": "ScienceClaimBundle.v0",
+      "sha256": "sha256:a8c5268390a35989cd504e34080e477229604ff13f6b4c69311a281a027eeede"
+    },
+    "science_claim_bundle.pending.json": {
+      "artifact_type": "ScienceClaimBundle.v0",
+      "sha256": "sha256:406d376c6d26eb949c32f2b6c6f6578aa877f24c9ea0cb0a8b87bd377c72cfe0"
+    },
+    "trace.json": {
+      "artifact_type": "LabTrust.Trace.v0",
+      "sha256": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c"
+    }
+  },
+  "component": "LabTrust-Gym",
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:de29dc1c2ade982685b56455c5be342c0c6b7ab2d12e3d3e60904b42dff21e27",
+  "source_commit": "17ed831acfd775889ab497d11004cceb083a9c2d",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym"
+}

@@ -23,7 +23,10 @@ fi
 labtrust regenerate-release-protocol \
   --out "$RELEASE" \
   --certifyedge-bin "$CERTIFYEDGE_BIN" \
-  --pcs-core "$PCS_CORE"
+  --pcs-core "$PCS_CORE" \
+  --summary-out "$RELEASE/protocol_regeneration_summary.json"
+
+labtrust check-status-policy --release-dir "$RELEASE" --json
 
 labtrust verify-release-protocol \
   --release-dir "$RELEASE" \
