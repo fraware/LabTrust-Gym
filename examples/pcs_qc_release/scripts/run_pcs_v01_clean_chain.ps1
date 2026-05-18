@@ -64,6 +64,16 @@ Step "LabTrust-Gym: export PCS artifacts"
 & $Labtrust export-pcs --run $RunDir --out $PendingJson
 & $Pcs validate $PendingJson
 
+$HandoffCeJson = Join-Path $Work "labtrust_to_certifyedge_handoff.json"
+Step "LabTrust-Gym: HandoffManifest.v0 (runtime_to_certificate) for CertifyEdge"
+& $Labtrust emit-handoff-to-certifyedge `
+  --trace $TraceJson `
+  --runtime-receipt $ReceiptJson `
+  --out $HandoffCeJson `
+  --release-mode
+& $Pcs validate $HandoffCeJson
+Copy-Item -Force $HandoffCeJson (Join-Path $Work "handoff_to_certifyedge.json")
+
 if ($LabtrustOnly) {
     Step "LabTrust-only chain OK"
     & $Python (Join-Path $PSScriptRoot "verify_pcs_v01_chain.py") --work $Work --stage labtrust
@@ -77,8 +87,12 @@ if (-not $CeCmd) {
 }
 if (-not (Test-Path $CertifyEdgeSpec)) { throw "CertifyEdge spec not found: $CertifyEdgeSpec" }
 
-Step "CertifyEdge: emit and verify TraceCertificate"
-& $CertifyEdgeBin emit-pcs-certificate --spec $CertifyEdgeSpec --trace $TraceJson --out $CertJson
+$HandoffOutJson = Join-Path $Work "certifyedge_to_labtrust_handoff.json"
+Step "CertifyEdge: emit and verify TraceCertificate (HandoffManifest input)"
+& $CertifyEdgeBin --release-mode emit-pcs-certificate `
+  --handoff $HandoffCeJson `
+  --out $CertJson `
+  --handoff-out $HandoffOutJson
 & $Pcs validate $CertJson
 & $CertifyEdgeBin verify-certificate $CertJson --trace $TraceJson
 
