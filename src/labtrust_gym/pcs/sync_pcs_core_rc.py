@@ -348,6 +348,216 @@ def verify_release_sync_gate(
     return checks
 
 
+LABTRUST_PUBLISH_FLAT_ARTIFACTS: tuple[str, ...] = (
+    *HANDOFF_ARTIFACTS,
+    HANDOFF_TO_CERTIFYEDGE_NAME,
+    HANDOFF_TO_PF_NAME,
+    LABTRUST_RELEASE_FRAGMENT_NAME,
+    "workflow_profile.v0.json",
+    "trace_hash_alignment.json",
+    "manifest.json",
+    RELEASE_FIXTURE_MANIFEST_NAME,
+)
+
+
+def _git_head_at(path: Path) -> str | None:
+    import subprocess
+
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(path), "rev-parse", "HEAD"],
+            text=True,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def _resolve_cross_repo_commits(labtrust_root: Path) -> dict[str, str]:
+    parent = labtrust_root.parent
+    commits: dict[str, str] = {}
+    pf = _git_head_at(parent / "provability-fabric")
+    if pf:
+        commits["provability_fabric_commit"] = pf
+    sm = _git_head_at(parent / "scientific-memory")
+    if sm:
+        commits["scientific_memory_commit"] = sm
+    return commits
+
+
+def _patch_repo_provenance_in_staging(
+    staging: Path,
+    *,
+    repo_url: str,
+    commit: str,
+    names: tuple[str, ...],
+) -> None:
+    def _walk(obj: Any) -> None:
+        if isinstance(obj, dict):
+            if obj.get("source_repo") == repo_url and isinstance(obj.get("source_commit"), str):
+                obj["source_commit"] = commit
+            if obj.get("scientific_memory_commit") and repo_url.endswith("scientific-memory"):
+                obj["scientific_memory_commit"] = commit
+            for value in obj.values():
+                _walk(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item)
+
+    for name in names:
+        path = staging / name
+        if not path.is_file():
+            continue
+        doc = _load(path)
+        _walk(doc)
+        path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _patch_pf_provenance_in_staging(staging: Path, *, pf_commit: str) -> None:
+    _patch_repo_provenance_in_staging(
+        staging,
+        repo_url="https://github.com/SentinelOps-CI/provability-fabric",
+        commit=pf_commit,
+        names=("verification_result.json", "signed_science_claim_bundle.json"),
+    )
+
+
+def _merge_release_fixture_manifest_for_pcs_core(
+    local: Path,
+    canon: Path,
+    *,
+    cross_repo_commits: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Build pcs-core RELEASE_FIXTURE_MANIFEST from LabTrust release + prior canonical pins."""
+    local_fixture = _load(local / RELEASE_FIXTURE_MANIFEST_NAME)
+    canon_fixture = (
+        _load(canon / RELEASE_FIXTURE_MANIFEST_NAME)
+        if (canon / RELEASE_FIXTURE_MANIFEST_NAME).is_file()
+        else {}
+    )
+    merged: dict[str, Any] = {
+        "schema_version": "v0",
+        "release_candidate": canon_fixture.get("release_candidate", "pcs-v0.1.0-rc1"),
+        "generated_at": local_fixture.get("generated_at", canon_fixture.get("generated_at")),
+        "pcs_core_commit": local_fixture["pcs_core_commit"],
+        "labtrust_gym_commit": local_fixture["labtrust_gym_commit"],
+        "certifyedge_commit": local_fixture["certifyedge_commit"],
+        "provability_fabric_commit": (
+            (cross_repo_commits or {}).get("provability_fabric_commit")
+            or canon_fixture.get("provability_fabric_commit")
+        ),
+        "scientific_memory_commit": (
+            (cross_repo_commits or {}).get("scientific_memory_commit")
+            or canon_fixture.get("scientific_memory_commit")
+        ),
+        "artifacts": {},
+    }
+    try:
+        from pcs_core.release_fixtures import MANIFEST_ARTIFACTS as pcs_manifest_artifacts
+    except ImportError as exc:
+        raise ImportError("pcs-core required to publish release fixtures") from exc
+
+    for name in pcs_manifest_artifacts:
+        path = local / name
+        if not path.is_file():
+            path = canon / name
+        if path.is_file():
+            merged["artifacts"][name] = file_content_digest(path)
+    return merged
+
+
+def publish_release_to_pcs_core_rc(
+    *,
+    labtrust_root: Path | None = None,
+    release_dir: Path | None = None,
+    canonical: Path | None = None,
+) -> Path:
+    """
+    Publish LabTrust ``release/`` into pcs-core ``examples/labtrust-release/``.
+
+    Copies LabTrust-owned protocol artifacts, preserves pcs-core invalid_* fixtures and
+    downstream PF/SM artifacts when absent locally, refreshes RELEASE_FIXTURE_MANIFEST,
+    and regenerates Phase 2 protocol sidecars via pcs-core.
+    """
+    from labtrust_gym.pcs.protocol_artifacts import assert_protocol_package_complete
+
+    lt_root = labtrust_root or get_repo_root()
+    local = (release_dir or labtrust_release_dir(lt_root)).resolve()
+    canon = (canonical or pcs_core_labtrust_release_dir(lt_root)).resolve()
+    assert_protocol_package_complete(local)
+
+    staging = canon.parent / ".pcs-publish-staging"
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True)
+
+    for pattern in ("invalid_*.json", "README.md"):
+        for path in canon.glob(pattern):
+            rel = path.relative_to(canon)
+            dest = staging / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, dest)
+
+    for name in LABTRUST_PUBLISH_FLAT_ARTIFACTS:
+        src = local / name
+        if src.is_file():
+            shutil.copy2(src, staging / name)
+
+    for name in DOWNSTREAM_ARTIFACTS:
+        src_local = local / name
+        src_canon = canon / name
+        if src_local.is_file():
+            shutil.copy2(src_local, staging / name)
+        elif src_canon.is_file():
+            shutil.copy2(src_canon, staging / name)
+
+    cross_commits = _resolve_cross_repo_commits(lt_root)
+    pf_commit = cross_commits.get("provability_fabric_commit")
+    if pf_commit:
+        _patch_pf_provenance_in_staging(staging, pf_commit=pf_commit)
+    sm_commit = cross_commits.get("scientific_memory_commit")
+    if sm_commit:
+        _patch_repo_provenance_in_staging(
+            staging,
+            repo_url="https://github.com/fraware/scientific-memory",
+            commit=sm_commit,
+            names=("scientific_memory_import_report.json",),
+        )
+
+    merged_fixture = _merge_release_fixture_manifest_for_pcs_core(
+        local, canon, cross_repo_commits=cross_commits
+    )
+    (staging / RELEASE_FIXTURE_MANIFEST_NAME).write_text(
+        json.dumps(merged_fixture, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    import subprocess
+    import sys
+
+    pcs_core_root = resolve_pcs_core_root(lt_root)
+    py = sys.executable
+    subprocess.run(
+        [
+            py,
+            "-c",
+            "from pcs_core.release_fixtures import sync_legacy_manifest_artifact_hashes, release_dir; "
+            "from pcs_core.protocol_fixtures import write_labtrust_protocol_artifacts; "
+            f"import pathlib; d=pathlib.Path({str(staging)!r}); "
+            "sync_legacy_manifest_artifact_hashes(d); "
+            "write_labtrust_protocol_artifacts(d)",
+        ],
+        check=True,
+        cwd=pcs_core_root / "python",
+    )
+
+    if canon.exists():
+        shutil.rmtree(canon)
+    shutil.move(str(staging), str(canon))
+
+    assert_release_matches_pcs_core_rc(local, canon)
+    return canon
+
+
 def assert_release_matches_pcs_core_rc(
     labtrust_release: Path | None = None,
     canonical: Path | None = None,
@@ -482,6 +692,11 @@ def cli_main(argv: list[str] | None = None) -> int:
         default=None,
         help="LabTrust-Gym repo root (default: auto-detect)",
     )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        help="Publish LabTrust release/ into pcs-core examples/labtrust-release/",
+    )
     args = parser.parse_args(argv)
 
     lt_root = (args.labtrust_root or get_repo_root()).resolve()
@@ -495,6 +710,15 @@ def cli_main(argv: list[str] | None = None) -> int:
         for label in verify_release_sync_gate(release, canonical):
             print("OK", label)
         print(f"pcs-core RC verify OK ({release})")
+        return 0
+
+    if args.publish:
+        target = publish_release_to_pcs_core_rc(
+            labtrust_root=lt_root,
+            release_dir=release,
+            canonical=canonical,
+        )
+        print(f"OK published release fixtures -> {target}")
         return 0
 
     target = sync_release_from_pcs_core_rc(

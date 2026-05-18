@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from labtrust_gym.pcs.regenerate_release_chain import compare_release_hashes_to_canonical
+from labtrust_gym.pcs.protocol_summary import build_protocol_regeneration_summary
 from labtrust_gym.pcs.release_protocol_producer import (
     ProtocolRegenerationResult,
     emit_protocol_package_from_release,
     regenerate_release_protocol as _regenerate_release_protocol,
 )
+from labtrust_gym.pcs.workflows.registry import default_workflow
 
 
 def regenerate_release_protocol(
@@ -22,9 +24,10 @@ def regenerate_release_protocol(
     certifyedge_root: Path | None = None,
     pcs_core: Path | None = None,
     run_dir: Path | None = None,
-    property_id: str = "hospital_lab.qc_release",
-) -> tuple[Path, list[str]]:
-    """Generate the full LabTrust protocol package; returns ``(release_dir, check_labels)``."""
+    property_id: str | None = None,
+    workflow_profile: Path | None = None,
+) -> tuple[Path, list[str], dict[str, Any]]:
+    """Generate the full LabTrust protocol package; returns ``(release_dir, checks, summary)``."""
     result = _regenerate_release_protocol(
         out_dir,
         policy_root=policy_root,
@@ -34,8 +37,16 @@ def regenerate_release_protocol(
         pcs_core=pcs_core,
         run_dir=run_dir,
         property_id=property_id,
+        workflow_profile=workflow_profile,
     )
-    return result.release_dir, result.checks
+    wf = default_workflow(policy_root=policy_root, profile_path=workflow_profile)
+    summary = build_protocol_regeneration_summary(
+        result,
+        workflow_id=wf.spec.workflow_id,
+        property_id=wf.handoff_policy.property_id,
+    )
+    summary["workflow_profile"] = str(wf.profile.path)
+    return result.release_dir, result.checks, summary
 
 
 def report_canonical_drift(

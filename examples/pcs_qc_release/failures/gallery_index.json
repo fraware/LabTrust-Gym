@@ -1,0 +1,127 @@
+{
+  "cases": [
+    {
+      "case_id": "missing_qc_result",
+      "directory": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\failures\\missing_qc_result",
+      "expected_failing_check": "workflow.run_meta.released",
+      "expected_failure_code": "missing_qc",
+      "input_artifacts": [
+        "run_meta.json",
+        "trace.json",
+        "runtime_receipt.json"
+      ]
+    },
+    {
+      "case_id": "unauthorized_release",
+      "directory": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\failures\\unauthorized_release",
+      "expected_failing_check": "workflow.run_meta.released",
+      "expected_failure_code": "unauthorized_release",
+      "input_artifacts": [
+        "run_meta.json",
+        "trace.json",
+        "runtime_receipt.json"
+      ]
+    },
+    {
+      "case_id": "trace_hash_tamper",
+      "directory": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\failures\\trace_hash_tamper",
+      "expected_failing_check": "handoff_to_certifyedge_input_digests_fresh",
+      "expected_failure_code": "STALE_HANDOFF_DIGEST",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "case_id": "certificate_id_tamper",
+      "directory": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\failures\\certificate_id_tamper",
+      "expected_failing_check": "certificate_id_propagation",
+      "expected_failure_code": "CERTIFICATE_ID_MISMATCH",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "case_id": "stale_trace_after_certificate",
+      "directory": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\failures\\stale_trace_after_certificate",
+      "expected_failing_check": "certified_trace_hash_consistent",
+      "expected_failure_code": "STALE_TRACE_AFTER_CERTIFICATE",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "case_id": "legacy_handoff_file",
+      "directory": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\failures\\legacy_handoff_file",
+      "expected_failing_check": "no_legacy_pf_handoff_root",
+      "expected_failure_code": "LEGACY_HANDOFF_FILE",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json",
+        "pf_handoff.json"
+      ]
+    },
+    {
+      "case_id": "placeholder_commit",
+      "directory": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\failures\\placeholder_commit",
+      "expected_failing_check": "no_placeholder_commits",
+      "expected_failure_code": "PLACEHOLDER_SOURCE_COMMIT",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    }
+  ],
+  "out_dir": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\failures",
+  "property_id": "hospital_lab.qc_release",
+  "status": "passed",
+  "workflow_id": "labtrust.qc_release_v0.1",
+  "workflow_profile": "C:\\Users\\mateo\\LabTrust-Gym\\examples\\pcs_qc_release\\workflow_profile.v0.json"
+}

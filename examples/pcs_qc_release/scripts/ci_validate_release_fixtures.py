@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
 from labtrust_gym.pcs.release_fixtures import release_dir, validate_release_fixtures
+from labtrust_gym.pcs.status_policy import check_release_status_policy
 from labtrust_gym.pcs.sync_pcs_core_rc import pcs_core_labtrust_release_dir
 from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
 
@@ -21,6 +22,11 @@ def main() -> int:
     names = validate_release_fixtures(release)
     for name in names:
         print("OK", name)
+
+    status = check_release_status_policy(release)
+    assert status["status"] == "passed"
+    for label in status["checks"]:
+        print("OK status_policy", label)
 
     for artifact in (
         "runtime_receipt.json",

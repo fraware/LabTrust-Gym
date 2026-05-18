@@ -1,0 +1,12 @@
+{
+  "ended_at": "2026-01-15T10:00:00+00:00",
+  "final_reason_code": "missing_qc",
+  "released": false,
+  "run_id": "qc-release-invalid-missing-qc",
+  "sample_id": "PCS-SAMPLE-002",
+  "scenario_id": "invalid_missing_qc",
+  "started_at": "2026-01-15T08:00:00+00:00",
+  "status": "failed",
+  "trace_hash": "sha256:6da498d6e8ed773e60fc25d3997b6541bd5601c843adb50c5d757f473aac483d",
+  "trace_path": "trace.json"
+}

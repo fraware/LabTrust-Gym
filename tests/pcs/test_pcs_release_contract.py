@@ -127,10 +127,11 @@ RELEASE_GOLDEN_FILES = (
 
 
 def test_deterministic_mode_reproduces_expected_artifacts(
-    tmp_path: Path, expected_dir: Path, repo_root: Path
+    tmp_path: Path, expected_dir: Path, repo_root: Path, monkeypatch
 ) -> None:
     """Byte-stable deterministic release fixtures under examples/pcs_qc_release/expected/."""
     require_pcs_core()
+    monkeypatch.delenv("PCS_RELEASE_FIXTURE", raising=False)
     for name in RELEASE_GOLDEN_FILES:
         assert (expected_dir / name).is_file(), f"missing golden {name}"
 

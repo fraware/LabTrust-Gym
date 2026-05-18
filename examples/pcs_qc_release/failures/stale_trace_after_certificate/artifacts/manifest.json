@@ -1,0 +1,25 @@
+{
+  "artifacts": {
+    "runtime_receipt.json": "sha256:3ad5c55458a79ef502508f86cd215c746d42b4f0cc5c9aa4feeba9c03b4e1d60",
+    "science_claim_bundle.certified.json": "sha256:a8c5268390a35989cd504e34080e477229604ff13f6b4c69311a281a027eeede",
+    "science_claim_bundle.pending.json": "sha256:406d376c6d26eb949c32f2b6c6f6578aa877f24c9ea0cb0a8b87bd377c72cfe0",
+    "trace.json": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c",
+    "trace_certificate.json": "sha256:c6cb984bf1639a25ae5a077a0677e1ec1b6346d8e5f7440fb414dd4b4886bed3"
+  },
+  "certificate_id": "cert-trace-1f02c608-8c7e-41fc-86dd-8808429cb371",
+  "certificate_producer": "CertifyEdge",
+  "certificate_source_repo": "https://github.com/fraware/CertifyEdge",
+  "certified_bundle_hash": "sha256:a8c5268390a35989cd504e34080e477229604ff13f6b4c69311a281a027eeede",
+  "certified_bundle_id": "scb-pcs-qc-release-v0.1",
+  "certifyedge_bin": "C:\\Users\\mateo\\CertifyEdge\\target\\debug\\certifyedge.exe",
+  "certifyedge_commit": "635fca3771ad54fe3f8b49d1bb77ee35d0680ddc",
+  "certifyedge_spec": "CertifyEdge/templates/hospital_lab/qc_release.stl",
+  "generated_at": "2026-05-18T21:00:42Z",
+  "generator": "regenerate_release_protocol",
+  "handoff_id": "handoff-labtrust-qc_release_v0-1-to-pf",
+  "labtrust_gym_commit": "17ed831acfd775889ab497d11004cceb083a9c2d",
+  "mock_certificate": false,
+  "pcs_core_commit": "17e414501b3e1c58e8fbde1fe89a828440a945d9",
+  "schema_version": "v0",
+  "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
+}

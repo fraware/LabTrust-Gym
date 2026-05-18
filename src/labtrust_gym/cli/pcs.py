@@ -20,10 +20,12 @@ from labtrust_gym.pcs.handoff_manifest import (
     emit_handoff_to_certifyedge,
     emit_handoff_to_pf,
 )
+from labtrust_gym.pcs.failure_gallery import generate_failure_gallery
 from labtrust_gym.pcs.regenerate_release_chain import regenerate_release_chain
 from labtrust_gym.pcs.regenerate_release_protocol import regenerate_release_protocol
 from labtrust_gym.pcs.release_protocol_producer import LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS
 from labtrust_gym.pcs.release_fragment import emit_labtrust_release_fragment
+from labtrust_gym.pcs.status_policy import check_release_status_policy
 from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
 from labtrust_gym.pcs.validate import PcsValidationError, validate_artifact_file, validate_run_dir
 
@@ -248,23 +250,81 @@ def _run_regenerate_release_protocol(args: argparse.Namespace) -> int:
     pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
     ce_spec = _resolve_path(args.certifyedge_spec) if args.certifyedge_spec else None
     ce_root = _resolve_path(args.certifyedge_root) if args.certifyedge_root else None
+    profile_path = _resolve_path(args.workflow_profile) if getattr(args, "workflow_profile", None) else None
     try:
-        release_dir, checks = regenerate_release_protocol(
+        release_dir, checks, summary = regenerate_release_protocol(
             out,
             certifyedge_bin=args.certifyedge_bin,
             certifyedge_spec=ce_spec,
             certifyedge_root=ce_root,
             pcs_core=pcs_core,
+            workflow_profile=profile_path,
         )
     except (ValueError, FileNotFoundError, subprocess.CalledProcessError) as e:
+        get_console().error(f"labtrust regenerate-release-protocol failed: {e}")
+        return 1
+    if pcs_core is not None:
+        try:
+            rc_checks = verify_release_protocol(release_dir, pcs_core=pcs_core)
+            checks = [*checks, *rc_checks]
+        except (ValueError, FileNotFoundError) as e:
+            get_console().error(f"labtrust verify-release-protocol (pcs-core RC) failed: {e}")
+            return 1
+    if getattr(args, "summary_out", None):
+        summary_path = _resolve_path(args.summary_out)
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if args.json_summary:
+        json.dump(summary, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    if not args.json_summary and not getattr(args, "summary_out", None):
+        for name in LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS:
+            if (release_dir / name).is_file():
+                get_console().info(f"OK artifact {name}")
+        for label in checks:
+            get_console().info(f"OK {label}")
+        get_console().info(f"release protocol regenerated at {release_dir}")
+    return 0
+
+
+def _run_check_status_policy(args: argparse.Namespace) -> int:
+    release_dir = _resolve_path(args.release_dir)
+    try:
+        profile_path = _resolve_path(args.workflow_profile) if getattr(args, "workflow_profile", None) else None
+        result = check_release_status_policy(release_dir, profile_path=profile_path)
+    except (ValueError, FileNotFoundError) as e:
         get_console().error(str(e))
         return 1
-    for name in LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS:
-        if (release_dir / name).is_file():
-            get_console().info(f"OK artifact {name}")
-    for label in checks:
-        get_console().info(f"OK {label}")
-    get_console().info(f"release protocol regenerated at {release_dir}")
+    if args.json:
+        json.dump(result, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    else:
+        for label in result.get("checks", []):
+            get_console().info(f"OK {label}")
+        get_console().info(f"status policy passed: {release_dir}")
+    return 0
+
+
+def _run_generate_failure_gallery(args: argparse.Namespace) -> int:
+    out = _resolve_path(args.out)
+    release_dir = _resolve_path(args.release_dir) if args.release_dir else None
+    try:
+        profile_path = _resolve_path(args.workflow_profile) if getattr(args, "workflow_profile", None) else None
+        index = generate_failure_gallery(
+            out,
+            workflow_key=args.workflow,
+            policy_root=get_repo_root(),
+            release_dir=release_dir,
+            profile_path=profile_path,
+        )
+    except (ValueError, FileNotFoundError) as e:
+        get_console().error(str(e))
+        return 1
+    if args.json:
+        json.dump(index, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    else:
+        get_console().info(f"failure gallery written to {out} ({len(index['cases'])} cases)")
     return 0
 
 
@@ -528,7 +588,74 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         default=None,
         help="pcs-core root or examples/labtrust-release for validation",
     )
+    p_regen_protocol.add_argument(
+        "--json-summary",
+        action="store_true",
+        help="Print machine-readable JSON summary to stdout",
+    )
+    p_regen_protocol.add_argument(
+        "--summary-out",
+        default=None,
+        help="Write machine-readable JSON summary to this path",
+    )
+    p_regen_protocol.add_argument(
+        "--workflow-profile",
+        default=None,
+        help="WorkflowProfile.v0 path (default: examples/pcs_qc_release/workflow_profile.v0.json)",
+    )
     p_regen_protocol.set_defaults(func=_run_regenerate_release_protocol)
+
+    p_status = sub.add_parser(
+        "check-status-policy",
+        help="Enforce LabTrust status boundaries on release bundles (no ProofChecked)",
+    )
+    p_status.add_argument(
+        "--release-dir",
+        required=True,
+        help="Release directory (e.g. examples/pcs_qc_release/release)",
+    )
+    p_status.add_argument(
+        "--json",
+        action="store_true",
+        help="Print JSON result to stdout",
+    )
+    p_status.add_argument(
+        "--workflow-profile",
+        default=None,
+        help="WorkflowProfile.v0 path (default: examples/pcs_qc_release/workflow_profile.v0.json)",
+    )
+    p_status.set_defaults(func=_run_check_status_policy)
+
+    p_gallery = sub.add_parser(
+        "generate-failure-gallery",
+        help="Generate negative protocol fixtures for demos and benchmarks",
+    )
+    p_gallery.add_argument(
+        "--workflow",
+        default="hospital_lab.qc_release",
+        help="Workflow id or property id (default: hospital_lab.qc_release)",
+    )
+    p_gallery.add_argument(
+        "--out",
+        required=True,
+        help="Output directory (e.g. examples/pcs_qc_release/failures)",
+    )
+    p_gallery.add_argument(
+        "--release-dir",
+        default=None,
+        help="Baseline release directory for tamper cases (default: examples/pcs_qc_release/release)",
+    )
+    p_gallery.add_argument(
+        "--json",
+        action="store_true",
+        help="Print gallery index JSON to stdout",
+    )
+    p_gallery.add_argument(
+        "--workflow-profile",
+        default=None,
+        help="WorkflowProfile.v0 path (default: examples/pcs_qc_release/workflow_profile.v0.json)",
+    )
+    p_gallery.set_defaults(func=_run_generate_failure_gallery)
 
     p_regen = sub.add_parser(
         "regenerate-release-chain",

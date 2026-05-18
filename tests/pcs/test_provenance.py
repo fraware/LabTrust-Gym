@@ -22,6 +22,7 @@ def test_resolve_source_commit_local_dev_when_no_git(monkeypatch) -> None:
 
 def test_deterministic_mode_freezes_source_commit(monkeypatch) -> None:
     monkeypatch.delenv("PCS_DETERMINISTIC", raising=False)
+    monkeypatch.delenv("PCS_RELEASE_FIXTURE", raising=False)
     with deterministic_mode():
         commit, local_dev = resolve_source_commit()
         assert commit == DETERMINISTIC_SOURCE_COMMIT
@@ -45,6 +46,7 @@ def test_local_dev_commit_marker_valid_only_with_local_dev_true(monkeypatch) -> 
     assert fields["source_commit"] == LOCAL_DEV_COMMIT
 
     monkeypatch.delenv("PCS_DETERMINISTIC", raising=False)
+    monkeypatch.delenv("PCS_RELEASE_FIXTURE", raising=False)
     with deterministic_mode():
         commit2, local_dev2 = resolve_source_commit()
         fields2 = base_provenance()

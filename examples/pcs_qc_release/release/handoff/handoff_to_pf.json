@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-18T07:36:56Z",
+  "created_at": "2026-05-18T21:29:18Z",
   "expected_outputs": {
     "signed_science_claim_bundle.json": {
       "artifact_type": "SignedScienceClaimBundle.v0"
@@ -9,22 +9,22 @@
     }
   },
   "from_component": "LabTrust-Gym",
-  "handoff_id": "handoff-labtrust-to-pf-qc-release-v0.1",
+  "handoff_id": "handoff-labtrust-qc_release_v0-1-to-pf",
   "handoff_kind": "bundle_to_verifier",
   "input_artifacts": {
     "science_claim_bundle.certified.json": {
       "artifact_type": "ScienceClaimBundle.v0",
-      "sha256": "sha256:9b42d792199eb6f358d26f822699f0ed65bb4366eee306d4958d42121c656833"
+      "sha256": "sha256:bb740698a01c4e918ca0f346e5bfaed83e6665da8df84e931c0d50e03ce82ffe"
     }
   },
   "invariants": {
-    "certificate_id": "cert-trace-886c95f0-5d63-42d6-aa13-5891c12c5a6a",
-    "certified_bundle_hash": "sha256:9b42d792199eb6f358d26f822699f0ed65bb4366eee306d4958d42121c656833",
+    "certificate_id": "cert-trace-a1b8ff9d-7d5f-489c-98b1-a3a630cb87d7",
+    "certified_bundle_hash": "sha256:bb740698a01c4e918ca0f346e5bfaed83e6665da8df84e931c0d50e03ce82ffe",
     "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
   },
   "schema_version": "v0",
-  "signature_or_digest": "sha256:e81b01d612ca9c2faec24fe45ee8e26ceb6b2aef6d3e0d4004b1eb4d8f8f1077",
-  "source_commit": "4c5439ae358733f9a4c4a58e33fdaed1ab0d29de",
+  "signature_or_digest": "sha256:ad69c4cd3cd2813112e3094144bd3d08132b34e3ae615c27387b46afc10ffafc",
+  "source_commit": "17ed831acfd775889ab497d11004cceb083a9c2d",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "status": "Validated",
   "to_component": "Provability Fabric"

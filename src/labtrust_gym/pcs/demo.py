@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from labtrust_gym.config import get_repo_root
-from labtrust_gym.pcs.deterministic import deterministic_mode, is_deterministic_mode
-from labtrust_gym.pcs.workflow import load_workflow_yaml, run_workflow, write_run_directory
+from labtrust_gym.pcs.workflows.qc_release import FAILURE_CASES, run_failure_demo
+from labtrust_gym.pcs.workflows.registry import get_workflow
 
 DEMO_SCENARIOS: dict[str, tuple[str, str]] = {
     "qc-release": ("valid_workflow.yaml", "runs/qc-release"),
@@ -35,14 +35,20 @@ def run_demo(
 ) -> Path:
     if demo_name not in DEMO_SCENARIOS:
         raise ValueError(f"unknown demo {demo_name!r}; choose from {list(DEMO_SCENARIOS)}")
-    yaml_name, default_rel = DEMO_SCENARIOS[demo_name]
     root = policy_root or get_repo_root()
-    workflow_path = examples_dir(root) / yaml_name
-    workflow = load_workflow_yaml(workflow_path)
-    if out_dir is None:
-        out_dir = root / default_rel
-    use_deterministic = deterministic if deterministic is not None else is_deterministic_mode()
-    with deterministic_mode(enabled=use_deterministic):
-        result = run_workflow(workflow, policy_root=root)
-        write_run_directory(out_dir, result)
-    return out_dir
+    _, default_rel = DEMO_SCENARIOS[demo_name]
+
+    if demo_name in FAILURE_CASES:
+        return run_failure_demo(
+            demo_name,
+            out_dir=out_dir,
+            policy_root=root,
+            deterministic=deterministic,
+        )
+
+    workflow = get_workflow("qc_release", policy_root=root)
+    return workflow.trace_generator()(
+        out_dir=out_dir or (root / default_rel),
+        policy_root=root,
+        deterministic=deterministic,
+    )

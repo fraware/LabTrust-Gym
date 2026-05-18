@@ -68,10 +68,12 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | emit-release-fragment | `--release-dir <dir>`; optional `--out` | 0 | `labtrust_release_fragment.json` (`ComponentReleaseFragment.v0`) | examples/pcs_qc_release/RUNBOOK.md |
 | verify-release-protocol | `--release-dir <dir>`; optional `--pcs-core <dir>` | 0 | (stderr OK labels) | examples/pcs_qc_release/RUNBOOK.md |
 | verify-release-fixtures | alias for `verify-release-protocol` | 0 | (stderr OK labels) | examples/pcs_qc_release/RUNBOOK.md |
-| regenerate-release-protocol | `--out <release-dir>`; `--certifyedge-bin`; optional `--pcs-core` | 0 | Full LabTrust protocol package from demo + CertifyEdge | examples/pcs_qc_release/RUNBOOK.md |
+| check-status-policy | `--release-dir <dir>`; optional `--workflow-profile`; `--json` | 0 | Status boundary checks (no ProofChecked from LabTrust) | examples/pcs_qc_release/RUNBOOK.md |
+| regenerate-release-protocol | `--out <release-dir>`; `--certifyedge-bin`; optional `--pcs-core`; `--workflow-profile`; `--json-summary`; `--summary-out` | 0 | Full LabTrust protocol package driven by WorkflowProfile.v0 | examples/pcs_qc_release/RUNBOOK.md |
 | regenerate-release-chain | alias for `regenerate-release-protocol` | 0 | same as above | examples/pcs_qc_release/RUNBOOK.md |
+| generate-failure-gallery | `--workflow <id\|property_id>`; `--out <dir>`; optional `--release-dir`; `--workflow-profile` | 0 | Per-case `README.md`, `artifacts/`, `expected_failure.json`, `repair_hint.json` | examples/pcs_qc_release/failures/ |
 
-**PCS CI scripts (not `labtrust` subcommands):** `examples/pcs_qc_release/scripts/run_pcs_ci_local.{sh,ps1}` runs `pytest tests/pcs` plus `ci_validate_pcs_exports.py` (matches `.github/workflows/pcs.yml`). `generate_golden.py` regenerates `expected/` in deterministic mode.
+**PCS CI scripts (not `labtrust` subcommands):** `run_pcs_ci_local.{sh,ps1}` runs `pytest tests/pcs`, `ci_validate_workflow_profile.py`, export/release validation, `check-status-policy`, failure gallery generate/verify, and optional `verify-release-protocol` (matches `.github/workflows/pcs.yml`). `materialize_workflow_profile.py` refreshes `workflow_profile.v0.json` digest. `generate_golden.py` regenerates `expected/` in deterministic mode.
 
 ## Optional / conditional commands
 
