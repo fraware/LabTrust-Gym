@@ -11,14 +11,12 @@ CERTIFIED_CLAIM_STATUS = ArtifactStatus.CERTIFICATE_CHECKED.value
 PF_VERIFIED_STATUS = ArtifactStatus.PROOF_CHECKED.value
 STALE_STATUS = ArtifactStatus.STALE.value
 
-# LabTrust-owned claim_artifact transitions (Provability Fabric sets ProofChecked downstream).
+# LabTrust-owned claim_artifact transitions (ProofChecked is set only by Provability Fabric).
 LABTRUST_CLAIM_TRANSITIONS: dict[str, frozenset[str]] = {
     PENDING_CLAIM_STATUS: frozenset(
         {CERTIFIED_CLAIM_STATUS, STALE_STATUS, ArtifactStatus.REJECTED.value}
     ),
-    CERTIFIED_CLAIM_STATUS: frozenset(
-        {STALE_STATUS, ArtifactStatus.REJECTED.value, PF_VERIFIED_STATUS}
-    ),
+    CERTIFIED_CLAIM_STATUS: frozenset({STALE_STATUS, ArtifactStatus.REJECTED.value}),
 }
 
 
@@ -54,6 +52,13 @@ def assert_certified_bundle_claim_status(bundle: dict[str, Any]) -> None:
         raise ValueError(
             f"certified bundle claim_artifact.status must be {CERTIFIED_CLAIM_STATUS!r}, got {status!r}"
         )
+
+
+def assert_labtrust_never_emits_proof_checked(bundle: dict[str, Any], *, context: str = "bundle") -> None:
+    """LabTrust export/attach paths must never set claim_artifact.status to ProofChecked."""
+    status = bundle.get("claim_artifact", {}).get("status")
+    if status == PF_VERIFIED_STATUS:
+        raise ValueError(f"{context}: LabTrust must not emit claim_artifact.status ProofChecked")
 
 
 def assert_verification_result_proof_checked(doc: dict[str, Any]) -> None:

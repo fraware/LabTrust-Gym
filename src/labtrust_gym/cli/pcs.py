@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -15,7 +16,9 @@ from labtrust_gym.pcs.demo import run_demo as execute_pcs_demo
 from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
 from labtrust_gym.pcs.handoff import export_handoff_bundle
 from labtrust_gym.pcs.handoff_manifest import emit_handoff_manifest
+from labtrust_gym.pcs.regenerate_release_chain import regenerate_release_chain
 from labtrust_gym.pcs.release_fragment import emit_labtrust_release_fragment
+from labtrust_gym.pcs.sync_pcs_core_rc import pcs_core_labtrust_release_dir, verify_release_sync_gate
 from labtrust_gym.pcs.validate import PcsValidationError, validate_artifact_file, validate_run_dir
 
 
@@ -166,19 +169,58 @@ def _run_emit_release_fragment(args: argparse.Namespace) -> int:
 
 
 def _run_emit_handoff(args: argparse.Namespace) -> int:
-    bundle = _resolve_path(args.bundle)
     out = _resolve_path(args.out)
     try:
         emit_handoff_manifest(
             kind=args.kind,
-            bundle_path=bundle,
             out_path=out,
+            bundle_path=_resolve_path(args.bundle) if args.bundle else None,
+            trace_path=_resolve_path(args.trace) if args.trace else None,
+            receipt_path=_resolve_path(args.receipt) if args.receipt else None,
             release_mode=args.release_mode,
+            property_id=args.property_id,
         )
     except (ValueError, FileNotFoundError) as e:
         get_console().error(str(e))
         return 1
     get_console().info(f"HandoffManifest.v0 written to {out}")
+    return 0
+
+
+def _run_verify_release_fixtures(args: argparse.Namespace) -> int:
+    release_dir = _resolve_path(args.release_dir)
+    pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
+    try:
+        canonical = None
+        if pcs_core is not None:
+            canonical = pcs_core if (pcs_core / "trace.json").is_file() else pcs_core_labtrust_release_dir()
+        checks = verify_release_sync_gate(release_dir, canonical)
+    except (ValueError, FileNotFoundError) as e:
+        get_console().error(str(e))
+        return 1
+    for label in checks:
+        get_console().info(f"OK {label}")
+    get_console().info(f"release fixtures verified: {release_dir}")
+    return 0
+
+
+def _run_regenerate_release_chain(args: argparse.Namespace) -> int:
+    out = _resolve_path(args.out)
+    pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
+    ce_spec = _resolve_path(args.certifyedge_spec) if args.certifyedge_spec else None
+    ce_root = _resolve_path(args.certifyedge_root) if args.certifyedge_root else None
+    try:
+        regenerate_release_chain(
+            out,
+            certifyedge_bin=args.certifyedge_bin,
+            certifyedge_spec=ce_spec,
+            certifyedge_root=ce_root,
+            pcs_core_dir=pcs_core,
+        )
+    except (ValueError, FileNotFoundError, subprocess.CalledProcessError) as e:
+        get_console().error(str(e))
+        return 1
+    get_console().info(f"release chain regenerated at {out}")
     return 0
 
 
@@ -295,20 +337,82 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
     p_emit.add_argument(
         "--kind",
         required=True,
-        help="Handoff kind (bundle-to-verifier)",
+        help="Handoff kind: bundle-to-verifier | runtime-to-certificate",
     )
     p_emit.add_argument(
         "--bundle",
-        required=True,
-        help="Certified science_claim_bundle.certified.json path",
+        default=None,
+        help="Certified science_claim_bundle.certified.json (bundle-to-verifier)",
     )
-    p_emit.add_argument("--out", required=True, help="Output handoff_to_pf.json path")
+    p_emit.add_argument(
+        "--trace",
+        default=None,
+        help="trace.json path (runtime-to-certificate)",
+    )
+    p_emit.add_argument(
+        "--receipt",
+        default=None,
+        help="Optional runtime_receipt.json (runtime-to-certificate)",
+    )
+    p_emit.add_argument(
+        "--property-id",
+        default="hospital_lab.qc_release",
+        help="property_id invariant for runtime-to-certificate",
+    )
+    p_emit.add_argument("--out", required=True, help="Output HandoffManifest.v0 path")
     p_emit.add_argument(
         "--release-mode",
         action="store_true",
-        help="Reject local-dev provenance (default when bundle is under release/)",
+        help="Reject local-dev provenance (default when inputs are under release/)",
     )
     p_emit.set_defaults(func=_run_emit_handoff)
+
+    p_verify_release = sub.add_parser(
+        "verify-release-fixtures",
+        help="Verify release/ handoff integrity and optional pcs-core RC alignment",
+    )
+    p_verify_release.add_argument(
+        "--release-dir",
+        required=True,
+        help="Release directory (e.g. examples/pcs_qc_release/release)",
+    )
+    p_verify_release.add_argument(
+        "--pcs-core",
+        default=None,
+        help="pcs-core canonical labtrust-release directory for hash compare",
+    )
+    p_verify_release.set_defaults(func=_run_verify_release_fixtures)
+
+    p_regen = sub.add_parser(
+        "regenerate-release-chain",
+        help="Regenerate LabTrust release chain from demo + CertifyEdge (not mirror-only)",
+    )
+    p_regen.add_argument(
+        "--out",
+        required=True,
+        help="Output release directory",
+    )
+    p_regen.add_argument(
+        "--certifyedge-bin",
+        default="certifyedge",
+        help="CertifyEdge CLI binary",
+    )
+    p_regen.add_argument(
+        "--certifyedge-spec",
+        default=None,
+        help="CertifyEdge STL spec path",
+    )
+    p_regen.add_argument(
+        "--certifyedge-root",
+        default=None,
+        help="CertifyEdge repo root (default: ../CertifyEdge)",
+    )
+    p_regen.add_argument(
+        "--pcs-core",
+        default=None,
+        help="pcs-core root or examples/labtrust-release for post-regenerate verify",
+    )
+    p_regen.set_defaults(func=_run_regenerate_release_chain)
 
     p_fragment = sub.add_parser(
         "emit-release-fragment",

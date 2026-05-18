@@ -62,6 +62,10 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | attach-certificate | `--bundle <pending> --certificate trace_certificate.json --out certified.json` | 0 | Certified `ScienceClaimBundle.v0` | docs/pcs_export.md |
 | validate-pcs | `--run <dir>` or `--artifact <json>` | 0 | (stderr OK message) | pcs-core validation |
 | export-pcs-handoff | `--out handoff/`; optional `PCS_DETERMINISTIC=1` | 0 | `handoff/manifest.json`, `certifyedge/`, `provability_fabric/` | docs/pcs_handoff.md |
+| emit-handoff | `--kind runtime-to-certificate \| bundle-to-verifier`; `--trace` or `--bundle`; `--out <path>`; `--release-mode` | 0 | `HandoffManifest.v0` JSON | examples/pcs_qc_release/RUNBOOK.md |
+| emit-release-fragment | `--release-dir <dir>`; optional `--out` | 0 | `labtrust_release_fragment.json` (`ComponentReleaseFragment.v0`) | examples/pcs_qc_release/RUNBOOK.md |
+| verify-release-fixtures | `--release-dir <dir>`; optional `--pcs-core <dir>` | 0 | (stderr OK labels) | examples/pcs_qc_release/RUNBOOK.md |
+| regenerate-release-chain | `--out <release-dir>`; `--certifyedge-bin`; optional `--pcs-core`, `--certifyedge-spec` | 0 | Full `release/` chain from demo + CertifyEdge | examples/pcs_qc_release/RUNBOOK.md |
 
 **PCS CI scripts (not `labtrust` subcommands):** `examples/pcs_qc_release/scripts/run_pcs_ci_local.{sh,ps1}` runs `pytest tests/pcs` plus `ci_validate_pcs_exports.py` (matches `.github/workflows/pcs.yml`). `generate_golden.py` regenerates `expected/` in deterministic mode.
 

@@ -67,8 +67,15 @@ def build_science_claim_bundle(
     }
     signed = with_signature(doc)
     assert_science_claim_bundle_versions(signed)
-    if not cert_list:
-        from labtrust_gym.pcs.status_transitions import assert_pending_bundle_claim_status
+    from labtrust_gym.pcs.status_transitions import (
+        assert_certified_bundle_claim_status,
+        assert_labtrust_never_emits_proof_checked,
+        assert_pending_bundle_claim_status,
+    )
 
+    assert_labtrust_never_emits_proof_checked(signed)
+    if not cert_list:
         assert_pending_bundle_claim_status(signed)
+    else:
+        assert_certified_bundle_claim_status(signed)
     return signed

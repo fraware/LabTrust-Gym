@@ -13,7 +13,7 @@ from labtrust_gym.pcs.deterministic import DETERMINISTIC_CERT_DIGEST, DETERMINIS
 from labtrust_gym.pcs.manifest import PLACEHOLDER_COMMITS, resolve_pcs_core_root
 from labtrust_gym.pcs.mock_certificate import is_mock_certificate
 from labtrust_gym.pcs.provenance import LOCAL_DEV_COMMIT
-from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_PF_NAME
+from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_CERTIFYEDGE_NAME, HANDOFF_TO_PF_NAME
 from labtrust_gym.pcs.release_fragment import LABTRUST_RELEASE_FRAGMENT_NAME
 from labtrust_gym.pcs.release_protocol import assert_release_phase2_protocol_artifacts
 from labtrust_gym.pcs.release_handoff import (
@@ -186,6 +186,7 @@ def _iter_source_commits(obj: Any, *, path: str = "") -> Iterator[tuple[str, str
 
 def _release_scan_json_paths(release_root: Path) -> tuple[str, ...]:
     return HANDOFF_ARTIFACTS + (
+        HANDOFF_TO_CERTIFYEDGE_NAME,
         HANDOFF_TO_PF_NAME,
         LABTRUST_RELEASE_FRAGMENT_NAME,
         "verification_result.json",
@@ -411,9 +412,18 @@ def sync_release_from_pcs_core_rc(
     build_pf_handoff(staging, manifest)
     write_trace_hash_alignment(staging)
 
-    from labtrust_gym.pcs.handoff_manifest import build_handoff_to_pf_from_release
+    from labtrust_gym.pcs.handoff_manifest import (
+        HANDOFF_TO_CERTIFYEDGE_NAME,
+        build_handoff_to_certifyedge_from_release,
+        build_handoff_to_pf_from_release,
+    )
 
+    build_handoff_to_certifyedge_from_release(handoff_staging, manifest)
     build_handoff_to_pf_from_release(handoff_staging, manifest)
+    for handoff_name in (HANDOFF_TO_CERTIFYEDGE_NAME, HANDOFF_TO_PF_NAME):
+        src = staging / handoff_name
+        if src.is_file():
+            shutil.copy2(src, handoff_staging / handoff_name)
     legacy_handoff_guard = handoff_staging / "handoff_for_pf.json"
     if legacy_handoff_guard.is_file():
         legacy_handoff_guard.unlink()

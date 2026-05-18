@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-05-17T21:22:22Z",
+  "created_at": "2026-05-17T22:25:34Z",
   "expected_outputs": {
     "signed_science_claim_bundle.json": {
       "artifact_type": "SignedScienceClaimBundle.v0"
@@ -23,7 +23,7 @@
     "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
   },
   "schema_version": "v0",
-  "signature_or_digest": "sha256:21421c76e5307b056f6f8b6f4ad39abdd1bbddeeba6263dd9790f6da3074adf1",
+  "signature_or_digest": "sha256:88521a3bf646fece794df9891dc01dc94cdf1506ea9fa05edfa4c50adeed4670",
   "source_commit": "4c5439ae358733f9a4c4a58e33fdaed1ab0d29de",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "status": "Validated",

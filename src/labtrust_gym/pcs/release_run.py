@@ -35,6 +35,7 @@ DOWNSTREAM_ARTIFACTS: tuple[str, ...] = (
 
 RELEASE_HANDOFF_MANIFEST_NAME = "RELEASE_HANDOFF_MANIFEST.json"
 HANDOFF_TO_PF_NAME = "handoff_to_pf.json"
+HANDOFF_TO_CERTIFYEDGE_NAME = "handoff_to_certifyedge.json"
 HANDOFF_FOR_PF_NAME = HANDOFF_TO_PF_NAME  # deprecated alias
 RELEASE_FIXTURE_MANIFEST_NAME = "RELEASE_FIXTURE_MANIFEST.json"
 LEGACY_MANIFEST_NAME = "manifest.json"
@@ -212,6 +213,22 @@ def build_handoff_for_pf(
     )
 
 
+def build_handoff_for_certifyedge(
+    run_dir: Path,
+    *,
+    source_commit: str | None = None,
+) -> dict[str, Any]:
+    """Build HandoffManifest.v0 for CertifyEdge certificate emission."""
+    from labtrust_gym.pcs.handoff_manifest import build_runtime_to_certificate_handoff
+
+    return build_runtime_to_certificate_handoff(
+        run_dir / "trace.json",
+        receipt_path=run_dir / "runtime_receipt.json",
+        release_mode=True,
+        source_commit=source_commit,
+    )
+
+
 def build_release_fixture_manifest(
     run_dir: Path,
     commits: dict[str, str],
@@ -263,12 +280,16 @@ def write_run_manifests(
         run_dir, commits, generator=generator, handoff_id=handoff_id
     )
     handoff_pf = build_handoff_for_pf(run_dir, source_commit=commits["labtrust_gym_commit"])
+    handoff_ce = build_handoff_for_certifyedge(run_dir, source_commit=commits["labtrust_gym_commit"])
     fixture_manifest = build_release_fixture_manifest(
         run_dir, commits, handoff_manifest, generator=generator
     )
 
     (run_dir / RELEASE_HANDOFF_MANIFEST_NAME).write_text(
         json.dumps(handoff_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    (run_dir / HANDOFF_TO_CERTIFYEDGE_NAME).write_text(
+        json.dumps(handoff_ce, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     (run_dir / HANDOFF_FOR_PF_NAME).write_text(
         json.dumps(handoff_pf, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -323,6 +344,12 @@ def validate_handoff_directory(handoff_root: Path) -> None:
         raise ValueError(
             "handoff/ must not contain legacy handoff_for_pf.json; use handoff_to_pf.json"
         )
+    from labtrust_gym.pcs.handoff_manifest import HANDOFF_TO_CERTIFYEDGE_NAME as CE_HANDOFF
+
+    ce_path = handoff_root / CE_HANDOFF
+    if ce_path.is_file():
+        assert_handoff_manifest_valid(_load_json(ce_path))
+
     pf_doc = _load_json(handoff_path)
     assert_handoff_manifest_valid(pf_doc)
     certified_name = "science_claim_bundle.certified.json"
@@ -377,8 +404,14 @@ def promote_release_run_atomic(
     try:
         for name in HANDOFF_ARTIFACTS:
             shutil.copy2(run_dir / name, staging_handoff / name)
-        for extra in (RELEASE_HANDOFF_MANIFEST_NAME, HANDOFF_FOR_PF_NAME):
-            shutil.copy2(run_dir / extra, staging_handoff / extra)
+        for extra in (
+            RELEASE_HANDOFF_MANIFEST_NAME,
+            HANDOFF_TO_CERTIFYEDGE_NAME,
+            HANDOFF_FOR_PF_NAME,
+        ):
+            src_extra = run_dir / extra
+            if src_extra.is_file():
+                shutil.copy2(src_extra, staging_handoff / extra)
 
         for name in HANDOFF_ARTIFACTS:
             shutil.copy2(run_dir / name, staging_release / name)
@@ -418,6 +451,11 @@ def promote_release_run_atomic(
             certifyedge_bin=certifyedge_bin,
             certifyedge_spec=certifyedge_spec,
         )
+        for handoff_name in (HANDOFF_TO_CERTIFYEDGE_NAME, HANDOFF_FOR_PF_NAME):
+            src = run_dir / handoff_name
+            if src.is_file():
+                shutil.copy2(src, release_root / handoff_name)
+                shutil.copy2(src, handoff_root / handoff_name)
         write_trace_hash_alignment(release_root)
 
         legacy_manifest = _load_json(release_root / LEGACY_MANIFEST_NAME)
