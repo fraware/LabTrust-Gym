@@ -1,0 +1,19 @@
+{
+  "certificate_id": "cert-trace-02b3a7c1-35f7-4d23-85c2-dfd60aff7693",
+  "certificate_trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
+  "certified_bundle_hash": "sha256:68d59a16ac4f5d1e6e5aff61a011be192fbb12f9b4476fa221079a934b1265fc",
+  "claim_id": "claim-pcs-qc-release-v0.1",
+  "property_id": "hospital_lab.qc_release",
+  "runtime_receipt_id": "receipt-qc-release",
+  "signed_bundle_hash": null,
+  "source_commits": {
+    "certificate_source_commit": "11e079bc643b9e813c1a5516dc6d4db1d60a3f8a",
+    "certifyedge_commit": "11e079bc643b9e813c1a5516dc6d4db1d60a3f8a",
+    "labtrust_gym_commit": "8369892d8872bc08ef5acb6cf503f38665c36733",
+    "pcs_core_commit": "5ed33a0f995df88392ee0fc849967e9c42038738",
+    "runtime_receipt_source_commit": "8369892d8872bc08ef5acb6cf503f38665c36733"
+  },
+  "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
+  "verified_input_bundle_hash": null,
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

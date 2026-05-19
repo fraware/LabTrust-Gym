@@ -69,11 +69,11 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | verify-release-protocol | `--release-dir <dir>`; optional `--pcs-core <dir>` | 0 | (stderr OK labels) | examples/pcs_qc_release/RUNBOOK.md |
 | verify-release-fixtures | alias for `verify-release-protocol` | 0 | (stderr OK labels) | examples/pcs_qc_release/RUNBOOK.md |
 | check-status-policy | `--release-dir <dir>`; optional `--workflow-profile`; `--json` | 0 | Status boundary checks (no ProofChecked from LabTrust) | examples/pcs_qc_release/RUNBOOK.md |
-| regenerate-release-protocol | `--out <release-dir>`; `--certifyedge-bin`; optional `--pcs-core`; `--workflow-profile`; `--json-summary`; `--summary-out` | 0 | Full protocol package; writes `<out>/regeneration_report.json` (pcs-bench fields) | examples/pcs_qc_release/RUNBOOK.md |
+| regenerate-release-protocol | `--out <release-dir>`; `--certifyedge-bin`; optional `--pcs-core`; `--workflow-profile`; `--json-summary`; `--summary-out` | 0 | Full protocol package; writes `<out>/regeneration_report.json`, `proof_obligation_hints.json`, `proof_obligation_identifiers.json`, `formalization_readiness_report.json` (pcs-bench; Lean extraction inputs only) | examples/pcs_qc_release/RUNBOOK.md, schemas_or_docs/FormalizationReadinessReport.v0.md |
 | regenerate-release-chain | alias for `regenerate-release-protocol` | 0 | same as above | examples/pcs_qc_release/RUNBOOK.md |
 | generate-failure-gallery | `--workflow <id\|property_id>`; `--out <dir>`; optional `--release-dir`; `--workflow-profile` | 0 | Per-case `failure_case_manifest.json`, `README.md`, `artifacts/`, legacy `expected_failure.json` / `repair_hint.json` | examples/pcs_qc_release/failures/ |
 
-**PCS CI scripts (not `labtrust` subcommands):** `run_pcs_ci_local.{sh,ps1}` runs `pytest tests/pcs`, `ci_validate_workflow_profile.py`, export/release validation, `check-status-policy`, failure gallery generate/verify, and optional `verify-release-protocol` (matches `.github/workflows/pcs.yml`). `materialize_workflow_profile.py` refreshes `workflow_profile.v0.json` digest. `generate_golden.py` regenerates `expected/` in deterministic mode.
+**PCS CI scripts (not `labtrust` subcommands):** `run_pcs_ci_local.{sh,ps1}` runs `pytest tests/pcs`, `ci_validate_workflow_profile.py`, `ci_validate_formalization.py`, export/release validation, `check-status-policy`, failure gallery generate/verify, and optional `verify-release-protocol` (matches `.github/workflows/pcs.yml`). `materialize_workflow_profile.py` refreshes `workflow_profile.v0.json` digest. `materialize_formalization_artifacts.py` rebuilds formalization JSON from an existing `release/` tree. `generate_golden.py` regenerates `expected/` in deterministic mode.
 
 ## Optional / conditional commands
 

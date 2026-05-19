@@ -143,6 +143,13 @@ CI validators (LabTrust reference):
 - `examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py`
 - `examples/pcs_qc_release/scripts/materialize_regeneration_report.py` (refresh report without CertifyEdge)
 
+Proof-obligation readiness (Lean extraction, not Lean execution):
+
+- `proof_obligation_hints.json` — artifact paths for pcs-core
+- `proof_obligation_identifiers.json` — stable IDs for ProofObligation.v0
+- `formalization_readiness_report.json` — emitted by `regenerate-release-protocol`
+- WorkflowProfile `formalization.formalization_scope` must be `trust_envelope_only`
+
 JSON Schema (validated on write and in CI):
 
 - `policy/schemas/pcs/RegenerationReport.v0.schema.json`

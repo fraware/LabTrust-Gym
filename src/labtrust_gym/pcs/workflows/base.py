@@ -390,6 +390,10 @@ class PCSWorkflow(ABC):
 
         write_trace_hash_alignment(out_dir)
 
+        from labtrust_gym.pcs.formalization import write_formalization_artifacts
+
+        write_formalization_artifacts(out_dir, profile=self.profile)
+
         assert_protocol_package_complete(out_dir)
         if not (out_dir / WORKFLOW_PROFILE_RELEASE_NAME).is_file():
             raise FileNotFoundError(f"missing published {WORKFLOW_PROFILE_RELEASE_NAME}")

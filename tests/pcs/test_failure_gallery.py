@@ -37,6 +37,10 @@ def test_generate_failure_gallery_creates_all_cases(
         "stale_trace_after_certificate",
         "legacy_handoff_file",
         "placeholder_commit",
+        "lean_trace_hash_mismatch",
+        "lean_rejected_certificate",
+        "lean_stale_certificate",
+        "lean_signed_hash_mismatch",
     }
     for case_id in case_ids:
         case_dir = out / case_id
@@ -92,7 +96,7 @@ def test_verify_failure_gallery_index(repo_root: Path, release_dir: Path, tmp_pa
         release_dir=release_dir,
     )
     checks = verify_failure_gallery(out, policy_root=repo_root)
-    assert len(checks) >= 7
+    assert len(checks) >= 11
 
 
 def test_generate_failure_gallery_cli(repo_root: Path, release_dir: Path, tmp_path: Path) -> None:

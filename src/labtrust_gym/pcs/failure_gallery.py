@@ -231,6 +231,80 @@ def _build_legacy_handoff_file(
     return written
 
 
+def _build_lean_trace_hash_mismatch(
+    _policy_root: Path,
+    release_dir: Path,
+    artifacts: Path,
+    _profile: WorkflowProfileView,
+) -> list[str]:
+    written = _copy_protocol_baseline(release_dir, artifacts)
+    cert_path = artifacts / "trace_certificate.json"
+    cert = json.loads(cert_path.read_text(encoding="utf-8"))
+    cert["trace_hash"] = "sha256:" + "b" * 64
+    cert_path.write_text(json.dumps(cert, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return written
+
+
+def _build_lean_rejected_certificate(
+    _policy_root: Path,
+    release_dir: Path,
+    artifacts: Path,
+    _profile: WorkflowProfileView,
+) -> list[str]:
+    written = _copy_protocol_baseline(release_dir, artifacts)
+    cert_path = artifacts / "trace_certificate.json"
+    cert = json.loads(cert_path.read_text(encoding="utf-8"))
+    cert["status"] = "Rejected"
+    cert_path.write_text(json.dumps(cert, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return written
+
+
+def _build_lean_stale_certificate(
+    _policy_root: Path,
+    release_dir: Path,
+    artifacts: Path,
+    _profile: WorkflowProfileView,
+) -> list[str]:
+    written = _copy_protocol_baseline(release_dir, artifacts)
+    cert_path = artifacts / "trace_certificate.json"
+    cert = json.loads(cert_path.read_text(encoding="utf-8"))
+    cert["status"] = "Stale"
+    cert_path.write_text(json.dumps(cert, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return written
+
+
+def _build_lean_signed_hash_mismatch(
+    policy_root: Path,
+    release_dir: Path,
+    artifacts: Path,
+    _profile: WorkflowProfileView,
+) -> list[str]:
+    from labtrust_gym.pcs.sync_pcs_core_rc import pcs_core_labtrust_release_dir
+
+    written = _copy_protocol_baseline(release_dir, artifacts)
+    try:
+        canon = pcs_core_labtrust_release_dir(policy_root)
+    except FileNotFoundError:
+        canon = release_dir
+    for name in ("verification_result.json", "signed_science_claim_bundle.json"):
+        src = canon / name
+        if src.is_file():
+            shutil.copy2(src, artifacts / name)
+            written.append(name)
+    vr_path = artifacts / "verification_result.json"
+    if vr_path.is_file():
+        vr = json.loads(vr_path.read_text(encoding="utf-8"))
+        verified = vr.setdefault("verified_input", {})
+        verified["bundle_hash"] = "sha256:" + "c" * 64
+        vr_path.write_text(json.dumps(vr, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    signed_path = artifacts / "signed_science_claim_bundle.json"
+    if signed_path.is_file():
+        signed = json.loads(signed_path.read_text(encoding="utf-8"))
+        signed["signature_or_digest"] = "sha256:" + "d" * 64
+        signed_path.write_text(json.dumps(signed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return written
+
+
 def _build_placeholder_commit(
     _policy_root: Path,
     release_dir: Path,
@@ -312,6 +386,42 @@ def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, 
             repair_hint="Regenerate artifacts with real git provenance (PCS_RELEASE_FIXTURE=1, no placeholder commits).",
             builder=_build_placeholder_commit,
         ),
+        FailureCaseSpec(
+            case_id="lean_trace_hash_mismatch",
+            description="Lean CertificateMatchesRuntime fails when certificate trace_hash diverges from runtime receipt.",
+            expected_failing_check="lean_obligation.CertificateMatchesRuntime",
+            expected_failure_code="LEAN_CERTIFICATE_TRACE_HASH_MISMATCH",
+            responsible_component="lean.extraction",
+            repair_hint="Regenerate trace_certificate from the runtime receipt; do not desynchronize trace_hash fields.",
+            builder=_build_lean_trace_hash_mismatch,
+        ),
+        FailureCaseSpec(
+            case_id="lean_rejected_certificate",
+            description="Lean obligations must fail when trace_certificate status is Rejected.",
+            expected_failing_check="lean_obligation.CertificateMatchesRuntime",
+            expected_failure_code="LEAN_CERTIFICATE_REJECTED",
+            responsible_component="lean.extraction",
+            repair_hint="Re-emit certificate with CertificateChecked status after a passing runtime.",
+            builder=_build_lean_rejected_certificate,
+        ),
+        FailureCaseSpec(
+            case_id="lean_stale_certificate",
+            description="Lean obligations must fail when trace_certificate status is Stale.",
+            expected_failing_check="lean_obligation.CertificateMatchesRuntime",
+            expected_failure_code="LEAN_CERTIFICATE_STALE",
+            responsible_component="lean.extraction",
+            repair_hint="Re-attach certificate after trace mutation; mark Stale only after intentional divergence tests.",
+            builder=_build_lean_stale_certificate,
+        ),
+        FailureCaseSpec(
+            case_id="lean_signed_hash_mismatch",
+            description="Lean VerificationAdmitsBundle / SignedBundleAdmissible fail on verified_input vs bundle hash mismatch.",
+            expected_failing_check="lean_obligation.VerificationAdmitsBundle",
+            expected_failure_code="LEAN_VERIFIED_INPUT_HASH_MISMATCH",
+            responsible_component="lean.extraction",
+            repair_hint="Align verification_result.verified_input.bundle_hash with science_claim_bundle.certified.json digest.",
+            builder=_build_lean_signed_hash_mismatch,
+        ),
     )
     spec_ids = {s.case_id for s in specs}
     profile_modes = set(profile.failure_modes)
@@ -385,23 +495,33 @@ def generate_failure_gallery(
             workflow_id=profile.workflow_id,
             artifact_names=input_artifacts,
         )
+        rel_dir = case_dir.name
+        try:
+            rel_dir = str(case_dir.resolve().relative_to(out_dir.resolve()))
+        except ValueError:
+            rel_dir = str(case_dir)
         cases_out.append(
             {
                 "case_id": spec.case_id,
-                "directory": str(case_dir),
+                "directory": rel_dir.replace("\\", "/"),
                 "input_artifacts": input_artifacts,
                 "expected_failing_check": spec.expected_failing_check,
                 "expected_failure_code": spec.expected_failure_code,
             }
         )
 
+    try:
+        profile_rel = str(profile.path.resolve().relative_to(policy_root.resolve())).replace("\\", "/")
+    except ValueError:
+        profile_rel = str(profile.path)
+
     index = {
         "status": "passed",
         "workflow_id": profile.workflow_id,
         "property_id": profile.property_id,
-        "workflow_profile": str(profile.path),
+        "workflow_profile": profile_rel,
         "cases": cases_out,
-        "out_dir": str(out_dir),
+        "out_dir": "failures",
     }
     (out_dir / "gallery_index.json").write_text(
         json.dumps(index, indent=2, sort_keys=True) + "\n",
@@ -479,6 +599,29 @@ def demonstrate_case_failure(case_dir: Path, *, policy_root: Path | None = None)
             return check
         raise AssertionError("placeholder commit was not rejected")
 
+    if case_id.startswith("lean_"):
+        from labtrust_gym.pcs.formalization import (
+            LEAN_OBLIGATION_CERTIFICATE_MATCHES_RUNTIME,
+            LEAN_OBLIGATION_SIGNED_ADMISSIBLE,
+            LEAN_OBLIGATION_VERIFICATION_ADMITS,
+            run_lean_obligation_check,
+        )
+
+        obligation_by_case = {
+            "lean_trace_hash_mismatch": LEAN_OBLIGATION_CERTIFICATE_MATCHES_RUNTIME,
+            "lean_rejected_certificate": LEAN_OBLIGATION_CERTIFICATE_MATCHES_RUNTIME,
+            "lean_stale_certificate": LEAN_OBLIGATION_CERTIFICATE_MATCHES_RUNTIME,
+            "lean_signed_hash_mismatch": LEAN_OBLIGATION_VERIFICATION_ADMITS,
+        }
+        obligation = obligation_by_case[case_id]
+        try:
+            run_lean_obligation_check(obligation, root)
+            if case_id == "lean_signed_hash_mismatch":
+                run_lean_obligation_check(LEAN_OBLIGATION_SIGNED_ADMISSIBLE, root)
+        except ValueError:
+            return check
+        raise AssertionError(f"{case_id}: expected Lean obligation failure")
+
     raise ValueError(f"unknown gallery case {case_id!r}")
 
 
@@ -519,7 +662,13 @@ def verify_failure_gallery(gallery_root: Path, *, policy_root: Path | None = Non
     if profile_path:
         from labtrust_gym.pcs.workflow_profile import assert_workflow_profile_valid, load_workflow_profile
 
-        doc = load_workflow_profile(Path(profile_path))
+        p = Path(profile_path)
+        if not p.is_file():
+            if policy_root is not None:
+                p = policy_root / profile_path
+            elif not p.is_absolute():
+                p = gallery_root.parent / p
+        doc = load_workflow_profile(p)
         assert_workflow_profile_valid(doc)
         checks.append("workflow_profile_valid")
     return checks

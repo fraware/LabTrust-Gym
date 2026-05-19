@@ -24,6 +24,7 @@ machine-readable benchmark report.
 | Reference workflow | `src/labtrust_gym/pcs/workflows/qc_release.py` |
 | Registry | `src/labtrust_gym/pcs/workflows/registry.py` |
 | Regeneration report | `src/labtrust_gym/pcs/regeneration_report.py` |
+| Proof-obligation / Lean readiness | `src/labtrust_gym/pcs/formalization.py` |
 | Failure manifests | `src/labtrust_gym/pcs/failure_case_manifest.py` |
 | JSON Schema | `policy/schemas/pcs/RegenerationReport.v0.schema.json`, `FailureCaseManifest.v0.schema.json` |
 | Committed release | `examples/pcs_qc_release/release/` |
@@ -38,6 +39,7 @@ labtrust regenerate-release-protocol \
   --out examples/pcs_qc_release/release
 
 python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
+python examples/pcs_qc_release/scripts/ci_validate_formalization.py
 python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
 pytest tests/pcs -q
 ```

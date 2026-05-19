@@ -75,6 +75,8 @@ jobs:
         run: python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
       - name: Validate failure_case_manifest.json gallery metadata
         run: python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
+      - name: Validate proof-obligation formalization artifacts
+        run: python examples/pcs_qc_release/scripts/ci_validate_formalization.py
       - name: Verify LabTrust release protocol package
         run: |
           labtrust verify-release-protocol \

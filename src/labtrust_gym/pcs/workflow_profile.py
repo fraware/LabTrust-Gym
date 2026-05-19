@@ -73,10 +73,20 @@ def load_workflow_profile(path: Path | None = None, *, policy_root: Path | None 
 
 
 def assert_workflow_profile_valid(doc: dict[str, Any]) -> None:
-    """Validate against pcs-core WorkflowProfile.v0 schema."""
+    """Validate against pcs-core WorkflowProfile.v0 schema (+ LabTrust formalization block)."""
     from pcs_core.validate import validate_artifact
 
-    validate_artifact(doc)
+    from labtrust_gym.pcs.formalization import assert_formalization_block_valid, pcs_workflow_profile_document
+    from labtrust_gym.pcs.bench_schemas import validate_workflow_profile_formalization
+
+    if "formalization" in doc:
+        block = doc["formalization"]
+        if not isinstance(block, dict):
+            raise ValueError("formalization must be an object")
+        validate_workflow_profile_formalization(block)
+        assert_formalization_block_valid(block)
+
+    validate_artifact(pcs_workflow_profile_document(doc))
 
 
 def finalize_workflow_profile_digest(doc: dict[str, Any]) -> dict[str, Any]:

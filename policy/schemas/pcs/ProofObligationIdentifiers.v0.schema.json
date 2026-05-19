@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/ProofObligationIdentifiers.v0.schema.json",
+  "title": "ProofObligationIdentifiers.v0",
+  "description": "Stable identifiers for ProofObligation.v0 (LabTrust release envelope).",
+  "type": "object",
+  "required": [
+    "runtime_receipt_id",
+    "trace_hash",
+    "certificate_id",
+    "certificate_trace_hash",
+    "certified_bundle_hash",
+    "workflow_id",
+    "claim_id",
+    "source_commits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "runtime_receipt_id": { "type": "string", "minLength": 1 },
+    "trace_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "certificate_id": { "type": "string", "minLength": 1 },
+    "certificate_trace_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "certified_bundle_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "signed_bundle_hash": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "verified_input_bundle_hash": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "property_id": { "type": "string", "minLength": 1 },
+    "claim_id": { "type": "string", "minLength": 1 },
+    "source_commits": {
+      "type": "object",
+      "required": [
+        "labtrust_gym_commit",
+        "certifyedge_commit",
+        "pcs_core_commit"
+      ],
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "properties": {
+        "labtrust_gym_commit": { "type": "string", "minLength": 12 },
+        "certifyedge_commit": { "type": "string", "minLength": 12 },
+        "pcs_core_commit": { "type": "string", "minLength": 12 },
+        "runtime_receipt_source_commit": { "type": "string", "minLength": 12 },
+        "certificate_source_commit": { "type": "string", "minLength": 12 }
+      }
+    }
+  }
+}

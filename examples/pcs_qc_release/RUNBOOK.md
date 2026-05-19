@@ -292,6 +292,12 @@ labtrust regenerate-release-protocol \
 # examples/pcs_qc_release/release/regeneration_report.json
 python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
 
+# Lean readiness (LabTrust does not run Lean; trust_envelope_only):
+# proof_obligation_hints.json, proof_obligation_identifiers.json,
+# formalization_readiness_report.json
+python examples/pcs_qc_release/scripts/ci_validate_formalization.py
+python examples/pcs_qc_release/scripts/materialize_formalization_artifacts.py
+
 labtrust check-status-policy \
   --release-dir examples/pcs_qc_release/release
 
@@ -342,6 +348,7 @@ pytest tests/pcs/test_pcs_release_contract.py -q
 pytest tests/pcs/test_release_protocol_producer.py -q
 python examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
 python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
+python examples/pcs_qc_release/scripts/ci_validate_formalization.py
 python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
 python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
 python examples/pcs_qc_release/scripts/write_failure_case_manifests.py

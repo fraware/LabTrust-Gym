@@ -1,0 +1,3 @@
+{
+  "hint": "Re-attach certificate after trace mutation; mark Stale only after intentional divergence tests."
+}
