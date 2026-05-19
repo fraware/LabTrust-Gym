@@ -1,0 +1,22 @@
+{
+  "artifacts": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "manifest.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.certified.json",
+    "science_claim_bundle.pending.json",
+    "signed_science_claim_bundle.json",
+    "trace.json",
+    "trace_certificate.json",
+    "trace_hash_alignment.json",
+    "verification_result.json",
+    "workflow_profile.v0.json"
+  ],
+  "expected_failure_code": "SCIENTIFIC_MEMORY_CLAIM_ID_MISMATCH",
+  "failure_case_id": "scientific_memory_import_failure",
+  "repair_hint": "Re-sign the bundle after PF verify so signed_science_claim_bundle claim_id matches the certified bundle.",
+  "responsible_component": "scientific_memory.importer",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

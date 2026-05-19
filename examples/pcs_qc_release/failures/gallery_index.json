@@ -195,6 +195,27 @@
         "verification_result.json",
         "signed_science_claim_bundle.json"
       ]
+    },
+    {
+      "case_id": "scientific_memory_import_failure",
+      "directory": "scientific_memory_import_failure",
+      "expected_failing_check": "scientific_memory_import.claim_id_alignment",
+      "expected_failure_code": "SCIENTIFIC_MEMORY_CLAIM_ID_MISMATCH",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json",
+        "verification_result.json",
+        "signed_science_claim_bundle.json"
+      ]
     }
   ],
   "out_dir": "failures",
