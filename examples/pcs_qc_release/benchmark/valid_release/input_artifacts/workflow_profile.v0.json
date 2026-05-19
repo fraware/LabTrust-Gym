@@ -15,7 +15,8 @@
     "lean_trace_hash_mismatch",
     "lean_rejected_certificate",
     "lean_stale_certificate",
-    "lean_signed_hash_mismatch"
+    "lean_signed_hash_mismatch",
+    "scientific_memory_import_failure"
   ],
   "formalization": {
     "formalization_scope": "trust_envelope_only",
@@ -51,7 +52,7 @@
     "ScienceClaimBundle.v0"
   ],
   "schema_version": "v0",
-  "signature_or_digest": "sha256:28151bd576bfed6389e9777566b754caa49b997aa9c1d277caac7670baa5d7d6",
+  "signature_or_digest": "sha256:6fdfb632e532d5667976e824374dfd2f2e5bc821d84a246e05e18c5474ebf311",
   "status_policy": {
     "allowed_terminal_statuses": [
       "Rejected",

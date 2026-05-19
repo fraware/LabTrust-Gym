@@ -30,7 +30,7 @@ def test_gallery_index_uses_portable_paths(gallery_root: Path) -> None:
 
 def test_committed_gallery_has_manifest_per_case(gallery_root: Path) -> None:
     index = json.loads((gallery_root / "gallery_index.json").read_text(encoding="utf-8"))
-    assert len(index["cases"]) == 11
+    assert len(index["cases"]) == 12
     for entry in index["cases"]:
         case_id = entry["case_id"]
         manifest_path = gallery_root / case_id / FAILURE_CASE_MANIFEST_NAME

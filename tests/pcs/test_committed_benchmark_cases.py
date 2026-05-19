@@ -17,7 +17,7 @@ def test_committed_benchmark_tree(repo_root: Path) -> None:
         "--out examples/pcs_qc_release/benchmark"
     )
     index = json.loads((bench / BENCHMARK_INDEX_NAME).read_text(encoding="utf-8"))
-    assert len(index["cases"]) == 12
+    assert len(index["cases"]) == 13
     assert index.get("pcs_bench", {}).get("version") == "v0"
     verify_benchmark_cases(bench, policy_root=repo_root)
 

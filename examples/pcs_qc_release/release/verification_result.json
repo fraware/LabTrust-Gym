@@ -156,7 +156,7 @@
   "status": "ProofChecked",
   "verification_id": "verification-31ac5758-9219-47cf-b832-0ca8ae07a871",
   "verified_input": {
-    "bundle_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "bundle_hash": "sha256:bb740698a01c4e918ca0f346e5bfaed83e6665da8df84e931c0d50e03ce82ffe",
     "certificate_id": "cert-trace-02b3a7c1-35f7-4d23-85c2-dfd60aff7693",
     "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
   },

@@ -8,6 +8,7 @@
     "labtrust-legacy-handoff-file-v0",
     "labtrust-missing-qc-result-v0",
     "labtrust-placeholder-commit-v0",
+    "labtrust-scientific-memory-import-failure-v0",
     "labtrust-stale-trace-after-certificate-v0",
     "labtrust-trace-hash-tamper-v0",
     "labtrust-unauthorized-release-v0",
@@ -20,16 +21,18 @@
     "invalid_hash_mismatch",
     "missing_qc_step",
     "provenance_invalid",
+    "scientific_memory_import_failure",
     "status_transition",
     "unauthorized_actor",
     "valid_release"
   ],
-  "cases_covered": 12,
+  "cases_covered": 13,
   "detection_layers_covered": [
     "CertifyEdge",
     "LabTrust",
     "Lean trust kernel",
-    "Provability Fabric"
+    "Provability Fabric",
+    "Scientific Memory"
   ],
   "repair_hint_kinds_covered": [
     "align_certificate_trace_hash",
@@ -42,6 +45,7 @@
     "reattach_certificate_after_trace_change",
     "regenerate_trace_or_certificate",
     "regenerate_with_real_provenance",
+    "resign_bundle_for_memory_import",
     "use_authorized_release_actor"
   ],
   "schema_version": "v0",

@@ -5,7 +5,7 @@
   "claim_id": "claim-pcs-qc-release-v0.1",
   "property_id": "hospital_lab.qc_release",
   "runtime_receipt_id": "receipt-qc-release",
-  "signed_bundle_hash": null,
+  "signed_bundle_hash": "sha256:f471b8ebe57ed8cec103912362b5379c8a991a60984cca7983bb83c34212acba",
   "source_commits": {
     "certificate_source_commit": "11e079bc643b9e813c1a5516dc6d4db1d60a3f8a",
     "certifyedge_commit": "11e079bc643b9e813c1a5516dc6d4db1d60a3f8a",
@@ -14,6 +14,6 @@
     "runtime_receipt_source_commit": "8369892d8872bc08ef5acb6cf503f38665c36733"
   },
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
-  "verified_input_bundle_hash": null,
+  "verified_input_bundle_hash": "sha256:bb740698a01c4e918ca0f346e5bfaed83e6665da8df84e931c0d50e03ce82ffe",
   "workflow_id": "labtrust.qc_release_v0.1"
 }

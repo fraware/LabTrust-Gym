@@ -18,7 +18,7 @@ from labtrust_gym.pcs.benchmark_cases import (
 from labtrust_gym.pcs.bench_schemas import validate_benchmark_case
 
 
-def test_generate_benchmark_cases_all_twelve(
+def test_generate_benchmark_cases_all_thirteen(
     repo_root: Path, release_dir: Path, tmp_path: Path
 ) -> None:
     index = generate_benchmark_cases(
@@ -28,7 +28,7 @@ def test_generate_benchmark_cases_all_twelve(
         release_dir=release_dir,
         seed=42,
     )
-    assert len(index["cases"]) == 12
+    assert len(index["cases"]) == 13
     assert index["seed"] == 42
     assert (tmp_path / "benchmark" / VALID_RELEASE_DIR_NAME / BENCHMARK_CASE_NAME).is_file()
     checks = verify_benchmark_cases(tmp_path / "benchmark", policy_root=repo_root)

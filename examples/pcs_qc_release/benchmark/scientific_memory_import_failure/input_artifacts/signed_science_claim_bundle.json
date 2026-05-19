@@ -81,7 +81,7 @@
       }
     ],
     "claim_artifact": {
-      "artifact_id": "claim-pcs-qc-release-v0.1",
+      "artifact_id": "claim-tampered-scientific-memory-import",
       "artifact_type": "ClaimArtifact.v0",
       "assumption_set_ref": "as-pcs-qc-release-v0.1",
       "certificate_refs": [
@@ -180,7 +180,7 @@
       ]
     }
   },
-  "signature_or_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "signature_or_digest": "sha256:53ccde6194587f8320cd7b82ff51fbfd354c750b24041ecad2f2667f5c55d081",
   "signed_at": "2026-01-15T11:00:00Z",
   "signed_bundle_id": "signed-bc8f7124-3571-4397-ae01-b7af1e9f5b6d",
   "signed_input_bundle_hash": "sha256:bb740698a01c4e918ca0f346e5bfaed83e6665da8df84e931c0d50e03ce82ffe",

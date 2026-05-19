@@ -41,6 +41,7 @@ def test_generate_failure_gallery_creates_all_cases(
         "lean_rejected_certificate",
         "lean_stale_certificate",
         "lean_signed_hash_mismatch",
+        "scientific_memory_import_failure",
     }
     for case_id in case_ids:
         case_dir = out / case_id
@@ -96,7 +97,7 @@ def test_verify_failure_gallery_index(repo_root: Path, release_dir: Path, tmp_pa
         release_dir=release_dir,
     )
     checks = verify_failure_gallery(out, policy_root=repo_root)
-    assert len(checks) >= 11
+    assert len(checks) >= 12
 
 
 def test_generate_failure_gallery_cli(repo_root: Path, release_dir: Path, tmp_path: Path) -> None:

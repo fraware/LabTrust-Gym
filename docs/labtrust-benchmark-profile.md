@@ -50,6 +50,10 @@ Schemas: `policy/schemas/pcs/BenchmarkCase.v0.schema.json`, `BenchmarkRun.v0.sch
 | `lean_rejected_certificate/` | formal_check_failure | Lean trust kernel |
 | `lean_stale_certificate/` | formal_check_failure | Lean trust kernel |
 | `lean_signed_hash_mismatch/` | formal_check_failure | Provability Fabric |
+| `scientific_memory_import_failure/` | scientific_memory_import_failure | Scientific Memory |
+
+Release baseline must include `signed_science_claim_bundle.json` and `verification_result.json`
+(materialize with `examples/pcs_qc_release/scripts/materialize_downstream_release_artifacts.py`).
 
 ## Expected metrics (pcs-bench)
 

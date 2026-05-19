@@ -42,8 +42,8 @@ def main() -> int:
     profile = workflow_profile_view(path, policy_root=ROOT)
     if not profile.requires_runtime_to_certificate or not profile.requires_bundle_to_verifier:
         raise ValueError("QC release profile must require runtime_to_certificate and bundle_to_verifier")
-    if len(profile.failure_modes) < 11:
-        raise ValueError(f"expected >= 11 failure_modes, got {len(profile.failure_modes)}")
+    if len(profile.failure_modes) < 12:
+        raise ValueError(f"expected >= 12 failure_modes, got {len(profile.failure_modes)}")
     assert profile.document.get("formalization", {}).get("formalization_scope") == "trust_envelope_only"
 
     print("OK workflow_id", profile.workflow_id)

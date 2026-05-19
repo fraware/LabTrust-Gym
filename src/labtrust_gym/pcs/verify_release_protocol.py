@@ -147,6 +147,12 @@ def verify_release_protocol(
 
         checks.extend(verify_release_handoff(release_dir))
 
+    if (release_dir / "signed_science_claim_bundle.json").is_file():
+        from labtrust_gym.pcs.scientific_memory_import import assert_scientific_memory_import_alignment
+
+        assert_scientific_memory_import_alignment(release_dir)
+        checks.append("scientific_memory_import_alignment")
+
     if pcs_core is not None:
         canonical = resolve_canonical_release_dir(pcs_core, policy_root=policy_root)
         checks.extend(verify_release_sync_gate(release_dir, canonical))

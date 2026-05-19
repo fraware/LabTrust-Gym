@@ -8,7 +8,7 @@
     "science_claim_bundle.pending.json": "sha256:e89b0866cd25a9308f7ba70deb68e8e3c8f072b6885ca6f2e9fcaaa55706e6c7",
     "trace.json": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c",
     "trace_certificate.json": "sha256:f25188838271cb394eeac93628d500e6b9ec9a7c0a8b7d6b0258d58790bd5c6c",
-    "workflow_profile.v0.json": "sha256:14e81d47a054684754dd888a5debf17842b9e8fbe0962af911a772929fe5b470"
+    "workflow_profile.v0.json": "sha256:fec41435daba6ecdf9299aa6b491a9311c637bcb7f8e0fb442fdbf9a8ac11ade"
   },
   "artifacts_written": [
     "trace.json",

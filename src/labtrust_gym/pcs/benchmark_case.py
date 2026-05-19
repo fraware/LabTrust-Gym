@@ -165,6 +165,17 @@ _LOCALIZATION_BY_GALLERY: dict[str, BenchmarkLocalization] = {
         detection_layer="Provability Fabric",
         repair_command="pf verify-bundle ... && pf sign-bundle ...",
     ),
+    "scientific_memory_import_failure": BenchmarkLocalization(
+        case_kind="scientific_memory_import_failure",
+        benchmark_failure_code="scientific_memory_claim_id_mismatch",
+        expected_status="Rejected",
+        repair_hint_kind="resign_bundle_for_memory_import",
+        detection_layer="Scientific Memory",
+        repair_command=(
+            "pf sign-bundle ... && scientific-memory import-bundle "
+            "signed_science_claim_bundle.json"
+        ),
+    ),
 }
 
 
