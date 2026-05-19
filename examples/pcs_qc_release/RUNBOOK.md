@@ -297,6 +297,7 @@ python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
 # formalization_readiness_report.json
 python examples/pcs_qc_release/scripts/ci_validate_formalization.py
 python examples/pcs_qc_release/scripts/materialize_formalization_artifacts.py
+python examples/pcs_qc_release/scripts/materialize_downstream_release_artifacts.py
 
 labtrust check-status-policy \
   --release-dir examples/pcs_qc_release/release

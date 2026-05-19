@@ -1,0 +1,5 @@
+{
+  "hint": "Re-sign the bundle after PF verify so signed_science_claim_bundle claim_id matches the certified bundle.",
+  "hint_kind": "resign_bundle_for_memory_import",
+  "repair_command": "pf sign-bundle ... && scientific-memory import-bundle signed_science_claim_bundle.json"
+}

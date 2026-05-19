@@ -1,0 +1,5 @@
+{
+  "case_id": "scientific_memory_import_failure",
+  "expected_failing_check": "scientific_memory_import.claim_id_alignment",
+  "expected_failure_code": "SCIENTIFIC_MEMORY_CLAIM_ID_MISMATCH"
+}

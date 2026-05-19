@@ -17,6 +17,8 @@
         "workflow_profile.v0.json",
         "manifest.json",
         "trace_hash_alignment.json",
+        "verification_result.json",
+        "signed_science_claim_bundle.json",
         "regeneration_report.json",
         "proof_obligation_hints.json",
         "proof_obligation_identifiers.json",
@@ -214,6 +216,28 @@
       "case_kind": "formal_check_failure",
       "directory": "lean_signed_hash_mismatch",
       "expected_detection_layer": "Provability Fabric",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json",
+        "verification_result.json",
+        "signed_science_claim_bundle.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-scientific-memory-import-failure-v0",
+      "case_id": "scientific_memory_import_failure",
+      "case_kind": "scientific_memory_import_failure",
+      "directory": "scientific_memory_import_failure",
+      "expected_detection_layer": "Scientific Memory",
       "input_artifacts": [
         "trace.json",
         "runtime_receipt.json",

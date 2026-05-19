@@ -273,24 +273,36 @@ def _build_lean_stale_certificate(
     return written
 
 
+def _copy_downstream_pf_artifacts(
+    policy_root: Path,
+    release_dir: Path,
+    artifacts: Path,
+) -> list[str]:
+    from labtrust_gym.pcs.scientific_memory_import import (
+        align_downstream_pf_artifacts_to_release,
+        resolve_downstream_template,
+    )
+
+    written: list[str] = []
+    template = resolve_downstream_template(policy_root)
+    for name in ("verification_result.json", "signed_science_claim_bundle.json"):
+        src = template / name
+        if src.is_file():
+            shutil.copy2(src, artifacts / name)
+            written.append(name)
+    if "signed_science_claim_bundle.json" in written:
+        align_downstream_pf_artifacts_to_release(release_dir, artifacts)
+    return written
+
+
 def _build_lean_signed_hash_mismatch(
     policy_root: Path,
     release_dir: Path,
     artifacts: Path,
     _profile: WorkflowProfileView,
 ) -> list[str]:
-    from labtrust_gym.pcs.sync_pcs_core_rc import pcs_core_labtrust_release_dir
-
     written = _copy_protocol_baseline(release_dir, artifacts)
-    try:
-        canon = pcs_core_labtrust_release_dir(policy_root)
-    except FileNotFoundError:
-        canon = release_dir
-    for name in ("verification_result.json", "signed_science_claim_bundle.json"):
-        src = canon / name
-        if src.is_file():
-            shutil.copy2(src, artifacts / name)
-            written.append(name)
+    written.extend(_copy_downstream_pf_artifacts(policy_root, release_dir, artifacts))
     vr_path = artifacts / "verification_result.json"
     if vr_path.is_file():
         vr = json.loads(vr_path.read_text(encoding="utf-8"))
@@ -302,6 +314,25 @@ def _build_lean_signed_hash_mismatch(
         signed = json.loads(signed_path.read_text(encoding="utf-8"))
         signed["signature_or_digest"] = "sha256:" + "d" * 64
         signed_path.write_text(json.dumps(signed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return written
+
+
+def _build_scientific_memory_import_failure(
+    policy_root: Path,
+    release_dir: Path,
+    artifacts: Path,
+    _profile: WorkflowProfileView,
+) -> list[str]:
+    written = _copy_protocol_baseline(release_dir, artifacts)
+    written.extend(_copy_downstream_pf_artifacts(policy_root, release_dir, artifacts))
+    signed_path = artifacts / "signed_science_claim_bundle.json"
+    if not signed_path.is_file():
+        raise FileNotFoundError("scientific_memory_import_failure requires signed_science_claim_bundle.json")
+    signed = json.loads(signed_path.read_text(encoding="utf-8"))
+    bundle = signed.setdefault("science_claim_bundle", signed)
+    claim = bundle.setdefault("claim_artifact", {})
+    claim["artifact_id"] = "claim-tampered-scientific-memory-import"
+    signed_path.write_text(json.dumps(signed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return written
 
 
@@ -421,6 +452,15 @@ def failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, .
             responsible_component="lean.extraction",
             repair_hint="Align verification_result.verified_input.bundle_hash with science_claim_bundle.certified.json digest.",
             builder=_build_lean_signed_hash_mismatch,
+        ),
+        FailureCaseSpec(
+            case_id="scientific_memory_import_failure",
+            description="Scientific Memory import fails when signed bundle claim_id diverges from certified claim.",
+            expected_failing_check="scientific_memory_import.claim_id_alignment",
+            expected_failure_code="SCIENTIFIC_MEMORY_CLAIM_ID_MISMATCH",
+            responsible_component="scientific_memory.importer",
+            repair_hint="Re-sign the bundle after PF verify so signed_science_claim_bundle claim_id matches the certified bundle.",
+            builder=_build_scientific_memory_import_failure,
         ),
     )
     spec_ids = {s.case_id for s in specs}
@@ -598,6 +638,17 @@ def demonstrate_case_failure(case_dir: Path, *, policy_root: Path | None = None)
         except ValueError:
             return check
         raise AssertionError("placeholder commit was not rejected")
+
+    if case_id == "scientific_memory_import_failure":
+        from labtrust_gym.pcs.scientific_memory_import import assert_scientific_memory_import_alignment
+
+        try:
+            assert_scientific_memory_import_alignment(root)
+        except ValueError as exc:
+            if "SCIENTIFIC_MEMORY_CLAIM_ID_MISMATCH" in str(exc) or "claim_id" in str(exc).lower():
+                return check
+            raise
+        raise AssertionError("scientific memory import tamper did not fail alignment")
 
     if case_id.startswith("lean_"):
         from labtrust_gym.pcs.formalization import (

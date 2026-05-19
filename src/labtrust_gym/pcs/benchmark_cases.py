@@ -33,6 +33,8 @@ _VALID_ARTIFACTS = tuple(
         + (
             "manifest.json",
             "trace_hash_alignment.json",
+            "verification_result.json",
+            "signed_science_claim_bundle.json",
             "regeneration_report.json",
             "proof_obligation_hints.json",
             "proof_obligation_identifiers.json",

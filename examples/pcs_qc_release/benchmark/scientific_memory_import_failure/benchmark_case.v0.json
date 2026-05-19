@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-scientific-memory-import-failure-v0",
+  "case_kind": "scientific_memory_import_failure",
+  "expected_detection_layer": "Scientific Memory",
+  "expected_failing_check": "scientific_memory_import.claim_id_alignment",
+  "expected_failure_code": "scientific_memory_claim_id_mismatch",
+  "expected_protocol_failure_code": "SCIENTIFIC_MEMORY_CLAIM_ID_MISMATCH",
+  "expected_repair_command": "pf sign-bundle ... && scientific-memory import-bundle signed_science_claim_bundle.json",
+  "expected_repair_hint_kind": "resign_bundle_for_memory_import",
+  "expected_responsible_component": "scientific_memory.importer",
+  "expected_status": "Rejected",
+  "gallery_case_id": "scientific_memory_import_failure",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}
