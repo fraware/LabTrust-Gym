@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/FormalizationReadinessReport.v0.schema.json",
+  "title": "FormalizationReadinessReport.v0",
+  "description": "LabTrust readiness for pcs-core Lean obligation extraction (does not execute Lean).",
+  "type": "object",
+  "required": [
+    "workflow_id",
+    "formalization_scope",
+    "required_obligations",
+    "all_required_inputs_present",
+    "missing_inputs",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "formalization_scope": {
+      "type": "string",
+      "const": "trust_envelope_only"
+    },
+    "required_obligations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "all_required_inputs_present": { "type": "boolean" },
+    "missing_inputs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["passed", "failed"]
+    }
+  }
+}

@@ -11,8 +11,21 @@
     "certificate_id_tamper",
     "stale_trace_after_certificate",
     "legacy_handoff_file",
-    "placeholder_commit"
+    "placeholder_commit",
+    "lean_trace_hash_mismatch",
+    "lean_rejected_certificate",
+    "lean_stale_certificate",
+    "lean_signed_hash_mismatch"
   ],
+  "formalization": {
+    "formalization_scope": "trust_envelope_only",
+    "required_obligations": [
+      "CertificateMatchesRuntime",
+      "VerificationAdmitsBundle",
+      "SignedBundleAdmissible"
+    ],
+    "trust_kernel": "PCS.ReleaseChain"
+  },
   "handoff_sequence": [
     "runtime_to_certificate",
     "certificate_to_bundle",
@@ -38,7 +51,7 @@
     "ScienceClaimBundle.v0"
   ],
   "schema_version": "v0",
-  "signature_or_digest": "sha256:620b0f1cd3221f4736aed24cee6d91b9e7764a082f005d032c2d28d1ab3e57d4",
+  "signature_or_digest": "sha256:28151bd576bfed6389e9777566b754caa49b997aa9c1d277caac7670baa5d7d6",
   "status_policy": {
     "allowed_terminal_statuses": [
       "Rejected",

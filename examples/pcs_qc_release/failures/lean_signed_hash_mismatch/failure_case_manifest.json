@@ -1,0 +1,22 @@
+{
+  "artifacts": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "manifest.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.certified.json",
+    "science_claim_bundle.pending.json",
+    "signed_science_claim_bundle.json",
+    "trace.json",
+    "trace_certificate.json",
+    "trace_hash_alignment.json",
+    "verification_result.json",
+    "workflow_profile.v0.json"
+  ],
+  "expected_failure_code": "LEAN_VERIFIED_INPUT_HASH_MISMATCH",
+  "failure_case_id": "lean_signed_hash_mismatch",
+  "repair_hint": "Align verification_result.verified_input.bundle_hash with science_claim_bundle.certified.json digest.",
+  "responsible_component": "lean.extraction",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

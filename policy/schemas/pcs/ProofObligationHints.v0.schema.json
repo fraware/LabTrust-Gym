@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/ProofObligationHints.v0.schema.json",
+  "title": "ProofObligationHints.v0",
+  "description": "Artifact path hints for pcs-core Lean obligation extraction (LabTrust reference).",
+  "type": "object",
+  "required": [
+    "workflow_id",
+    "claim_id",
+    "runtime_receipt",
+    "trace_certificate",
+    "certified_bundle",
+    "required_obligations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "claim_id": { "type": "string", "minLength": 1 },
+    "runtime_receipt": { "type": "string", "minLength": 1 },
+    "trace_certificate": { "type": "string", "minLength": 1 },
+    "certified_bundle": { "type": "string", "minLength": 1 },
+    "required_obligations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

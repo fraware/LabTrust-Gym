@@ -1,0 +1,3 @@
+{
+  "hint": "Regenerate trace_certificate from the runtime receipt; do not desynchronize trace_hash fields."
+}

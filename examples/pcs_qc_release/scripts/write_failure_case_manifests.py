@@ -21,6 +21,10 @@ RESPONSIBLE = {
     "stale_trace_after_certificate": "workflow.status_policy",
     "legacy_handoff_file": "workflow.handoff",
     "placeholder_commit": "workflow.provenance",
+    "lean_trace_hash_mismatch": "lean.extraction",
+    "lean_rejected_certificate": "lean.extraction",
+    "lean_stale_certificate": "lean.extraction",
+    "lean_signed_hash_mismatch": "lean.extraction",
 }
 
 

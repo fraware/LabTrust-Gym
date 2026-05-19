@@ -286,6 +286,9 @@ def _run_regenerate_release_protocol(args: argparse.Namespace) -> int:
         report_file = release_dir / "regeneration_report.json"
         if report_file.is_file():
             get_console().info(f"OK regeneration report {report_file.name}")
+        formalization_report = release_dir / "formalization_readiness_report.json"
+        if formalization_report.is_file():
+            get_console().info(f"OK formalization readiness {formalization_report.name}")
         get_console().info(f"release protocol regenerated at {release_dir}")
     return 0
 

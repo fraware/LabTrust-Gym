@@ -1,0 +1,20 @@
+{
+  "artifacts": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "manifest.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.certified.json",
+    "science_claim_bundle.pending.json",
+    "trace.json",
+    "trace_certificate.json",
+    "trace_hash_alignment.json",
+    "workflow_profile.v0.json"
+  ],
+  "expected_failure_code": "LEAN_CERTIFICATE_STALE",
+  "failure_case_id": "lean_stale_certificate",
+  "repair_hint": "Re-attach certificate after trace mutation; mark Stale only after intentional divergence tests.",
+  "responsible_component": "lean.extraction",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}
