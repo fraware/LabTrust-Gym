@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-legacy-handoff-file-v0",
+  "case_kind": "handoff_tamper",
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "no_legacy_pf_handoff_root",
+  "expected_failure_code": "legacy_handoff_file",
+  "expected_protocol_failure_code": "LEGACY_HANDOFF_FILE",
+  "expected_repair_command": "labtrust emit-handoff-to-pf --bundle <certified.json> --out handoff_to_pf.json",
+  "expected_repair_hint_kind": "emit_handoff_manifest_v0",
+  "expected_responsible_component": "runtime_producer",
+  "expected_status": "Rejected",
+  "gallery_case_id": "legacy_handoff_file",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

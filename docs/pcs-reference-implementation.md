@@ -14,7 +14,10 @@ machine-readable benchmark report.
 | QC release walkthrough | [reference-workflow-template.md](reference-workflow-template.md) |
 | CLI contract | [contracts/cli_contract.md](contracts/cli_contract.md) |
 | Failure manifest spec | [../schemas_or_docs/FailureCaseManifest.v0.md](../schemas_or_docs/FailureCaseManifest.v0.md) |
+| Benchmark profile | [labtrust-benchmark-profile.md](labtrust-benchmark-profile.md) |
+| BenchmarkCase spec | [../schemas_or_docs/BenchmarkCase.v0.md](../schemas_or_docs/BenchmarkCase.v0.md) |
 | pcs-core upstream proposal | [../schemas_or_docs/proposals/FailureCaseManifest-v0-pcs-core.md](../schemas_or_docs/proposals/FailureCaseManifest-v0-pcs-core.md) |
+| BenchmarkCase pcs-core proposal | [../schemas_or_docs/proposals/BenchmarkCase-v0-pcs-core.md](../schemas_or_docs/proposals/BenchmarkCase-v0-pcs-core.md) |
 
 ## Code map
 
@@ -26,9 +29,12 @@ machine-readable benchmark report.
 | Regeneration report | `src/labtrust_gym/pcs/regeneration_report.py` |
 | Proof-obligation / Lean readiness | `src/labtrust_gym/pcs/formalization.py` |
 | Failure manifests | `src/labtrust_gym/pcs/failure_case_manifest.py` |
-| JSON Schema | `policy/schemas/pcs/RegenerationReport.v0.schema.json`, `FailureCaseManifest.v0.schema.json` |
+| Benchmark cases | `src/labtrust_gym/pcs/benchmark_cases.py`, `benchmark_case.py` |
+| Reproducibility bench | `src/labtrust_gym/pcs/benchmark_reproducibility.py` |
+| JSON Schema | `policy/schemas/pcs/*.v0.schema.json` (RegenerationReport, FailureCaseManifest, BenchmarkCase, …) |
 | Committed release | `examples/pcs_qc_release/release/` |
 | Failure gallery | `examples/pcs_qc_release/failures/` |
+| Benchmark suite | `examples/pcs_qc_release/benchmark/` |
 
 ## Canonical commands
 
@@ -41,6 +47,10 @@ labtrust regenerate-release-protocol \
 python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
 python examples/pcs_qc_release/scripts/ci_validate_formalization.py
 python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
+labtrust generate-benchmark-cases --out examples/pcs_qc_release/benchmark --seed 42
+labtrust verify-benchmark-cases --benchmark-dir examples/pcs_qc_release/benchmark
+labtrust benchmark-reproducibility --pcs-core ../pcs-core --runs 5 \
+  --out benchmark_runs/labtrust_reproducibility
 pytest tests/pcs -q
 ```
 

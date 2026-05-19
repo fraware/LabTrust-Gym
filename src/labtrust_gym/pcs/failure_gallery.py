@@ -320,7 +320,7 @@ def _build_placeholder_commit(
     return written
 
 
-def _failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, ...]:
+def failure_case_specs(profile: WorkflowProfileView) -> tuple[FailureCaseSpec, ...]:
     """Build case specs; ``profile.failure_modes`` must list every case id."""
     specs = (
         FailureCaseSpec(
@@ -442,7 +442,7 @@ def build_single_failure_case(
 ) -> list[str]:
     """Build one failure-gallery case (README, metadata, ``artifacts/``)."""
     profile = workflow_profile_view(profile_path, policy_root=policy_root)
-    spec = next((s for s in _failure_case_specs(profile) if s.case_id == case_id), None)
+    spec = next((s for s in failure_case_specs(profile) if s.case_id == case_id), None)
     if spec is None:
         raise ValueError(f"unknown failure gallery case {case_id!r}")
     case_dir = case_dir.resolve()
@@ -484,7 +484,7 @@ def generate_failure_gallery(
     out_dir.mkdir(parents=True)
 
     cases_out: list[dict[str, Any]] = []
-    for spec in _failure_case_specs(profile):
+    for spec in failure_case_specs(profile):
         case_dir = out_dir / spec.case_id
         case_dir.mkdir(parents=True)
         artifacts = _artifacts_dir(case_dir)

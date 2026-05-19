@@ -20,6 +20,8 @@ from labtrust_gym.pcs.handoff_manifest import (
     emit_handoff_to_certifyedge,
     emit_handoff_to_pf,
 )
+from labtrust_gym.pcs.benchmark_cases import generate_benchmark_cases, verify_benchmark_cases
+from labtrust_gym.pcs.benchmark_reproducibility import benchmark_reproducibility
 from labtrust_gym.pcs.failure_gallery import generate_failure_gallery
 from labtrust_gym.pcs.regenerate_release_chain import regenerate_release_chain
 from labtrust_gym.pcs.regenerate_release_protocol import regenerate_release_protocol
@@ -308,6 +310,80 @@ def _run_check_status_policy(args: argparse.Namespace) -> int:
         for label in result.get("checks", []):
             get_console().info(f"OK {label}")
         get_console().info(f"status policy passed: {release_dir}")
+    return 0
+
+
+def _run_generate_benchmark_cases(args: argparse.Namespace) -> int:
+    out = _resolve_path(args.out)
+    release_dir = _resolve_path(args.release_dir) if args.release_dir else None
+    try:
+        profile_path = _resolve_path(args.workflow_profile) if getattr(args, "workflow_profile", None) else None
+        index = generate_benchmark_cases(
+            out,
+            workflow_key=args.workflow,
+            policy_root=get_repo_root(),
+            release_dir=release_dir,
+            profile_path=profile_path,
+            seed=args.seed,
+        )
+    except (ValueError, FileNotFoundError, NotImplementedError) as e:
+        get_console().error(str(e))
+        return 1
+    if args.json:
+        json.dump(index, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    else:
+        get_console().info(
+            f"benchmark cases written to {out} ({len(index['cases'])} cases, seed={args.seed})"
+        )
+    return 0
+
+
+def _run_benchmark_reproducibility(args: argparse.Namespace) -> int:
+    out = _resolve_path(args.out)
+    pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
+    release_dir = _resolve_path(args.release_dir) if args.release_dir else None
+    try:
+        doc = benchmark_reproducibility(
+            out,
+            workflow_key=args.workflow,
+            policy_root=get_repo_root(),
+            release_dir=release_dir,
+            pcs_core=pcs_core,
+            certifyedge_bin=args.certifyedge_bin,
+            runs=args.runs,
+            seed=args.seed,
+            mode=args.mode,
+        )
+    except (ValueError, FileNotFoundError, NotImplementedError) as e:
+        get_console().error(str(e))
+        return 1
+    if args.json:
+        json.dump(doc, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    else:
+        agg = doc["aggregate"]
+        get_console().info(
+            f"reproducibility benchmark at {out}: "
+            f"deterministic={agg['command_deterministic']} runs={doc['runs']}"
+        )
+    return 0
+
+
+def _run_verify_benchmark_cases(args: argparse.Namespace) -> int:
+    root = _resolve_path(args.benchmark_dir)
+    try:
+        checks = verify_benchmark_cases(root, policy_root=get_repo_root())
+    except (ValueError, FileNotFoundError) as e:
+        get_console().error(str(e))
+        return 1
+    if args.json:
+        json.dump({"checks": checks, "status": "passed"}, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    else:
+        for label in checks:
+            get_console().info(f"OK {label}")
+        get_console().info(f"benchmark cases verified: {root}")
     return 0
 
 
@@ -662,6 +738,101 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         help="WorkflowProfile.v0 path (default: examples/pcs_qc_release/workflow_profile.v0.json)",
     )
     p_gallery.set_defaults(func=_run_generate_failure_gallery)
+
+    p_bench = sub.add_parser(
+        "generate-benchmark-cases",
+        help="Generate BenchmarkCase.v0 suite for pcs-bench",
+    )
+    p_bench.add_argument(
+        "--workflow",
+        default="hospital_lab.qc_release",
+        help="Workflow id or property id (default: hospital_lab.qc_release)",
+    )
+    p_bench.add_argument(
+        "--out",
+        required=True,
+        help="Output directory (e.g. examples/pcs_qc_release/benchmark)",
+    )
+    p_bench.add_argument(
+        "--release-dir",
+        default=None,
+        help="Baseline release directory (default: examples/pcs_qc_release/release)",
+    )
+    p_bench.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Deterministic generation seed (default: 42)",
+    )
+    p_bench.add_argument("--json", action="store_true", help="Print benchmark index JSON to stdout")
+    p_bench.add_argument(
+        "--workflow-profile",
+        default=None,
+        help="WorkflowProfile.v0 path (default: examples/pcs_qc_release/workflow_profile.v0.json)",
+    )
+    p_bench.set_defaults(func=_run_generate_benchmark_cases)
+
+    p_verify_bench = sub.add_parser(
+        "verify-benchmark-cases",
+        help="Verify BenchmarkCase.v0 suite layout and schemas",
+    )
+    p_verify_bench.add_argument(
+        "--benchmark-dir",
+        default="examples/pcs_qc_release/benchmark",
+        help="Benchmark root (default: examples/pcs_qc_release/benchmark)",
+    )
+    p_verify_bench.add_argument("--json", action="store_true", help="Print JSON result to stdout")
+    p_verify_bench.set_defaults(func=_run_verify_benchmark_cases)
+
+    p_repro = sub.add_parser(
+        "benchmark-reproducibility",
+        help="Measure PCS release reproducibility (hash stability / validation)",
+    )
+    p_repro.add_argument(
+        "--workflow",
+        default="hospital_lab.qc_release",
+        help="Workflow id or property id (default: hospital_lab.qc_release)",
+    )
+    p_repro.add_argument(
+        "--out",
+        required=True,
+        help="Output directory (e.g. benchmark_runs/labtrust_reproducibility)",
+    )
+    p_repro.add_argument(
+        "--pcs-core",
+        default=None,
+        help="pcs-core root for verify-release-protocol",
+    )
+    p_repro.add_argument(
+        "--certifyedge-bin",
+        default="certifyedge",
+        help="CertifyEdge CLI binary (full_regeneration mode)",
+    )
+    p_repro.add_argument(
+        "--release-dir",
+        default=None,
+        help="Baseline release directory for hash_stability mode",
+    )
+    p_repro.add_argument(
+        "--runs",
+        type=int,
+        default=5,
+        help="Number of reproducibility runs (default: 5)",
+    )
+    p_repro.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Benchmark seed recorded in output (default: 42)",
+    )
+    p_repro.add_argument(
+        "--mode",
+        choices=("hash_stability", "full_regeneration"),
+        default="hash_stability",
+        help="Benchmark mode (default: hash_stability)",
+    )
+    p_repro.add_argument("--json", action="store_true", help="Print benchmark_run.v0.json to stdout")
+    p_repro.set_defaults(func=_run_benchmark_reproducibility)
 
     p_regen = sub.add_parser(
         "regenerate-release-chain",

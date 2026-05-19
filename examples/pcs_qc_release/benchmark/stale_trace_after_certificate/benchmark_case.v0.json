@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-stale-trace-after-certificate-v0",
+  "case_kind": "status_transition",
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "certified_trace_hash_consistent",
+  "expected_failure_code": "stale_trace_after_certificate",
+  "expected_protocol_failure_code": "STALE_TRACE_AFTER_CERTIFICATE",
+  "expected_repair_command": "labtrust regenerate-release-protocol --out <release-dir>",
+  "expected_repair_hint_kind": "reattach_certificate_after_trace_change",
+  "expected_responsible_component": "runtime_producer",
+  "expected_status": "Stale",
+  "gallery_case_id": "stale_trace_after_certificate",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

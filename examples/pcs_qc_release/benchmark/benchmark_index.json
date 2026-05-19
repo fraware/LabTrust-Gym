@@ -1,0 +1,251 @@
+{
+  "cases": [
+    {
+      "benchmark_case_id": "labtrust-valid-release-v0",
+      "case_id": "valid_release",
+      "case_kind": "valid_release",
+      "directory": "valid_release",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json",
+        "regeneration_report.json",
+        "proof_obligation_hints.json",
+        "proof_obligation_identifiers.json",
+        "formalization_readiness_report.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-missing-qc-result-v0",
+      "case_id": "missing_qc_result",
+      "case_kind": "missing_qc_step",
+      "directory": "missing_qc_result",
+      "expected_detection_layer": "LabTrust",
+      "input_artifacts": [
+        "run_meta.json",
+        "trace.json",
+        "runtime_receipt.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-unauthorized-release-v0",
+      "case_id": "unauthorized_release",
+      "case_kind": "unauthorized_actor",
+      "directory": "unauthorized_release",
+      "expected_detection_layer": "LabTrust",
+      "input_artifacts": [
+        "run_meta.json",
+        "trace.json",
+        "runtime_receipt.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-trace-hash-tamper-v0",
+      "case_id": "trace_hash_tamper",
+      "case_kind": "invalid_hash_mismatch",
+      "directory": "trace_hash_tamper",
+      "expected_detection_layer": "LabTrust",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-certificate-id-tamper-v0",
+      "case_id": "certificate_id_tamper",
+      "case_kind": "certificate_tamper",
+      "directory": "certificate_id_tamper",
+      "expected_detection_layer": "CertifyEdge",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-stale-trace-after-certificate-v0",
+      "case_id": "stale_trace_after_certificate",
+      "case_kind": "status_transition",
+      "directory": "stale_trace_after_certificate",
+      "expected_detection_layer": "LabTrust",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-legacy-handoff-file-v0",
+      "case_id": "legacy_handoff_file",
+      "case_kind": "handoff_tamper",
+      "directory": "legacy_handoff_file",
+      "expected_detection_layer": "LabTrust",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json",
+        "pf_handoff.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-placeholder-commit-v0",
+      "case_id": "placeholder_commit",
+      "case_kind": "provenance_invalid",
+      "directory": "placeholder_commit",
+      "expected_detection_layer": "LabTrust",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-lean-trace-hash-mismatch-v0",
+      "case_id": "lean_trace_hash_mismatch",
+      "case_kind": "formal_check_failure",
+      "directory": "lean_trace_hash_mismatch",
+      "expected_detection_layer": "Lean trust kernel",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-lean-rejected-certificate-v0",
+      "case_id": "lean_rejected_certificate",
+      "case_kind": "formal_check_failure",
+      "directory": "lean_rejected_certificate",
+      "expected_detection_layer": "Lean trust kernel",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-lean-stale-certificate-v0",
+      "case_id": "lean_stale_certificate",
+      "case_kind": "formal_check_failure",
+      "directory": "lean_stale_certificate",
+      "expected_detection_layer": "Lean trust kernel",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json"
+      ]
+    },
+    {
+      "benchmark_case_id": "labtrust-lean-signed-hash-mismatch-v0",
+      "case_id": "lean_signed_hash_mismatch",
+      "case_kind": "formal_check_failure",
+      "directory": "lean_signed_hash_mismatch",
+      "expected_detection_layer": "Provability Fabric",
+      "input_artifacts": [
+        "trace.json",
+        "runtime_receipt.json",
+        "science_claim_bundle.pending.json",
+        "trace_certificate.json",
+        "science_claim_bundle.certified.json",
+        "handoff_to_certifyedge.json",
+        "handoff_to_pf.json",
+        "labtrust_release_fragment.json",
+        "workflow_profile.v0.json",
+        "manifest.json",
+        "trace_hash_alignment.json",
+        "verification_result.json",
+        "signed_science_claim_bundle.json"
+      ]
+    }
+  ],
+  "out_dir": "benchmark",
+  "pcs_bench": {
+    "case_descriptor": "benchmark_case.v0.json",
+    "coverage_report": "coverage_report.v0.json",
+    "expected_failure": "expected_failure.json",
+    "expected_repair_hint": "expected_repair_hint.json",
+    "input_dir": "input_artifacts",
+    "suite_index": "benchmark_index.json",
+    "version": "v0"
+  },
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "seed": 42,
+  "status": "passed",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release",
+  "workflow_profile": "examples/pcs_qc_release/workflow_profile.v0.json"
+}

@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-trace-hash-tamper-v0",
+  "case_kind": "invalid_hash_mismatch",
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "handoff_to_certifyedge_input_digests_fresh",
+  "expected_failure_code": "trace_hash_mismatch",
+  "expected_protocol_failure_code": "STALE_HANDOFF_DIGEST",
+  "expected_repair_command": "labtrust regenerate-release-protocol --out examples/pcs_qc_release/release --certifyedge-bin certifyedge --pcs-core ../pcs-core",
+  "expected_repair_hint_kind": "regenerate_trace_or_certificate",
+  "expected_responsible_component": "runtime_producer",
+  "expected_status": "Rejected",
+  "gallery_case_id": "trace_hash_tamper",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

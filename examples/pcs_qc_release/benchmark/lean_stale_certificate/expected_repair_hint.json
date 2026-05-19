@@ -1,0 +1,5 @@
+{
+  "hint": "Re-attach certificate after trace mutation; mark Stale only after intentional divergence tests.",
+  "hint_kind": "reattach_certificate_after_trace_change",
+  "repair_command": "labtrust attach-certificate ..."
+}

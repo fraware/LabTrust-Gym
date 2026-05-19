@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-unauthorized-release-v0",
+  "case_kind": "unauthorized_actor",
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "workflow.run_meta.released",
+  "expected_failure_code": "unauthorized_release",
+  "expected_protocol_failure_code": "unauthorized_release",
+  "expected_repair_command": "labtrust run-demo qc-release --deterministic --out <run_dir>",
+  "expected_repair_hint_kind": "use_authorized_release_actor",
+  "expected_responsible_component": "runtime_producer",
+  "expected_status": "Rejected",
+  "gallery_case_id": "unauthorized_release",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

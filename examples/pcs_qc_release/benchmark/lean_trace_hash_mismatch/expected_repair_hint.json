@@ -1,0 +1,5 @@
+{
+  "hint": "Regenerate trace_certificate from the runtime receipt; do not desynchronize trace_hash fields.",
+  "hint_kind": "align_certificate_trace_hash",
+  "repair_command": "labtrust regenerate-release-protocol --out <release-dir>"
+}

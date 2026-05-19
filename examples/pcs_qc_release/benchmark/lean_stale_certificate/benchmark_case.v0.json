@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-lean-stale-certificate-v0",
+  "case_kind": "formal_check_failure",
+  "expected_detection_layer": "Lean trust kernel",
+  "expected_failing_check": "lean_obligation.CertificateMatchesRuntime",
+  "expected_failure_code": "lean_certificate_stale",
+  "expected_protocol_failure_code": "LEAN_CERTIFICATE_STALE",
+  "expected_repair_command": "labtrust attach-certificate ...",
+  "expected_repair_hint_kind": "reattach_certificate_after_trace_change",
+  "expected_responsible_component": "lean.extraction",
+  "expected_status": "Stale",
+  "gallery_case_id": "lean_stale_certificate",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

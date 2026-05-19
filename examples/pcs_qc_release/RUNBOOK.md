@@ -305,6 +305,20 @@ labtrust generate-failure-gallery \
   --workflow hospital_lab.qc_release \
   --out examples/pcs_qc_release/failures
 
+# pcs-bench suite (BenchmarkCase.v0 — failure localization + repair hints):
+labtrust generate-benchmark-cases \
+  --workflow hospital_lab.qc_release \
+  --out examples/pcs_qc_release/benchmark \
+  --seed 42
+labtrust verify-benchmark-cases --benchmark-dir examples/pcs_qc_release/benchmark
+python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
+
+labtrust benchmark-reproducibility \
+  --pcs-core ../pcs-core \
+  --runs 5 \
+  --out benchmark_runs/labtrust_reproducibility \
+  --seed 42
+
 labtrust check-status-policy \
   --release-dir examples/pcs_qc_release/release
 ```
@@ -350,6 +364,7 @@ python examples/pcs_qc_release/scripts/ci_validate_release_fixtures.py
 python examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
 python examples/pcs_qc_release/scripts/ci_validate_formalization.py
 python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
+python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
 python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py
 python examples/pcs_qc_release/scripts/write_failure_case_manifests.py
 ```

@@ -118,8 +118,10 @@ For each `failure_modes` entry in the profile:
 3. Write `failure_case_manifest.json` per `schemas_or_docs/FailureCaseManifest.v0.md`
 4. Verify the case fails the documented check (`validate_failure_gallery.py`)
 
-Generate cases: `labtrust generate-failure-gallery` (QC reference) or
-`workflow.generate_failure_case(case_id, out_dir)`.
+Generate cases: `labtrust generate-benchmark-cases` (pcs-bench / BenchmarkCase.v0) or
+`labtrust generate-failure-gallery` (legacy demos) or `workflow.generate_failure_case(case_id, out_dir)`.
+
+Benchmark profile: [labtrust-benchmark-profile.md](labtrust-benchmark-profile.md).
 
 ## Clean regeneration and benchmarking
 
