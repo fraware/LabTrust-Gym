@@ -3,7 +3,7 @@
   "environment": {
     "labtrust_version": "0.2.0",
     "platform": "Windows-11-10.0.26200-SP0",
-    "python": "3.13.11"
+    "python": "3.12.10"
   },
   "events_hash": "sha256:583d6ab48d05ce6094cae9deb6b91d9f72d49b8b7022663880712ad1d7a58fa3",
   "final_reason_code": "unauthorized_release",
@@ -21,8 +21,8 @@
   "run_id": "qc-release-invalid-unauthorized",
   "run_outcome": "failed",
   "schema_version": "v0",
-  "signature_or_digest": "sha256:761f42ad1c41f0a3b2879f10113b21730c803738672c1e0ef62b8564c16e8f2e",
-  "source_commit": "0637a3f446e2155a201852278a016f7c7256473c",
+  "signature_or_digest": "sha256:bbac7df92bc10e4cc8e9c4898b778e84ba72d7030a772364c0b878519ab8b62c",
+  "source_commit": "4b91f55558a462fdb57bc161b1b120169e2bd52c",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "started_at": "2026-01-15T08:00:00Z",
   "status": "RuntimeObserved",

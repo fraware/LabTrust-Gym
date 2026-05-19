@@ -22,7 +22,7 @@
   "run_outcome": "passed",
   "schema_version": "v0",
   "signature_or_digest": "sha256:ecce874ad042b848e57bfa54dc4ea9a5992ea351a06ed5da49e3a5c28da55d8b",
-  "source_commit": "local-dev",
+  "source_commit": "8369892d8872bc08ef5acb6cf503f38665c36733",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "started_at": "2026-01-15T08:00:00Z",
   "status": "RuntimeObserved",
