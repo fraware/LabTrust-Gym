@@ -22,6 +22,12 @@ FORMALIZATION_READINESS_REPORT_SCHEMA = (
 WORKFLOW_PROFILE_FORMALIZATION_SCHEMA = (
     "policy/schemas/pcs/WorkflowProfile.formalization.extension.schema.json"
 )
+BENCHMARK_CASE_SCHEMA = "policy/schemas/pcs/BenchmarkCase.v0.schema.json"
+BENCHMARK_RUN_SCHEMA = "policy/schemas/pcs/BenchmarkRun.v0.schema.json"
+COVERAGE_REPORT_SCHEMA = "policy/schemas/pcs/CoverageReport.v0.schema.json"
+REPRODUCIBILITY_COVERAGE_REPORT_SCHEMA = (
+    "policy/schemas/pcs/ReproducibilityCoverageReport.v0.schema.json"
+)
 
 
 def _schema_path(rel: str, *, policy_root: Path | None = None) -> Path:
@@ -86,3 +92,39 @@ def validate_workflow_profile_formalization(
 ) -> None:
     schema_path = _schema_path(WORKFLOW_PROFILE_FORMALIZATION_SCHEMA, policy_root=policy_root)
     validate_against_schema(block, load_json(schema_path), path=schema_path)
+
+
+def validate_benchmark_case(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(BENCHMARK_CASE_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)
+
+
+def validate_benchmark_run(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(BENCHMARK_RUN_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)
+
+
+def validate_coverage_report(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(COVERAGE_REPORT_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)
+
+
+def validate_reproducibility_coverage_report(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(REPRODUCIBILITY_COVERAGE_REPORT_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)

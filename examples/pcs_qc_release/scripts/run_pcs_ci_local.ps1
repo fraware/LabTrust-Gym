@@ -28,6 +28,12 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 & $Python examples/pcs_qc_release/scripts/ci_validate_formalization.py
+& $Labtrust generate-benchmark-cases `
+  --workflow hospital_lab.qc_release `
+  --out examples/pcs_qc_release/benchmark `
+  --release-dir examples/pcs_qc_release/release `
+  --seed 42
+& $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 & $Labtrust check-status-policy --release-dir examples/pcs_qc_release/release

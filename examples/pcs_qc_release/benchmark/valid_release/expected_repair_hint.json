@@ -1,0 +1,5 @@
+{
+  "hint": "Release package passes LabTrust verify-release-protocol and status policy.",
+  "hint_kind": "none",
+  "repair_command": "labtrust verify-release-protocol --release-dir examples/pcs_qc_release/release --pcs-core ../pcs-core"
+}

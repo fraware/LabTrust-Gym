@@ -1,0 +1,5 @@
+{
+  "hint": "Remove pf_handoff.json; emit handoff_to_pf.json (HandoffManifest.v0).",
+  "hint_kind": "emit_handoff_manifest_v0",
+  "repair_command": "labtrust emit-handoff-to-pf --bundle <certified.json> --out handoff_to_pf.json"
+}

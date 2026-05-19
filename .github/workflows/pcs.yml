@@ -15,6 +15,8 @@ on:
       - "docs/pcs-reference-implementation.md"
       - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
       - "policy/schemas/pcs/FailureCaseManifest.v0.schema.json"
+      - "policy/schemas/pcs/BenchmarkCase.v0.schema.json"
+      - "docs/labtrust-benchmark-profile.md"
       - "docs/reference-workflow-template.md"
       - "schemas_or_docs/**"
       - "templates/pcs_workflow_template/**"
@@ -33,6 +35,8 @@ on:
       - "docs/pcs-reference-implementation.md"
       - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
       - "policy/schemas/pcs/FailureCaseManifest.v0.schema.json"
+      - "policy/schemas/pcs/BenchmarkCase.v0.schema.json"
+      - "docs/labtrust-benchmark-profile.md"
       - "docs/reference-workflow-template.md"
       - "schemas_or_docs/**"
       - "templates/pcs_workflow_template/**"
@@ -77,6 +81,22 @@ jobs:
         run: python examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
       - name: Validate proof-obligation formalization artifacts
         run: python examples/pcs_qc_release/scripts/ci_validate_formalization.py
+      - name: Generate and validate benchmark cases
+        run: |
+          labtrust generate-benchmark-cases \
+            --workflow hospital_lab.qc_release \
+            --out examples/pcs_qc_release/benchmark \
+            --release-dir examples/pcs_qc_release/release \
+            --seed 42
+          python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
+      - name: Reproducibility benchmark (hash stability)
+        run: |
+          labtrust benchmark-reproducibility \
+            --pcs-core pcs-core/examples/labtrust-release \
+            --release-dir examples/pcs_qc_release/release \
+            --runs 3 \
+            --seed 42 \
+            --out /tmp/labtrust_repro_benchmark
       - name: Verify LabTrust release protocol package
         run: |
           labtrust verify-release-protocol \

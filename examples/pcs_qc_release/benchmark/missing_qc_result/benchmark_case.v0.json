@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-missing-qc-result-v0",
+  "case_kind": "missing_qc_step",
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "workflow.run_meta.released",
+  "expected_failure_code": "missing_qc",
+  "expected_protocol_failure_code": "missing_qc",
+  "expected_repair_command": "labtrust run-demo qc-release --deterministic --out <run_dir> && labtrust export-runtime-receipt --run <run_dir> --out runtime_receipt.json",
+  "expected_repair_hint_kind": "complete_qc_before_release",
+  "expected_responsible_component": "runtime_producer",
+  "expected_status": "Rejected",
+  "gallery_case_id": "missing_qc_result",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

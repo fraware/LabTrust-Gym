@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/BenchmarkCase.v0.schema.json",
+  "title": "BenchmarkCase.v0",
+  "description": "Machine-readable PCS benchmark case for pcs-bench (LabTrust reference).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "case_id",
+    "task_id",
+    "workflow_id",
+    "case_kind",
+    "expected_status",
+    "expected_responsible_component",
+    "expected_repair_hint_kind",
+    "expected_detection_layer",
+    "expected_failing_check",
+    "expected_repair_command"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "case_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "profile_workflow_id": { "type": "string", "minLength": 1 },
+    "gallery_case_id": { "type": "string", "minLength": 1 },
+    "case_kind": {
+      "type": "string",
+      "enum": [
+        "valid_release",
+        "missing_qc_step",
+        "unauthorized_actor",
+        "invalid_hash_mismatch",
+        "certificate_tamper",
+        "status_transition",
+        "handoff_tamper",
+        "provenance_invalid",
+        "formal_check_failure",
+        "scientific_memory_import_failure"
+      ]
+    },
+    "expected_status": {
+      "type": "string",
+      "enum": [
+        "Released",
+        "CertificateChecked",
+        "Rejected",
+        "Stale",
+        "ProofChecked"
+      ]
+    },
+    "expected_failure_code": { "type": ["string", "null"] },
+    "expected_protocol_failure_code": { "type": ["string", "null"] },
+    "expected_responsible_component": { "type": "string", "minLength": 1 },
+    "expected_repair_hint_kind": { "type": "string", "minLength": 1 },
+    "expected_detection_layer": {
+      "type": "string",
+      "enum": [
+        "LabTrust",
+        "CertifyEdge",
+        "Provability Fabric",
+        "pcs-core",
+        "Lean trust kernel",
+        "Scientific Memory"
+      ]
+    },
+    "expected_failing_check": { "type": ["string", "null"] },
+    "expected_repair_command": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "case_kind": { "const": "valid_release" } } },
+      "then": {
+        "properties": {
+          "expected_failure_code": { "type": "null" },
+          "expected_protocol_failure_code": { "type": "null" },
+          "expected_failing_check": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "case_kind": { "not": { "const": "valid_release" } }
+        }
+      },
+      "then": {
+        "required": ["expected_failure_code", "expected_protocol_failure_code", "expected_failing_check"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "hint": "Re-run CertifyEdge emit-pcs-certificate and attach-certificate without editing certificate_id.",
+  "hint_kind": "re_emit_certificate",
+  "repair_command": "certifyedge emit-pcs-certificate ... && labtrust attach-certificate --bundle science_claim_bundle.pending.json --certificate trace_certificate.json"
+}

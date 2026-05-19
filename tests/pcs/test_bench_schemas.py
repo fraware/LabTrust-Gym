@@ -8,11 +8,14 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.pcs.bench_schemas import (
+    validate_benchmark_case,
+    validate_coverage_report,
     validate_failure_case_manifest,
     validate_formalization_readiness_report,
     validate_proof_obligation_hints,
     validate_proof_obligation_identifiers,
     validate_regeneration_report_doc,
+    validate_reproducibility_coverage_report,
 )
 from labtrust_gym.pcs.formalization import (
     FORMALIZATION_READINESS_REPORT_NAME,
@@ -48,6 +51,13 @@ def test_committed_formalization_artifacts_validate(release_dir: Path) -> None:
     validate_proof_obligation_hints(hints)
     validate_proof_obligation_identifiers(ids_doc)
     validate_formalization_readiness_report(report)
+
+
+def test_committed_benchmark_coverage_report(repo_root: Path) -> None:
+    path = repo_root / "examples/pcs_qc_release/benchmark/coverage_report.v0.json"
+    if not path.is_file():
+        return
+    validate_coverage_report(json.loads(path.read_text(encoding="utf-8")))
 
 
 def test_regeneration_report_schema_rejects_invalid_status(repo_root: Path) -> None:

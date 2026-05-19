@@ -1,0 +1,5 @@
+{
+  "case_id": "lean_rejected_certificate",
+  "expected_failing_check": "lean_obligation.CertificateMatchesRuntime",
+  "expected_failure_code": "LEAN_CERTIFICATE_REJECTED"
+}

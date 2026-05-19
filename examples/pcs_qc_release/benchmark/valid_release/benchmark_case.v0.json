@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-valid-release-v0",
+  "case_kind": "valid_release",
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": null,
+  "expected_failure_code": null,
+  "expected_protocol_failure_code": null,
+  "expected_repair_command": "labtrust verify-release-protocol --release-dir examples/pcs_qc_release/release --pcs-core ../pcs-core",
+  "expected_repair_hint_kind": "none",
+  "expected_responsible_component": "runtime_producer",
+  "expected_status": "CertificateChecked",
+  "gallery_case_id": "valid_release",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

@@ -1,0 +1,5 @@
+{
+  "hint": "Regenerate trace.json from the workflow run; do not edit trace_hash in isolation.",
+  "hint_kind": "regenerate_trace_or_certificate",
+  "repair_command": "labtrust regenerate-release-protocol --out examples/pcs_qc_release/release --certifyedge-bin certifyedge --pcs-core ../pcs-core"
+}

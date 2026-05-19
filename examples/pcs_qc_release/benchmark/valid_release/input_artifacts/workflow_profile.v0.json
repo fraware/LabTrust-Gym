@@ -1,0 +1,82 @@
+{
+  "certificate_artifacts": [
+    "TraceCertificate.v0"
+  ],
+  "description": "Reference hospital QC release workflow: runtime observation, CertifyEdge certification, PF verification handoff.",
+  "domain": "lab_science_simulation",
+  "failure_modes": [
+    "missing_qc_result",
+    "unauthorized_release",
+    "trace_hash_tamper",
+    "certificate_id_tamper",
+    "stale_trace_after_certificate",
+    "legacy_handoff_file",
+    "placeholder_commit",
+    "lean_trace_hash_mismatch",
+    "lean_rejected_certificate",
+    "lean_stale_certificate",
+    "lean_signed_hash_mismatch"
+  ],
+  "formalization": {
+    "formalization_scope": "trust_envelope_only",
+    "required_obligations": [
+      "CertificateMatchesRuntime",
+      "VerificationAdmitsBundle",
+      "SignedBundleAdmissible"
+    ],
+    "trust_kernel": "PCS.ReleaseChain"
+  },
+  "handoff_sequence": [
+    "runtime_to_certificate",
+    "certificate_to_bundle",
+    "bundle_to_verifier",
+    "signed_bundle_to_memory"
+  ],
+  "limitations_notice": "LabTrust observes runtime execution and attaches CertifyEdge certificates. Proof admission (ProofChecked) is owned by Provability Fabric, not LabTrust.",
+  "required_admission_profile": "labtrust_qc_release",
+  "required_registry_entries": [
+    "RuntimeReceipt.v0",
+    "TraceCertificate.v0",
+    "ScienceClaimBundle.v0",
+    "HandoffManifest.v0",
+    "ReleaseManifest.v0",
+    "ComponentReleaseFragment.v0",
+    "VerificationResult.v0",
+    "SignedScienceClaimBundle.v0",
+    "ReleaseChainValidationResult.v0",
+    "WorkflowProfile.v0"
+  ],
+  "runtime_artifacts": [
+    "RuntimeReceipt.v0",
+    "ScienceClaimBundle.v0"
+  ],
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:28151bd576bfed6389e9777566b754caa49b997aa9c1d277caac7670baa5d7d6",
+  "status_policy": {
+    "allowed_terminal_statuses": [
+      "Rejected",
+      "Stale"
+    ],
+    "description": "LabTrust owns RuntimeObserved and CertificateChecked; ProofChecked is PF-only; Stale after trace mutation.",
+    "forbidden_transitions": [
+      {
+        "from_status": "RuntimeObserved",
+        "to_status": "ProofChecked"
+      },
+      {
+        "from_status": "CertificateChecked",
+        "to_status": "ProofChecked"
+      },
+      {
+        "from_status": "Rejected",
+        "to_status": "ProofChecked"
+      },
+      {
+        "from_status": "Stale",
+        "to_status": "ProofChecked"
+      }
+    ],
+    "policy_id": "labtrust-qc-release-runtime-v0.1"
+  },
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

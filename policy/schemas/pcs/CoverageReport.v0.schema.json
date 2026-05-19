@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/CoverageReport.v0.schema.json",
+  "title": "CoverageReport.v0",
+  "description": "Coverage summary for a LabTrust PCS benchmark suite.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "workflow_id",
+    "task_id",
+    "cases_covered",
+    "case_kinds_covered",
+    "detection_layers_covered",
+    "repair_hint_kinds_covered",
+    "benchmark_cases"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "cases_covered": { "type": "integer", "minimum": 0 },
+    "case_kinds_covered": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "detection_layers_covered": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "repair_hint_kinds_covered": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "benchmark_cases": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

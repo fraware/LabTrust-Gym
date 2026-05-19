@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-placeholder-commit-v0",
+  "case_kind": "provenance_invalid",
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "no_placeholder_commits",
+  "expected_failure_code": "placeholder_source_commit",
+  "expected_protocol_failure_code": "PLACEHOLDER_SOURCE_COMMIT",
+  "expected_repair_command": "PCS_DETERMINISTIC=1 labtrust regenerate-release-protocol --out <release-dir>",
+  "expected_repair_hint_kind": "regenerate_with_real_provenance",
+  "expected_responsible_component": "runtime_producer",
+  "expected_status": "Rejected",
+  "gallery_case_id": "placeholder_commit",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

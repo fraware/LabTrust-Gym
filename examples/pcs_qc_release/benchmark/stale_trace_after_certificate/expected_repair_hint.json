@@ -1,0 +1,5 @@
+{
+  "hint": "Re-attach certificate after any trace change, or regenerate the protocol package.",
+  "hint_kind": "reattach_certificate_after_trace_change",
+  "repair_command": "labtrust regenerate-release-protocol --out <release-dir>"
+}

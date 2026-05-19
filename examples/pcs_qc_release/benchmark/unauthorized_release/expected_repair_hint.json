@@ -1,0 +1,5 @@
+{
+  "hint": "Use an authorized actor role for release_sample.",
+  "hint_kind": "use_authorized_release_actor",
+  "repair_command": "labtrust run-demo qc-release --deterministic --out <run_dir>"
+}

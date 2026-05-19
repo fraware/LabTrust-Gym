@@ -17,6 +17,12 @@ fi
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_regeneration_report.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_failure_manifests.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_formalization.py
+labtrust generate-benchmark-cases \
+  --workflow hospital_lab.qc_release \
+  --out examples/pcs_qc_release/benchmark \
+  --release-dir examples/pcs_qc_release/release \
+  --seed 42
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
 "$PYTHON" -m labtrust_gym.cli.main check-status-policy \
   --release-dir examples/pcs_qc_release/release
 labtrust generate-failure-gallery \

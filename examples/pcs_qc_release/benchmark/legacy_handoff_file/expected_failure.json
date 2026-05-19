@@ -1,0 +1,5 @@
+{
+  "case_id": "legacy_handoff_file",
+  "expected_failing_check": "no_legacy_pf_handoff_root",
+  "expected_failure_code": "LEGACY_HANDOFF_FILE"
+}

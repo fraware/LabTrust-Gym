@@ -1,0 +1,17 @@
+{
+  "case_id": "labtrust-certificate-id-tamper-v0",
+  "case_kind": "certificate_tamper",
+  "expected_detection_layer": "CertifyEdge",
+  "expected_failing_check": "certificate_id_propagation",
+  "expected_failure_code": "certificate_id_mismatch",
+  "expected_protocol_failure_code": "CERTIFICATE_ID_MISMATCH",
+  "expected_repair_command": "certifyedge emit-pcs-certificate ... && labtrust attach-certificate --bundle science_claim_bundle.pending.json --certificate trace_certificate.json",
+  "expected_repair_hint_kind": "re_emit_certificate",
+  "expected_responsible_component": "certifyedge.certificate",
+  "expected_status": "Rejected",
+  "gallery_case_id": "certificate_id_tamper",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

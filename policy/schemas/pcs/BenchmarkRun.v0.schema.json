@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/BenchmarkRun.v0.schema.json",
+  "title": "BenchmarkRun.v0",
+  "description": "Aggregate reproducibility benchmark run for a PCS workflow.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "workflow_id",
+    "mode",
+    "seed",
+    "runs",
+    "per_run",
+    "aggregate"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "benchmark_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "mode": {
+      "type": "string",
+      "enum": ["hash_stability", "full_regeneration"]
+    },
+    "seed": { "type": "integer", "minimum": 0 },
+    "runs": { "type": "integer", "minimum": 1 },
+    "per_run": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/run_record" }
+    },
+    "aggregate": { "$ref": "#/$defs/aggregate" }
+  },
+  "$defs": {
+    "run_record": {
+      "type": "object",
+      "required": [
+        "run_index",
+        "duration_ms",
+        "artifact_hashes",
+        "certificate_id",
+        "release_validation_passed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "run_index": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "artifact_hashes": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "certificate_id": { "type": ["string", "null"] },
+        "release_validation_passed": { "type": "boolean" },
+        "release_validation_checks": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "required": [
+        "artifact_hashes_stable",
+        "certificate_id_stable",
+        "canonical_hashes_stable",
+        "release_validation_stable",
+        "command_deterministic",
+        "duration_ms"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "artifact_hashes_stable": { "type": "boolean" },
+        "certificate_id_stable": { "type": "boolean" },
+        "certificate_id_non_deterministic_declared": { "type": "boolean" },
+        "canonical_hashes_stable": { "type": "boolean" },
+        "release_validation_stable": { "type": "boolean" },
+        "command_deterministic": { "type": "boolean" },
+        "duration_ms": {
+          "type": "object",
+          "required": ["min", "max", "mean"],
+          "properties": {
+            "min": { "type": "integer" },
+            "max": { "type": "integer" },
+            "mean": { "type": "number" }
+          }
+        }
+      }
+    }
+  }
+}
