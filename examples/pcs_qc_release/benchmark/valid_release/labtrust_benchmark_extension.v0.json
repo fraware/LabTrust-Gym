@@ -3,6 +3,10 @@
   "expected_failing_check": null,
   "expected_protocol_failure_code": null,
   "gallery_case_id": "valid_release",
+  "pcs_core_valid_case_compat": {
+    "note": "Valid benchmark_case.v0 uses null failure fields per pcs-core; repair hint remains for LabTrust operator guidance.",
+    "placeholder_fields": []
+  },
   "profile_workflow_id": "labtrust.qc_release_v0.1",
   "schema_version": "v0"
 }

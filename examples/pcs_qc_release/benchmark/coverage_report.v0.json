@@ -39,7 +39,6 @@
     "align_hash",
     "align_provenance",
     "fix_import_report",
-    "none",
     "rerun_formal_check",
     "rerun_verification",
     "unknown"
