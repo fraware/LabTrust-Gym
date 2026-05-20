@@ -22,6 +22,7 @@
     "mode": {
       "type": "string",
       "enum": ["hash_stability", "full_regeneration"]
-    }
+    },
+    "hash_stability_passed": { "type": "boolean" }
   }
 }

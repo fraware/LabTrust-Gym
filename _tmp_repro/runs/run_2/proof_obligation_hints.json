@@ -1,0 +1,12 @@
+{
+  "certified_bundle": "science_claim_bundle.certified.json",
+  "claim_id": "claim-pcs-qc-release-v0.1",
+  "required_obligations": [
+    "CertificateMatchesRuntime",
+    "VerificationAdmitsBundle",
+    "SignedBundleAdmissible"
+  ],
+  "runtime_receipt": "runtime_receipt.json",
+  "trace_certificate": "trace_certificate.json",
+  "workflow_id": "hospital_lab.qc_release"
+}

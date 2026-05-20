@@ -35,6 +35,8 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   --seed 42
 & $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
 & $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
+& $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_bench_layout.py
+& $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.py
 & $Python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
 & $Python examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

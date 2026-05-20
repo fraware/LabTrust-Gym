@@ -63,11 +63,11 @@
         "role": "workflow_profile_v0_json"
       }
     ],
-    "release_directory": "input_artifacts"
+    "release_directory": "input_artifacts/"
   },
   "schema_version": "v0",
-  "signature_or_digest": "sha256:228c745888f8b9cf6c52f55df146666891a1b59f4310ba28733cc9c5f3a9780a",
-  "source_commit": "186c65b252bfaade6ee321b0a74c15980852cdd2",
+  "signature_or_digest": "sha256:cf7aff947113d3e8ce62382fe0307e136bb6fb0833bc117c5a3e57a21f5b612d",
+  "source_commit": "c07e15a4714a2b45c971d8d4e524e6edbd0c392a",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "task_id": "labtrust-qc-release-v0",
   "workflow_id": "hospital_lab.qc_release"

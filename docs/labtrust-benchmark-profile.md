@@ -30,8 +30,10 @@ deployment safety.
 | `expected_repair_hint.json` | `responsible_component`, `repair_hint.kind`, `repair_command` |
 | `benchmark_index.json` | Suite index |
 | `coverage_report.v0.json` | Taxonomy coverage (case kinds, detection layers) |
-| `benchmark_run.v0.json` | Reproducibility summary (pcs-bench compatible) |
-| `regeneration_report.json` | Full reproducibility report (`ReproducibilityBenchmarkReport.v0`) |
+| `benchmark_run.v0.json` | Reproducibility summary (full_regeneration runs) |
+| `hash_stability_report.v0.json` | Hash-stability slice (baseline copy runs) |
+| `regeneration_reports/` | Per-run `regeneration_report.json` from full_regeneration |
+| `benchmark_manifest.v0.json` | LabTrust producer manifest (pcs-bench layout only) |
 
 Schemas: `policy/schemas/pcs/BenchmarkCase.v0.schema.json`, `BenchmarkRun.v0.schema.json`,
 `CoverageReport.v0.schema.json`, `ReproducibilityBenchmarkReport.v0.schema.json`.
@@ -70,13 +72,35 @@ Release baseline must include `signed_science_claim_bundle.json` and `verificati
 
 ## Regenerate benchmark cases
 
+LabTrust flat suite (examples):
+
 ```bash
 labtrust generate-benchmark-cases \
   --workflow hospital_lab.qc_release \
   --out examples/pcs_qc_release/benchmark \
   --seed 42
+```
 
+pcs-bench canonical layout (source of truth for pcs-core):
+
+```bash
+labtrust generate-benchmark-cases \
+  --workflow hospital_lab.qc_release \
+  --out ../pcs-core/benchmarks/labtrust-qc-release \
+  --pcs-bench-layout \
+  --seed 42
+
+# or
+python examples/pcs_qc_release/scripts/generate_pcs_bench_suite.py
+```
+
+Each case uses `input_artifacts.release_directory` = `input_artifacts/`. Valid cases omit
+`expected_failure.json`. `benchmark_manifest.v0.json` records the LabTrust generator version
+and git commit.
+
+```bash
 python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
+python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
 ```
 
 Legacy failure gallery (demos): `labtrust generate-failure-gallery --out examples/pcs_qc_release/failures`.
@@ -98,6 +122,17 @@ unavailable (`examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py`).
 
 ## pcs-bench integration
 
-Suite id `labtrust-qc-release-v0`. Load `benchmark_index.json`, iterate `cases`, and for each
-case read `benchmark_case.v0.json` plus `input_artifacts/`. Use `labtrust_benchmark_extension.v0.json`
+Suite id `labtrust-qc-release-v0`. Layout: `valid/<case_id>/`, `invalid/<case_id>/`,
+`suite.yaml`, `benchmark_manifest.v0.json`. Each case's `release_directory` is
+`benchmarks/labtrust-qc-release/<polarity>/<case_id>/input_artifacts` (pcs-core repo root).
+
+Registry expectations: `examples/pcs_qc_release/policy/benchmark_registry.labtrust-qc-release.expected.json`.
+Export to pcs-core: `examples/pcs_qc_release/scripts/export_pcs_bench_to_pcs_core.ps1`.
+
+Legacy pcs-core case ids (`valid-release-chain`, `invalid-trace-hash`, …) are replaced by
+LabTrust-generated ids (`labtrust-valid-release-v0`, `labtrust-trace-hash-tamper-v0`, …); see
+`legacy_case_id_map` in the expected registry file.
+
+For flat LabTrust examples, load `benchmark_index.json`, iterate `cases`, and read
+`benchmark_case.v0.json` plus `input_artifacts/`. Use `labtrust_benchmark_extension.v0.json`
 for detection-layer assertions in simulate mode.

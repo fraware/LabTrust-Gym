@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/HashStabilityReport.v0.schema.json",
+  "title": "HashStabilityReport.v0",
+  "description": "Hash-stability slice of a LabTrust reproducibility benchmark.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "workflow_id",
+    "runs",
+    "per_run",
+    "aggregate",
+    "signature_or_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "benchmark_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "runs": { "type": "integer", "minimum": 1 },
+    "seed": { "type": "integer", "minimum": 0 },
+    "per_run": { "type": "array", "items": { "type": "object" } },
+    "aggregate": { "type": "object" },
+    "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

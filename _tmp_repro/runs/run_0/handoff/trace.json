@@ -1,0 +1,110 @@
+{
+  "artifact_kind": "Trace",
+  "events": [
+    {
+      "action": "accession_sample",
+      "actor_id": "acc-tech-01",
+      "actor_role": "accession_tech",
+      "event_hash": "9007e73e3342f9a38593a205d4158ccca11740d66d2317ca33316e8946cf5d6b",
+      "event_id": "qc-release-evt-000",
+      "policy_decision": "allow",
+      "post_state": {
+        "analysis_complete": false,
+        "lifecycle": "accessioned",
+        "qc_complete": false,
+        "released": false
+      },
+      "pre_state": {
+        "analysis_complete": false,
+        "lifecycle": "registered",
+        "qc_complete": false,
+        "released": false
+      },
+      "previous_event_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "reason_code": "ok",
+      "run_id": "qc-release",
+      "sample_id": "PCS-SAMPLE-001",
+      "timestamp": "2026-01-15T08:00:00+00:00"
+    },
+    {
+      "action": "perform_qc",
+      "actor_id": "qc-tech-01",
+      "actor_role": "qc_tech",
+      "event_hash": "52acf0c467abac57591484a992df56f2bcb5e644f4d66d11e6c5986de0daf229",
+      "event_id": "qc-release-evt-001",
+      "policy_decision": "allow",
+      "post_state": {
+        "analysis_complete": false,
+        "lifecycle": "qc_complete",
+        "qc_complete": true,
+        "released": false
+      },
+      "pre_state": {
+        "analysis_complete": false,
+        "lifecycle": "accessioned",
+        "qc_complete": false,
+        "released": false
+      },
+      "previous_event_hash": "9007e73e3342f9a38593a205d4158ccca11740d66d2317ca33316e8946cf5d6b",
+      "reason_code": "ok",
+      "run_id": "qc-release",
+      "sample_id": "PCS-SAMPLE-001",
+      "timestamp": "2026-01-15T09:00:00+00:00"
+    },
+    {
+      "action": "record_analysis",
+      "actor_id": "analyst-01",
+      "actor_role": "analyst",
+      "event_hash": "a21ab5faed90a6a640b9c54ac59bb22969b45bbdcc7c4997f2bfe8bf028f7384",
+      "event_id": "qc-release-evt-002",
+      "policy_decision": "allow",
+      "post_state": {
+        "analysis_complete": true,
+        "lifecycle": "analyzed",
+        "qc_complete": true,
+        "released": false
+      },
+      "pre_state": {
+        "analysis_complete": false,
+        "lifecycle": "qc_complete",
+        "qc_complete": true,
+        "released": false
+      },
+      "previous_event_hash": "52acf0c467abac57591484a992df56f2bcb5e644f4d66d11e6c5986de0daf229",
+      "reason_code": "ok",
+      "run_id": "qc-release",
+      "sample_id": "PCS-SAMPLE-001",
+      "timestamp": "2026-01-15T10:00:00+00:00"
+    },
+    {
+      "action": "release_sample",
+      "actor_id": "rel-mgr-01",
+      "actor_role": "release_manager",
+      "event_hash": "67889771ef3792fb92aa7feef870ffe32d0c22ba449730213e353046e18941f9",
+      "event_id": "qc-release-evt-003",
+      "policy_decision": "allow",
+      "post_state": {
+        "analysis_complete": true,
+        "lifecycle": "released",
+        "qc_complete": true,
+        "released": true
+      },
+      "pre_state": {
+        "analysis_complete": true,
+        "lifecycle": "analyzed",
+        "qc_complete": true,
+        "released": false
+      },
+      "previous_event_hash": "a21ab5faed90a6a640b9c54ac59bb22969b45bbdcc7c4997f2bfe8bf028f7384",
+      "reason_code": "ok",
+      "run_id": "qc-release",
+      "sample_id": "PCS-SAMPLE-001",
+      "timestamp": "2026-01-15T11:00:00+00:00"
+    }
+  ],
+  "run_id": "qc-release",
+  "sample_id": "PCS-SAMPLE-001",
+  "schema_version": "v0",
+  "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
+  "version": "0"
+}

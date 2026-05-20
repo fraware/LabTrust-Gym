@@ -23,6 +23,11 @@ labtrust generate-benchmark-cases \
   --release-dir examples/pcs_qc_release/release \
   --seed 42
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_bench_layout.py
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.py
+"$PYTHON" examples/pcs_qc_release/scripts/generate_benchmark_packet.py
+"$PYTHON" examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
 "$PYTHON" -m labtrust_gym.cli.main check-status-policy \
   --release-dir examples/pcs_qc_release/release
 labtrust generate-failure-gallery \

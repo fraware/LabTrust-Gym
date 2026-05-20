@@ -22,6 +22,11 @@ from labtrust_gym.version import __version__
 RECEIPT_STATUS = "RuntimeObserved"
 
 
+def _runtime_platform() -> str:
+    """Lightweight platform string (avoids Windows WMI in ``platform.platform()``)."""
+    return f"{platform.system()} {platform.release()} ({platform.machine()})"
+
+
 def _run_outcome(meta: dict[str, Any]) -> str:
     if meta.get("status") == "completed" and meta.get("released"):
         return "passed"
@@ -54,7 +59,7 @@ def build_runtime_receipt(
             dict(DETERMINISTIC_ENVIRONMENT)
             if use_frozen_environment()
             else {
-                "platform": platform.platform(),
+                "platform": _runtime_platform(),
                 "python": sys.version.split()[0],
                 "labtrust_version": __version__,
             }

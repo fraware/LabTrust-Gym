@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -126,13 +127,6 @@ def _build_valid_release_case(
             loc=valid_loc,
         ),
     )
-    write_expected_failure(
-        case_dir,
-        gallery_case_id=VALID_RELEASE_DIR_NAME,
-        failing_check=None,
-        benchmark_code="",
-        protocol_code=None,
-    )
     write_expected_repair_hint(
         case_dir,
         failure_code="",
@@ -226,14 +220,13 @@ def _build_failure_benchmark_case(
 
 
 def _detection_layers_from_benchmark_root(benchmark_root: Path, index: dict[str, Any]) -> list[str]:
+    del index
     layers: set[str] = set()
-    for entry in index.get("cases", []):
-        ext_path = benchmark_root / entry["case_id"] / LABTRUST_EXTENSION_NAME
-        if ext_path.is_file():
-            ext = json.loads(ext_path.read_text(encoding="utf-8"))
-            layer = ext.get("expected_detection_layer")
-            if layer:
-                layers.add(layer)
+    for ext_path in benchmark_root.rglob(LABTRUST_EXTENSION_NAME):
+        ext = json.loads(ext_path.read_text(encoding="utf-8"))
+        layer = ext.get("expected_detection_layer")
+        if layer:
+            layers.add(layer)
     return sorted(layers)
 
 
@@ -272,12 +265,28 @@ def generate_benchmark_cases(
     release_dir: Path | None = None,
     profile_path: Path | None = None,
     seed: int = 42,
+    pcs_bench_layout: bool = False,
 ) -> dict[str, Any]:
     """
     Generate BenchmarkCase.v0 directories under ``out_dir``.
 
     Deterministic for a fixed ``seed`` (stable case ordering and metadata).
+    When ``pcs_bench_layout`` is true, emit ``valid/``, ``invalid/``, ``suite.yaml``,
+    and ``benchmark_manifest.v0.json`` (pcs-bench canonical layout).
     """
+    os.environ.setdefault("PCS_DETERMINISTIC", "1")
+    if pcs_bench_layout:
+        from labtrust_gym.pcs.benchmark_pcs_bench import generate_benchmark_cases_pcs_bench
+
+        return generate_benchmark_cases_pcs_bench(
+            out_dir,
+            workflow_key=workflow_key,
+            policy_root=policy_root,
+            release_dir=release_dir,
+            profile_path=profile_path,
+            seed=seed,
+        )
+
     profile = workflow_profile_view(profile_path, policy_root=policy_root)
     get_workflow_by_key(workflow_key, policy_root=policy_root, profile_path=profile.path)
     release = release_dir or (policy_root / "examples" / "pcs_qc_release" / "release")
@@ -293,6 +302,7 @@ def generate_benchmark_cases(
     case_entries: list[dict[str, Any]] = []
     benchmark_docs: list[dict[str, Any]] = []
 
+    print(f"benchmark: {VALID_RELEASE_DIR_NAME}", flush=True)
     valid_entry = _build_valid_release_case(
         release, out_dir / VALID_RELEASE_DIR_NAME, profile, policy_root=policy_root
     )
@@ -302,6 +312,7 @@ def generate_benchmark_cases(
     )
 
     for spec in specs:
+        print(f"benchmark: {spec.case_id}", flush=True)
         entry = _build_failure_benchmark_case(
             spec,
             policy_root=policy_root,
@@ -352,6 +363,70 @@ def generate_benchmark_cases(
     return index
 
 
+def _verify_single_case(
+    case_id: str,
+    case_dir: Path,
+    doc: dict[str, Any],
+    *,
+    root: Path,
+    pcs_core_root: Path | None,
+    checks: list[str],
+) -> None:
+    from labtrust_gym.pcs.bench_schemas import (
+        validate_benchmark_case,
+        validate_benchmark_case_pcs_core,
+        validate_expected_repair_hint,
+        validate_labtrust_benchmark_extension,
+    )
+    from labtrust_gym.pcs.benchmark_case import PCS_BENCH_RELEASE_DIRECTORY
+
+    validate_benchmark_case(doc, policy_root=root)
+    rel_dir = str(doc["input_artifacts"].get("release_directory", ""))
+    if not (rel_dir == PCS_BENCH_RELEASE_DIRECTORY or rel_dir.endswith("/input_artifacts")):
+        raise ValueError(
+            f"{case_id}: release_directory must be {PCS_BENCH_RELEASE_DIRECTORY!r} "
+            "or end with /input_artifacts for pcs-bench layout"
+        )
+    if pcs_core_root is not None:
+        validate_benchmark_case_pcs_core(doc, pcs_core_root=pcs_core_root)
+    ext_path = case_dir / LABTRUST_EXTENSION_NAME
+    if ext_path.is_file():
+        validate_labtrust_benchmark_extension(
+            json.loads(ext_path.read_text(encoding="utf-8")), policy_root=root
+        )
+    repair_path = case_dir / "expected_repair_hint.json"
+    if repair_path.is_file():
+        repair = json.loads(repair_path.read_text(encoding="utf-8"))
+        validate_expected_repair_hint(repair, policy_root=root)
+        if repair.get("responsible_component") != doc.get("expected_responsible_component"):
+            raise ValueError(
+                f"{case_id}: repair hint responsible_component does not match benchmark_case"
+            )
+    if doc.get("expected_status") == "passed" and (case_dir / EXPECTED_FAILURE_NAME).is_file():
+        raise ValueError(f"{case_id}: valid case must not ship {EXPECTED_FAILURE_NAME}")
+    required = [BENCHMARK_CASE_NAME, INPUT_ARTIFACTS_DIR]
+    if doc.get("expected_status") != "passed":
+        required.extend(
+            [LABTRUST_EXTENSION_NAME, EXPECTED_FAILURE_NAME, "expected_repair_hint.json"]
+        )
+    else:
+        if ext_path.is_file():
+            required.append(LABTRUST_EXTENSION_NAME)
+        if repair_path.is_file():
+            required.append("expected_repair_hint.json")
+    for name in required:
+        if name == INPUT_ARTIFACTS_DIR:
+            if not (case_dir / name).is_dir():
+                raise FileNotFoundError(f"{case_id} missing {name}/")
+        elif not (case_dir / name).is_file():
+            raise FileNotFoundError(f"{case_id} missing {name}")
+    checks.append(f"benchmark_case.{case_id}")
+    if ext_path.is_file():
+        checks.append(f"benchmark_extension.{case_id}")
+    if repair_path.is_file():
+        checks.append(f"repair_hint.{case_id}")
+
+
 def verify_benchmark_cases(
     benchmark_root: Path,
     *,
@@ -368,46 +443,61 @@ def verify_benchmark_cases(
 
     from labtrust_gym.config import get_repo_root
 
+    from labtrust_gym.pcs.benchmark_pcs_bench import (
+        BENCHMARK_MANIFEST_NAME,
+        is_pcs_bench_layout,
+        iter_pcs_bench_cases,
+    )
+
     benchmark_root = benchmark_root.resolve()
     root = policy_root or get_repo_root()
+    checks: list[str] = []
+
+    if is_pcs_bench_layout(benchmark_root):
+        manifest_path = benchmark_root / BENCHMARK_MANIFEST_NAME
+        if manifest_path.is_file():
+            from labtrust_gym.pcs.bench_schemas import validate_benchmark_manifest
+
+            validate_benchmark_manifest(
+                json.loads(manifest_path.read_text(encoding="utf-8")), policy_root=root
+            )
+            checks.append("benchmark_manifest")
+        case_iter = iter_pcs_bench_cases(benchmark_root)
+        for case_path, doc in case_iter:
+            case_id = doc["case_id"]
+            case_dir = case_path.parent
+            _verify_single_case(
+                case_id,
+                case_dir,
+                doc,
+                root=root,
+                pcs_core_root=pcs_core_root,
+                checks=checks,
+            )
+        coverage_path = benchmark_root / "coverage_report.v0.json"
+        if coverage_path.is_file():
+            validate_coverage_report(json.loads(coverage_path.read_text(encoding="utf-8")))
+            checks.append("coverage_report")
+        return checks
+
     index_path = benchmark_root / BENCHMARK_INDEX_NAME
     if not index_path.is_file():
         raise FileNotFoundError(f"missing benchmark index: {index_path}")
     index = json.loads(index_path.read_text(encoding="utf-8"))
-    checks: list[str] = []
     for entry in index.get("cases", []):
         case_id = entry["case_id"]
         case_dir = benchmark_root / case_id
         if not case_dir.is_dir():
             raise FileNotFoundError(f"missing benchmark case directory: {case_dir}")
         doc = json.loads((case_dir / BENCHMARK_CASE_NAME).read_text(encoding="utf-8"))
-        validate_benchmark_case(doc, policy_root=root)
-        if pcs_core_root is not None:
-            validate_benchmark_case_pcs_core(doc, pcs_core_root=pcs_core_root)
-        ext = json.loads((case_dir / LABTRUST_EXTENSION_NAME).read_text(encoding="utf-8"))
-        validate_labtrust_benchmark_extension(ext, policy_root=root)
-        repair = json.loads((case_dir / "expected_repair_hint.json").read_text(encoding="utf-8"))
-        validate_expected_repair_hint(repair, policy_root=root)
-        if repair.get("responsible_component") != doc.get("expected_responsible_component"):
-            raise ValueError(
-                f"{case_id}: repair hint responsible_component does not match benchmark_case"
-            )
-        for name in (
-            "README.md",
-            BENCHMARK_CASE_NAME,
-            LABTRUST_EXTENSION_NAME,
-            EXPECTED_FAILURE_NAME,
-            "expected_repair_hint.json",
-            INPUT_ARTIFACTS_DIR,
-        ):
-            if name == INPUT_ARTIFACTS_DIR:
-                if not (case_dir / name).is_dir():
-                    raise FileNotFoundError(f"{case_id} missing {name}/")
-            elif not (case_dir / name).is_file():
-                raise FileNotFoundError(f"{case_id} missing {name}")
-        checks.append(f"benchmark_case.{case_id}")
-        checks.append(f"benchmark_extension.{case_id}")
-        checks.append(f"repair_hint.{case_id}")
+        _verify_single_case(
+            case_id,
+            case_dir,
+            doc,
+            root=root,
+            pcs_core_root=pcs_core_root,
+            checks=checks,
+        )
     coverage_path = benchmark_root / "coverage_report.v0.json"
     if coverage_path.is_file():
         validate_coverage_report(json.loads(coverage_path.read_text(encoding="utf-8")))

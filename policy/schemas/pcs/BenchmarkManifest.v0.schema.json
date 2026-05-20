@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/BenchmarkManifest.v0.schema.json",
+  "title": "BenchmarkManifest.v0",
+  "description": "LabTrust producer manifest for a generated pcs-bench suite.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "suite_id",
+    "workflow_id",
+    "generator",
+    "generator_version",
+    "source_repo",
+    "source_commit",
+    "cases",
+    "coverage_report",
+    "signature_or_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "suite_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "generator": { "type": "string", "minLength": 1 },
+    "generator_version": { "type": "string", "minLength": 1 },
+    "source_repo": { "type": "string", "format": "uri" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "seed": { "type": "integer", "minimum": 0 },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/case_ref" }
+    },
+    "coverage_report": { "type": "string", "minLength": 1 },
+    "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "case_ref": {
+      "type": "object",
+      "required": ["case_id", "polarity", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "case_id": { "type": "string", "minLength": 1 },
+        "polarity": { "type": "string", "enum": ["valid", "invalid"] },
+        "path": { "type": "string", "minLength": 1 },
+        "gallery_case_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

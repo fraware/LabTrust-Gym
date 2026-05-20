@@ -10,7 +10,7 @@ from typing import Any
 
 from labtrust_gym.pcs.bench_schemas import (
     validate_benchmark_run,
-    validate_reproducibility_benchmark_report,
+    validate_hash_stability_report,
     validate_reproducibility_coverage_report,
 )
 from labtrust_gym.pcs.benchmark_case import LABTRUST_SOURCE_REPO, _benchmark_provenance
@@ -24,7 +24,8 @@ from labtrust_gym.pcs.workflow_profile import workflow_profile_view
 
 BENCHMARK_RUN_NAME = "benchmark_run.v0.json"
 COVERAGE_REPORT_NAME = "coverage_report.v0.json"
-REGENERATION_BENCHMARK_REPORT_NAME = "regeneration_report.json"
+HASH_STABILITY_REPORT_NAME = "hash_stability_report.v0.json"
+REGENERATION_REPORTS_DIR = "regeneration_reports"
 
 _HASH_ARTIFACTS = tuple(LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS) + (
     "manifest.json",
@@ -151,6 +152,7 @@ def _full_regeneration_run(
         regeneration_duration_ms=regen_ms,
     )
     metrics["run_index"] = run_index
+    metrics["run_dir"] = str(run_dir)
     return metrics
 
 
@@ -173,6 +175,7 @@ def _hash_stability_run(
         certifyedge_call_success=True,
     )
     metrics["run_index"] = run_index
+    metrics["run_dir"] = str(run_dir)
     return metrics
 
 
@@ -262,10 +265,9 @@ def _benchmark_run_doc(
     }
 
 
-def _regeneration_benchmark_report(
+def _hash_stability_report_doc(
     *,
     profile_property_id: str,
-    selected_mode: str,
     seed: int,
     runs: int,
     per_run: list[dict[str, Any]],
@@ -275,11 +277,10 @@ def _regeneration_benchmark_report(
     source_repo, source_commit = _benchmark_provenance(policy_root)
     doc: dict[str, Any] = {
         "schema_version": "v0",
-        "benchmark_id": "labtrust-reproducibility-v0",
+        "benchmark_id": "labtrust-hash-stability-v0",
         "workflow_id": profile_property_id,
-        "mode": selected_mode,
-        "seed": seed,
         "runs": runs,
+        "seed": seed,
         "per_run": per_run,
         "aggregate": aggregate,
         "source_repo": source_repo,
@@ -288,6 +289,19 @@ def _regeneration_benchmark_report(
     unsigned = {k: v for k, v in doc.items() if k != "signature_or_digest"}
     doc["signature_or_digest"] = pcs_digest(unsigned)
     return doc
+
+
+def _write_regeneration_reports(out_dir: Path, per_run: list[dict[str, Any]]) -> None:
+    reports_dir = out_dir / REGENERATION_REPORTS_DIR
+    if reports_dir.exists():
+        shutil.rmtree(reports_dir)
+    reports_dir.mkdir(parents=True)
+    for run in per_run:
+        run_dir = Path(run["run_dir"])
+        src = run_dir / REGENERATION_REPORT_NAME
+        if src.is_file():
+            dest = reports_dir / f"run_{run['run_index']}_{REGENERATION_REPORT_NAME}"
+            shutil.copy2(src, dest)
 
 
 def benchmark_reproducibility(
@@ -301,12 +315,13 @@ def benchmark_reproducibility(
     runs: int = 5,
     seed: int = 42,
     mode: str | None = None,
+    include_hash_stability: bool = True,
 ) -> dict[str, Any]:
     """
-    Measure release-chain reproducibility.
+    Measure release-chain reproducibility (release-grade default: full_regeneration).
 
-    ``full_regeneration`` (default): regenerate the protocol package ``runs`` times.
-    ``hash_stability``: copy committed release ``runs`` times and verify stability.
+    Writes ``benchmark_run.v0.json``, ``coverage_report.v0.json``,
+    ``regeneration_reports/``, and ``hash_stability_report.v0.json`` (when enabled).
     """
     del workflow_key
     if runs < 1:
@@ -366,20 +381,39 @@ def benchmark_reproducibility(
         encoding="utf-8",
     )
 
-    regen_doc = _regeneration_benchmark_report(
-        profile_property_id=profile.property_id,
-        selected_mode=selected_mode,
-        seed=seed,
-        runs=runs,
-        per_run=per_run,
-        aggregate=aggregate,
-        policy_root=policy_root,
-    )
-    validate_reproducibility_benchmark_report(regen_doc)
-    (out_dir / REGENERATION_BENCHMARK_REPORT_NAME).write_text(
-        json.dumps(regen_doc, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    if selected_mode == "full_regeneration":
+        _write_regeneration_reports(out_dir, per_run)
+
+    if include_hash_stability and selected_mode == "full_regeneration":
+        hash_runs_root = out_dir / "hash_stability_runs"
+        if hash_runs_root.exists():
+            shutil.rmtree(hash_runs_root)
+        hash_runs_root.mkdir()
+        hash_per_run: list[dict[str, Any]] = []
+        for i in range(runs):
+            hash_per_run.append(
+                _hash_stability_run(
+                    release_dir=release,
+                    run_dir=hash_runs_root / f"run_{i}",
+                    run_index=i,
+                    pcs_core=pcs_core,
+                    policy_root=policy_root,
+                )
+            )
+        hash_aggregate = _aggregate_runs(hash_per_run)
+        hash_doc = _hash_stability_report_doc(
+            profile_property_id=profile.property_id,
+            seed=seed,
+            runs=runs,
+            per_run=hash_per_run,
+            aggregate=hash_aggregate,
+            policy_root=policy_root,
+        )
+        validate_hash_stability_report(hash_doc)
+        (out_dir / HASH_STABILITY_REPORT_NAME).write_text(
+            json.dumps(hash_doc, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
     coverage = {
         "schema_version": "v0",
@@ -389,6 +423,9 @@ def benchmark_reproducibility(
         "runs": runs,
         "mode": selected_mode,
     }
+    if include_hash_stability and (out_dir / HASH_STABILITY_REPORT_NAME).is_file():
+        hash_report = json.loads((out_dir / HASH_STABILITY_REPORT_NAME).read_text(encoding="utf-8"))
+        coverage["hash_stability_passed"] = hash_report["aggregate"]["command_deterministic"]
     validate_reproducibility_coverage_report(coverage)
     (out_dir / COVERAGE_REPORT_NAME).write_text(
         json.dumps(coverage, indent=2, sort_keys=True) + "\n",

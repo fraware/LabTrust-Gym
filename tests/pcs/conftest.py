@@ -10,6 +10,12 @@ from labtrust_gym.config import get_repo_root
 from labtrust_gym.pcs.demo import run_demo
 
 
+@pytest.fixture(autouse=True)
+def _pcs_deterministic_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid Windows WMI hangs and stabilize benchmark/demo artifact generation."""
+    monkeypatch.setenv("PCS_DETERMINISTIC", "1")
+
+
 @pytest.fixture
 def repo_root() -> Path:
     return get_repo_root()
