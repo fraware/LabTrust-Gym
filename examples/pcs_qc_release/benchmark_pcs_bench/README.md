@@ -26,3 +26,5 @@ This writes `valid/<case_id>/`, `invalid/<case_id>/`, `suite.yaml`, `benchmark_m
 Each `benchmark_case.v0.json` uses `input_artifacts.release_directory` pointing at `benchmarks/labtrust-qc-release/<polarity>/<case_id>/input_artifacts` so `pcs benchmark run` resolves fixtures from the pcs-core repo root.
 
 CI validates layout generation in a temp directory via `ci_validate_benchmark_pcs_bench_layout.py` (no full tree committed here).
+
+Release-grade suites must include `benchmark_manifest.v0.json` (producer manifest). pcs-bench should refuse LabTrust suites without it.

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/PcsBenchIngest.v0.schema.json",
+  "title": "PcsBenchIngest.v0",
+  "description": "Vendored from pcs-core; full cross-schema validation uses pcs-core checkout.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "producer_id",
+    "suite_id",
+    "workflow_id",
+    "benchmark_runs",
+    "coverage_reports",
+    "failure_localization_reports",
+    "explain_quality_reports",
+    "profile_coverage_reports",
+    "commands",
+    "logs",
+    "source_repo",
+    "source_commit",
+    "signature_or_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "producer_id": { "type": "string", "const": "labtrust-gym" },
+    "suite_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "benchmark_runs": { "type": "array" },
+    "coverage_reports": { "type": "array" },
+    "failure_localization_reports": { "type": "array" },
+    "explain_quality_reports": { "type": "array" },
+    "profile_coverage_reports": { "type": "array" },
+    "commands": { "type": "array" },
+    "logs": { "type": "array", "items": { "type": "string" } },
+    "source_repo": { "type": "string", "format": "uri" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

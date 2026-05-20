@@ -130,7 +130,7 @@ def _build_valid_release_case(
     write_expected_repair_hint(
         case_dir,
         failure_code="",
-        responsible_component=doc["expected_responsible_component"],
+        responsible_component=valid_loc.pcs_responsible_component,
         detection_layer="LabTrust",
         hint_kind="none",
         command=(
@@ -242,7 +242,9 @@ def build_coverage_report(
     layers: list[str] = []
     if benchmark_root is not None and index is not None:
         layers = _detection_layers_from_benchmark_root(benchmark_root, index)
-    hints = sorted({d["expected_repair_hint_kind"] for d in benchmark_docs})
+    hints = sorted(
+        {d["expected_repair_hint_kind"] for d in benchmark_docs if d.get("expected_repair_hint_kind")}
+    )
     report = {
         "schema_version": "v0",
         "workflow_id": workflow_property_id,
@@ -266,6 +268,7 @@ def generate_benchmark_cases(
     profile_path: Path | None = None,
     seed: int = 42,
     pcs_bench_layout: bool = False,
+    suite_fixture_root: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate BenchmarkCase.v0 directories under ``out_dir``.
@@ -285,6 +288,7 @@ def generate_benchmark_cases(
             release_dir=release_dir,
             profile_path=profile_path,
             seed=seed,
+            suite_fixture_root=suite_fixture_root,
         )
 
     profile = workflow_profile_view(profile_path, policy_root=policy_root)
@@ -398,7 +402,8 @@ def _verify_single_case(
     if repair_path.is_file():
         repair = json.loads(repair_path.read_text(encoding="utf-8"))
         validate_expected_repair_hint(repair, policy_root=root)
-        if repair.get("responsible_component") != doc.get("expected_responsible_component"):
+        bench_component = doc.get("expected_responsible_component")
+        if bench_component is not None and repair.get("responsible_component") != bench_component:
             raise ValueError(
                 f"{case_id}: repair hint responsible_component does not match benchmark_case"
             )
@@ -455,13 +460,15 @@ def verify_benchmark_cases(
 
     if is_pcs_bench_layout(benchmark_root):
         manifest_path = benchmark_root / BENCHMARK_MANIFEST_NAME
-        if manifest_path.is_file():
-            from labtrust_gym.pcs.bench_schemas import validate_benchmark_manifest
-
-            validate_benchmark_manifest(
-                json.loads(manifest_path.read_text(encoding="utf-8")), policy_root=root
+        if not manifest_path.is_file():
+            raise FileNotFoundError(
+                f"pcs-bench layout requires producer manifest: {manifest_path}"
             )
-            checks.append("benchmark_manifest")
+        from labtrust_gym.pcs.bench_schemas import validate_benchmark_manifest
+
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        validate_benchmark_manifest(manifest, policy_root=root)
+        checks.append("benchmark_manifest")
         case_iter = iter_pcs_bench_cases(benchmark_root)
         for case_path, doc in case_iter:
             case_id = doc["case_id"]

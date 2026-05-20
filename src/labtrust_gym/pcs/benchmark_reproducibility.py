@@ -14,6 +14,12 @@ from labtrust_gym.pcs.bench_schemas import (
     validate_reproducibility_coverage_report,
 )
 from labtrust_gym.pcs.benchmark_case import LABTRUST_SOURCE_REPO, _benchmark_provenance
+from labtrust_gym.pcs.benchmark_pcs_bench import PCS_BENCH_SUITE_ID
+from labtrust_gym.pcs.benchmark_pcs_bench_ingest import (
+    PCS_BENCH_INGEST_NAME,
+    build_pcs_bench_ingest,
+    build_release_reproducibility_coverage_report,
+)
 from labtrust_gym.pcs.hash import file_digest, pcs_digest
 from labtrust_gym.pcs.regenerate_release_protocol import regenerate_release_protocol
 from labtrust_gym.pcs.regeneration_report import REGENERATION_REPORT_NAME
@@ -323,7 +329,6 @@ def benchmark_reproducibility(
     Writes ``benchmark_run.v0.json``, ``coverage_report.v0.json``,
     ``regeneration_reports/``, and ``hash_stability_report.v0.json`` (when enabled).
     """
-    del workflow_key
     if runs < 1:
         raise ValueError("runs must be >= 1")
     profile = workflow_profile_view(policy_root=policy_root)
@@ -429,6 +434,37 @@ def benchmark_reproducibility(
     validate_reproducibility_coverage_report(coverage)
     (out_dir / COVERAGE_REPORT_NAME).write_text(
         json.dumps(coverage, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    pcs_coverage = build_release_reproducibility_coverage_report(
+        run_doc=run_doc,
+        reproducibility_coverage=coverage,
+        policy_root=policy_root,
+    )
+    ingest = build_pcs_bench_ingest(
+        workflow_id=workflow_key,
+        benchmark_runs=[run_doc],
+        coverage_reports=[pcs_coverage],
+        policy_root=policy_root,
+        suite_id=PCS_BENCH_SUITE_ID,
+        commands=[
+            {
+                "command": (
+                    f"labtrust benchmark-reproducibility --workflow {workflow_key} "
+                    f"--mode {selected_mode} --runs {runs} --out {out_dir}"
+                ),
+                "exit_code": 0 if aggregate["command_deterministic"] else 1,
+            }
+        ],
+        logs=[f"mode={selected_mode} deterministic={aggregate['command_deterministic']}"],
+    )
+    if pcs_core is not None:
+        from labtrust_gym.pcs.bench_schemas import validate_pcs_bench_ingest_pcs_core
+
+        validate_pcs_bench_ingest_pcs_core(ingest, pcs_core_root=pcs_core)
+    (out_dir / PCS_BENCH_INGEST_NAME).write_text(
+        json.dumps(ingest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     return run_doc

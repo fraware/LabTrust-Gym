@@ -120,6 +120,14 @@ records artifact/canonical hash stability, CertifyEdge success, release protocol
 status policy, and pcs-core validation. CI falls back to `hash_stability` when CertifyEdge is
 unavailable (`examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py`).
 
+## Definition of done (LabTrust producer)
+
+1. `labtrust generate-benchmark-cases --pcs-bench-layout` emits `suite.yaml`, `benchmark_manifest.v0.json`, `valid/`, `invalid/`, and `coverage_report.v0.json`.
+2. Each case uses `input_artifacts.release_directory` = `input_artifacts/` (flat) or pcs-core fixture paths after layout patch.
+3. Valid cases use pcs-core null failure fields; invalid cases ship `expected_failure.json` and repair hints.
+4. `labtrust benchmark-reproducibility --mode full_regeneration` (default) writes `benchmark_run.v0.json`, `coverage_report.v0.json`, `hash_stability_report.v0.json`, `regeneration_reports/`, and `pcs_bench_ingest.v0.json`.
+5. Generated cases validate against pcs-core when a checkout is provided.
+
 ## pcs-bench integration
 
 Suite id `labtrust-qc-release-v0`. Layout: `valid/<case_id>/`, `invalid/<case_id>/`,

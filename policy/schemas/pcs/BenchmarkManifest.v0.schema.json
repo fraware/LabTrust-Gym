@@ -12,6 +12,8 @@
     "generator_version",
     "source_repo",
     "source_commit",
+    "case_count",
+    "case_ids",
     "cases",
     "coverage_report",
     "signature_or_digest"
@@ -27,6 +29,11 @@
     "source_repo": { "type": "string", "format": "uri" },
     "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "seed": { "type": "integer", "minimum": 0 },
+    "case_count": { "type": "integer", "minimum": 0 },
+    "case_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "cases": {
       "type": "array",
       "items": { "$ref": "#/$defs/case_ref" }

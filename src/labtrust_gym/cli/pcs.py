@@ -326,6 +326,7 @@ def _run_generate_benchmark_cases(args: argparse.Namespace) -> int:
             profile_path=profile_path,
             seed=args.seed,
             pcs_bench_layout=getattr(args, "pcs_bench_layout", False),
+            suite_fixture_root=getattr(args, "suite_fixture_root", None),
         )
     except (ValueError, FileNotFoundError, NotImplementedError) as e:
         get_console().error(str(e))
@@ -790,6 +791,11 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         "--pcs-bench-layout",
         action="store_true",
         help="Emit pcs-bench layout (valid/, invalid/, suite.yaml, benchmark_manifest.v0.json)",
+    )
+    p_bench.add_argument(
+        "--suite-fixture-root",
+        default=None,
+        help="pcs-core registry fixture root (default: benchmarks/labtrust-qc-release)",
     )
     p_bench.set_defaults(func=_run_generate_benchmark_cases)
 
