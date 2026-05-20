@@ -321,7 +321,10 @@ python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
 python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_bench_layout.py
 python examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.py
 
-# Export canonical pcs-bench tree + registry into sibling pcs-core (not committed in LabTrust-Gym):
+# Refresh LabTrust examples benchmark + pcs-core canonical suite (one command):
+# examples/pcs_qc_release/scripts/refresh_pcs_benchmark_fixtures.ps1
+
+# Export canonical pcs-bench tree + registry into sibling pcs-core only:
 # examples/pcs_qc_release/scripts/export_pcs_bench_to_pcs_core.ps1
 # or: python examples/pcs_qc_release/scripts/generate_pcs_bench_suite.py --registry ../pcs-core/examples/benchmark_registry.valid.json
 
