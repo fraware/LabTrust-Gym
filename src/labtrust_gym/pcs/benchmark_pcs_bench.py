@@ -182,12 +182,12 @@ def build_benchmark_task_v0(
             "minimum_pass_rate": 1.0,
         },
         "metrics": [
-            "release_reproducibility",
-            "failure_localization",
-            "certificate_completeness",
-            "registry_coverage",
-            "formal_check_coverage",
-            "scientific_memory_interpretability",
+            "release_reproducibility_score",
+            "failure_localization_accuracy",
+            "certificate_completeness_score",
+            "registry_coverage_score",
+            "formal_check_coverage_score",
+            "scientific_memory_interpretability_score",
         ],
         "success_criteria": {
             "minimum_pass_rate": 1.0,

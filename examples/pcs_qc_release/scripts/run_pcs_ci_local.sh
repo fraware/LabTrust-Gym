@@ -26,6 +26,7 @@ labtrust generate-benchmark-cases \
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_bench_layout.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.py
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_pcs_core_labtrust_suite.py
 "$PYTHON" examples/pcs_qc_release/scripts/generate_benchmark_packet.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
 "$PYTHON" -m labtrust_gym.cli.main check-status-policy \

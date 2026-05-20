@@ -105,6 +105,8 @@ jobs:
           python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
           python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_bench_layout.py
           python examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.py
+      - name: Validate pcs-core labtrust-qc-release benchmark suite
+        run: python examples/pcs_qc_release/scripts/ci_validate_pcs_core_labtrust_suite.py
       - name: pcs-bench validate fixtures (when pcs-core checkout present)
         continue-on-error: true
         run: |
