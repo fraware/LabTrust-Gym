@@ -1,5 +1,10 @@
 {
-  "hint": "Remove pf_handoff.json; emit handoff_to_pf.json (HandoffManifest.v0).",
-  "hint_kind": "emit_handoff_manifest_v0",
-  "repair_command": "labtrust emit-handoff-to-pf --bundle <certified.json> --out handoff_to_pf.json"
+  "expected_detection_layer": "LabTrust",
+  "failure_code": "legacy_handoff_file",
+  "repair_hint": {
+    "command": "labtrust emit-handoff-to-pf --bundle examples/pcs_qc_release/release/science_claim_bundle.certified.json --out handoff_to_pf.json",
+    "description": "Remove pf_handoff.json; emit handoff_to_pf.json (HandoffManifest.v0).",
+    "kind": "align_handoff"
+  },
+  "responsible_component": "handoff"
 }

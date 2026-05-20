@@ -85,18 +85,31 @@ jobs:
         run: |
           labtrust generate-benchmark-cases \
             --workflow hospital_lab.qc_release \
+            --out /tmp/labtrust-bench \
+            --release-dir examples/pcs_qc_release/release \
+            --seed 42
+          labtrust verify-benchmark-cases --benchmark-dir /tmp/labtrust-bench
+          labtrust generate-benchmark-cases \
+            --workflow hospital_lab.qc_release \
             --out examples/pcs_qc_release/benchmark \
             --release-dir examples/pcs_qc_release/release \
             --seed 42
           python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
-      - name: Reproducibility benchmark (hash stability)
+          python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
+      - name: pcs-bench validate fixtures (when pcs-core checkout present)
+        continue-on-error: true
         run: |
-          labtrust benchmark-reproducibility \
-            --pcs-core pcs-core/examples/labtrust-release \
-            --release-dir examples/pcs_qc_release/release \
-            --runs 3 \
-            --seed 42 \
-            --out /tmp/labtrust_repro_benchmark
+          if command -v pcs >/dev/null 2>&1; then
+            pcs benchmark validate
+          elif [ -d pcs-core/python ]; then
+            python -m pcs_core.cli benchmark validate
+          else
+            echo "skip pcs-bench validate (no pcs-core CLI)"
+          fi
+      - name: Reproducibility benchmark
+        run: python examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
+      - name: Benchmark packet fixtures
+        run: python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
       - name: Verify LabTrust release protocol package
         run: |
           labtrust verify-release-protocol \

@@ -1,5 +1,10 @@
 {
-  "hint": "Release package passes LabTrust verify-release-protocol and status policy.",
-  "hint_kind": "none",
-  "repair_command": "labtrust verify-release-protocol --release-dir examples/pcs_qc_release/release --pcs-core ../pcs-core"
+  "expected_detection_layer": "LabTrust",
+  "failure_code": "",
+  "repair_hint": {
+    "command": "labtrust verify-release-protocol --release-dir examples/pcs_qc_release/release --pcs-core ../pcs-core",
+    "description": "Release package passes LabTrust verify-release-protocol and status policy.",
+    "kind": "none"
+  },
+  "responsible_component": "runtime_producer"
 }

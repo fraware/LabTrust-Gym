@@ -4,4 +4,4 @@ Release rejected when actor lacks authorization.
 
 - Benchmark case: `labtrust-unauthorized-release-v0`
 - Detection layer: `LabTrust`
-- Case kind: `unauthorized_actor`
+- Case kind: `invalid_render`

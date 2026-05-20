@@ -1,5 +1,10 @@
 {
-  "hint": "Complete the QC verification step before release_sample.",
-  "hint_kind": "complete_qc_before_release",
-  "repair_command": "labtrust run-demo qc-release --deterministic --out <run_dir> && labtrust export-runtime-receipt --run <run_dir> --out runtime_receipt.json"
+  "expected_detection_layer": "LabTrust",
+  "failure_code": "missing_qc",
+  "repair_hint": {
+    "command": "labtrust run-demo qc-release --deterministic --out <run_dir> && labtrust export-runtime-receipt --run <run_dir> --out runtime_receipt.json",
+    "description": "Complete the QC verification step before release_sample.",
+    "kind": "unknown"
+  },
+  "responsible_component": "runtime_producer"
 }

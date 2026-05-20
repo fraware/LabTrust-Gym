@@ -10,7 +10,7 @@ import pytest
 
 pytest.importorskip("pcs_core")
 
-from labtrust_gym.pcs.failure_gallery import _failure_case_specs
+from labtrust_gym.pcs.failure_gallery import failure_case_specs
 from labtrust_gym.pcs.hash import pcs_digest
 from labtrust_gym.pcs.workflow_profile import (
     assert_workflow_profile_valid,
@@ -35,7 +35,7 @@ def test_workflow_profile_digest_matches_file(repo_root: Path) -> None:
 
 def test_workflow_profile_drives_failure_modes(repo_root: Path) -> None:
     profile = workflow_profile_view(policy_root=repo_root)
-    specs = _failure_case_specs(profile)
+    specs = failure_case_specs(profile)
     assert len(specs) == len(profile.failure_modes)
     assert "placeholder_commit" in profile.failure_modes
 

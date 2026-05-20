@@ -1,0 +1,6 @@
+{
+  "case_id": "trace_hash_tamper",
+  "expected_failing_check": "handoff_to_certifyedge_input_digests_fresh",
+  "expected_failure_code": "trace_hash_mismatch",
+  "expected_protocol_failure_code": "STALE_HANDOFF_DIGEST"
+}

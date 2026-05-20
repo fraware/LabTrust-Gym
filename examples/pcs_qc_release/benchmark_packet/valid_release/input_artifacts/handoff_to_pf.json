@@ -1,0 +1,31 @@
+{
+  "created_at": "2026-05-20T10:59:27Z",
+  "expected_outputs": {
+    "signed_science_claim_bundle.json": {
+      "artifact_type": "SignedScienceClaimBundle.v0"
+    },
+    "verification_result.json": {
+      "artifact_type": "VerificationResult.v0"
+    }
+  },
+  "from_component": "LabTrust-Gym",
+  "handoff_id": "handoff-labtrust-qc_release_v0-1-to-pf",
+  "handoff_kind": "bundle_to_verifier",
+  "input_artifacts": {
+    "science_claim_bundle.certified.json": {
+      "artifact_type": "ScienceClaimBundle.v0",
+      "sha256": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652"
+    }
+  },
+  "invariants": {
+    "certificate_id": "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee",
+    "certified_bundle_hash": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652",
+    "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
+  },
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:de85f72bb163a0152d1188ee21f16130fb1726b9e3a31cd7a4aaffc6b2d0f840",
+  "source_commit": "186c65b252bfaade6ee321b0a74c15980852cdd2",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym",
+  "status": "Validated",
+  "to_component": "Provability Fabric"
+}

@@ -10,44 +10,109 @@ from typing import Any
 
 from labtrust_gym.pcs.bench_schemas import (
     validate_benchmark_run,
+    validate_reproducibility_benchmark_report,
     validate_reproducibility_coverage_report,
 )
-from labtrust_gym.pcs.hash import file_digest
+from labtrust_gym.pcs.benchmark_case import LABTRUST_SOURCE_REPO, _benchmark_provenance
+from labtrust_gym.pcs.hash import file_digest, pcs_digest
 from labtrust_gym.pcs.regenerate_release_protocol import regenerate_release_protocol
+from labtrust_gym.pcs.regeneration_report import REGENERATION_REPORT_NAME
 from labtrust_gym.pcs.release_protocol_producer import LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS
+from labtrust_gym.pcs.status_policy import check_release_status_policy
 from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
 from labtrust_gym.pcs.workflow_profile import workflow_profile_view
 
 BENCHMARK_RUN_NAME = "benchmark_run.v0.json"
 COVERAGE_REPORT_NAME = "coverage_report.v0.json"
+REGENERATION_BENCHMARK_REPORT_NAME = "regeneration_report.json"
 
 _HASH_ARTIFACTS = tuple(LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS) + (
     "manifest.json",
     "trace_certificate.json",
     "workflow_profile.v0.json",
+    "regeneration_report.json",
+)
+
+_CANONICAL_JSON_ARTIFACTS = (
+    "trace.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.pending.json",
+    "science_claim_bundle.certified.json",
+    "trace_certificate.json",
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
 )
 
 
-def _collect_release_metrics(release_dir: Path, *, pcs_core: Path | None) -> dict[str, Any]:
+def _canonical_hashes(release_dir: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for name in _CANONICAL_JSON_ARTIFACTS:
+        path = release_dir / name
+        if path.is_file():
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            out[name] = pcs_digest(doc)
+    return out
+
+
+def _collect_release_metrics(
+    release_dir: Path,
+    *,
+    pcs_core: Path | None,
+    policy_root: Path,
+    certifyedge_call_success: bool,
+    regeneration_duration_ms: int = 0,
+) -> dict[str, Any]:
     release_dir = release_dir.resolve()
     hashes: dict[str, str] = {}
     for name in _HASH_ARTIFACTS:
         path = release_dir / name
         if path.is_file():
             hashes[name] = file_digest(path)
+    canonical = _canonical_hashes(release_dir)
     cert_id: str | None = None
     cert_path = release_dir / "trace_certificate.json"
     if cert_path.is_file():
         cert_id = json.loads(cert_path.read_text(encoding="utf-8")).get("certificate_id")
+
     t0 = time.perf_counter()
-    checks = verify_release_protocol(release_dir, pcs_core=pcs_core)
-    duration_ms = int((time.perf_counter() - t0) * 1000)
+    release_checks: list[str] = []
+    release_passed = False
+    status_passed = False
+    pcs_core_passed = False
+    try:
+        release_checks = verify_release_protocol(
+            release_dir, pcs_core=pcs_core, policy_root=policy_root
+        )
+        release_passed = True
+        pcs_core_passed = pcs_core is not None and any(
+            c.startswith("release_sync") or "canonical" in c for c in release_checks
+        )
+        if pcs_core is None:
+            pcs_core_passed = True
+    except (ValueError, FileNotFoundError, RuntimeError):
+        release_passed = False
+
+    try:
+        status_result = check_release_status_policy(release_dir)
+        status_passed = status_result.get("status") == "passed"
+    except (ValueError, FileNotFoundError):
+        status_passed = False
+
+    duration_ms = int((time.perf_counter() - t0) * 1000) + regeneration_duration_ms
+
     return {
         "artifact_hashes": hashes,
+        "canonical_hashes": canonical,
         "certificate_id": cert_id,
-        "release_validation_passed": True,
-        "release_validation_checks": checks,
+        "certifyedge_call_success": certifyedge_call_success,
+        "release_protocol_validation_passed": release_passed,
+        "release_protocol_validation_checks": release_checks,
+        "status_policy_validation_passed": status_passed,
+        "pcs_core_validation_passed": pcs_core_passed,
+        "regeneration_report_present": (release_dir / REGENERATION_REPORT_NAME).is_file(),
         "duration_ms": duration_ms,
+        "regeneration_duration_ms": regeneration_duration_ms,
     }
 
 
@@ -63,13 +128,28 @@ def _full_regeneration_run(
     if run_dir.exists():
         shutil.rmtree(run_dir)
     run_dir.mkdir(parents=True)
-    regenerate_release_protocol(
+    t0 = time.perf_counter()
+    certifyedge_ok = True
+    try:
+        regenerate_release_protocol(
+            run_dir,
+            policy_root=policy_root,
+            pcs_core=pcs_core,
+            certifyedge_bin=certifyedge_bin,
+        )
+    except (FileNotFoundError, RuntimeError, OSError, ValueError) as exc:
+        certifyedge_ok = False
+        raise NotImplementedError(
+            f"full_regeneration run {run_index} failed: {exc}"
+        ) from exc
+    regen_ms = int((time.perf_counter() - t0) * 1000)
+    metrics = _collect_release_metrics(
         run_dir,
-        policy_root=policy_root,
         pcs_core=pcs_core,
-        certifyedge_bin=certifyedge_bin,
+        policy_root=policy_root,
+        certifyedge_call_success=certifyedge_ok,
+        regeneration_duration_ms=regen_ms,
     )
-    metrics = _collect_release_metrics(run_dir, pcs_core=pcs_core)
     metrics["run_index"] = run_index
     return metrics
 
@@ -80,12 +160,18 @@ def _hash_stability_run(
     run_dir: Path,
     run_index: int,
     pcs_core: Path | None,
+    policy_root: Path,
 ) -> dict[str, Any]:
     run_dir = run_dir.resolve()
     if run_dir.exists():
         shutil.rmtree(run_dir)
     shutil.copytree(release_dir, run_dir)
-    metrics = _collect_release_metrics(run_dir, pcs_core=pcs_core)
+    metrics = _collect_release_metrics(
+        run_dir,
+        pcs_core=pcs_core,
+        policy_root=policy_root,
+        certifyedge_call_success=True,
+    )
     metrics["run_index"] = run_index
     return metrics
 
@@ -94,26 +180,114 @@ def _aggregate_runs(per_run: list[dict[str, Any]]) -> dict[str, Any]:
     if not per_run:
         raise ValueError("per_run must not be empty")
     first_hashes = per_run[0]["artifact_hashes"]
+    first_canonical = per_run[0]["canonical_hashes"]
     hashes_stable = all(r["artifact_hashes"] == first_hashes for r in per_run)
+    canonical_stable = all(r["canonical_hashes"] == first_canonical for r in per_run)
     cert_ids = [r.get("certificate_id") for r in per_run]
     cert_stable = len(set(cert_ids)) == 1
-    validation_stable = all(r.get("release_validation_passed") for r in per_run) and len(
-        {tuple(r.get("release_validation_checks", [])) for r in per_run}
+    release_stable = all(r.get("release_protocol_validation_passed") for r in per_run) and len(
+        {tuple(r.get("release_protocol_validation_checks", [])) for r in per_run}
     ) == 1
+    status_stable = all(r.get("status_policy_validation_passed") for r in per_run)
+    pcs_stable = all(r.get("pcs_core_validation_passed") for r in per_run)
+    certifyedge_rate = sum(1 for r in per_run if r.get("certifyedge_call_success")) / len(per_run)
     durations = [int(r["duration_ms"]) for r in per_run]
+    deterministic = (
+        hashes_stable
+        and canonical_stable
+        and release_stable
+        and status_stable
+        and pcs_stable
+    )
     return {
         "artifact_hashes_stable": hashes_stable,
         "certificate_id_stable": cert_stable,
         "certificate_id_non_deterministic_declared": not cert_stable,
-        "canonical_hashes_stable": hashes_stable,
-        "release_validation_stable": validation_stable,
-        "command_deterministic": hashes_stable and validation_stable,
+        "canonical_hashes_stable": canonical_stable,
+        "release_validation_stable": release_stable,
+        "status_policy_stable": status_stable,
+        "pcs_core_validation_stable": pcs_stable,
+        "certifyedge_success_rate": certifyedge_rate,
+        "command_deterministic": deterministic,
         "duration_ms": {
             "min": min(durations),
             "max": max(durations),
             "mean": sum(durations) / len(durations),
         },
     }
+
+
+def _benchmark_run_doc(
+    *,
+    profile_property_id: str,
+    selected_mode: str,
+    seed: int,
+    runs: int,
+    per_run: list[dict[str, Any]],
+    aggregate: dict[str, Any],
+) -> dict[str, Any]:
+    slim_runs = []
+    for r in per_run:
+        slim_runs.append(
+            {
+                "run_index": r["run_index"],
+                "duration_ms": r["duration_ms"],
+                "artifact_hashes": r["artifact_hashes"],
+                "certificate_id": r.get("certificate_id"),
+                "release_validation_passed": r["release_protocol_validation_passed"],
+                "release_validation_checks": r.get("release_protocol_validation_checks", []),
+            }
+        )
+    slim_aggregate = {
+        k: aggregate[k]
+        for k in (
+            "artifact_hashes_stable",
+            "certificate_id_stable",
+            "certificate_id_non_deterministic_declared",
+            "canonical_hashes_stable",
+            "release_validation_stable",
+            "command_deterministic",
+            "duration_ms",
+        )
+    }
+    return {
+        "schema_version": "v0",
+        "benchmark_id": "labtrust-reproducibility-v0",
+        "workflow_id": profile_property_id,
+        "mode": selected_mode,
+        "seed": seed,
+        "runs": runs,
+        "per_run": slim_runs,
+        "aggregate": slim_aggregate,
+    }
+
+
+def _regeneration_benchmark_report(
+    *,
+    profile_property_id: str,
+    selected_mode: str,
+    seed: int,
+    runs: int,
+    per_run: list[dict[str, Any]],
+    aggregate: dict[str, Any],
+    policy_root: Path,
+) -> dict[str, Any]:
+    source_repo, source_commit = _benchmark_provenance(policy_root)
+    doc: dict[str, Any] = {
+        "schema_version": "v0",
+        "benchmark_id": "labtrust-reproducibility-v0",
+        "workflow_id": profile_property_id,
+        "mode": selected_mode,
+        "seed": seed,
+        "runs": runs,
+        "per_run": per_run,
+        "aggregate": aggregate,
+        "source_repo": source_repo,
+        "source_commit": source_commit,
+    }
+    unsigned = {k: v for k, v in doc.items() if k != "signature_or_digest"}
+    doc["signature_or_digest"] = pcs_digest(unsigned)
+    return doc
 
 
 def benchmark_reproducibility(
@@ -131,9 +305,8 @@ def benchmark_reproducibility(
     """
     Measure release-chain reproducibility.
 
-    ``hash_stability`` (default): copy committed release ``runs`` times and verify
-    hashes and validation are identical. ``full_regeneration`` re-runs protocol
-    generation when CertifyEdge is available (local benches only).
+    ``full_regeneration`` (default): regenerate the protocol package ``runs`` times.
+    ``hash_stability``: copy committed release ``runs`` times and verify stability.
     """
     del workflow_key
     if runs < 1:
@@ -143,7 +316,7 @@ def benchmark_reproducibility(
     if not (release / "trace.json").is_file():
         raise FileNotFoundError(f"release baseline not found: {release}")
 
-    selected_mode = mode or "hash_stability"
+    selected_mode = mode or "full_regeneration"
     if selected_mode not in ("hash_stability", "full_regeneration"):
         raise ValueError(f"unsupported mode {selected_mode!r}")
 
@@ -163,40 +336,50 @@ def benchmark_reproducibility(
                     run_dir=runs_root / f"run_{i}",
                     run_index=i,
                     pcs_core=pcs_core,
+                    policy_root=policy_root,
                 )
             )
     else:
         for i in range(runs):
-            try:
-                per_run.append(
-                    _full_regeneration_run(
-                        run_dir=runs_root / f"run_{i}",
-                        run_index=i,
-                        policy_root=policy_root,
-                        pcs_core=pcs_core,
-                        certifyedge_bin=certifyedge_bin,
-                    )
+            per_run.append(
+                _full_regeneration_run(
+                    run_dir=runs_root / f"run_{i}",
+                    run_index=i,
+                    policy_root=policy_root,
+                    pcs_core=pcs_core,
+                    certifyedge_bin=certifyedge_bin,
                 )
-            except (FileNotFoundError, RuntimeError, OSError) as exc:
-                raise NotImplementedError(
-                    "full_regeneration requires CertifyEdge and a writable release tree; "
-                    f"run {i} failed: {exc}"
-                ) from exc
+            )
 
     aggregate = _aggregate_runs(per_run)
-    doc: dict[str, Any] = {
-        "schema_version": "v0",
-        "benchmark_id": "labtrust-reproducibility-v0",
-        "workflow_id": profile.property_id,
-        "mode": selected_mode,
-        "seed": seed,
-        "runs": runs,
-        "per_run": per_run,
-        "aggregate": aggregate,
-    }
-    validate_benchmark_run(doc)
-    run_path = out_dir / BENCHMARK_RUN_NAME
-    run_path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    run_doc = _benchmark_run_doc(
+        profile_property_id=profile.property_id,
+        selected_mode=selected_mode,
+        seed=seed,
+        runs=runs,
+        per_run=per_run,
+        aggregate=aggregate,
+    )
+    validate_benchmark_run(run_doc)
+    (out_dir / BENCHMARK_RUN_NAME).write_text(
+        json.dumps(run_doc, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    regen_doc = _regeneration_benchmark_report(
+        profile_property_id=profile.property_id,
+        selected_mode=selected_mode,
+        seed=seed,
+        runs=runs,
+        per_run=per_run,
+        aggregate=aggregate,
+        policy_root=policy_root,
+    )
+    validate_reproducibility_benchmark_report(regen_doc)
+    (out_dir / REGENERATION_BENCHMARK_REPORT_NAME).write_text(
+        json.dumps(regen_doc, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     coverage = {
         "schema_version": "v0",
@@ -211,4 +394,4 @@ def benchmark_reproducibility(
         json.dumps(coverage, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    return doc
+    return run_doc

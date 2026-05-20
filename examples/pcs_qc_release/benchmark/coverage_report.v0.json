@@ -15,15 +15,14 @@
     "labtrust-valid-release-v0"
   ],
   "case_kinds_covered": [
-    "certificate_tamper",
-    "formal_check_failure",
-    "handoff_tamper",
+    "invalid_certificate",
+    "invalid_formal_check",
+    "invalid_handoff",
     "invalid_hash_mismatch",
-    "missing_qc_step",
-    "provenance_invalid",
-    "scientific_memory_import_failure",
-    "status_transition",
-    "unauthorized_actor",
+    "invalid_import",
+    "invalid_registry",
+    "invalid_render",
+    "stale_release",
     "valid_release"
   ],
   "cases_covered": 13,
@@ -35,20 +34,17 @@
     "Scientific Memory"
   ],
   "repair_hint_kinds_covered": [
-    "align_certificate_trace_hash",
-    "align_verification_and_bundle_hash",
-    "complete_qc_before_release",
-    "emit_handoff_manifest_v0",
+    "align_certificate_id",
+    "align_handoff",
+    "align_hash",
+    "align_provenance",
+    "fix_import_report",
     "none",
-    "re_emit_certificate",
-    "re_emit_valid_certificate",
-    "reattach_certificate_after_trace_change",
-    "regenerate_trace_or_certificate",
-    "regenerate_with_real_provenance",
-    "resign_bundle_for_memory_import",
-    "use_authorized_release_actor"
+    "rerun_formal_check",
+    "rerun_verification",
+    "unknown"
   ],
   "schema_version": "v0",
-  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "task_id": "labtrust-qc-release-v0",
   "workflow_id": "hospital_lab.qc_release"
 }

@@ -1,5 +1,6 @@
 {
   "case_id": "certificate_id_tamper",
   "expected_failing_check": "certificate_id_propagation",
-  "expected_failure_code": "CERTIFICATE_ID_MISMATCH"
+  "expected_failure_code": "certificate_id_mismatch",
+  "expected_protocol_failure_code": "CERTIFICATE_ID_MISMATCH"
 }

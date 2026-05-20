@@ -9,7 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from labtrust_gym.pcs.benchmark_case import BENCHMARK_CASE_NAME, VALID_RELEASE_DIR_NAME
+from labtrust_gym.pcs.benchmark_case import (
+    BENCHMARK_CASE_NAME,
+    LABTRUST_EXTENSION_NAME,
+    VALID_RELEASE_DIR_NAME,
+)
 from labtrust_gym.pcs.benchmark_cases import (
     BENCHMARK_INDEX_NAME,
     generate_benchmark_cases,
@@ -35,7 +39,7 @@ def test_generate_benchmark_cases_all_thirteen(
     assert len(checks) >= 12
 
 
-def test_benchmark_case_has_localization_fields(
+def test_benchmark_case_pcs_core_fields_and_extension(
     repo_root: Path, release_dir: Path, tmp_path: Path
 ) -> None:
     out = tmp_path / "benchmark"
@@ -49,9 +53,21 @@ def test_benchmark_case_has_localization_fields(
     doc = json.loads((out / "trace_hash_tamper" / BENCHMARK_CASE_NAME).read_text(encoding="utf-8"))
     validate_benchmark_case(doc)
     assert doc["workflow_id"] == "hospital_lab.qc_release"
-    assert doc["expected_detection_layer"] == "LabTrust"
+    assert doc["case_kind"] == "invalid_hash_mismatch"
     assert doc["expected_failure_code"] == "trace_hash_mismatch"
-    assert doc["expected_protocol_failure_code"] == "STALE_HANDOFF_DIGEST"
+    assert doc["expected_responsible_component"] == "runtime_producer"
+    assert doc["input_artifacts"]["release_directory"] == "input_artifacts"
+    assert doc["source_repo"].startswith("https://")
+    assert len(doc["source_commit"]) == 40
+    ext = json.loads(
+        (out / "trace_hash_tamper" / LABTRUST_EXTENSION_NAME).read_text(encoding="utf-8")
+    )
+    assert ext["expected_detection_layer"] == "LabTrust"
+    assert ext["expected_protocol_failure_code"] == "STALE_HANDOFF_DIGEST"
+    repair = json.loads(
+        (out / "trace_hash_tamper" / "expected_repair_hint.json").read_text(encoding="utf-8")
+    )
+    assert repair["repair_hint"]["kind"] == "regenerate_trace_or_certificate"
     assert (out / "trace_hash_tamper" / "input_artifacts" / "trace.json").is_file()
 
 

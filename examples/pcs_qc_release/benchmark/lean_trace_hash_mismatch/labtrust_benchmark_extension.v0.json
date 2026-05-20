@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "Lean trust kernel",
+  "expected_failing_check": "lean_obligation.CertificateMatchesRuntime",
+  "expected_protocol_failure_code": "LEAN_CERTIFICATE_TRACE_HASH_MISMATCH",
+  "gallery_case_id": "lean_trace_hash_mismatch",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

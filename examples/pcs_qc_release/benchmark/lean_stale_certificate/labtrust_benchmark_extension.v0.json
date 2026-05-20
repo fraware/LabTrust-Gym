@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "Lean trust kernel",
+  "expected_failing_check": "lean_obligation.CertificateMatchesRuntime",
+  "expected_protocol_failure_code": "LEAN_CERTIFICATE_STALE",
+  "gallery_case_id": "lean_stale_certificate",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

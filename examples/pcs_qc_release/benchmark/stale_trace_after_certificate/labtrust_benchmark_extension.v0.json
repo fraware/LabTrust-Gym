@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "certified_trace_hash_consistent",
+  "expected_protocol_failure_code": "STALE_TRACE_AFTER_CERTIFICATE",
+  "gallery_case_id": "stale_trace_after_certificate",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": null,
+  "expected_protocol_failure_code": null,
+  "gallery_case_id": "valid_release",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

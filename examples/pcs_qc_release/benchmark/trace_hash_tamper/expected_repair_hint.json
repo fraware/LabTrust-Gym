@@ -1,5 +1,10 @@
 {
-  "hint": "Regenerate trace.json from the workflow run; do not edit trace_hash in isolation.",
-  "hint_kind": "regenerate_trace_or_certificate",
-  "repair_command": "labtrust regenerate-release-protocol --out examples/pcs_qc_release/release --certifyedge-bin certifyedge --pcs-core ../pcs-core"
+  "expected_detection_layer": "LabTrust",
+  "failure_code": "trace_hash_mismatch",
+  "repair_hint": {
+    "command": "labtrust regenerate-release-protocol --pcs-core ../pcs-core --certifyedge-bin certifyedge --out examples/pcs_qc_release/release",
+    "description": "Regenerate trace.json from the workflow run; do not edit trace_hash in isolation.",
+    "kind": "regenerate_trace_or_certificate"
+  },
+  "responsible_component": "runtime_producer"
 }

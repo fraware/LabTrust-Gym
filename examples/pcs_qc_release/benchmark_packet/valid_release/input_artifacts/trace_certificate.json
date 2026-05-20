@@ -1,0 +1,17 @@
+{
+  "certificate_id": "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee",
+  "checker": "CertifyEdge",
+  "checker_version": "0.1.0",
+  "counterexample_ref": null,
+  "created_at": "2026-05-20T10:59:17Z",
+  "producer": "CertifyEdge",
+  "producer_version": "0.1.0",
+  "property_id": "hospital_lab.qc_release",
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:5db035de9f8473a3ad80efd8230193bce84ff5b75a64a5706d90952df1cca106",
+  "source_commit": "48db0a02bd8dbc0bbd81412d5782b3d7281fa1c9",
+  "source_repo": "https://github.com/fraware/CertifyEdge",
+  "spec_hash": "sha256:7c66dfcf640d382653d8ce7c2c700371d72ff0d6fb59156d411cf2aa9a7dfe5e",
+  "status": "CertificateChecked",
+  "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
+}

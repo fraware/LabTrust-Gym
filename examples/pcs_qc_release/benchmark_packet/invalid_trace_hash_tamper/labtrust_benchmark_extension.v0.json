@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "handoff_to_certifyedge_input_digests_fresh",
+  "expected_protocol_failure_code": "STALE_HANDOFF_DIGEST",
+  "gallery_case_id": "trace_hash_tamper",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

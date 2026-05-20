@@ -1,7 +1,10 @@
 {
   "all_required_inputs_present": true,
   "formalization_scope": "trust_envelope_only",
-  "missing_inputs": [],
+  "missing_inputs": [
+    "verification_result.json",
+    "signed_science_claim_bundle.json"
+  ],
   "required_obligations": [
     "CertificateMatchesRuntime",
     "VerificationAdmitsBundle",

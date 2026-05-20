@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "workflow.run_meta.released",
+  "expected_protocol_failure_code": "unauthorized_release",
+  "gallery_case_id": "unauthorized_release",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

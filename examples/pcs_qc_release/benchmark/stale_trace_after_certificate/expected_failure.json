@@ -1,5 +1,6 @@
 {
   "case_id": "stale_trace_after_certificate",
   "expected_failing_check": "certified_trace_hash_consistent",
-  "expected_failure_code": "STALE_TRACE_AFTER_CERTIFICATE"
+  "expected_failure_code": "stale_trace_after_certificate",
+  "expected_protocol_failure_code": "STALE_TRACE_AFTER_CERTIFICATE"
 }

@@ -1,17 +1,79 @@
 {
   "case_id": "labtrust-legacy-handoff-file-v0",
-  "case_kind": "handoff_tamper",
-  "expected_detection_layer": "LabTrust",
-  "expected_failing_check": "no_legacy_pf_handoff_root",
+  "case_kind": "invalid_handoff",
   "expected_failure_code": "legacy_handoff_file",
-  "expected_protocol_failure_code": "LEGACY_HANDOFF_FILE",
-  "expected_repair_command": "labtrust emit-handoff-to-pf --bundle <certified.json> --out handoff_to_pf.json",
-  "expected_repair_hint_kind": "emit_handoff_manifest_v0",
-  "expected_responsible_component": "runtime_producer",
-  "expected_status": "Rejected",
-  "gallery_case_id": "legacy_handoff_file",
-  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "expected_repair_hint_kind": "align_handoff",
+  "expected_responsible_component": "handoff",
+  "expected_status": "failed",
+  "input_artifacts": {
+    "artifacts": [
+      {
+        "artifact_type": "HandoffManifest.v0",
+        "path": "handoff_to_certifyedge.json",
+        "role": "handoff_to_certifyedge_json"
+      },
+      {
+        "artifact_type": "HandoffManifest.v0",
+        "path": "handoff_to_pf.json",
+        "role": "handoff_to_pf_json"
+      },
+      {
+        "artifact_type": "ComponentReleaseFragment.v0",
+        "path": "labtrust_release_fragment.json",
+        "role": "labtrust_release_fragment_json"
+      },
+      {
+        "artifact_type": "ReleaseManifest.v0",
+        "path": "manifest.json",
+        "role": "manifest_json"
+      },
+      {
+        "artifact_type": "Unknown.v0",
+        "path": "pf_handoff.json",
+        "role": "pf_handoff_json"
+      },
+      {
+        "artifact_type": "RuntimeReceipt.v0",
+        "path": "runtime_receipt.json",
+        "role": "runtime_receipt_json"
+      },
+      {
+        "artifact_type": "ScienceClaimBundle.v0",
+        "path": "science_claim_bundle.certified.json",
+        "role": "science_claim_bundle_certified_json"
+      },
+      {
+        "artifact_type": "ScienceClaimBundle.v0",
+        "path": "science_claim_bundle.pending.json",
+        "role": "science_claim_bundle_pending_json"
+      },
+      {
+        "artifact_type": "LabTrustTrace.v0",
+        "path": "trace.json",
+        "role": "trace_json"
+      },
+      {
+        "artifact_type": "TraceCertificate.v0",
+        "path": "trace_certificate.json",
+        "role": "trace_certificate_json"
+      },
+      {
+        "artifact_type": "TraceHashAlignment.v0",
+        "path": "trace_hash_alignment.json",
+        "role": "trace_hash_alignment_json"
+      },
+      {
+        "artifact_type": "WorkflowProfile.v0",
+        "path": "workflow_profile.v0.json",
+        "role": "workflow_profile_v0_json"
+      }
+    ],
+    "release_directory": "input_artifacts"
+  },
   "schema_version": "v0",
-  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "signature_or_digest": "sha256:5347be474451486bf4a24af755406124389c0c658645992f5012f8ec517652f2",
+  "source_commit": "186c65b252bfaade6ee321b0a74c15980852cdd2",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym",
+  "task_id": "labtrust-qc-release-v0",
   "workflow_id": "hospital_lab.qc_release"
 }

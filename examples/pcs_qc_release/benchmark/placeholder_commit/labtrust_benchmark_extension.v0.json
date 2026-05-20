@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "no_placeholder_commits",
+  "expected_protocol_failure_code": "PLACEHOLDER_SOURCE_COMMIT",
+  "gallery_case_id": "placeholder_commit",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

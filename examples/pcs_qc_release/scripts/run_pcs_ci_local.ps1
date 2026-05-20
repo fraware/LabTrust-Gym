@@ -34,6 +34,9 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   --release-dir examples/pcs_qc_release/release `
   --seed 42
 & $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
+& $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
+& $Python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
+& $Python examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 & $Labtrust check-status-policy --release-dir examples/pcs_qc_release/release

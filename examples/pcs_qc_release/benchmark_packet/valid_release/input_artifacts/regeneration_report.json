@@ -1,0 +1,35 @@
+{
+  "artifact_hashes": {
+    "handoff_to_certifyedge.json": "sha256:e9a2abc5bfa576dcf07546ca6c5f8ddbc43436258254cab2f12760834384fd32",
+    "handoff_to_pf.json": "sha256:aa06d86faf4acd7f4cc700a92e5176a776a691dfd3904f7283dfcbe8176be37a",
+    "labtrust_release_fragment.json": "sha256:1ccf6b49eeb3a075e9bd3aeed0d220b4765af8b9f65721afc56ec15fd563b11d",
+    "runtime_receipt.json": "sha256:5cfe4827ee37376cf67d7d1c8837c20b189c591412277e0486e75e5aae22130c",
+    "science_claim_bundle.certified.json": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652",
+    "science_claim_bundle.pending.json": "sha256:a76b8a8ee649417709a2161d712daa2000dee3c4cc46818db8d5a7ebcbf495d9",
+    "trace.json": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c",
+    "trace_certificate.json": "sha256:0e22ccc1f40fd3298ccace1e5870b9a27f1f73be69d2697afd003d2b00e1ddeb",
+    "workflow_profile.v0.json": "sha256:fec41435daba6ecdf9299aa6b491a9311c637bcb7f8e0fb442fdbf9a8ac11ade"
+  },
+  "artifacts_written": [
+    "trace.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.pending.json",
+    "trace_certificate.json",
+    "science_claim_bundle.certified.json",
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "workflow_profile.v0.json"
+  ],
+  "certificate_id": "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee",
+  "certified_bundle_hash": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652",
+  "duration_ms": 0,
+  "failure_code": null,
+  "handoffs_written": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json"
+  ],
+  "status": "passed",
+  "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
+  "workflow_id": "labtrust.qc_release_v0.1"
+}

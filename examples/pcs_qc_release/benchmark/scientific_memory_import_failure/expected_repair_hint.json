@@ -1,5 +1,10 @@
 {
-  "hint": "Re-sign the bundle after PF verify so signed_science_claim_bundle claim_id matches the certified bundle.",
-  "hint_kind": "resign_bundle_for_memory_import",
-  "repair_command": "pf sign-bundle ... && scientific-memory import-bundle signed_science_claim_bundle.json"
+  "expected_detection_layer": "Scientific Memory",
+  "failure_code": "scientific_memory_claim_id_mismatch",
+  "repair_hint": {
+    "command": "pf sign-bundle ... && scientific-memory import-bundle signed_science_claim_bundle.json",
+    "description": "Re-sign the bundle after PF verify so signed_science_claim_bundle claim_id matches the certified bundle.",
+    "kind": "fix_import_report"
+  },
+  "responsible_component": "scientific_memory"
 }

@@ -4,4 +4,4 @@ Lean VerificationAdmitsBundle / SignedBundleAdmissible fail on verified_input vs
 
 - Benchmark case: `labtrust-lean-signed-hash-mismatch-v0`
 - Detection layer: `Provability Fabric`
-- Case kind: `formal_check_failure`
+- Case kind: `invalid_formal_check`
