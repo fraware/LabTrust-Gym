@@ -12,6 +12,7 @@
     "case_kind",
     "input_artifacts",
     "expected_status",
+    "expected_system_outcome",
     "expected_failure_code",
     "expected_responsible_component",
     "expected_repair_hint_kind",
@@ -64,6 +65,17 @@
     "expected_status": {
       "type": "string",
       "enum": ["passed", "failed", "skipped", "error"]
+    },
+    "expected_system_outcome": {
+      "type": "string",
+      "enum": [
+        "admitted",
+        "rejected",
+        "stale",
+        "import_failed",
+        "render_failed",
+        "formal_failed"
+      ]
     },
     "expected_failure_code": { "type": "string" },
     "expected_responsible_component": {

@@ -1,0 +1,29 @@
+{
+  "schema_version": "v0",
+  "suite_id": "labtrust-qc-release-v0",
+  "fixture_root": "benchmarks/labtrust-qc-release",
+  "workflow_ids": ["labtrust.qc_release_v0.1"],
+  "valid_cases": ["labtrust-valid-release-v0"],
+  "invalid_cases": [
+    "labtrust-certificate-id-tamper-v0",
+    "labtrust-legacy-handoff-file-v0",
+    "labtrust-lean-rejected-certificate-v0",
+    "labtrust-lean-signed-hash-mismatch-v0",
+    "labtrust-lean-stale-certificate-v0",
+    "labtrust-lean-trace-hash-mismatch-v0",
+    "labtrust-missing-qc-result-v0",
+    "labtrust-placeholder-commit-v0",
+    "labtrust-scientific-memory-import-failure-v0",
+    "labtrust-stale-trace-after-certificate-v0",
+    "labtrust-trace-hash-tamper-v0",
+    "labtrust-unauthorized-release-v0"
+  ],
+  "legacy_case_id_map": {
+    "valid-release-chain": "labtrust-valid-release-v0",
+    "invalid-certificate-id": "labtrust-certificate-id-tamper-v0",
+    "invalid-trace-hash": "labtrust-trace-hash-tamper-v0",
+    "invalid-certified-bundle-hash": "labtrust-lean-signed-hash-mismatch-v0",
+    "invalid-placeholder-commit": "labtrust-placeholder-commit-v0",
+    "invalid-scientific-memory-import": "labtrust-scientific-memory-import-failure-v0"
+  }
+}

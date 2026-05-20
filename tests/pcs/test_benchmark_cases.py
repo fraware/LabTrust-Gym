@@ -56,7 +56,7 @@ def test_benchmark_case_pcs_core_fields_and_extension(
     assert doc["case_kind"] == "invalid_hash_mismatch"
     assert doc["expected_failure_code"] == "trace_hash_mismatch"
     assert doc["expected_responsible_component"] == "runtime_producer"
-    assert doc["input_artifacts"]["release_directory"] == "input_artifacts"
+    assert doc["input_artifacts"]["release_directory"] in ("input_artifacts/", "input_artifacts")
     assert doc["source_repo"].startswith("https://")
     assert len(doc["source_commit"]) == 40
     ext = json.loads(

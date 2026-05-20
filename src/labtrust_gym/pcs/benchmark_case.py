@@ -17,6 +17,7 @@ BENCHMARK_TASK_ID = "labtrust-qc-release-v0"
 LABTRUST_SOURCE_REPO = "https://github.com/fraware/LabTrust-Gym"
 VALID_RELEASE_DIR_NAME = "valid_release"
 INPUT_ARTIFACTS_DIR = "input_artifacts"
+PCS_BENCH_RELEASE_DIRECTORY = "input_artifacts/"
 EXPECTED_FAILURE_NAME = "expected_failure.json"
 EXPECTED_REPAIR_HINT_NAME = "expected_repair_hint.json"
 
@@ -87,6 +88,26 @@ def _benchmark_provenance(policy_root: Path) -> tuple[str, str]:
 def _finalize_signature(doc: dict[str, Any]) -> str:
     unsigned = {k: v for k, v in doc.items() if k != "signature_or_digest"}
     return pcs_digest(unsigned)
+
+
+SYSTEM_OUTCOME_BY_CASE_KIND: dict[str, str] = {
+    "valid_release": "admitted",
+    "invalid_certificate": "rejected",
+    "invalid_hash_mismatch": "rejected",
+    "invalid_handoff": "rejected",
+    "invalid_registry": "rejected",
+    "invalid_formal_check": "formal_failed",
+    "invalid_import": "import_failed",
+    "invalid_render": "render_failed",
+    "stale_release": "stale",
+}
+
+
+def expected_system_outcome_for(case_kind: str) -> str:
+    try:
+        return SYSTEM_OUTCOME_BY_CASE_KIND[case_kind]
+    except KeyError as exc:
+        raise ValueError(f"no system outcome for case_kind {case_kind!r}") from exc
 
 
 PCS_CASE_KIND_BY_GALLERY: dict[str, str] = {
@@ -299,10 +320,11 @@ def build_benchmark_case_document(
         "workflow_id": workflow_property_id,
         "case_kind": loc.pcs_case_kind,
         "input_artifacts": {
-            "release_directory": INPUT_ARTIFACTS_DIR,
+            "release_directory": PCS_BENCH_RELEASE_DIRECTORY,
             "artifacts": _artifact_refs(artifact_names),
         },
         "expected_status": loc.pcs_expected_status,
+        "expected_system_outcome": expected_system_outcome_for(loc.pcs_case_kind),
         "expected_failure_code": loc.benchmark_failure_code,
         "expected_responsible_component": loc.pcs_responsible_component,
         "expected_repair_hint_kind": loc.pcs_repair_hint_kind,
@@ -328,10 +350,11 @@ def build_valid_release_benchmark_case(
         "workflow_id": workflow_property_id,
         "case_kind": "valid_release",
         "input_artifacts": {
-            "release_directory": INPUT_ARTIFACTS_DIR,
+            "release_directory": PCS_BENCH_RELEASE_DIRECTORY,
             "artifacts": _artifact_refs(artifact_names),
         },
         "expected_status": "passed",
+        "expected_system_outcome": "admitted",
         "expected_failure_code": "",
         "expected_responsible_component": "runtime_producer",
         "expected_repair_hint_kind": "none",

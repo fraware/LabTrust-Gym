@@ -318,6 +318,12 @@ labtrust generate-benchmark-cases \
 labtrust verify-benchmark-cases --benchmark-dir examples/pcs_qc_release/benchmark --pcs-core ../pcs-core
 python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
 python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
+python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_bench_layout.py
+python examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.py
+
+# Export canonical pcs-bench tree + registry into sibling pcs-core (not committed in LabTrust-Gym):
+# examples/pcs_qc_release/scripts/export_pcs_bench_to_pcs_core.ps1
+# or: python examples/pcs_qc_release/scripts/generate_pcs_bench_suite.py --registry ../pcs-core/examples/benchmark_registry.valid.json
 
 # Minimal two-case packet for pcs-bench smoke (no full gallery):
 python examples/pcs_qc_release/scripts/generate_benchmark_packet.py

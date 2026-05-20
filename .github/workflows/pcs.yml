@@ -91,11 +91,20 @@ jobs:
           labtrust verify-benchmark-cases --benchmark-dir /tmp/labtrust-bench
           labtrust generate-benchmark-cases \
             --workflow hospital_lab.qc_release \
+            --out /tmp/labtrust-bench-layout \
+            --release-dir examples/pcs_qc_release/release \
+            --pcs-bench-layout \
+            --seed 42
+          labtrust verify-benchmark-cases --benchmark-dir /tmp/labtrust-bench-layout
+          labtrust generate-benchmark-cases \
+            --workflow hospital_lab.qc_release \
             --out examples/pcs_qc_release/benchmark \
             --release-dir examples/pcs_qc_release/release \
             --seed 42
           python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
           python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
+          python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_bench_layout.py
+          python examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.py
       - name: pcs-bench validate fixtures (when pcs-core checkout present)
         continue-on-error: true
         run: |

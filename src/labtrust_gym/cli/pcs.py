@@ -325,6 +325,7 @@ def _run_generate_benchmark_cases(args: argparse.Namespace) -> int:
             release_dir=release_dir,
             profile_path=profile_path,
             seed=args.seed,
+            pcs_bench_layout=getattr(args, "pcs_bench_layout", False),
         )
     except (ValueError, FileNotFoundError, NotImplementedError) as e:
         get_console().error(str(e))
@@ -784,6 +785,11 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         "--workflow-profile",
         default=None,
         help="WorkflowProfile.v0 path (default: examples/pcs_qc_release/workflow_profile.v0.json)",
+    )
+    p_bench.add_argument(
+        "--pcs-bench-layout",
+        action="store_true",
+        help="Emit pcs-bench layout (valid/, invalid/, suite.yaml, benchmark_manifest.v0.json)",
     )
     p_bench.set_defaults(func=_run_generate_benchmark_cases)
 

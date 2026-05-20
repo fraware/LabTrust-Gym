@@ -41,6 +41,8 @@ LABTRUST_BENCHMARK_EXTENSION_SCHEMA = (
     "policy/schemas/pcs/LabtrustBenchmarkExtension.v0.schema.json"
 )
 EXPECTED_REPAIR_HINT_SCHEMA = "policy/schemas/pcs/ExpectedRepairHint.v0.schema.json"
+BENCHMARK_MANIFEST_SCHEMA = "policy/schemas/pcs/BenchmarkManifest.v0.schema.json"
+HASH_STABILITY_REPORT_SCHEMA = "policy/schemas/pcs/HashStabilityReport.v0.schema.json"
 
 
 def _schema_path(rel: str, *, policy_root: Path | None = None) -> Path:
@@ -183,6 +185,24 @@ def _pcs_core_schema_registry(schemas_dir: Path):
             Resource.from_contents(json.loads(path.read_text(encoding="utf-8"))),
         )
     return registry, Draft202012Validator
+
+
+def validate_benchmark_manifest(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(BENCHMARK_MANIFEST_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)
+
+
+def validate_hash_stability_report(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(HASH_STABILITY_REPORT_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)
 
 
 def validate_benchmark_case_pcs_core(
