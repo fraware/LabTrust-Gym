@@ -1,13 +1,13 @@
 {
   "artifact_hashes": {
-    "handoff_to_certifyedge.json": "sha256:36a9b102c821dd7820c2074bb5e503d6ac2a8c6fcc255503549a41a61f5be4c1",
-    "handoff_to_pf.json": "sha256:2236bcf2eca9c9ad251267462720cd9276c816cb4f73f3984e8644f30fc799c5",
-    "labtrust_release_fragment.json": "sha256:b7fa9e839116f9a8e8d8594d5dcd437dda405bcd063304299ad99d47ca438ed7",
-    "runtime_receipt.json": "sha256:10576e0d581c624f7988a937ffaacb47775dceb166050cd957379a929af65ac3",
-    "science_claim_bundle.certified.json": "sha256:68d59a16ac4f5d1e6e5aff61a011be192fbb12f9b4476fa221079a934b1265fc",
-    "science_claim_bundle.pending.json": "sha256:e89b0866cd25a9308f7ba70deb68e8e3c8f072b6885ca6f2e9fcaaa55706e6c7",
+    "handoff_to_certifyedge.json": "sha256:e9a2abc5bfa576dcf07546ca6c5f8ddbc43436258254cab2f12760834384fd32",
+    "handoff_to_pf.json": "sha256:aa06d86faf4acd7f4cc700a92e5176a776a691dfd3904f7283dfcbe8176be37a",
+    "labtrust_release_fragment.json": "sha256:1ccf6b49eeb3a075e9bd3aeed0d220b4765af8b9f65721afc56ec15fd563b11d",
+    "runtime_receipt.json": "sha256:5cfe4827ee37376cf67d7d1c8837c20b189c591412277e0486e75e5aae22130c",
+    "science_claim_bundle.certified.json": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652",
+    "science_claim_bundle.pending.json": "sha256:a76b8a8ee649417709a2161d712daa2000dee3c4cc46818db8d5a7ebcbf495d9",
     "trace.json": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c",
-    "trace_certificate.json": "sha256:f25188838271cb394eeac93628d500e6b9ec9a7c0a8b7d6b0258d58790bd5c6c",
+    "trace_certificate.json": "sha256:0e22ccc1f40fd3298ccace1e5870b9a27f1f73be69d2697afd003d2b00e1ddeb",
     "workflow_profile.v0.json": "sha256:fec41435daba6ecdf9299aa6b491a9311c637bcb7f8e0fb442fdbf9a8ac11ade"
   },
   "artifacts_written": [
@@ -21,9 +21,9 @@
     "labtrust_release_fragment.json",
     "workflow_profile.v0.json"
   ],
-  "certificate_id": "cert-trace-02b3a7c1-35f7-4d23-85c2-dfd60aff7693",
-  "certified_bundle_hash": "sha256:68d59a16ac4f5d1e6e5aff61a011be192fbb12f9b4476fa221079a934b1265fc",
-  "duration_ms": 17561,
+  "certificate_id": "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee",
+  "certified_bundle_hash": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652",
+  "duration_ms": 0,
   "failure_code": null,
   "handoffs_written": [
     "handoff_to_certifyedge.json",

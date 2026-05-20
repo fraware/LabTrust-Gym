@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "workflow.run_meta.released",
+  "expected_protocol_failure_code": "missing_qc",
+  "gallery_case_id": "missing_qc_result",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

@@ -1,5 +1,10 @@
 {
-  "hint": "Re-attach certificate after any trace change, or regenerate the protocol package.",
-  "hint_kind": "reattach_certificate_after_trace_change",
-  "repair_command": "labtrust regenerate-release-protocol --out <release-dir>"
+  "expected_detection_layer": "LabTrust",
+  "failure_code": "stale_trace_after_certificate",
+  "repair_hint": {
+    "command": "labtrust regenerate-release-protocol --out examples/pcs_qc_release/release",
+    "description": "Re-attach certificate after any trace change, or regenerate the protocol package.",
+    "kind": "align_certificate_id"
+  },
+  "responsible_component": "runtime_producer"
 }

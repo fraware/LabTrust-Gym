@@ -1,5 +1,10 @@
 {
-  "hint": "Regenerate trace_certificate from the runtime receipt; do not desynchronize trace_hash fields.",
-  "hint_kind": "align_certificate_trace_hash",
-  "repair_command": "labtrust regenerate-release-protocol --out <release-dir>"
+  "expected_detection_layer": "Lean trust kernel",
+  "failure_code": "lean_certificate_trace_hash_mismatch",
+  "repair_hint": {
+    "command": "labtrust regenerate-release-protocol --out examples/pcs_qc_release/release",
+    "description": "Regenerate trace_certificate from the runtime receipt; do not desynchronize trace_hash fields.",
+    "kind": "rerun_formal_check"
+  },
+  "responsible_component": "formal_kernel"
 }

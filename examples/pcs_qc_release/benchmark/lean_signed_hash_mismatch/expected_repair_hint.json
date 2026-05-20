@@ -1,5 +1,10 @@
 {
-  "hint": "Align verification_result.verified_input.bundle_hash with science_claim_bundle.certified.json digest.",
-  "hint_kind": "align_verification_and_bundle_hash",
-  "repair_command": "pf verify-bundle ... && pf sign-bundle ..."
+  "expected_detection_layer": "Provability Fabric",
+  "failure_code": "lean_verified_input_hash_mismatch",
+  "repair_hint": {
+    "command": "pf verify-bundle ... && pf sign-bundle ...",
+    "description": "Align verification_result.verified_input.bundle_hash with science_claim_bundle.certified.json digest.",
+    "kind": "rerun_verification"
+  },
+  "responsible_component": "verifier"
 }

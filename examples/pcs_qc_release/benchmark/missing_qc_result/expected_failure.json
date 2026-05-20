@@ -1,5 +1,6 @@
 {
   "case_id": "missing_qc_result",
   "expected_failing_check": "workflow.run_meta.released",
-  "expected_failure_code": "missing_qc"
+  "expected_failure_code": "missing_qc",
+  "expected_protocol_failure_code": "missing_qc"
 }

@@ -1,17 +1,34 @@
 {
   "case_id": "labtrust-unauthorized-release-v0",
-  "case_kind": "unauthorized_actor",
-  "expected_detection_layer": "LabTrust",
-  "expected_failing_check": "workflow.run_meta.released",
+  "case_kind": "invalid_render",
   "expected_failure_code": "unauthorized_release",
-  "expected_protocol_failure_code": "unauthorized_release",
-  "expected_repair_command": "labtrust run-demo qc-release --deterministic --out <run_dir>",
-  "expected_repair_hint_kind": "use_authorized_release_actor",
+  "expected_repair_hint_kind": "unknown",
   "expected_responsible_component": "runtime_producer",
-  "expected_status": "Rejected",
-  "gallery_case_id": "unauthorized_release",
-  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "expected_status": "failed",
+  "input_artifacts": {
+    "artifacts": [
+      {
+        "artifact_type": "RunMeta.v0",
+        "path": "run_meta.json",
+        "role": "run_meta_json"
+      },
+      {
+        "artifact_type": "RuntimeReceipt.v0",
+        "path": "runtime_receipt.json",
+        "role": "runtime_receipt_json"
+      },
+      {
+        "artifact_type": "LabTrustTrace.v0",
+        "path": "trace.json",
+        "role": "trace_json"
+      }
+    ],
+    "release_directory": "input_artifacts"
+  },
   "schema_version": "v0",
-  "task_id": "labtrust-qc-release-failure-localization-v0",
+  "signature_or_digest": "sha256:9c14d194dd26ec29b5ddeca715ca857f1d30ee5a9cf7637d5d37e69aa2b77d43",
+  "source_commit": "186c65b252bfaade6ee321b0a74c15980852cdd2",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym",
+  "task_id": "labtrust-qc-release-v0",
   "workflow_id": "hospital_lab.qc_release"
 }

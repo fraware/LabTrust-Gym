@@ -306,19 +306,29 @@ labtrust generate-failure-gallery \
   --workflow hospital_lab.qc_release \
   --out examples/pcs_qc_release/failures
 
-# pcs-bench suite (BenchmarkCase.v0 — failure localization + repair hints):
+# Align release/ artifact bytes with pcs-core RC (when canonical tree drifts):
+python examples/pcs_qc_release/scripts/sync_release_from_pcs_core.py
+python examples/pcs_qc_release/scripts/materialize_downstream_release_artifacts.py
+
+# pcs-bench suite (BenchmarkCase.v0 — pcs-core aligned + LabTrust extensions):
 labtrust generate-benchmark-cases \
   --workflow hospital_lab.qc_release \
   --out examples/pcs_qc_release/benchmark \
   --seed 42
-labtrust verify-benchmark-cases --benchmark-dir examples/pcs_qc_release/benchmark
+labtrust verify-benchmark-cases --benchmark-dir examples/pcs_qc_release/benchmark --pcs-core ../pcs-core
 python examples/pcs_qc_release/scripts/ci_validate_benchmark_cases.py
+python examples/pcs_qc_release/scripts/ci_validate_benchmark_pcs_core.py
+
+# Minimal two-case packet for pcs-bench smoke (no full gallery):
+python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
 
 labtrust benchmark-reproducibility \
   --pcs-core ../pcs-core \
   --runs 5 \
+  --mode full_regeneration \
   --out benchmark_runs/labtrust_reproducibility \
   --seed 42
+python examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
 
 labtrust check-status-policy \
   --release-dir examples/pcs_qc_release/release

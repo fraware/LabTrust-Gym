@@ -4,4 +4,4 @@ Lean CertificateMatchesRuntime fails when certificate trace_hash diverges from r
 
 - Benchmark case: `labtrust-lean-trace-hash-mismatch-v0`
 - Detection layer: `Lean trust kernel`
-- Case kind: `formal_check_failure`
+- Case kind: `invalid_formal_check`

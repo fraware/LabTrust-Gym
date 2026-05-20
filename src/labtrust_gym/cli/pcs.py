@@ -370,10 +370,25 @@ def _run_benchmark_reproducibility(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_pcs_core_root(explicit: Path | None) -> Path | None:
+    if explicit is not None:
+        return explicit.resolve()
+    repo = get_repo_root()
+    for candidate in (repo / "pcs-core", repo.parent / "pcs-core"):
+        if (candidate / "schemas" / "BenchmarkCase.v0.schema.json").is_file():
+            return candidate.resolve()
+    return None
+
+
 def _run_verify_benchmark_cases(args: argparse.Namespace) -> int:
     root = _resolve_path(args.benchmark_dir)
+    pcs_core = _resolve_pcs_core_root(
+        _resolve_path(args.pcs_core) if getattr(args, "pcs_core", None) else None
+    )
     try:
-        checks = verify_benchmark_cases(root, policy_root=get_repo_root())
+        checks = verify_benchmark_cases(
+            root, policy_root=get_repo_root(), pcs_core_root=pcs_core
+        )
     except (ValueError, FileNotFoundError) as e:
         get_console().error(str(e))
         return 1
@@ -781,6 +796,11 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         default="examples/pcs_qc_release/benchmark",
         help="Benchmark root (default: examples/pcs_qc_release/benchmark)",
     )
+    p_verify_bench.add_argument(
+        "--pcs-core",
+        default=None,
+        help="pcs-core root for cross-schema validation (auto-detected when present)",
+    )
     p_verify_bench.add_argument("--json", action="store_true", help="Print JSON result to stdout")
     p_verify_bench.set_defaults(func=_run_verify_benchmark_cases)
 
@@ -828,8 +848,8 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
     p_repro.add_argument(
         "--mode",
         choices=("hash_stability", "full_regeneration"),
-        default="hash_stability",
-        help="Benchmark mode (default: hash_stability)",
+        default="full_regeneration",
+        help="Benchmark mode (default: full_regeneration)",
     )
     p_repro.add_argument("--json", action="store_true", help="Print benchmark_run.v0.json to stdout")
     p_repro.set_defaults(func=_run_benchmark_reproducibility)

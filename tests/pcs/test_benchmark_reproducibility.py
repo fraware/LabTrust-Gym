@@ -8,9 +8,14 @@ from pathlib import Path
 from labtrust_gym.pcs.benchmark_reproducibility import (
     BENCHMARK_RUN_NAME,
     COVERAGE_REPORT_NAME,
+    REGENERATION_BENCHMARK_REPORT_NAME,
     benchmark_reproducibility,
 )
-from labtrust_gym.pcs.bench_schemas import validate_benchmark_run, validate_reproducibility_coverage_report
+from labtrust_gym.pcs.bench_schemas import (
+    validate_benchmark_run,
+    validate_reproducibility_benchmark_report,
+    validate_reproducibility_coverage_report,
+)
 
 
 def test_benchmark_reproducibility_hash_stability(
@@ -30,6 +35,10 @@ def test_benchmark_reproducibility_hash_stability(
     assert doc["aggregate"]["artifact_hashes_stable"] is True
     assert doc["aggregate"]["command_deterministic"] is True
     assert (out / BENCHMARK_RUN_NAME).is_file()
+    assert (out / REGENERATION_BENCHMARK_REPORT_NAME).is_file()
+    regen = json.loads((out / REGENERATION_BENCHMARK_REPORT_NAME).read_text(encoding="utf-8"))
+    validate_reproducibility_benchmark_report(regen)
+    assert regen["per_run"][0]["status_policy_validation_passed"] is True
     coverage = json.loads((out / COVERAGE_REPORT_NAME).read_text(encoding="utf-8"))
     validate_reproducibility_coverage_report(coverage)
     assert coverage["reproducibility_passed"] is True

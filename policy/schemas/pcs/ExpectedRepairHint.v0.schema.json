@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/ExpectedRepairHint.v0.schema.json",
+  "title": "ExpectedRepairHint.v0",
+  "description": "Operator-facing repair hint for a PCS benchmark failure case.",
+  "type": "object",
+  "required": [
+    "failure_code",
+    "responsible_component",
+    "expected_detection_layer",
+    "repair_hint"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "failure_code": { "type": "string" },
+    "responsible_component": { "type": "string", "minLength": 1 },
+    "expected_detection_layer": { "type": "string", "minLength": 1 },
+    "repair_hint": {
+      "type": "object",
+      "required": ["kind", "command", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

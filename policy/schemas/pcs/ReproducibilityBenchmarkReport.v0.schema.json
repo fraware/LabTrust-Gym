@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/ReproducibilityBenchmarkReport.v0.schema.json",
+  "title": "ReproducibilityBenchmarkReport.v0",
+  "description": "LabTrust aggregate multi-run release reproducibility benchmark.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "benchmark_id",
+    "workflow_id",
+    "mode",
+    "seed",
+    "runs",
+    "per_run",
+    "aggregate",
+    "source_repo",
+    "source_commit",
+    "signature_or_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "benchmark_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "mode": {
+      "type": "string",
+      "enum": ["hash_stability", "full_regeneration"]
+    },
+    "seed": { "type": "integer", "minimum": 0 },
+    "runs": { "type": "integer", "minimum": 1 },
+    "per_run": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/run_record" }
+    },
+    "aggregate": { "$ref": "#/$defs/aggregate" },
+    "source_repo": { "type": "string", "format": "uri" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "run_record": {
+      "type": "object",
+      "required": [
+        "run_index",
+        "duration_ms",
+        "artifact_hashes",
+        "canonical_hashes",
+        "certificate_id",
+        "certifyedge_call_success",
+        "release_protocol_validation_passed",
+        "status_policy_validation_passed",
+        "pcs_core_validation_passed",
+        "regeneration_report_present"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "run_index": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "regeneration_duration_ms": { "type": "integer", "minimum": 0 },
+        "artifact_hashes": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "canonical_hashes": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "certificate_id": { "type": ["string", "null"] },
+        "certifyedge_call_success": { "type": "boolean" },
+        "release_protocol_validation_passed": { "type": "boolean" },
+        "release_protocol_validation_checks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status_policy_validation_passed": { "type": "boolean" },
+        "pcs_core_validation_passed": { "type": "boolean" },
+        "regeneration_report_present": { "type": "boolean" }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "required": [
+        "artifact_hashes_stable",
+        "canonical_hashes_stable",
+        "certificate_id_stable",
+        "release_validation_stable",
+        "status_policy_stable",
+        "pcs_core_validation_stable",
+        "certifyedge_success_rate",
+        "command_deterministic",
+        "duration_ms"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "artifact_hashes_stable": { "type": "boolean" },
+        "canonical_hashes_stable": { "type": "boolean" },
+        "certificate_id_stable": { "type": "boolean" },
+        "certificate_id_non_deterministic_declared": { "type": "boolean" },
+        "release_validation_stable": { "type": "boolean" },
+        "status_policy_stable": { "type": "boolean" },
+        "pcs_core_validation_stable": { "type": "boolean" },
+        "certifyedge_success_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "command_deterministic": { "type": "boolean" },
+        "duration_ms": {
+          "type": "object",
+          "required": ["min", "max", "mean"],
+          "properties": {
+            "min": { "type": "integer" },
+            "max": { "type": "integer" },
+            "mean": { "type": "number" }
+          }
+        }
+      }
+    }
+  }
+}

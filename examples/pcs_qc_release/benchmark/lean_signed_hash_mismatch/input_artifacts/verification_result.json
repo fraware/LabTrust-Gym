@@ -112,7 +112,7 @@
           "as-pcs-qc-release-v0.1"
         ],
         "certificate_refs": [
-          "cert-trace-02b3a7c1-35f7-4d23-85c2-dfd60aff7693"
+          "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee"
         ],
         "claim_refs": [
           "claim-pcs-qc-release-v0.1"
@@ -157,7 +157,7 @@
   "verification_id": "verification-31ac5758-9219-47cf-b832-0ca8ae07a871",
   "verified_input": {
     "bundle_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "certificate_id": "cert-trace-02b3a7c1-35f7-4d23-85c2-dfd60aff7693",
+    "certificate_id": "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee",
     "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd"
   },
   "verifier": "Provability Fabric",

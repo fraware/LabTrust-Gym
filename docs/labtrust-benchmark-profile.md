@@ -23,16 +23,21 @@ deployment safety.
 
 | Artifact | Role |
 |----------|------|
-| `benchmark_case.v0.json` | pcs-bench case descriptor (failure localization) |
-| `input_artifacts/` | Release-shaped inputs for the case |
+| `benchmark_case.v0.json` | pcs-core `BenchmarkCase.v0` (status, failure code, provenance, digest) |
+| `labtrust_benchmark_extension.v0.json` | LabTrust-only: detection layer, protocol failure code |
+| `input_artifacts/` | Release-shaped inputs (`input_artifacts.release_directory`) |
 | `expected_failure.json` | Protocol-level failing check and code |
-| `expected_repair_hint.json` | `hint_kind`, operator hint, `repair_command` |
+| `expected_repair_hint.json` | `responsible_component`, `repair_hint.kind`, `repair_command` |
 | `benchmark_index.json` | Suite index |
 | `coverage_report.v0.json` | Taxonomy coverage (case kinds, detection layers) |
-| `benchmark_run.v0.json` | Reproducibility aggregate (per-run hashes, duration) |
+| `benchmark_run.v0.json` | Reproducibility summary (pcs-bench compatible) |
+| `regeneration_report.json` | Full reproducibility report (`ReproducibilityBenchmarkReport.v0`) |
 
 Schemas: `policy/schemas/pcs/BenchmarkCase.v0.schema.json`, `BenchmarkRun.v0.schema.json`,
-`CoverageReport.v0.schema.json`.
+`CoverageReport.v0.schema.json`, `ReproducibilityBenchmarkReport.v0.schema.json`.
+
+Minimal smoke packet: `examples/pcs_qc_release/benchmark_packet/` (`valid_release`,
+`invalid_trace_hash_tamper`, `reproduce.sh`, `expected_report.json`).
 
 ## Failure case taxonomy
 
@@ -86,11 +91,13 @@ labtrust benchmark-reproducibility \
   --seed 42
 ```
 
-Default mode `hash_stability` copies the committed `release/` tree and verifies identical
-hashes and validation across runs (CI-safe). `full_regeneration` is reserved for local benches
-with CertifyEdge.
+Default mode `full_regeneration` re-runs `regenerate-release-protocol` each iteration and
+records artifact/canonical hash stability, CertifyEdge success, release protocol validation,
+status policy, and pcs-core validation. CI falls back to `hash_stability` when CertifyEdge is
+unavailable (`examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py`).
 
 ## pcs-bench integration
 
-Load `benchmark_index.json`, iterate `cases`, and for each case read `benchmark_case.v0.json`
-plus `input_artifacts/` — no LabTrust-specific adapters required beyond the published schemas.
+Suite id `labtrust-qc-release-v0`. Load `benchmark_index.json`, iterate `cases`, and for each
+case read `benchmark_case.v0.json` plus `input_artifacts/`. Use `labtrust_benchmark_extension.v0.json`
+for detection-layer assertions in simulate mode.

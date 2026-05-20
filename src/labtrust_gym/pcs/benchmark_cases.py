@@ -12,13 +12,16 @@ from labtrust_gym.pcs.benchmark_case import (
     BENCHMARK_TASK_ID,
     EXPECTED_FAILURE_NAME,
     INPUT_ARTIFACTS_DIR,
+    LABTRUST_EXTENSION_NAME,
     VALID_RELEASE_DIR_NAME,
     build_benchmark_case_document,
-    build_valid_release_benchmark_case,
+    build_labtrust_extension,
     localization_for,
+    valid_release_localization,
     write_benchmark_case,
     write_expected_failure,
     write_expected_repair_hint,
+    write_labtrust_extension,
 )
 from labtrust_gym.pcs.bench_schemas import validate_coverage_report
 from labtrust_gym.pcs.failure_gallery import FailureCaseSpec, failure_case_specs
@@ -46,6 +49,7 @@ _VALID_ARTIFACTS = tuple(
 PCS_BENCH_LAYOUT_V0: dict[str, str] = {
     "version": "v0",
     "case_descriptor": BENCHMARK_CASE_NAME,
+    "case_extension": LABTRUST_EXTENSION_NAME,
     "input_dir": INPUT_ARTIFACTS_DIR,
     "expected_failure": EXPECTED_FAILURE_NAME,
     "expected_repair_hint": "expected_repair_hint.json",
@@ -70,12 +74,22 @@ def _copy_release_baseline(release_dir: Path, artifacts: Path) -> list[str]:
     return written
 
 
-def _write_case_readme(case_dir: Path, *, title: str, body: str, benchmark_doc: dict[str, Any]) -> None:
+def _write_case_readme(
+    case_dir: Path,
+    *,
+    title: str,
+    body: str,
+    benchmark_doc: dict[str, Any],
+    detection_layer: str | None = None,
+) -> None:
+    layer_line = (
+        f"- Detection layer: `{detection_layer}`\n" if detection_layer else ""
+    )
     readme = (
         f"# {title}\n\n"
         f"{body}\n\n"
         f"- Benchmark case: `{benchmark_doc['case_id']}`\n"
-        f"- Detection layer: `{benchmark_doc['expected_detection_layer']}`\n"
+        f"{layer_line}"
         f"- Case kind: `{benchmark_doc['case_kind']}`\n"
     )
     (case_dir / "README.md").write_text(readme, encoding="utf-8")
@@ -85,39 +99,58 @@ def _build_valid_release_case(
     release_dir: Path,
     case_dir: Path,
     profile: WorkflowProfileView,
+    *,
+    policy_root: Path,
 ) -> dict[str, Any]:
     case_dir.mkdir(parents=True, exist_ok=True)
     artifacts = _input_artifacts_dir(case_dir)
     input_names = _copy_release_baseline(release_dir, artifacts)
-    doc = build_valid_release_benchmark_case(
+    doc = build_benchmark_case_document(
+        gallery_case_id=VALID_RELEASE_DIR_NAME,
         workflow_property_id=profile.property_id,
         profile_workflow_id=profile.workflow_id,
+        expected_failing_check=None,
+        expected_protocol_failure_code=None,
+        artifact_names=input_names,
+        policy_root=policy_root,
     )
     write_benchmark_case(case_dir, doc)
+    valid_loc = valid_release_localization()
+    write_labtrust_extension(
+        case_dir,
+        build_labtrust_extension(
+            gallery_case_id=VALID_RELEASE_DIR_NAME,
+            profile_workflow_id=profile.workflow_id,
+            expected_failing_check=None,
+            expected_protocol_failure_code=None,
+            loc=valid_loc,
+        ),
+    )
+    write_expected_failure(
+        case_dir,
+        gallery_case_id=VALID_RELEASE_DIR_NAME,
+        failing_check=None,
+        benchmark_code="",
+        protocol_code=None,
+    )
     write_expected_repair_hint(
         case_dir,
+        failure_code="",
+        responsible_component=doc["expected_responsible_component"],
+        detection_layer="LabTrust",
         hint_kind="none",
+        command=(
+            "labtrust verify-release-protocol --release-dir examples/pcs_qc_release/release "
+            "--pcs-core ../pcs-core"
+        ),
         hint="Release package passes LabTrust verify-release-protocol and status policy.",
-        repair_command=doc["expected_repair_command"],
-    )
-    (case_dir / "expected_failure.json").write_text(
-        json.dumps(
-            {
-                "case_id": VALID_RELEASE_DIR_NAME,
-                "expected_failing_check": None,
-                "expected_failure_code": None,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
     )
     _write_case_readme(
         case_dir,
         title=VALID_RELEASE_DIR_NAME,
         body="Positive control: committed release fixtures that pass protocol verification.",
         benchmark_doc=doc,
+        detection_layer="LabTrust",
     )
     return {
         "case_id": VALID_RELEASE_DIR_NAME,
@@ -146,27 +179,42 @@ def _build_failure_benchmark_case(
         profile_workflow_id=profile.workflow_id,
         expected_failing_check=spec.expected_failing_check,
         expected_protocol_failure_code=spec.expected_failure_code,
-        responsible_component=spec.responsible_component,
-        repair_hint=spec.repair_hint,
+        artifact_names=input_names,
+        policy_root=policy_root,
     )
     write_benchmark_case(case_dir, doc)
+    write_labtrust_extension(
+        case_dir,
+        build_labtrust_extension(
+            gallery_case_id=spec.case_id,
+            profile_workflow_id=profile.workflow_id,
+            expected_failing_check=spec.expected_failing_check,
+            expected_protocol_failure_code=spec.expected_failure_code,
+            loc=loc,
+        ),
+    )
     write_expected_failure(
         case_dir,
         gallery_case_id=spec.case_id,
         failing_check=spec.expected_failing_check,
-        code=spec.expected_failure_code,
+        benchmark_code=loc.benchmark_failure_code,
+        protocol_code=spec.expected_failure_code,
     )
     write_expected_repair_hint(
         case_dir,
-        hint_kind=loc.repair_hint_kind,
+        failure_code=loc.benchmark_failure_code,
+        responsible_component=doc["expected_responsible_component"],
+        detection_layer=loc.detection_layer,
+        hint_kind=loc.repair_hint_kind_for_fixture,
+        command=loc.repair_command,
         hint=spec.repair_hint,
-        repair_command=loc.repair_command,
     )
     _write_case_readme(
         case_dir,
         title=spec.case_id,
         body=spec.description,
         benchmark_doc=doc,
+        detection_layer=loc.detection_layer,
     )
     return {
         "case_id": spec.case_id,
@@ -174,8 +222,19 @@ def _build_failure_benchmark_case(
         "directory": spec.case_id,
         "input_artifacts": input_names,
         "case_kind": doc["case_kind"],
-        "expected_detection_layer": doc["expected_detection_layer"],
     }
+
+
+def _detection_layers_from_benchmark_root(benchmark_root: Path, index: dict[str, Any]) -> list[str]:
+    layers: set[str] = set()
+    for entry in index.get("cases", []):
+        ext_path = benchmark_root / entry["case_id"] / LABTRUST_EXTENSION_NAME
+        if ext_path.is_file():
+            ext = json.loads(ext_path.read_text(encoding="utf-8"))
+            layer = ext.get("expected_detection_layer")
+            if layer:
+                layers.add(layer)
+    return sorted(layers)
 
 
 def build_coverage_report(
@@ -183,9 +242,13 @@ def build_coverage_report(
     workflow_property_id: str,
     case_entries: list[dict[str, Any]],
     benchmark_docs: list[dict[str, Any]],
+    benchmark_root: Path | None = None,
+    index: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     kinds = sorted({d["case_kind"] for d in benchmark_docs})
-    layers = sorted({d["expected_detection_layer"] for d in benchmark_docs})
+    layers: list[str] = []
+    if benchmark_root is not None and index is not None:
+        layers = _detection_layers_from_benchmark_root(benchmark_root, index)
     hints = sorted({d["expected_repair_hint_kind"] for d in benchmark_docs})
     report = {
         "schema_version": "v0",
@@ -230,7 +293,9 @@ def generate_benchmark_cases(
     case_entries: list[dict[str, Any]] = []
     benchmark_docs: list[dict[str, Any]] = []
 
-    valid_entry = _build_valid_release_case(release, out_dir / VALID_RELEASE_DIR_NAME, profile)
+    valid_entry = _build_valid_release_case(
+        release, out_dir / VALID_RELEASE_DIR_NAME, profile, policy_root=policy_root
+    )
     case_entries.append(valid_entry)
     benchmark_docs.append(
         json.loads((out_dir / VALID_RELEASE_DIR_NAME / BENCHMARK_CASE_NAME).read_text(encoding="utf-8"))
@@ -258,6 +323,10 @@ def generate_benchmark_cases(
         workflow_property_id=profile.property_id,
         case_entries=case_entries,
         benchmark_docs=benchmark_docs,
+        benchmark_root=out_dir,
+        index={
+            "cases": case_entries,
+        },
     )
     (out_dir / "coverage_report.v0.json").write_text(
         json.dumps(coverage, indent=2, sort_keys=True) + "\n",
@@ -283,11 +352,24 @@ def generate_benchmark_cases(
     return index
 
 
-def verify_benchmark_cases(benchmark_root: Path, *, policy_root: Path | None = None) -> list[str]:
+def verify_benchmark_cases(
+    benchmark_root: Path,
+    *,
+    policy_root: Path | None = None,
+    pcs_core_root: Path | None = None,
+) -> list[str]:
     """Validate benchmark tree layout and BenchmarkCase.v0 documents."""
-    from labtrust_gym.pcs.bench_schemas import validate_benchmark_case
+    from labtrust_gym.pcs.bench_schemas import (
+        validate_benchmark_case,
+        validate_benchmark_case_pcs_core,
+        validate_expected_repair_hint,
+        validate_labtrust_benchmark_extension,
+    )
+
+    from labtrust_gym.config import get_repo_root
 
     benchmark_root = benchmark_root.resolve()
+    root = policy_root or get_repo_root()
     index_path = benchmark_root / BENCHMARK_INDEX_NAME
     if not index_path.is_file():
         raise FileNotFoundError(f"missing benchmark index: {index_path}")
@@ -299,10 +381,21 @@ def verify_benchmark_cases(benchmark_root: Path, *, policy_root: Path | None = N
         if not case_dir.is_dir():
             raise FileNotFoundError(f"missing benchmark case directory: {case_dir}")
         doc = json.loads((case_dir / BENCHMARK_CASE_NAME).read_text(encoding="utf-8"))
-        validate_benchmark_case(doc)
+        validate_benchmark_case(doc, policy_root=root)
+        if pcs_core_root is not None:
+            validate_benchmark_case_pcs_core(doc, pcs_core_root=pcs_core_root)
+        ext = json.loads((case_dir / LABTRUST_EXTENSION_NAME).read_text(encoding="utf-8"))
+        validate_labtrust_benchmark_extension(ext, policy_root=root)
+        repair = json.loads((case_dir / "expected_repair_hint.json").read_text(encoding="utf-8"))
+        validate_expected_repair_hint(repair, policy_root=root)
+        if repair.get("responsible_component") != doc.get("expected_responsible_component"):
+            raise ValueError(
+                f"{case_id}: repair hint responsible_component does not match benchmark_case"
+            )
         for name in (
             "README.md",
             BENCHMARK_CASE_NAME,
+            LABTRUST_EXTENSION_NAME,
             EXPECTED_FAILURE_NAME,
             "expected_repair_hint.json",
             INPUT_ARTIFACTS_DIR,
@@ -313,6 +406,8 @@ def verify_benchmark_cases(benchmark_root: Path, *, policy_root: Path | None = N
             elif not (case_dir / name).is_file():
                 raise FileNotFoundError(f"{case_id} missing {name}")
         checks.append(f"benchmark_case.{case_id}")
+        checks.append(f"benchmark_extension.{case_id}")
+        checks.append(f"repair_hint.{case_id}")
     coverage_path = benchmark_root / "coverage_report.v0.json"
     if coverage_path.is_file():
         validate_coverage_report(json.loads(coverage_path.read_text(encoding="utf-8")))

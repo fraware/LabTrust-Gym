@@ -94,12 +94,13 @@ def _load(path: Path) -> dict[str, Any]:
 
 
 def _artifact_hash(release_root: Path, manifest: dict[str, Any], fixture: dict[str, Any], name: str) -> str:
-    artifacts = manifest.get("artifacts") or fixture.get("artifacts") or {}
-    if name in artifacts:
-        return artifacts[name]
+    """Prefer on-disk bytes over manifest pins (manifests can lag behind copied artifacts)."""
     path = release_root / name
     if path.is_file():
         return file_content_digest(path)
+    artifacts = manifest.get("artifacts") or fixture.get("artifacts") or {}
+    if name in artifacts:
+        return artifacts[name]
     raise FileNotFoundError(f"missing artifact for hash: {name}")
 
 
@@ -141,7 +142,7 @@ def extract_rc_chain_identity(release_root: Path) -> dict[str, str]:
     }
 
 
-RC_HANDOFF_COMPARE_KEYS: tuple[str, ...] = (
+RC_CHAIN_ARTIFACT_KEYS: tuple[str, ...] = (
     "trace_json_hash",
     "runtime_receipt_hash",
     "trace_certificate_hash",
@@ -149,23 +150,36 @@ RC_HANDOFF_COMPARE_KEYS: tuple[str, ...] = (
     "certified_bundle_hash",
     "certificate_id",
     "trace_hash",
+)
+
+RC_PROVENANCE_PIN_KEYS: tuple[str, ...] = (
     "labtrust_gym_commit",
     "certifyedge_commit",
     "pcs_core_commit",
 )
 
+RC_HANDOFF_COMPARE_KEYS: tuple[str, ...] = RC_CHAIN_ARTIFACT_KEYS + RC_PROVENANCE_PIN_KEYS
+
 
 def compare_release_to_pcs_core_rc(
     labtrust_release: Path,
     canonical: Path,
+    *,
+    compare_provenance_pins: bool = False,
 ) -> list[str]:
-    """Compare LabTrust release/ to pcs-core canonical RC by hashes and commits."""
+    """
+    Compare LabTrust release/ to pcs-core canonical RC by artifact chain identity.
+
+    Provenance commit pins (``labtrust_gym_commit``, etc.) are optional: LabTrust
+    rebuilds manifests with the current repo HEAD while retaining canonical artifact bytes.
+    """
     local = labtrust_release.resolve()
     canon = canonical.resolve()
     local_id = extract_rc_chain_identity(local)
     canon_id = extract_rc_chain_identity(canon)
     matched: list[str] = []
-    for key in RC_HANDOFF_COMPARE_KEYS:
+    keys = RC_HANDOFF_COMPARE_KEYS if compare_provenance_pins else RC_CHAIN_ARTIFACT_KEYS
+    for key in keys:
         if local_id.get(key) != canon_id.get(key):
             raise ValueError(
                 f"{key} mismatch: local={local_id.get(key)!r} canonical={canon_id.get(key)!r}"

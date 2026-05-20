@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "LabTrust",
+  "expected_failing_check": "no_legacy_pf_handoff_root",
+  "expected_protocol_failure_code": "LEGACY_HANDOFF_FILE",
+  "gallery_case_id": "legacy_handoff_file",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

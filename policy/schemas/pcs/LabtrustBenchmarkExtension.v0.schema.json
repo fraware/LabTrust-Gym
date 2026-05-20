@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/LabtrustBenchmarkExtension.v0.schema.json",
+  "title": "LabtrustBenchmarkExtension.v0",
+  "description": "LabTrust-only benchmark metadata (detection layer, protocol codes).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "gallery_case_id",
+    "profile_workflow_id",
+    "expected_detection_layer"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "gallery_case_id": { "type": "string", "minLength": 1 },
+    "profile_workflow_id": { "type": "string", "minLength": 1 },
+    "expected_detection_layer": { "type": "string", "minLength": 1 },
+    "expected_failing_check": { "type": ["string", "null"] },
+    "expected_protocol_failure_code": { "type": ["string", "null"] }
+  }
+}

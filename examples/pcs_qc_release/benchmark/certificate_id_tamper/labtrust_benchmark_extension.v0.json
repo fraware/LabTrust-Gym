@@ -1,0 +1,8 @@
+{
+  "expected_detection_layer": "CertifyEdge",
+  "expected_failing_check": "certificate_id_propagation",
+  "expected_protocol_failure_code": "CERTIFICATE_ID_MISMATCH",
+  "gallery_case_id": "certificate_id_tamper",
+  "profile_workflow_id": "labtrust.qc_release_v0.1",
+  "schema_version": "v0"
+}

@@ -1,5 +1,10 @@
 {
-  "hint": "Re-run CertifyEdge emit-pcs-certificate and attach-certificate without editing certificate_id.",
-  "hint_kind": "re_emit_certificate",
-  "repair_command": "certifyedge emit-pcs-certificate ... && labtrust attach-certificate --bundle science_claim_bundle.pending.json --certificate trace_certificate.json"
+  "expected_detection_layer": "CertifyEdge",
+  "failure_code": "certificate_id_mismatch",
+  "repair_hint": {
+    "command": "certifyedge emit-pcs-certificate ... && labtrust attach-certificate --bundle science_claim_bundle.pending.json --certificate trace_certificate.json",
+    "description": "Re-run CertifyEdge emit-pcs-certificate and attach-certificate without editing certificate_id.",
+    "kind": "align_certificate_id"
+  },
+  "responsible_component": "certificate_producer"
 }

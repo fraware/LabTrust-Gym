@@ -1,5 +1,10 @@
 {
-  "hint": "Regenerate artifacts with real git provenance (PCS_RELEASE_FIXTURE=1, no placeholder commits).",
-  "hint_kind": "regenerate_with_real_provenance",
-  "repair_command": "PCS_DETERMINISTIC=1 labtrust regenerate-release-protocol --out <release-dir>"
+  "expected_detection_layer": "LabTrust",
+  "failure_code": "placeholder_source_commit",
+  "repair_hint": {
+    "command": "PCS_DETERMINISTIC=1 labtrust regenerate-release-protocol --out examples/pcs_qc_release/release",
+    "description": "Regenerate artifacts with real git provenance (PCS_RELEASE_FIXTURE=1, no placeholder commits).",
+    "kind": "align_provenance"
+  },
+  "responsible_component": "runtime_producer"
 }

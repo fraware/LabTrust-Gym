@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pcs.sentinelops.ci/schemas/BenchmarkCase.v0.schema.json",
   "title": "BenchmarkCase.v0",
-  "description": "Machine-readable PCS benchmark case for pcs-bench (LabTrust reference).",
+  "description": "Aligned with pcs-core BenchmarkCase.v0 (LabTrust vendored for CI validation).",
   "type": "object",
   "required": [
     "schema_version",
@@ -10,84 +10,95 @@
     "task_id",
     "workflow_id",
     "case_kind",
+    "input_artifacts",
     "expected_status",
+    "expected_failure_code",
     "expected_responsible_component",
     "expected_repair_hint_kind",
-    "expected_detection_layer",
-    "expected_failing_check",
-    "expected_repair_command"
+    "source_repo",
+    "source_commit",
+    "signature_or_digest"
   ],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "type": "string", "const": "v0" },
+    "schema_version": { "type": "string", "pattern": "^v0$" },
     "case_id": { "type": "string", "minLength": 1 },
     "task_id": { "type": "string", "minLength": 1 },
     "workflow_id": { "type": "string", "minLength": 1 },
-    "profile_workflow_id": { "type": "string", "minLength": 1 },
-    "gallery_case_id": { "type": "string", "minLength": 1 },
     "case_kind": {
       "type": "string",
       "enum": [
         "valid_release",
-        "missing_qc_step",
-        "unauthorized_actor",
         "invalid_hash_mismatch",
-        "certificate_tamper",
-        "status_transition",
-        "handoff_tamper",
-        "provenance_invalid",
-        "formal_check_failure",
-        "scientific_memory_import_failure"
+        "invalid_certificate",
+        "invalid_handoff",
+        "invalid_registry",
+        "invalid_formal_check",
+        "invalid_import",
+        "invalid_render",
+        "stale_release"
       ]
+    },
+    "input_artifacts": {
+      "type": "object",
+      "required": ["release_directory"],
+      "additionalProperties": false,
+      "properties": {
+        "release_directory": { "type": "string", "minLength": 1 },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "artifact_type": { "type": "string", "minLength": 1 },
+              "role": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "conformance_suite": { "type": "string", "minLength": 1 }
+      }
     },
     "expected_status": {
       "type": "string",
-      "enum": [
-        "Released",
-        "CertificateChecked",
-        "Rejected",
-        "Stale",
-        "ProofChecked"
-      ]
+      "enum": ["passed", "failed", "skipped", "error"]
     },
-    "expected_failure_code": { "type": ["string", "null"] },
-    "expected_protocol_failure_code": { "type": ["string", "null"] },
-    "expected_responsible_component": { "type": "string", "minLength": 1 },
-    "expected_repair_hint_kind": { "type": "string", "minLength": 1 },
-    "expected_detection_layer": {
+    "expected_failure_code": { "type": "string" },
+    "expected_responsible_component": {
       "type": "string",
       "enum": [
-        "LabTrust",
-        "CertifyEdge",
-        "Provability Fabric",
-        "pcs-core",
-        "Lean trust kernel",
-        "Scientific Memory"
+        "runtime_producer",
+        "certificate_producer",
+        "verifier",
+        "registry",
+        "formal_kernel",
+        "scientific_memory",
+        "release_manifest",
+        "handoff",
+        "hashing",
+        "unknown"
       ]
     },
-    "expected_failing_check": { "type": ["string", "null"] },
-    "expected_repair_command": { "type": "string", "minLength": 1 }
-  },
-  "allOf": [
-    {
-      "if": { "properties": { "case_kind": { "const": "valid_release" } } },
-      "then": {
-        "properties": {
-          "expected_failure_code": { "type": "null" },
-          "expected_protocol_failure_code": { "type": "null" },
-          "expected_failing_check": { "type": "null" }
-        }
-      }
+    "expected_repair_hint_kind": {
+      "type": "string",
+      "enum": [
+        "align_provenance",
+        "align_hash",
+        "align_certificate_id",
+        "align_handoff",
+        "fix_registry_entry",
+        "rerun_verification",
+        "rerun_formal_check",
+        "fix_import_report",
+        "fix_render",
+        "none",
+        "unknown"
+      ]
     },
-    {
-      "if": {
-        "properties": {
-          "case_kind": { "not": { "const": "valid_release" } }
-        }
-      },
-      "then": {
-        "required": ["expected_failure_code", "expected_protocol_failure_code", "expected_failing_check"]
-      }
-    }
-  ]
+    "source_repo": { "type": "string", "format": "uri" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
 }
