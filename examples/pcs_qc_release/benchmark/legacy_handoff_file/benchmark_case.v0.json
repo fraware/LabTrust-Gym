@@ -5,6 +5,7 @@
   "expected_repair_hint_kind": "align_handoff",
   "expected_responsible_component": "handoff",
   "expected_status": "failed",
+  "expected_system_outcome": "rejected",
   "input_artifacts": {
     "artifacts": [
       {
@@ -71,8 +72,8 @@
     "release_directory": "input_artifacts/"
   },
   "schema_version": "v0",
-  "signature_or_digest": "sha256:dd3b245551ee09afaee04d6b7d9a523a921c01a1d0363d58ab2d0a21d9c5c608",
-  "source_commit": "c07e15a4714a2b45c971d8d4e524e6edbd0c392a",
+  "signature_or_digest": "sha256:504b0032e0cacfb3d0dfd2f4bccaf12885c8815c14c6239e03c627751e332c53",
+  "source_commit": "8f1d66edffbb436e004acd4a9a6aad30f2742f0f",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "task_id": "labtrust-qc-release-v0",
   "workflow_id": "hospital_lab.qc_release"
