@@ -355,9 +355,9 @@ def build_valid_release_benchmark_case(
         },
         "expected_status": "passed",
         "expected_system_outcome": "admitted",
-        "expected_failure_code": "",
-        "expected_responsible_component": "runtime_producer",
-        "expected_repair_hint_kind": "none",
+        "expected_failure_code": None,
+        "expected_responsible_component": None,
+        "expected_repair_hint_kind": None,
         "source_repo": source_repo,
         "source_commit": source_commit,
     }
@@ -373,7 +373,7 @@ def build_labtrust_extension(
     expected_protocol_failure_code: str | None,
     loc: BenchmarkLocalization,
 ) -> dict[str, Any]:
-    return {
+    doc: dict[str, Any] = {
         "schema_version": "v0",
         "gallery_case_id": gallery_case_id,
         "profile_workflow_id": profile_workflow_id,
@@ -381,6 +381,15 @@ def build_labtrust_extension(
         "expected_failing_check": expected_failing_check,
         "expected_protocol_failure_code": expected_protocol_failure_code,
     }
+    if gallery_case_id == VALID_RELEASE_DIR_NAME:
+        doc["pcs_core_valid_case_compat"] = {
+            "note": (
+                "Valid benchmark_case.v0 uses null failure fields per pcs-core; "
+                "repair hint remains for LabTrust operator guidance."
+            ),
+            "placeholder_fields": [],
+        }
+    return doc
 
 
 def write_benchmark_case(case_dir: Path, doc: dict[str, Any]) -> Path:

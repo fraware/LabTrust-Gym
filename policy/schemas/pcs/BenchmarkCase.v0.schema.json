@@ -77,10 +77,11 @@
         "formal_failed"
       ]
     },
-    "expected_failure_code": { "type": "string" },
+    "expected_failure_code": { "type": ["string", "null"] },
     "expected_responsible_component": {
-      "type": "string",
+      "type": ["string", "null"],
       "enum": [
+        null,
         "runtime_producer",
         "certificate_producer",
         "verifier",
@@ -94,8 +95,9 @@
       ]
     },
     "expected_repair_hint_kind": {
-      "type": "string",
+      "type": ["string", "null"],
       "enum": [
+        null,
         "align_provenance",
         "align_hash",
         "align_certificate_id",

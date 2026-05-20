@@ -45,6 +45,8 @@ def test_generate_pcs_bench_layout(
     validate_benchmark_manifest(manifest)
     assert manifest["generator"] == "labtrust"
     assert len(manifest["source_commit"]) == 40
+    assert manifest["case_count"] == 13
+    assert len(manifest["case_ids"]) == 13
 
     valid_doc = json.loads(
         (out / "valid" / "labtrust-valid-release-v0" / BENCHMARK_CASE_NAME).read_text(
@@ -52,6 +54,8 @@ def test_generate_pcs_bench_layout(
         )
     )
     assert valid_doc["input_artifacts"]["release_directory"].endswith("/input_artifacts")
+    assert valid_doc["expected_system_outcome"] == "admitted"
+    assert valid_doc["expected_failure_code"] is None
     assert (out / "benchmark_task.v0.json").is_file()
     assert not (out / "valid" / "labtrust-valid-release-v0" / "expected_failure.json").is_file()
 

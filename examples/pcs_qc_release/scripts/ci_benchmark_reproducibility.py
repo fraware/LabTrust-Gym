@@ -10,7 +10,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-from labtrust_gym.pcs.benchmark_reproducibility import benchmark_reproducibility
+from labtrust_gym.pcs.benchmark_pcs_bench_ingest import PCS_BENCH_INGEST_NAME
+from labtrust_gym.pcs.benchmark_reproducibility import (
+    BENCHMARK_RUN_NAME,
+    COVERAGE_REPORT_NAME,
+    HASH_STABILITY_REPORT_NAME,
+    benchmark_reproducibility,
+)
 
 
 def main() -> int:
@@ -44,6 +50,15 @@ def main() -> int:
             )
         if not doc["aggregate"]["command_deterministic"]:
             raise SystemExit("reproducibility benchmark failed aggregate gate")
+        for name in (
+            BENCHMARK_RUN_NAME,
+            COVERAGE_REPORT_NAME,
+            PCS_BENCH_INGEST_NAME,
+        ):
+            if not (out / name).is_file():
+                raise FileNotFoundError(f"missing reproducibility output: {name}")
+        if (out / HASH_STABILITY_REPORT_NAME).is_file():
+            print("  hash_stability_report present")
     print("reproducibility benchmark CI OK")
     return 0
 

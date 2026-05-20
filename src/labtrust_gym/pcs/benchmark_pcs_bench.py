@@ -237,6 +237,7 @@ def build_benchmark_manifest(
     coverage_report_path: str,
     seed: int,
 ) -> dict[str, Any]:
+    case_ids = [r.case_id for r in case_refs]
     doc: dict[str, Any] = {
         "schema_version": "v0",
         "suite_id": suite_id,
@@ -247,6 +248,8 @@ def build_benchmark_manifest(
         "source_repo": source_repo,
         "source_commit": source_commit,
         "seed": seed,
+        "case_count": len(case_ids),
+        "case_ids": sorted(case_ids),
         "cases": [
             {
                 "case_id": r.case_id,

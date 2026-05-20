@@ -130,6 +130,10 @@ docs/presentation_labtrust_gym.md
 # Audit self-check output (labtrust audit-selfcheck; do not push)
 audit_self_check/
 
+# Local reproducibility scratch (not committed)
+_tmp_repro/
+_tmp_repro2/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -17,6 +17,18 @@
     "profile_workflow_id": { "type": "string", "minLength": 1 },
     "expected_detection_layer": { "type": "string", "minLength": 1 },
     "expected_failing_check": { "type": ["string", "null"] },
-    "expected_protocol_failure_code": { "type": ["string", "null"] }
+    "expected_protocol_failure_code": { "type": ["string", "null"] },
+    "pcs_core_valid_case_compat": {
+      "type": "object",
+      "description": "Documents placeholder benchmark_case fields when pcs-core expects null on valid cases.",
+      "additionalProperties": false,
+      "properties": {
+        "note": { "type": "string" },
+        "placeholder_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
   }
 }
