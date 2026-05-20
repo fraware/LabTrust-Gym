@@ -206,6 +206,29 @@ def validate_hash_stability_report(
     validate_against_schema(doc, load_json(schema_path), path=schema_path)
 
 
+def validate_benchmark_task_pcs_core(
+    doc: dict[str, Any],
+    *,
+    pcs_core_root: Path,
+) -> None:
+    """Validate against pcs-core ``BenchmarkTask.v0`` schema."""
+    if jsonschema is None:
+        raise PolicyLoadError(
+            pcs_core_root,
+            "jsonschema is required for pcs-core schema validation",
+        )
+    schemas_dir = pcs_core_root / "schemas"
+    schema_path = schemas_dir / "BenchmarkTask.v0.schema.json"
+    if not schema_path.is_file():
+        raise FileNotFoundError(f"pcs-core BenchmarkTask schema not found: {schema_path}")
+    schema = load_json(schema_path)
+    registry, validator_cls = _pcs_core_schema_registry(schemas_dir)
+    try:
+        validator_cls(schema, registry=registry).validate(doc)
+    except jsonschema.ValidationError as e:
+        raise PolicyLoadError(schema_path, f"pcs-core BenchmarkTask validation failed: {e}") from e
+
+
 def validate_pcs_bench_ingest_pcs_core(
     doc: dict[str, Any],
     *,

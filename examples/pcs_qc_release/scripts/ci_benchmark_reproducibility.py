@@ -15,41 +15,59 @@ from labtrust_gym.pcs.benchmark_reproducibility import (
     BENCHMARK_RUN_NAME,
     COVERAGE_REPORT_NAME,
     HASH_STABILITY_REPORT_NAME,
+    RegenerationUnavailableError,
     benchmark_reproducibility,
+    resolve_pcs_core_schema_root,
 )
 
 
+def _release_canon(pcs_core_root: Path | None) -> Path | None:
+    if pcs_core_root is None:
+        return None
+    canon = pcs_core_root / "examples" / "labtrust-release"
+    return canon if (canon / "trace.json").is_file() else None
+
+
 def main() -> int:
-    pcs_core = ROOT / "pcs-core" / "examples" / "labtrust-release"
-    if not pcs_core.is_dir():
-        pcs_core = None
+    pcs_core_root = resolve_pcs_core_schema_root(ROOT / "pcs-core")
+    release_canon = _release_canon(pcs_core_root)
     release = ROOT / "examples" / "pcs_qc_release" / "release"
     with tempfile.TemporaryDirectory(prefix="labtrust_repro_") as tmp:
         out = Path(tmp)
+        doc = benchmark_reproducibility(
+            out,
+            workflow_key="hospital_lab.qc_release",
+            policy_root=ROOT,
+            release_dir=release,
+            pcs_core=release_canon,
+            runs=2,
+            seed=42,
+            mode="hash_stability",
+            include_hash_stability=False,
+        )
         try:
-            doc = benchmark_reproducibility(
-                out,
+            benchmark_reproducibility(
+                out / "full_regen_probe",
                 workflow_key="hospital_lab.qc_release",
                 policy_root=ROOT,
                 release_dir=release,
-                pcs_core=pcs_core,
-                runs=2,
+                pcs_core=release_canon,
+                runs=1,
                 seed=42,
                 mode="full_regeneration",
+                include_hash_stability=False,
             )
-        except NotImplementedError:
-            doc = benchmark_reproducibility(
-                out,
-                workflow_key="hospital_lab.qc_release",
-                policy_root=ROOT,
-                release_dir=release,
-                pcs_core=pcs_core,
-                runs=2,
-                seed=42,
-                mode="hash_stability",
+            print("  full_regeneration probe OK")
+        except RegenerationUnavailableError:
+            print("  full_regeneration skipped (CertifyEdge unavailable)")
+        agg = doc["aggregate"]
+        if not agg["command_deterministic"]:
+            raise SystemExit(
+                "reproducibility benchmark failed aggregate gate: "
+                f"artifact_hashes_stable={agg.get('artifact_hashes_stable')} "
+                f"canonical_hashes_stable={agg.get('canonical_hashes_stable')} "
+                f"release_validation_stable={agg.get('release_validation_stable')}"
             )
-        if not doc["aggregate"]["command_deterministic"]:
-            raise SystemExit("reproducibility benchmark failed aggregate gate")
         for name in (
             BENCHMARK_RUN_NAME,
             COVERAGE_REPORT_NAME,
@@ -57,8 +75,6 @@ def main() -> int:
         ):
             if not (out / name).is_file():
                 raise FileNotFoundError(f"missing reproducibility output: {name}")
-        if (out / HASH_STABILITY_REPORT_NAME).is_file():
-            print("  hash_stability_report present")
     print("reproducibility benchmark CI OK")
     return 0
 

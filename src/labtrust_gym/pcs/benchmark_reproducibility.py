@@ -33,6 +33,23 @@ COVERAGE_REPORT_NAME = "coverage_report.v0.json"
 HASH_STABILITY_REPORT_NAME = "hash_stability_report.v0.json"
 REGENERATION_REPORTS_DIR = "regeneration_reports"
 
+
+class RegenerationUnavailableError(NotImplementedError):
+    """CertifyEdge or regenerate-release-protocol unavailable (CI may fall back)."""
+
+
+def resolve_pcs_core_schema_root(pcs_core: Path | None) -> Path | None:
+    """Return pcs-core repo root when ``pcs_core`` is a release dir or repo root."""
+    if pcs_core is None:
+        return None
+    pcs_core = pcs_core.resolve()
+    if (pcs_core / "schemas" / "BenchmarkCase.v0.schema.json").is_file():
+        return pcs_core
+    parent = pcs_core.parent
+    if (parent / "schemas" / "BenchmarkCase.v0.schema.json").is_file():
+        return parent
+    return None
+
 _HASH_ARTIFACTS = tuple(LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS) + (
     "manifest.json",
     "trace_certificate.json",
@@ -146,7 +163,7 @@ def _full_regeneration_run(
         )
     except (FileNotFoundError, RuntimeError, OSError, ValueError) as exc:
         certifyedge_ok = False
-        raise NotImplementedError(
+        raise RegenerationUnavailableError(
             f"full_regeneration run {run_index} failed: {exc}"
         ) from exc
     regen_ms = int((time.perf_counter() - t0) * 1000)
@@ -280,7 +297,7 @@ def _hash_stability_report_doc(
     aggregate: dict[str, Any],
     policy_root: Path,
 ) -> dict[str, Any]:
-    source_repo, source_commit = _benchmark_provenance(policy_root)
+    del policy_root
     doc: dict[str, Any] = {
         "schema_version": "v0",
         "benchmark_id": "labtrust-hash-stability-v0",
@@ -289,8 +306,6 @@ def _hash_stability_report_doc(
         "seed": seed,
         "per_run": per_run,
         "aggregate": aggregate,
-        "source_repo": source_repo,
-        "source_commit": source_commit,
     }
     unsigned = {k: v for k, v in doc.items() if k != "signature_or_digest"}
     doc["signature_or_digest"] = pcs_digest(unsigned)
@@ -459,10 +474,11 @@ def benchmark_reproducibility(
         ],
         logs=[f"mode={selected_mode} deterministic={aggregate['command_deterministic']}"],
     )
-    if pcs_core is not None:
+    schema_root = resolve_pcs_core_schema_root(pcs_core)
+    if schema_root is not None:
         from labtrust_gym.pcs.bench_schemas import validate_pcs_bench_ingest_pcs_core
 
-        validate_pcs_bench_ingest_pcs_core(ingest, pcs_core_root=pcs_core)
+        validate_pcs_bench_ingest_pcs_core(ingest, pcs_core_root=schema_root)
     (out_dir / PCS_BENCH_INGEST_NAME).write_text(
         json.dumps(ingest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

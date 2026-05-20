@@ -58,7 +58,11 @@ def test_benchmark_reproducibility_release_grade(
             seed=42,
             mode="full_regeneration",
         )
-    except NotImplementedError as exc:
+    except Exception as exc:
+        from labtrust_gym.pcs.benchmark_reproducibility import RegenerationUnavailableError
+
+        if not isinstance(exc, RegenerationUnavailableError):
+            raise
         pytest.skip(f"full_regeneration unavailable: {exc}")
 
     validate_benchmark_run(doc)
