@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
+from labtrust_gym.pcs.bench_schemas import resolve_pcs_core_schema_root
 from labtrust_gym.pcs.benchmark_cases import verify_benchmark_cases
 from labtrust_gym.pcs.benchmark_pcs_bench import (
     PCS_BENCH_SUITE_ID,
@@ -34,6 +35,7 @@ def main() -> int:
             seed=42,
             suite_id=PCS_BENCH_SUITE_ID,
             suite_fixture_root="benchmarks/labtrust-qc-release",
+            validate_pcs_core_output=pcs_core,
         )
         if not is_pcs_bench_layout(out):
             raise RuntimeError("pcs-bench layout generation failed")

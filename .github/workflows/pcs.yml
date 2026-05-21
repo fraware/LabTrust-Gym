@@ -94,8 +94,11 @@ jobs:
             --out /tmp/labtrust-bench-layout \
             --release-dir examples/pcs_qc_release/release \
             --pcs-bench-layout \
-            --seed 42
-          labtrust verify-benchmark-cases --benchmark-dir /tmp/labtrust-bench-layout
+            --seed 42 \
+            --validate-pcs-core-output pcs-core
+          labtrust verify-benchmark-cases \
+            --benchmark-dir /tmp/labtrust-bench-layout \
+            --validate-pcs-core-output pcs-core
           labtrust generate-benchmark-cases \
             --workflow hospital_lab.qc_release \
             --out examples/pcs_qc_release/benchmark \
@@ -119,6 +122,8 @@ jobs:
           fi
       - name: Reproducibility benchmark
         run: python examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
+      - name: Reproducibility ingest (PcsBenchIngest.v0)
+        run: python examples/pcs_qc_release/scripts/ci_validate_benchmark_ingest_golden.py
       - name: Benchmark packet fixtures
         run: python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
       - name: Verify LabTrust release protocol package

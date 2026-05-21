@@ -23,6 +23,9 @@ def test_benchmark_packet_cases_validate(repo_root: Path) -> None:
     expected = json.loads((root / "expected_report.json").read_text(encoding="utf-8"))
     assert expected["benchmark_suite_id"] == "labtrust-qc-release-v0"
     assert len(expected["cases"]) == 2
+    case_ids = {c["case_id"] for c in expected["cases"]}
+    assert "labtrust-valid-release-v0" in case_ids
+    assert "labtrust-trace-hash-tamper-v0" in case_ids
 
 
 def test_benchmark_packet_verify_helper(repo_root: Path) -> None:

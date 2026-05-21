@@ -269,6 +269,8 @@ def generate_benchmark_cases(
     seed: int = 42,
     pcs_bench_layout: bool = False,
     suite_fixture_root: str | None = None,
+    validate_pcs_core_output: Path | None = None,
+    pcs_core_registry: Path | None = None,
 ) -> dict[str, Any]:
     """
     Generate BenchmarkCase.v0 directories under ``out_dir``.
@@ -289,6 +291,8 @@ def generate_benchmark_cases(
             profile_path=profile_path,
             seed=seed,
             suite_fixture_root=suite_fixture_root,
+            validate_pcs_core_output=validate_pcs_core_output,
+            pcs_core_registry=pcs_core_registry,
         )
 
     profile = workflow_profile_view(profile_path, policy_root=policy_root)
@@ -464,11 +468,19 @@ def verify_benchmark_cases(
             raise FileNotFoundError(
                 f"pcs-bench layout requires producer manifest: {manifest_path}"
             )
-        from labtrust_gym.pcs.bench_schemas import validate_benchmark_manifest
-
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        validate_benchmark_manifest(manifest, policy_root=root)
-        checks.append("benchmark_manifest")
+        if manifest.get("mode") in ("hash_stability", "full_regeneration"):
+            from labtrust_gym.pcs.bench_schemas import (
+                validate_reproducibility_benchmark_manifest,
+            )
+
+            validate_reproducibility_benchmark_manifest(manifest, policy_root=root)
+            checks.append("reproducibility_benchmark_manifest")
+        else:
+            from labtrust_gym.pcs.bench_schemas import validate_benchmark_manifest
+
+            validate_benchmark_manifest(manifest, policy_root=root)
+            checks.append("benchmark_manifest")
         case_iter = iter_pcs_bench_cases(benchmark_root)
         for case_path, doc in case_iter:
             case_id = doc["case_id"]

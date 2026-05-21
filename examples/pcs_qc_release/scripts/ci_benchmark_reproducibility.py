@@ -11,13 +11,15 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
 from labtrust_gym.pcs.benchmark_pcs_bench_ingest import PCS_BENCH_INGEST_NAME
+from labtrust_gym.pcs.bench_schemas import resolve_pcs_core_schema_root
+from labtrust_gym.pcs.benchmark_report import BENCHMARK_REPORT_NAME
 from labtrust_gym.pcs.benchmark_reproducibility import (
+    BENCHMARK_MANIFEST_NAME,
     BENCHMARK_RUN_NAME,
     COVERAGE_REPORT_NAME,
     HASH_STABILITY_REPORT_NAME,
     RegenerationUnavailableError,
     benchmark_reproducibility,
-    resolve_pcs_core_schema_root,
 )
 
 
@@ -70,11 +72,19 @@ def main() -> int:
             )
         for name in (
             BENCHMARK_RUN_NAME,
+            BENCHMARK_MANIFEST_NAME,
+            BENCHMARK_REPORT_NAME,
             COVERAGE_REPORT_NAME,
             PCS_BENCH_INGEST_NAME,
         ):
             if not (out / name).is_file():
                 raise FileNotFoundError(f"missing reproducibility output: {name}")
+        if pcs_core_root is not None:
+            from labtrust_gym.pcs.bench_schemas import validate_pcs_core_reproducibility_outputs
+
+            validate_pcs_core_reproducibility_outputs(
+                out, pcs_core_root=pcs_core_root, policy_root=ROOT
+            )
     print("reproducibility benchmark CI OK")
     return 0
 

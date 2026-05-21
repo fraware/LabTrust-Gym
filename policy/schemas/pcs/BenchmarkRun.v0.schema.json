@@ -29,7 +29,8 @@
       "type": "array",
       "items": { "$ref": "#/$defs/run_record" }
     },
-    "aggregate": { "$ref": "#/$defs/aggregate" }
+    "aggregate": { "$ref": "#/$defs/aggregate" },
+    "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
   },
   "$defs": {
     "run_record": {

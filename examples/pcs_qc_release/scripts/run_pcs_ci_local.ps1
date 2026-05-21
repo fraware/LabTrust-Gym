@@ -42,6 +42,8 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $Python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
 & $Python examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_ingest_golden.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 & $Labtrust check-status-policy --release-dir examples/pcs_qc_release/release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -13,6 +13,31 @@ labtrust generate-benchmark-cases \
   --seed 42
 ```
 
+## Refresh pcs-bench fixtures (canonical)
+
+```bash
+labtrust generate-benchmark-cases \
+  --workflow hospital_lab.qc_release \
+  --out ../pcs-bench/benchmarks/labtrust_qc_release \
+  --pcs-bench-layout \
+  --seed 42
+
+cd ../pcs-bench
+pcs-bench validate-cases --suite labtrust-qc-release --pcs-core ../pcs-core
+```
+
+Reproducibility runs for pcs-bench ingest:
+
+```bash
+labtrust benchmark-reproducibility \
+  --workflow hospital_lab.qc_release \
+  --mode full_regeneration \
+  --pcs-core ../pcs-core \
+  --runs 5 \
+  --out benchmark_runs/labtrust_reproducibility \
+  --validate-pcs-core-output ../pcs-core
+```
+
 ## Publish to pcs-core (source of truth)
 
 ```bash

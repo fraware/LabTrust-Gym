@@ -42,15 +42,28 @@ def main() -> int:
                 shutil.rmtree(dst)
             shutil.copytree(src, dst)
 
+        valid_doc = json.loads(
+            (PACKET / "valid_release" / "benchmark_case.v0.json").read_text(encoding="utf-8")
+        )
+        invalid_doc = json.loads(
+            (PACKET / "invalid_trace_hash_tamper" / "benchmark_case.v0.json").read_text(
+                encoding="utf-8"
+            )
+        )
         expected = {
             "schema_version": "v0",
             "benchmark_suite_id": "labtrust-qc-release-v0",
             "cases": [
-                {"case_id": "valid_release", "expected_status": "passed"},
                 {
-                    "case_id": "invalid_trace_hash_tamper",
+                    "case_id": valid_doc["case_id"],
+                    "gallery_case_id": "valid_release",
+                    "expected_status": "passed",
+                },
+                {
+                    "case_id": invalid_doc["case_id"],
+                    "gallery_case_id": "invalid_trace_hash_tamper",
                     "expected_status": "failed",
-                    "expected_failure_code": "trace_hash_mismatch",
+                    "expected_failure_code": invalid_doc.get("expected_failure_code"),
                 },
             ],
         }

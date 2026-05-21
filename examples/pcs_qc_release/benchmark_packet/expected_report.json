@@ -2,13 +2,15 @@
   "benchmark_suite_id": "labtrust-qc-release-v0",
   "cases": [
     {
-      "case_id": "valid_release",
-      "expected_status": "passed"
+      "case_id": "labtrust-valid-release-v0",
+      "expected_status": "passed",
+      "gallery_case_id": "valid_release"
     },
     {
-      "case_id": "invalid_trace_hash_tamper",
+      "case_id": "labtrust-trace-hash-tamper-v0",
       "expected_failure_code": "trace_hash_mismatch",
-      "expected_status": "failed"
+      "expected_status": "failed",
+      "gallery_case_id": "invalid_trace_hash_tamper"
     }
   ],
   "schema_version": "v0"
