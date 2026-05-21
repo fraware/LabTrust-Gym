@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
+from labtrust_gym.pcs.benchmark_report import BENCHMARK_REPORT_NAME
+from labtrust_gym.pcs.benchmark_pcs_bench_ingest import PCS_BENCH_INGEST_NAME
 from labtrust_gym.pcs.benchmark_reproducibility import (
+    BENCHMARK_MANIFEST_NAME,
     BENCHMARK_RUN_NAME,
     COVERAGE_REPORT_NAME,
     HASH_STABILITY_REPORT_NAME,
@@ -39,6 +42,11 @@ def test_benchmark_reproducibility_hash_stability(
     assert doc["aggregate"]["artifact_hashes_stable"] is True
     assert doc["aggregate"]["command_deterministic"] is True
     assert (out / BENCHMARK_RUN_NAME).is_file()
+    assert (out / PCS_BENCH_INGEST_NAME).is_file()
+    assert (out / BENCHMARK_MANIFEST_NAME).is_file()
+    assert (out / BENCHMARK_REPORT_NAME).is_file()
+    run_on_disk = json.loads((out / BENCHMARK_RUN_NAME).read_text(encoding="utf-8"))
+    assert run_on_disk.get("signature_or_digest", "").startswith("sha256:")
     coverage = json.loads((out / COVERAGE_REPORT_NAME).read_text(encoding="utf-8"))
     validate_reproducibility_coverage_report(coverage)
     assert coverage["reproducibility_passed"] is True

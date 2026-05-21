@@ -309,6 +309,7 @@ def generate_benchmark_cases_pcs_bench(
     suite_id: str = PCS_BENCH_SUITE_ID,
     suite_fixture_root: str | None = None,
     pcs_core_registry: Path | None = None,
+    validate_pcs_core_output: Path | None = None,
 ) -> dict[str, Any]:
     """
     Generate a pcs-bench fixture tree under ``out_dir``.
@@ -409,6 +410,20 @@ def generate_benchmark_cases_pcs_bench(
             valid_cases=[r.case_id for r in case_refs if r.polarity == "valid"],
             invalid_cases=[r.case_id for r in case_refs if r.polarity == "invalid"],
             fixture_root=fixture_root,
+        )
+    if validate_pcs_core_output is not None:
+        from labtrust_gym.pcs.bench_schemas import (
+            resolve_pcs_core_schema_root,
+            validate_pcs_core_benchmark_suite_outputs,
+        )
+
+        schema_root = resolve_pcs_core_schema_root(validate_pcs_core_output)
+        if schema_root is None:
+            raise FileNotFoundError(
+                f"pcs-core schemas not found at {validate_pcs_core_output.resolve()}"
+            )
+        validate_pcs_core_benchmark_suite_outputs(
+            out_dir, pcs_core_root=schema_root, policy_root=policy_root
         )
     return {
         "layout": "pcs-bench",

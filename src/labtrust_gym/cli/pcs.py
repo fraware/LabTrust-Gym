@@ -316,6 +316,16 @@ def _run_check_status_policy(args: argparse.Namespace) -> int:
 def _run_generate_benchmark_cases(args: argparse.Namespace) -> int:
     out = _resolve_path(args.out)
     release_dir = _resolve_path(args.release_dir) if args.release_dir else None
+    validate_root = (
+        _resolve_path(args.validate_pcs_core_output)
+        if getattr(args, "validate_pcs_core_output", None)
+        else None
+    )
+    registry_path = (
+        _resolve_path(args.pcs_core_registry)
+        if getattr(args, "pcs_core_registry", None)
+        else None
+    )
     try:
         profile_path = _resolve_path(args.workflow_profile) if getattr(args, "workflow_profile", None) else None
         index = generate_benchmark_cases(
@@ -327,6 +337,8 @@ def _run_generate_benchmark_cases(args: argparse.Namespace) -> int:
             seed=args.seed,
             pcs_bench_layout=getattr(args, "pcs_bench_layout", False),
             suite_fixture_root=getattr(args, "suite_fixture_root", None),
+            validate_pcs_core_output=validate_root,
+            pcs_core_registry=registry_path,
         )
     except (ValueError, FileNotFoundError, NotImplementedError) as e:
         get_console().error(str(e))
@@ -335,9 +347,16 @@ def _run_generate_benchmark_cases(args: argparse.Namespace) -> int:
         json.dump(index, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     else:
-        get_console().info(
-            f"benchmark cases written to {out} ({len(index['cases'])} cases, seed={args.seed})"
-        )
+        if "cases" in index:
+            case_count = len(index["cases"])
+        elif "valid_cases" in index:
+            case_count = len(index["valid_cases"]) + len(index.get("invalid_cases", []))
+        else:
+            case_count = 0
+        msg = f"benchmark cases written to {out} ({case_count} cases, seed={args.seed})"
+        if validate_root is not None:
+            msg += f" (pcs-core validated: {validate_root})"
+        get_console().info(msg)
     return 0
 
 
@@ -345,6 +364,11 @@ def _run_benchmark_reproducibility(args: argparse.Namespace) -> int:
     out = _resolve_path(args.out)
     pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
     release_dir = _resolve_path(args.release_dir) if args.release_dir else None
+    validate_root = (
+        _resolve_path(args.validate_pcs_core_output)
+        if getattr(args, "validate_pcs_core_output", None)
+        else None
+    )
     try:
         doc = benchmark_reproducibility(
             out,
@@ -356,6 +380,7 @@ def _run_benchmark_reproducibility(args: argparse.Namespace) -> int:
             runs=args.runs,
             seed=args.seed,
             mode=args.mode,
+            validate_pcs_core_output=validate_root,
         )
     except (ValueError, FileNotFoundError, NotImplementedError) as e:
         get_console().error(str(e))
@@ -365,10 +390,13 @@ def _run_benchmark_reproducibility(args: argparse.Namespace) -> int:
         sys.stdout.write("\n")
     else:
         agg = doc["aggregate"]
-        get_console().info(
+        msg = (
             f"reproducibility benchmark at {out}: "
             f"deterministic={agg['command_deterministic']} runs={doc['runs']}"
         )
+        if validate_root is not None:
+            msg += f" (pcs-core validated: {validate_root})"
+        get_console().info(msg)
     return 0
 
 
@@ -387,13 +415,44 @@ def _run_verify_benchmark_cases(args: argparse.Namespace) -> int:
     pcs_core = _resolve_pcs_core_root(
         _resolve_path(args.pcs_core) if getattr(args, "pcs_core", None) else None
     )
-    try:
-        checks = verify_benchmark_cases(
-            root, policy_root=get_repo_root(), pcs_core_root=pcs_core
+    validate_root = (
+        _resolve_path(args.validate_pcs_core_output)
+        if getattr(args, "validate_pcs_core_output", None)
+        else None
+    )
+    if validate_root is not None:
+        from labtrust_gym.pcs.bench_schemas import (
+            resolve_pcs_core_schema_root,
+            validate_pcs_core_benchmark_suite_outputs,
+            validate_pcs_core_reproducibility_outputs,
         )
-    except (ValueError, FileNotFoundError) as e:
-        get_console().error(str(e))
-        return 1
+
+        schema_root = resolve_pcs_core_schema_root(validate_root) or validate_root.resolve()
+        ingest_path = root / "pcs_bench_ingest.v0.json"
+        try:
+            if ingest_path.is_file():
+                checks = validate_pcs_core_reproducibility_outputs(
+                    root,
+                    pcs_core_root=schema_root,
+                    policy_root=get_repo_root(),
+                )
+            else:
+                checks = validate_pcs_core_benchmark_suite_outputs(
+                    root,
+                    pcs_core_root=schema_root,
+                    policy_root=get_repo_root(),
+                )
+        except (ValueError, FileNotFoundError) as e:
+            get_console().error(str(e))
+            return 1
+    else:
+        try:
+            checks = verify_benchmark_cases(
+                root, policy_root=get_repo_root(), pcs_core_root=pcs_core
+            )
+        except (ValueError, FileNotFoundError) as e:
+            get_console().error(str(e))
+            return 1
     if args.json:
         json.dump({"checks": checks, "status": "passed"}, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
@@ -797,6 +856,17 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         default=None,
         help="pcs-core registry fixture root (default: benchmarks/labtrust-qc-release)",
     )
+    p_bench.add_argument(
+        "--validate-pcs-core-output",
+        default=None,
+        metavar="PCS_CORE_ROOT",
+        help="After generation, validate suite against pcs-core schemas",
+    )
+    p_bench.add_argument(
+        "--pcs-core-registry",
+        default=None,
+        help="Update pcs-core benchmark_registry.valid.json when generating pcs-bench layout",
+    )
     p_bench.set_defaults(func=_run_generate_benchmark_cases)
 
     p_verify_bench = sub.add_parser(
@@ -812,6 +882,12 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         "--pcs-core",
         default=None,
         help="pcs-core root for cross-schema validation (auto-detected when present)",
+    )
+    p_verify_bench.add_argument(
+        "--validate-pcs-core-output",
+        default=None,
+        metavar="PCS_CORE_ROOT",
+        help="Strict pcs-core validation (BenchmarkCase, BenchmarkTask, ingest when present)",
     )
     p_verify_bench.add_argument("--json", action="store_true", help="Print JSON result to stdout")
     p_verify_bench.set_defaults(func=_run_verify_benchmark_cases)
@@ -862,6 +938,12 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         choices=("hash_stability", "full_regeneration"),
         default="full_regeneration",
         help="Benchmark mode (default: full_regeneration)",
+    )
+    p_repro.add_argument(
+        "--validate-pcs-core-output",
+        default=None,
+        metavar="PCS_CORE_ROOT",
+        help="Validate benchmark outputs against pcs-core schemas (BenchmarkRun, CoverageReport, PcsBenchIngest)",
     )
     p_repro.add_argument("--json", action="store_true", help="Print benchmark_run.v0.json to stdout")
     p_repro.set_defaults(func=_run_benchmark_reproducibility)

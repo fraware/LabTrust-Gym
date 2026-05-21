@@ -1,5 +1,7 @@
 # LabTrust PCS benchmark profile
 
+Producer workflow and pcs-bench integration: [pcs-benchmark-producer.md](pcs-benchmark-producer.md).
+
 LabTrust provides the reference **benchmark-grade** PCS workflow for hospital lab QC release.
 The benchmark evaluates release-chain integrity, failure localization, repair hints, and
 readiness for pcs-bench — not clinical correctness.
@@ -33,7 +35,9 @@ deployment safety.
 | `benchmark_run.v0.json` | Reproducibility summary (full_regeneration runs) |
 | `hash_stability_report.v0.json` | Hash-stability slice (baseline copy runs) |
 | `regeneration_reports/` | Per-run `regeneration_report.json` from full_regeneration |
-| `benchmark_manifest.v0.json` | LabTrust producer manifest (pcs-bench layout only) |
+| `benchmark_manifest.v0.json` | LabTrust producer manifest (pcs-bench case suite or reproducibility run) |
+| `pcs_bench_ingest.v0.json` | pcs-core `PcsBenchIngest.v0` (embedded runs, coverage, commands, artifact_refs) |
+| `benchmark_report.v0.json` | pcs-core `BenchmarkReport.v0` (reproducibility metric rollups) |
 
 Schemas: `policy/schemas/pcs/BenchmarkCase.v0.schema.json`, `BenchmarkRun.v0.schema.json`,
 `CoverageReport.v0.schema.json`, `ReproducibilityBenchmarkReport.v0.schema.json`.
@@ -81,7 +85,20 @@ labtrust generate-benchmark-cases \
   --seed 42
 ```
 
-pcs-bench canonical layout (source of truth for pcs-core):
+pcs-bench canonical layout (refresh fixtures in the pcs-bench repo):
+
+```bash
+labtrust generate-benchmark-cases \
+  --workflow hospital_lab.qc_release \
+  --out ../pcs-bench/benchmarks/labtrust_qc_release \
+  --pcs-bench-layout \
+  --seed 42
+
+cd ../pcs-bench
+pcs-bench validate-cases --suite labtrust-qc-release --pcs-core ../pcs-core
+```
+
+To publish into pcs-core instead of pcs-bench:
 
 ```bash
 labtrust generate-benchmark-cases \
@@ -109,11 +126,20 @@ Legacy failure gallery (demos): `labtrust generate-failure-gallery --out example
 
 ```bash
 labtrust benchmark-reproducibility \
+  --workflow hospital_lab.qc_release \
+  --mode full_regeneration \
   --pcs-core ../pcs-core \
+  --certifyedge-bin certifyedge \
   --runs 5 \
   --out benchmark_runs/labtrust_reproducibility \
-  --seed 42
+  --seed 42 \
+  --validate-pcs-core-output ../pcs-core
 ```
+
+Writes `benchmark_run.v0.json`, `coverage_report.v0.json`, `hash_stability_report.v0.json`,
+`regeneration_reports/`, `pcs_bench_ingest.v0.json`, and `benchmark_manifest.v0.json`.
+`pcs_bench_ingest.v0.json` embeds pcs-core `BenchmarkRun.v0` and `CoverageReport.v0` objects
+(not path-only references) plus optional `artifact_refs` for on-disk companions.
 
 Default mode `full_regeneration` re-runs `regenerate-release-protocol` each iteration and
 records artifact/canonical hash stability, CertifyEdge success, release protocol validation,
@@ -125,8 +151,10 @@ unavailable (`examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py`).
 1. `labtrust generate-benchmark-cases --pcs-bench-layout` emits `suite.yaml`, `benchmark_manifest.v0.json`, `valid/`, `invalid/`, and `coverage_report.v0.json`.
 2. Each case uses `input_artifacts.release_directory` = `input_artifacts/` (flat) or pcs-core fixture paths after layout patch.
 3. Valid cases use pcs-core null failure fields; invalid cases ship `expected_failure.json` and repair hints.
-4. `labtrust benchmark-reproducibility --mode full_regeneration` (default) writes `benchmark_run.v0.json`, `coverage_report.v0.json`, `hash_stability_report.v0.json`, `regeneration_reports/`, and `pcs_bench_ingest.v0.json`.
-5. Generated cases validate against pcs-core when a checkout is provided.
+4. `labtrust benchmark-reproducibility --mode full_regeneration` (default) writes `benchmark_run.v0.json`, `coverage_report.v0.json`, `hash_stability_report.v0.json`, `regeneration_reports/`, `pcs_bench_ingest.v0.json`, and `benchmark_manifest.v0.json`.
+5. `--validate-pcs-core-output ../pcs-core` validates `BenchmarkRun.v0`, `CoverageReport.v0`, and `PcsBenchIngest.v0` (and `BenchmarkReport.v0` when present).
+6. Generated cases validate against pcs-core when a checkout is provided.
+7. pcs-bench ingests `pcs_bench_ingest.v0.json` from reproducibility runs directly.
 
 ## pcs-bench integration
 

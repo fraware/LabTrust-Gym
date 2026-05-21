@@ -332,11 +332,20 @@ python examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.p
 python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
 
 labtrust benchmark-reproducibility \
+  --workflow hospital_lab.qc_release \
   --pcs-core ../pcs-core \
+  --certifyedge-bin certifyedge \
   --runs 5 \
   --mode full_regeneration \
   --out benchmark_runs/labtrust_reproducibility \
-  --seed 42
+  --seed 42 \
+  --validate-pcs-core-output ../pcs-core
+
+# Publish ingest for pcs-bench (sibling repo):
+python examples/pcs_qc_release/scripts/publish_reproducibility_ingest.py \
+  --out benchmark_runs/labtrust_reproducibility \
+  --pcs-core ../pcs-core
+
 python examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
 
 labtrust check-status-policy \

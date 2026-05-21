@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/ReproducibilityBenchmarkManifest.v0.schema.json",
+  "title": "ReproducibilityBenchmarkManifest.v0",
+  "description": "LabTrust producer manifest for a reproducibility benchmark run directory.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "producer_id",
+    "suite_id",
+    "workflow_id",
+    "mode",
+    "runs",
+    "pcs_bench_ingest",
+    "source_repo",
+    "source_commit",
+    "signature_or_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "producer_id": { "type": "string", "const": "labtrust-gym" },
+    "suite_id": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "mode": {
+      "type": "string",
+      "enum": ["hash_stability", "full_regeneration"]
+    },
+    "runs": { "type": "integer", "minimum": 1 },
+    "pcs_bench_ingest": { "type": "string", "minLength": 1 },
+    "source_repo": { "type": "string", "format": "uri" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

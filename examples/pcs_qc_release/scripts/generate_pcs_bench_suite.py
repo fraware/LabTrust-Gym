@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-from labtrust_gym.pcs.benchmark_cases import verify_benchmark_cases
+from labtrust_gym.pcs.bench_schemas import resolve_pcs_core_schema_root
 from labtrust_gym.pcs.benchmark_pcs_bench import (
     PCS_BENCH_SUITE_ID,
     cleanup_pcs_bench_orphans,
@@ -58,12 +58,23 @@ def main() -> int:
         action="store_true",
         help="Skip schema verification (faster smoke)",
     )
+    parser.add_argument(
+        "--validate-pcs-core-output",
+        type=Path,
+        default=None,
+        help="pcs-core root for strict schema validation (default: ../pcs-core when present)",
+    )
     args = parser.parse_args()
     out = (args.out or _default_out()).resolve()
     release = ROOT / "examples" / "pcs_qc_release" / "release"
     registry = args.registry if args.registry is not None else _default_registry()
     cleanup_pcs_bench_orphans(out)
     print(f"Generating pcs-bench suite at {out} (seed={args.seed})...", flush=True)
+
+    pcs_core_validate = args.validate_pcs_core_output
+    if pcs_core_validate is None and not args.skip_verify:
+        pcs_core_validate = ROOT.parent / "pcs-core"
+    schema_root = resolve_pcs_core_schema_root(pcs_core_validate)
 
     result = generate_benchmark_cases_pcs_bench(
         out,
@@ -74,14 +85,15 @@ def main() -> int:
         suite_id=PCS_BENCH_SUITE_ID,
         suite_fixture_root=args.fixture_root,
         pcs_core_registry=registry,
+        validate_pcs_core_output=schema_root,
     )
-    if not args.skip_verify:
-        pcs_core = ROOT.parent / "pcs-core"
-        if not pcs_core.is_dir():
-            pcs_core = None
-        checks = verify_benchmark_cases(out, policy_root=ROOT, pcs_core_root=pcs_core)
-    else:
-        checks = []
+    checks: list[str] = []
+    if not args.skip_verify and schema_root is not None:
+        from labtrust_gym.pcs.bench_schemas import validate_pcs_core_benchmark_suite_outputs
+
+        checks = validate_pcs_core_benchmark_suite_outputs(
+            out, pcs_core_root=schema_root, policy_root=ROOT
+        )
 
     if len(result["valid_cases"]) != 1 or len(result["invalid_cases"]) != 12:
         raise RuntimeError(

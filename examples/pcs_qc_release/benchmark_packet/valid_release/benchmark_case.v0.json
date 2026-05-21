@@ -1,10 +1,11 @@
 {
   "case_id": "labtrust-valid-release-v0",
   "case_kind": "valid_release",
-  "expected_failure_code": "",
-  "expected_repair_hint_kind": "none",
-  "expected_responsible_component": "runtime_producer",
+  "expected_failure_code": null,
+  "expected_repair_hint_kind": null,
+  "expected_responsible_component": null,
   "expected_status": "passed",
+  "expected_system_outcome": "admitted",
   "input_artifacts": {
     "artifacts": [
       {
@@ -93,11 +94,11 @@
         "role": "workflow_profile_v0_json"
       }
     ],
-    "release_directory": "input_artifacts"
+    "release_directory": "input_artifacts/"
   },
   "schema_version": "v0",
-  "signature_or_digest": "sha256:393f1f8d0ade6499daae1dffa4ab241d6e7becf3b30378a5dc150e6d36a6b53f",
-  "source_commit": "186c65b252bfaade6ee321b0a74c15980852cdd2",
+  "signature_or_digest": "sha256:45c6e3796d0d201fbfd578d9ef9d29b7372cb44e10fce0ae736c9ebdccd3b4aa",
+  "source_commit": "fb820653e4791f79147f188ca13910727a277481",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "task_id": "labtrust-qc-release-v0",
   "workflow_id": "hospital_lab.qc_release"

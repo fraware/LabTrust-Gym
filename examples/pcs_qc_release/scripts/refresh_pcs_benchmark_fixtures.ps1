@@ -22,4 +22,10 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & (Join-Path $PSScriptRoot "export_pcs_bench_to_pcs_core.ps1")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "PCS benchmark fixtures refreshed (LabTrust examples + pcs-core suite)"
+& $Python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+& $Python examples/pcs_qc_release/scripts/ci_validate_benchmark_ingest_golden.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "PCS benchmark fixtures refreshed (LabTrust examples + pcs-core suite + ingest CI)"

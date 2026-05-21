@@ -14,11 +14,18 @@ from labtrust_gym.pcs.bench_schemas import (
     validate_reproducibility_coverage_report,
 )
 from labtrust_gym.pcs.benchmark_case import LABTRUST_SOURCE_REPO, _benchmark_provenance
-from labtrust_gym.pcs.benchmark_pcs_bench import PCS_BENCH_SUITE_ID
 from labtrust_gym.pcs.benchmark_pcs_bench_ingest import (
     PCS_BENCH_INGEST_NAME,
+    REPRODUCIBILITY_SUITE_ID,
+    build_benchmark_artifact_ref,
     build_pcs_bench_ingest,
+    build_pcs_core_benchmark_runs_from_reproducibility,
     build_release_reproducibility_coverage_report,
+    build_reproducibility_benchmark_manifest,
+)
+from labtrust_gym.pcs.benchmark_report import (
+    BENCHMARK_REPORT_NAME,
+    build_reproducibility_pcs_benchmark_report,
 )
 from labtrust_gym.pcs.hash import file_digest, pcs_digest
 from labtrust_gym.pcs.regenerate_release_protocol import regenerate_release_protocol
@@ -29,6 +36,7 @@ from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
 from labtrust_gym.pcs.workflow_profile import workflow_profile_view
 
 BENCHMARK_RUN_NAME = "benchmark_run.v0.json"
+BENCHMARK_MANIFEST_NAME = "benchmark_manifest.v0.json"
 COVERAGE_REPORT_NAME = "coverage_report.v0.json"
 HASH_STABILITY_REPORT_NAME = "hash_stability_report.v0.json"
 REGENERATION_REPORTS_DIR = "regeneration_reports"
@@ -38,17 +46,7 @@ class RegenerationUnavailableError(NotImplementedError):
     """CertifyEdge or regenerate-release-protocol unavailable (CI may fall back)."""
 
 
-def resolve_pcs_core_schema_root(pcs_core: Path | None) -> Path | None:
-    """Return pcs-core repo root when ``pcs_core`` is a release dir or repo root."""
-    if pcs_core is None:
-        return None
-    pcs_core = pcs_core.resolve()
-    if (pcs_core / "schemas" / "BenchmarkCase.v0.schema.json").is_file():
-        return pcs_core
-    parent = pcs_core.parent
-    if (parent / "schemas" / "BenchmarkCase.v0.schema.json").is_file():
-        return parent
-    return None
+from labtrust_gym.pcs.bench_schemas import resolve_pcs_core_schema_root
 
 _HASH_ARTIFACTS = tuple(LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS) + (
     "manifest.json",
@@ -276,7 +274,7 @@ def _benchmark_run_doc(
             "duration_ms",
         )
     }
-    return {
+    doc: dict[str, Any] = {
         "schema_version": "v0",
         "benchmark_id": "labtrust-reproducibility-v0",
         "workflow_id": profile_property_id,
@@ -286,6 +284,9 @@ def _benchmark_run_doc(
         "per_run": slim_runs,
         "aggregate": slim_aggregate,
     }
+    unsigned = {k: v for k, v in doc.items() if k != "signature_or_digest"}
+    doc["signature_or_digest"] = pcs_digest(unsigned)
+    return doc
 
 
 def _hash_stability_report_doc(
@@ -337,12 +338,15 @@ def benchmark_reproducibility(
     seed: int = 42,
     mode: str | None = None,
     include_hash_stability: bool = True,
+    validate_pcs_core_output: Path | None = None,
 ) -> dict[str, Any]:
     """
     Measure release-chain reproducibility (release-grade default: full_regeneration).
 
     Writes ``benchmark_run.v0.json``, ``coverage_report.v0.json``,
-    ``regeneration_reports/``, and ``hash_stability_report.v0.json`` (when enabled).
+    ``benchmark_manifest.v0.json``, ``pcs_bench_ingest.v0.json``,
+    ``benchmark_report.v0.json``, ``regeneration_reports/``, and
+    ``hash_stability_report.v0.json`` (when enabled).
     """
     if runs < 1:
         raise ValueError("runs must be >= 1")
@@ -457,12 +461,47 @@ def benchmark_reproducibility(
         reproducibility_coverage=coverage,
         policy_root=policy_root,
     )
+    pcs_runs = build_pcs_core_benchmark_runs_from_reproducibility(
+        per_run=per_run,
+        mode=selected_mode,
+        policy_root=policy_root,
+    )
+    source_repo, source_commit = _benchmark_provenance(policy_root)
+    benchmark_report = build_reproducibility_pcs_benchmark_report(
+        pcs_runs=pcs_runs,
+        pcs_coverage=pcs_coverage,
+        aggregate=aggregate,
+        policy_root=policy_root,
+    )
+    (out_dir / BENCHMARK_REPORT_NAME).write_text(
+        json.dumps(benchmark_report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    artifact_refs = [
+        build_benchmark_artifact_ref(
+            artifact_type="BenchmarkRun.v0",
+            path=BENCHMARK_RUN_NAME,
+            embedded=run_doc,
+            source_repo=source_repo,
+            source_commit=source_commit,
+            role="producer_export",
+        ),
+        build_benchmark_artifact_ref(
+            artifact_type="CoverageReport.v0",
+            path=COVERAGE_REPORT_NAME,
+            embedded=pcs_coverage,
+            source_repo=source_repo,
+            source_commit=source_commit,
+        ),
+    ]
     ingest = build_pcs_bench_ingest(
         workflow_id=workflow_key,
-        benchmark_runs=[run_doc],
+        benchmark_runs=pcs_runs,
         coverage_reports=[pcs_coverage],
         policy_root=policy_root,
-        suite_id=PCS_BENCH_SUITE_ID,
+        suite_id=REPRODUCIBILITY_SUITE_ID,
+        artifact_refs=artifact_refs,
         commands=[
             {
                 "command": (
@@ -474,13 +513,58 @@ def benchmark_reproducibility(
         ],
         logs=[f"mode={selected_mode} deterministic={aggregate['command_deterministic']}"],
     )
-    schema_root = resolve_pcs_core_schema_root(pcs_core)
-    if schema_root is not None:
-        from labtrust_gym.pcs.bench_schemas import validate_pcs_bench_ingest_pcs_core
-
-        validate_pcs_bench_ingest_pcs_core(ingest, pcs_core_root=schema_root)
     (out_dir / PCS_BENCH_INGEST_NAME).write_text(
         json.dumps(ingest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+    from labtrust_gym.pcs.bench_schemas import validate_pcs_bench_ingest
+
+    validate_pcs_bench_ingest(ingest, policy_root=policy_root)
+
+    manifest = build_reproducibility_benchmark_manifest(
+        workflow_id=workflow_key,
+        mode=selected_mode,
+        runs=runs,
+        policy_root=policy_root,
+    )
+    from labtrust_gym.pcs.bench_schemas import validate_reproducibility_benchmark_manifest
+
+    validate_reproducibility_benchmark_manifest(manifest, policy_root=policy_root)
+    (out_dir / BENCHMARK_MANIFEST_NAME).write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    schema_root = resolve_pcs_core_schema_root(validate_pcs_core_output or pcs_core)
+    if schema_root is not None:
+        from labtrust_gym.pcs.bench_schemas import (
+            validate_coverage_report_pcs_core,
+            validate_pcs_bench_ingest_pcs_core,
+        )
+
+        from labtrust_gym.pcs.bench_schemas import (
+            validate_benchmark_report_pcs_core,
+            validate_benchmark_run_pcs_core,
+        )
+
+        validate_pcs_bench_ingest_pcs_core(ingest, pcs_core_root=schema_root)
+        validate_coverage_report_pcs_core(pcs_coverage, pcs_core_root=schema_root)
+        validate_benchmark_report_pcs_core(benchmark_report, pcs_core_root=schema_root)
+        for run in pcs_runs:
+            validate_benchmark_run_pcs_core(run, pcs_core_root=schema_root)
+
+    if validate_pcs_core_output is not None:
+        if schema_root is None:
+            raise FileNotFoundError(
+                f"pcs-core schemas not found at {validate_pcs_core_output.resolve()}"
+            )
+        from labtrust_gym.pcs.bench_schemas import validate_pcs_core_reproducibility_outputs
+
+        validate_pcs_core_reproducibility_outputs(
+            out_dir,
+            pcs_core_root=schema_root,
+            policy_root=policy_root,
+        )
+
     return run_doc

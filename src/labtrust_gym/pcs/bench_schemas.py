@@ -42,8 +42,24 @@ LABTRUST_BENCHMARK_EXTENSION_SCHEMA = (
 )
 EXPECTED_REPAIR_HINT_SCHEMA = "policy/schemas/pcs/ExpectedRepairHint.v0.schema.json"
 BENCHMARK_MANIFEST_SCHEMA = "policy/schemas/pcs/BenchmarkManifest.v0.schema.json"
+REPRODUCIBILITY_BENCHMARK_MANIFEST_SCHEMA = (
+    "policy/schemas/pcs/ReproducibilityBenchmarkManifest.v0.schema.json"
+)
 HASH_STABILITY_REPORT_SCHEMA = "policy/schemas/pcs/HashStabilityReport.v0.schema.json"
 PCS_BENCH_INGEST_SCHEMA = "policy/schemas/pcs/PcsBenchIngest.v0.schema.json"
+
+
+def resolve_pcs_core_schema_root(pcs_core: Path | None) -> Path | None:
+    """Return pcs-core repo root when ``pcs_core`` is a release dir or repo root."""
+    if pcs_core is None:
+        return None
+    pcs_core = pcs_core.resolve()
+    if (pcs_core / "schemas" / "BenchmarkCase.v0.schema.json").is_file():
+        return pcs_core
+    parent = pcs_core.parent
+    if (parent / "schemas" / "BenchmarkCase.v0.schema.json").is_file():
+        return parent
+    return None
 
 
 def _schema_path(rel: str, *, policy_root: Path | None = None) -> Path:
@@ -197,6 +213,84 @@ def validate_benchmark_manifest(
     validate_against_schema(doc, load_json(schema_path), path=schema_path)
 
 
+def validate_reproducibility_benchmark_manifest(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(REPRODUCIBILITY_BENCHMARK_MANIFEST_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)
+
+
+def _validate_pcs_core_doc(
+    doc: dict[str, Any],
+    *,
+    pcs_core_root: Path,
+    schema_name: str,
+    label: str,
+) -> None:
+    if jsonschema is None:
+        raise PolicyLoadError(
+            pcs_core_root,
+            "jsonschema is required for pcs-core schema validation",
+        )
+    schemas_dir = pcs_core_root / "schemas"
+    schema_path = schemas_dir / schema_name
+    if not schema_path.is_file():
+        raise FileNotFoundError(f"pcs-core {label} schema not found: {schema_path}")
+    schema = load_json(schema_path)
+    registry, validator_cls = _pcs_core_schema_registry(schemas_dir)
+    try:
+        validator_cls(schema, registry=registry).validate(doc)
+    except jsonschema.ValidationError as e:
+        raise PolicyLoadError(schema_path, f"pcs-core {label} validation failed: {e}") from e
+
+
+def validate_benchmark_run_pcs_core(
+    doc: dict[str, Any],
+    *,
+    pcs_core_root: Path,
+) -> None:
+    _validate_pcs_core_doc(
+        doc, pcs_core_root=pcs_core_root, schema_name="BenchmarkRun.v0.schema.json", label="BenchmarkRun"
+    )
+
+
+def validate_coverage_report_pcs_core(
+    doc: dict[str, Any],
+    *,
+    pcs_core_root: Path,
+) -> None:
+    _validate_pcs_core_doc(
+        doc,
+        pcs_core_root=pcs_core_root,
+        schema_name="CoverageReport.v0.schema.json",
+        label="CoverageReport",
+    )
+
+
+def validate_benchmark_report_pcs_core(
+    doc: dict[str, Any],
+    *,
+    pcs_core_root: Path,
+) -> None:
+    _validate_pcs_core_doc(
+        doc,
+        pcs_core_root=pcs_core_root,
+        schema_name="BenchmarkReport.v0.schema.json",
+        label="BenchmarkReport",
+    )
+
+
+def validate_pcs_bench_ingest(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(PCS_BENCH_INGEST_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)
+
+
 def validate_hash_stability_report(
     doc: dict[str, Any],
     *,
@@ -252,6 +346,90 @@ def validate_pcs_bench_ingest_pcs_core(
         raise PolicyLoadError(schema_path, f"pcs-core ingest validation failed: {e}") from e
     except Exception as e:
         raise PolicyLoadError(schema_path, f"pcs-core ingest validation failed: {e}") from e
+    for run in doc.get("benchmark_runs", []):
+        validate_benchmark_run_pcs_core(run, pcs_core_root=pcs_core_root)
+    for report in doc.get("coverage_reports", []):
+        validate_coverage_report_pcs_core(report, pcs_core_root=pcs_core_root)
+
+
+def validate_pcs_core_reproducibility_outputs(
+    out_dir: Path,
+    *,
+    pcs_core_root: Path,
+    policy_root: Path | None = None,
+) -> list[str]:
+    """
+    Validate reproducibility benchmark artifacts against LabTrust and pcs-core schemas.
+
+    Returns human-readable check labels (for CLI logging).
+    """
+    from labtrust_gym.pcs.benchmark_pcs_bench_ingest import PCS_BENCH_INGEST_NAME
+    from labtrust_gym.pcs.benchmark_reproducibility import (
+        BENCHMARK_RUN_NAME,
+        COVERAGE_REPORT_NAME,
+    )
+
+    import json
+
+    checks: list[str] = []
+    out_dir = out_dir.resolve()
+    pcs_core_root = pcs_core_root.resolve()
+
+    run_path = out_dir / BENCHMARK_RUN_NAME
+    run_doc = json.loads(run_path.read_text(encoding="utf-8"))
+    validate_benchmark_run(run_doc, policy_root=policy_root)
+    checks.append("benchmark_run.labtrust")
+
+    coverage_path = out_dir / COVERAGE_REPORT_NAME
+    coverage_doc = json.loads(coverage_path.read_text(encoding="utf-8"))
+    validate_reproducibility_coverage_report(coverage_doc, policy_root=policy_root)
+    checks.append("coverage_report.labtrust")
+
+    ingest_path = out_dir / PCS_BENCH_INGEST_NAME
+    ingest_doc = json.loads(ingest_path.read_text(encoding="utf-8"))
+    validate_pcs_bench_ingest(ingest_doc, policy_root=policy_root)
+    checks.append("pcs_bench_ingest.labtrust")
+    validate_pcs_bench_ingest_pcs_core(ingest_doc, pcs_core_root=pcs_core_root)
+    checks.append("pcs_bench_ingest.pcs_core")
+
+    manifest_path = out_dir / "benchmark_manifest.v0.json"
+    if manifest_path.is_file():
+        manifest_doc = json.loads(manifest_path.read_text(encoding="utf-8"))
+        validate_reproducibility_benchmark_manifest(manifest_doc, policy_root=policy_root)
+        checks.append("benchmark_manifest.labtrust")
+
+    report_path = out_dir / "benchmark_report.v0.json"
+    if report_path.is_file():
+        report_doc = json.loads(report_path.read_text(encoding="utf-8"))
+        validate_benchmark_report_pcs_core(report_doc, pcs_core_root=pcs_core_root)
+        checks.append("benchmark_report.pcs_core")
+
+    return checks
+
+
+def validate_pcs_core_benchmark_suite_outputs(
+    benchmark_root: Path,
+    *,
+    pcs_core_root: Path,
+    policy_root: Path | None = None,
+) -> list[str]:
+    """Validate a pcs-bench case suite tree against pcs-core schemas."""
+    from labtrust_gym.pcs.benchmark_cases import verify_benchmark_cases
+    from labtrust_gym.pcs.benchmark_pcs_bench import BENCHMARK_TASK_NAME
+
+    checks = verify_benchmark_cases(
+        benchmark_root,
+        policy_root=policy_root,
+        pcs_core_root=pcs_core_root,
+    )
+    task_path = benchmark_root / BENCHMARK_TASK_NAME
+    if task_path.is_file():
+        import json
+
+        task_doc = json.loads(task_path.read_text(encoding="utf-8"))
+        validate_benchmark_task_pcs_core(task_doc, pcs_core_root=pcs_core_root)
+        checks.append("benchmark_task.pcs_core")
+    return checks
 
 
 def validate_benchmark_case_pcs_core(
