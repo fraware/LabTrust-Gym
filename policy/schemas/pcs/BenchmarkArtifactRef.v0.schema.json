@@ -30,7 +30,10 @@
         "FailureLocalizationResult.v0",
         "ExplainQualityReport.v0",
         "ProfileCoverageReport.v0",
-        "MetricSummary.v0"
+        "MetricSummary.v0",
+        "PcsBenchIngest.v0",
+        "LabtrustBenchmarkRunSummary.v0",
+        "LabtrustReproducibilityCoverage.v0"
       ]
     },
     "path": { "type": "string", "minLength": 1 },
@@ -43,7 +46,8 @@
         "primary",
         "native_report",
         "reproducibility_evidence",
-        "regeneration_report"
+        "regeneration_report",
+        "canonical_ingest"
       ]
     },
     "source_repo": { "type": "string", "format": "uri" },

@@ -1,0 +1,15 @@
+{
+  "certifyedge_live": false,
+  "evidence_grade": "developer",
+  "mode": "hash_stability",
+  "pcs_bench_ingest": "pcs_bench_ingest.v0.json",
+  "pcs_core_validation": false,
+  "producer_id": "labtrust-gym",
+  "runs": 1,
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:132dbeced49ae004decd73e2f3c1ecbfc4603cb9b55856cbe11ac9073574e6af",
+  "source_commit": "0000000000000000000000000000000000000001",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym",
+  "suite_id": "labtrust-qc-reproducibility-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

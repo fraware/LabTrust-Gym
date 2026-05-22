@@ -3,7 +3,7 @@
 # make verify: full verification battery (lint, typecheck, policy, tests, risk-register gate, docs).
 # make paper OUT=<dir>: package-release paper_v0.1 then verify-release (requires OUT= output dir).
 
-.PHONY: test golden bench-smoke lint format typecheck policy-validate no-placeholders e2e-artifacts-chain verification-battery verify paper pcs-bench-producer
+.PHONY: test golden bench-smoke lint format typecheck policy-validate no-placeholders e2e-artifacts-chain verification-battery verify paper pcs-bench-producer pcs-bench-sync-suite pcs-fixtures pcs-bench-publish-fixtures
 
 # Default: run fast test suite (no env optional deps for golden/policy)
 test:
@@ -65,3 +65,22 @@ BENCH_RUN_DIR ?= benchmark_runs/labtrust_reproducibility
 
 pcs-bench-producer:
 	python scripts/pcs_bench_producer.py
+
+PCS_BENCH_OUT ?= ../pcs-bench/benchmarks/labtrust_qc_release
+
+pcs-bench-sync-suite:
+	python scripts/sync_pcs_bench_labtrust_suite.py --pcs-bench-out $(PCS_BENCH_OUT)
+
+pcs-fixtures:
+	python scripts/generate_pcs_bench_ingest_fixture.py
+
+pcs-bench-publish-fixtures:
+	python scripts/publish_pcs_bench_fixtures.py --pcs-bench $(PCS_BENCH)
+
+pcs-verify: pcs-fixtures
+	python examples/pcs_qc_release/scripts/ci_validate_pcs_bench_ingest_fixture.py
+	python examples/pcs_qc_release/scripts/ci_validate_pcs_producer_contract.py
+	@if [ -d "$(PCS_CORE)" ]; then \
+		labtrust validate-pcs-producer --dir tests/fixtures/pcs_bench_reproducibility --pcs-core $(PCS_CORE); \
+		pcs-bench validate-ingest --input tests/fixtures/pcs_bench_reproducibility/pcs_bench_ingest.v0.json --pcs-core $(PCS_CORE); \
+	fi

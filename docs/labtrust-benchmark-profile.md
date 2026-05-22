@@ -151,10 +151,11 @@ unavailable (`examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py`).
 1. `labtrust generate-benchmark-cases --pcs-bench-layout` emits `suite.yaml`, `benchmark_manifest.v0.json`, `valid/`, `invalid/`, and `coverage_report.v0.json`.
 2. Each case uses `input_artifacts.release_directory` = `input_artifacts/` (flat) or pcs-core fixture paths after layout patch.
 3. Valid cases use pcs-core null failure fields; invalid cases ship `expected_failure.json` and repair hints.
-4. `labtrust benchmark-reproducibility --mode full_regeneration` (default) writes `benchmark_run.v0.json`, `coverage_report.v0.json`, `hash_stability_report.v0.json`, `regeneration_reports/`, `pcs_bench_ingest.v0.json`, and `benchmark_manifest.v0.json`.
-5. `--validate-pcs-core-output ../pcs-core` validates `BenchmarkRun.v0`, `CoverageReport.v0`, and `PcsBenchIngest.v0` (and `BenchmarkReport.v0` when present).
-6. Generated cases validate against pcs-core when a checkout is provided.
-7. pcs-bench ingests `pcs_bench_ingest.v0.json` from reproducibility runs directly.
+4. `make pcs-bench-producer` runs `full_regeneration` (five runs, live CertifyEdge) and `pcs-bench validate-ingest --release-grade`.
+5. `pcs_bench_ingest.v0.json` embeds pcs-core runs/coverage and lists all reproducibility sidecars in `artifact_refs` (see [pcs-bench-producer-contract.md](pcs-bench-producer-contract.md)).
+6. `--validate-pcs-core-output ../pcs-core` validates nested pcs-core schemas; LabTrust checks sidecar digests on disk.
+7. `make pcs-bench-sync-suite` refreshes `../pcs-bench/benchmarks/labtrust_qc_release`.
+8. pcs-bench producer gate consumes `benchmark_runs/labtrust_reproducibility/pcs_bench_ingest.v0.json` without fixture fallback when the producer target succeeds.
 
 ## pcs-bench integration
 

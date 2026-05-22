@@ -16,6 +16,9 @@ _WORKFLOW_ALIASES: dict[str, str] = {
     "hospital_lab.qc_release": "qc_release",
     "labtrust.qc_release_v0.1": "qc_release",
     "qc-release": "qc_release",
+    "qc_release": "qc_release",
+    "labtrust_qc_release": "qc_release",
+    "hospital_lab_qc_release": "qc_release",
 }
 
 

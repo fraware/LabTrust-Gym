@@ -1,0 +1,37 @@
+{
+  "artifacts_produced": [
+    "handoff_to_certifyedge.json",
+    "handoff_to_pf.json",
+    "labtrust_release_fragment.json",
+    "manifest.json",
+    "regeneration_report.json",
+    "runtime_receipt.json",
+    "science_claim_bundle.certified.json",
+    "science_claim_bundle.pending.json",
+    "trace.json",
+    "trace_certificate.json",
+    "workflow_profile.v0.json"
+  ],
+  "case_id": "labtrust-valid-release-v0",
+  "certificate_status": "CertificateChecked",
+  "commands": [
+    {
+      "command": "labtrust benchmark-reproducibility --mode hash_stability --runs 1 --seed 0",
+      "exit_code": 0
+    }
+  ],
+  "completed_at": "2026-05-16T12:00:00.204000Z",
+  "duration_ms": 204,
+  "observed_failure_code": null,
+  "observed_repair_hint": null,
+  "observed_responsible_component": null,
+  "observed_status": "passed",
+  "release_chain_status": "valid",
+  "run_id": "labtrust-repro-hash_stability-run-0",
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:e46be2f2818bf232fa985f28c2c11959555d78445d8cf7d8d56c17322d71a999",
+  "source_commit": "0000000000000000000000000000000000000001",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym",
+  "started_at": "2026-05-16T12:00:00Z",
+  "task_id": "labtrust-qc-release-reproducibility-v0"
+}

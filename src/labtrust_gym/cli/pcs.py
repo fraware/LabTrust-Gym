@@ -401,6 +401,36 @@ def _run_benchmark_reproducibility(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_validate_pcs_producer(args: argparse.Namespace) -> int:
+    """Validate a reproducibility producer output directory (ingest contract + sidecars)."""
+    root = _resolve_path(args.dir)
+    pcs_core = _resolve_pcs_core_root(
+        _resolve_path(args.pcs_core) if getattr(args, "pcs_core", None) else None
+    )
+    if pcs_core is None:
+        get_console().error("pcs-core not found; pass --pcs-core")
+        return 1
+    from labtrust_gym.pcs.bench_schemas import validate_pcs_core_reproducibility_outputs
+
+    try:
+        checks = validate_pcs_core_reproducibility_outputs(
+            root,
+            pcs_core_root=pcs_core,
+            policy_root=get_repo_root(),
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        get_console().error(str(exc))
+        return 1
+    if args.json:
+        json.dump({"checks": checks, "status": "passed"}, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    else:
+        for label in checks:
+            get_console().info(f"OK {label}")
+        get_console().info(f"pcs producer output validated: {root}")
+    return 0
+
+
 def _resolve_pcs_core_root(explicit: Path | None) -> Path | None:
     if explicit is not None:
         return explicit.resolve()
@@ -954,6 +984,23 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
     )
     p_repro.add_argument("--json", action="store_true", help="Print benchmark_run.v0.json to stdout")
     p_repro.set_defaults(func=_run_benchmark_reproducibility)
+
+    p_validate_producer = sub.add_parser(
+        "validate-pcs-producer",
+        help="Validate pcs_bench_ingest.v0.json producer output (schemas, sidecars, release-grade)",
+    )
+    p_validate_producer.add_argument(
+        "--dir",
+        required=True,
+        help="Reproducibility output dir (e.g. benchmark_runs/labtrust_reproducibility)",
+    )
+    p_validate_producer.add_argument(
+        "--pcs-core",
+        default=None,
+        help="pcs-core root (auto-detected when present)",
+    )
+    p_validate_producer.add_argument("--json", action="store_true", help="Print JSON result to stdout")
+    p_validate_producer.set_defaults(func=_run_validate_pcs_producer)
 
     p_regen = sub.add_parser(
         "regenerate-release-chain",

@@ -1,0 +1,80 @@
+{
+  "benchmark_suite_id": "labtrust-qc-reproducibility-v0",
+  "coverage": {
+    "release_reproducibility": {
+      "coverage_id": "labtrust-release-reproducibility-v0",
+      "coverage_ratio": 1.0,
+      "denominator": 1.0,
+      "details": {
+        "benchmark_id": "labtrust-reproducibility-v0",
+        "mode": "hash_stability",
+        "reproducibility_coverage": {
+          "mode": "hash_stability",
+          "reproducibility_passed": true,
+          "runs": 1,
+          "schema_version": "v0",
+          "task_id": "labtrust-qc-release-reproducibility-v0",
+          "workflow_id": "hospital_lab.qc_release"
+        }
+      },
+      "metric": "release_reproducibility_score",
+      "metric_id": "release_reproducibility_score",
+      "numerator": 1.0,
+      "schema_version": "v0",
+      "signature_or_digest": "sha256:c78e1d0c115d8d898367cbbbb4b1c082de3ec081a833a17207cbd99be511323e",
+      "source_commit": "122ebfa2d7799a27c77dc2a6d52d451e17caa9d4",
+      "source_repo": "https://github.com/fraware/LabTrust-Gym"
+    }
+  },
+  "failures": [],
+  "metric_summaries": [
+    {
+      "applicability": "measured",
+      "denominator": 1,
+      "name": "release_reproducibility_score",
+      "numerator": 1,
+      "reason": "coverage from 'labtrust-release-reproducibility-v0'",
+      "score": 1.0
+    }
+  ],
+  "metrics": [
+    "release_reproducibility_score"
+  ],
+  "producer_id": "labtrust-gym",
+  "report_id": "benchmark-report-labtrust-qc-reproducibility-v0",
+  "runs": [
+    {
+      "case_id": "labtrust-valid-release-v0",
+      "observed_status": "passed",
+      "path": "pcs_bench_ingest.v0.json#benchmark_runs/0",
+      "run_id": "labtrust-repro-hash_stability-run-0"
+    }
+  ],
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:a68d7077953d3f77be7ba656fd6c9966ca2ee5ecf0ac5aff1f57db19fcf8b61f",
+  "source_commit": "122ebfa2d7799a27c77dc2a6d52d451e17caa9d4",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym",
+  "summary": {
+    "certificate_completeness_score": 1.0,
+    "evidence_grade": "release",
+    "execution_mode": "simulate",
+    "expected_failures_detected": 0,
+    "failed_cases": 0,
+    "failure_localization_accuracy": 1.0,
+    "formal_check_coverage": 1.0,
+    "formal_check_coverage_score": 1.0,
+    "hybrid_fallback_cases": 0,
+    "live_cases": 0,
+    "passed_cases": 1,
+    "registry_coverage": 1.0,
+    "registry_coverage_score": 1.0,
+    "release_reproducibility_score": 1.0,
+    "repair_hint_accuracy": 1.0,
+    "scientific_memory_interpretability_score": 0.0,
+    "scientific_memory_render_coverage": 0.0,
+    "simulated_cases": 1,
+    "total_cases": 1,
+    "unexpected_failures": 0,
+    "unexpected_passes": 0
+  }
+}

@@ -36,6 +36,37 @@ _PCS_CORE_ARTIFACT_REF_TYPES = frozenset(
     }
 )
 _PCS_CORE_ARTIFACT_REF_ROLES = frozenset({"producer_export", "ingest_bundle", "primary"})
+_LABTRUST_EXTENDED_ARTIFACT_REF_TYPES = frozenset(
+    {
+        "BenchmarkReport.v0",
+        "LabtrustBenchmarkRunSummary.v0",
+        "LabtrustReproducibilityCoverage.v0",
+        "ReproducibilityBenchmarkManifest.v0",
+        "HashStabilityReport.v0",
+        "RegenerationReport.v0",
+        "PcsBenchIngest.v0",
+    }
+)
+_LABTRUST_EXTENDED_ARTIFACT_REF_ROLES = frozenset(
+    {
+        "native_report",
+        "reproducibility_evidence",
+        "regeneration_report",
+        "canonical_ingest",
+    }
+)
+
+# Paths that must appear in ingest ``artifact_refs`` for release-grade reproducibility.
+RELEASE_GRADE_INGEST_REF_PATHS: frozenset[str] = frozenset(
+    {
+        "benchmark_run.v0.json",
+        "coverage_report.v0.json",
+        "benchmark_report.v0.json",
+        "benchmark_manifest.v0.json",
+        "hash_stability_report.v0.json",
+        PCS_BENCH_INGEST_NAME,
+    }
+)
 
 
 def build_release_reproducibility_coverage_report(
@@ -102,6 +133,20 @@ def is_pcs_core_compatible_artifact_ref(ref: dict[str, Any]) -> bool:
         ref.get("artifact_type") in _PCS_CORE_ARTIFACT_REF_TYPES
         and ref.get("role") in _PCS_CORE_ARTIFACT_REF_ROLES
     )
+
+
+def is_labtrust_extended_artifact_ref(ref: dict[str, Any]) -> bool:
+    """True for LabTrust reproducibility sidecar refs (not pcs-core ingest schema enums)."""
+    atype = ref.get("artifact_type")
+    if atype not in _LABTRUST_EXTENDED_ARTIFACT_REF_TYPES:
+        return False
+    role = ref.get("role")
+    if role in _LABTRUST_EXTENDED_ARTIFACT_REF_ROLES:
+        return True
+    return atype in (
+        "LabtrustReproducibilityCoverage.v0",
+        "ReproducibilityBenchmarkManifest.v0",
+    ) and role in _PCS_CORE_ARTIFACT_REF_ROLES
 
 
 def _load_json_artifact(path: Path) -> dict[str, Any]:
@@ -184,12 +229,20 @@ def build_reproducibility_sidecar_artifact_refs(
     benchmark_manifest_name: str = "benchmark_manifest.v0.json",
     hash_stability_report_name: str = "hash_stability_report.v0.json",
     regeneration_reports_dir: str = "regeneration_reports",
+    labtrust_coverage_doc: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """BenchmarkArtifactRef.v0 entries for all reproducibility sidecar artifacts."""
     out_dir = out_dir.resolve()
+    coverage_sidecar = labtrust_coverage_doc
+    if coverage_sidecar is None:
+        cov_path = out_dir / coverage_report_name
+        if cov_path.is_file():
+            coverage_sidecar = _load_json_artifact(cov_path)
+        else:
+            coverage_sidecar = pcs_coverage
     refs: list[dict[str, Any]] = [
         build_benchmark_artifact_ref(
-            artifact_type="BenchmarkRun.v0",
+            artifact_type="LabtrustBenchmarkRunSummary.v0",
             path=benchmark_run_name,
             embedded=run_doc,
             source_repo=source_repo,
@@ -197,9 +250,9 @@ def build_reproducibility_sidecar_artifact_refs(
             role="reproducibility_evidence",
         ),
         build_benchmark_artifact_ref(
-            artifact_type="CoverageReport.v0",
+            artifact_type="LabtrustReproducibilityCoverage.v0",
             path=coverage_report_name,
-            embedded=pcs_coverage,
+            embedded=coverage_sidecar,
             source_repo=source_repo,
             source_commit=source_commit,
             role="producer_export",
@@ -269,19 +322,34 @@ def release_grade_flags(
 def enforce_release_grade_gate(
     *,
     mode: str,
+    runs: int,
     per_run: list[dict[str, Any]],
     aggregate: dict[str, Any],
     evidence_grade: str = EVIDENCE_GRADE_RELEASE,
+    hash_stability_aggregate: dict[str, Any] | None = None,
 ) -> None:
     """Fail when release-grade semantics are not met."""
     if evidence_grade != EVIDENCE_GRADE_RELEASE:
         return
     if mode != "full_regeneration":
         raise ValueError("release-grade benchmark requires mode full_regeneration")
+    if runs < 5:
+        raise ValueError(f"release-grade benchmark requires runs >= 5, got {runs}")
     if float(aggregate.get("certifyedge_success_rate", 0.0)) < 1.0:
         raise ValueError(
             "release-grade benchmark requires certifyedge_call_success rate 1.0, "
             f"got {aggregate.get('certifyedge_success_rate')}"
+        )
+    stability = hash_stability_aggregate or aggregate
+    if not stability.get("canonical_hashes_stable"):
+        raise ValueError(
+            "release-grade benchmark requires canonical_hashes_stable=true, "
+            f"got {stability.get('canonical_hashes_stable')!r}"
+        )
+    if not stability.get("release_validation_stable"):
+        raise ValueError(
+            "release-grade benchmark requires release_validation_stable=true, "
+            f"got {stability.get('release_validation_stable')!r}"
         )
     for run in per_run:
         if not run.get("release_protocol_validation_passed"):
@@ -414,6 +482,60 @@ def build_pcs_bench_ingest(
     return doc
 
 
+def refresh_ingest_artifact_ref_digests(
+    out_dir: Path,
+    ingest: dict[str, Any],
+    *,
+    source_repo: str,
+    source_commit: str,
+) -> None:
+    """Recompute ``artifact_refs[].sha256`` from on-disk JSON sidecars (after provenance edits)."""
+    out_dir = out_dir.resolve()
+    for ref in ingest.get("artifact_refs") or []:
+        if not isinstance(ref, dict) or ref.get("role") == "canonical_ingest":
+            continue
+        rel = str(ref.get("path", "")).replace("\\", "/")
+        sidecar = out_dir / rel
+        if not sidecar.is_file():
+            continue
+        doc = json.loads(sidecar.read_text(encoding="utf-8"))
+        if not isinstance(doc, dict):
+            continue
+        digest = str(doc.get("signature_or_digest") or pcs_digest(doc))
+        ref["sha256"] = digest
+        ref["source_repo"] = source_repo
+        ref["source_commit"] = source_commit
+        unsigned = {k: v for k, v in ref.items() if k != "signature_or_digest"}
+        ref["signature_or_digest"] = pcs_digest(unsigned)
+
+
+def build_canonical_ingest_artifact_ref(
+    *,
+    ingest: dict[str, Any],
+    ingest_path: str = PCS_BENCH_INGEST_NAME,
+    source_repo: str,
+    source_commit: str,
+) -> dict[str, Any]:
+    """BenchmarkArtifactRef for the on-disk ``pcs_bench_ingest.v0.json`` sidecar."""
+    return build_benchmark_artifact_ref(
+        artifact_type="PcsBenchIngest.v0",
+        path=ingest_path.replace("\\", "/"),
+        embedded=ingest,
+        source_repo=source_repo,
+        source_commit=source_commit,
+        role="canonical_ingest",
+    )
+
+
+def merge_reproducibility_ingest_artifact_refs(
+    *,
+    pcs_core_refs: list[dict[str, Any]],
+    sidecar_refs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Combine pcs-core embedded sidecars with LabTrust reproducibility evidence refs."""
+    return list(pcs_core_refs) + list(sidecar_refs)
+
+
 def build_reproducibility_benchmark_manifest(
     *,
     workflow_id: str,
@@ -425,6 +547,7 @@ def build_reproducibility_benchmark_manifest(
     evidence_grade: str = EVIDENCE_GRADE_RELEASE,
     certifyedge_live: bool = False,
     pcs_core_validation: bool = False,
+    canonical_hashes_stable: bool | None = None,
 ) -> dict[str, Any]:
     """Release-grade manifest for a reproducibility benchmark output directory."""
     source_repo, source_commit = _benchmark_provenance(policy_root)
@@ -442,6 +565,8 @@ def build_reproducibility_benchmark_manifest(
         "source_repo": source_repo,
         "source_commit": source_commit,
     }
+    if canonical_hashes_stable is not None:
+        doc["canonical_hashes_stable"] = canonical_hashes_stable
     unsigned = {k: v for k, v in doc.items() if k != "signature_or_digest"}
     doc["signature_or_digest"] = pcs_digest(unsigned)
     return doc

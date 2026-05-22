@@ -62,7 +62,7 @@ def test_benchmark_reproducibility_release_grade(
             workflow_key="hospital_lab.qc_release",
             policy_root=repo_root,
             release_dir=release_dir,
-            runs=2,
+            runs=5,
             seed=42,
             mode="full_regeneration",
         )

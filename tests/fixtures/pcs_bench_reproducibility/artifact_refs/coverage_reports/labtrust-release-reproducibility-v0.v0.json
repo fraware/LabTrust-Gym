@@ -1,0 +1,24 @@
+{
+  "coverage_id": "labtrust-release-reproducibility-v0",
+  "coverage_ratio": 1.0,
+  "denominator": 1.0,
+  "details": {
+    "benchmark_id": "labtrust-reproducibility-v0",
+    "mode": "hash_stability",
+    "reproducibility_coverage": {
+      "mode": "hash_stability",
+      "reproducibility_passed": true,
+      "runs": 1,
+      "schema_version": "v0",
+      "task_id": "labtrust-qc-release-reproducibility-v0",
+      "workflow_id": "hospital_lab.qc_release"
+    }
+  },
+  "metric": "release_reproducibility_score",
+  "metric_id": "release_reproducibility_score",
+  "numerator": 1.0,
+  "schema_version": "v0",
+  "signature_or_digest": "sha256:fecc48d5d107b9a8cc23348c992e739a76b119ede276feef5133c4be083795ca",
+  "source_commit": "0000000000000000000000000000000000000001",
+  "source_repo": "https://github.com/fraware/LabTrust-Gym"
+}

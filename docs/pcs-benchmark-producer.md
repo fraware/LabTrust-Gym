@@ -4,6 +4,9 @@ LabTrust is the reference producer for the hospital lab QC release PCS benchmark
 machine-readable outputs align with pcs-core v0 schemas and normalize into
 `PcsBenchIngest.v0` for pcs-bench.
 
+See [pcs-bench-producer-contract.md](pcs-bench-producer-contract.md) for the full
+producer contract, release-grade gates, artifact ref roles, and pcs-bench gate paths.
+
 ## Producer surfaces
 
 | Command | Output |
