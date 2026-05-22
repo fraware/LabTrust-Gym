@@ -16,10 +16,16 @@ on:
       - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
       - "policy/schemas/pcs/FailureCaseManifest.v0.schema.json"
       - "policy/schemas/pcs/BenchmarkCase.v0.schema.json"
+      - "policy/schemas/pcs/BenchmarkArtifactRef.v0.schema.json"
+      - "policy/schemas/pcs/ReproducibilityBenchmarkManifest.v0.schema.json"
       - "docs/labtrust-benchmark-profile.md"
       - "docs/reference-workflow-template.md"
       - "schemas_or_docs/**"
       - "templates/pcs_workflow_template/**"
+      - "Makefile"
+      - "scripts/pcs_bench_producer.*"
+      - "scripts/generate_pcs_bench_ingest_fixture.py"
+      - "tests/fixtures/pcs_bench_ingest/**"
       - ".github/workflows/pcs.yml"
   pull_request:
     branches: [main]
@@ -36,10 +42,16 @@ on:
       - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
       - "policy/schemas/pcs/FailureCaseManifest.v0.schema.json"
       - "policy/schemas/pcs/BenchmarkCase.v0.schema.json"
+      - "policy/schemas/pcs/BenchmarkArtifactRef.v0.schema.json"
+      - "policy/schemas/pcs/ReproducibilityBenchmarkManifest.v0.schema.json"
       - "docs/labtrust-benchmark-profile.md"
       - "docs/reference-workflow-template.md"
       - "schemas_or_docs/**"
       - "templates/pcs_workflow_template/**"
+      - "Makefile"
+      - "scripts/pcs_bench_producer.*"
+      - "scripts/generate_pcs_bench_ingest_fixture.py"
+      - "tests/fixtures/pcs_bench_ingest/**"
       - ".github/workflows/pcs.yml"
 
 jobs:
@@ -124,6 +136,8 @@ jobs:
         run: python examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
       - name: Reproducibility ingest (PcsBenchIngest.v0)
         run: python examples/pcs_qc_release/scripts/ci_validate_benchmark_ingest_golden.py
+      - name: Offline pcs-bench ingest fixture (producer gate)
+        run: python examples/pcs_qc_release/scripts/ci_validate_pcs_bench_ingest_fixture.py
       - name: Benchmark packet fixtures
         run: python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
       - name: Verify LabTrust release protocol package

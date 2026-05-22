@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from labtrust_gym.pcs.bench_schemas import (
+    validate_benchmark_artifact_ref,
     validate_benchmark_case,
     validate_coverage_report,
     validate_failure_case_manifest,
@@ -15,8 +16,14 @@ from labtrust_gym.pcs.bench_schemas import (
     validate_proof_obligation_hints,
     validate_proof_obligation_identifiers,
     validate_regeneration_report_doc,
+    validate_reproducibility_benchmark_manifest,
     validate_reproducibility_coverage_report,
 )
+from labtrust_gym.pcs.benchmark_pcs_bench_ingest import (
+    EVIDENCE_GRADE_RELEASE,
+    build_reproducibility_benchmark_manifest,
+)
+from labtrust_gym.pcs.workflow_profile import CANONICAL_QC_RELEASE_WORKFLOW_ID
 from labtrust_gym.pcs.formalization import (
     FORMALIZATION_READINESS_REPORT_NAME,
     PROOF_OBLIGATION_HINTS_NAME,
@@ -58,6 +65,36 @@ def test_committed_benchmark_coverage_report(repo_root: Path) -> None:
     if not path.is_file():
         return
     validate_coverage_report(json.loads(path.read_text(encoding="utf-8")))
+
+
+def test_reproducibility_benchmark_manifest_release_fields(repo_root: Path) -> None:
+    manifest = build_reproducibility_benchmark_manifest(
+        workflow_id=CANONICAL_QC_RELEASE_WORKFLOW_ID,
+        mode="full_regeneration",
+        runs=2,
+        policy_root=repo_root,
+        evidence_grade=EVIDENCE_GRADE_RELEASE,
+        certifyedge_live=True,
+        pcs_core_validation=True,
+    )
+    validate_reproducibility_benchmark_manifest(manifest, policy_root=repo_root)
+    assert manifest["evidence_grade"] == EVIDENCE_GRADE_RELEASE
+    assert manifest["certifyedge_live"] is True
+    assert manifest["pcs_core_validation"] is True
+
+
+def test_benchmark_artifact_ref_schema(repo_root: Path) -> None:
+    ref = {
+        "schema_version": "v0",
+        "artifact_type": "BenchmarkRun.v0",
+        "path": "benchmark_run.v0.json",
+        "sha256": "sha256:" + "a" * 64,
+        "role": "reproducibility_evidence",
+        "source_repo": "https://github.com/example/repo",
+        "source_commit": "0000000000000000000000000000000000000001",
+        "signature_or_digest": "sha256:" + "b" * 64,
+    }
+    validate_benchmark_artifact_ref(ref, policy_root=repo_root)
 
 
 def test_regeneration_report_schema_rejects_invalid_status(repo_root: Path) -> None:

@@ -15,14 +15,21 @@ from labtrust_gym.pcs.bench_schemas import (
 )
 from labtrust_gym.pcs.benchmark_case import LABTRUST_SOURCE_REPO, _benchmark_provenance
 from labtrust_gym.pcs.benchmark_pcs_bench_ingest import (
+    EVIDENCE_GRADE_DEVELOPER,
+    EVIDENCE_GRADE_RELEASE,
     PCS_BENCH_INGEST_NAME,
     REPRODUCIBILITY_SUITE_ID,
-    build_benchmark_artifact_ref,
     build_pcs_bench_ingest,
     build_pcs_core_benchmark_runs_from_reproducibility,
     build_release_reproducibility_coverage_report,
+    LABTRUST_EXTENDED_ARTIFACT_REFS_NAME,
+    build_pcs_core_reproducibility_artifact_refs,
     build_reproducibility_benchmark_manifest,
+    build_reproducibility_sidecar_artifact_refs,
+    enforce_release_grade_gate,
+    release_grade_flags,
 )
+from labtrust_gym.pcs.workflow_profile import canonical_workflow_property_id
 from labtrust_gym.pcs.benchmark_report import (
     BENCHMARK_REPORT_NAME,
     build_reproducibility_pcs_benchmark_report,
@@ -102,18 +109,22 @@ def _collect_release_metrics(
     release_passed = False
     status_passed = False
     pcs_core_passed = False
+    release_error: str | None = None
     try:
         release_checks = verify_release_protocol(
-            release_dir, pcs_core=pcs_core, policy_root=policy_root
+            release_dir,
+            pcs_core=pcs_core,
+            policy_root=policy_root,
+            compare_canonical=False,
         )
         release_passed = True
-        pcs_core_passed = pcs_core is not None and any(
-            c.startswith("release_sync") or "canonical" in c for c in release_checks
-        )
-        if pcs_core is None:
+        if pcs_core is not None:
+            pcs_core_passed = any(c.startswith("schema_validate") for c in release_checks)
+        else:
             pcs_core_passed = True
-    except (ValueError, FileNotFoundError, RuntimeError):
+    except (ValueError, FileNotFoundError, RuntimeError) as exc:
         release_passed = False
+        release_error = str(exc)
 
     try:
         status_result = check_release_status_policy(release_dir)
@@ -130,6 +141,7 @@ def _collect_release_metrics(
         "certifyedge_call_success": certifyedge_call_success,
         "release_protocol_validation_passed": release_passed,
         "release_protocol_validation_checks": release_checks,
+        "release_protocol_validation_error": release_error,
         "status_policy_validation_passed": status_passed,
         "pcs_core_validation_passed": pcs_core_passed,
         "regeneration_report_present": (release_dir / REGENERATION_REPORT_NAME).is_file(),
@@ -339,6 +351,7 @@ def benchmark_reproducibility(
     mode: str | None = None,
     include_hash_stability: bool = True,
     validate_pcs_core_output: Path | None = None,
+    release_grade: bool | None = None,
 ) -> dict[str, Any]:
     """
     Measure release-chain reproducibility (release-grade default: full_regeneration).
@@ -351,6 +364,7 @@ def benchmark_reproducibility(
     if runs < 1:
         raise ValueError("runs must be >= 1")
     profile = workflow_profile_view(policy_root=policy_root)
+    workflow_id = canonical_workflow_property_id(workflow_key, profile=profile)
     release = release_dir or (policy_root / "examples" / "pcs_qc_release" / "release")
     if not (release / "trace.json").is_file():
         raise FileNotFoundError(f"release baseline not found: {release}")
@@ -392,7 +406,7 @@ def benchmark_reproducibility(
 
     aggregate = _aggregate_runs(per_run)
     run_doc = _benchmark_run_doc(
-        profile_property_id=profile.property_id,
+        profile_property_id=workflow_id,
         selected_mode=selected_mode,
         seed=seed,
         runs=runs,
@@ -426,7 +440,7 @@ def benchmark_reproducibility(
             )
         hash_aggregate = _aggregate_runs(hash_per_run)
         hash_doc = _hash_stability_report_doc(
-            profile_property_id=profile.property_id,
+            profile_property_id=workflow_id,
             seed=seed,
             runs=runs,
             per_run=hash_per_run,
@@ -441,7 +455,7 @@ def benchmark_reproducibility(
 
     coverage = {
         "schema_version": "v0",
-        "workflow_id": profile.property_id,
+        "workflow_id": workflow_id,
         "task_id": "labtrust-qc-release-reproducibility-v0",
         "reproducibility_passed": aggregate["command_deterministic"],
         "runs": runs,
@@ -467,6 +481,28 @@ def benchmark_reproducibility(
         policy_root=policy_root,
     )
     source_repo, source_commit = _benchmark_provenance(policy_root)
+    schema_root = resolve_pcs_core_schema_root(validate_pcs_core_output or pcs_core)
+    pcs_core_configured = schema_root is not None
+    if release_grade is False:
+        grade = EVIDENCE_GRADE_DEVELOPER
+    elif release_grade is True or selected_mode == "full_regeneration":
+        grade = EVIDENCE_GRADE_RELEASE
+    else:
+        grade = EVIDENCE_GRADE_DEVELOPER
+    if grade == EVIDENCE_GRADE_RELEASE:
+        enforce_release_grade_gate(
+            mode=selected_mode,
+            per_run=per_run,
+            aggregate=aggregate,
+            evidence_grade=grade,
+        )
+    certifyedge_live, pcs_core_validation = release_grade_flags(
+        mode=selected_mode,
+        per_run=per_run,
+        aggregate=aggregate,
+        pcs_core_configured=pcs_core_configured,
+    )
+
     benchmark_report = build_reproducibility_pcs_benchmark_report(
         pcs_runs=pcs_runs,
         pcs_coverage=pcs_coverage,
@@ -478,34 +514,68 @@ def benchmark_reproducibility(
         encoding="utf-8",
     )
 
-    artifact_refs = [
-        build_benchmark_artifact_ref(
-            artifact_type="BenchmarkRun.v0",
-            path=BENCHMARK_RUN_NAME,
-            embedded=run_doc,
-            source_repo=source_repo,
-            source_commit=source_commit,
-            role="producer_export",
-        ),
-        build_benchmark_artifact_ref(
-            artifact_type="CoverageReport.v0",
-            path=COVERAGE_REPORT_NAME,
-            embedded=pcs_coverage,
-            source_repo=source_repo,
-            source_commit=source_commit,
-        ),
-    ]
+    manifest = build_reproducibility_benchmark_manifest(
+        workflow_id=workflow_id,
+        mode=selected_mode,
+        runs=runs,
+        policy_root=policy_root,
+        evidence_grade=grade,
+        certifyedge_live=certifyedge_live,
+        pcs_core_validation=pcs_core_validation,
+    )
+    from labtrust_gym.pcs.bench_schemas import validate_reproducibility_benchmark_manifest
+
+    validate_reproducibility_benchmark_manifest(manifest, policy_root=policy_root)
+
+    pcs_artifact_refs = build_pcs_core_reproducibility_artifact_refs(
+        out_dir=out_dir,
+        pcs_runs=pcs_runs,
+        pcs_coverage=pcs_coverage,
+        source_repo=source_repo,
+        source_commit=source_commit,
+        write_sidecars=True,
+    )
+    labtrust_artifact_refs = build_reproducibility_sidecar_artifact_refs(
+        out_dir=out_dir,
+        run_doc=run_doc,
+        pcs_coverage=pcs_coverage,
+        benchmark_report=benchmark_report,
+        benchmark_manifest=manifest,
+        source_repo=source_repo,
+        source_commit=source_commit,
+        benchmark_run_name=BENCHMARK_RUN_NAME,
+        coverage_report_name=COVERAGE_REPORT_NAME,
+        benchmark_report_name=BENCHMARK_REPORT_NAME,
+        benchmark_manifest_name=BENCHMARK_MANIFEST_NAME,
+        hash_stability_report_name=HASH_STABILITY_REPORT_NAME,
+        regeneration_reports_dir=REGENERATION_REPORTS_DIR,
+    )
+    (out_dir / LABTRUST_EXTENDED_ARTIFACT_REFS_NAME).write_text(
+        json.dumps(
+            {
+                "schema_version": "v0",
+                "producer_id": "labtrust-gym",
+                "artifact_refs": labtrust_artifact_refs,
+                "source_repo": source_repo,
+                "source_commit": source_commit,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     ingest = build_pcs_bench_ingest(
-        workflow_id=workflow_key,
+        workflow_id=workflow_id,
         benchmark_runs=pcs_runs,
         coverage_reports=[pcs_coverage],
         policy_root=policy_root,
         suite_id=REPRODUCIBILITY_SUITE_ID,
-        artifact_refs=artifact_refs,
+        artifact_refs=pcs_artifact_refs,
         commands=[
             {
                 "command": (
-                    f"labtrust benchmark-reproducibility --workflow {workflow_key} "
+                    f"labtrust benchmark-reproducibility --workflow {workflow_id} "
                     f"--mode {selected_mode} --runs {runs} --out {out_dir}"
                 ),
                 "exit_code": 0 if aggregate["command_deterministic"] else 1,
@@ -522,30 +592,17 @@ def benchmark_reproducibility(
 
     validate_pcs_bench_ingest(ingest, policy_root=policy_root)
 
-    manifest = build_reproducibility_benchmark_manifest(
-        workflow_id=workflow_key,
-        mode=selected_mode,
-        runs=runs,
-        policy_root=policy_root,
-    )
-    from labtrust_gym.pcs.bench_schemas import validate_reproducibility_benchmark_manifest
-
-    validate_reproducibility_benchmark_manifest(manifest, policy_root=policy_root)
     (out_dir / BENCHMARK_MANIFEST_NAME).write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
-    schema_root = resolve_pcs_core_schema_root(validate_pcs_core_output or pcs_core)
     if schema_root is not None:
-        from labtrust_gym.pcs.bench_schemas import (
-            validate_coverage_report_pcs_core,
-            validate_pcs_bench_ingest_pcs_core,
-        )
-
         from labtrust_gym.pcs.bench_schemas import (
             validate_benchmark_report_pcs_core,
             validate_benchmark_run_pcs_core,
+            validate_coverage_report_pcs_core,
+            validate_pcs_bench_ingest_pcs_core,
         )
 
         validate_pcs_bench_ingest_pcs_core(ingest, pcs_core_root=schema_root)

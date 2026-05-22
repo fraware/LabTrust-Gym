@@ -12,6 +12,9 @@
     "mode",
     "runs",
     "pcs_bench_ingest",
+    "evidence_grade",
+    "certifyedge_live",
+    "pcs_core_validation",
     "source_repo",
     "source_commit",
     "signature_or_digest"
@@ -28,6 +31,12 @@
     },
     "runs": { "type": "integer", "minimum": 1 },
     "pcs_bench_ingest": { "type": "string", "minLength": 1 },
+    "evidence_grade": {
+      "type": "string",
+      "enum": ["release", "developer"]
+    },
+    "certifyedge_live": { "type": "boolean" },
+    "pcs_core_validation": { "type": "boolean" },
     "source_repo": { "type": "string", "format": "uri" },
     "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }

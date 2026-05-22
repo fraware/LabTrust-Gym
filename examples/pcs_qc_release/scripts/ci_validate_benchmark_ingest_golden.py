@@ -15,6 +15,7 @@ from labtrust_gym.pcs.bench_schemas import (
     validate_pcs_core_reproducibility_outputs,
 )
 from labtrust_gym.pcs.benchmark_reproducibility import benchmark_reproducibility
+from labtrust_gym.pcs.workflow_profile import CANONICAL_QC_RELEASE_WORKFLOW_ID
 
 GOLDEN = ROOT / "examples" / "pcs_qc_release" / "benchmark_ingest" / "golden"
 
@@ -43,6 +44,22 @@ def main() -> int:
         checks = validate_pcs_core_reproducibility_outputs(
             out, pcs_core_root=pcs_core, policy_root=ROOT
         )
+        import json
+
+        from labtrust_gym.pcs.benchmark_pcs_bench_ingest import PCS_BENCH_INGEST_NAME
+
+        ingest = json.loads((out / PCS_BENCH_INGEST_NAME).read_text(encoding="utf-8"))
+        if ingest["workflow_id"] != CANONICAL_QC_RELEASE_WORKFLOW_ID:
+            raise SystemExit(
+                f"ingest workflow_id must be {CANONICAL_QC_RELEASE_WORKFLOW_ID!r}"
+            )
+        n_runs = len(ingest.get("benchmark_runs") or [])
+        n_cov = len(ingest.get("coverage_reports") or [])
+        if len(ingest.get("artifact_refs") or []) < n_runs + n_cov:
+            raise SystemExit("ingest must include pcs-core artifact_refs per embedded run/coverage")
+        manifest = json.loads((out / "benchmark_manifest.v0.json").read_text(encoding="utf-8"))
+        if manifest.get("evidence_grade") != "developer":
+            raise SystemExit("hash_stability CI run must use developer evidence_grade")
         for label in checks:
             print(f"  OK {label}")
 

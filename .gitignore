@@ -133,6 +133,10 @@ audit_self_check/
 # Local reproducibility scratch (not committed)
 _tmp_repro/
 _tmp_repro2/
+_tmp_repro_*/
+_tmp_suite_test/
+benchmark_runs/
+reports/
 
 # OS
 .DS_Store

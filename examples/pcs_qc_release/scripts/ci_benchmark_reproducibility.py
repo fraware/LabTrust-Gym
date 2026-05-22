@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -79,12 +80,17 @@ def main() -> int:
         ):
             if not (out / name).is_file():
                 raise FileNotFoundError(f"missing reproducibility output: {name}")
+        manifest = json.loads((out / BENCHMARK_MANIFEST_NAME).read_text(encoding="utf-8"))
+        if manifest.get("evidence_grade") != "developer":
+            raise SystemExit("CI hash_stability run must emit developer evidence_grade")
         if pcs_core_root is not None:
             from labtrust_gym.pcs.bench_schemas import validate_pcs_core_reproducibility_outputs
 
-            validate_pcs_core_reproducibility_outputs(
+            checks = validate_pcs_core_reproducibility_outputs(
                 out, pcs_core_root=pcs_core_root, policy_root=ROOT
             )
+            for label in checks:
+                print(f"  OK {label}")
     print("reproducibility benchmark CI OK")
     return 0
 

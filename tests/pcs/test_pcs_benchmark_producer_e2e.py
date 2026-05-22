@@ -14,7 +14,8 @@ from labtrust_gym.pcs.bench_schemas import (
 )
 from labtrust_gym.pcs.benchmark_pcs_bench import PCS_BENCH_SUITE_ID, generate_benchmark_cases_pcs_bench
 from labtrust_gym.pcs.benchmark_pcs_bench_ingest import PCS_BENCH_INGEST_NAME
-from labtrust_gym.pcs.benchmark_reproducibility import benchmark_reproducibility
+from labtrust_gym.pcs.benchmark_reproducibility import BENCHMARK_MANIFEST_NAME, benchmark_reproducibility
+from labtrust_gym.pcs.workflow_profile import CANONICAL_QC_RELEASE_WORKFLOW_ID
 
 
 @pytest.fixture
@@ -67,7 +68,14 @@ def test_reproducibility_ingest_pcs_core_validation(
         out, pcs_core_root=pcs_core_root, policy_root=repo_root
     )
     assert "pcs_bench_ingest.pcs_core" in checks
+    assert "pcs_bench_ingest.workflow_id" in checks
+    assert "pcs_bench_ingest.artifact_refs" in checks
     assert "benchmark_report.pcs_core" in checks
     ingest = json.loads((out / PCS_BENCH_INGEST_NAME).read_text(encoding="utf-8"))
+    manifest = json.loads((out / BENCHMARK_MANIFEST_NAME).read_text(encoding="utf-8"))
+    assert ingest["workflow_id"] == CANONICAL_QC_RELEASE_WORKFLOW_ID
+    assert manifest["workflow_id"] == CANONICAL_QC_RELEASE_WORKFLOW_ID
+    assert manifest["evidence_grade"] == "developer"
     assert len(ingest["benchmark_runs"]) == 2
+    assert len(ingest.get("artifact_refs", [])) >= len(ingest["benchmark_runs"]) + 1
     assert ingest["benchmark_runs"][0]["run_id"].startswith("labtrust-repro-")

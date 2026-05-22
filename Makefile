@@ -3,7 +3,7 @@
 # make verify: full verification battery (lint, typecheck, policy, tests, risk-register gate, docs).
 # make paper OUT=<dir>: package-release paper_v0.1 then verify-release (requires OUT= output dir).
 
-.PHONY: test golden bench-smoke lint format typecheck policy-validate no-placeholders e2e-artifacts-chain verification-battery verify paper
+.PHONY: test golden bench-smoke lint format typecheck policy-validate no-placeholders e2e-artifacts-chain verification-battery verify paper pcs-bench-producer
 
 # Default: run fast test suite (no env optional deps for golden/policy)
 test:
@@ -57,3 +57,11 @@ paper:
 	@if [ -z "$${OUT}" ]; then echo "OUT is required (e.g. make paper OUT=./paper_release)"; exit 1; fi; \
 	labtrust package-release --profile paper_v0.1 --out "$$OUT" --seed-base 100 && \
 	labtrust verify-release --release-dir "$$OUT" --strict-fingerprints
+
+# Release-grade reproducibility producer + pcs-bench ingest validation (requires ../pcs-core).
+PCS_CORE ?= ../pcs-core
+PCS_BENCH ?= ../pcs-bench
+BENCH_RUN_DIR ?= benchmark_runs/labtrust_reproducibility
+
+pcs-bench-producer:
+	python scripts/pcs_bench_producer.py

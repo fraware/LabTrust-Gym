@@ -47,6 +47,7 @@ REPRODUCIBILITY_BENCHMARK_MANIFEST_SCHEMA = (
 )
 HASH_STABILITY_REPORT_SCHEMA = "policy/schemas/pcs/HashStabilityReport.v0.schema.json"
 PCS_BENCH_INGEST_SCHEMA = "policy/schemas/pcs/PcsBenchIngest.v0.schema.json"
+BENCHMARK_ARTIFACT_REF_SCHEMA = "policy/schemas/pcs/BenchmarkArtifactRef.v0.schema.json"
 
 
 def resolve_pcs_core_schema_root(pcs_core: Path | None) -> Path | None:
@@ -289,6 +290,30 @@ def validate_pcs_bench_ingest(
 ) -> None:
     schema_path = _schema_path(PCS_BENCH_INGEST_SCHEMA, policy_root=policy_root)
     validate_against_schema(doc, load_json(schema_path), path=schema_path)
+    for ref in doc.get("artifact_refs", []):
+        validate_benchmark_artifact_ref(ref, policy_root=policy_root)
+
+
+def validate_benchmark_artifact_ref(
+    doc: dict[str, Any],
+    *,
+    policy_root: Path | None = None,
+) -> None:
+    schema_path = _schema_path(BENCHMARK_ARTIFACT_REF_SCHEMA, policy_root=policy_root)
+    validate_against_schema(doc, load_json(schema_path), path=schema_path)
+
+
+def validate_benchmark_artifact_ref_pcs_core(
+    doc: dict[str, Any],
+    *,
+    pcs_core_root: Path,
+) -> None:
+    _validate_pcs_core_doc(
+        doc,
+        pcs_core_root=pcs_core_root,
+        schema_name="BenchmarkArtifactRef.v0.schema.json",
+        label="BenchmarkArtifactRef",
+    )
 
 
 def validate_hash_stability_report(
@@ -323,6 +348,77 @@ def validate_benchmark_task_pcs_core(
         raise PolicyLoadError(schema_path, f"pcs-core BenchmarkTask validation failed: {e}") from e
 
 
+def validate_producer_ingest_contract(
+    ingest_doc: dict[str, Any],
+    *,
+    ingest_path: Path | str = "pcs_bench_ingest.v0.json",
+    policy_root: Path | None = None,
+    pcs_core_root: Path | None = None,
+    min_artifact_refs: int | None = None,
+) -> list[str]:
+    """
+    LabTrust producer gate for ``PcsBenchIngest.v0`` (canonical workflow + pcs-core refs).
+
+    ``artifact_refs`` must be pcs-core compatible (one ref per embedded run + coverage).
+    Extended LabTrust-only refs live in ``benchmark_artifact_refs.labtrust.v0.json``.
+
+    Returns check labels for CI logging.
+    """
+    from labtrust_gym.pcs.workflow_profile import CANONICAL_QC_RELEASE_WORKFLOW_ID
+
+    checks: list[str] = []
+    validate_pcs_bench_ingest(ingest_doc, policy_root=policy_root)
+    checks.append("pcs_bench_ingest.labtrust")
+    if pcs_core_root is not None:
+        validate_pcs_bench_ingest_pcs_core(ingest_doc, pcs_core_root=pcs_core_root)
+        checks.append("pcs_bench_ingest.pcs_core")
+    if ingest_doc.get("workflow_id") != CANONICAL_QC_RELEASE_WORKFLOW_ID:
+        raise PolicyLoadError(
+            ingest_path,
+            f"workflow_id must be {CANONICAL_QC_RELEASE_WORKFLOW_ID!r}, "
+            f"got {ingest_doc.get('workflow_id')!r}",
+        )
+    checks.append("pcs_bench_ingest.workflow_id")
+    if len(ingest_doc.get("benchmark_runs") or []) < 1:
+        raise PolicyLoadError(ingest_path, "expected at least one benchmark_run")
+    if len(ingest_doc.get("coverage_reports") or []) < 1:
+        raise PolicyLoadError(ingest_path, "expected at least one coverage_report")
+    runs = ingest_doc.get("benchmark_runs") or []
+    coverage = ingest_doc.get("coverage_reports") or []
+    expected_refs = len(runs) + len(coverage)
+    min_refs = expected_refs if min_artifact_refs is None else min_artifact_refs
+    refs = ingest_doc.get("artifact_refs") or []
+    if len(refs) < min_refs:
+        raise PolicyLoadError(
+            ingest_path,
+            f"expected >={min_refs} pcs-core artifact_refs, got {len(refs)}",
+        )
+    from labtrust_gym.pcs.benchmark_pcs_bench_ingest import is_pcs_core_compatible_artifact_ref
+
+    for ref in refs:
+        if not is_pcs_core_compatible_artifact_ref(ref):
+            raise PolicyLoadError(
+                ingest_path,
+                f"ingest artifact_refs must be pcs-core compatible: {ref.get('artifact_type')!r} "
+                f"role={ref.get('role')!r}",
+            )
+        validate_benchmark_artifact_ref(ref, policy_root=policy_root)
+        digest = ref.get("sha256")
+        atype = ref.get("artifact_type")
+        embedded = [
+            row
+            for row in (runs if atype == "BenchmarkRun.v0" else coverage)
+            if isinstance(row, dict) and row.get("signature_or_digest") == digest
+        ]
+        if not embedded:
+            raise PolicyLoadError(
+                ingest_path,
+                f"artifact_ref sha256 does not match embedded {atype}: {digest!r}",
+            )
+    checks.append("pcs_bench_ingest.artifact_refs")
+    return checks
+
+
 def validate_pcs_bench_ingest_pcs_core(
     doc: dict[str, Any],
     *,
@@ -338,14 +434,23 @@ def validate_pcs_bench_ingest_pcs_core(
     schema_path = schemas_dir / "PcsBenchIngest.v0.schema.json"
     if not schema_path.is_file():
         raise FileNotFoundError(f"pcs-core PcsBenchIngest schema not found: {schema_path}")
+    from labtrust_gym.pcs.benchmark_pcs_bench_ingest import is_pcs_core_compatible_artifact_ref
+
     schema = load_json(schema_path)
     registry, validator_cls = _pcs_core_schema_registry(schemas_dir)
+    refs = list(doc.get("artifact_refs") or [])
+    body = {k: v for k, v in doc.items() if k != "artifact_refs"}
+    pcs_refs = [r for r in refs if is_pcs_core_compatible_artifact_ref(r)]
+    if pcs_refs:
+        body["artifact_refs"] = pcs_refs
     try:
-        validator_cls(schema, registry=registry).validate(doc)
+        validator_cls(schema, registry=registry).validate(body)
     except jsonschema.ValidationError as e:
         raise PolicyLoadError(schema_path, f"pcs-core ingest validation failed: {e}") from e
     except Exception as e:
         raise PolicyLoadError(schema_path, f"pcs-core ingest validation failed: {e}") from e
+    for ref in pcs_refs:
+        validate_benchmark_artifact_ref_pcs_core(ref, pcs_core_root=pcs_core_root)
     for run in doc.get("benchmark_runs", []):
         validate_benchmark_run_pcs_core(run, pcs_core_root=pcs_core_root)
     for report in doc.get("coverage_reports", []):
@@ -371,6 +476,8 @@ def validate_pcs_core_reproducibility_outputs(
 
     import json
 
+    from labtrust_gym.pcs.workflow_profile import CANONICAL_QC_RELEASE_WORKFLOW_ID
+
     checks: list[str] = []
     out_dir = out_dir.resolve()
     pcs_core_root = pcs_core_root.resolve()
@@ -387,16 +494,26 @@ def validate_pcs_core_reproducibility_outputs(
 
     ingest_path = out_dir / PCS_BENCH_INGEST_NAME
     ingest_doc = json.loads(ingest_path.read_text(encoding="utf-8"))
-    validate_pcs_bench_ingest(ingest_doc, policy_root=policy_root)
-    checks.append("pcs_bench_ingest.labtrust")
-    validate_pcs_bench_ingest_pcs_core(ingest_doc, pcs_core_root=pcs_core_root)
-    checks.append("pcs_bench_ingest.pcs_core")
+    checks.extend(
+        validate_producer_ingest_contract(
+            ingest_doc,
+            ingest_path=ingest_path,
+            policy_root=policy_root,
+            pcs_core_root=pcs_core_root,
+        )
+    )
 
     manifest_path = out_dir / "benchmark_manifest.v0.json"
     if manifest_path.is_file():
         manifest_doc = json.loads(manifest_path.read_text(encoding="utf-8"))
         validate_reproducibility_benchmark_manifest(manifest_doc, policy_root=policy_root)
         checks.append("benchmark_manifest.labtrust")
+        if manifest_doc.get("workflow_id") != CANONICAL_QC_RELEASE_WORKFLOW_ID:
+            raise PolicyLoadError(
+                manifest_path,
+                f"manifest workflow_id must be {CANONICAL_QC_RELEASE_WORKFLOW_ID!r}",
+            )
+        checks.append("benchmark_manifest.workflow_id")
 
     report_path = out_dir / "benchmark_report.v0.json"
     if report_path.is_file():

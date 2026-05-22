@@ -88,13 +88,16 @@ def verify_release_protocol(
     *,
     pcs_core: Path | None = None,
     policy_root: Path | None = None,
+    compare_canonical: bool = True,
 ) -> list[str]:
     """
     Full Phase 2 protocol verification for ``release/``.
 
     Runs schema validation, registry checks, handoff digest checks, status-policy
     enforcement, mock-certificate and placeholder-commit rejection, and optional
-    pcs-core RC alignment when ``pcs_core`` is set.
+    pcs-core RC byte alignment when ``pcs_core`` is set and ``compare_canonical`` is
+    true (default). Set ``compare_canonical=False`` for freshly regenerated trees
+    where live CertifyEdge output must not match pinned fixture bytes.
     """
     release_dir = release_dir.resolve()
     checks: list[str] = []
@@ -153,7 +156,7 @@ def verify_release_protocol(
         assert_scientific_memory_import_alignment(release_dir)
         checks.append("scientific_memory_import_alignment")
 
-    if pcs_core is not None:
+    if pcs_core is not None and compare_canonical:
         canonical = resolve_canonical_release_dir(pcs_core, policy_root=policy_root)
         checks.extend(verify_release_sync_gate(release_dir, canonical))
 
