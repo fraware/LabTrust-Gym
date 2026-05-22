@@ -68,12 +68,15 @@ def build_reproducibility_pcs_benchmark_report(
         for idx, run in enumerate(pcs_runs)
     ]
 
-    metric_summary = build_metric_summary_from_coverage(
-        pcs_coverage,
-        source_repo=source_repo,
-        source_commit=source_commit,
-        reason=f"coverage from {pcs_coverage.get('coverage_id', suite_id)!r}",
-    )
+    metric_name = str(pcs_coverage.get("metric_id") or pcs_coverage.get("metric"))
+    metric_summary: dict[str, Any] = {
+        "name": metric_name,
+        "score": float(pcs_coverage.get("coverage_ratio", 0.0)),
+        "applicability": "measured",
+        "numerator": int(float(pcs_coverage.get("numerator", 0.0))),
+        "denominator": int(float(pcs_coverage.get("denominator", 0.0))),
+        "reason": f"coverage from {pcs_coverage.get('coverage_id', suite_id)!r}",
+    }
 
     doc: dict[str, Any] = {
         "schema_version": "v0",

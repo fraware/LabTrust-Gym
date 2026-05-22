@@ -49,8 +49,15 @@ def main() -> int:
     parser.add_argument(
         "--mode",
         choices=("hash_stability", "full_regeneration"),
-        default="hash_stability",
+        default="full_regeneration",
     )
+    parser.add_argument(
+        "--release-grade",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enforce release-grade gates (default: on for full_regeneration)",
+    )
+    parser.add_argument("--certifyedge-bin", default="certifyedge")
     args = parser.parse_args()
 
     out = args.out.resolve()
@@ -63,11 +70,13 @@ def main() -> int:
         policy_root=ROOT,
         release_dir=release,
         pcs_core=pcs_core,
+        certifyedge_bin=args.certifyedge_bin,
         runs=args.runs,
         seed=42,
         mode=args.mode,
         include_hash_stability=args.mode == "full_regeneration",
         validate_pcs_core_output=pcs_core,
+        release_grade=args.release_grade,
     )
     validate_pcs_core_reproducibility_outputs(
         out, pcs_core_root=pcs_core or args.pcs_core.resolve(), policy_root=ROOT
@@ -79,16 +88,26 @@ def main() -> int:
         else (ROOT.parent / "pcs-bench" / "runs" / "labtrust_reproducibility").resolve()
     )
     dest_root.mkdir(parents=True, exist_ok=True)
-    for name in (
+    names = (
         PCS_BENCH_INGEST_NAME,
         BENCHMARK_MANIFEST_NAME,
         BENCHMARK_REPORT_NAME,
         BENCHMARK_RUN_NAME,
         COVERAGE_REPORT_NAME,
-    ):
+        "hash_stability_report.v0.json",
+        "benchmark_artifact_refs.labtrust.v0.json",
+    )
+    for name in names:
         src = out / name
         if src.is_file():
             shutil.copy2(src, dest_root / name)
+    for sub in ("artifact_refs", "regeneration_reports"):
+        src_dir = out / sub
+        if src_dir.is_dir():
+            dest_sub = dest_root / sub
+            if dest_sub.exists():
+                shutil.rmtree(dest_sub)
+            shutil.copytree(src_dir, dest_sub)
 
     print(f"published reproducibility ingest to {dest_root}")
     print(f"  ingest: {dest_root / PCS_BENCH_INGEST_NAME}")

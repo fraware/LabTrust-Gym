@@ -37,6 +37,22 @@ def test_workflow_registry_lists_qc_release() -> None:
     assert "qc_release" in registered_workflow_ids()
 
 
+@pytest.mark.parametrize(
+    "alias",
+    [
+        "hospital_lab.qc_release",
+        "qc_release",
+        "labtrust_qc_release",
+        "hospital_lab_qc_release",
+    ],
+)
+def test_workflow_aliases_resolve_to_qc_release(alias: str, repo_root: Path) -> None:
+    from labtrust_gym.pcs.workflows.registry import resolve_workflow_id
+
+    assert resolve_workflow_id(alias) == "qc_release"
+    assert get_workflow(alias, policy_root=repo_root).spec.property_id == "hospital_lab.qc_release"
+
+
 def test_run_demo_delegates_to_workflow_trace_generator(
     repo_root: Path, tmp_path: Path
 ) -> None:

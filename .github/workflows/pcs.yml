@@ -11,6 +11,11 @@ on:
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
       - "docs/pcs*.md"
+      - "docs/pcs-bench-producer-contract.md"
+      - "scripts/sync_pcs_bench_labtrust_suite.py"
+      - "scripts/publish_pcs_bench_fixtures.py"
+      - "tests/fixtures/pcs_bench_reproducibility/**"
+      - "examples/pcs_qc_release/scripts/ci_validate_pcs_producer_contract.py"
       - "docs/pcs-workflow-implementation-guide.md"
       - "docs/pcs-reference-implementation.md"
       - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
@@ -37,6 +42,11 @@ on:
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
       - "docs/pcs*.md"
+      - "docs/pcs-bench-producer-contract.md"
+      - "scripts/sync_pcs_bench_labtrust_suite.py"
+      - "scripts/publish_pcs_bench_fixtures.py"
+      - "tests/fixtures/pcs_bench_reproducibility/**"
+      - "examples/pcs_qc_release/scripts/ci_validate_pcs_producer_contract.py"
       - "docs/pcs-workflow-implementation-guide.md"
       - "docs/pcs-reference-implementation.md"
       - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
@@ -66,6 +76,10 @@ jobs:
         with:
           repository: SentinelOps-CI/pcs-core
           path: pcs-core
+      - uses: actions/checkout@v4
+        with:
+          repository: SentinelOps-CI/pcs-bench
+          path: pcs-bench
       - name: Apply LabTrust RuntimeReceipt profile to pcs-core schemas
         run: |
           cp policy/schemas/pcs/runtime_receipt.v0.schema.json \
@@ -73,9 +87,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install pcs-core and LabTrust-Gym
+      - name: Install pcs-core, pcs-bench, and LabTrust-Gym
         run: |
           pip install -e "pcs-core/python"
+          pip install -e "pcs-bench"
           pip install -e ".[dev,pcs]"
       - name: PCS tests
         run: python -m pytest tests/pcs -q
@@ -138,6 +153,17 @@ jobs:
         run: python examples/pcs_qc_release/scripts/ci_validate_benchmark_ingest_golden.py
       - name: Offline pcs-bench ingest fixture (producer gate)
         run: python examples/pcs_qc_release/scripts/ci_validate_pcs_bench_ingest_fixture.py
+      - name: Materialize offline pcs-bench producer fixtures
+        run: python scripts/generate_pcs_bench_ingest_fixture.py
+      - name: LabTrust producer contract (fixture + pcs-bench validate-ingest)
+        run: |
+          python examples/pcs_qc_release/scripts/ci_validate_pcs_producer_contract.py
+          labtrust validate-pcs-producer \
+            --dir tests/fixtures/pcs_bench_reproducibility \
+            --pcs-core pcs-core
+          pcs-bench validate-ingest \
+            --input tests/fixtures/pcs_bench_reproducibility/pcs_bench_ingest.v0.json \
+            --pcs-core pcs-core
       - name: Benchmark packet fixtures
         run: python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
       - name: Verify LabTrust release protocol package

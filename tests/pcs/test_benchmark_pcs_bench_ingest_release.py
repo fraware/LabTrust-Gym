@@ -100,8 +100,13 @@ def test_enforce_release_grade_requires_full_regeneration() -> None:
     with pytest.raises(ValueError, match="full_regeneration"):
         enforce_release_grade_gate(
             mode="hash_stability",
+            runs=5,
             per_run=_per_run(),
-            aggregate={"certifyedge_success_rate": 1.0},
+            aggregate={
+                "certifyedge_success_rate": 1.0,
+                "canonical_hashes_stable": True,
+                "release_validation_stable": True,
+            },
         )
 
 
@@ -109,17 +114,76 @@ def test_enforce_release_grade_requires_certifyedge_success() -> None:
     with pytest.raises(ValueError, match="certifyedge"):
         enforce_release_grade_gate(
             mode="full_regeneration",
+            runs=5,
             per_run=_per_run(),
-            aggregate={"certifyedge_success_rate": 0.5},
+            aggregate={
+                "certifyedge_success_rate": 0.5,
+                "canonical_hashes_stable": True,
+                "release_validation_stable": True,
+            },
         )
+
+
+def test_enforce_release_grade_requires_five_runs() -> None:
+    with pytest.raises(ValueError, match="runs >= 5"):
+        enforce_release_grade_gate(
+            mode="full_regeneration",
+            runs=3,
+            per_run=_per_run() * 3,
+            aggregate={
+                "certifyedge_success_rate": 1.0,
+                "canonical_hashes_stable": True,
+                "release_validation_stable": True,
+            },
+        )
+
+
+def test_enforce_release_grade_requires_hash_stability() -> None:
+    with pytest.raises(ValueError, match="canonical_hashes_stable"):
+        enforce_release_grade_gate(
+            mode="full_regeneration",
+            runs=5,
+            per_run=_per_run() * 5,
+            aggregate={
+                "certifyedge_success_rate": 1.0,
+                "canonical_hashes_stable": False,
+                "release_validation_stable": True,
+            },
+            hash_stability_aggregate={
+                "canonical_hashes_stable": False,
+                "release_validation_stable": True,
+            },
+        )
+
+
+def test_enforce_release_grade_uses_hash_stability_aggregate() -> None:
+    enforce_release_grade_gate(
+        mode="full_regeneration",
+        runs=5,
+        per_run=_per_run() * 5,
+        aggregate={
+            "certifyedge_success_rate": 1.0,
+            "canonical_hashes_stable": False,
+            "release_validation_stable": False,
+        },
+        hash_stability_aggregate={
+            "canonical_hashes_stable": True,
+            "release_validation_stable": True,
+        },
+    )
 
 
 def test_enforce_release_grade_requires_per_run_validation() -> None:
     with pytest.raises(ValueError, match="pcs_core_validation_passed"):
         enforce_release_grade_gate(
             mode="full_regeneration",
+            runs=5,
             per_run=_per_run(pcs_ok=False),
-            aggregate={"certifyedge_success_rate": 1.0},
+            aggregate={
+                "certifyedge_success_rate": 1.0,
+                "canonical_hashes_stable": True,
+                "release_validation_stable": True,
+            },
         )
 
 
@@ -127,16 +191,19 @@ def test_release_manifest_fields(repo_root: Path) -> None:
     manifest = build_reproducibility_benchmark_manifest(
         workflow_id=CANONICAL_QC_RELEASE_WORKFLOW_ID,
         mode="full_regeneration",
-        runs=3,
+        runs=5,
         policy_root=repo_root,
         evidence_grade=EVIDENCE_GRADE_RELEASE,
         certifyedge_live=True,
         pcs_core_validation=True,
+        canonical_hashes_stable=True,
     )
     assert manifest["evidence_grade"] == EVIDENCE_GRADE_RELEASE
     assert manifest["mode"] == "full_regeneration"
+    assert manifest["runs"] == 5
     assert manifest["certifyedge_live"] is True
     assert manifest["pcs_core_validation"] is True
+    assert manifest["canonical_hashes_stable"] is True
     assert manifest["workflow_id"] == CANONICAL_QC_RELEASE_WORKFLOW_ID
 
 
@@ -205,6 +272,7 @@ def test_sidecar_artifact_refs_roles(repo_root: Path, tmp_path: Path) -> None:
     assert "native_report" in roles
     assert "reproducibility_evidence" in roles
     assert "regeneration_report" in roles
+    assert "LabtrustBenchmarkRunSummary.v0" in types
     assert "BenchmarkReport.v0" in types
     assert "HashStabilityReport.v0" in types
     assert "RegenerationReport.v0" in types

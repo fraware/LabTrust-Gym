@@ -30,7 +30,19 @@ labtrust generate-benchmark-cases \
 "$PYTHON" examples/pcs_qc_release/scripts/generate_benchmark_packet.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_benchmark_reproducibility.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_benchmark_ingest_golden.py
+"$PYTHON" scripts/generate_pcs_bench_ingest_fixture.py
 "$PYTHON" examples/pcs_qc_release/scripts/ci_validate_pcs_bench_ingest_fixture.py
+if [ -d tests/fixtures/pcs_bench_reproducibility ]; then
+  labtrust validate-pcs-producer \
+    --dir tests/fixtures/pcs_bench_reproducibility \
+    --pcs-core "${PCS_CORE_PATH:-$ROOT/../pcs-core}"
+fi
+"$PYTHON" examples/pcs_qc_release/scripts/ci_validate_pcs_producer_contract.py
+if command -v pcs-bench >/dev/null 2>&1 && [ -d "${PCS_CORE_PATH:-$ROOT/../pcs-core}" ]; then
+  pcs-bench validate-ingest \
+    --input tests/fixtures/pcs_bench_ingest/labtrust/pcs_bench_ingest.v0.json \
+    --pcs-core "${PCS_CORE_PATH:-$ROOT/../pcs-core}"
+fi
 "$PYTHON" -m labtrust_gym.cli.main check-status-policy \
   --release-dir examples/pcs_qc_release/release
 labtrust generate-failure-gallery \

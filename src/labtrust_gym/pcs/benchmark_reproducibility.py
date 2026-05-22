@@ -24,9 +24,11 @@ from labtrust_gym.pcs.benchmark_pcs_bench_ingest import (
     build_release_reproducibility_coverage_report,
     LABTRUST_EXTENDED_ARTIFACT_REFS_NAME,
     build_pcs_core_reproducibility_artifact_refs,
+    build_canonical_ingest_artifact_ref,
     build_reproducibility_benchmark_manifest,
     build_reproducibility_sidecar_artifact_refs,
     enforce_release_grade_gate,
+    merge_reproducibility_ingest_artifact_refs,
     release_grade_flags,
 )
 from labtrust_gym.pcs.workflow_profile import canonical_workflow_property_id
@@ -46,6 +48,17 @@ BENCHMARK_RUN_NAME = "benchmark_run.v0.json"
 BENCHMARK_MANIFEST_NAME = "benchmark_manifest.v0.json"
 COVERAGE_REPORT_NAME = "coverage_report.v0.json"
 HASH_STABILITY_REPORT_NAME = "hash_stability_report.v0.json"
+
+
+def _portable_command_out(out_dir: Path, policy_root: Path) -> str:
+    """Repo-relative POSIX path for ingest commands (portable across OS/CI)."""
+    out_resolved = out_dir.resolve()
+    for base in (policy_root.resolve(), Path.cwd().resolve()):
+        try:
+            return out_resolved.relative_to(base).as_posix()
+        except ValueError:
+            continue
+    return out_resolved.as_posix()
 REGENERATION_REPORTS_DIR = "regeneration_reports"
 
 
@@ -422,6 +435,7 @@ def benchmark_reproducibility(
     if selected_mode == "full_regeneration":
         _write_regeneration_reports(out_dir, per_run)
 
+    hash_stability_aggregate: dict[str, Any] | None = None
     if include_hash_stability and selected_mode == "full_regeneration":
         hash_runs_root = out_dir / "hash_stability_runs"
         if hash_runs_root.exists():
@@ -439,6 +453,7 @@ def benchmark_reproducibility(
                 )
             )
         hash_aggregate = _aggregate_runs(hash_per_run)
+        hash_stability_aggregate = hash_aggregate
         hash_doc = _hash_stability_report_doc(
             profile_property_id=workflow_id,
             seed=seed,
@@ -492,9 +507,11 @@ def benchmark_reproducibility(
     if grade == EVIDENCE_GRADE_RELEASE:
         enforce_release_grade_gate(
             mode=selected_mode,
+            runs=runs,
             per_run=per_run,
             aggregate=aggregate,
             evidence_grade=grade,
+            hash_stability_aggregate=hash_stability_aggregate,
         )
     certifyedge_live, pcs_core_validation = release_grade_flags(
         mode=selected_mode,
@@ -522,6 +539,11 @@ def benchmark_reproducibility(
         evidence_grade=grade,
         certifyedge_live=certifyedge_live,
         pcs_core_validation=pcs_core_validation,
+        canonical_hashes_stable=bool(
+            (hash_stability_aggregate or aggregate).get("canonical_hashes_stable")
+        )
+        if grade == EVIDENCE_GRADE_RELEASE
+        else None,
     )
     from labtrust_gym.pcs.bench_schemas import validate_reproducibility_benchmark_manifest
 
@@ -534,6 +556,9 @@ def benchmark_reproducibility(
         source_repo=source_repo,
         source_commit=source_commit,
         write_sidecars=True,
+    )
+    labtrust_coverage_doc = json.loads(
+        (out_dir / COVERAGE_REPORT_NAME).read_text(encoding="utf-8")
     )
     labtrust_artifact_refs = build_reproducibility_sidecar_artifact_refs(
         out_dir=out_dir,
@@ -549,6 +574,7 @@ def benchmark_reproducibility(
         benchmark_manifest_name=BENCHMARK_MANIFEST_NAME,
         hash_stability_report_name=HASH_STABILITY_REPORT_NAME,
         regeneration_reports_dir=REGENERATION_REPORTS_DIR,
+        labtrust_coverage_doc=labtrust_coverage_doc,
     )
     (out_dir / LABTRUST_EXTENDED_ARTIFACT_REFS_NAME).write_text(
         json.dumps(
@@ -571,18 +597,32 @@ def benchmark_reproducibility(
         coverage_reports=[pcs_coverage],
         policy_root=policy_root,
         suite_id=REPRODUCIBILITY_SUITE_ID,
-        artifact_refs=pcs_artifact_refs,
+        artifact_refs=merge_reproducibility_ingest_artifact_refs(
+            pcs_core_refs=pcs_artifact_refs,
+            sidecar_refs=labtrust_artifact_refs,
+        ),
         commands=[
             {
                 "command": (
                     f"labtrust benchmark-reproducibility --workflow {workflow_id} "
-                    f"--mode {selected_mode} --runs {runs} --out {out_dir}"
+                    f"--mode {selected_mode} --runs {runs} "
+                    f"--out {_portable_command_out(out_dir, policy_root)}"
                 ),
                 "exit_code": 0 if aggregate["command_deterministic"] else 1,
             }
         ],
         logs=[f"mode={selected_mode} deterministic={aggregate['command_deterministic']}"],
     )
+    pre_canonical_digest = str(ingest["signature_or_digest"])
+    ingest["artifact_refs"].append(
+        build_canonical_ingest_artifact_ref(
+            ingest={"signature_or_digest": pre_canonical_digest},
+            source_repo=source_repo,
+            source_commit=source_commit,
+        )
+    )
+    unsigned_ingest = {k: v for k, v in ingest.items() if k != "signature_or_digest"}
+    ingest["signature_or_digest"] = pcs_digest(unsigned_ingest)
     (out_dir / PCS_BENCH_INGEST_NAME).write_text(
         json.dumps(ingest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

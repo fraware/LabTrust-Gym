@@ -348,6 +348,104 @@ def validate_benchmark_task_pcs_core(
         raise PolicyLoadError(schema_path, f"pcs-core BenchmarkTask validation failed: {e}") from e
 
 
+def validate_producer_ingest_sidecars(
+    out_dir: Path,
+    ingest_doc: dict[str, Any],
+    *,
+    ingest_path: Path | str = "pcs_bench_ingest.v0.json",
+) -> list[str]:
+    """Verify on-disk sidecars exist and ``artifact_refs[].sha256`` matches file digests."""
+    import json
+
+    from labtrust_gym.pcs.hash import file_digest, pcs_digest
+
+    checks: list[str] = []
+    root = out_dir.resolve()
+    for index, ref in enumerate(ingest_doc.get("artifact_refs") or []):
+        if not isinstance(ref, dict):
+            continue
+        rel = ref.get("path")
+        if not isinstance(rel, str) or not rel.strip():
+            raise PolicyLoadError(ingest_path, f"artifact_refs[{index}]: missing path")
+        sidecar = root / rel.replace("\\", "/")
+        if not sidecar.is_file():
+            raise PolicyLoadError(
+                ingest_path,
+                f"artifact_refs[{index}]: sidecar missing at {rel!r}",
+            )
+        expected = ref.get("sha256")
+        if not isinstance(expected, str):
+            raise PolicyLoadError(ingest_path, f"artifact_refs[{index}]: missing sha256")
+        if ref.get("role") == "canonical_ingest":
+            continue
+        if sidecar.suffix.lower() == ".json":
+            doc = json.loads(sidecar.read_text(encoding="utf-8"))
+            if not isinstance(doc, dict):
+                raise PolicyLoadError(ingest_path, f"artifact_refs[{index}]: JSON must be object")
+            actual = str(doc.get("signature_or_digest") or pcs_digest(doc))
+        else:
+            actual = file_digest(sidecar)
+        if actual != expected:
+            raise PolicyLoadError(
+                ingest_path,
+                f"artifact_refs[{index}]: sha256 mismatch for {rel!r} "
+                f"(expected {expected}, got {actual})",
+            )
+    checks.append("pcs_bench_ingest.sidecars")
+    return checks
+
+
+def validate_release_grade_ingest_contract(
+    ingest_doc: dict[str, Any],
+    manifest_doc: dict[str, Any],
+    *,
+    ingest_path: Path | str = "pcs_bench_ingest.v0.json",
+    runs: int = 5,
+) -> list[str]:
+    """Release-grade manifest + ingest sidecar path coverage."""
+    from labtrust_gym.pcs.benchmark_pcs_bench_ingest import (
+        EVIDENCE_GRADE_RELEASE,
+        RELEASE_GRADE_INGEST_REF_PATHS,
+    )
+
+    checks: list[str] = []
+    if manifest_doc.get("evidence_grade") != EVIDENCE_GRADE_RELEASE:
+        raise PolicyLoadError(
+            ingest_path,
+            f"manifest evidence_grade must be {EVIDENCE_GRADE_RELEASE!r}",
+        )
+    if manifest_doc.get("mode") != "full_regeneration":
+        raise PolicyLoadError(ingest_path, "manifest mode must be full_regeneration")
+    if int(manifest_doc.get("runs") or 0) < runs:
+        raise PolicyLoadError(ingest_path, f"manifest runs must be >={runs}")
+    if not manifest_doc.get("certifyedge_live"):
+        raise PolicyLoadError(ingest_path, "manifest certifyedge_live must be true")
+    if not manifest_doc.get("pcs_core_validation"):
+        raise PolicyLoadError(ingest_path, "manifest pcs_core_validation must be true")
+    if not manifest_doc.get("canonical_hashes_stable"):
+        raise PolicyLoadError(ingest_path, "manifest canonical_hashes_stable must be true")
+
+    ref_paths = {
+        str(r.get("path")).replace("\\", "/")
+        for r in (ingest_doc.get("artifact_refs") or [])
+        if isinstance(r, dict) and r.get("path")
+    }
+    missing = sorted(RELEASE_GRADE_INGEST_REF_PATHS - ref_paths)
+    if missing:
+        raise PolicyLoadError(
+            ingest_path,
+            f"release-grade ingest missing artifact_refs paths: {missing}",
+        )
+    commands = ingest_doc.get("commands") or []
+    if not commands:
+        raise PolicyLoadError(ingest_path, "release-grade ingest requires non-empty commands")
+    commit = str(ingest_doc.get("source_commit", ""))
+    if commit == "0" * 40:
+        raise PolicyLoadError(ingest_path, "release-grade ingest source_commit must not be all zeros")
+    checks.append("pcs_bench_ingest.release_grade")
+    return checks
+
+
 def validate_producer_ingest_contract(
     ingest_doc: dict[str, Any],
     *,
@@ -355,12 +453,15 @@ def validate_producer_ingest_contract(
     policy_root: Path | None = None,
     pcs_core_root: Path | None = None,
     min_artifact_refs: int | None = None,
+    out_dir: Path | None = None,
+    release_grade: bool = False,
+    manifest_doc: dict[str, Any] | None = None,
 ) -> list[str]:
     """
-    LabTrust producer gate for ``PcsBenchIngest.v0`` (canonical workflow + pcs-core refs).
+    LabTrust producer gate for ``PcsBenchIngest.v0`` (canonical workflow + artifact refs).
 
-    ``artifact_refs`` must be pcs-core compatible (one ref per embedded run + coverage).
-    Extended LabTrust-only refs live in ``benchmark_artifact_refs.labtrust.v0.json``.
+    Ingest embeds pcs-core runs/coverage and lists pcs-core + LabTrust sidecar ``artifact_refs``.
+    When ``out_dir`` is set, sidecar files are checked for digest alignment.
 
     Returns check labels for CI logging.
     """
@@ -393,16 +494,23 @@ def validate_producer_ingest_contract(
             ingest_path,
             f"expected >={min_refs} pcs-core artifact_refs, got {len(refs)}",
         )
-    from labtrust_gym.pcs.benchmark_pcs_bench_ingest import is_pcs_core_compatible_artifact_ref
+    from labtrust_gym.pcs.benchmark_pcs_bench_ingest import (
+        is_labtrust_extended_artifact_ref,
+        is_pcs_core_compatible_artifact_ref,
+    )
 
     for ref in refs:
-        if not is_pcs_core_compatible_artifact_ref(ref):
+        if not is_pcs_core_compatible_artifact_ref(ref) and not is_labtrust_extended_artifact_ref(
+            ref
+        ):
             raise PolicyLoadError(
                 ingest_path,
-                f"ingest artifact_refs must be pcs-core compatible: {ref.get('artifact_type')!r} "
-                f"role={ref.get('role')!r}",
+                f"ingest artifact_refs must be pcs-core or LabTrust extended: "
+                f"{ref.get('artifact_type')!r} role={ref.get('role')!r}",
             )
         validate_benchmark_artifact_ref(ref, policy_root=policy_root)
+        if is_labtrust_extended_artifact_ref(ref):
+            continue
         digest = ref.get("sha256")
         atype = ref.get("artifact_type")
         embedded = [
@@ -416,6 +524,18 @@ def validate_producer_ingest_contract(
                 f"artifact_ref sha256 does not match embedded {atype}: {digest!r}",
             )
     checks.append("pcs_bench_ingest.artifact_refs")
+    if out_dir is not None:
+        checks.extend(validate_producer_ingest_sidecars(out_dir, ingest_doc, ingest_path=ingest_path))
+    if release_grade:
+        if manifest_doc is None:
+            raise PolicyLoadError(ingest_path, "release_grade validation requires manifest_doc")
+        checks.extend(
+            validate_release_grade_ingest_contract(
+                ingest_doc,
+                manifest_doc,
+                ingest_path=ingest_path,
+            )
+        )
     return checks
 
 
@@ -494,18 +614,29 @@ def validate_pcs_core_reproducibility_outputs(
 
     ingest_path = out_dir / PCS_BENCH_INGEST_NAME
     ingest_doc = json.loads(ingest_path.read_text(encoding="utf-8"))
+    manifest_path = out_dir / "benchmark_manifest.v0.json"
+    manifest_doc: dict[str, Any] | None = None
+    if manifest_path.is_file():
+        manifest_doc = json.loads(manifest_path.read_text(encoding="utf-8"))
+    from labtrust_gym.pcs.benchmark_pcs_bench_ingest import EVIDENCE_GRADE_RELEASE
+
+    release_grade = (
+        isinstance(manifest_doc, dict)
+        and manifest_doc.get("evidence_grade") == EVIDENCE_GRADE_RELEASE
+    )
     checks.extend(
         validate_producer_ingest_contract(
             ingest_doc,
             ingest_path=ingest_path,
             policy_root=policy_root,
             pcs_core_root=pcs_core_root,
+            out_dir=out_dir,
+            release_grade=release_grade,
+            manifest_doc=manifest_doc,
         )
     )
 
-    manifest_path = out_dir / "benchmark_manifest.v0.json"
-    if manifest_path.is_file():
-        manifest_doc = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest_path.is_file() and manifest_doc is not None:
         validate_reproducibility_benchmark_manifest(manifest_doc, policy_root=policy_root)
         checks.append("benchmark_manifest.labtrust")
         if manifest_doc.get("workflow_id") != CANONICAL_QC_RELEASE_WORKFLOW_ID:

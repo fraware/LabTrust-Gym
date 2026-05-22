@@ -1,0 +1,8 @@
+{
+  "mode": "hash_stability",
+  "reproducibility_passed": true,
+  "runs": 1,
+  "schema_version": "v0",
+  "task_id": "labtrust-qc-release-reproducibility-v0",
+  "workflow_id": "hospital_lab.qc_release"
+}

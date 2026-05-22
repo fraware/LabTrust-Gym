@@ -50,6 +50,16 @@ def main(argv: list[str] | None = None) -> int:
     print(" ".join(cmd), flush=True)
     subprocess.run(cmd, cwd=root, check=True)
 
+    from labtrust_gym.pcs.bench_schemas import validate_pcs_core_reproducibility_outputs
+
+    pcs_errors = validate_pcs_core_reproducibility_outputs(
+        out,
+        pcs_core_root=pcs_core,
+        policy_root=root,
+    )
+    for label in pcs_errors:
+        print(f"  OK {label}", flush=True)
+
     if shutil.which("pcs-bench"):
         validate_cmd = [
             "pcs-bench",
@@ -58,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
             str(ingest),
             "--pcs-core",
             str(pcs_core),
+            "--release-grade",
         ]
         print(" ".join(validate_cmd), flush=True)
         subprocess.run(validate_cmd, check=True)
