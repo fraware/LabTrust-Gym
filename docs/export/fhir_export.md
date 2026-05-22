@@ -2,12 +2,12 @@
 
 See [Frozen contracts](../contracts/frozen_contracts.md) and [Trust verification](../risk-and-security/trust_verification.md) for verifying an EvidenceBundle.v0.1 (including integrity, schema, hashchain, and invariant trace) with `labtrust verify-bundle --bundle <dir>`.
 
-The FHIR R4 exporter converts **Receipt.v0.1** (from an evidence bundle or receipts directory) into **valid HL7 FHIR R4 JSON**. The repo targets valid FHIR R4: no placeholder IDs, and missing data is represented using the standard **data-absent-reason** extension and `Observation.dataAbsentReason` where appropriate.
+The FHIR R4 exporter converts **Receipt.v0.1** (from an evidence bundle or receipts directory) into **valid HL7 FHIR R4 JSON**. The repo targets valid FHIR R4 with deterministic resource IDs and missing data represented using the standard **data-absent-reason** extension and `Observation.dataAbsentReason` where appropriate.
 
 - **Bundle**: type = `collection`; contains Specimen (when present), Observation(s), and DiagnosticReport.
 - **When specimen is missing**: No Specimen resource is emitted; `Observation.specimen` and `DiagnosticReport.specimen` are set to a Reference object containing only the data-absent-reason extension (`valueCode`: `unknown`).
 - **When Observation has no numeric value**: `value[x]` is omitted; `Observation.dataAbsentReason` is populated with the HL7 data-absent-reason code system and code `unknown`.
-- **IDs**: All resource ids are deterministic (specimen_id or content-addressed hash; result_id or index-based); in-bundle references resolve. No `id="placeholder"` or `Specimen/placeholder` is ever emitted.
+- **IDs**: All resource ids are deterministic (specimen_id or content-addressed hash; result_id or index-based); in-bundle references resolve. Placeholder ids such as `id="placeholder"` or `Specimen/placeholder` are never emitted.
 
 No external FHIR libraries are required; output is pure JSON with lightweight structural validation.
 
@@ -54,7 +54,7 @@ labtrust export-fhir --receipts <dir> --out <dir> [--filename fhir_bundle.json]
 - **Determinism**: Same receipts directory (same file order and content) produces identical bundle JSON (canonical key ordering).
 - **Export contract schema**: `policy/schemas/fhir_bundle_export.v0.1.schema.json` describes the minimal export contract (required keys, entry structure). This is not full FHIR profile validation.
 
-**Terminology validation (optional):** The CLI command `labtrust validate-fhir --bundle <path> --terminology <value_set_json> [--strict]` checks coded elements (e.g. Observation.code, Observation.interpretation) in a FHIR bundle against a value set. Use this when you need to ensure codes conform to a specific terminology; it is not part of the minimal export contract. See [Coordination benchmark card – Full FHIR or terminology validation](../coordination/coordination_benchmark_card.md#what-this-benchmark-is-not-measuring).
+**Terminology validation (optional):** The CLI command `labtrust validate-fhir --bundle <path> --terminology <value_set_json> [--strict]` checks coded elements (e.g. Observation.code, Observation.interpretation) in a FHIR bundle against a value set. Use this when you need codes to conform to a specific terminology beyond the minimal export contract. See [Coordination benchmark card – Full FHIR or terminology validation](../coordination/coordination_benchmark_card.md#out-of-scope-for-this-benchmark).
 
 ## When specimen is missing (data-absent-reason)
 
@@ -73,7 +73,7 @@ When the receipts contain only result receipts (no specimen receipts), no Specim
 
 ## When Observation value is missing (dataAbsentReason)
 
-Receipts do not carry numeric lab values. The exporter omits `value[x]` entirely and sets `Observation.dataAbsentReason`:
+Receipts omit numeric lab values. The exporter leaves out `value[x]` and sets `Observation.dataAbsentReason`:
 
 ```json
 {
@@ -88,15 +88,15 @@ Receipts do not carry numeric lab values. The exporter omits `value[x]` entirely
 }
 ```
 
-No placeholder text or placeholder IDs are used. Optional context may be added via `Observation.note` with explicit, non-placeholder wording if needed.
+Placeholder text and placeholder IDs are omitted. Optional context may be added via `Observation.note` with explicit wording when needed.
 
 ## Limitations
 
-- **No numeric result value**: Receipts do not carry lab values; Observation uses dataAbsentReason as above. Real value/unit mapping would require extending the receipt or a separate value feed.
+- **Numeric result value**: Receipts omit lab values; Observation uses dataAbsentReason as above. Real value/unit mapping requires extending the receipt or a separate value feed.
 - **One Observation per result**: Each result receipt becomes one Observation and one DiagnosticReport. Multiple observations per report (e.g. panel with many analytes) would require multiple result receipts or a different mapping.
 - **Specimen–result linking**: When specimen receipts exist, the first Specimen in the bundle is referenced by all Observations and DiagnosticReports. When none exist, specimen is represented via data-absent-reason extension only. Explicit specimen–result linking requires specimen_id on the result receipt.
-- **No Device resource**: Device is represented as an Observation extension (identifier); no Device resource is emitted.
-- **No full FHIR validation**: Only the minimal export contract and reference resolution are checked; no FHIR profile or terminology validation.
+- **Device resource**: Device is represented as an Observation extension (identifier); a standalone Device resource is omitted from the bundle.
+- **FHIR validation scope**: The minimal export contract and reference resolution are checked; full FHIR profile or terminology validation is a separate optional step (`validate-fhir`).
 
 ## End-to-end
 

@@ -10,7 +10,7 @@ The **enforcement layer** applies configurable actions when invariant violations
 
 ## Enabling enforcement
 
-Enforcement is **off by default** so the golden suite and existing benchmarks are unchanged. Enable it via env config:
+Enforcement is **disabled by default** so the golden suite and existing benchmarks stay unchanged. Enable it via env config:
 
 - In `reset(initial_state, ...)`, set `initial_state["enforcement_enabled"] = True`.
 - The engine then loads the enforcement map and applies rules on each ACCEPTED step that has violations.

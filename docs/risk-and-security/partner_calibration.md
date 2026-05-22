@@ -1,11 +1,11 @@
 # Partner calibration
 
-Partner calibration provides **workload priors** for benchmark tasks: arrival patterns and STAT rate, fitted from aggregate operational data (no PII). When present, benchmarks use these priors to generate initial specimens and priorities.
+Partner calibration provides **workload priors** for benchmark tasks, including arrival patterns and STAT rate fitted from aggregate operational data (no PII). When present, benchmarks use these priors to generate initial specimens and priorities.
 
 ## File and schema
 
-- **File**: `policy/partners/<partner_id>/calibration.v0.1.yaml`
-- **Schema**: `policy/schemas/calibration.v0.1.schema.json`
+- The calibration file lives at `policy/partners/<partner_id>/calibration.v0.1.yaml`.
+- The schema is `policy/schemas/calibration.v0.1.schema.json`.
 
 Calibration is optional. If the file is missing, tasks use built-in defaults.
 
@@ -38,8 +38,8 @@ Use **aggregate** operational data only (counts, rates, percentiles). No specime
 
 ## Loader and fingerprint
 
-- **load_effective_policy(root, partner_id)** loads calibration when present and merges it into **effective_policy["calibration"]**.
-- **calibration_fingerprint** is the SHA-256 hash of the canonical JSON of the calibration dict. Returned as the 4th value from `load_effective_policy`.
+- **`load_effective_policy(root, partner_id)`** loads calibration when present and merges it into **`effective_policy["calibration"]`**.
+- **`calibration_fingerprint`** is the SHA-256 hash of the canonical JSON of the calibration dict, returned as the fourth value from `load_effective_policy`.
 
 ## Benchmarks
 

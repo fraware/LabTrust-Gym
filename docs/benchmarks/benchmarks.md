@@ -193,7 +193,7 @@ labtrust run-benchmark --task throughput_sla --episodes 50 --seed 123 --out resu
 | throughput, violations, blocked, tokens, holds | ✓ | ✓ |
 | p50/p95 turnaround | Step timestamps only | Real completion times |
 | on_time_rate | Step-based TAT | Real TAT vs SLA |
-| device_utilization, device_queue_length_* | Not set (or 0) | Set |
+| device_utilization, device_queue_length_* | Omitted or zero | Set |
 
 ## Determinism
 
@@ -201,7 +201,7 @@ Episodes are deterministic for a given seed: same task and base_seed produce ide
 
 ## Long runs and profiling
 
-For Layer 3 or many-episode runs, benchmark harness memory and CPU are not recorded by default. To profile: run with Python's `tracemalloc` (e.g. `python -c "import tracemalloc; tracemalloc.start(); ..."`) or use an external profiler (e.g. py-spy, memory_profiler). Run duration and episodes-per-second are written to `metadata.run_duration_wall_s` and `metadata.run_duration_episodes_per_s` in results.json and to `run_info.csv` when using `summarize-results`.
+For Layer 3 or many-episode runs, the harness omits memory and CPU metrics by default. To profile, run with Python's `tracemalloc` (e.g. `python -c "import tracemalloc; tracemalloc.start(); ..."`) or use an external profiler (e.g. py-spy, memory_profiler). Run duration and episodes-per-second are written to `metadata.run_duration_wall_s` and `metadata.run_duration_episodes_per_s` in results.json and to `run_info.csv` when using `summarize-results`.
 
 ## Golden suite (transport and export)
 

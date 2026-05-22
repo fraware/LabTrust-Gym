@@ -17,7 +17,7 @@ The current interface is:
 
 Two ways to fit multi-step protocols:
 
-1. **Orchestrator pattern:** One coordination method implements `propose_actions` and internally runs the multi-step protocol (e.g. N bidder calls, then aggregate). It still returns one `actions_dict` per env step. The runner does not change; only the method’s internal loop changes.
+1. **Orchestrator pattern:** One coordination method implements `propose_actions` and internally runs the multi-step protocol (e.g. N bidder calls, then aggregate). It still returns one `actions_dict` per env step. The runner interface stays the same; only the method’s internal loop changes.
 2. **Extended interface (future):** Allow multiple “sub-steps” or “rounds” per env step with a bounded budget (e.g. `max_rounds_per_step`). The runner would call into the method in a loop until the method signals “done” or the budget is exhausted. This would require runner and interface changes.
 
 Recommendation: start with (1). Implement round-by-round auction as an optional mode inside `llm_auction_bidder`: when `COORD_AUCTION_PROTOCOL=round_robin`, the method calls the bid backend once per agent (or per group), then aggregates and returns one `actions_dict`. Same `propose_actions` signature; no runner change.
@@ -25,7 +25,7 @@ Recommendation: start with (1). Implement round-by-round auction as an optional 
 ## Round-by-round bidding (concrete)
 
 - **Current (single_call):** One `generate_proposal(state_digest, step_id, method_id)` returns a full proposal with `market[]` containing all bids.
-- **Round-robin mode (implemented):** Set `scale_config["coord_auction_protocol"] = "round_robin"` or env `COORD_AUCTION_PROTOCOL=round_robin`. For each agent, the method calls the bid backend with a digest scoped to that agent and collects one bid per call. Bids are merged into a single `market[]` and the same clearing and dispatcher logic runs. So N calls per step instead of one; same backend or per-role bidder backend (Phase 2). See `llm_auction_bidder.propose_actions` and tests in `test_coord_llm_auction_bidder_smoke.py`.
+- **Round-robin mode (implemented):** Set `scale_config["coord_auction_protocol"] = "round_robin"` or env `COORD_AUCTION_PROTOCOL=round_robin`. For each agent, the method calls the bid backend with a digest scoped to that agent and collects one bid per call. Bids are merged into a single `market[]` and the same clearing and dispatcher logic runs. The protocol issues N calls per step (one per agent) using the same backend or a per-role bidder backend (Phase 2). See `llm_auction_bidder.propose_actions` and tests in `test_coord_llm_auction_bidder_smoke.py`.
 - **Message format:** Each bidder call receives a state digest (possibly scoped to that agent) and returns a single bid or a small struct; the orchestrator merges them into the existing proposal schema so downstream (clearing, shield, executor) is unchanged.
 - **Safety and observability:** Each bidder call goes through the same coordinator guardrails (Phase 1.2) and tracing (Phase 1.3). Span names can be `coord_bid` with an attribute `agent_id` or `round_index` to distinguish calls.
 
@@ -72,4 +72,4 @@ A live test runs with distinct backends per role and asserts attribution: `test_
 ## Status (debate aggregator and lab policies)
 
 - **Debate aggregator LLM:** Implemented. Set `coord_debate_aggregator: llm` in scale_config and provide an aggregator_backend (object with `merge_proposals(...)` or `generate(prompt)`); the registry uses the first proposer when it has generate. Falls back to majority on parse/generate failure.
-- **Lab policies:** The same lab policies (RBAC, shield, invariants) apply to both deterministic and LLM coordination paths; no separate policy layer is introduced for LLM coordinators.
+- **Lab policies.** The same lab policies (RBAC, shield, invariants) apply to both deterministic and LLM coordination paths; LLM coordinators use the existing policy layer.

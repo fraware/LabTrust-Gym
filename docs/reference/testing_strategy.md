@@ -1,6 +1,6 @@
 # Testing strategy
 
-LabTrust-Gym uses deterministic unit and integration tests, a **fuzz harness** for contract and safety checks, and **metamorphic testing** to prove robustness without relying on hand-written oracles alone. Correctness in this repo is defined as passing the golden suite; the suite is the specification for regression. It does not cover all possible failure modes; gaps in the suite imply gaps in assured behavior.
+LabTrust-Gym uses deterministic unit and integration tests, a **fuzz harness** for contract and safety checks, and **metamorphic testing** to prove robustness without relying on hand-written oracles alone. Correctness in this repo is defined as passing the golden suite; the suite is the specification for regression. Coverage grows with new scenarios; gaps in the suite mark gaps in assured behavior until those scenarios are added.
 
 ## Scripted baseline regression
 
@@ -8,7 +8,7 @@ Scripted baseline behaviour (ScriptedOpsAgent, ScriptedRunnerAgent, ScriptedQcAg
 
 ## Golden suite coverage / known gaps
 
-The golden suite is updated over time. New scenarios are added from incidents, red-team findings, or new threats. The suite does not cover all attack variants or failure modes; a "Known gaps" list can be maintained and updated as new cases are identified. See [Security attack suite](../risk-and-security/security_attack_suite.md) for limitations of the suite.
+The golden suite is updated over time. New scenarios are added from incidents, red-team findings, or new threats. Maintain a "Known gaps" list as new attack variants or failure modes are identified. See [Security attack suite](../risk-and-security/security_attack_suite.md) for suite scope and limits.
 
 ## Fuzz harness
 

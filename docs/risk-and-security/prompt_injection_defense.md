@@ -1,6 +1,6 @@
 # Prompt-injection defense (implemented layers)
 
-Layered defenses for LLM agents in pathology lab (blood sciences) flows: pre-LLM blocking, optional sanitization, and output consistency checks (state-of-the-art **among implemented layers**). Config: `policy/security/prompt_injection_defense.v0.1.yaml`. Pattern-based detection is evadable; bypass and evasion scenarios (PI-DETECTOR-BYPASS-*, PI-EVASION-*) exist in the suite. These layers reduce risk but do not guarantee safety against a determined adversary.
+Layered defenses for LLM agents in pathology lab (blood sciences) flows include pre-LLM blocking, optional sanitization, and output consistency checks (state-of-the-art **among implemented layers**). Configuration lives in `policy/security/prompt_injection_defense.v0.1.yaml`. Pattern-based detection is evadable; bypass and evasion scenarios (PI-DETECTOR-BYPASS-*, PI-EVASION-*) exist in the suite. These layers reduce risk; integrators still assess sufficiency for their threat model.
 
 ## Scope
 

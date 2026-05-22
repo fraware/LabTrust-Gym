@@ -1,4 +1,4 @@
-# LabTrust-Gym: Outputs and Results Reference
+# Outputs and results reference
 
 This repo is **LabTrust-Gym**: a multi-agent environment (PettingZoo/Gym) for hospital lab automation, with a reference trust skeleton (RBAC, signed actions, audit log, invariants). The implemented workflow is a **blood sciences** lane (pathology lab); see [Glossary – Lab terminology](glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab). Outputs are produced by the `labtrust` CLI, scripts, and CI; most go under a configurable output directory (default `labtrust_runs/` or `--out` / `--out-dir`).
 

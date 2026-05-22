@@ -9,7 +9,7 @@ The **canonical source** for gate evaluation is `pack_summary.csv` produced by `
 Pass/fail rules are defined per injection_id. Supported rule types:
 
 - **attack_success_rate_zero**: sec.attack_success_rate must be 0 (e.g. INJ-ID-SPOOF-001, INJ-REPLAY-001).
-- **violations_within_delta**: safety.violations_total must not exceed nominal (same scale+method, injection=none) + max_delta. Nominal comes from baseline runs; max_delta from the rule.
+- **violations_within_delta** requires `safety.violations_total` to stay within nominal (same scale and method, `injection=none`) plus `max_delta`. Nominal comes from baseline runs; `max_delta` comes from the rule.
 - **max_violations**: safety.violations_total must not exceed the rule's max value.
 - **detection_within_steps_or_not_supported**: If detector is present, sec.detection_latency_steps must be <= max_detection_steps; else verdict not_supported.
 

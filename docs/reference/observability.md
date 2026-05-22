@@ -14,13 +14,7 @@ This document describes how to enable LLM tracing, export spans to OpenTelemetry
 
 ## Span attributes
 
-Spans record (when available):
-
-- `backend_id`, `model_id`: LLM backend and model.
-- `agent_id`: Agent that triggered the call (when provided in context).
-- `latency_ms`: Call latency in milliseconds.
-- `prompt_tokens`, `completion_tokens`: Token usage.
-- `estimated_cost_usd`: Estimated cost in USD (when model pricing is configured; e.g. openai_live with `policy/llm/model_pricing.v0.1.yaml`).
+Spans record the following fields when available: `backend_id` and `model_id` (LLM backend and model), `agent_id` (agent that triggered the call when provided in context), `latency_ms` (call latency in milliseconds), `prompt_tokens` and `completion_tokens` (token usage), and `estimated_cost_usd` (estimated cost in USD when model pricing is configured, for example openai_live with `policy/llm/model_pricing.v0.1.yaml`).
 
 These appear in in-memory spans, trace file JSONL, OTLP export, and in each LLM_DECISION audit event in the episode log (meta: `backend_id`, `model_id`, `latency_ms`, `prompt_tokens`, `completion_tokens`).
 

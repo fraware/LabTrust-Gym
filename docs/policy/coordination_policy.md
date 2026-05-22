@@ -1,6 +1,6 @@
 # Coordination policy (risk registry and method registry)
 
-This document describes the policy-as-data **Risk Registry**, **Coordination Method Registry**, **Method-Risk Coverage Matrix**, and **Coordination Study Spec** used so benchmarks can (a) declare risks from policy, (b) map method to risk coverage, and (c) enforce deterministic, schema-validated experiment matrices. No frozen contracts (runner output, queue, invariant registry, enforcement map) are changed.
+This document describes the policy-as-data **Risk Registry**, **Coordination Method Registry**, **Method-Risk Coverage Matrix**, and **Coordination Study Spec** used so benchmarks can declare risks from policy, map methods to risk coverage, and run deterministic, schema-validated experiment matrices. Frozen contracts (runner output, queue, invariant registry, enforcement map) stay unchanged.
 
 ## Overview
 
@@ -100,16 +100,16 @@ Metric keys referenced in risk registry `primary_metrics` and in results:
 ## Validation and determinism
 
 - **Validation:** All four policy files are included in `POLICY_FILES_WITH_SCHEMAS` and validated by `labtrust validate-policy` against their JSON schemas.
-- **Determinism:** Loading these files does not introduce randomness. Same file content yields identical in-memory structure; fingerprinting (e.g. for policy pack) uses canonical JSON and is stable across runs.
+- **Determinism:** Loading these files is deterministic. Same file content yields identical in-memory structure; fingerprinting (e.g. for policy pack) uses canonical JSON and is stable across runs.
 - **Backward compatibility:** Schemas use optional fields where appropriate; new optional fields can be added in future versions without breaking existing consumers.
 
 ## Reason codes and emits
 
-The risk and coordination registries do not define new engine emits or reason codes. They are declarative: benchmarks and study runners reference `risk_id`, `method_id`, and `injection_id` from these files. Linking reason codes (e.g. for "blocked due to risk") to risk_id can be added in a future extension if needed.
+The risk and coordination registries are declarative catalogs. Benchmarks and study runners reference `risk_id`, `method_id`, and `injection_id` from these files; engine emits and reason codes remain defined in their own policy trees. Linking reason codes (e.g. for "blocked due to risk") to risk_id can be added in a future extension if needed.
 
 ## See also
 
-- [Coordination matrix](../coordination/coordination_matrix.md): matrix inputs, column map, and spec (llm_live only; not used for offline pipelines).
+- [Coordination matrix](../coordination/coordination_matrix.md): matrix inputs, column map, and spec for llm_live pipelines.
 - [Frozen contracts](../contracts/frozen_contracts.md): runner output, queue, invariant registry, enforcement map.
 - [Policy validation](../api/index.md): `labtrust validate-policy` and schema mapping.
 - [Metrics contract](../contracts/metrics_contract.md): benchmark results and summary semantics.

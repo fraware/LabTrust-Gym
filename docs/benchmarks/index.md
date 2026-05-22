@@ -15,9 +15,10 @@ Tasks, benchmark cards, official pack, studies, and reproduction.
 | [Prime Intellect Inference](prime_intellect_inference.md) | Env vars, CLI smoke, top-6 sweep, cross-provider. |
 | [GCP Prime runner](gcp_prime_runner.md) | Compute Engine VM: install, background runs, fetch results. |
 | [OpenHands SWE-bench with Prime](openhands_swebench_prime_runbook.md) | Minimal OpenHands SWE-bench runbook with Prime preflight checks. |
+| [Benchmark results pipeline](../benchmark_results_pipeline.md) | From coordination sweeps to presentation bundles. |
 | [Hospital lab key metrics](hospital_lab_metrics.md) | Metrics that matter for hospital labs; SOTA leaderboard (main vs full), method-class comparison, run metadata, artifact paths, and coordination graphs in the UI bundle. |
 | [Uncertainty quantification](uncertainty_quantification.md) | Epistemic vs aleatoric; metric mapping. |
-| [Generalization and limits](../coordination/generalization_and_limits.md) | What was tested, what was not; comparison with other benchmarks. |
+| [Generalization and limits](../coordination/generalization_and_limits.md) | Tested scope, known limits, and comparison with other benchmarks. |
 
 ## Official pack and studies
 
@@ -34,7 +35,7 @@ Tasks, benchmark cards, official pack, studies, and reproduction.
 
 | Document | Description |
 |----------|-------------|
-| [Determinism contract](determinism_contract.md) | What the deterministic pipeline guarantees; RNG, canonical write, cross-version. |
+| [Determinism contract](determinism_contract.md) | Deterministic pipeline guarantee, RNG, canonical write, cross-version limits. |
 | [Reproduce](reproduce.md) | Minimal results and figures. |
 | [Paper claims](PAPER_CLAIMS.md) | Paper claims regression and snapshot. |
 | [Paper provenance](paper/README.md) | Figures, tarball, commands. |

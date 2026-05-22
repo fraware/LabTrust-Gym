@@ -6,15 +6,17 @@ CI, release, runbook, and how-to guides.
 
 | Document | Description |
 |----------|-------------|
-| [CI](ci.md) | CI jobs, test matrix, gates. |
+| [CI](ci.md) | CI jobs, test matrix, gates (including PCS workflow). |
 | [Releasing](releasing.md) | PyPI Trusted Publishing, pre-flight checklist, GitHub Release assets. |
+| [PCS operator runbook](../examples/pcs_qc_release-operator.md) | QC-release reference workflow: setup, exports, release verification. |
+| [PCS overview](../pcs/index.md) | Proof-carrying science hub and release checklist. |
 | [Ops runbook](ops_runbook.md) | Operator runbook. |
 
 ## Operators and stakeholders
 
 | Document | Description |
 |----------|-------------|
-| [Operator's summary](operators_summary.md) | One page: what the sim proves, what it does not, minimal production checklist (links to threat model and policy pack). |
+| [Operator's summary](operators_summary.md) | One page on what the simulation proves, scope limits, and a minimal production checklist (links to threat model and policy pack). |
 | [Reviewer runbook](reviewer_runbook.md) | One command sequence, expected artifacts (including coordination SOTA leaderboards and graphs in UI bundle), and how to interpret risk register and security gate for auditors and reviewers. |
 | [Production runbook](production_runbook.md) | Config, key management, monitoring, rollback, and threat model scope for production deployment. |
 

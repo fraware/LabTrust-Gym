@@ -23,19 +23,19 @@ When you run a benchmark (`run-benchmark`, `quick-eval`, or a study that calls t
 2. **Engine** — Each episode the runner creates the engine via that adapter (e.g. `CoreEnv()`).
 3. **PZ wrapper** — The runner wraps the engine in `LabTrustParallelEnv` (`envs/pz_parallel.py`), which exposes the PettingZoo Parallel API and the `BenchmarkEnv` protocol.
 
-So the chain is: **domain adapter → CoreEnv → LabTrustParallelEnv**. The runner only talks to the PZ/BenchmarkEnv interface; it does not call the engine directly. Custom domains can be registered via the `labtrust_gym.domains` entry point; see [Extension development](../agents/extension_development.md).
+The env chain is **domain adapter → CoreEnv → LabTrustParallelEnv**. The runner talks only to the PZ/BenchmarkEnv interface and calls the engine through that wrapper. Custom domains can be registered via the `labtrust_gym.domains` entry point; see [Extension development](../agents/extension_development.md).
 
 ## Per-step data flow (one episode)
 
 For each step in an episode, the benchmark runner does:
 
 1. **Observations** — From the previous `env.step` (or `env.reset` on step 0).
-2. **Optional: mutate observations** — If a risk injector is present (e.g. for `coord_risk`), `risk_injector.mutate_obs(obs)` can alter what decision-makers see.
-3. **Action choice** — With coordination: `coord_method.step(context)` or `coord_method.propose_actions(obs, infos, t)` returns one action dict per agent. Without coordination: each scripted (or LLM) agent in `scripted_agents_map` returns an action; the runner assembles the action dict.
-4. **Optional: mutate actions** — If a risk injector is present, `risk_injector.mutate_actions(actions_dict)` can alter actions before they are sent to the env.
+2. **Optional observation mutation.** When a risk injector is present (for example for `coord_risk`), `risk_injector.mutate_obs(obs)` can alter what decision-makers see.
+3. **Action choice.** With coordination, `coord_method.step(context)` or `coord_method.propose_actions(obs, infos, t)` returns one action dict per agent. Without coordination, each scripted (or LLM) agent in `scripted_agents_map` returns an action and the runner assembles the action dict.
+4. **Optional action mutation.** When a risk injector is present, `risk_injector.mutate_actions(actions_dict)` can alter actions before they reach the env.
 5. **Env step** — The runner converts action dicts to `(actions, action_infos)` per the [Action contract](../contracts/frozen_contracts.md#action-contract-v01) and calls **`env.step(actions, action_infos)`**. Only the runner calls `env.step`.
 
-Full detail: [Coordination and env data flow](../coordination/coordination_and_env.md).
+See [Coordination and env data flow](../coordination/coordination_and_env.md) for the full per-step contract.
 
 ## Golden runner vs benchmark runner
 
@@ -50,7 +50,7 @@ Both use the same core engine; the golden runner checks it in isolation, the ben
 
 ## Policy at runtime
 
-Initial state for each episode comes from the task (`task.get_initial_state(seed, policy_root)`), and can include `policy_root` and optional `effective_policy` (e.g. from a partner overlay). Inside `core_env.reset()`, **policy resolution** (`engine/policy_resolution.py`) decides each policy value: use `effective_policy[key]` if present and valid, else load from `policy_root` (e.g. RBAC, keys, zones, invariants), else use a default. So the order is: **effective_policy over file over default**. That keeps scenario overrides and file-based policy in one place.
+Initial state for each episode comes from the task (`task.get_initial_state(seed, policy_root)`), and can include `policy_root` and optional `effective_policy` (e.g. from a partner overlay). Inside `core_env.reset()`, **policy resolution** (`engine/policy_resolution.py`) decides each policy value. It uses `effective_policy[key]` when present and valid, otherwise loads from `policy_root` (for example RBAC, keys, zones, invariants), otherwise applies a default. The precedence order is **effective_policy over file over default**, which keeps scenario overrides and file-based policy in one place.
 
 ## CLI to components
 
@@ -69,7 +69,7 @@ Initial state for each episode comes from the task (`task.get_initial_state(seed
 
 ## Simulation, LLMs, and agentic systems
 
-The **benchmark runner** owns the PettingZoo env (LabTrustParallelEnv) in the default (simulation-centric) mode. Optionally, **agent-driven mode** (`run-benchmark --agent-driven`) uses a driver that holds the env; the agent calls a step_lab tool to advance it, so the agent drives the loop. LLM agents and LLM-based (including agentic) coordination methods are **policies**: they receive observations and return actions; in simulation-centric mode only the runner calls `env.step`; in agent-driven mode only the driver calls `env.step` when the agent invokes step_lab. The security suite uses the PZ env only for **coord_pack_ref** (system-level coordination-under-attack); agent/shield tests (scenario_ref, llm_attacker) use synthetic observations and do not run the env. For a full breakdown and table, see [Simulation, LLMs, and agentic systems](simulation_llm_agentic.md).
+The **benchmark runner** owns the PettingZoo env (LabTrustParallelEnv) in the default (simulation-centric) mode. Optionally, **agent-driven mode** (`run-benchmark --agent-driven`) uses a driver that holds the env; the agent calls a step_lab tool to advance it, so the agent drives the loop. LLM agents and LLM-based (including agentic) coordination methods are **policies** that receive observations and return actions. In simulation-centric mode only the runner calls `env.step`. In agent-driven mode only the driver calls `env.step` when the agent invokes `step_lab`. The security suite uses the PZ env for **coord_pack_ref** (system-level coordination-under-attack). Agent and shield tests (`scenario_ref`, `llm_attacker`) use synthetic observations without stepping the env. For a full breakdown and table, see [Simulation, LLMs, and agentic systems](simulation_llm_agentic.md).
 
 ## See also
 

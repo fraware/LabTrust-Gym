@@ -2,7 +2,7 @@
 
 Use this guide to add a second domain workflow (computation pipeline, tool-use agent, or another property) using the same trust-loop pattern as the QC-release reference.
 
-Starter copy: [templates/pcs_workflow_template/](../../templates/pcs_workflow_template/).
+Starter copy: [templates/pcs_workflow_template](https://github.com/fraware/LabTrust-Gym/tree/main/templates/pcs_workflow_template).
 
 QC-release reference: `examples/pcs_qc_release/`, `src/labtrust_gym/pcs/workflows/qc_release.py`.
 
@@ -61,7 +61,7 @@ Implement workflow-specific methods:
 - `export_runtime_receipt`, `export_pending_bundle`
 - `generate_failure_case(failure_id, out_dir)`
 
-Reuse base-class protocol steps (do not reimplement):
+Reuse base-class protocol steps (implemented on `PCSWorkflow`):
 
 - `generate_runtime_artifacts`, `emit_runtime_to_certificate_handoff`
 - `attach_certificate`, `emit_bundle_to_verifier_handoff`
@@ -104,7 +104,7 @@ labtrust emit-handoff-to-pf \
   --out handoff_to_pf.json
 ```
 
-Provability Fabric owns proof admission (`ProofChecked` on `VerificationResult.v0`). LabTrust artifacts must not carry `ProofChecked`.
+Provability Fabric owns proof admission (`ProofChecked` on `VerificationResult.v0`). LabTrust artifacts stop at `CertificateChecked`; `ProofChecked` is reserved for Provability Fabric outputs.
 
 ## Step 6 — Release fragment and verification
 

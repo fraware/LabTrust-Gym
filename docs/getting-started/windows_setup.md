@@ -1,6 +1,6 @@
 # Recommended Windows setup
 
-Single reference for running LabTrust-Gym on Windows: path, shell, known issues, and optional `--skip-system-level` for demos.
+This page is the single reference for running LabTrust-Gym on Windows, including path and shell choices, known issues, and optional `--skip-system-level` for demos.
 
 ## Path
 
@@ -18,12 +18,12 @@ See [Installation — Paths with spaces or special characters](installation.md#p
 
 ### File locking (coordination pack)
 
-On Windows, two system-level security attacks (**SEC-COORD-MATRIX-001**, **SEC-COORD-PACK-MULTI-AGENTIC**) can fail with a file-lock error on `episodes.jsonl` during the coordination pack run (“The process cannot access the file because it is being used by another process”). The agent/shield layer passes; the failure is environmental, not a control failure.
+On Windows, two system-level security attacks (**SEC-COORD-MATRIX-001**, **SEC-COORD-PACK-MULTI-AGENTIC**) can fail with a file-lock error on `episodes.jsonl` during the coordination pack run (“The process cannot access the file because it is being used by another process”). The agent and shield layers still pass; the failure comes from the Windows file-lock environment.
 
-**Mitigation for demos:**
+For demos on Windows:
 
-- Run the security suite with **`--skip-system-level`** when demonstrating the attack suite (e.g. `labtrust run-security-suite --out <dir> --skip-system-level`). State that system-level coordination-under-attack was skipped.
-- Or run the full pipeline or official pack and explain that the two reported failures are due to Windows file locking; re-run on Linux or macOS to confirm they pass.
+- Run the security suite with **`--skip-system-level`** when demonstrating the attack suite (for example `labtrust run-security-suite --out <dir> --skip-system-level`), and note that system-level coordination-under-attack was skipped.
+- Or run the full pipeline or official pack and explain that the two reported failures come from Windows file locking; re-run on Linux or macOS to confirm they pass.
 
 See [Demo readiness](demo_readiness.md#demo-on-windows) for the same notes in the demo context.
 
@@ -31,7 +31,7 @@ See [Demo readiness](demo_readiness.md#demo-on-windows) for the same notes in th
 
 If you see encoding errors (e.g. when reading policy or logs), set UTF-8 for the process:
 
-- **PowerShell:** `$env:PYTHONUTF8 = "1"`
+- **PowerShell** — `$env:PYTHONUTF8 = "1"`
 - Or use a UTF-8 locale in your system/terminal.
 
 ## See also

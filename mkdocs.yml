@@ -27,6 +27,7 @@ nav:
     - Demo readiness: getting-started/demo_readiness.md
     - Windows setup: getting-started/windows_setup.md
     - Environment and .env: getting-started/env_and_dotenv.md
+    - PCS QC-release quickstart: examples/pcs_qc_release-quickstart.md
   - Architecture:
     - architecture/index.md
     - Architecture: architecture/architecture.md
@@ -60,7 +61,7 @@ nav:
     - Coordination methods how they work: coordination/coordination_methods_how_they_work.md
     - Handoff protocol: coordination/handoff_protocol.md
     - Multi-LLM protocols: coordination/multi_llm_protocols.md
-    - Phase 5 LLM upgrades: coordination/phase5_llm_upgrades.md
+    - LLM method upgrades: coordination/phase5_llm_upgrades.md
     - Coordination methods audit: coordination/coordination_methods_audit.md
     - Fidelity notes: coordination/fidelity_notes.md
     - Learning methods implementation strategy: coordination/learning_methods_implementation_strategy.md
@@ -82,6 +83,10 @@ nav:
     - Paper claims: benchmarks/PAPER_CLAIMS.md
     - Paper provenance: benchmarks/paper/README.md
     - Evaluation checklist: benchmarks/evaluation_checklist.md
+    - Benchmark results pipeline: benchmark_results_pipeline.md
+    - Prime Intellect inference: benchmarks/prime_intellect_inference.md
+    - GCP Prime runner (optional): benchmarks/gcp_prime_runner.md
+    - OpenHands SWE-bench runbook (optional): benchmarks/openhands_swebench_prime_runbook.md
   - Contracts:
     - contracts/index.md
     - Frozen contracts: contracts/frozen_contracts.md
@@ -114,6 +119,8 @@ nav:
     - Partner calibration: risk-and-security/partner_calibration.md
   - Proof-Carrying Science (PCS):
     - Overview: pcs/index.md
+    - Quickstart: examples/pcs_qc_release-quickstart.md
+    - Operator runbook: examples/pcs_qc_release-operator.md
     - Release gate: pcs_v01_clean_chain.md
     - Export commands: pcs_export.md
     - Trace model: pcs_trace_model.md

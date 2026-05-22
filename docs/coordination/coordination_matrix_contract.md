@@ -12,7 +12,7 @@ The Coordination Matrix is defined only for **online live** LLM coordination run
 
 Any evidence that violates these constraints MUST be rejected.
 
-Rationale: the matrix is intended to compare real-world coordination behavior under latency, cost, and injection pressure. Offline/deterministic pipelines are useful for regression and CI, but they are not admissible evidence for this matrix.
+Rationale: the matrix compares real-world coordination behavior under latency, cost, and injection pressure. Offline and deterministic pipelines support regression and CI; only llm_live runs supply admissible evidence for this matrix.
 
 ## Admissible evidence
 
@@ -52,7 +52,7 @@ For every row included in the matrix:
 - `llm_backend_id` is allowlisted
 - `method_id` is allowlisted
 
-Violations MUST fail matrix construction. Partial acceptance is not allowed for v0.1.
+Violations MUST fail matrix construction. v0.1 requires every row to pass live-only checks; partial acceptance is disallowed.
 
 ## Path portability rules
 
@@ -86,7 +86,7 @@ The builder uses exactly one file per role so that matrix inputs remain stable a
 | Clean coordination summary | `summary_coord.csv` | Under run dir (direct or any subdir, first match by name) | Always for matrix build |
 | Attacked coordination summary | `pack_summary.csv` | Under run dir (direct or any subdir, first match by name) | When `attack_metrics` are defined in inputs policy |
 
-The builder **does not** use alternative files (e.g. `summary_v0.2.csv`, `results.json`, `summary_attack.csv`) when the canonical file is present. If the canonical file exists, only that file is read.
+When the canonical file is present, the builder reads **only** that file and ignores alternatives such as `summary_v0.2.csv`, `results.json`, or `summary_attack.csv`.
 
 If the canonical file is **missing**, the builder fails with a precise error:
 
@@ -100,7 +100,7 @@ If the canonical file is **missing**, the builder fails with a precise error:
 - **Canonical file**: `summary_coord.csv`
 - **Key columns** (required, unique per row): `scale_id`, `method_id`
 - **Metric columns**: For each `metric_id` in `coordination_matrix_inputs.v0.1.yaml` under `clean_metrics`, at least one of its **candidates** (from `coordination_matrix_column_map.v0.1.yaml`) must exist in the table. The builder uses the first matching candidate per metric.
-- **Duplicate keys**: Rows with the same `(scale_id, method_id)` are not allowed.
+- **Duplicate keys**: Each `(scale_id, method_id)` pair must appear at most once.
 
 Required columns for clean summary: `scale_id`, `method_id`, plus `pipeline_mode`, `allow_network`, `llm_backend_id`. Remaining metric columns are defined by the column map.
 
@@ -110,7 +110,7 @@ Required columns for clean summary: `scale_id`, `method_id`, plus `pipeline_mode
 - **Semantics**: **Per-injection** table. Each row corresponds to one `(scale_id, method_id, injection_id)` cell.
 - **Key columns** (required, unique per row): `scale_id`, `method_id`, `injection_id`
 - **Aggregation**: The builder aggregates across injections per `(scale_id, method_id)` using a **worst-case** rule: **lower_is_better** metrics → take the **maximum**; **higher_is_better** metrics → take the **minimum**.
-- **Duplicate keys**: Rows with the same `(scale_id, method_id, injection_id)` are not allowed.
+- **Duplicate keys**: Each `(scale_id, method_id, injection_id)` tuple must appear at most once.
 
 Required columns: `scale_id`, `method_id`, `injection_id`, plus `pipeline_mode`, `allow_network`, `llm_backend_id`. Attack metrics are defined by the column map.
 

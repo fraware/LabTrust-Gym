@@ -1,6 +1,6 @@
-# Handoff protocol: planner, repair, detector
+# Handoff protocol for planner, repair, and detector
 
-This document specifies the message envelope and invocation order for the planner-to-repair-to-detector handoff. The implementation follows this spec; no separate wire format exists beyond the in-process function calls described below.
+This document specifies the message envelope and invocation order for the planner-to-repair-to-detector handoff. The implementation follows this spec and uses the in-process function calls described below.
 
 ## Invocation order
 
@@ -8,7 +8,7 @@ This document specifies the message envelope and invocation order for the planne
 2. **Repair path:** When the kernel or shield **blocks** some actions (e.g. RBAC, signature, or invariant violation), the runner invokes the repair backend with the blocked actions and context. Repair returns repaired actions; the runner merges or retries. So: planner output -> (optional) shield/kernel -> on block -> repair backend -> merged result.
 3. **Detector path:** After step outcomes are available, the detector is invoked (e.g. each step or on specific events). It receives a compact event summary and comms stats and returns a detect + recommend result (e.g. throttle, freeze_zone, kill_switch, none). The advisor layer applies policy-valid containment.
 
-So the handoff is **planner (every step) -> repair (on block) -> detector (every step or on events)**. All three use the same per-role backends and coordinator guardrails when configured.
+The handoff order is **planner (every step) -> repair (on block) -> detector (every step or on events)**. All three use the same per-role backends and coordinator guardrails when configured.
 
 ## Message envelope: planner to repair
 
@@ -24,7 +24,7 @@ When the runner calls the repair backend, it passes a **repair input** dict. Sch
 
 Repair backend returns: `(list[tuple[agent_id, action_type, args]], meta)` where meta can include `backend_id`, `reason_code`, `latency_ms`.
 
-**Versioning:** The repair input does not currently carry an explicit schema version. Forward compatibility can be added later via an optional `version` field (e.g. `"repair_input_version": "0.1"`) in the top-level dict.
+**Versioning.** The repair input omits an explicit schema version today. Forward compatibility can add an optional `version` field (e.g. `"repair_input_version": "0.1"`) in the top-level dict.
 
 ## Message envelope: step outcomes to detector
 
@@ -36,7 +36,7 @@ The detector backend is invoked with:
 
 Detector returns: `DetectorOutput(detect=DetectResult(...), recommend=RecommendResult(...))`. See `src/labtrust_gym/baselines/coordination/assurance/detector_advisor.py` for the exact dataclasses.
 
-**Versioning:** Detector payload does not currently carry an explicit version. A future `event_summary.version` or `detector_payload_version` can be added for compatibility.
+**Versioning.** The detector payload omits an explicit version today. A future `event_summary.version` or `detector_payload_version` can be added for compatibility.
 
 ## References
 

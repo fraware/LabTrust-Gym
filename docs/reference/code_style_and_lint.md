@@ -16,7 +16,7 @@ Benchmark task classes use explicit, standalone CapWords names (e.g. `Throughput
 
 ### N802 — invalid-function-name
 
-**Rule:** Function and method names should be lowercase, with words separated by underscores (e.g. `do_get`, not `do_GET`).
+**Rule:** Function and method names should be lowercase, with words separated by underscores (for example `do_get` instead of `do_GET`).
 
 **Why we ignore:** The standard library `http.server.BaseHTTPRequestHandler` requires methods named exactly `do_GET`, `do_POST`, `do_HEAD`, etc. These are the hook names the HTTP server calls. We use them in `labtrust_gym.online.server` for the online serve endpoint; renaming would break the handler protocol.
 

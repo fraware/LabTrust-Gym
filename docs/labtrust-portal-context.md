@@ -34,9 +34,9 @@ Everything that **executes**:
 
 ---
 
-## 2. Core Design: Lenses, Not Separate Sites
+## 2. Core design: three lenses over one site
 
-Instead of "developer vs stakeholder" sites, provide **three lenses** (UI presets) over the same pages and objects:
+Provide **three lenses** (UI presets) over the same pages and objects instead of splitting developer and stakeholder experiences into separate sites:
 
 | Lens | Emphasis |
 |------|----------|
@@ -154,7 +154,7 @@ Move from "leaderboard" to **explainable comparison**.
 
 - Evidence-grounded: cells link to exact evidence objects
 - Missing cells show "what evidence would satisfy it" (contract from method_risk_matrix required_bench)
-- Aligns with "coverage means evidence, not narration"
+- Aligns with "coverage means linked evidence objects"
 
 **Policy:** `policy/coordination/method_risk_matrix.v0.1.yaml`, `policy/coordination/coordination_security_pack.v0.1.yaml`, `policy/coordination/scale_configs.v0.1.yaml`, `policy/coordination/injections.v0.2.yaml`. CLI: `labtrust run-coordination-security-pack`, `labtrust show-pack-results`, `labtrust show-method-risk-matrix`. See [Method and pack matrix](risk-and-security/method_and_pack_matrix.md).
 
@@ -320,7 +320,7 @@ A single question determines whether the structure is correct:
 
 > Can a reviewer click from a **claim** → the **risk** it addresses → the **evidence** → the **benchmark run** → the **release manifest** → **hash/signature verification**, without ever leaving the site or encountering "trust me"?
 
-If yes, one site is not only possible — it’s better than two.
+If yes, a single site carries the full reviewer chain end to end.
 
 ---
 

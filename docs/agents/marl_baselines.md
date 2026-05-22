@@ -126,7 +126,7 @@ The **model_path** for marl_ppo can be supplied in either of these ways:
 1. **scale_config:** When running scale tasks (e.g. coord_scale, coord_risk), set `scale_config["model_path"]` to the path to your trained `model.zip` (e.g. from `labtrust train-ppo --out runs/ppo`). The runner passes this into `make_coordination_method` so the coordination method loads the checkpoint.
 2. **Direct API:** When building the coordination method programmatically, call `make_coordination_method("marl_ppo", policy, repo_root=..., scale_config=..., model_path="path/to/model.zip")`.
 
-When no checkpoint is supplied, marl_ppo cannot run (it will raise at propose_actions). The **full coordination pack** and security coverage gate exclude marl_ppo from the method list when no checkpoint is present in the repo; see `tests/test_security_coverage_gate.py` and the coordination pack method list configuration.
+When no checkpoint is supplied, marl_ppo raises at `propose_actions`. The **full coordination pack** and security coverage gate omit marl_ppo from the method list until a checkpoint is present in the repo; see `tests/test_security_coverage_gate.py` and the coordination pack method list configuration.
 
 ## Security and risk
 

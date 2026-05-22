@@ -72,7 +72,7 @@ Under the given `--out` directory:
 
 | Path | Description |
 |------|-------------|
-| `baselines/` | Official pack baseline results (when not using providers or models sweep). |
+| `baselines/` | Official pack baseline results for deterministic runs without a provider or model sweep. |
 | `SECURITY/` | Security attack results and securitization packet from the pack run. |
 | `SAFETY_CASE/` | Safety case (claim to control, test, artifact). |
 | `TRANSPARENCY_LOG/` | Transparency log; for live runs, includes `llm_live.json` and `live_evaluation_metadata.json`. |

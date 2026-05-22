@@ -1,22 +1,28 @@
 # CLI output contract
 
-This document defines the contract for all LabTrust-Gym CLI commands: exit codes, minimal smoke arguments, expected output paths, and schema references. Used by the CLI smoke matrix and for consistent "expected results in a similar structured way."
+This document defines the contract for all LabTrust-Gym CLI commands, including exit codes, minimal smoke arguments, expected output paths, and schema references. The CLI smoke matrix and release checks use it to expect results in a consistent structured layout.
 
 ## Conventions
 
-- **Exit code:** 0 = success, 1 = failure. All commands use stderr for progress and errors; only `labtrust --version` prints to stdout.
-- **Output paths:** Commands write to explicit paths (e.g. `--out`, `--out-dir`, `--run` plus derived paths). Paths are relative to process CWD unless absolute.
-- **Schema refs:** Where applicable, output files conform to versioned schemas under `policy/schemas/` or contracts in `docs/`.
-- **Pipeline modes:** Benchmark result files (results.json and summaries built from them) always record **pipeline_mode**, **llm_backend_id**, **allow_network**, and **non_deterministic**. Regression and official baselines require deterministic pipelines. See [Outputs and results](../reference/outputs_and_results.md#12-pipeline-modes-and-result-audit) and [Metrics contract](metrics_contract.md).
-- **Verbosity:** Global flags `-v` / `--verbose` and `-q` / `--global-quiet` control output detail. Default (normal): info, success, warnings, errors on stderr. Verbose: plus debug logs, progress detail, tracebacks. Quiet: minimal output (errors and summary only). Progress and errors remain on stderr in all cases.
-- **Output format:** When the optional `.[cli]` extra (Rich) is installed, stderr output may use colors and structured formatting. Without Rich, the same messages are printed in plain text. Critical one-line messages (e.g. "Policy validation OK.", "Wrote &lt;path&gt;") are stable for scripting.
-- **Console output convention:** Commands that write result artifacts print the output directory, key generated paths, and a one-line suggested next step (e.g. make-plots, summarize-results, or where to read layout).
+Exit codes are 0 for success and 1 for failure. All commands use stderr for progress and errors; only `labtrust --version` prints to stdout.
+
+Commands write to explicit paths (for example `--out`, `--out-dir`, or `--run` plus derived paths). Paths are relative to process CWD unless absolute.
+
+Where applicable, output files conform to versioned schemas under `policy/schemas/` or contracts in `docs/`.
+
+Benchmark result files (`results.json` and summaries built from them) always record **pipeline_mode**, **llm_backend_id**, **allow_network**, and **non_deterministic**. Regression and official baselines require deterministic pipelines. See [Outputs and results](../reference/outputs_and_results.md#12-pipeline-modes-and-result-audit) and [Metrics contract](metrics_contract.md).
+
+Global flags `-v` / `--verbose` and `-q` / `--global-quiet` control output detail. The default (normal) level prints info, success, warnings, and errors on stderr. Verbose mode adds debug logs, progress detail, and tracebacks. The `-q` flag limits output to errors and the summary line. Progress and errors remain on stderr in all cases.
+
+When the optional `.[cli]` extra (Rich) is installed, stderr output may use colors and structured formatting. Without Rich, the same messages are printed in plain text. Critical one-line messages (for example "Policy validation OK." and "Wrote &lt;path&gt;") are stable for scripting.
+
+Commands that write result artifacts print the output directory, key generated paths, and a one-line suggested next step (for example make-plots, summarize-results, or where to read layout).
 
 ## Contract table
 
 | Command | Minimal smoke args | Exit | Expected output paths | Schema / contract ref |
 |---------|--------------------|------|------------------------|----------------------|
-| validate-policy | (none) or `--partner hsl_like` or `--domain <domain_id>` | 0 | (none; success message on stderr) | policy schemas. With `--domain`, loads and validates policy merged from base plus `policy/domains/<domain_id>/`. Checks schema and structural validity only; does **not** check logical correctness (e.g. zone connectivity, invariant feasibility, or that controls match risks). |
+| validate-policy | (none) or `--partner hsl_like` or `--domain <domain_id>` | 0 | (none; success message on stderr) | policy schemas. With `--domain`, loads and validates policy merged from base plus `policy/domains/<domain_id>/`. Checks schema and structural validity; logical consistency (zone connectivity, invariant feasibility, control–risk fit) is a separate review step. |
 | forker-quickstart | `--out <dir>` | 0 | `<out>/pack/pack_summary.csv`, `<out>/pack/COORDINATION_DECISION.v0.1.json`, `<out>/risk_out/RISK_REGISTER_BUNDLE.v0.1.json` | risk_register_contract.v0.1 |
 | quick-eval | `--seed 42 --out-dir <dir>` | 0 | `<dir>/quick_eval_*/throughput_sla.json`, `adversarial_disruption.json`, `multi_site_stat.json`, `logs/*.jsonl`, `summary.md` | results.v0.2, ui_data_contract |
 | run-benchmark | `--task throughput_sla --episodes 1 --seed 42 --out <path>` | 0 | `<path>` (results.json). On success prints next step (run-summary or summarize-results) and optionally one line: Episodes: n, mean throughput. | results.v0.2, metrics_contract |
@@ -25,7 +31,7 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | bench-smoke | `--seed 42` | 0 | (writes under CWD or labtrust_runs; results JSON per task) | results.v0.2 |
 | export-receipts | `--run <log.jsonl> --out <dir>` | 0 | `<dir>/EvidenceBundle.v0.1/manifest.json`, receipt_*.v0.1.json | EvidenceBundle.v0.1 |
 | export-fhir | `--receipts <dir> --out <dir>` | 0 | `<out>/fhir_bundle.json` (default filename) | fhir_export.md |
-| validate-fhir | `--bundle <path> --terminology <path>` [--strict] | 0 or 1 | (none; violations on stderr; exit 1 with --strict if any code outside value set) | Optional; not part of minimal benchmark. See fhir_export.md. |
+| validate-fhir | `--bundle <path> --terminology <path>` [--strict] | 0 or 1 | (none; violations on stderr; exit 1 with --strict if any code outside value set) | Optional FHIR terminology check; see fhir_export.md. |
 | verify-bundle | `--bundle <EvidenceBundle.v0.1 dir>` or `--strict-fingerprints` | 0 | (none; PASS on stderr) | frozen_contracts.md, trust_verification.md |
 | verify-release | `--release-dir <dir>` optional `--strict-fingerprints` | 0 | (none; summary on stderr; validates EvidenceBundles, risk register, RELEASE_MANIFEST hashes) | frozen_contracts.md, trust_verification.md |
 | build-release-manifest | `--release-dir <dir>` | 0 | `<release-dir>/RELEASE_MANIFEST.v0.1.json` | trust_verification.md |
@@ -46,7 +52,7 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | recommend-coordination-method | `--run <dir> --out <dir>` | 0 | `<out>/COORDINATION_DECISION.v0.1.json`, `COORDINATION_DECISION.md` | howto_selection_policy.md |
 | build-coordination-matrix | `--run <dir> --out <path>` | 0 | `<path>` or `<path>/coordination_matrix.v0.1.json` | coordination studies |
 | build-episode-bundle | `--run-dir <path>` [--out <path>] | 0 | `<run-dir>/episode_bundle.json` or `<out>` (if --out given) | episode_viewer.md |
-| make-plots | `--run <dir>` [--theme light\|dark\|colorblind\|bw] [--pdf] | 0 | `<run>/figures/` (PNG/SVG, data_tables/, RUN_REPORT.md; optional run_figures.pdf) | studies.md, pipeline_overview.md |
+| make-plots | `--run <dir>` [--theme light\|dark\|colorblind\|bw] [optional `--pdf` flag] | 0 | `<run>/figures/` (PNG/SVG, data_tables/, RUN_REPORT.md; optional run_figures.pdf) | studies.md, pipeline_overview.md |
 | reproduce | `--profile minimal --out <dir>` | 0 | `<dir>/` (sweep results, figures) | reproduce.md |
 | package-release | `--profile minimal --out <dir>` | 0 | `<dir>/MANIFEST.v0.1.json`, `_repr/`, `receipts/`, `FIGURES/` (paper_v0.1) | paper_ready.md, trust_verification.md |
 | generate-official-baselines | `--out <dir> --episodes 2 --seed 42 --force` | 0 | `<dir>/results/` (throughput_sla through insider_key_misuse plus coord_scale, coord_risk JSON), `summary.csv`, `summary.md`, `summary_v0.2.csv`, `summary_v0.3.csv`, `metadata.json` | baseline_registry.v0.1.yaml, metrics_contract |
@@ -55,29 +61,29 @@ This document defines the contract for all LabTrust-Gym CLI commands: exit codes
 | train-ppo | `--task throughput_sla --timesteps 100 --seed 42 --out <dir>` | 0 | `<dir>/model.zip` (or run dir with model) | marl_baselines.md |
 | eval-ppo | `--model <model.zip> --task throughput_sla --episodes 2 --seed 42 --out <path>` | 0 | `<path>` (metrics JSON) or stderr | marl_baselines.md |
 | serve | `--host 127.0.0.1 --port <port>` | 0 | (server runs; GET /v0/summary returns 200) | security_online.md, output_controls.md |
-| run-demo | `qc-release` or invalid scenario names; `--out <dir>`; `--deterministic` or `PCS_DETERMINISTIC=1` | 0 | Run directory with `trace.json`, `run_meta.json` | examples/pcs_qc_release/RUNBOOK.md |
+| run-demo | `qc-release` or invalid scenario names; `--out <dir>`; `--deterministic` or `PCS_DETERMINISTIC=1` | 0 | Run directory with `trace.json`, `run_meta.json` | examples/pcs_qc_release-quickstart.md |
 | export-trace | `--run <dir> --out trace.json` | 0 | LabTrust trace JSON | docs/pcs_trace_model.md |
 | export-runtime-receipt | `--run <dir> --out runtime_receipt.json` | 0 | `RuntimeReceipt.v0` (pcs-core) | docs/pcs_export.md |
 | export-pcs | `--run <dir> --out science_claim_bundle.pending.json` | 0 | `ScienceClaimBundle.v0` pending (`runtime_receipts[]`, `certificates[]`) | docs/pcs_export.md |
 | attach-certificate | `--bundle <pending> --certificate trace_certificate.json --out certified.json` | 0 | Certified `ScienceClaimBundle.v0` | docs/pcs_export.md |
 | validate-pcs | `--run <dir>` or `--artifact <json>` | 0 | (stderr OK message) | pcs-core validation |
 | export-pcs-handoff | `--out handoff/`; optional `PCS_DETERMINISTIC=1` | 0 | `handoff/manifest.json`, `certifyedge/`, `provability_fabric/` | docs/pcs_handoff.md |
-| emit-handoff-to-certifyedge | `--trace`; `--runtime-receipt`; `--property-id`; `--out`; `--release-mode` | 0 | `handoff_to_certifyedge.json` | examples/pcs_qc_release/RUNBOOK.md |
-| emit-handoff-to-pf | `--bundle`; `--out`; `--release-mode` | 0 | `handoff_to_pf.json` | examples/pcs_qc_release/RUNBOOK.md |
-| emit-handoff | `--kind …` (generic; prefer dedicated commands above) | 0 | `HandoffManifest.v0` JSON | examples/pcs_qc_release/RUNBOOK.md |
-| emit-release-fragment | `--release-dir <dir>`; optional `--out` | 0 | `labtrust_release_fragment.json` (`ComponentReleaseFragment.v0`) | examples/pcs_qc_release/RUNBOOK.md |
-| verify-release-protocol | `--release-dir <dir>`; optional `--pcs-core <dir>` | 0 | (stderr OK labels) | examples/pcs_qc_release/RUNBOOK.md |
-| verify-release-fixtures | alias for `verify-release-protocol` | 0 | (stderr OK labels) | examples/pcs_qc_release/RUNBOOK.md |
-| check-status-policy | `--release-dir <dir>`; optional `--workflow-profile`; `--json` | 0 | Status boundary checks (no ProofChecked from LabTrust) | examples/pcs_qc_release/RUNBOOK.md |
-| regenerate-release-protocol | `--out <release-dir>`; `--certifyedge-bin`; optional `--pcs-core`; `--workflow-profile`; `--json-summary`; `--summary-out` | 0 | Full protocol package; writes `<out>/regeneration_report.json`, `proof_obligation_hints.json`, `proof_obligation_identifiers.json`, `formalization_readiness_report.json` (pcs-bench; Lean extraction inputs only) | examples/pcs_qc_release/RUNBOOK.md, schemas_or_docs/FormalizationReadinessReport.v0.md |
-| regenerate-release-chain | alias for `regenerate-release-protocol` | 0 | same as above | examples/pcs_qc_release/RUNBOOK.md |
+| emit-handoff-to-certifyedge | `--trace`; `--runtime-receipt`; `--property-id`; `--out`; `--release-mode` | 0 | `handoff_to_certifyedge.json` | pcs_handoff.md, examples/pcs_qc_release-operator.md |
+| emit-handoff-to-pf | `--bundle`; `--out`; `--release-mode` | 0 | `handoff_to_pf.json` | pcs_handoff.md, examples/pcs_qc_release-operator.md |
+| emit-handoff | `--kind …` (generic; prefer dedicated commands above) | 0 | `HandoffManifest.v0` JSON | pcs_handoff.md |
+| emit-release-fragment | `--release-dir <dir>`; optional `--out` | 0 | `labtrust_release_fragment.json` (`ComponentReleaseFragment.v0`) | examples/pcs_qc_release-operator.md |
+| verify-release-protocol | `--release-dir <dir>`; optional `--pcs-core <dir>` | 0 | (stderr OK labels) | examples/pcs_qc_release-operator.md, pcs_v01_clean_chain.md |
+| verify-release-fixtures | alias for `verify-release-protocol` | 0 | (stderr OK labels) | examples/pcs_qc_release-operator.md |
+| check-status-policy | `--release-dir <dir>`; optional `--workflow-profile`; `--json` | 0 | Status boundary checks (no ProofChecked from LabTrust) | examples/pcs_qc_release-operator.md |
+| regenerate-release-protocol | `--out <release-dir>`; `--certifyedge-bin`; optional `--pcs-core`; `--workflow-profile`; `--json-summary`; `--summary-out` | 0 | Full protocol package; writes `<out>/regeneration_report.json`, `proof_obligation_hints.json`, `proof_obligation_identifiers.json`, `formalization_readiness_report.json` (pcs-bench; Lean extraction inputs only) | examples/pcs_qc_release-operator.md, schemas_or_docs/FormalizationReadinessReport.v0.md |
+| regenerate-release-chain | alias for `regenerate-release-protocol` | 0 | same as above | examples/pcs_qc_release-operator.md |
 | generate-failure-gallery | `--workflow <id\|property_id>`; `--out <dir>`; optional `--release-dir`; `--workflow-profile` | 0 | Per-case `failure_case_manifest.json`, `README.md`, `artifacts/`, legacy `expected_failure.json` / `repair_hint.json` | examples/pcs_qc_release/failures/ |
 | generate-benchmark-cases | `--workflow <id\|property_id>`; `--out <dir>`; `--seed` (default 42); optional `--release-dir`, `--workflow-profile`; `--pcs-bench-layout`; `--suite-fixture-root`; `--validate-pcs-core-output <pcs-core>`; `--pcs-core-registry <path>` | 0 | Flat: `benchmark_index.json` + per-case dirs. pcs-bench: `suite.yaml`, `benchmark_manifest.v0.json`, `valid/`, `invalid/`, `coverage_report.v0.json` | docs/pcs/benchmark-profile.md |
 | benchmark-reproducibility | `--workflow` (default hospital_lab.qc_release; aliases e.g. `qc-release` resolve to canonical `hospital_lab.qc_release`); `--out <dir>`; `--runs` (default 5); `--seed`; `--mode full_regeneration` (default) or `hash_stability`; optional `--pcs-core`, `--release-dir`, `--certifyedge-bin`, `--validate-pcs-core-output <pcs-core>`; `--release-grade` / `--no-release-grade` (default: release when mode is `full_regeneration`) | 0 | `benchmark_run.v0.json`, `coverage_report.v0.json`, `benchmark_manifest.v0.json` (`evidence_grade`, `certifyedge_live`, `pcs_core_validation`, `canonical_hashes_stable`), `benchmark_report.v0.json`, `regeneration_reports/`, `hash_stability_report.v0.json`, `pcs_bench_ingest.v0.json` (embedded runs + `artifact_refs` for all sidecars) | docs/pcs/producer-contract.md |
 | validate-pcs-producer | `--dir <reproducibility-out>`; `--pcs-core` (required) | 0 | Validates ingest contract, pcs-core schemas, on-disk sidecar digests, release-grade manifest when applicable | docs/pcs/producer-contract.md |
 | verify-benchmark-cases | `--benchmark-dir <dir>`; optional `--pcs-core` (auto-detect); `--validate-pcs-core-output <pcs-core>`; `--json` | 0 | (stderr OK labels) | docs/pcs/benchmark-profile.md |
 
-**PCS CI scripts (not `labtrust` subcommands):** `run_pcs_ci_local.{sh,ps1}` runs `pytest tests/pcs`, `ci_validate_workflow_profile.py`, `ci_validate_formalization.py`, export/release validation, `check-status-policy`, failure gallery generate/verify, and optional `verify-release-protocol` (matches `.github/workflows/pcs.yml`). `materialize_workflow_profile.py` refreshes `workflow_profile.v0.json` digest. `materialize_formalization_artifacts.py` rebuilds formalization JSON from an existing `release/` tree. `generate_golden.py` regenerates `expected/` in deterministic mode.
+**PCS CI scripts** (repository scripts, separate from `labtrust` subcommands): `run_pcs_ci_local.{sh,ps1}` runs `pytest tests/pcs`, `ci_validate_workflow_profile.py`, `ci_validate_formalization.py`, export/release validation, `check-status-policy`, failure gallery generate/verify, and optional `verify-release-protocol` (matches `.github/workflows/pcs.yml`). `materialize_workflow_profile.py` refreshes `workflow_profile.v0.json` digest. `materialize_formalization_artifacts.py` rebuilds formalization JSON from an existing `release/` tree. `generate_golden.py` regenerates `expected/` in deterministic mode.
 
 ## Optional / conditional commands
 

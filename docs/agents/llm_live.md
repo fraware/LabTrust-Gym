@@ -73,7 +73,7 @@ Confirm this checklist when contributing a new method or backend; see [CONTRIBUT
 
 ## Pre-flight checklist
 
-Before any live run, complete this checklist so you do not blame the provider for env or trust-skeleton issues:
+Before any live run, complete this checklist to separate provider issues from missing env or trust-skeleton problems:
 
 | Step | Action | Acceptance |
 |------|--------|------------|
@@ -84,11 +84,11 @@ Before any live run, complete this checklist so you do not blame the provider fo
 
 ## Before using live providers
 
-Do the steps above first so you do not attribute failures to the model provider when the cause is missing env or a broken trust skeleton.
+Complete the steps above first so missing env or a broken trust skeleton surface before you treat a failure as a model-provider issue.
 
 ### 0) Load .env if you use it
 
-The code **does not load `.env` automatically**. If you use a `.env` file for API keys, load it before any command; otherwise the code will not see the variables.
+Load `.env` manually when you use one for API keys. The runtime reads only variables already present in the process environment.
 
 **macOS / Linux (bash/zsh):**
 
@@ -119,7 +119,7 @@ See also [Installation — Loading a .env file](../getting-started/installation.
 
 ### 1) Phase 2A — Does the repo still hold? (strict offline checks)
 
-Run these **before** making live calls so you do not blame the provider for trust-skeleton or regression issues:
+Run these **before** making live calls so trust-skeleton or regression failures show up before you contact the provider:
 
 ```bash
 labtrust validate-policy
@@ -145,7 +145,7 @@ Use the `--llm-backend` option with `run-benchmark` and (for openai_live/ollama_
 labtrust run-benchmark --task throughput_sla --episodes 3 --seed 42 --out results.json --llm-backend openai_live --allow-network
 ```
 
-Or set `LABTRUST_ALLOW_NETWORK=1` in the environment instead of `--allow-network`.
+Or set `LABTRUST_ALLOW_NETWORK=1` in the environment as an alternative to `--allow-network`.
 
 Backends:
 
@@ -212,7 +212,7 @@ The following tests and commands use `OPENAI_API_KEY` and (where noted) `LABTRUS
 - **PowerShell:** `.\scripts\run_llm_live_coord_checks.ps1`
 - **Bash:** `LABTRUST_RUN_LLM_LIVE=1 OPENAI_API_KEY=sk-... ./scripts/run_llm_live_coord_checks.sh`
 
-They do not run `RUN_ONLINE_TESTS=1` or `LABTRUST_RUN_LLM_ATTACKER` tests; run those separately if needed.
+They skip `RUN_ONLINE_TESTS=1` and `LABTRUST_RUN_LLM_ATTACKER` tests; run those separately when you need them.
 
 ## Environment variables (openai_live)
 
@@ -225,14 +225,14 @@ They do not run `RUN_ONLINE_TESTS=1` or `LABTRUST_RUN_LLM_ATTACKER` tests; run t
 
 For tracing and cost/latency attribution (including OTLP export and per-agent/backend summary), see [Observability](../reference/observability.md).
 
-The code does not load `.env` automatically. If you use a `.env` file, load it first (see [Before using live providers](#before-using-live-providers)); otherwise set these in the shell or use a tool that injects them.
+Load a `.env` file before commands when you use one (see [Before using live providers](#before-using-live-providers)), or set variables in the shell or via a tool that injects them.
 
 ## Structured Outputs and machine-safe responses
 
-Live OpenAI backends use **Structured Outputs** (OpenAI response_format with JSON Schema) so that the model response is constrained to a fixed shape. This eliminates parsing brittleness: you get schema-valid JSON every time or a safe fallback.
+Live OpenAI backends use **Structured Outputs** (OpenAI response_format with JSON Schema) so that the model response is constrained to a fixed shape. You get schema-valid JSON on every successful call, with a safe fallback when validation fails.
 
 - **openai_live**: Uses an ActionProposal schema (action_type, args, reason_code, token_refs, rationale, confidence, safety_notes). The API returns only valid JSON matching that schema.
-- **openai_responses**: Uses a single-step decision schema: `action`, `args`, `reason_code`, `confidence`, `explanation_short` (maxLength 280). The backend maps this to the internal ActionProposal format. If the model returns invalid JSON or a value outside the schema (e.g. confidence not in [0,1], explanation_short > 280 chars), the backend returns **NOOP** with reason code **RC_LLM_INVALID_OUTPUT** and does not pass the response through. This keeps runs machine-safe and auditable.
+- **openai_responses.** Uses a single-step decision schema: `action`, `args`, `reason_code`, `confidence`, `explanation_short` (maxLength 280). The backend maps this to the internal ActionProposal format. Invalid JSON or out-of-schema values (e.g. confidence outside [0,1], explanation_short over 280 chars) yield **NOOP** with reason code **RC_LLM_INVALID_OUTPUT** and keep the raw response out of the step path. Runs stay machine-safe and auditable.
 
 Deterministic and llm_offline runs **never** call the live backend; pipeline gating ensures no network is used unless pipeline_mode is **llm_live** and **allow_network** is set.
 
@@ -284,7 +284,7 @@ This runs the benchmark with `--pipeline-mode llm_offline`, `--llm-backend deter
 
 ## Live LLM plumbing checks (per provider)
 
-Use three layers for confidence: **healthcheck** (fastest) → **1-episode smoke** → **short multi-episode**. Run each layer for every backend you intend to compare so you do not attribute failures to the wrong layer.
+Use three layers for confidence: **healthcheck** (fastest) → **1-episode smoke** → **short multi-episode**. Run each layer for every backend you intend to compare so failures map to the right layer.
 
 ### 3.1 Live backend healthcheck (fastest feedback)
 
@@ -429,7 +429,7 @@ labtrust summarize-results --in labtrust_runs/provider_matrix/*.json --out labtr
 - **Security (adversarial_disruption / insider_key_misuse / coord_risk):** detection latency, containment success, attack_success_rate, stealth_success_rate
 - **Operational:** llm_error_rate, mean/p95 latency, total_tokens, estimated_cost_usd (only if pricing policy is complete)
 
-**Comparability rule:** If `policy/llm/model_pricing.v0.1.yaml` does not list models for a provider, cost comparisons are invalid. Update pricing first or omit cost from provider comparisons.
+**Comparability rule.** List every compared model in `policy/llm/model_pricing.v0.1.yaml` before you use cost in provider comparisons; update pricing first or omit cost from the table when a model is missing.
 
 ### Provider-matrix runner (one command per provider)
 
@@ -463,7 +463,7 @@ The following entry points use an LLM (or deterministic) backend for coordinatio
 | **llm_detector_throttle_advisor** | Detector/advisor LLM -> throttle or NOOP | Yes: advisor output validated | Yes: invalid -> safe_detector_fallback (NOOP) | Yes: assurance metrics | detector_advisor, simplex |
 | **Single-agent LLM** (throughput_sla, etc.) | baselines/llm/agent + backends | Yes: ActionProposal / single-step schema | Yes: RC_LLM_INVALID_OUTPUT, LLM_REFUSED -> NOOP | Yes: results.metadata | prompt/tool fingerprint, LLM_DECISION audit |
 
-**Gaps to fix (if any):** When adding a new LLM coordination method or backend, ensure (1) all responses pass through the same schema validation (`validate_proposal` for CoordinationProposal, or the appropriate ActionProposal schema), (2) on validation failure, timeout, or refusal the code path returns NOOP and does not pass invalid output through, (3) backend_id, model_id, latency (and optionally tokens) are recorded in proposal meta and results metadata, (4) prompt_fingerprint and policy_fingerprint are set and transparency log / episode log receive the expected audit entries.
+**Gaps to fix (if any).** When adding a new LLM coordination method or backend, ensure (1) all responses pass through the same schema validation (`validate_proposal` for CoordinationProposal, or the appropriate ActionProposal schema), (2) validation failure, timeout, or refusal always returns NOOP with invalid output kept out of the step path, (3) backend_id, model_id, latency (and optionally tokens) land in proposal meta and results metadata, (4) prompt_fingerprint and policy_fingerprint are set and transparency log / episode log receive the expected audit entries.
 
 ### LLM excellence checklist (for new methods or backends)
 
@@ -472,7 +472,7 @@ When contributing a **new** LLM coordination method or backend, the PR must conf
 | Criterion | Requirement |
 |-----------|-------------|
 | **Schema-valid decisions** | All responses pass through the same schema validation (e.g. `validate_proposal` for CoordinationProposal, or the appropriate ActionProposal schema). |
-| **Hard-fail to NOOP** | On validation failure, timeout, or refusal, return safe NOOP and do not pass invalid output through. |
+| **Hard-fail to NOOP** | On validation failure, timeout, or refusal, return safe NOOP and keep invalid output out of the step path. |
 | **Metadata** | backend_id, model_id, latency (and optionally tokens) in proposal meta and results metadata. |
 | **Integration** | prompt_fingerprint, policy_fingerprint, and transparency log / episode log audit entries. |
 
@@ -487,13 +487,13 @@ The **anthropic_live** backend is implemented in `baselines/llm/backends/anthrop
 Design requirements (standards-of-excellence level):
 
 - **Schema-valid decisions:** Emit decisions that conform to the same JSON schema used elsewhere (e.g. ActionProposal or single-step decision schema).
-- **Hard-fail into safe NOOP:** On schema mismatch, refusal, or timeouts, return safe NOOP and do not pass invalid output through.
+- **Hard-fail into safe NOOP.** On schema mismatch, refusal, or timeouts, return safe NOOP and keep invalid output out of the step path.
 - **Results metadata:** Record provider id, model id, and latency in results metadata (same shape as openai_live / openai_responses).
 - **Integration:** Use the same prompt registry, tool registry fingerprinting, and transparency log plumbing (e.g. prompt hashes, tool_registry_fingerprint in pack/evidence).
 
 ### 6.2 Add a healthcheck path for Anthropic
 
-Expose a healthcheck so Phase 2C (live plumbing checks) does not depend on running a full benchmark. Add `anthropic_live` to the `llm-healthcheck --backend` choices and implement a minimal request that validates connectivity and schema-valid response.
+Expose a healthcheck so Phase 2C (live plumbing checks) can run without a full benchmark. Add `anthropic_live` to the `llm-healthcheck --backend` choices and implement a minimal request that validates connectivity and schema-valid response.
 
 ### 6.3 Add unit tests that mock the provider client
 
@@ -508,7 +508,7 @@ Test at least:
 
 - **CLI:** `--llm-backend anthropic_live` is supported for `run-benchmark` and `llm-healthcheck`.
 - **Env vars:** `ANTHROPIC_API_KEY`, `LABTRUST_ANTHROPIC_MODEL` (default `claude-3-5-haiku-20241022`), `LABTRUST_LLM_TIMEOUT_S`.
-- **.env:** The code does not load `.env` automatically; users must load it or set vars in the shell (see [Before using live providers](#before-using-live-providers)).
+- **.env.** Load `.env` manually or set vars in the shell before commands (see [Before using live providers](#before-using-live-providers)).
 
 Install with `pip install -e ".[llm_anthropic]"` to use anthropic_live. Cross-provider contract tests validate the same metadata and llm_live.json shape across openai_live, anthropic_live, and ollama_live.
 
@@ -558,7 +558,7 @@ Example (openai_live):
 
 ### Non-determinism
 
-Runs with `--llm-backend openai_live` or `--llm-backend ollama_live` are **not deterministic**. Same task and seed can produce different throughput, violations, and blocked counts. Do not use for regression or reproducibility checks; use `--llm-backend deterministic` or scripted agents for that.
+Runs with `--llm-backend openai_live` or `--llm-backend ollama_live` are **non-deterministic**. The same task and seed can yield different throughput, violations, and blocked counts. Use `--llm-backend deterministic` or scripted agents for regression and reproducibility checks.
 
 ### Cost
 
@@ -570,7 +570,7 @@ The live backend respects `LABTRUST_LLM_TIMEOUT_S` and `LABTRUST_LLM_RETRIES`. O
 
 ## Guardrails (circuit breaker and rate limiter)
 
-When **pipeline_mode=llm_live**, the LLM agent uses optional **circuit breaker** and **rate limiter** so repeated blocks or high call volume do not hammer the API.
+When **pipeline_mode=llm_live**, the LLM agent uses optional **circuit breaker** and **rate limiter** to cap repeated blocks and high call volume against the API.
 
 ### Guardrails contract
 
@@ -592,11 +592,11 @@ Use lower thresholds or smaller windows for cost control or to avoid provider ra
 
 ### Coordinator guardrails
 
-The **coordinator path** is any call to `proposal_backend.generate_proposal`, `bid_backend.generate_proposal`, `repair_backend.repair` (or its inner `generate`), and `detector_backend` when it uses an LLM. These run inside the runner's episode loop when a coordination method uses a live LLM backend; they are not in the CLI.
+The **coordinator path** is any call to `proposal_backend.generate_proposal`, `bid_backend.generate_proposal`, `repair_backend.repair` (or its inner `generate`), and `detector_backend` when it uses an LLM. These run inside the runner's episode loop when a coordination method uses a live LLM backend, separate from the CLI surface.
 
 **Contract:** The same idea as the agent path applies to the coordinator path when guardrails are enabled:
 
-- **Circuit breaker:** After K consecutive failures or 429s from the coordinator backend, the circuit opens for N steps. During cooldown, the coordinator returns a safe fallback (e.g. all NOOP or last valid proposal) and does not call the live backend.
+- **Circuit breaker.** After K consecutive failures or 429s from the coordinator backend, the circuit opens for N steps. During cooldown, the coordinator returns a safe fallback (e.g. all NOOP or last valid proposal) and skips live backend calls.
 - **Rate limit:** At most M coordinator LLM calls per sliding window of W seconds. When the limit is reached, the next call is skipped and the coordinator returns the same safe fallback.
 - **Timeout:** Existing `LABTRUST_LLM_TIMEOUT_S` applies to coordinator calls where the backend supports it.
 
@@ -613,7 +613,7 @@ When using **openai_live**, the backend captures token usage from the API (**pro
 
 Per-call token counts are stored in each **LLM_DECISION** audit payload (**prompt_tokens**, **completion_tokens**, **total_tokens**) in the episode log and evidence bundle.
 
-To add or update pricing for a model, edit **policy/llm/model_pricing.v0.1.yaml** (keys: **input_price_per_1m**, **output_price_per_1m** in USD). If the model is not listed, **estimated_cost_usd** is omitted from metadata.
+To add or update pricing for a model, edit **policy/llm/model_pricing.v0.1.yaml** (keys: **input_price_per_1m**, **output_price_per_1m** in USD). Unlisted models omit **estimated_cost_usd** from metadata.
 
 When running **package-release** with profile **paper_v0.1**, if any summarized results used an LLM backend, **TABLES/llm_economics.csv** (and **llm_economics.md**) are written with one row per run: task, agent_baseline_id, llm_backend_id, llm_model_id, total_tokens, tokens_per_step, estimated_cost_usd, mean_llm_latency_ms, p50_llm_latency_ms, p95_llm_latency_ms, llm_error_rate.
 
@@ -692,4 +692,4 @@ Both pipelines are designed to make sense when run by themselves and to interope
 
 ## Schema compatibility
 
-Results files remain valid under **results.v0.2** and **results.v0.3**. The **metadata** object is optional and does not break existing consumers. Deterministic runs (scripted or `--llm-backend deterministic`) are unchanged and do not include **metadata** unless an LLM backend was used.
+Results files remain valid under **results.v0.2** and **results.v0.3**. The optional **metadata** object stays backward-compatible for existing consumers. Deterministic runs (scripted or `--llm-backend deterministic`) keep their prior shape and include **metadata** only when an LLM backend was used.

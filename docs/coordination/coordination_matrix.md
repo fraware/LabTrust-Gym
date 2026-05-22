@@ -2,19 +2,19 @@
 
 The Coordination at Scale x Resilience Matrix is built from llm_live coordination runs. Policy files define semantics; the builder produces a schema-valid JSON artifact.
 
-**llm_live-only.** This feature does not run for offline or deterministic pipelines. The builder refuses non-llm_live run directories with an explicit error. No changes to offline pipeline defaults; new CLI and flags are opt-in.
+**llm_live-only.** This feature runs only for llm_live pipelines. The builder refuses non-llm_live run directories with an explicit error. Offline pipeline defaults stay unchanged; new CLI and flags are opt-in.
 
 ---
 
 ## Input contract (build-coordination-matrix)
 
-The builder expects a **run directory** produced by an llm_live coordination run (e.g. coordination study or official pack with coordination). It does **not** accept arbitrary single-run output without the expected layout.
+The builder expects a **run directory** produced by an llm_live coordination run (e.g. coordination study or official pack with coordination) with the layout described below.
 
 **Run directory (`--run`):**
 
-- **Pipeline mode:** Must be **llm_live**. The builder reads `pipeline_mode` from the first available of `metadata.json`, `index.json`, or `results.json` under the run dir (direct children, then `summary/`, then any `results.json` under the tree). If not llm_live, the builder raises an explicit error (matrix is llm_live-only).
+- **Pipeline mode.** Must be **llm_live**. The builder reads `pipeline_mode` from the first available of `metadata.json`, `index.json`, or `results.json` under the run dir (direct children, then `summary/`, then any `results.json` under the tree). Non-llm_live runs trigger an explicit error because the matrix is llm_live-only.
 - **Source tables:** The run dir must contain at least one of the **clean** sources (e.g. `summary_coord.csv`, `summary_v0.2.csv`, or `results.json` in a structure the column map can use) and at least one of the **attacked** sources (e.g. `pack_summary.csv`, `summary_attack.csv`). Exact filenames and column names are defined in **policy/coordination/coordination_matrix_column_map.v0.1.yaml**. Rows are keyed by `(scale_id, method_id)` for clean metrics and may include `injection_id` for attacked metrics.
-- **Single run today:** A "single run" that can be fed to the builder is one that already produced these summary files (e.g. one `run-coordination-study` with one or more scales/methods, or one pack run that wrote `pack_summary.csv`). There is no separate "emit one matrix row from one results.json" CLI; to add a single run to a matrix you run a study or pack that writes the expected CSVs, then point `build-coordination-matrix --run` at that output.
+- **Single run today.** A "single run" that can be fed to the builder is one that already produced these summary files (e.g. one `run-coordination-study` with one or more scales/methods, or one pack run that wrote `pack_summary.csv`). Matrix rows come from study or pack CSV output; point `build-coordination-matrix --run` at that directory after the summaries exist.
 
 **Policy root:** The builder loads Phase 1 policies from `policy_root` (default: repo root): `coordination_matrix_inputs.v0.1.yaml`, `coordination_matrix_column_map.v0.1.yaml`, `coordination_matrix_spec.v0.1.yaml`. These must exist and be valid.
 
@@ -37,7 +37,7 @@ labtrust build-coordination-matrix --run <run_dir> --out <out_path_or_dir>
 labtrust run-coordination-study --spec <spec.yaml> --out <out_dir> --llm-backend openai_live --emit-coordination-matrix
 ```
 
-- Requires `--llm-backend openai_live` or `ollama_live`. If the pipeline is not llm_live, the CLI errors with an explicit message instead of silently skipping.
+- Requires `--llm-backend openai_live` or `ollama_live`. When the pipeline is offline or deterministic, the CLI reports an explicit error and skips matrix emission.
 - The matrix is written into the study output directory as `coordination_matrix.v0.1.json`.
 
 ---
@@ -49,18 +49,18 @@ Source tables and column names are defined by **policy/coordination/coordination
 - **Clean metrics:** First available of `summary_coord.csv`, `summary_v0.2.csv`, `results.json` under the run directory (or subdirs). Rows keyed by `(scale_id, method_id)`.
 - **Attacked metrics:** First available of `pack_summary.csv`, `security_attack_suite.json`, `summary_coord.csv`. Rows may include `injection_id`; see aggregation below.
 
-The column map lists, per metric ID, `preferred_sources`, `candidates` (column names), `transform`, and `missing_policy`. The builder resolves metrics deterministically; it does not guess column names.
+The column map lists, per metric ID, `preferred_sources`, `candidates` (column names), `transform`, and `missing_policy`. The builder resolves metrics deterministically from those definitions only.
 
 ---
 
 ## Attack aggregation (worst-case, non-optional)
 
-For each `(scale_id, method_id)` the builder may see multiple rows (one per injection). **Aggregation is worst-case and is the canonical rule** for standards of excellence; it is not optional and is not configurable.
+For each `(scale_id, method_id)` the builder may see multiple rows (one per injection). **Aggregation is worst-case and is the canonical rule** for standards of excellence; the builder always applies it and offers no alternate aggregation modes.
 
 - **lower_is_better** metrics (e.g. attack_success_rate): take the **max** across injections (worst outcome).
 - **higher_is_better** metrics: take the **min** across injections (worst outcome).
 
-Averaging across injections is not used, so a single catastrophic injection cannot be hidden. This rule is implemented in `src/labtrust_gym/studies/coordination_matrix_builder.py` (`_aggregate_attacked_worst_case`) and is fixed at build time. If the run has only one row per `(scale_id, method_id)`, that value is used as-is.
+The builder uses worst-case aggregation across injections so a single catastrophic injection remains visible in the matrix. This rule is implemented in `src/labtrust_gym/studies/coordination_matrix_builder.py` (`_aggregate_attacked_worst_case`) and is fixed at build time. If the run has only one row per `(scale_id, method_id)`, that value is used as-is.
 
 ---
 

@@ -17,7 +17,7 @@ Same env (BenchmarkEnv), same action shape, and same safety (shield, RBAC, risk 
 
 ## Design choice: simulation-centric default
 
-By default, LabTrust-Gym is **simulation-centric**: the benchmark runner owns the PettingZoo env and the step loop; LLMs and agentic coordination are **policies** (obs to actions) invoked once per step. When no LLM or MARL is used, policies are **scripted baselines** (deterministic reference policies for comparison and reproducibility; they are not state of the art — see [State of the art status and limits](../reference/state_of_the_art_and_limits.md)). This keeps a single step boundary, reproducibility, multi-agent semantics, and a single place for security and audit. With the default (no `--agent-driven`), the runner is the only component that calls `env.step`; policies only receive observations and return actions.
+By default, LabTrust-Gym is **simulation-centric**. The benchmark runner owns the PettingZoo env and the step loop, and LLMs and agentic coordination act as **policies** (observations to actions) invoked once per step. Runs without LLM or MARL use **scripted baselines**, which are deterministic reference policies for comparison and reproducibility (see [State of the art status and limits](../reference/state_of_the_art_and_limits.md) for scope). This design keeps a single step boundary, reproducibility, multi-agent semantics, and a single place for security and audit. With the default (no `--agent-driven`), only the runner calls `env.step`; policies receive observations and return actions.
 
 ## Summary
 
@@ -36,9 +36,9 @@ By default, LabTrust-Gym is **simulation-centric**: the benchmark runner owns th
 The **benchmark runner** is the only component that creates and drives the PettingZoo environment. When you run a benchmark (`run-benchmark`, `quick-eval`, `run-official-pack`, or a coordination study):
 
 1. The runner builds **LabTrustParallelEnv** (in `src/labtrust_gym/envs/pz_parallel.py`), which wraps the core engine with the PettingZoo Parallel API. The env supports **render()** (ansi/human), **reset(options)** with `timing_mode`/`dt_s`, batch observation building when the engine exposes `get_agent_zones`/`get_agent_roles`, and **step_batch** when the engine supports it. See [PettingZoo API](../agents/pettingzoo_api.md) for the full contract and "How the simulation works."
-2. Each step: the runner gets observations from the env, passes them to whoever chooses actions (scripted agents, LLM agent, or coordination method), then calls **`env.step(actions, action_infos)`** with the chosen actions.
+2. On each step, the runner gets observations from the env, passes them to whoever chooses actions (scripted agents, LLM agent, or coordination method), then calls **`env.step(actions, action_infos)`** with the chosen actions.
 
-So: **PettingZoo is the single simulation backend for benchmarks.** Baselines and coordination methods never call the env; they only receive observations and infos and return action dicts. See [Coordination and env data flow](../coordination/coordination_and_env.md).
+**PettingZoo is the single simulation backend for benchmarks.** Baselines and coordination methods receive observations and infos and return action dicts; only the runner calls `env.step`. See [Coordination and env data flow](../coordination/coordination_and_env.md).
 
 ## LLMs as policies in the step loop
 
@@ -52,7 +52,7 @@ When you run a benchmark with LLM agents (e.g. `--llm-agents ops_0` or `--use-ll
 - Each step, for each LLM agent, the runner calls **`agent.act(obs[agent_id])`** where `obs` comes from the previous `env.step` (or `env.reset`).
 - The agent returns `(action_index, action_info)`; the runner converts that to the action dict and, after optional risk injector mutation, calls **`env.step(actions, action_infos)`**.
 
-So the **observations** that the LLM sees are produced by the PZ env. The LLM never talks to the env directly.
+The **observations** that the LLM sees come from the PZ env. The LLM receives policy inputs only through the runner; it does not call the env directly.
 
 ### LLM-based coordination
 
@@ -61,7 +61,7 @@ Coordination methods such as `llm_central_planner`, `llm_auction_bidder`, or `ll
 - The runner calls **`coord_method.propose_actions(obs_for_step, infos, step_t)`** where `obs_for_step` and `infos` come from the env.
 - The coordination method returns an action dict; the runner converts it to `(actions, action_infos)` and calls **`env.step(actions, action_infos)`**.
 
-Again: observations come from the env; only the runner steps the env.
+Observations come from the env, and only the runner steps the env.
 
 ## Agentic coordination
 
@@ -70,9 +70,9 @@ Again: observations come from the env; only the runner steps the env.
 - Example: **llm_central_planner_agentic** (`src/labtrust_gym/baselines/coordination/methods/llm_central_planner_agentic.py`). The backend (e.g. `OpenAIAgenticProposalBackend`) uses Chat Completions with tools; tools are implemented in `coord_agentic_tools.py` and can reflect simulation state (e.g. queue lengths).
 - The **relationship to PettingZoo** is unchanged: the runner still owns the env. Each step it passes **observations and infos** (from the env) into the coordination method. The agentic loop runs inside the method; when the method returns an action dict, the runner calls **`env.step(actions, action_infos)`**. Tools may read state that ultimately comes from the simulation (e.g. via the blackboard or harness), but the env is still stepped only by the runner.
 
-So: **agentic systems are coordination policies** that use an LLM with tools; they are not a separate "agentic framework" that replaces PettingZoo.
+**Agentic systems are coordination policies** that use an LLM with tools inside the same runner-owned loop; PettingZoo remains the simulation backend.
 
-## Security suite: when the PZ env is not used
+## Security suite without the PZ env
 
 The **security attack suite** (`run-security-suite`) has two kinds of entries:
 
@@ -83,7 +83,7 @@ The **security attack suite** (`run-security-suite`) has two kinds of entries:
 2. **System-level (PZ env required)** — `coord_pack_ref`:
    - The suite runs the full loop: build PZ env, run coordination pack (coordination method + risk injectors), evaluate gate. Same as `run-coordination-security-pack` or `run-benchmark … coord_risk`.
 
-So: **the only way the security suite uses the PZ env is for coord_pack_ref.** All other attack types are agent/shield regression without the simulator.
+**The security suite uses the PZ env only for `coord_pack_ref`.** All other attack types exercise agent and shield regression with synthetic observations.
 
 ## Data flow (benchmark with LLM or agentic coordination)
 
@@ -100,11 +100,11 @@ env (LabTrustParallelEnv)
 
 Coordination methods (including agentic ones) never call the env; they only receive obs/infos and return an action dict. The runner is the only component that calls `env.step`.
 
-When the number of agents exceeds **coord_propose_actions_max_agents** (default 50), simulation-centric does **not** call `propose_actions`; it collects one submission per agent and calls **`combine_submissions(submissions, obs, infos, t)`** to obtain the joint action. For **scale-capable** methods (those with scale_capable: true in policy, see [design_choices §6.3](design_choices.md)), the runner populates scripted_agents_map with one LLMAgentWithShield per agent when N > N_max so the combine path uses real per-agent policies. So at scale, only the combine path is used. See [Coordination and env](../coordination/coordination_and_env.md) and `policy/coordination/coordination_submission_shapes.v0.1.yaml` for submission shapes per method (action, bid, vote).
+When the number of agents exceeds **coord_propose_actions_max_agents** (default 50), simulation-centric mode collects one submission per agent and calls **`combine_submissions(submissions, obs, infos, t)`** to obtain the joint action instead of `propose_actions`. For **scale-capable** methods (`scale_capable: true` in policy; see [design_choices §6.3](design_choices.md)), the runner populates `scripted_agents_map` with one `LLMAgentWithShield` per agent when N > N_max so the combine path uses real per-agent policies. At scale, the combine path is the supported coordination path. See [Coordination and env](../coordination/coordination_and_env.md) and `policy/coordination/coordination_submission_shapes.v0.1.yaml` for submission shapes per method (action, bid, vote).
 
 ## Comparison with agent-centric frameworks
 
-In frameworks like [LangChain](https://docs.langchain.com/oss/python/langchain/overview), the **agent** drives the loop: the LLM chooses an action, takes that action, sees an observation, and repeats until done. The environment (or tools) is what the agent calls.
+In frameworks like [LangChain](https://docs.langchain.com/oss/python/langchain/overview), the **agent** drives the loop. The LLM chooses an action, takes that action, sees an observation, and repeats until done, calling the environment or tools directly.
 
 **Default (simulation-centric):** The **simulator** drives the loop; the LLM is a policy inside that loop. The runner steps the env at a fixed rate and invokes the policy once per step. For multi-agent simulation benchmarks and security evaluation, this is the default and recommended approach.
 

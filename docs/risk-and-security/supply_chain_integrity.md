@@ -2,11 +2,11 @@
 
 For high-assurance or regulated environments, this document describes optional integrity checks beyond the default threat model: artifact signing, policy checksums, and TEE or out-of-band verification.
 
-The [Threat model](../architecture/threat_model.md) states that the benchmark runner, policy loaders, and process are **trusted** and that supply-chain attacks and compromised runner are **out of scope**. Integrators who need stronger guarantees can use the mechanisms below.
+The [Threat model](../architecture/threat_model.md) treats the benchmark runner, policy loaders, and process as **trusted** in the default model. Supply-chain attacks and a compromised runner sit outside that scope. Integrators who need stronger guarantees can use the mechanisms below.
 
 ## Artifact signing
 
-Evidence bundles (receipts and manifest) can be signed with **Ed25519**. When `sign_bundle=True` and the runner supplies a key registry and `get_private_key(key_id)` callback, the manifest and each receipt are signed. Signature format: `{"algorithm": "ed25519", "public_key_b64": ..., "signature_b64": ..., "key_id": ...}`. The `labtrust verify-bundle` command verifies signatures when the key registry is present under the policy root; tampering with signed content causes verification to fail. Key custody and storage are the integrator’s responsibility; the core export does not read keys from disk. See [Enforcement](../policy/enforcement.md) (Evidence bundle signing and verification).
+Evidence bundles (receipts and manifest) can be signed with **Ed25519**. When `sign_bundle=True` and the runner supplies a key registry and `get_private_key(key_id)` callback, the manifest and each receipt are signed. Signature format: `{"algorithm": "ed25519", "public_key_b64": ..., "signature_b64": ..., "key_id": ...}`. The `labtrust verify-bundle` command verifies signatures when the key registry is present under the policy root; tampering with signed content causes verification to fail. Key custody and storage are the integrator’s responsibility; the core export loads private keys only through the signing callback. See [Enforcement](../policy/enforcement.md) (Evidence bundle signing and verification).
 
 ## Policy checksums
 

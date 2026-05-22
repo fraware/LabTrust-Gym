@@ -1,6 +1,6 @@
 # Risk register
 
-This document describes the **RiskRegisterBundle**: what it is, how to generate it from fixtures, a paper release, or an official pack run, and how to review coverage and evidence gaps. For the formal contract and schema see [Risk register contract](../contracts/risk_register_contract.v0.1.md). For the dataset-driven viewer see [Risk register viewer](risk_register_viewer.md). **External reviewers:** See [Reviewer runbook](../operations/reviewer_runbook.md) for one command sequence, expected artifacts, and how to interpret the bundle and security gate.
+This document describes the **RiskRegisterBundle**, including what it is, how to generate it from fixtures, a paper release, or an official pack run, and how to review coverage and evidence gaps. For the formal contract and schema see [Risk register contract](../contracts/risk_register_contract.v0.1.md). For the dataset-driven viewer see [Risk register viewer](risk_register_viewer.md). **External reviewers:** See [Reviewer runbook](../operations/reviewer_runbook.md) for one command sequence, expected artifacts, and how to interpret the bundle and security gate.
 
 ## What the bundle is
 
@@ -9,16 +9,16 @@ This document describes the **RiskRegisterBundle**: what it is, how to generate 
 - **Schema**: `policy/schemas/risk_register_bundle.v0.1.schema.json`
 - **Output filename**: `RISK_REGISTER_BUNDLE.v0.1.json`
 
-The bundle contains:
+The bundle includes these top-level sections.
 
-- **risks**: One entry per risk from `policy/risks/risk_registry.v0.1.yaml` with crosswalk fields (`risk_id`, `name`, `risk_domain`, `claimed_controls`, `evidence_refs`, `coverage_status`, etc.).
-- **controls**: From the security attack suite and safety-case claims (`control_id`, `name`, `description`, `source`).
-- **evidence**: Aggregated from run dirs (security suite, coordination study, safety case, official pack, bundle verification). Each entry has `evidence_id`, `type`, `status` (`present` or `missing`), optional `path`, `risk_ids`, `summary`, and `artifacts`. Optional **evidence_strength** (`low`, `medium`, `high`) and **confidence_notes** (string) indicate reviewer-facing confidence that the evidence supports the control. evidence_strength is derived from **source type** (e.g. security_suite and coordination_pack -> high, coordination_study -> medium) as a heuristic; it is not a measure of ground-truth strength. A shallow pack run may be weaker than a deep study. Use strength as a first-order filter; for critical risks, inspect the actual evidence (what was run, what passed) rather than relying on the label alone. Optional **evidence_strength_notes** allows reviewers to record notes (e.g. "high from suite but attacks were narrow"). Run dirs that contain `pack_summary.csv`, `SECURITY/coordination_risk_matrix.csv` or `.md`, `LAB_COORDINATION_REPORT.md`, or `COORDINATION_DECISION.v0.1.json` are now scanned and these artifacts are listed as evidence (coordination_pack, lab report, coordination decision).
-- **links**: Repo-local and run-local paths (policy files, SECURITY/, summary/, etc.) for deep links.
-- **reproduce**: Per-evidence CLI commands so the UI can show "how to reproduce" without hardcoding.
-- **evidence_level** (optional): When run dirs were provided, the bundle may include `evidence_level`: `deterministic_only` or `with_live_llm`. Reviewers can use it to see whether validate-coverage passed with deterministic evidence only or with live LLM (LLM attacker or llm_live pack runs).
+- **risks** — One entry per risk from `policy/risks/risk_registry.v0.1.yaml` with crosswalk fields (`risk_id`, `name`, `risk_domain`, `claimed_controls`, `evidence_refs`, `coverage_status`, and related fields).
+- **controls** — Entries from the security attack suite and safety-case claims (`control_id`, `name`, `description`, `source`).
+- **evidence** — Aggregated from run directories (security suite, coordination study, safety case, official pack, bundle verification). Each entry has `evidence_id`, `type`, `status` (`present` or `missing`), optional `path`, `risk_ids`, `summary`, and `artifacts`. Optional **evidence_strength** (`low`, `medium`, `high`) and **confidence_notes** support reviewer triage. `evidence_strength` is derived from source type (for example security_suite and coordination_pack map to high, coordination_study to medium) as a heuristic only. Critical risks still deserve inspection of what ran and what passed. Optional **evidence_strength_notes** records reviewer context. Run directories that contain `pack_summary.csv`, `SECURITY/coordination_risk_matrix.csv` or `.md`, `LAB_COORDINATION_REPORT.md`, or `COORDINATION_DECISION.v0.1.json` are scanned and listed as evidence (coordination_pack, lab report, coordination decision).
+- **links** — Repo-local and run-local paths (policy files, `SECURITY/`, `summary/`, and related paths) for deep links.
+- **reproduce** — Per-evidence CLI commands so the UI can show how to reproduce without hardcoding.
+- **evidence_level** (optional) — When run directories were provided, the bundle may include `deterministic_only` or `with_live_llm` so reviewers can see whether `validate-coverage` used deterministic evidence only or included live LLM runs (LLM attacker or llm_live pack).
 
-Evidence gaps are explicit and first-class: when a risk has no evidence in the scanned runs, the bundle includes a missing-evidence object with `status=missing` and `expected_sources` so reviewers see what is not yet collected.
+Evidence gaps are explicit and first-class. When a risk lacks evidence in the scanned runs, the bundle includes a missing-evidence object with `status=missing` and `expected_sources` so reviewers see which runs or suites still need to be executed.
 
 **Evidence semantics:** Required_bench evidence means "we ran the designated injection for this (method, risk)." It is a **necessary** condition for coverage, not sufficient. Effectiveness of the control for that risk in general depends on injection design, success criteria, and threat model. Each (method_id, risk_id) to injection mapping should be reviewed (e.g. "Does this injection actually stress this risk? Are success criteria strict enough?"). See [Risk register contract](../contracts/risk_register_contract.v0.1.md).
 
@@ -114,14 +114,14 @@ labtrust export-risk-register --out ./risk_register_out --runs release_paper --i
    **Waivers:** `policy/risks/waivers.v0.1.yaml` lists cells that may be missing evidence with an expiry and optional signer. When you run `labtrust validate-coverage --strict`, the loader reads this file and treats non-expired entries as waived; expired waivers are ignored and the cell must be evidenced. **Current state:** The file is kept as `waivers: []` for the fixture-based CI path; CI does not use waivers when validating the bundle built from ui_fixtures + coord_pack_fixture_minimal. See `load_waivers()` in `src/labtrust_gym/export/risk_register_bundle.py`.
 
 5. **Crosswalk integrity**  
-   The bundle must satisfy: every `risk_id` referenced in evidence exists in `risks`; every `evidence_id` in `risks[].evidence_refs` exists in `evidence`; every `control_id` in `risks[].claimed_controls` exists in `controls`. CI and the external reviewer script run these checks; failures indicate policy or build errors.
+   The bundle must satisfy crosswalk integrity. Every `risk_id` referenced in evidence exists in `risks`, every `evidence_id` in `risks[].evidence_refs` exists in `evidence`, and every `control_id` in `risks[].claimed_controls` exists in `controls`. CI and the external reviewer script run these checks; failures indicate policy or build errors.
 
 6. **Reproduce commands**  
    For each evidence item, the bundle’s `reproduce[]` (and the viewer) show CLI commands to regenerate that evidence. Use them to verify or re-run specific parts of the run set.
 
 ## Risk-to-attack coverage
 
-Which risks are directly covered by the attack suite or coordination pack, and which are waived or partially covered. Every risk_id from `policy/risks/risk_registry.v0.1.yaml` appears below. Waiver: reference to `policy/risks/waivers.v0.1.yaml` when a required_bench cell is intentionally not evidenced (expiry + rationale).
+The table below shows which risks are directly covered by the attack suite or coordination pack and which are waived or partially covered. Every `risk_id` from `policy/risks/risk_registry.v0.1.yaml` appears. The **Waiver** column references `policy/risks/waivers.v0.1.yaml` when a required_bench cell is intentionally left without evidence (with expiry and rationale).
 
 | risk_id | Name | Attack coverage | Gate expectation | Waiver |
 |---------|------|-----------------|------------------|--------|
@@ -160,9 +160,9 @@ Run the dedicated script to produce a bundle from security and coordination smok
 ./scripts/run_external_reviewer_risk_register_checks.sh [out_dir] [security_dir] [coord_dir]
 ```
 
-- **out_dir**: Where to write the risk register bundle and, if not providing dirs, generated smoke runs (default: `./risk_register_reviewer_out`).
-- **security_dir**: If set, use this dir for SECURITY evidence; otherwise run security suite smoke into `out_dir/security_smoke`.
-- **coord_dir**: If set, use this dir for coordination evidence; otherwise run coordination study smoke into `out_dir/coordination_smoke`.
+- **out_dir** is where the script writes the risk register bundle and, when you omit run directories, generated smoke runs (default `./risk_register_reviewer_out`).
+- **security_dir**, when set, supplies SECURITY evidence; otherwise the script runs security suite smoke into `out_dir/security_smoke`.
+- **coord_dir**, when set, supplies coordination evidence; otherwise the script runs coordination study smoke into `out_dir/coordination_smoke`.
 
 The script:
 

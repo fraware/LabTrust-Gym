@@ -1,6 +1,6 @@
 # Security flows and entry points
 
-This document clarifies the two distinct security-related flows in the repo: the **security attack suite** (agent/shield regression plus optional system-level coordination-under-attack) and **coord_risk** (coordination-under-attack benchmark using the PZ env and risk injectors).
+This document clarifies the two distinct security-related flows in the repo. The **security attack suite** covers agent and shield regression plus optional system-level coordination-under-attack. **coord_risk** is the coordination-under-attack benchmark that uses the PZ env and risk injectors.
 
 ## Security attack suite
 
@@ -28,10 +28,10 @@ See [Security attack suite](security_attack_suite.md#layers) for details.
 **Entry points:** `labtrust run-benchmark` with task `coord_risk`, or `labtrust run-coordination-security-pack`, or package-release/CI. The same coordination pack logic is also invoked by the security suite for **coord_pack_ref** entries (when env is available and not skipped).
 
 - Uses **LabTrustParallelEnv** (PettingZoo) plus a coordination method plus **risk injectors**.
-- Flow each step: (1) obs from env; (2) `risk_injector.mutate_obs(obs)`; (3) coordination method produces action dicts; (4) `risk_injector.mutate_actions(actions_dict)`; (5) runner calls `env.step(actions, action_infos)`.
-- This is where "security" (injectors) and "coordination" meet: same benchmark loop, same env.
+- Each step follows this sequence. Observations come from the env, then `risk_injector.mutate_obs(obs)` runs, the coordination method produces action dicts, `risk_injector.mutate_actions(actions_dict)` may alter them, and the runner calls `env.step(actions, action_infos)`.
+- Injectors and coordination share the same benchmark loop and the same env.
 
-Per-step action contract: action_index in 0..5 (see `src/labtrust_gym/envs/action_contract.py`); optional action_type, args, reason_code, token_refs.
+The per-step action contract uses `action_index` in 0..5 (see `src/labtrust_gym/envs/action_contract.py`) with optional `action_type`, `args`, `reason_code`, and `token_refs`.
 
 ## Entry-point table
 

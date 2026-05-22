@@ -4,7 +4,7 @@ Offline-safe, **constrained and reproducible by default** LLM agent interface fo
 
 ## Relationship to the environment
 
-The LLM agent is a **policy**: it receives observations and returns an action (with optional action_info). In **run-benchmark** (and coordination studies), those observations come from the **PettingZoo env** (LabTrustParallelEnv); the benchmark runner feeds obs to the agent and calls `env.step` with the returned action. The agent never creates or steps the env. In the **security suite** (scenario_ref, llm_attacker), the same agent is tested with **synthetic observations** and the env is not run. See [Simulation, LLMs, and agentic systems](../architecture/simulation_llm_agentic.md).
+The LLM agent is a **policy** that receives observations and returns an action (with optional action_info). In **run-benchmark** (and coordination studies), those observations come from the **PettingZoo env** (LabTrustParallelEnv); the benchmark runner feeds obs to the agent and calls `env.step` with the returned action. The agent never creates or steps the env. In the **security suite** (scenario_ref, llm_attacker), the same agent is tested with **synthetic observations** and the env stays idle. See [Simulation, LLMs, and agentic systems](../architecture/simulation_llm_agentic.md).
 
 ## Design
 
@@ -54,7 +54,7 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 - **ProviderBackend** (protocol in `baselines.llm.provider`): live backends return **ActionProposal** dicts via `propose_action(context)`. No optional deps; engine logic depends only on this interface.
 - **Capability flags**: `supports_structured_outputs` (bool), `supports_tool_calls` (bool). Backends set them; best quality when structured outputs are supported (e.g. OpenAI with `response_format`).
 - **Per-provider code** is behind optional extras: **llm_openai** (OpenAILiveBackend), **llm_anthropic** (later). **OllamaLiveBackend** (no extra) for local Ollama. Add new providers without touching engine logic.
-- **Fallback path**: If a provider does not support strict JSON schema, the agent uses **parse_utils.extract_first_json_object** to extract a JSON object from raw text, then validate + NOOP on failure. Audit field **used_structured_outputs** in LLM_DECISION records whether the backend natively returned schema-conforming output (preferred) or fallback was used.
+- **Fallback path.** When a provider lacks strict JSON schema support, the agent uses **parse_utils.extract_first_json_object** to extract a JSON object from raw text, then validate + NOOP on failure. Audit field **used_structured_outputs** in LLM_DECISION records whether the backend natively returned schema-conforming output or the fallback path ran.
 
 ## Backends
 
@@ -85,7 +85,7 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 
 ### DeterministicPolicyBackend (optional, preference-order policy)
 
-- **Optional** backend for llm_offline only; not required for CI. Chooses from **allowed_actions** using a fixed **preference order** (e.g. START_RUN, QUEUE_RUN, MOVE, TICK, NOOP); seeded RNG breaks ties.
+- **Optional** backend for llm_offline only; CI runs without it. Chooses from **allowed_actions** using a fixed **preference order** (e.g. START_RUN, QUEUE_RUN, MOVE, TICK, NOOP); seeded RNG breaks ties.
 - Same interface as DeterministicConstrainedBackend. Use when you want a slightly more "productive" deterministic baseline without fixtures or live LLM. Enable via CLI: `labtrust run-benchmark --llm-backend deterministic_policy_v1 --pipeline-mode llm_offline`.
 - Module: `src/labtrust_gym/baselines/llm/deterministic_policy_backend.py`.
 
@@ -112,20 +112,20 @@ When the engine runs with **strict_signatures**, mutating actions must be signed
 - **Constrained decoder** (`src/labtrust_gym/baselines/llm/decoder.py`): At **decode time** (before env step), validates schema, **requires rationale**, restricts **action_type** to `allowed_actions`, and optionally checks zone/device. Refuses impossible actions (RBAC/devices/zones) so the agent cannot propose them without being rejected at decode time.
 - **Shield** (`src/labtrust_gym/baselines/llm/shield.py`): After decode, filters through **RBAC** (context) and **signature required** (when `strict_signatures`). Token validity is left to the engine.
 - If blocked (decode or shield): returns safe NOOP, `_shield_filtered=True`, and **reason_code** (e.g. `MISSING_RATIONALE`, `RBAC_ACTION_DENY`, `SIG_MISSING`). Step output records **LLM_ACTION_FILTERED** in emits and `blocked_reason_code`.
-- **Uncertainty-aware refusal**: When the policy enables `refuse_below_confidence` (via the shield’s `build_policy_summary(..., refuse_below_confidence=True, refusal_confidence_threshold=0.6)`), the **decoder** compares the candidate’s `confidence` (ActionProposal) to the threshold before the env step. If `confidence < refusal_confidence_threshold`, the decoder returns NOOP with **reason_code** `RC_LLM_LOW_CONFIDENCE_REFUSAL` and does not execute the proposed action. This is opt-in; with refusal disabled, behaviour is unchanged. The threshold is configurable so that “act only when P(correct) > theta” can be enforced without code change.
+- **Uncertainty-aware refusal.** When the policy enables `refuse_below_confidence` (via the shield’s `build_policy_summary(..., refuse_below_confidence=True, refusal_confidence_threshold=0.6)`), the **decoder** compares the candidate’s `confidence` (ActionProposal) to the threshold before the env step. Below `refusal_confidence_threshold`, the decoder returns NOOP with **reason_code** `RC_LLM_LOW_CONFIDENCE_REFUSAL` and skips the proposed action. Refusal is opt-in; with refusal disabled, behaviour is unchanged. The threshold is configurable so that “act only when P(correct) > theta” can be enforced without code change.
 - **multi_site_stat and insider_key_misuse** run with **llm_safe_v1** deterministically: `run_benchmark(..., use_llm_safe_v1_ops=True)` uses `--llm-backend deterministic_constrained` by default (seeded RNG). Use `--llm-backend deterministic` for FixtureBackend (requires recorded fixtures). insider_key_misuse demonstrates signature/RBAC attack containment with the LLM baseline.
 
 ## Deterministic vs non-deterministic
 
 - **Deterministic**: **FixtureBackend** (offline lookup from fixtures; run **record-llm-fixtures** with network to populate) or **DeterministicConstrainedBackend(seed)** / **MockDeterministicBackendV2(canned=...)**. Same inputs ⇒ same actions. Required for CI; deterministic CI never performs network calls.
-- **Non-deterministic**: **OpenAIHostedBackend**, **OpenAILiveBackend**, or local Ollama. Use `--llm-backend openai_hosted` or `openai_live` with `--allow-network` for live runs. Do not compare metrics across runs without fixing seed/temperature on the provider side.
+- **Non-deterministic.** **OpenAIHostedBackend**, **OpenAILiveBackend**, or local Ollama. Use `--llm-backend openai_hosted` or `openai_live` with `--allow-network` for live runs. Fix seed and temperature on the provider side before you compare metrics across runs.
 
 ## llm_offline in practice
 
 What **llm_offline** gives you in practice (no overselling):
 
 - **FixtureBackend:** Agent path only. Keyed by SHA-256 digest of the messages passed to `generate(messages)`. Coverage is one task (or a few) recorded manually via `record-llm-fixtures`. Coordination fixtures are optional: use `record-coordination-fixtures` to capture proposal/bid responses, then pass `coord_fixtures_path` to replay in llm_offline (see Coordination fixtures below).
-- **DeterministicConstrainedBackend:** Purpose is schema/CI and pipeline correctness, not policy quality. It picks a random allowed action (seeded RNG) with a fixed rationale. Use it when you need the LLM path to run in CI without fixtures or network; do not use it to evaluate "how good" the LLM is at the task.
+- **DeterministicConstrainedBackend.** Targets schema/CI and pipeline correctness. It picks a random allowed action (seeded RNG) with a fixed rationale. Use it when you need the LLM path to run in CI without fixtures or network; reserve live backends for policy-quality evaluation.
 - **Fault injection:** Agent and coordination (proposal/bid) paths support the same fault model as repair (policy/llm/llm_fault_model.v0.1.yaml) in llm_offline. Replay-from-live: capture a live run into agent and (optionally) coordination fixtures, then replay with fixture backends and same seeds for regression and audit.
 
 ## Recording fixtures (offline-friendly design)

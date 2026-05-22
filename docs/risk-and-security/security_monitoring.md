@@ -4,9 +4,9 @@ This document describes the **adversarial input detector**: a defensive monitori
 
 ## Purpose
 
-- **Defensive monitoring only**: Detect patterns that may indicate prompt injection, jailbreak attempts, or suspected exfiltration. No offensive guidance; no external calls.
-- **Deterministic and bounded**: Keyword/pattern-based, configurable via policy; inputs truncated to a max length.
-- **Audit trail**: Detection results flow into episode logs, receipts, and ui-export (reason_codes + events).
+- **Defensive monitoring only.** The detector flags patterns that may indicate prompt injection, jailbreak attempts, or suspected exfiltration. It provides defensive signals only and makes no external calls.
+- **Deterministic and bounded.** Detection is keyword and pattern based, configurable via policy, with inputs truncated to a maximum length.
+- **Audit trail.** Detection results flow into episode logs, receipts, and ui-export (`reason_codes` and events).
 
 ## Signal sources
 
@@ -16,7 +16,7 @@ The detector consumes:
 2. **LLM input messages**: Optional `llm_messages` (list of dict/str) when the step used an LLM agent.
 3. **LLM output text**: Optional `llm_output_text` (e.g. rationale or raw response) for injection-style patterns in model output.
 
-Observation context is passed per step by the PettingZoo env: it builds a dict from the previous step’s observations and from action_infos (e.g. `_llm_decision`). When severity is at or above the configured threshold, the env augments the step result with **SECURITY_ALERT** and **SECURITY_EVENT**.
+Observation context is passed per step by the PettingZoo env, which builds a dict from the previous step’s observations and from `action_infos` (for example `_llm_decision`). When severity is at or above the configured threshold, the env augments the step result with **SECURITY_ALERT** and **SECURITY_EVENT**.
 
 ## Policy configuration
 

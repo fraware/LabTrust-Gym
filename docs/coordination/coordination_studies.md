@@ -34,7 +34,7 @@ labtrust run-coordination-study --spec policy/coordination/coordination_study_sp
   - `summary/summary_coord.csv`: aggregated metrics per (method_id, scale_id, risk_id, injection_id).
   - `summary/pareto.md`: per-scale Pareto front and robust winner.
 
-With **`LABTRUST_REPRO_SMOKE=1`** in the environment, episodes per cell are capped to 1 for fast smoke runs. The study spec may include both **INJ-*** injection IDs (full injectors from `policy/coordination/injections.v0.2.yaml`) and **legacy/reserved** IDs (e.g. `inj_tool_selection_noise`, `inj_prompt_injection`, `none`). Legacy and reserved IDs are **out of scope for this release**: they use a passthrough NoOpInjector so all cells run without error, but no fault is actually injected. For active injections use INJ-* IDs. The full list of reserved no-op IDs is documented in [Risk register – Reserved and legacy injection IDs](../risk-and-security/risk_register.md#reserved-and-legacy-injection-ids-out-of-scope-for-this-release).
+With **`LABTRUST_REPRO_SMOKE=1`** in the environment, episodes per cell are capped to 1 for fast smoke runs. The study spec may include both **INJ-*** injection IDs (full injectors from `policy/coordination/injections.v0.2.yaml`) and **legacy/reserved** IDs (e.g. `inj_tool_selection_noise`, `inj_prompt_injection`, `none`). Legacy and reserved IDs sit **outside this release's injection scope**; they use a passthrough NoOpInjector so cells complete without injecting a fault. Use INJ-* IDs for active injections. The full list of reserved no-op IDs is documented in [Risk register – Reserved and legacy injection IDs](../risk-and-security/risk_register.md#reserved-and-legacy-injection-ids-out-of-scope-for-this-release).
 
 ### LLM-only with live backends
 
@@ -63,7 +63,7 @@ Results include `sec.attack_success_rate`, `sec.stealth_success_rate`, `sec.blas
 
 ### Coverage integrity gate (preflight)
 
-Before running cells, the study runner runs a **coverage preflight**: for every `(method_id, risk_id)` cell with `required_bench: true` in the method-risk matrix, at least one injection in the spec must cover that risk (via `policy/coordination/risk_to_injection_map.v0.1.yaml` or `risk_registry.suggested_injections`), or the risk must be listed in the spec under **waived_risks** with a reason. If any required risk has no covering injection and is not waived:
+Before running cells, the study runner runs a **coverage preflight**: for every `(method_id, risk_id)` cell with `required_bench: true` in the method-risk matrix, at least one injection in the spec must cover that risk (via `policy/coordination/risk_to_injection_map.v0.1.yaml` or `risk_registry.suggested_injections`), or the risk must be listed in the spec under **waived_risks** with a reason. When a required risk lacks a covering injection and no waiver applies:
 
 - **Non-strict** (default): the runner writes `summary/coverage_missing.json` (missing risk_ids, covering_injection_ids, message) and continues.
 - **Strict** (`LABTRUST_STRICT_COVERAGE=1`): the runner exits with code 1 and a clear message; no cells are run.
@@ -180,13 +180,13 @@ Input: `--in` must contain `summary/summary_coord.csv`, `summary_coord.csv`, or 
 
 ## PARETO/ folder (multi-objective evaluation v0.1)
 
-When the study run writes the PARETO directory, it contains paper-grade outputs that do not change results.v0.2 semantics (v0.3 extension for extra stats only).
+When the study run writes the PARETO directory, it contains paper-grade outputs that extend results.v0.2 semantics only through the v0.3 stats extension.
 
 **Objectives**  
 Stable Pareto front over four objectives: **throughput** (maximize), **p95 TAT** (minimize), **violations** (minimize), **security success rate** (maximize; derived as 1 - attack_success_rate). A cell is *nondominated* if no other cell is strictly better on all four (with at least one strictly better).
 
 **Per-method confidence intervals**  
-For each method, 95% bootstrap confidence intervals are computed for mean throughput, p95 TAT, violations, and resilience score. Resampling is **deterministic** (seeded from the study `seed_base`), so the same study run yields identical CIs. Use CIs to compare methods: non-overlapping intervals suggest a significant difference; overlapping intervals do not imply no difference.
+For each method, 95% bootstrap confidence intervals are computed for mean throughput, p95 TAT, violations, and resilience score. Resampling is **deterministic** (seeded from the study `seed_base`), so the same study run yields identical CIs. Use CIs to compare methods: non-overlapping intervals suggest a significant difference; overlapping intervals require further analysis before drawing conclusions.
 
 **Artifacts**  
 - **pareto.json**: Machine-readable fronts per scale (`fronts_per_scale`), per-method CIs (`per_method_ci`), and objective list. Version field `pareto_version: "0.1"` and `version: "0.3"` for the extension.

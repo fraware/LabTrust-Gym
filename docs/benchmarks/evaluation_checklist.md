@@ -1,13 +1,13 @@
 # Benchmark evaluation checklist
 
-Use this when launching a new benchmark evaluation or when you have not run the full command set in a long time.
+Use this when launching a new benchmark evaluation or when the full command set has gone stale.
 
 ## Baseline status
 
 | Set | Role | Location | Regression |
 |-----|------|----------|------------|
 | **v0.2** | Canonical (frozen) | `benchmarks/baselines_official/v0.2/` | Yes. CI and local regression compare exact metrics to v0.2. |
-| **v0.1** | Legacy | `benchmarks/baselines_official/v0.1/` | No. Not used for regression. |
+| **v0.1** | Legacy | `benchmarks/baselines_official/v0.1/` | No. Excluded from regression. |
 
 **Tasks in v0.2:** throughput_sla, stat_insertion, qc_cascade, adversarial_disruption, multi_site_stat, insider_key_misuse, coord_scale, coord_risk (see `benchmarks/baseline_registry.v0.1.yaml`).
 

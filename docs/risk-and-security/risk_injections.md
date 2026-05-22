@@ -17,15 +17,15 @@ This document describes how to implement and register **risk injectors** for the
    - **`mutate_messages(self, messages: list) -> tuple[list, dict | None]`** — Return (possibly mutated messages, optional audit entry). Default: no-op.
    - **`_mutate_actions_impl(self, action_dict: dict) -> tuple[dict, list[dict]]`** — Return (possibly mutated action_dict, list of audit entries). Default: no-op.
 
-3. **Determinism:** Use `self._rng` (a `random.Random` instance seeded from episode seed + config.seed_offset) for any randomness. Do not use module-level or global RNG.
+3. **Determinism.** Use `self._rng` (a `random.Random` instance seeded from episode seed + config.seed_offset) for any randomness. Use only instance-scoped RNG, never module-level or global RNG.
 
-4. **Audit:** When you mutate, append an audit entry via `_audit_entry(EMIT_INJECTION_APPLIED, self.injection_id, self._step, payload)` and return it so the runner can record it. Optionally override `observe_step(step_outputs)` to emit SECURITY_INJECTION_DETECTED / SECURITY_INJECTION_CONTAINED when the system detects or contains the attack.
+4. **Audit.** When you mutate, append an audit entry via `_audit_entry(EMIT_INJECTION_APPLIED, self.injection_id, self._step, payload)` and return it so the runner can record it. Optionally override `observe_step(step_outputs)` to emit SECURITY_INJECTION_DETECTED / SECURITY_INJECTION_CONTAINED when the system detects or contains the attack.
 
-5. **Registration:** Add your class to `INJECTION_REGISTRY` in `src/labtrust_gym/security/risk_injections.py`:
+5. **Registration.** Add your class to `INJECTION_REGISTRY` in `src/labtrust_gym/security/risk_injections.py`:
    - `INJECTION_REGISTRY["YOUR_INJECTION_ID"] = YourInjectorClass`
    - The factory `make_injector(injection_id, intensity=0.2, seed_offset=0, target=None, **kwargs)` instantiates the registered class with an `InjectionConfig`.
 
-6. **Policy:** Add the injection ID to `policy/coordination/injections.v0.2.yaml` and, if used in the coordination security pack gate, to `policy/coordination/coordination_security_pack_gate.v0.1.yaml` with a rule type (e.g. `attack_success_rate_zero`, `violations_within_delta`). See `src/labtrust_gym/policy/gate_eval.py` and [Risk register](risk_register.md) for supported rule types.
+6. **Policy.** Add the injection ID to `policy/coordination/injections.v0.2.yaml` and, when the injection appears in the coordination security pack gate, to `policy/coordination/coordination_security_pack_gate.v0.1.yaml` with a rule type (for example `attack_success_rate_zero`, `violations_within_delta`). See `src/labtrust_gym/policy/gate_eval.py` and [Risk register](risk_register.md) for supported rule types.
 
 ## Injection ID reference (status and canonical use)
 
@@ -48,7 +48,7 @@ Single reference for which IDs are reserved (no-op) vs implemented (real injecto
 | `inj_poison_obs` | Implemented (real injector) | PoisonObsInjector. |
 | INJ-* (e.g. `INJ-COMMS-POISON-001`, `INJ-DOS-PLANNER-001`) | Implemented (real injector) | **Use for new specs and coord_risk.** Defined in `policy/coordination/injections.v0.2.yaml`; deterministic, policy-driven. |
 
-**Reserved IDs** (`none`, `inj_untrusted_payload`, `inj_stuck_state`, `inj_jailbreak`) are **no-op**: they do not perform any injection. Specs that reference them run without injection. Do not interpret results as evidence of attack containment.
+**Reserved IDs** (`none`, `inj_untrusted_payload`, `inj_stuck_state`, `inj_jailbreak`) are **no-op** injectors that perform no mutation. Specs that reference them run without injection; treat their results as baseline runs, not attack containment evidence.
 
 The four reserved no-op IDs are in `RESERVED_NOOP_INJECTION_IDS` in `src/labtrust_gym/security/risk_injections.py`; they are registered as **NoOpInjector** so study specs and the risk register can reference them without failing. For **active** fault injection use **INJ-*** IDs from `policy/coordination/injections.v0.2.yaml`. Pack config supports **disallow_reserved_injections** so strict packs can forbid reserved (no-op) IDs.
 

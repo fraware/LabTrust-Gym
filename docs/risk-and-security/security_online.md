@@ -4,8 +4,8 @@ This document describes the safeguards added to **labtrust serve** (and any futu
 
 ## Scope
 
-- **Online mode only**: Offline commands (run-benchmark, run-study, export-receipts, etc.) are unaffected.
-- **Explicit**: Public/restrictive behaviour is enabled by configuration; default remains local-only and permissive when auth is off.
+- **Online mode only.** Offline commands (`run-benchmark`, `run-study`, `export-receipts`, and similar) are unaffected.
+- **Explicit configuration.** Public or restrictive behaviour is enabled by configuration; the default remains local-only and permissive when auth is off.
 
 ---
 

@@ -1,6 +1,6 @@
 # Throughput-focused comparison
 
-When the main metric of interest is **throughput** (number of specimen releases per episode), use the **throughput_sla** task rather than the coordination pack. The coordination pack (coord_risk) is designed for safety, security, and resilience under injections; its cells may report zero throughput until coordination methods and scale setup produce release-capable work (see [Coordination benchmark card](../coordination/coordination_benchmark_card.md) and the non-zero throughput plan).
+When **throughput** (specimen releases per episode) is the primary metric, run the **throughput_sla** task. The coordination pack (coord_risk) targets safety, security, and resilience under injections; its cells may report zero throughput until coordination methods and scale setup produce release-capable work (see the [Coordination benchmark card](../coordination/coordination_benchmark_card.md) and the non-zero throughput plan).
 
 ## Recommended path: throughput_sla task
 

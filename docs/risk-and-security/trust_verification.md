@@ -1,6 +1,6 @@
 # Trust verification
 
-This page is the single place for the trust story: what we run to prove consistency and what each artifact proves. Every verification step and every security/safety artifact below has both (1) **what it proves** and (2) **how to run or inspect it**.
+This page is the single place for the trust story. It lists what we run to prove consistency and what each artifact attests. Every verification step and every security or safety artifact below includes what it proves and how to run or inspect it.
 
 ## Verification chain (E2E)
 
@@ -19,11 +19,12 @@ The main trust proof is the four-step E2E chain. **Pass** means the artifact is 
 
 Every run can produce **EvidenceBundle.v0.1** (via `export-receipts` from episode logs). The bundle contains manifest, schema, hashchain, and invariant trace.
 
-- **What it proves:** If verification passes, the run is consistent and auditable; the hashchain and manifest tie the run to policy and step events.
-- **How to run (single bundle):** `labtrust verify-bundle --bundle <path>` where `<path>` is a directory that contains `manifest.json` (e.g. under `receipts/<task>_cond_<n>/EvidenceBundle.v0.1`). Use `--strict-fingerprints` for release validation.
-- **How to run (full release):** `labtrust verify-release --release-dir <dir> --strict-fingerprints` runs verify-bundle over every EvidenceBundle in the release.
+When verification passes, the run is consistent and auditable, and the hashchain and manifest tie the run to policy and step events.
 
-**Trust primitive:** Run verify-bundle or verify-release; if it passes, the run is consistent and auditable.
+- **Single bundle.** Run `labtrust verify-bundle --bundle <path>` where `<path>` is a directory that contains `manifest.json` (for example under `receipts/<task>_cond_<n>/EvidenceBundle.v0.1`). Use `--strict-fingerprints` for release validation.
+- **Full release.** Run `labtrust verify-release --release-dir <dir> --strict-fingerprints` to verify every EvidenceBundle in the release.
+
+Run `verify-bundle` or `verify-release` as the trust primitive; a passing result means the run is consistent and auditable.
 
 ### Evidence integrity
 
@@ -31,14 +32,16 @@ Before treating any run as evidence (e.g. for risk register coverage or release)
 
 1. **Evidence bundles must pass** `labtrust verify-bundle` (or `verify-release` for a full release). CI and release scripts run verification and fail the pipeline if it does not pass.
 2. **Artifacts must not be edited after generation.** Files such as `SECURITY/attack_results.json`, `pack_summary.csv`, `pack_gate.md`, and receipt manifests are tied to hashes and schema. Replacing or editing them invalidates the evidence chain; verification will fail if hashes or schema are checked.
-3. When in doubt, re-run the producing command (e.g. `run-security-suite`, `run-coordination-security-pack`) rather than editing outputs.
+3. When uncertain, re-run the producing command (for example `run-security-suite` or `run-coordination-security-pack`) before editing outputs.
 
 ## Risk register and coverage
 
 The risk register bundle plus `validate-coverage --strict` is the trust story for safety: every required risk is either evidenced (by benchmarks, security pack, or studies) or explicitly waived.
 
-- **What it proves:** We know what we claim to mitigate and we evidence or waive it. No un-evidenced required risk when the gate passes.
-- **How to run:** `labtrust export-risk-register --out <dir> --runs <dir>` to build the bundle; `labtrust validate-coverage --bundle <path> --strict` to validate (exit 1 if any required risk has missing evidence and is not waived).
+A passing coverage gate shows that every required risk is evidenced or explicitly waived.
+
+- Build the bundle with `labtrust export-risk-register --out <dir> --runs <dir>`.
+- Validate with `labtrust validate-coverage --bundle <path> --strict` (exit code 1 when any required risk lacks evidence and has no waiver).
 
 CI can run `validate-coverage --strict` as a gate. See [Risk register](risk_register.md) and [Gate and required bench](gate_and_required_bench.md).
 
@@ -57,15 +60,13 @@ See [Security attack suite](security_attack_suite.md), [Prompt-injection defense
 
 ### Safety case and SMT
 
-The safety case is a narrative: claim to control to test to artifact to command. Optional SMT checks in code (`run_smt_checks` in `safety_case.py`) run trivial structural validation (e.g. claim_id present) when z3 is installed; they do not prove logical implications between claims and controls. Formal implication checks (e.g. claim C implies control X) are reserved for future use.
+The safety case links each claim to a control, test, artifact, and command. Optional SMT checks in code (`run_smt_checks` in `safety_case.py`) run trivial structural validation (for example that `claim_id` is present) when z3 is installed; they validate structure only, not logical implications between claims and controls. Formal implication checks (for example claim C implies control X) are reserved for future use.
 
 ## Determinism and reproducibility
 
 Determinism and reproducibility support the claim that the same inputs yield the same outputs.
 
-- **determinism-report:** Produces `determinism_report.md` and `determinism_report.json` with run config and hash comparison; asserts v0.2 metrics and episode log hash identical across two runs.
-  - **How to run:** `labtrust determinism-report --task throughput_sla --episodes 2 --seed 42 --out <dir>`
-- **reproduce:** Reproduces minimal or full study results and figures (sweep + plots).
-  - **How to run:** `labtrust reproduce --profile minimal` or `labtrust reproduce --profile full`
+- **determinism-report** produces `determinism_report.md` and `determinism_report.json` with run config and hash comparison, and asserts v0.2 metrics and episode log hash are identical across two runs. Run `labtrust determinism-report --task throughput_sla --episodes 2 --seed 42 --out <dir>`.
+- **reproduce** rebuilds minimal or full study results and figures (sweep plus plots). Run `labtrust reproduce --profile minimal` or `labtrust reproduce --profile full`.
 
 Seeds, commands, and figure/table paths are documented in [Paper provenance](../benchmarks/paper/README.md). **Trustworthiness includes same inputs → same outputs.**

@@ -3,7 +3,7 @@
 Producer commands: [benchmark-producer.md](benchmark-producer.md). Producer contract: [producer-contract.md](producer-contract.md).
 
 The benchmark evaluates **release-chain integrity**, failure localization, repair hints, and
-pcs-bench readiness for a simulated lab workflow. It does **not** evaluate clinical correctness.
+pcs-bench readiness for a simulated lab workflow. Clinical correctness is out of scope for this benchmark profile.
 
 ## What it evaluates
 

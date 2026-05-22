@@ -1,8 +1,8 @@
 # Determinism contract (deterministic pipeline)
 
-This document states what the deterministic pipeline guarantees and what it does not, so that baseline regression, reproducibility, and CI behavior are unambiguous.
+This document defines the deterministic pipeline guarantee, its scope, and the limits that apply to baseline regression, reproducibility, and CI behavior.
 
-**Summary:** Determinism is guaranteed only for the same task, seed, policy, **Python version**, and **platform**. Different Python or OS can change RNG or float behavior; do not assume identical hashes or float metrics across environments. For reproducible baselines, use the same Python version and OS as CI (or as stated in this contract). We aim for identical results given the same Python version and platform; we do not guarantee that no other factors (libraries, env vars, load) can affect output. If you observe non-determinism under the same version/platform, please report.
+**Summary.** Determinism holds when the task, seed, policy, **Python version**, and **platform** match. Different Python or OS builds can change RNG or float behavior, so treat hashes and float metrics as comparable only within the same environment. For reproducible baselines, use the same Python version and OS as CI (or as stated in this contract). With the same Python version and platform, runs should yield identical results; library versions, environment variables, and load can still affect output in edge cases. Report any non-determinism you see under the same version and platform.
 
 ## Guarantee
 
@@ -23,15 +23,15 @@ the following hold:
 3. **v0.2 metrics**: The normalized v0.2 representation (task, seeds, agent_baseline_id, episodes with seed + metrics) is identical. The baseline regression guard compares exact integer/struct metrics (throughput, steps, holds_count, tokens_minted, tokens_consumed, blocked_by_reason_code, violations_by_invariant_id).
 4. **Receipts bundle**: When export_receipts is run on the same episode log, the manifest (and bundle root hash) is identical. When the run used LLM coordination and the episode log contains LLM_COORD_AUDIT_DIGEST (or proposal_hash / shield_outcome_hash entries), the manifest may include **coordination_audit_digest_sha256**; verify-bundle checks it when present. Deterministic runs yield identical digest hashes.
 
-So: **same inputs => same outputs**. No global RNG; all randomness is derived from the per-episode seed (base_seed + episode index). Task initial state and engine each use a dedicated RNG seeded with that episode seed.
+**Same inputs yield the same outputs.** The pipeline uses no global RNG; all randomness comes from the per-episode seed (base_seed + episode index). Task initial state and engine each use a dedicated RNG seeded with that episode seed.
 
 ## Out of scope / known variation (no guarantee)
 
-- **Cross-version**: Different Python versions (e.g. 3.11 vs 3.13) may use different RNG or float behavior. Do not assume identical hashes or float metrics across versions; prefer same Python version for baseline comparison.
-- **Cross-platform**: Different OS (e.g. win32 vs linux) can differ in floating-point or dict iteration in edge cases. Baseline regression compares only integer and struct metrics to avoid float/platform sensitivity.
-- **Python patch versions / OS variants**: Different patch versions of the same Python major.minor or different OS variants can introduce variation. Same version + platform is an explicit documented assumption, not a guarantee.
-- **Third-party library non-determinism**: Libraries used by the env or runner may behave differently across versions or environments. We do not guarantee that no such factor affects output.
-- **LLM or network**: The deterministic pipeline does not invoke any LLM or network. For live-LLM runs, non_deterministic is true and results are not byte-reproducible.
+- **Cross-version.** Different Python versions (e.g. 3.11 vs 3.13) may use different RNG or float behavior. Compare baselines on the same Python version; hashes and float metrics can differ across versions.
+- **Cross-platform.** Different OS builds (e.g. win32 vs linux) can differ in floating-point or dict iteration in edge cases. Baseline regression compares only integer and struct metrics to limit float and platform sensitivity.
+- **Python patch versions / OS variants.** Different patch versions of the same Python major.minor or different OS variants can introduce variation. Document and match version plus platform when you need comparable hashes.
+- **Third-party libraries.** Libraries used by the env or runner may behave differently across versions or environments; treat library drift as a possible source of variation.
+- **LLM and network.** The deterministic pipeline runs offline with scripted or deterministic LLM backends only. Live-LLM runs set `non_deterministic` to true; episode logs and results files are readable but not byte-reproducible across runs.
 
 ## Implementation notes
 

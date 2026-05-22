@@ -176,4 +176,4 @@ Report types and locations: [Outputs and results — Report artifacts](../refere
 ### Determinism
 
 - **Data tables**: Computed from `results/<condition_id>/results.json` in a fixed order (condition_ids from manifest). Same run dir ⇒ identical CSV files. Tests in `tests/test_plots_tables_determinism.py` run `make_plots` twice and assert CSV contents match.
-- **Plots**: PNG/SVG are generated from the same tables; byte-identical plots are not guaranteed (matplotlib backend/version), but the underlying data is.
+- **Plots.** PNG/SVG come from the same tables. Matplotlib backend and version can change pixel output; the underlying table data stays identical across runs.

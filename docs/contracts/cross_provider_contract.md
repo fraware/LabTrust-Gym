@@ -6,10 +6,7 @@ Cross-provider runs (e.g. `run-cross-provider-pack`) produce comparable outputs 
 
 ### live_evaluation_metadata.json (per provider run)
 
-- **model_id**: string or null; canonical model identifier.
-- **temperature**: number or null.
-- **tool_registry_fingerprint**: string or null.
-- **allow_network**: boolean.
+Each per-provider file includes `model_id` (string or null, canonical model identifier), `temperature` (number or null), `tool_registry_fingerprint` (string or null), and `allow_network` (boolean).
 
 ### summary_cross_provider.json
 
@@ -35,5 +32,5 @@ Cross-provider runs (e.g. `run-cross-provider-pack`) produce comparable outputs 
 
 ## Missing handling
 
-- Missing optional fields: key absent or null; consumers must not assume presence except for required fields above.
+- Missing optional fields: key absent or null; consumers treat only the required fields above as mandatory.
 - Per-task breakdown (per_task): optional; when present, same task keys across providers.

@@ -14,8 +14,8 @@ When the coordination security pack or the selection policy reports a failure, u
 
 **What to do:**
 
-- **Fix the method or defenses:** Improve the coordination method or detector so the metric meets the rule (e.g. block the attack so attack_success_rate is 0, or reduce violations).
-- **Or relax the gate rule (with approval):** Edit `coordination_security_pack_gate.v0.1.yaml` (e.g. increase `max_delta` for violations_within_delta, or change the rule for that injection). Document the rationale and get approval before deploying.
+- **Improve the method or defenses.** Tune the coordination method or detector so the metric meets the rule (for example block the attack so `attack_success_rate` is 0, or reduce violations).
+- **Adjust the gate rule with approval.** Edit `coordination_security_pack_gate.v0.1.yaml` (for example increase `max_delta` for `violations_within_delta`, or change the rule for that injection). Document the rationale and obtain approval before deploying.
 - Re-run the pack and report: `labtrust run-coordination-security-pack --out <dir> ...`, then `labtrust build-lab-coordination-report --pack-dir <dir>`, then `labtrust check-security-gate --run <dir>`. Do not treat the run as admissible until the gate passes.
 
 ## No admissible method (selection policy constraints)
@@ -29,8 +29,8 @@ When the coordination security pack or the selection policy reports a failure, u
 
 **What to do:**
 
-- **Improve methods:** Re-run with improved coordination methods or defenses so at least one method passes all constraints.
-- **Relax constraints (with approval):** Edit `policy/coordination/coordination_selection_policy.v0.1.yaml` (or partner overlay) to loosen thresholds (e.g. higher violation ceiling, higher attack success rate ceiling). Re-run the report (same pack output is fine) and confirm one method becomes admissible.
+- **Improve methods.** Re-run with improved coordination methods or defenses so at least one method passes all constraints.
+- **Adjust constraints with approval.** Edit `policy/coordination/coordination_selection_policy.v0.1.yaml` (or a partner overlay) to change thresholds (for example a higher violation ceiling or attack success rate ceiling). Re-run the report on the same pack output and confirm one method becomes admissible.
 - Use the “Recommended actions” in the decision (e.g. “Tighten defenses or add safe fallback for failing methods”) as a checklist.
 
 ## Both gate failed and no admissible method

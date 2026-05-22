@@ -8,7 +8,7 @@ This document defines units, when each metric is meaningful (explicit vs simulat
 
 ## Timing modes
 
-- **explicit**: Step timestamps only; no device completion times. p95 TAT is derived from step times. Device utilization and queue-length stats are not produced.
+- **explicit**: Step timestamps only; device completion times are omitted. p95 TAT is derived from step times. Device utilization and queue-length stats are omitted in explicit mode.
 - **simulated**: Device capacity and service-time models apply; p95 TAT is meaningful (accept→release includes queuing and device time). Device utilization and queue-length metrics are populated.
 
 ## Per-episode metrics
@@ -47,7 +47,7 @@ For cross-OS/Python stability, the baseline regression guard compares only:
 - **Integers**: throughput, holds_count, tokens_minted, tokens_consumed, steps
 - **Structs**: blocked_by_reason_code, violations_by_invariant_id
 
-Float metrics (p50_turnaround_s, p95_turnaround_s, on_time_rate, etc.) are **not** compared in the regression test so that small numerical differences do not fail CI.
+The regression test compares only integers and struct fields (throughput, holds_count, tokens, steps, blocked_by_reason_code, violations_by_invariant_id). Float metrics such as p50_turnaround_s, p95_turnaround_s, and on_time_rate stay outside CI comparison so small numerical differences do not fail the guard.
 
 ## Paper-grade (v0.3)
 
@@ -111,7 +111,7 @@ The benchmark runner writes optional fields under **metadata** for harness obser
 | **metadata.python_version** | string | Python version at run time (e.g. 3.11.0). |
 | **metadata.platform** | string | Platform identifier (e.g. win32, linux). |
 
-These do not affect reproducibility (seed + policy + git remain the source of truth). Used for performance regression and run comparison.
+Reproducibility remains defined by seed, policy, and git metadata. Run metadata supports performance regression and run comparison.
 
 ## Schema versions
 
