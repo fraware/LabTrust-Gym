@@ -26,6 +26,6 @@ This page gives a 5–10 minute path from install to running a benchmark with yo
    labtrust eval-agent --agent 'examples.external_agent_demo:SafeNoOpAgent' --task throughput_sla --episodes 2 --out out.json
    ```
 
-5. **Inspect** `results.json` (or `out.json`): episode metrics, rewards, violations, and run metadata.
+5. **Inspect** `results.json` (or `out.json`) for episode metrics, rewards, violations, and run metadata.
 
 For more example agents (scripted, random, LLM mock) see `examples/` and [Example experiments](example_experiments.md). For the full API and observation/action spaces, see [PettingZoo API](../agents/pettingzoo_api.md) and [Benchmarks](../benchmarks/benchmarks.md).

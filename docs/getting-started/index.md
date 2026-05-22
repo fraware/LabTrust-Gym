@@ -9,8 +9,9 @@ Get LabTrust-Gym installed, run your first benchmarks, and optionally fork and e
 | Run benchmarks only | `pip install labtrust-gym[env,plots]` then `labtrust quick-eval` |
 | Add my coordination method (or task) | [Extension development](../agents/extension_development.md) + entry_points; see [examples/extension_example](https://github.com/fraware/LabTrust-Gym/tree/main/examples/extension_example) for a minimal plugin |
 | Fork and customize policy | [Forker guide](forkers.md) and `labtrust forker-quickstart` |
-| Use as a library without forking | [Extension development](../agents/extension_development.md) + `--profile` + `extension_packages` in a lab profile |
-| Run the full security suite | `labtrust run-security-suite`; full suite needs `.[env]`; use `--skip-system-level` when env is not installed |
+| Use labtrust-gym as a library | [Extension development](../agents/extension_development.md) + `--profile` + `extension_packages` in a lab profile |
+| Run the full security suite | `labtrust run-security-suite`; full suite needs `.[env]`; use `--skip-system-level` when the `[env]` extra is missing |
+| Run the PCS QC-release demo (proof-carrying science) | [PCS quickstart](../examples/pcs_qc_release-quickstart.md) — `scripts/setup_pcs_dev.ps1`, then `labtrust run-demo qc-release` |
 | Connect the LabTrust Portal (Lovable) to live data | Set `VITE_DATA_BASE_URL` in the portal to this repo’s deployed viewer-data URL; see [Portal context — Portal live data connection](../labtrust-portal-context.md#portal-live-data-connection) |
 | Export a UI bundle (tables + coordination charts) for the portal | `labtrust ui-export --run <dir> --out <zip>`; when run has coordination pack output, zip includes SOTA leaderboards and **coordination/graphs/** HTML charts. See [Frontend handoff](../reference/frontend_handoff_ui_bundle.md). |
 
@@ -37,4 +38,5 @@ Get LabTrust-Gym installed, run your first benchmarks, and optionally fork and e
 - [Repository structure](../reference/repository_structure.md) — where to put outputs and how the repo is laid out.
 - [Architecture](../architecture/index.md) — system design and threat model.
 - [Benchmarks](../benchmarks/index.md) — tasks, studies, and reproduction.
+- [PCS (proof-carrying science)](../pcs/index.md) — QC-release reference workflow and release gates.
 - [Frontend handoff (UI bundle)](../reference/frontend_handoff_ui_bundle.md) — for frontend engineers: zip layout, coordination_artifacts, and how to display SOTA tables and charts.

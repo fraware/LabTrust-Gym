@@ -4,7 +4,7 @@ Add a new coordination method so it appears in the pack matrix, study runner, an
 
 ## 1. Policy
 
-Add an entry to `policy/coordination/coordination_methods.v0.1.yaml` (or your partner overlay `policy/partners/<id>/coordination/coordination_methods.v0.1.yaml`). Follow the schema: `method_id`, `coordination_class` (e.g. `centralized`, `llm`, `market`), optional `default_params`, and other fields such as `known_weaknesses`, `required_controls`, `compatible_injections`. Example:
+Add an entry to `policy/coordination/coordination_methods.v0.1.yaml` (or your partner overlay `policy/partners/<id>/coordination/coordination_methods.v0.1.yaml`). The schema requires `method_id`, `coordination_class` (for example `centralized`, `llm`, `market`), optional `default_params`, and fields such as `known_weaknesses`, `required_controls`, and `compatible_injections`. Example:
 
 ```yaml
 - method_id: my_allocator
@@ -18,13 +18,13 @@ Add an entry to `policy/coordination/coordination_methods.v0.1.yaml` (or your pa
     some_param: 0.5
 ```
 
-Register the **method_id** in `src/labtrust_gym/baselines/coordination/registry.py`: add a factory mapping so `make_coordination_method(method_id, ...)` can instantiate your class. The registry maps `method_id` to a factory; the policy does not specify the Python class name.
+Register the **method_id** in `src/labtrust_gym/baselines/coordination/registry.py` by adding a factory mapping so `make_coordination_method(method_id, ...)` can instantiate your class. The registry maps `method_id` to a factory; the policy file lists the method identity only, not the Python class name.
 
 - **Scale-capable:** If your method supports the combine path with per-agent LLM at N > coord_propose_actions_max_agents, add **scale_capable: true** to its entry in coordination_methods.v0.1.yaml; otherwise the runner will not populate scripted_agents_map with per-agent LLM for that method at scale.
 
 ## 2. Code
 
-Implement the coordination interface (see `src/labtrust_gym/baselines/coordination/interface.py`): your class must implement the expected API (e.g. `propose_actions`, optional `step(context)` for kernel-composed methods, optional `combine_submissions`). Register your factory in `src/labtrust_gym/baselines/coordination/registry.py` so `method_id` maps to an instantiation path. See existing methods in the registry and under `src/labtrust_gym/baselines/coordination/` for the interface and registration pattern.
+Implement the coordination interface in `src/labtrust_gym/baselines/coordination/interface.py`. Your class must implement the expected API (for example `propose_actions`, optional `step(context)` for kernel-composed methods, and optional `combine_submissions`). Register your factory in `src/labtrust_gym/baselines/coordination/registry.py` so `method_id` maps to an instantiation path. See existing methods in the registry and under `src/labtrust_gym/baselines/coordination/` for the interface and registration pattern.
 
 ## 3. Tests
 

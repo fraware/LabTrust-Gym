@@ -65,19 +65,19 @@ Or run the script directly: `bash scripts/run_verification_battery.sh` (from rep
 
 Workflow **pcs** runs when PCS-related paths change. It checks out [pcs-core](https://github.com/SentinelOps-CI/pcs-core) and [pcs-bench](https://github.com/SentinelOps-CI/pcs-bench), applies LabTrust’s `RuntimeReceipt.v0` schema profile, then runs tests, export validation, benchmark generation, reproducibility ingest, producer contract checks, release protocol verification, failure gallery, and smoke scenarios.
 
-Setup: `scripts/setup_pcs_dev.ps1` (isolated `.venv-pcs`). Full local parity:
+Run `scripts/setup_pcs_dev.ps1` for an isolated `.venv-pcs`. Full local parity follows this sequence.
 
 ```bash
 bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh
 ```
 
-Offline producer fixtures: `make pcs-verify` (requires sibling `pcs-core`).
+Verify offline producer fixtures with `make pcs-verify` (requires sibling `pcs-core`).
 
-See [pcs/index.md](../pcs/index.md), [pcs_export.md](../pcs_export.md), and [examples/pcs_qc_release/RUNBOOK.md](../../examples/pcs_qc_release/RUNBOOK.md).
+See [pcs/index.md](../pcs/index.md), [pcs_export.md](../pcs_export.md), and [PCS operator runbook](../examples/pcs_qc_release-operator.md).
 
 ## Coverage report and ratchet
 
-Job **coverage** runs on **every push/PR**. It runs `pytest -q -m "not slow" --cov=src/labtrust_gym --cov-report=xml --cov-report=term` and uploads **coverage.xml** as a workflow artifact. Configuration: `[tool.coverage.run]` and `[tool.coverage.report]` in `pyproject.toml` at repo root.
+Job **coverage** runs on **every push/PR**. It runs `pytest -q -m "not slow" --cov=src/labtrust_gym --cov-report=xml --cov-report=term` and uploads **coverage.xml** as a workflow artifact. Coverage settings live under `[tool.coverage.run]` and `[tool.coverage.report]` in `pyproject.toml` at repo root.
 
 **Coverage scope:** Coverage is measured only on the default test run (`pytest -m "not slow"`). Slow tests (golden suite, package-release, determinism-report) and env-gated tests (e.g. `LABTRUST_RUN_GOLDEN=1`, `LABTRUST_CHECK_BASELINES=1`, MARL smoke, live LLM) do not contribute to the same `fail_under` ratchet. So the reported line coverage reflects the fast suite only; raising coverage may require adding tests for previously untested code paths (including error-handling paths).
 
@@ -110,7 +110,7 @@ When **LABTRUST_BENCH_SMOKE=1**, an extra job **bench-smoke** runs:
 - **Nightly**: scheduled workflow (e.g. 02:00 UTC) sets `LABTRUST_BENCH_SMOKE=1`.
 - **Manual**: use "Run workflow" in the Actions tab and check **Run benchmark smoke (1 episode per task)**.
 
-**When it does not run:** Normal push/PR do **not** set `LABTRUST_BENCH_SMOKE`, so the bench-smoke job is skipped and CI stays fast.
+**When it runs.** The bench-smoke job runs on the nightly schedule or when a workflow dispatch sets `LABTRUST_BENCH_SMOKE=1`. Normal push and PR workflows omit that variable so the job stays skipped and CI stays fast.
 
 ## Optional: coordination smoke
 

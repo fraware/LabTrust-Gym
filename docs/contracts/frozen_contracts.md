@@ -1,6 +1,6 @@
 # Frozen contracts
 
-This page is the **canonical list of frozen contracts and schema versions** for LabTrust-Gym. These define correctness and the anti-regression backbone; do not weaken them without an explicit design change and version bump.
+This page is the **canonical list of frozen contracts and schema versions** for LabTrust-Gym. These define correctness and the anti-regression backbone. Any change requires an explicit design decision and a version bump.
 
 | Contract / schema | Version | Location | Purpose |
 |------------------|---------|----------|---------|
@@ -11,13 +11,13 @@ This page is the **canonical list of frozen contracts and schema versions** for 
 | **Study spec (run-study)** | v0.1 | `policy/studies/*.yaml` (e.g. `study_spec.example.v0.1.yaml`); structure implied by run-study loader | Study specs: task, episodes, seed_base, ablations; used by `labtrust run-study` for reproducible experiment definitions. No separate JSON schema in repo. |
 | **Receipt schema** | v0.1 | `policy/schemas/receipt.v0.1.schema.json` | Per-specimen/result receipt (identifiers, timestamps, decision, reason_codes, tokens, invariant/enforcement summary, hashchain). Used by export-receipts. |
 | **Evidence bundle manifest schema** | v0.1 | `policy/schemas/evidence_bundle_manifest.v0.1.schema.json` | Manifest for EvidenceBundle.v0.1: files (path, sha256), policy_fingerprint, partner_id. |
-| **FHIR bundle export schema** | v0.1 | `policy/schemas/fhir_bundle_export.v0.1.schema.json` | Minimal structural contract for FHIR R4 Bundle export (resourceType, type, entry). Not full FHIR validation. |
+| **FHIR bundle export schema** | v0.1 | `policy/schemas/fhir_bundle_export.v0.1.schema.json` | Minimal structural contract for FHIR R4 Bundle export (resourceType, type, entry). Full FHIR profile validation is optional via `validate-fhir`. |
 | **Sites policy schema** | v0.1 | `policy/schemas/sites_policy.v0.1.schema.json` | Schema for `policy/sites/sites_policy.v0.1.yaml`: sites, site_graph, routes (transport_time, temp_drift). Used by engine/transport. |
 | **Key registry schema** | v0.1 | `policy/schemas/key_registry.v0.1.schema.json` | Schema for `policy/keys/key_registry.v0.1.yaml`: Ed25519 keys (key_id, public_key, agent_id, role_id); optional status (ACTIVE/REVOKED/EXPIRED), not_before_ts_s, not_after_ts_s. Used by engine/signatures; lifecycle enforced in verification. |
 | **RBAC policy schema** | v0.1 | `policy/schemas/rbac_policy.v0.1.schema.json` | Schema for `policy/rbac/rbac_policy.v0.1.yaml`: roles (allowed_actions, allowed_zones, allowed_devices), agents (agent_id → role_id), action_constraints. Used by engine/rbac. |
 | **Action contract** | v0.1 | `src/labtrust_gym/envs/action_contract.py` | Per-step action: `action_index` in 0..5; optional `action_type`, `args`, `reason_code`, `token_refs`. Coordination methods and risk injectors must use these indices. |
-| **Env contract (BenchmarkEnv)** | v0.1 | `src/labtrust_gym/benchmarks/env_protocol.py` | New envs must implement `BenchmarkEnv`. The benchmark runner depends only on this protocol; it does not use private attributes (`_device_ids`, `_zone_ids`, `_dt_s`). |
-| **Coordination baseline contract** | v0.1 | `src/labtrust_gym/baselines/coordination/interface.py` | Defines the coordination *method* interface; "baseline" here means reference implementation, not the v0.2 frozen result set. Required: `reset(seed, policy, scale_config)`, `propose_actions(obs, infos, t)` → one action per agent with `action_index` in 0..5. Optional: `on_step_result`, `on_episode_end`. Enforced by `tests/test_coordination_interface_contract.py`: every method_id in `coordination_methods.v0.1.yaml` instantiates, runs 5 steps coord_scale, returns schema-valid actions and is deterministic. Conformance to this contract (schema-valid, deterministic) does not imply that the method's outputs are safe or correct; safety is a separate concern. |
+| **Env contract (BenchmarkEnv)** | v0.1 | `src/labtrust_gym/benchmarks/env_protocol.py` | New envs must implement `BenchmarkEnv`. The benchmark runner depends only on this protocol and the public `BenchmarkEnv` surface (`get_device_ids`, `get_zone_ids`, `get_dt_s`, and related methods). |
+| **Coordination baseline contract** | v0.1 | `src/labtrust_gym/baselines/coordination/interface.py` | Defines the coordination *method* interface; "baseline" here means reference implementation, not the v0.2 frozen result set. Required: `reset(seed, policy, scale_config)`, `propose_actions(obs, infos, t)` → one action per agent with `action_index` in 0..5. Optional: `on_step_result`, `on_episode_end`. Enforced by `tests/test_coordination_interface_contract.py`: every method_id in `coordination_methods.v0.1.yaml` instantiates, runs 5 steps coord_scale, returns schema-valid actions and is deterministic. Conformance to this contract (schema-valid, deterministic) covers interface shape and repeatability. Safety and correctness of method outputs are evaluated separately. |
 | **Benchmark results schema** | v0.2 | `policy/schemas/results.v0.2.schema.json` | CI-stable benchmark results: task, seeds, policy_fingerprint, partner_id, git_sha, agent_baseline_id, episodes with metrics (ints/structs). Used by run-benchmark output and summarize-results; summary_v0.2.csv regression is stable across OS/Python. |
 | **Benchmark results schema** | v0.3 | `policy/schemas/results.v0.3.schema.json` | Paper-grade extension of v0.2: optional quantiles, 95% CI, simulated-mode distributions. Same required fields as v0.2; summary_v0.3.csv includes quantiles and CI. See [Metrics contract](metrics_contract.md). |
 
@@ -56,7 +56,7 @@ Receipt and evidence bundle manifest schemas define the shape of exported receip
 
 ## FHIR bundle export (v0.1)
 
-Minimal structural contract for FHIR R4 Bundle export (resourceType Bundle, type collection, entry with fullUrl and resource). Not full FHIR profile validation. See [FHIR R4 export](../export/fhir_export.md).
+Minimal structural contract for FHIR R4 Bundle export (resourceType Bundle, type collection, entry with fullUrl and resource). Full FHIR profile validation is optional. See [FHIR R4 export](../export/fhir_export.md).
 
 ## Sites policy (v0.1)
 
@@ -68,7 +68,7 @@ Per-step action: `action_index` in 0..5 (see [envs/action_contract.py](https://g
 
 ## Env contract (BenchmarkEnv) (v0.1)
 
-New envs must implement `BenchmarkEnv` (see `src/labtrust_gym/benchmarks/env_protocol.py`). The benchmark runner depends only on this protocol; it does not use private attributes (`_device_ids`, `_zone_ids`, `_dt_s`).
+New envs must implement `BenchmarkEnv` (see `src/labtrust_gym/benchmarks/env_protocol.py`). The benchmark runner depends only on this protocol and the public `BenchmarkEnv` methods.
 
 **PettingZoo env (LabTrustParallelEnv):** The wrapper implements the full Parallel API including **render()** (modes ansi/human when `render_mode` is set), **reset(seed, options)** with optional `timing_mode` and `dt_s` in options, and observation building via batch **get_agent_zones** / **get_agent_roles** when the engine supports them. The engine may implement optional **step_batch(events)** (same semantics as calling step(e) for each event in order); the PZ env uses it when available. For flat observations per agent, use **FlattenObsWrapper** (`labtrust_gym.baselines.marl`). See [PettingZoo API](../agents/pettingzoo_api.md).
 

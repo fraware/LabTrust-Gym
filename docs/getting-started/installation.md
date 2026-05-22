@@ -11,11 +11,11 @@ pip install labtrust-gym[env,plots]
 - **env**: PettingZoo and Gymnasium (required for benchmarks and quick-eval).
 - **plots**: Matplotlib (for study figures and data tables).
 
-**Minimal install:** `pip install labtrust-gym` (no extras) supports policy validation (`labtrust validate-policy`) and the security suite in agent/shield-only mode if you use `--skip-system-level` (no PZ env). For scenario_ref and llm_attacker you still need dependencies used by the agent; see [Security attack suite](../risk-and-security/security_attack_suite.md).
+For a **minimal install**, run `pip install labtrust-gym` (base package only). That supports policy validation (`labtrust validate-policy`) and the security suite in agent/shield-only mode when you pass `--skip-system-level` (PettingZoo env optional). Scenario_ref and llm_attacker still need the dependencies used by the agent; see [Security attack suite](../risk-and-security/security_attack_suite.md).
 
-**Full security suite:** To run all attack types including system-level coordination-under-attack (`coord_pack_ref`), install `pip install labtrust-gym[env]` (and optionally `[plots]` for other commands).
+For the **full security suite**, install `pip install labtrust-gym[env]` (and optionally `[plots]` for other commands) so all attack types run, including system-level coordination-under-attack (`coord_pack_ref`).
 
-**Optional extras and test skips:** Installing extras reduces the number of tests and commands that skip. Use `pip install -e ".[full]"` to pull env, marl, docs, and plots in one go and minimize skips for local development.
+**Optional extras** reduce the number of skipped tests and commands. Use `pip install -e ".[full]"` to pull env, marl, docs, and plots in one go and minimize skips for local development.
 
 | Extra | Reduces skips / enables |
 |-------|--------------------------|
@@ -32,13 +32,13 @@ Check version and optional git SHA:
 labtrust --version
 ```
 
-When installed from a wheel, policy files are bundled in the package (package data under `labtrust_gym`); policy is loaded from the package by default and no repo root is needed. When developing from source, policy is read from the repo `policy/` directory; the resolver walks upward from the current working directory (up to a limited depth) to find a directory containing `policy/emits/`, so you can run from the repo root or any subdirectory. You can override the policy location with the `LABTRUST_POLICY_DIR` environment variable (path to the policy directory). If `LABTRUST_POLICY_DIR` is set but the path does not exist or is not a directory, the CLI and tests raise **PolicyPathError** (from `labtrust_gym.errors`) with a clear message. If no policy directory is found, the error message suggests setting `LABTRUST_POLICY_DIR`, running from repo root (or a subdirectory of the repo), or installing from wheel. See [State of the art and limits](../reference/state_of_the_art_and_limits.md).
+When installed from a wheel, policy files are bundled in the package (package data under `labtrust_gym`), and the CLI loads policy from the package by default with no repo root required. When developing from source, policy is read from the repo `policy/` directory; the resolver walks upward from the current working directory (up to a limited depth) to find a directory containing `policy/emits/`, so you can run from the repo root or any subdirectory. Override the policy location with the `LABTRUST_POLICY_DIR` environment variable (path to the policy directory). When `LABTRUST_POLICY_DIR` points at a missing path or a non-directory, the CLI and tests raise **PolicyPathError** (from `labtrust_gym.errors`) with a clear message. When no policy directory resolves, the error message suggests setting `LABTRUST_POLICY_DIR`, running from repo root (or a subdirectory of the repo), or installing from wheel. See [State of the art and limits](../reference/state_of_the_art_and_limits.md).
 
-**Reuse without repo tree:** When using the installed package (wheel), policy is bundled and no repo root is needed. From source, run from repo root or any subdirectory of the repo, or set `LABTRUST_POLICY_DIR`.
+**Reuse without a repo tree** — With the installed wheel, policy is bundled and no repo root is required. From source, run from repo root or any subdirectory, or set `LABTRUST_POLICY_DIR`.
 
-**Benchmark-only workflow (no clone):** To run the official pack and compare results without cloning or forking: (1) `pip install labtrust-gym[env,plots]` (add extras as needed). (2) Run `labtrust run-official-pack --out <dir>`. Policy is loaded from the package by default. To use a specific released policy snapshot (e.g. from a release artifact), download the policy bundle from the release (e.g. `policy-bundle-vX.Y.Z.tar.gz` from the release workflow artifacts or release assets), extract to a directory, set `LABTRUST_POLICY_DIR` to that directory (the extracted directory must contain `emits/`, `schemas/`, etc.), then run `labtrust run-official-pack --out <dir>`. No clone required.
+**Benchmark-only workflow** — To run the official pack and compare results with only a pip install, run `pip install labtrust-gym[env,plots]` (add extras as needed), then `labtrust run-official-pack --out <dir>`. Policy loads from the package by default. To pin a released policy snapshot, download the policy bundle from the release (for example `policy-bundle-vX.Y.Z.tar.gz` from release workflow artifacts), extract it, set `LABTRUST_POLICY_DIR` to that directory (it must contain `emits/`, `schemas/`, and related subtrees), and run `labtrust run-official-pack --out <dir>` again.
 
-**Reproducibility:** For byte-identical baselines, use the same Python version and OS as CI; pin dependencies; avoid env vars that change behavior. See the [Determinism contract](../benchmarks/determinism_contract.md). Different Python versions or platforms can change RNG or float behavior.
+**Reproducibility** — For byte-identical baselines, use the same Python version and OS as CI, pin dependencies, and avoid environment variables that change behaviour. See the [Determinism contract](../benchmarks/determinism_contract.md). Different Python versions or platforms can change RNG or float behaviour.
 
 ### Paths with spaces or special characters
 
@@ -46,9 +46,9 @@ If your repo or policy path contains spaces or special characters, use quoted pa
 
 ## Configuration (environment variables and .env)
 
-LabTrust-Gym configuration is via **environment variables** (set in your shell or CI). You do **not** need a `.env` file for normal use. See `.env.example` in the repo root for a list of optional variables.
+LabTrust-Gym configuration uses **environment variables** (set in your shell or CI). A `.env` file is optional for normal use. See `.env.example` in the repo root for optional variables.
 
-**Default .env loading:** The CLI loads a `.env` file at startup from the current working directory, then from **repo root** (`<repo_root>/.env`) if the file exists. You can also set `LABTRUST_DOTENV_PATH` to the full path of your `.env` file. For live LLM backends, place `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in `.env` in **repo root** so they are available regardless of the directory from which you run `labtrust`. If you run from a directory other than repo root and do not have a repo-root `.env`, set `LABTRUST_DOTENV_PATH` to the full path to your `.env` (e.g. `C:\path\to\repo\.env` or `/path/to/repo/.env`).
+**Default .env loading** — The CLI loads a `.env` file at startup from the current working directory, then from **repo root** (`<repo_root>/.env`) when that file exists. Set `LABTRUST_DOTENV_PATH` to point at a `.env` elsewhere. For live LLM backends, place `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in `.env` at **repo root** so keys are available regardless of the directory from which you run `labtrust`. When you run outside repo root and lack a repo-root `.env`, set `LABTRUST_DOTENV_PATH` to the full path (for example `C:\path\to\repo\.env` or `/path/to/repo/.env`).
 
 Optional env vars (all have defaults or CLI overrides):
 
@@ -70,7 +70,7 @@ Optional env vars (all have defaults or CLI overrides):
 
 If you run the CLI from a different directory than where your `.env` file lives, set `LABTRUST_DOTENV_PATH` to the full path of the `.env` file, or load it in your shell before running:
 
-**macOS / Linux (bash/zsh):**
+### macOS / Linux (bash/zsh)
 
 ```bash
 set -a
@@ -78,7 +78,7 @@ source .env
 set +a
 ```
 
-**Windows (PowerShell):**
+### Windows (PowerShell)
 
 ```powershell
 Get-Content .env | ForEach-Object {
@@ -89,20 +89,20 @@ Get-Content .env | ForEach-Object {
 }
 ```
 
-**Sanity check (any OS):**
+### Sanity check (any OS)
 
 ```bash
 python -c "import os; print('OPENAI', bool(os.getenv('OPENAI_API_KEY'))); print('ANTHROPIC', bool(os.getenv('ANTHROPIC_API_KEY')))"
 ```
 
-### LLMs: no API keys required by default
+### LLMs and API keys
 
-The **LLM baselines** (benchmarks, tests, quick-eval) do **not** call any external API by default. They use **deterministic, offline backends**:
+By default, **LLM baselines** (benchmarks, tests, quick-eval) use **deterministic, offline backends** and never call an external API.
 
-- **DeterministicConstrainedBackend** — Official LLM baseline: chooses from allowed actions with a **seeded RNG**; no network, no API key.
-- **MockDeterministicBackend** / **MockDeterministicBackendV2** — Canned JSON responses for tests; no API.
+- **DeterministicConstrainedBackend** — Official LLM baseline; chooses from allowed actions with a **seeded RNG** (no network, no API key).
+- **MockDeterministicBackend** / **MockDeterministicBackendV2** — Canned JSON responses for tests (no API).
 
-So you do **not** need `OPENAI_API_KEY` or any `.env` for normal use. To run benchmarks with a **live** LLM: set `OPENAI_API_KEY` (e.g. in `.env` in repo root) for `--llm-backend openai_live` or `openai_responses` (install `.[llm_openai]`); set `ANTHROPIC_API_KEY` for `--llm-backend anthropic_live` (install `.[llm_anthropic]`); or use `--llm-backend ollama_live` with `LABTRUST_LOCAL_LLM_URL`, `LABTRUST_LOCAL_LLM_MODEL`, optionally `LABTRUST_LOCAL_LLM_TIMEOUT`. If a live backend is selected and its API key is missing, the runner fails immediately with a clear error. Live runs are non-deterministic. See [LLM baselines](../agents/llm_baselines.md) and [Live LLM benchmark mode](../agents/llm_live.md).
+Normal use needs no `OPENAI_API_KEY` and no `.env`. For a **live** LLM, set `OPENAI_API_KEY` (for example in repo-root `.env`) when using `--llm-backend openai_live` or `openai_responses` (install `.[llm_openai]`); set `ANTHROPIC_API_KEY` for `--llm-backend anthropic_live` (install `.[llm_anthropic]`); or use `--llm-backend ollama_live` with `LABTRUST_LOCAL_LLM_URL`, `LABTRUST_LOCAL_LLM_MODEL`, and optionally `LABTRUST_LOCAL_LLM_TIMEOUT`. When a live backend is selected and its API key is missing, the runner fails immediately with a clear error. Live runs are non-deterministic. See [LLM baselines](../agents/llm_baselines.md) and [Live LLM benchmark mode](../agents/llm_live.md).
 
 ## Quick eval
 
@@ -159,9 +159,9 @@ Optional extras: `.[marl]` (Stable-Baselines3), `.[docs]` (MkDocs + mkdocstrings
 
 ### PyTorch on AMD or CPU-only (no CUDA)
 
-LabTrust-Gym does not require CUDA. If you use an **AMD** CPU (e.g. Ryzen with integrated Radeon) or any machine without an NVIDIA GPU, use a CPU-only PyTorch build. CUDA is NVIDIA-only.
+LabTrust-Gym runs on CPU-only PyTorch; CUDA is optional. On an **AMD** CPU (for example Ryzen with integrated Radeon) or any machine without an NVIDIA GPU, install a CPU-only PyTorch build (CUDA targets NVIDIA GPUs only).
 
-**Conda users:** If `conda` is not found in your shell, open **Anaconda Prompt** or **Miniconda Prompt** from the Start Menu so the conda base path is in PATH.
+**Conda users** — When `conda` is missing from your shell PATH, open **Anaconda Prompt** or **Miniconda Prompt** from the Start Menu so the conda base path is available.
 
 #### Conda environment with CPU-only PyTorch (recommended on Windows / AMD)
 
@@ -182,13 +182,13 @@ pip install -e ".[dev,env,plots]"
 labtrust validate-policy
 ```
 
-The conda env includes pip by default, so you do not need `ensurepip`. Use `conda activate gym` whenever you work on LabTrust-Gym with this setup.
+The conda env includes pip by default, so `ensurepip` is unnecessary. Use `conda activate gym` whenever you work on LabTrust-Gym with this setup.
 
 #### Pip-only: CPU-only PyTorch
 
-If you prefer a venv or system Python instead of conda:
+For a venv or system Python (no conda):
 
-- **Pip (venv or system):**
+- **Pip (venv or system)**
   ```bash
   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
   ```
@@ -201,7 +201,7 @@ For hardware acceleration on AMD Radeon (or other non-NVIDIA) GPUs on Windows:
 pip install torch-directml
 ```
 
-This is the Windows alternative to CUDA for non-NVIDIA cards. Prefer the CPU-only build above if you do not need GPU acceleration.
+`torch-directml` provides Windows GPU acceleration for non-NVIDIA cards. Use the CPU-only build above when GPU acceleration is unnecessary.
 
 #### Verify PyTorch
 
@@ -213,9 +213,9 @@ print(f"CUDA available? {torch.cuda.is_available()}")  # False is correct for AM
 
 For MARL (PPO) and related tests, see [MARL baselines](../agents/marl_baselines.md).
 
-**Quickstart (paper artifact):** From repo root, run `bash scripts/quickstart_paper_v0.1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows). Runs: install → validate-policy → quick-eval → package-release paper_v0.1 → verify-bundle. See [Frozen contracts](../contracts/frozen_contracts.md) and [Paper provenance](../benchmarks/paper/README.md).
+**Quickstart (paper artifact)** — From repo root, run `bash scripts/quickstart_paper_v0.1.sh` (or `scripts/quickstart_paper_v0.1.ps1` on Windows). The script runs install, validate-policy, quick-eval, package-release paper_v0.1, and verify-bundle. See [Frozen contracts](../contracts/frozen_contracts.md) and [Paper provenance](../benchmarks/paper/README.md).
 
-**UI export:** To produce a UI-ready zip from a run (quick-eval or package-release output): `labtrust ui-export --run <dir> --out ui_bundle.zip`. The bundle contains normalized `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. When the run includes coordination pack output, the zip also includes **coordination_artifacts** (pack_summary, SOTA leaderboard main and full, method-class comparison) and **coordination/graphs/** HTML charts (SOTA key metrics, throughput, violations, resilience, method-class) under `coordination/`. See [UI data contract](../contracts/ui_data_contract.md) and [Frontend handoff](../reference/frontend_handoff_ui_bundle.md).
+**UI export** — To produce a UI-ready zip from a run (quick-eval or package-release output), run `labtrust ui-export --run <dir> --out ui_bundle.zip`. The bundle contains normalized `index.json`, `events.json`, `receipts_index.json`, and `reason_codes.json`. When the run includes coordination pack output, the zip also includes **coordination_artifacts** (pack_summary, SOTA leaderboard main and full, method-class comparison) and **coordination/graphs/** HTML charts (SOTA key metrics, throughput, violations, resilience, method-class) under `coordination/`. See [UI data contract](../contracts/ui_data_contract.md) and [Frontend handoff](../reference/frontend_handoff_ui_bundle.md).
 
 ## Troubleshooting
 
@@ -230,7 +230,7 @@ For MARL (PPO) and related tests, see [MARL baselines](../agents/marl_baselines.
 | **MARL / train-ppo fails** | Missing `[marl]` | `pip install -e ".[marl]"` (Stable-Baselines3). |
 | **MkDocs build fails** | Missing `[docs]` | `pip install -e ".[docs]"`. |
 | **Path resolution (Windows)** | Spaces in path | Quote paths: `labtrust quick-eval --out-dir "C:\LabTrust runs"`. |
-| **Set-Location / command "fails" (PowerShell)** | Project path contains **special characters** (e.g. **é** in "Matéo") | PowerShell or the runner may mangle Unicode and `cd` to the project dir can fail. **Fix:** Clone or move the repo to a path **without** accented characters (e.g. `C:\LabTrust-Gym`). Then run commands from that directory. Alternatively run from an existing shell already in the repo: `python -m labtrust_gym.cli.main --version`. |
+| **Set-Location / command "fails" (PowerShell)** | Project path contains **special characters** (e.g. **é** in "Matéo") | PowerShell or the runner may mangle Unicode and `cd` to the project dir can fail. Clone or move the repo to a path with ASCII characters only (e.g. `C:\LabTrust-Gym`), then run commands from that directory. You can also run from a shell already in the repo with `python -m labtrust_gym.cli.main --version`. |
 | **pytest timeout** | Long test (e.g. `test_package_release_determinism`) runs full package-release | Run with a higher per-test timeout, e.g. `pytest -q --timeout=300`, or exclude long tests: `pytest -q --ignore=tests/test_package_release.py`. |
 | **Security suite 0/10 passed** | pettingzoo/gymnasium or pytest missing in the env that runs `labtrust`; on Windows, `pip` may target global Python | Use the copy-paste command from the CLI hint (full path to venv Python). See [Security attack suite](../risk-and-security/security_attack_suite.md#prerequisites). |
 | **No module named pip** (when running the venv’s `python -m pip`) | The venv was created without pip or pip was removed | Bootstrap pip: `& ".venv\Scripts\python.exe" -m ensurepip --upgrade` (PowerShell; use your venv path). Then run the `pip install` command again. |

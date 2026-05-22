@@ -1,10 +1,10 @@
 # Scripted baselines
 
-Scripted baselines are deterministic, hand-coded reference policies used for benchmarks and regression. They are **not** state-of-the-art control; the repo's SOTA is the OR kernel (rolling-horizon scheduler), LLM coordination methods, and MARL PPO. Scripted agents provide a stable, reproducible baseline to compare against.
+Scripted baselines are deterministic, hand-coded reference policies used for benchmarks and regression. State-of-the-art control in this repo is the OR kernel (rolling-horizon scheduler), LLM coordination methods, and MARL PPO. Scripted agents provide a stable, reproducible baseline to compare against those approaches.
 
 ## Purpose
 
-Scripted baselines define the "default when not using LLM or MARL": they are the policies that drive the scheduler (ops), runners, and (when implemented) QC and supervisor in the PettingZoo env. They are used for:
+Scripted baselines are the default for runs without LLM or MARL. They drive the scheduler (ops), runners, and (when implemented) QC and supervisor in the PettingZoo env. They are used for:
 
 - **Reproducibility:** Same seed and same action sequence yield identical trajectories; no API or training.
 - **Comparison:** LLM, MARL, and coordination methods are compared against scripted behaviour (throughput, violations, blocks).

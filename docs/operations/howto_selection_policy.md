@@ -10,14 +10,14 @@ The coordination selection policy decides which method is “best” per scale b
 ## Main knobs
 
 1. **constraints**  
-   List of hard constraints. A method is **admissible** only if it passes all of them. Each constraint typically has:
+   A list of hard constraints. A method is **admissible** only when it passes all of them. Each constraint typically includes the following fields.
    - `constraint_id`: short identifier
    - `metric_key`: e.g. `safety.violations_total`, `sec.attack_success_rate`, `cost.estimated_cost_usd`
    - `operator`: `<=`, `>=`, or `<`, `>`
    - `threshold`: numeric value
    - `aggregation`: `baseline_only`, `max_over_attacks`, or `mean_over_attacks` (how to take the value from the pack summary for that method/scale)
 
-   Example: keep baseline violations under 10 and worst-case attack success rate under 0.2:
+   The example below keeps baseline violations under 10 and worst-case attack success rate under 0.2.
    ```yaml
    constraints:
      - constraint_id: violations_ceiling

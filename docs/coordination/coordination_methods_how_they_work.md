@@ -1,6 +1,6 @@
 # How Coordination Methods Work (Detailed)
 
-This document describes in detail how each coordination method in LabTrust-Gym works: data flow, algorithms, invariants, and design choices. All methods implement the same `CoordinationMethod` interface (`reset`, `propose_actions`) and produce per-agent `action_dict` (action_index, optional action_type, args, reason_code). The registry is in `policy/coordination/coordination_methods.v0.1.yaml`; LLM-based methods are marked with `llm_based: true` and are the ones used for comparing coordination strategies on the same baseline.
+This document describes in detail how each coordination method in LabTrust-Gym works, including data flow, algorithms, invariants, and design choices. All methods implement the same `CoordinationMethod` interface (`reset`, `propose_actions`) and produce per-agent `action_dict` (action_index, optional action_type, args, reason_code). The registry is in `policy/coordination/coordination_methods.v0.1.yaml`; LLM-based methods are marked with `llm_based: true` and support comparison of coordination strategies on the same baseline.
 
 ---
 
@@ -25,7 +25,7 @@ These methods are **composed** from three pluggable components. A **KernelContex
 
 ### 1.2 kernel_whca
 
-Same **CentralizedAllocator** and **EDFScheduler** as kernel_centralized_edf. The difference is the **Router: WHCARouter** (Windowed Cooperative A*).
+Same **CentralizedAllocator** and **EDFScheduler** as kernel_centralized_edf. This variant uses **WHCARouter** (Windowed Cooperative A*) in place of TrivialRouter.
 
 - **Reservation table:** A table (time_step, zone_id) -> agent_id records which agent has reserved which zone at which time over a **horizon** (default 15, configurable via scale_config.whca_horizon).
 
@@ -37,7 +37,7 @@ Same **CentralizedAllocator** and **EDFScheduler** as kernel_centralized_edf. Th
 
 #### MAPF backend adapter contract
 
-The routing layer uses a **router** abstraction that, given a graph, agent positions, goals, reservation table, and horizon, returns per-agent paths (or next move). **WHCARouter** implements this contract and is always available. **CBS, ECBS, LNS, RHCR** are optional backends that require the `[mapf]` extra; when `[mapf]` is not installed, `make_router("cbs")` (and the others) fall back to WHCARouter. The adapter contract:
+The routing layer uses a **router** abstraction that, given a graph, agent positions, goals, reservation table, and horizon, returns per-agent paths (or next move). **WHCARouter** implements this contract and is always available. **CBS, ECBS, LNS, RHCR** are optional backends that require the `[mapf]` extra; without that extra, `make_router("cbs")` (and the others) use WHCARouter. The adapter contract:
 
 - **Input:** Graph (zones, edges, restricted edges), current (time, zone) per agent, goal zone per agent, horizon, reservation table, RNG for tie-breaks, optional token/restricted-edge info.
 - **Output:** Per-agent path as list of (t, zone), or first step only; must satisfy INV-ROUTE-001 (no same (t, zone) for two agents) and INV-ROUTE-002 (no restricted edge without token). Cost (e.g. sum of path lengths or makespan) can be used for equivalence: CBS optimality implies CBS cost <= WHCA cost on the same instance.
@@ -72,7 +72,7 @@ CBS/ECBS/LNS/RHCR are **placeholders** until a [mapf] dependency is chosen and a
 
 ## 2. Deterministic baseline methods (non-LLM)
 
-These are scripted methods used as baselines or building blocks; they do not use an LLM.
+These are scripted methods used as baselines or building blocks; they run without an LLM.
 
 ### 2.1 centralized_planner
 
@@ -174,9 +174,9 @@ These methods use an LLM (or deterministic backend that mimics the same interfac
 
 ### 3.2 llm_hierarchical_allocator
 
-- **Allocator backend** produces a **CoordinationProposal** where each per_agent entry has **action_type SET_INTENT** and **args {job_id, priority_weight}**. The LLM (or deterministic backend) does **not** output concrete MOVE/START_RUN; it outputs high-level assignments (agent -> job_id). **job_id** = "device_id:work_id" for a queue head.
+- **Allocator backend** produces a **CoordinationProposal** where each per_agent entry has **action_type SET_INTENT** and **args {job_id, priority_weight}**. The LLM (or deterministic backend) emits high-level assignments (agent -> job_id); concrete MOVE/START_RUN come from the local controller. **job_id** = "device_id:work_id" for a queue head.
 
-- **Local controller:** `intent_to_actions(obs, assignments, zone_ids, device_ids, device_zone, strategy)` translates SET_INTENT into concrete actions. **Strategies:** greedy, edf, whca. For each agent with a job_id, the controller checks colocation; if colocated, START_RUN(device_id, work_id); else BFS MOVE toward device zone. EDF orders by deadline; WHCA uses the same reservation-based path planning as the kernel. The **shield** applies to the final concrete actions (RBAC, signatures), so the LLM cannot directly issue privileged ops.
+- **Local controller:** `intent_to_actions(obs, assignments, zone_ids, device_ids, device_zone, strategy)` translates SET_INTENT into concrete actions. **Strategies:** greedy, edf, whca. For each agent with a job_id, the controller checks colocation; if colocated, START_RUN(device_id, work_id); else BFS MOVE toward device zone. EDF orders by deadline; WHCA uses the same reservation-based path planning as the kernel. The **shield** applies to the final concrete actions (RBAC, signatures), so privileged operations reach the engine only after shield validation.
 
 **State-of-the-art aspects:** Reduces LLM authority to high-level intent; local controller is deterministic and testable; supports multiple local strategies (greedy, EDF, WHCA) for ablation.
 
@@ -248,7 +248,7 @@ These methods use an LLM (or deterministic backend that mimics the same interfac
 
 - **llm_central_planner_shielded**, **llm_hierarchical_allocator_shielded**, **llm_auction_bidder_shielded:** Same as base method but with **defense_profile: shielded**: stricter reason-code validation; on reject, safe fallback (e.g. NOOP).
 
-- **llm_*_with_safe_fallback:** **defense_profile: safe_fallback**: on backend exception or timeout, return all NOOP instead of raising. Used for resilience under API failure.
+- **llm_*_with_safe_fallback:** **defense_profile: safe_fallback**: on backend exception or timeout, return all NOOP and skip the exception. Used for resilience under API failure.
 
 These variants are **composition over base methods** for matrix ranking and deployable stacks.
 
@@ -258,7 +258,7 @@ These variants are **composition over base methods** for matrix ranking and depl
 
 ### 4.1 marl_ppo
 
-Shared policy with **agent_id in observation**; PPO training produces a policy that maps (obs, agent_id) to action. Coordination emerges from training rather than from an explicit protocol. Deterministic track uses a fixed checkpoint; study track can update and record checkpoint_sha, update_count, buffer_size in metadata.coordination.learning. Not used as a coordination method for comparison in the LLM-based sense; listed in registry for completeness.
+Shared policy with **agent_id in observation**; PPO training produces a policy that maps (obs, agent_id) to action. Coordination emerges from training through an implicit protocol shaped by the policy. The deterministic track uses a fixed checkpoint; the study track can update and record checkpoint_sha, update_count, and buffer_size in metadata.coordination.learning. The registry lists this entry for completeness and keeps it outside the LLM-based coordination comparison set.
 
 ---
 

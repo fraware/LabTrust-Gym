@@ -4,7 +4,7 @@ Strict interface and telemetry schema for coordination method plug-ins so all me
 
 ## Design
 
-- **Do not break existing methods**: wrap/adapt them; contract output is produced by the runner from method output and harness telemetry.
+- **Preserve existing methods**: wrap or adapt them; the runner produces contract output from method output and harness telemetry.
 - **Deterministic mode** is required for official baselines; same seed and config yield identical `coord_decisions.jsonl`.
 - **Proof logging**: every coord_scale/coord_risk episode run writes `coord_decisions.jsonl` (one JSONL line per step, validated against the contract schema when `LABTRUST_STRICT_COORD_CONTRACT=1`).
 

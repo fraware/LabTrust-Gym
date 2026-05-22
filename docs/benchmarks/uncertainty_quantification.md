@@ -37,7 +37,7 @@ Uncertainty fields are included in regular benchmark and coordination outputs (n
 
 ## Uncertainty report script
 
-**scripts/uncertainty_report.py** (and optional `labtrust uncertainty-report --run <dir>`) loads a run directory's summary CSV and `policy/benchmarks/uncertainty_metric_mapping.v0.1.json`, and outputs a short report with **Epistemic** and **Aleatoric** sections (metrics present in the summary that appear in the mapping). Columns in the summary that are not in the mapping are listed under "Columns not in mapping." Use for evidence review and to ensure mapping coverage.
+**scripts/uncertainty_report.py** (and optional `labtrust uncertainty-report --run <dir>`) loads a run directory's summary CSV and `policy/benchmarks/uncertainty_metric_mapping.v0.1.json`, and outputs a short report with **Epistemic** and **Aleatoric** sections (metrics present in the summary that appear in the mapping). Unmapped summary columns appear under "Columns not in mapping." Use for evidence review and to ensure mapping coverage.
 
 ### Gate (threshold check)
 

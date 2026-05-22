@@ -1,12 +1,12 @@
 # Hospital lab workflow (blood sciences lane)
 
-This document gives two views of the **blood sciences** workflow (pathology lab) modeled in LabTrust-Gym and how it differs under the **deterministic** and **LLM live** pipelines. Terminology: [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab). Diagrams are Mermaid; they render on GitHub and in MkDocs with a Mermaid plugin. Otherwise paste the code into [Mermaid Live](https://mermaid.live).
+This document gives two views of the **blood sciences** workflow (pathology lab) modeled in LabTrust-Gym and how it differs under the **deterministic** and **LLM live** pipelines. See [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab) for lab terminology. Diagrams are Mermaid and render on GitHub and in MkDocs with a Mermaid plugin; otherwise paste the code into [Mermaid Live](https://mermaid.live).
 
 ---
 
 ## 1. High-level view
 
-End-to-end specimen and agent flow: from reception to release, with roles and key decision points.
+The diagram below shows end-to-end specimen and agent flow from reception to release, with roles and key decision points.
 
 ```mermaid
 flowchart TB

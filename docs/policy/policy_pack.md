@@ -2,7 +2,7 @@
 
 Policy is versioned under `policy/`. For the canonical list of **frozen contracts and schema versions** (anti-regression backbone), see [Frozen contracts](../contracts/frozen_contracts.md).
 
-- **schemas/**: JSON schemas for runner output contract, test catalogue, invariant registry v1.0, and all policy YAML/JSON (emits vocab, zones, reason codes, token registry, dual approval, critical thresholds, equipment registry, enforcement map, golden scenarios, **receipt v0.1**, **evidence_bundle_manifest v0.1**, **fhir_bundle_export v0.1**, **sites_policy v0.1**, **key_registry v0.1**, **rbac_policy v0.1**, escalation_ladder v0.2, partners_index). Validated by `labtrust validate-policy`. After validate-policy, review policy for logical consistency and appropriateness of controls; validation is necessary but not sufficient.
+- **schemas/**: JSON schemas for runner output contract, test catalogue, invariant registry v1.0, and all policy YAML/JSON (emits vocab, zones, reason codes, token registry, dual approval, critical thresholds, equipment registry, enforcement map, golden scenarios, **receipt v0.1**, **evidence_bundle_manifest v0.1**, **fhir_bundle_export v0.1**, **sites_policy v0.1**, **key_registry v0.1**, **rbac_policy v0.1**, escalation_ladder v0.2, partners_index). Validated by `labtrust validate-policy`. After validate-policy, review policy for logical consistency and appropriateness of controls; schema validation is the first gate, and human review covers site fit.
 - **emits/**: Canonical emit vocabulary; engines must only emit listed types (incl. transport: DISPATCH_TRANSPORT, TRANSPORT_TICK, RECEIVE_TRANSPORT, CHAIN_OF_CUSTODY_SIGN).
 - **invariants/**: Invariant registry v1.0 (token, zone, critical-result, stability, transport INV-COC-001, INV-TRANSPORT-001, etc.); machine-readable logic templates; schema in `schemas/invariant_registry.v1.0.schema.json`.
 - **tokens/**: Token registry, dual-approval policy, token enforcement map.
@@ -18,7 +18,7 @@ Policy is versioned under `policy/`. For the canonical list of **frozen contract
 
 ## Production calibration (critical thresholds)
 
-The engine loads critical thresholds from `policy/critical/critical_thresholds.v0.1.yaml` (or the   merged policy when using a partner). The shipped file contains **reference defaults** (RCPath 2017 style); they are **not clinically validated**. For production:
+The engine loads critical thresholds from `policy/critical/critical_thresholds.v0.1.yaml` (or the merged policy when using a partner). The shipped file contains **reference defaults** (RCPath 2017 style) for simulation and benchmarking. For production deployment, calibrate per site:
 
 - **Partner overlay:** Put a site-calibrated `critical_thresholds.v0.1.yaml` (or the subset you override) under `policy/partners/<partner_id>/critical/` and run with `--partner <partner_id>` or `LABTRUST_PARTNER=<partner_id>`. The loader merges overlay over base.
 - **Custom policy root:** Set `LABTRUST_POLICY_DIR` to a directory that contains your own `critical/critical_thresholds.v0.1.yaml`. The engine uses that tree instead of the package/repo policy.
@@ -40,7 +40,7 @@ When the engine resets (`core_env.reset()`), each policy value (e.g. RBAC, key r
 
 Partner profiles can override selected policy subtrees via **partner overlays** under `policy/partners/<partner_id>/`. Merge rules are explicit and per-type:
 
-- **Maps (reason_codes, emits):** Overlay may add; may not delete base entries.
+- **Maps (reason_codes, emits):** Overlay may add entries; base entries remain in the merged policy.
 - **Thresholds / stability / equipment:** Overlay may replace entries by key; required keys kept.
 - **Enforcement map:** Overlay may add or override rules by `rule_id`; core severities remain covered.
 

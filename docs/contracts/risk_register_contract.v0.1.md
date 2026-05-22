@@ -56,7 +56,7 @@ Sourced from:
 
 ### Evidence
 
-Evidence indicates that a specific test was run with a specific outcome; it does not by itself prove control effectiveness. Each element of `evidence[]` has:
+Evidence records that a specific test ran with a specific outcome. Control effectiveness is assessed separately from the evidence row. Each element of `evidence[]` has:
 
 | Field | Type | Description |
 |-------|------|-------------|

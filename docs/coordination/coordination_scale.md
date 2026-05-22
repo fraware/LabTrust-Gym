@@ -26,7 +26,7 @@ scales:
 
 The study runner loads each preset from the YAML and uses it as the scale config for that row. coord_scale and coord_risk consume the same **CoordinationScaleConfig** (via `scale_config_override` when running from the study, or from the task default when running standalone).
 
-**Timing mode**: `medium_stress_signed_bus` sets `timing_mode: "simulated"`. If the task or runner does not yet support simulated timing for coordination scale, it may fall back to explicit step-derived timing; behavior is documented in the task and runner. Explicit mode still yields deterministic, comparable runs.
+**Timing mode.** `medium_stress_signed_bus` sets `timing_mode: "simulated"`. When simulated timing is unavailable for coordination scale, the task or runner uses explicit step-derived timing as documented in the task and runner. Explicit mode still yields deterministic, comparable runs.
 
 ## Scale config
 
@@ -52,7 +52,7 @@ The study runner loads each preset from the YAML and uses it as the scale config
 - Builds **sites_policy** (sites, site_graph, routes) for `num_sites`.
 - Builds **zone_layout** from base layout and overrides `device_placement` (or minimal layout if no base file).
 - Builds **initial specimen backlog** and **arrival_schedule** from `specimens_per_min` and `horizon_steps` using the seed RNG.
-- Returns `initial_state` with `effective_policy` (zone_layout, equipment_registry, rbac_policy.agents, sites_policy). Does not write policy files to disk.
+- Returns `initial_state` with `effective_policy` (zone_layout, equipment_registry, rbac_policy.agents, sites_policy) and keeps policy files in memory only.
 
 The engine accepts **zone_layout** and **effective_policy** from `initial_state` (and `effective_policy.zone_layout`), so no file I/O is required for scale runs.
 

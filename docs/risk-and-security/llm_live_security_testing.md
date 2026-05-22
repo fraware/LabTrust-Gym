@@ -4,10 +4,10 @@ This document describes how to run the security suite and official benchmark pac
 
 ## When to run under live LLM
 
-- **Deterministic evidence (default):** The security suite runs `test_ref` attacks via pytest (no LLM) and prompt-injection scenarios with fixed adversarial strings. This is sufficient for CI and for evidencing tool/flow/data controls (registry, sandbox, arg validation, flow metrics, provenance).
-- **Live LLM evidence:** To evidence that **prompt-injection and jailbreak** defenses hold against live LLM-generated payloads, run the suite with `--llm-attacker` and `--allow-network`. To evidence that **coordination and benchmarks** behave correctly with a live LLM backend, run the official pack or coordination study with `--pipeline-mode llm_live`.
+- **Deterministic evidence (default).** The security suite runs `test_ref` attacks via pytest without a live LLM and runs prompt-injection scenarios with fixed adversarial strings. This path is sufficient for CI and for evidencing tool, flow, and data controls (registry, sandbox, arg validation, flow metrics, provenance).
+- **Live LLM evidence.** Run the suite with `--llm-attacker` and `--allow-network` to show that prompt-injection and jailbreak defenses hold against live LLM-generated payloads. Run the official pack or coordination study with `--pipeline-mode llm_live` to show that coordination and benchmarks behave correctly with a live LLM backend.
 
-Tool/flow/data tests (SEC-TOOL-*, SEC-FLOW-*, SEC-DATA-PROV-001) do **not** use a live LLM; they are deterministic. The risk register bundle can still include evidence from runs that mix deterministic suite output and optional LLM-attacker or llm_live pack output.
+Tool, flow, and data tests (SEC-TOOL-*, SEC-FLOW-*, SEC-DATA-PROV-001) stay deterministic without a live LLM. The risk register bundle can still combine deterministic suite output with optional LLM-attacker or llm_live pack output.
 
 ## Running the security suite with LLM attacker
 

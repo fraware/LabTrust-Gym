@@ -4,7 +4,7 @@ Short reference for sites that need to align the simulation with local standards
 
 ## What to tune
 
-- **Critical thresholds:** Escalation tiers, max_ack_wait_s, required_fields, requires_readback. Affects when critical results trigger acknowledgment and escalation. Reference defaults are RCPath 2017 style; not clinically validated.
+- **Critical thresholds:** Escalation tiers, max_ack_wait_s, required_fields, requires_readback. Affects when critical results trigger acknowledgment and escalation. Reference defaults follow RCPath 2017 style and are intended for simulation calibration only.
 - **Stability and temperature rules:** Panel stability windows and temperature excursion handling. Affects when specimens are held or rejected for stability/temp.
 - **Equipment:** Device types and instances, cycle times, capacity. Affects simulated device service times and queue behavior (e.g. in simulated timing mode).
 - **Enforcement map:** Match invariant/severity/scope to throttle, kill_switch, freeze_zone, forensic_freeze; escalation tiers. Affects how violations are handled (e.g. throttle vs kill_switch).

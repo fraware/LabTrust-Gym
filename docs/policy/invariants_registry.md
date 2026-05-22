@@ -101,4 +101,4 @@ Invariant outcomes are reported in the step **violations** list with `invariant_
 
 ## Integration with core_env
 
-After each step with `status == ACCEPTED`, the engine calls `invariants_runtime.evaluate(env, event, result)` and merges returned violations with legacy violations by `invariant_id` (registry overwrites legacy for the same id). BLOCKED steps do not run registry checks. Gradually migrate: move checks from core_env into registry templates and remove legacy code; until then, both legacy and registry can produce violations for the same invariant (merge keeps registry version).
+After each step with `status == ACCEPTED`, the engine calls `invariants_runtime.evaluate(env, event, result)` and merges returned violations with legacy violations by `invariant_id` (registry overwrites legacy for the same id). BLOCKED steps skip registry checks. Migration moves checks from core_env into registry templates; until migration completes, both legacy and registry may emit violations for the same invariant, and the merge keeps the registry version.

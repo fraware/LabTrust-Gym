@@ -9,7 +9,7 @@ The suite needs packages in the **same Python environment** that runs `labtrust`
 - **Prompt-injection attacks (SEC-PI-001 to SEC-PI-004):** `pettingzoo` and `gymnasium`. Install with: `python -m pip install pettingzoo gymnasium` or `pip install -e ".[env]"`.
 - **Test-ref attacks (SEC-TOOL-001, SEC-TOOL-002, SEC-TOOL-003, SEC-COORD-001, etc.):** `pytest` (run as subprocess). Install with: `python -m pip install pytest` or `pip install -e ".[dev]"`.
 
-Full suite in current environment: `python -m pip install -e ".[dev,env]"`. If you use a virtual environment, activate it first. The suite uses the same observation shape as the PZ env for agent tests; it does not run the environment.
+Install the full suite in the current environment with `python -m pip install -e ".[dev,env]"`. Activate your virtual environment first when you use one. Agent and shield tests use the same observation shape as the PZ env without stepping the simulator.
 
 If you see **0/10 passed**, check `SECURITY/attack_results.json` in the output directory for each attack’s `error` field. Typical causes: missing pettingzoo/gymnasium or pytest in the environment that runs `labtrust`.
 
@@ -100,7 +100,7 @@ The `paper_v0.1` package-release profile runs the security suite (smoke-only, se
 
 ## Adversary search (optional extension)
 
-**Benchmark scope:** The official benchmark uses only the fixed injection set ([policy/coordination/injections.v0.2.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coordination/injections.v0.2.yaml) plus study spec) and fixed scenarios (`scenario_ref` from [policy/golden/prompt_injection_scenarios.v0.1.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/golden/prompt_injection_scenarios.v0.1.yaml), `llm_attacker` templates). There is **no black-box adversary search** in the benchmark; see [Coordination benchmark card – What this benchmark is NOT measuring](../coordination/coordination_benchmark_card.md#what-this-benchmark-is-not-measuring).
+**Benchmark scope:** The official benchmark uses only the fixed injection set ([policy/coordination/injections.v0.2.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coordination/injections.v0.2.yaml) plus study spec) and fixed scenarios (`scenario_ref` from [policy/golden/prompt_injection_scenarios.v0.1.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/policy/golden/prompt_injection_scenarios.v0.1.yaml), `llm_attacker` templates). There is **no black-box adversary search** in the benchmark; see [Coordination benchmark card – Out of scope for this benchmark](../coordination/coordination_benchmark_card.md#out-of-scope-for-this-benchmark).
 
 **Adversary search (optional):** As an **optional extension** for security-focused evaluators, "adversary search" means systematically exploring **prompt/instruction space** (e.g. mutated or sampled strings run through the same shield/decoder path as the suite) and/or **action/decision space** (e.g. action or bid variants) to find inputs that break policy or evade detection, beyond the fixed suite. This does not change the benchmark contract.
 

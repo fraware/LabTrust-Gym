@@ -11,7 +11,7 @@ For each implemented coordination method, this document states which algorithm i
 **Key invariants:**
 
 - **INV-ROUTE-001:** No two agents occupy the same (time, node) over the planned horizon. Enforced by WHCARouter reservation table and path search that avoids reserved (t, node) slots.
-- **INV-ROUTE-002:** Restricted door edges are never planned without a valid token. Router checks token/zone policy before adding restricted-door edges to the graph.
+- **INV-ROUTE-002:** Restricted door edges require a valid token before planning. The router checks token/zone policy before adding restricted-door edges to the graph.
 - **INV-ROUTE-SWAP** (swap-collision invariant): No two agents moving in opposite directions between the same two nodes at the same time. Checked in `routing/invariants.py` (check_swap_collision) and in the simplex shield when applied.
 
 **Where checked:**
@@ -28,7 +28,7 @@ For each implemented coordination method, this document states which algorithm i
 
 **Key invariants:**
 
-- **RBAC and tokens:** Allocator cannot assign work that would require an action disallowed by RBAC or missing token; bids and assignments respect role and token constraints.
+- **RBAC and tokens:** The allocator assigns only work permitted by RBAC and available tokens; bids and assignments respect role and token constraints.
 - **Bid budget:** At most `max_bids` bids per step; deterministic stable ordering.
 
 **Where checked:**
@@ -126,7 +126,7 @@ For each implemented coordination method, this document states which algorithm i
 
 ## Centralized and hierarchical methods
 
-- **kernel_centralized_edf / centralized_planner:** Greedy allocation + EDF scheduling + trivial or WHCA routing; colocation and priority (STAT/URGENT/ROUTINE) as documented. Invariants: engine-level (RBAC, tokens, colocation) enforced in core_env; coordination layer does not bypass them.
+- **kernel_centralized_edf / centralized_planner:** Greedy allocation + EDF scheduling + trivial or WHCA routing; colocation and priority (STAT/URGENT/ROUTINE) as documented. Invariants: engine-level (RBAC, tokens, colocation) enforced in core_env; the coordination layer stays within those constraints.
 - **hierarchical_hub_rr / hierarchical_hub_local:** Hub-to-cell assignment and local controllers; handoff protocol with ACK deadline. Invariants: handoff_ack_deadline, cross_region_handoffs; tests in test_hierarchy_handoff_protocol.py, test_hierarchy_determinism.py.
 
 ---

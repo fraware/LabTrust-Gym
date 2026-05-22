@@ -95,4 +95,4 @@ So: **queue head is consumed exactly when START_RUN is accepted** for that devic
 
 - **Contract version:** 0.1  
 - **Frozen:** After GS-002 (STAT insertion, `queue_head(DEV_CHEM_A_01) == 'S2'`) is green.  
-- **Later work:** May add options (e.g. fairness vs. latency vs. safety knobs, duplicate-work-id policy, or out-of-order start with violation) but must **not** weaken or contradict this contract without a version bump and changelog.
+- **Later work:** May add options (e.g. fairness vs. latency vs. safety knobs, duplicate-work-id policy, or out-of-order start with violation) under a new contract version with an explicit changelog entry.

@@ -42,9 +42,9 @@ Register extensions via `register_*` functions or setuptools entry_point groups.
 
 ## Internal / unstable
 
-Do **not** rely on runner internals, engine internals, or private attributes of envs. Rely on **BenchmarkEnv** and the documented entry points above. The following are **not** part of the public API and may change without notice:
+The stable surface is **BenchmarkEnv**, the contracts above, and the entry points listed on this page. The following may change without notice:
 
 - Concrete implementations inside `labtrust_gym.engine`, `labtrust_gym.benchmarks.runner` (internal step loop, timing logic), and private attributes of env classes (e.g. `_engine`, `_device_ids`).
-- Any module or symbol not listed on this page or in [Frozen contracts](../contracts/frozen_contracts.md) and [Extension development](../agents/extension_development.md).
+- Modules or symbols outside this page, [Frozen contracts](../contracts/frozen_contracts.md), and [Extension development](../agents/extension_development.md).
 
 When in doubt, use the CLI or the programmatic entry points and contracts listed here.

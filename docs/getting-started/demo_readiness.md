@@ -4,10 +4,10 @@ Checklist and notes to ensure the three presentation demos (Tier 1 full pipeline
 
 ## Demo prerequisites (all tiers)
 
-- **Policy:** From repo root, run `labtrust validate-policy`. Must exit 0. If not at repo root, set `LABTRUST_POLICY_DIR` to your policy directory.
-- **Install:** `pip install -e ".[dev,env,plots]"`. For Tier 1 with live LLM add `.[llm_openai]` or `.[llm_anthropic]` and set the corresponding API keys.
-- **CLI smoke:** `labtrust --version` and `labtrust quick-eval --seed 42` must succeed. Quick-eval is the minimal smoke for the benchmark stack.
-- **CWD:** Run all commands from the repo root (or with `LABTRUST_POLICY_DIR` set). Otherwise you may see `PolicyPathError` (policy directory not found).
+- **Policy** — From repo root, run `labtrust validate-policy` (exit code 0). When you work outside the repo root, set `LABTRUST_POLICY_DIR` to your policy directory.
+- **Install** — `pip install -e ".[dev,env,plots]"`. For Tier 1 with a live LLM, add `.[llm_openai]` or `.[llm_anthropic]` and set the corresponding API keys.
+- **CLI smoke** — `labtrust --version` and `labtrust quick-eval --seed 42` must succeed. Quick-eval is the minimal smoke for the benchmark stack.
+- **Working directory** — Run all commands from the repo root, or set `LABTRUST_POLICY_DIR` so the CLI can resolve policy and avoid `PolicyPathError`.
 
 Before the presentation, run the verification script to confirm the environment is ready:
 
@@ -23,7 +23,7 @@ On Windows (PowerShell):
 
 ## Demo on Windows
 
-On Windows, two system-level security attacks (SEC-COORD-MATRIX-001, SEC-COORD-PACK-MULTI-AGENTIC) can fail with a file-lock error on `episodes.jsonl` during the coordination pack run ("The process cannot access the file because it is being used by another process"). The agent/shield layer passes; the failure is environmental, not a control failure.
+On Windows, two system-level security attacks (SEC-COORD-MATRIX-001, SEC-COORD-PACK-MULTI-AGENTIC) can fail with a file-lock error on `episodes.jsonl` during the coordination pack run ("The process cannot access the file because it is being used by another process"). The agent and shield layers still pass; the failure comes from the Windows file-lock environment.
 
 For a clean demo on Windows you can:
 
@@ -38,7 +38,7 @@ The full pipeline writes coordination pack outputs under a subdirectory: `<out>/
 labtrust export-risk-register --out <dir> --runs <full_out> --runs <full_out>/coordination_pack
 ```
 
-Example: if you ran `python scripts/run_hospital_lab_full_pipeline.py --out demo_out/full --include-coordination-pack`, then:
+If you ran `python scripts/run_hospital_lab_full_pipeline.py --out demo_out/full --include-coordination-pack`, run:
 
 ```bash
 labtrust export-risk-register --out demo_out/risk_out --runs demo_out/full --runs demo_out/full/coordination_pack
@@ -46,7 +46,7 @@ labtrust export-risk-register --out demo_out/risk_out --runs demo_out/full --run
 
 ## Verification chain (trustworthiness demo)
 
-The full pipeline output does not contain `receipts/` (EvidenceBundles). Only `labtrust package-release` produces those. For the verify-release step of the demo, use a separate package-release run:
+The full pipeline output omits `receipts/` (EvidenceBundles); `labtrust package-release` creates them. For the verify-release step of the demo, run package-release separately:
 
 ```bash
 labtrust package-release --profile minimal --seed-base 100 --out demo_out/release

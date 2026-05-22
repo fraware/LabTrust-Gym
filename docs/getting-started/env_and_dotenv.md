@@ -4,12 +4,7 @@ LabTrust-Gym loads API keys from a `.env` file in the repo root (or from the env
 
 ## Two Pythons, one dotenv
 
-If you see:
-
-- `pip install python-dotenv` reports "Requirement already satisfied" (e.g. in `miniconda3\lib\site-packages`)
-- but `python -c "from dotenv import load_dotenv"` fails with `ModuleNotFoundError: No module named 'dotenv'`
-
-then `pip` and `python` are using different environments. `python-dotenv` is installed for one interpreter but you are running another.
+You may see `pip install python-dotenv` report "Requirement already satisfied" (for example in `miniconda3\lib\site-packages`) while `python -c "from dotenv import load_dotenv"` fails with `ModuleNotFoundError: No module named 'dotenv'`. That pattern means `pip` and `python` point at different environments, so `python-dotenv` is installed for one interpreter while you run another.
 
 ## Fix: install in the environment that runs `labtrust`
 
@@ -20,7 +15,7 @@ Use the **same** interpreter for both installing and running:
 python -m pip install python-dotenv
 ```
 
-Or install/reinstall the project so its dependencies (including `python-dotenv`) are in the active environment:
+You can also install or reinstall the project so its dependencies (including `python-dotenv`) land in the active environment:
 
 ```powershell
 # From repo root, with your venv/conda env activated

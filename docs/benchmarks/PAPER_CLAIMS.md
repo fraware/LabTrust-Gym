@@ -35,7 +35,7 @@ See [Paper provenance](paper/README.md) for commands that generate figures and t
 
 ## Paper claims regression gate
 
-Paper-facing outputs (summary, safety case, coverage, risk register) are gated by a committed snapshot so PRs cannot change them without an explicit snapshot update.
+Paper-facing outputs (summary, safety case, coverage, risk register) are gated by a committed snapshot; PRs need an explicit snapshot update before those artifacts change.
 
 - **Committed snapshot:** `tests/fixtures/paper_claims_snapshot/v0.1/` (snapshot_manifest.json and optional summary.csv).
 - **Extract script:** `python scripts/extract_paper_claims_snapshot.py <release_dir> [--out <dir>]` writes a deterministic snapshot from a paper_v0.1 release (default out: `tests/fixtures/paper_claims_snapshot/v0.1`).

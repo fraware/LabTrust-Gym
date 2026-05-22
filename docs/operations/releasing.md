@@ -4,7 +4,7 @@ This document is the maintainer checklist for tagging a release. It complements 
 
 ## What the workflow does
 
-On push of a tag matching `v*`:
+When you push a tag matching `v*`, the workflow runs these steps.
 
 1. **Build** — Copies `policy/` into `src/labtrust_gym/policy/`, runs `python -m build`, writes `release-assets/SHA256SUMS.txt` (hashes of wheel + sdist only), and `release-assets/policy-bundle-<tag>.tar.gz`.
 2. **Publish** — Uploads **only** the contents of `dist/` (wheel + sdist) to PyPI using [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC). No long-lived PyPI token is required in the repo once PyPI is configured.
@@ -44,8 +44,9 @@ Do these in order; adjust if you use a release branch instead of `main`.
 4. **Security contacts** — Confirm [SECURITY.md](https://github.com/fraware/LabTrust-Gym/blob/main/SECURITY.md) points at the **public** repo (`fraware/LabTrust-Gym`) and the private advisory URL is correct.
 5. **Docs and links** — README and `[project.urls]` in `pyproject.toml` should use the canonical documentation URL ([published site](https://fraware.github.io/LabTrust-Gym/)) and matching repository URL.
 6. **Local install smoke** — Build locally (`python -m build`), create a fresh venv, `pip install dist/*.whl`, then `labtrust --version` and one fast path from the README (e.g. `labtrust quick-eval` with `[env,plots]` if needed).
-7. **Trust verification (strongly recommended)** — For a `package-release` output, run `labtrust verify-release` with `--strict-fingerprints` as in [Trust verification](../risk-and-security/trust_verification.md).
-8. **Tag** — `git tag -a vX.Y.Z -m "Release vX.Y.Z"` and `git push origin vX.Y.Z` (or push the tag from CI after merge, per team practice).
+7. **PCS gate (when PCS paths changed)** — From a clean checkout with sibling `pcs-core`: `bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh` and `make pcs-verify`. See [PCS overview](../pcs/index.md).
+8. **Trust verification (strongly recommended)** — For a `package-release` output, run `labtrust verify-release` with `--strict-fingerprints` as in [Trust verification](../risk-and-security/trust_verification.md).
+9. **Tag** — `git tag -a vX.Y.Z -m "Release vX.Y.Z"` and `git push origin vX.Y.Z` (or push the tag from CI after merge, per team practice).
 
 ## After the tag
 

@@ -15,10 +15,10 @@ Single place for "If you want to see X, run Y." All demos are deterministic; run
 
 ### What success looks like
 
-- **Quick sanity check:** Exit code 0; a markdown summary is printed and logs appear under `./labtrust_runs/quick_eval_<timestamp>/` (including `summary.md`).
-- **Forker quickstart:** Exit code 0; output dir contains `pack/pack_summary.csv`, `pack/pack_gate.md`, and `risk_out/RISK_REGISTER_BUNDLE.v0.1.json`. You can inspect gate verdicts in `pack_gate.md`.
-- **Official pack with coordination pack:** Exit code 0; output dir has baselines, `SECURITY/`, `SAFETY_CASE/`, and (with `--include-coordination-pack`) a coordination pack with `pack_summary.csv` and `pack_gate.md`. Run `labtrust ui-export --run <dir> --out <zip>` to produce a UI bundle with coordination_artifacts and `coordination/graphs/` HTML charts for the portal ([Frontend handoff](../reference/frontend_handoff_ui_bundle.md)).
-- **Paper-ready artifact and verify:** `package-release` exits 0 and writes the release to `<dir>`. `verify-release` prints a summary and exits 0; all EvidenceBundles and RELEASE_MANIFEST validate.
+- **Quick sanity check** — Exit code 0; a markdown summary is printed and logs appear under `./labtrust_runs/quick_eval_<timestamp>/` (including `summary.md`).
+- **Forker quickstart** — Exit code 0; output dir contains `pack/pack_summary.csv`, `pack/pack_gate.md`, and `risk_out/RISK_REGISTER_BUNDLE.v0.1.json`. You can inspect gate verdicts in `pack_gate.md`.
+- **Official pack with coordination pack** — Exit code 0; output dir has baselines, `SECURITY/`, `SAFETY_CASE/`, and (with `--include-coordination-pack`) a coordination pack with `pack_summary.csv` and `pack_gate.md`. Run `labtrust ui-export --run <dir> --out <zip>` to produce a UI bundle with coordination_artifacts and `coordination/graphs/` HTML charts for the portal ([Frontend handoff](../reference/frontend_handoff_ui_bundle.md)).
+- **Paper-ready artifact and verify** — `package-release` exits 0 and writes the release to `<dir>`. `verify-release` prints a summary and exits 0; all EvidenceBundles and RELEASE_MANIFEST validate.
 
 ## See also
 

@@ -1,6 +1,6 @@
 # Scripted baseline policy contract
 
-Scripted ops and runner agents can be configured via YAML policy files. No file or empty file => in-code defaults.
+Scripted ops and runner agents can be configured via YAML policy files. When the policy file is missing or empty, in-code defaults apply.
 
 ## Paths
 

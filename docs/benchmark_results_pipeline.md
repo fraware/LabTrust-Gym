@@ -68,7 +68,7 @@ If the process is killed before Python reaches the end of `main()`, run `benchma
 
 ## Interpreting PASS vs outcomes
 
-Strict **PASS** in the orchestrator checks **live harness** requirements (backend, calls, error rate, tokens/latency evidence for LLM methods). It does **not** require non-zero throughput or transport. Use the **Analysis highlights** section and outcome charts for task-level comparison.
+Strict **PASS** in the orchestrator checks **live harness** requirements (backend, calls, error rate, tokens/latency evidence for LLM methods). Throughput and transport sit outside that gate. Use the **Analysis highlights** section and outcome charts for task-level comparison.
 
 ## Python API
 

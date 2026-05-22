@@ -1,6 +1,6 @@
 # Output controls (B009)
 
-This document describes how to limit output over-exposure for online endpoints and public artifacts: summary views by default, role-based access to full logs, and obfuscation options. Same pipeline is used for B003 (public release) and B009 (online endpoints).
+This document describes how to limit output over-exposure for online endpoints and public artifacts. It covers summary views by default, role-based access to full logs, and obfuscation options. The same pipeline serves B003 (public release) and B009 (online endpoints).
 
 ## Design principle
 
@@ -14,7 +14,7 @@ This document describes how to limit output over-exposure for online endpoints a
 - Payload shape: `{ "summary": { "n_episodes", "throughput_mean", "violations_total", "blocked_count", "blocked_by_reason_code", "violations_by_invariant_id", "steps_total", ... } }`.
 - Available to **viewer** role (and above). Safe for leaderboards and run summaries.
 
-### Full logs and receipts: admin only
+### Full logs and receipts (admin only)
 
 - **GET /v0/episode-log** returns raw episode log entries. **Requires admin role.** Viewer and runner receive **403 Forbidden**.
 - **GET /v0/export** (and future artifact export endpoints) are **admin-only** (B007).
@@ -34,7 +34,7 @@ These can be wired to policy or environment (e.g. `LABTRUST_OBFUSCATE_SPECIMEN_I
 
 ## Forbidden fields in summary
 
-The following must **not** appear in viewer-facing or public summary output (enforced by `summary_contains_no_forbidden_fields` and by building summaries explicitly):
+Viewer-facing and public summary output must exclude the fields below (enforced by `summary_contains_no_forbidden_fields` and by building summaries explicitly):
 
 - Raw **signature**, **prompt**, **raw_prompt**, **raw_response**, **response**
 - **api_key**, **secret**, **password**, **token**, **private_key**

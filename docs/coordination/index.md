@@ -1,6 +1,6 @@
 # Coordination
 
-Coordination at scale: methods, scale configs, matrix, studies, and benchmark cards. Coordination methods used for comparison in this repo are **LLM-based** (see `policy/coordination/coordination_methods.v0.1.yaml`: `llm_based: true`); the goal of multiple methods is to compare LLM coordination strategies on the same baseline. Kernel and deterministic baselines are components or building blocks, not coordination methods for comparison.
+Coordination at scale covers methods, scale configs, matrices, studies, and benchmark cards. Coordination methods used for comparison in this repository are **LLM-based** (see `policy/coordination/coordination_methods.v0.1.yaml` with `llm_based: true`); the goal of multiple methods is to compare LLM coordination strategies on the same baseline. Kernel and deterministic baselines act as components or building blocks and sit outside the coordination-method comparison set.
 
 ## Methods and scale
 
@@ -9,7 +9,7 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Coordination methods](coordination_methods.md) | Baselines and methods at scale. |
 | [How coordination methods work (detailed)](coordination_methods_how_they_work.md) | Algorithms, data flow, invariants, and design choices for every method. |
 | [Coordination method contract (v0.1)](coordination_method_contract.md) | Method contract and schema. |
-| [Coordination and environment](coordination_and_env.md) | Data flow: runner owns env; coord methods never call env. |
+| [Coordination and environment](coordination_and_env.md) | Data flow where the runner owns the env and coordination methods return action dicts only. |
 | [Coordination scale](coordination_scale.md) | Scale generator and configs. |
 | [Coordination matrix](coordination_matrix.md) | Matrix build and usage. |
 | [Coordination matrix contract (v0.1)](coordination_matrix_contract.md) | Matrix contract. |
@@ -17,7 +17,7 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Learning methods implementation strategy](learning_methods_implementation_strategy.md) | Implementation strategy for learning-based methods. |
 | [Handoff protocol](handoff_protocol.md) | Hub-to-region handoff and ACK protocol. |
 | [Multi-LLM protocols](multi_llm_protocols.md) | Multi-LLM coordination protocols. |
-| [Phase 5 LLM upgrades](phase5_llm_upgrades.md) | Phase 5 LLM coordination upgrades. |
+| [LLM method upgrades](phase5_llm_upgrades.md) | Definition of done for LLM coordination method upgrades. |
 
 ## Studies and reports
 
@@ -26,7 +26,7 @@ Coordination at scale: methods, scale configs, matrix, studies, and benchmark ca
 | [Coordination studies](coordination_studies.md) | Run studies, Pareto, summarization; SOTA leaderboard (main + full), method-class comparison; output layout and summarize-coordination. |
 | [Coordination benchmark card](coordination_benchmark_card.md) | Task G/H and metrics; SOTA and method-class report artifacts. |
 | [Coordination methods audit](coordination_methods_audit.md) | Method audit. |
-| [Generalization and limits](generalization_and_limits.md) | What was tested, what was not; comparison with other benchmarks. |
+| [Generalization and limits](generalization_and_limits.md) | Tested scope, out-of-scope items, and comparison with other benchmarks. |
 
 ## Risk and coverage
 

@@ -1,6 +1,6 @@
 # Tool registry: SBOM and attestation (optional extensions)
 
-This document describes optional extensions to the tool registry for state-of-the-art coverage of **R-TOOL-003 (Unverified tool risk)** and **R-TOOL-006 (Tool vulnerability exploitation)**: SBOM (Software Bill of Materials), attestation, and publisher verification. The current suite evidences R-TOOL-003 via **SEC-TOOL-UNVERIFIED-001** (unregistered tool denied); these extensions are roadmap improvements.
+This document describes optional extensions to the tool registry for state-of-the-art coverage of **R-TOOL-003 (Unverified tool risk)** and **R-TOOL-006 (Tool vulnerability exploitation)**. Extensions include SBOM (Software Bill of Materials), attestation, and publisher verification. The current suite evidences R-TOOL-003 via **SEC-TOOL-UNVERIFIED-001** (unregistered tool denied); the extensions below are roadmap improvements.
 
 ## Current controls
 

@@ -1,6 +1,6 @@
 # Method and pack matrix view
 
-Two matrix views support coordination methods and the security suite: **method x risk coverage** and **pack matrix (method x scale x injection)**. Both are policy-driven and can be rendered as markdown tables or exported to CSV for Excel. The pack matrix depends on **scale (number of agents)**, which is important for the pathology lab (blood sciences) taxonomy.
+Two matrix views support coordination methods and the security suite. The **method x risk coverage** matrix and the **pack matrix (method x scale x injection)** are both policy-driven and can be rendered as markdown tables or exported to CSV for Excel. The pack matrix depends on **scale (number of agents)**, which matters for the pathology lab (blood sciences) taxonomy.
 
 ## 1. Method x risk coverage matrix
 

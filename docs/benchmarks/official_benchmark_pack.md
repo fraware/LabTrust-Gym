@@ -17,7 +17,7 @@ Pack definition (llm_live): `policy/official/benchmark_pack.v0.2.yaml` (loaded w
 - **security_suite**: smoke (enabled by default), full (optional)
 - **required_reports**: security, safety_case, transparency_log
 
-v0.2 adds **live_coordination_evaluation_protocol** with required_metadata_fields (model_id, temperature, tool_registry_fingerprint, allow_network), cost_accounting, and reproducibility_expectations (same seed/model/policy give comparable but not bit-identical results; attestation via hashes only).
+v0.2 adds **live_coordination_evaluation_protocol** with required_metadata_fields (model_id, temperature, tool_registry_fingerprint, allow_network), cost_accounting, and reproducibility_expectations (same seed/model/policy give comparable runs with hash-based attestation; live LLM output is comparable across runs, not byte-identical).
 
 ## Exact command
 
@@ -29,9 +29,9 @@ labtrust run-official-pack --out <dir> --seed-base N
 - **`--seed-base`** (default: 100): Base seed for deterministic runs.
 - **`--smoke`**: Use smoke settings (fewer episodes, security smoke-only). Default when `LABTRUST_OFFICIAL_PACK_SMOKE=1` or `LABTRUST_PAPER_SMOKE=1`.
 - **`--no-smoke`**: Disable smoke; run full pack (more episodes).
-- **`--full`**: Run full security suite instead of smoke-only.
+- **`--full`**. Run the full security suite (smoke-only is the default without this flag).
 - **`--pipeline-mode`**: `deterministic` (default) or `llm_live`. With `llm_live`, the pack loads v0.2 policy, runs baselines with a live LLM backend, writes `TRANSPARENCY_LOG/llm_live.json` (prompt hashes, tool registry fingerprint, model identifiers, latency/cost stats; no sensitive prompt text) and `live_evaluation_metadata.json` (model_id, temperature, tool_registry_fingerprint, allow_network).
-- **`--llm-backend`**: When `--pipeline-mode llm_live`, which backend to use: `openai_live`, `anthropic_live`, or `ollama_live`. Default is `openai_live` if not set. Requires the corresponding extra (e.g. `.[llm_anthropic]`) and env vars (e.g. `ANTHROPIC_API_KEY`).
+- **`--llm-backend`.** When `--pipeline-mode llm_live`, which backend to use: `openai_live`, `anthropic_live`, or `ollama_live`. Default is `openai_live`. Requires the corresponding extra (e.g. `.[llm_anthropic]`) and env vars (e.g. `ANTHROPIC_API_KEY`).
 - **`--allow-network`**: Allow network access (required for llm_live when using a remote API).
 - **`--include-coordination-pack`**: Run the coordination security pack into `coordination_pack/` and build the lab report there (pack_summary.csv, pack_gate.md, SECURITY/coordination_risk_matrix.*, LAB_COORDINATION_REPORT.md, COORDINATION_DECISION.*). Uses the pack policy `coordination_pack.matrix_preset` (default `hospital_lab`) when set; otherwise you can enable it in `policy/official/benchmark_pack.v0.1.yaml` with `coordination_pack: { enabled: true, matrix_preset: hospital_lab }`. See [Coordination studies](../coordination/coordination_studies.md) and [Hospital lab full pipeline](hospital_lab_full_pipeline.md).
 

@@ -1,6 +1,6 @@
 # Generalization and limits
 
-What was tested, what was not, and how to compare with other benchmarks.
+What was tested, what lies outside scope, and how to compare with other benchmarks.
 
 ## What was tested
 
@@ -30,18 +30,18 @@ The study spec's `injections` list and [policy/coordination/injections.v0.2.yaml
 
 ### Cells and metrics
 
-Results (throughput, violations, resilience, sec.*) are defined only for cells (scale_id, method_id, injection_id) that appear in the study or pack matrix. No claim is made for cells outside that matrix.
+Results (throughput, violations, resilience, sec.*) apply to cells (scale_id, method_id, injection_id) that appear in the study or pack matrix; cells outside that matrix lie outside the documented claims.
 
-## What was not tested / out of scope
+## Out of scope
 
-- **Scales or topologies not in the grid:** e.g. 500+ agents, 5+ sites, or different role mixes and device counts than those in scale_configs.v0.1.yaml.
-- **Injection types or parameters not in the injection list:** no claim for "all possible" or "similar" attacks; only the configured injection IDs and their parameters are exercised.
-- **Extrapolation:** no claim that a method that wins on the tested grid is best at other scales or under other threat models.
+- **Scales or topologies outside the grid**, such as 500+ agents, 5+ sites, or role mixes and device counts beyond those in `scale_configs.v0.1.yaml`.
+- **Injection types or parameters outside the injection list.** Claims cover only the configured injection IDs and their parameters, not open-ended attack families.
+- **Extrapolation.** Results on the tested grid do not establish performance at other scales or under other threat models.
 - **Comparison with other benchmarks:** when comparing to other benchmarks, align scale and threat model (injection set) or state differences explicitly. This benchmark reports only for the specified scale grid and injection list.
 
 ## References
 
-- [Coordination benchmark card](coordination_benchmark_card.md) – "What this benchmark is NOT measuring"
+- [Coordination benchmark card](coordination_benchmark_card.md) – Out of scope for this benchmark
 - [Coordination studies](coordination_studies.md) – study spec and matrix
 - [Coordination scale](coordination_scale.md) and [Scale and operational limits](../benchmarks/scale_operational_limits.md)
 - [State of the art and limits](../reference/state_of_the_art_and_limits.md)

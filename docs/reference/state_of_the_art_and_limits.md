@@ -4,9 +4,9 @@ This document tracks what is state of the art (SOTA), what is deployment ready, 
 
 ## State of the art (implemented or documented)
 
-### Scripted baselines (reference, not SOTA)
+### Scripted baselines (reference implementations)
 
-- **Scripted baselines** are intentionally not state of the art; they are the reference policy for deterministic benchmarking and regression. When no LLM or MARL is used, all four roles (ops, runners, QC, supervisor) are driven by ScriptedOpsAgent, ScriptedRunnerAgent, ScriptedQcAgent, and ScriptedSupervisorAgent. See [Scripted baselines](../agents/scripted_baselines.md).
+- **Scripted baselines** serve as the reference policy for deterministic benchmarking and regression, distinct from state-of-the-art coordination methods. When no LLM or MARL is used, all four roles (ops, runners, QC, supervisor) are driven by ScriptedOpsAgent, ScriptedRunnerAgent, ScriptedQcAgent, and ScriptedSupervisorAgent. See [Scripted baselines](../agents/scripted_baselines.md).
 
 ### Global rate limiter
 
@@ -30,7 +30,7 @@ This document tracks what is state of the art (SOTA), what is deployment ready, 
 
 ### Debate / multi-round protocols
 
-- **Current:** Debate aggregation is deterministic (majority) by default. When `coord_debate_aggregator: llm` and an aggregator backend is configured (e.g. via scale_config or params.aggregator_backend), an LLM merges N proposals into one; on parse/generate failure the method falls back to majority. round_robin is N bidder calls then merge, not full multi-round negotiation. Documented in coordination and llm_coord_trials docs.
+- **Current:** Debate aggregation is deterministic (majority) by default. When `coord_debate_aggregator: llm` and an aggregator backend is configured (e.g. via scale_config or params.aggregator_backend), an LLM merges N proposals into one; on parse/generate failure the method falls back to majority. `round_robin` runs N bidder calls then merges in a single step (no multi-round negotiation loop). Documented in coordination and llm_coord_trials docs.
 
 ### Standards of excellence: vectorized envs
 
@@ -38,9 +38,9 @@ This document tracks what is state of the art (SOTA), what is deployment ready, 
 
 ## Deployment readiness
 
-- **Threat model / disclaimer:** "Deployment, key management, and operational security are the responsibility of integrators. The threat model describes what the simulation enforces, not production hardening." Passing all sim tests and gates does **not** imply production safety. See [Systems and threat model](../architecture/systems_and_threat_model.md) and [Threat model](../architecture/threat_model.md).
-- **Production checklist:** Treat simulation as one input to assurance, not the whole story. Before production: calibrate thresholds for your environment; run red-team or penetration tests in staging; define production monitoring and rollback. See [Threat model](../architecture/threat_model.md), [Policy pack](../policy/policy_pack.md), and [Production runbook](../operations/production_runbook.md).
-- **Critical thresholds:** Shipped thresholds are reference defaults (e.g. RCPath 2017 style), not clinically validated. For production, calibrate per [Policy pack](../policy/policy_pack.md) and production calibration.
+- **Threat model / disclaimer:** Deployment, key management, and operational security are the integrator's responsibility. The threat model describes what the simulation enforces; production hardening is a separate assurance activity. Passing all sim tests and gates is necessary for release confidence and insufficient alone for production safety. See [Systems and threat model](../architecture/systems_and_threat_model.md) and [Threat model](../architecture/threat_model.md).
+- **Production checklist:** Treat simulation as one input to assurance alongside site calibration, staging red-team or penetration tests, and production monitoring with rollback. See [Threat model](../architecture/threat_model.md), [Policy pack](../policy/policy_pack.md), and [Production runbook](../operations/production_runbook.md).
+- **Critical thresholds:** Shipped thresholds are reference defaults (e.g. RCPath 2017 style) for simulation. For production, calibrate per [Policy pack](../policy/policy_pack.md) and production calibration.
 - **Default .env loading:** The CLI loads `.env` at startup from the current directory (or `LABTRUST_DOTENV_PATH`), so API keys in `.env` are available for live LLM without sourcing manually. See [Installation](../getting-started/installation.md).
 - **CI and production:** CI is described for merge gates; production use of live LLM/network is left to operators. See [CI](../operations/ci.md).
 - **Security gate:** No method is recommended for deployment until the coordination security gate passes. See [How to handle security gate failures](../operations/howto_security_gate_failures.md).

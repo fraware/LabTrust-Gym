@@ -7,18 +7,18 @@ For a **detailed description of how each method works** (algorithms, data flow, 
 ## Interface
 
 - **CoordinationMethod**: `method_id`, `reset(seed, policy, scale_config)`, `propose_actions(obs, infos, t) -> dict[agent_id, action_dict]`, optional `on_step_result(step_outputs)`. Kernel-composed methods also implement `step(context) -> (actions, CoordinationDecision)` for decision tracing.
-- **action_dict**: At least `action_index` (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN); optionally `action_type`, `args`, `reason_code`, `token_refs` for engine events. Actions are schema-valid and do not bypass RBAC or signature rules.
+- **action_dict**: At least `action_index` (0=NOOP, 1=TICK, 2=QUEUE_RUN, 3=MOVE, 4=OPEN_DOOR, 5=START_RUN); optionally `action_type`, `args`, `reason_code`, `token_refs` for engine events. Actions are schema-valid and remain subject to RBAC and signature rules.
 - **combine_submissions(submissions, obs, infos, t)** (optional): Combines per-agent submissions into a joint action dict. Used at scale when simulation-centric has N > N_max (per-agent policies) or agent-centric multi-agentic (N agent backends). Submission shape per method is defined in `policy/coordination/coordination_submission_shapes.v0.1.yaml`: `action` (default), `bid` (auction methods), or `vote` (consensus). Default implementation treats each submission as an action_dict and fills missing agents with NOOP.
 
 ### Where coordination runs
 
-Coordination is **not** in the CLI. The CLI only parses arguments and invokes the runner (e.g. `run_benchmark`, `run_coordination_study`). The **runner** (`src/labtrust_gym/benchmarks/runner.py`) builds one `coord_method_instance` and a `scripted_agents_map`. The **episode loop** inside the runner does the following each step:
+Coordination runs inside the **runner**, outside the CLI. The CLI parses arguments and invokes the runner (e.g. `run_benchmark`, `run_coordination_study`). The **runner** (`src/labtrust_gym/benchmarks/runner.py`) builds one `coord_method_instance` and a `scripted_agents_map`. The **episode loop** inside the runner does the following each step:
 
 - If the method has `step(context)`: calls `coord_method.step(context)` (kernel-composed).
 - Else if the method has repair and `_backend.generate_proposal`: runs `run_proposal_with_repair` with an internal `_propose_fn` that calls the coordinator backend's `generate_proposal(...)`.
 - Else: calls `coord_method.propose_actions(obs_for_step, infos, step_t)`.
 
-So one step = runner gets obs -> coord method calls backend(s) -> one or N LLM call(s) -> joint decision -> runner maps to per-agent actions -> env step. The CLI never sees per-step observations or LLM calls. The **propose_actions** (and step(context)) path does not run a runner-level shield; coordination methods are expected to produce valid actions. The engine still enforces RBAC and invariants on every action. Integrators who cannot assume a trusted coordinator should use agent-centric or combine path, or set `apply_runner_shield_on_propose_actions: true` in scale_config when implemented. See [Design choices](../architecture/design_choices.md) section 4.2 and 4.3.
+So one step = runner gets obs -> coord method calls backend(s) -> one or N LLM call(s) -> joint decision -> runner maps to per-agent actions -> env step. Per-step observations and LLM calls stay inside the runner; the CLI sees only run-level arguments and outputs. The **propose_actions** (and `step(context)`) path omits a runner-level shield; coordination methods are expected to produce valid actions, and the engine still enforces RBAC and invariants on every action. Integrators who need an extra guard on coordinator output should use the agent-centric or combine path, or set `apply_runner_shield_on_propose_actions: true` in scale_config when implemented. See [Design choices](../architecture/design_choices.md) section 4.2 and 4.3.
 
 ```mermaid
 flowchart LR
@@ -67,7 +67,7 @@ Run with: `labtrust run-benchmark --task coord_scale --coord-method kernel_centr
 
 ## Event-sourced blackboard and partial observability
 
-Instead of "agents magically see global state", coord_scale/coord_risk can use an explicit **BlackboardLog** and **ViewReplicas** so coordination is evaluated under configurable comms semantics:
+coord_scale/coord_risk can use an explicit **BlackboardLog** and **ViewReplicas** so coordination is evaluated under configurable comms semantics with partial observability:
 
 - **BlackboardLog** (`src/labtrust_gym/coordination/blackboard.py`): Append-only events (facts) with deterministic ordering and replay. Each event has id, t_event, t_emit, type, payload_hash, payload_small. Head hash chains events for integrity.
 - **ViewReplica** (`views.py`): Per-agent local view that lags behind the global log. `apply(event)` updates from a delivered event; `snapshot()` returns minimal state (queue_heads, zone_occupancy, device_status, specimen_statuses) used by policies.
@@ -109,7 +109,7 @@ Operations-research-grade baseline: **CentralizedAllocator** + **ORScheduler** (
 
 ### 0c. kernel_auction_edf / kernel_auction_whca (market-based allocator)
 
-Kernel-composed methods: **AuctionAllocator** (sealed-bid auction) + EDFScheduler + TrivialRouter or WHCARouter. Allocation is no longer heuristic-only: each agent bids based on distance-to-work (routing graph), queue load, role constraints, and congestion-aware price signals (zone congestion, device queue price). Auction runs with a strict bid budget (`max_bids` per step); deterministic stable ordering and seeded tie-breaks. RBAC and token constraints are respected (allocator cannot assign forbidden actions). Metrics: `coordination.alloc` with **gini_work_distribution**, **mean_bid**, **rebid_rate**, and optional **alloc_emits** (e.g. BID_ANOMALY_DETECTED).
+Kernel-composed methods: **AuctionAllocator** (sealed-bid auction) + EDFScheduler + TrivialRouter or WHCARouter. Allocation uses sealed bids: each agent bids based on distance-to-work (routing graph), queue load, role constraints, and congestion-aware price signals (zone congestion, device queue price). Auction runs with a strict bid budget (`max_bids` per step); deterministic stable ordering and seeded tie-breaks. RBAC and token constraints limit assignments to permitted actions. Metrics: `coordination.alloc` with **gini_work_distribution**, **mean_bid**, **rebid_rate**, and optional **alloc_emits** (e.g. BID_ANOMALY_DETECTED).
 
 **Bid anomaly detector**: When enabled (default), outlier low bids are flagged (emit BID_ANOMALY_DETECTED, reason_code BID_ANOMALY_SPOOF_SUSPECTED); the flagged agent is contained (bids ignored for K steps). **INJ-BID-SPOOF-001**: Compromised agent publishes artificially low bids (injection via `scale_config.injection_id`); detector mitigates by containment. Method-risk matrix: market allocator partially covers congestion (R-FLOW-002), vulnerable to bid spoof (R-DATA-001) unless detector enabled. coord_risk smoke: run with `--coord-method kernel_auction_edf --injection INJ-BID-SPOOF-001`; results include `coordination.alloc`. See `tests/test_auction_respects_rbac.py`, `tests/test_bid_spoof_detection.py`.
 
@@ -197,7 +197,7 @@ Priority-weighted stigmergy: pheromone per zone with decay; deposit on QUEUE_RUN
 
 ### 6. marl_ppo
 
-If Stable-Baselines3 (and gymnasium) is installed, reuses the existing PPO policy wrapper for evaluation. If not installed, a fallback raises a clear error and the method is skipped in studies unless the `[marl]` extra is present.
+When Stable-Baselines3 (and gymnasium) is installed, reuses the existing PPO policy wrapper for evaluation. Without those dependencies, a fallback raises a clear error and the method is skipped in studies unless the `[marl]` extra is present.
 
 **Expected vulnerabilities**: R-DATA-002, R-FLOW-002, R-TOOL-004.
 
@@ -227,7 +227,7 @@ Base plan is produced by a deterministic kernel method (default: **kernel_whca**
 ## Usage
 
 - **CLI**: `labtrust run-benchmark --task coord_scale --coord-method centralized_planner --episodes 1 --seed 42 --out results.json`
-- **Runner**: For coord_scale and coord_risk, when `--coord-method` is set, the benchmark uses the chosen coordination method to drive all agents; actions are converted to `(action_index, action_info)` and passed to `env.step()`. RBAC and signature rules are not bypassed; the env and engine enforce them as for scripted/LLM baselines.
+- **Runner**: For coord_scale and coord_risk, when `--coord-method` is set, the benchmark uses the chosen coordination method to drive all agents; actions are converted to `(action_index, action_info)` and passed to `env.step()`. RBAC and signature rules apply on every step; the env and engine enforce them as for scripted/LLM baselines.
 
 ## Coordination done checklist
 
@@ -254,7 +254,7 @@ This subsection lists which tests cover coordinator guardrails and multi-LLM (ro
 
 4. **How to run:** Offline: `pytest tests/test_coordinator_guardrails_e2e.py tests/test_coord_llm_auction_bidder_smoke.py tests/test_coord_llm_debate_smoke.py tests/test_coord_llm_agentic_smoke.py -v`. Live coord tests: `pytest tests/test_openai_live.py -m live -v`. To run only coordinator guardrails and multi-LLM tests: `pytest tests/ -k "guardrail or round_robin or attribution_structure or coord_llm_auction_bidder or coord_llm_debate or coord_llm_agentic or guardrail_trigger" -v`.
 
-Optionally, `pytest -q tests/test_coordination_*` (or the explicit list above) covers coordinator guardrails and multi-LLM; no separate CI job is required unless desired. In CI, the same `-k` subset can be used to run only these tests (e.g. Coordinator guardrails and multi-LLM: `test_coordinator_guardrails*`, `test_coord_llm_*`).
+Optionally, `pytest -q tests/test_coordination_*` (or the explicit list above) covers coordinator guardrails and multi-LLM; a dedicated CI job is optional. In CI, the same `-k` subset can be used to run only these tests (e.g. Coordinator guardrails and multi-LLM: `test_coordinator_guardrails*`, `test_coord_llm_*`).
 
 ## SOTA fidelity checklist
 

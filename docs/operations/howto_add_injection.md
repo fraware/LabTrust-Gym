@@ -8,8 +8,8 @@ Register the injection in `src/labtrust_gym/security/risk_injections.py` (e.g. `
 
 ## 2. Policy (injections and gate)
 
-- **Injections list:** Add the injection to `policy/coordination/injections.v0.2.yaml` (or the file referenced by the pack/study) so it appears in the “injections” list with `injection_id`, optional `intensity`, `application_phase`, etc. The pack and study runner use this to know which injections to run.
-- **Gate rule (optional):** If the pack should evaluate a pass/fail rule for this injection, add a rule in `policy/coordination/coordination_security_pack_gate.v0.1.yaml` under `rules` with `injection_id` and `rule` (e.g. `attack_success_rate_zero`, `violations_within_delta`, or `detection_within_steps_or_not_supported`) and any parameters (e.g. `max_delta`, `max_detection_steps`). Without a rule, the cell verdict defaults to PASS.
+- **Injections list.** Add the injection to `policy/coordination/injections.v0.2.yaml` (or the file referenced by the pack or study) so it appears in the injections list with `injection_id`, optional `intensity`, `application_phase`, and related fields. The pack and study runner read this list to decide which injections to run.
+- **Gate rule (optional).** When the pack should evaluate a pass or fail rule for this injection, add a rule in `policy/coordination/coordination_security_pack_gate.v0.1.yaml` under `rules` with `injection_id` and `rule` (for example `attack_success_rate_zero`, `violations_within_delta`, or `detection_within_steps_or_not_supported`) and any parameters (for example `max_delta`, `max_detection_steps`). Cells without a rule default to PASS.
 
 ## 3. Risk-to-injection mapping
 

@@ -25,8 +25,8 @@
   - **seed_base** (and episode seeds derived from it).
   - **Explicit algorithm version hash** (e.g. code or config fingerprint).
   - **Checkpoint hashing** in MANIFEST or run manifests (so a run can be reproduced from seed + checkpoint hash + algorithm version).
-- Not required to be bit-identical across runs; same seed_base + same checkpoint + same algorithm version must yield **reproducible behaviour** (same metrics within expected variance when the method is stochastic).
-- Study-track runs should **not** be used as the sole basis for CI gates; use deterministic-track or inference-only baselines for that.
+- Bit-identical replay across runs is optional; same seed_base + same checkpoint + same algorithm version must yield **reproducible behaviour** (same metrics within expected variance when the method is stochastic).
+- Study-track runs belong in research workflows; CI gates should rely on deterministic-track or inference-only baselines.
 
 ---
 
@@ -52,7 +52,7 @@ Results schema v0.2 allows optional top-level **metadata** with `additionalPrope
 ## How methods expose learning metadata
 
 - Coordination methods that support the **study track** may implement an optional **`get_learning_metadata() -> dict[str, Any] | None`**. When non-None, the runner merges it into `results.metadata.coordination.learning` after the run.
-- Deterministic and inference-only methods do not implement it (or return None); the runner does not add `coordination.learning` in that case.
+- Deterministic and inference-only methods omit `get_learning_metadata` (or return None); the runner skips `coordination.learning` in that case.
 - The dict returned by `get_learning_metadata()` should contain at most the keys above (`enabled`, `checkpoint_sha`, `update_count`, `buffer_size`); additional keys are allowed for forward compatibility but may be ignored by downstream tools.
 
 ---

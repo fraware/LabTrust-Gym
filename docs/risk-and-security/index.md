@@ -22,7 +22,7 @@ Risk register, viewer, injections, security suite, monitoring, and controls.
 
 | Document | Description |
 |----------|-------------|
-| [Security flows and entry points](security_flows_and_entry_points.md) | Two security-related flows: attack suite vs coord_risk; entry points and when PZ env is used. |
+| [Security flows and entry points](security_flows_and_entry_points.md) | Attack suite vs coord_risk flows, entry points, and when the PZ env is used. |
 | [Security attack suite](security_attack_suite.md) | Attack suite and securitization packet. |
 | [Security monitoring](security_monitoring.md) | Adversarial detection. |
 | [Security detection design](security_detection_design.md) | Detection design. |

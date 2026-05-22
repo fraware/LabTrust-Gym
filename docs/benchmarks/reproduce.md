@@ -20,7 +20,7 @@ LabTrust-Gym is deterministic when seeds and config are fixed.
 
 **Policy and versions:** Policy files are versioned under `policy/`. Validate with `labtrust validate-policy`. Study manifest records policy paths and (when available) file hashes for reproducibility.
 
-**Official pack and llm_live:** For Official Benchmark Pack runs with `--pipeline-mode llm_live`, same seed, model, and policy yield comparable but not bit-identical results (LLM non-determinism). The v0.2 pack defines reproducibility expectations and requires metadata (model_id, temperature, tool_registry_fingerprint, allow_network). Attestation uses hashes and policy fingerprints only (no sensitive prompt text in artifacts): `TRANSPARENCY_LOG/llm_live.json` records prompt hashes, tool registry fingerprint, model identifiers, and latency/cost statistics.
+**Official pack and llm_live.** For Official Benchmark Pack runs with `--pipeline-mode llm_live`, same seed, model, and policy yield comparable results under LLM non-determinism (byte-identical replay is out of scope). The v0.2 pack defines reproducibility expectations and requires metadata (model_id, temperature, tool_registry_fingerprint, allow_network). Attestation uses hashes and policy fingerprints only (sensitive prompt text stays out of artifacts). `TRANSPARENCY_LOG/llm_live.json` records prompt hashes, tool registry fingerprint, model identifiers, and latency/cost statistics.
 
 **End-to-end artifact validation:** To confirm that export, verify, risk register, and UI export plumbing all hold, run the full E2E chain: package-release minimal → export-risk-register (into release dir) → build-release-manifest → verify-release --strict-fingerprints, then optionally ui-export. Acceptance: verify-release passes (EvidenceBundles, risk register schema/crosswalk, RELEASE_MANIFEST hashes); risk register builds with no crosswalk failures; UI zip is produced and loadable. See [Artifacts are reproducible end-to-end](#artifacts-are-reproducible-end-to-end).
 
@@ -208,7 +208,7 @@ The zip should be produced and loadable by the UI (index, events, receipts_index
 - **Risk register bundle** builds with no crosswalk failures.
 - **UI export** zip is produced and loadable.
 
-On Windows use a writable output path (e.g. `%TEMP%\labtrust_release_min`) instead of `/tmp/...` if needed.
+On Windows, prefer a writable output path such as `%TEMP%\labtrust_release_min` when `/tmp/...` is unavailable.
 
 ## Summarize results (leaderboard table)
 

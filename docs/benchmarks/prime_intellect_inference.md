@@ -35,7 +35,7 @@ labtrust run-benchmark --task throughput_sla --episodes 1 --seed 42 --out runs/p
 
 ## Top-6 model sweep (hospital pipeline)
 
-The file [scripts/hospital_lab_full_pipeline_config.yaml](scripts/hospital_lab_full_pipeline_config.yaml) lists `prime_intellect_benchmark_models` (six entries). To run that sweep:
+The file [scripts/hospital_lab_full_pipeline_config.yaml](https://github.com/fraware/LabTrust-Gym/blob/main/scripts/hospital_lab_full_pipeline_config.yaml) lists `prime_intellect_benchmark_models` (six entries). To run that sweep:
 
 ```bash
 python scripts/run_hospital_lab_full_pipeline.py --out runs/pi_top6 --allow-network ^
@@ -55,7 +55,7 @@ When you sweep models with `--models prime_intellect_live:<model_id>,...` and `-
 Requirements:
 
 - Pass `--allow-network` (model sweeps already require it).
-- The pack runs with `allow_network=True` and the resolved backend (for example `prime_intellect_live`), not the old `--providers`-only fallback.
+- The pack runs with `allow_network=True` and the resolved backend (for example `prime_intellect_live`), matching the model sweep backend instead of a `--providers`-only fallback.
 
 ### Verifying live Prime results
 
@@ -64,4 +64,4 @@ After a run, open a coordination cell `pack_results/<cell_id>/results.json` and 
 - `metadata.pipeline_mode` is `llm_live`.
 - `metadata.llm_backend_id` is `prime_intellect_live`.
 
-If you see `llm_offline` or `fixture` while you intended a live Prime run, the pack did not execute as live inference. A completed cell always has `results.json`; folders with only `episodes.jsonl` or traces and no `results.json` are incomplete (for example interrupted runs).
+If you see `llm_offline` or `fixture` while you intended a live Prime run, rerun with live settings. A completed cell always has `results.json`; folders with only `episodes.jsonl` or traces and no `results.json` are incomplete (for example interrupted runs).

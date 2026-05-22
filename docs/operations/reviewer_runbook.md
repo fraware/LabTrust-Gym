@@ -1,6 +1,6 @@
 # Reviewer runbook
 
-Single reference for external reviewers and auditors: one command sequence, expected artifacts, and how to interpret the risk register and security gate.
+Single reference for external reviewers and auditors. It gives one command sequence, expected artifacts, and guidance for interpreting the risk register and security gate.
 
 ## One command sequence
 
@@ -18,9 +18,9 @@ From the repo root, run the external reviewer risk register checks script. This 
 bash scripts/run_external_reviewer_risk_register_checks.sh [out_dir] [security_dir] [coord_dir]
 ```
 
-- **OutDir / out_dir:** Output directory for the bundle and, if not provided, generated runs. Default: `risk_register_reviewer_out` (under repo root).
-- **SecurityDir / security_dir:** If set, use this directory for SECURITY evidence; otherwise the script runs security suite smoke into `OutDir/security_smoke`.
-- **CoordDir / coord_dir:** If set, use this directory for coordination evidence; otherwise the script runs coordination study (deterministic) into `OutDir/coordination_smoke`.
+- **OutDir / out_dir** is the output directory for the bundle and, when omitted, for generated runs. The default is `risk_register_reviewer_out` under the repo root.
+- **SecurityDir / security_dir**, when set, supplies SECURITY evidence; otherwise the script runs security suite smoke into `OutDir/security_smoke`.
+- **CoordDir / coord_dir**, when set, supplies coordination evidence; otherwise the script runs a deterministic coordination study into `OutDir/coordination_smoke`.
 
 **Optional:** Set `LABTRUST_STRICT_COVERAGE=1` to exit with code 1 when any required_bench (method, risk) cell has no evidence and is not waived.
 
@@ -39,16 +39,16 @@ See [Risk register](../risk-and-security/risk_register.md) for bundle structure 
 
 ## How to interpret the risk register bundle
 
-- **Risks and controls:** Each risk from the policy registry appears with `claimed_controls` and `evidence_refs`. Controls are from the security attack suite and safety-case claims.
-- **Evidence and coverage:** Evidence entries have `status` (`present` or `missing`), optional `path`, `risk_ids`, and `artifacts`. Missing evidence is first-class: the bundle includes objects with `status=missing` and `expected_sources` so reviewers see what has not been collected.
+- **Risks and controls.** Each risk from the policy registry appears with `claimed_controls` and `evidence_refs`. Controls come from the security attack suite and safety-case claims.
+- **Evidence and coverage.** Evidence entries have `status` (`present` or `missing`), optional `path`, `risk_ids`, and `artifacts`. Missing evidence is first-class; the bundle includes objects with `status=missing` and `expected_sources` so reviewers can see which runs still need to be collected.
 - **Coverage gaps:** Run `labtrust validate-coverage --strict` (with bundle path and policy root) to fail when required_bench cells have no evidence and are not waived. Gaps indicate which (method_id, risk_id) pairs still need evidence or a waiver in `policy/risks/waivers.v0.1.yaml`.
 - **Evidence strength:** Evidence may include `evidence_strength` (e.g. high from security_suite/coordination_pack, medium from coordination_study). Use as a first-order filter; for critical risks, inspect the actual evidence (what was run, what passed).
 
 ## How to interpret the security gate
 
-- **Security suite:** `labtrust run-security-suite` produces SECURITY/ (attack_results.json, coverage, reason codes). Pass/fail is per attack scenario; the suite defines which controls are tested and how success is measured.
-- **Coordination security pack:** When the run includes coordination pack output (pack_summary.csv, pack_gate.md), the pack gate summarizes pass/fail per cell (method, scale, injection). Under `summary/` expect SOTA leaderboard (main: sota_leaderboard.md/.csv; full: sota_leaderboard_full.md/.csv) and method_class_comparison.md/.csv (including blocks_mean, attack_success_rate_mean). See [How to handle security gate failures](howto_security_gate_failures.md) and [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
-- **Reason codes:** Blocked or held actions carry reason codes (e.g. RBAC_ACTION_DENY, SIG_MISSING); these appear in results and logs and indicate why an action was not applied.
+- **Security suite.** `labtrust run-security-suite` produces `SECURITY/` (`attack_results.json`, coverage, reason codes). Pass or fail is per attack scenario; the suite defines which controls are tested and how success is measured.
+- **Coordination security pack.** When the run includes coordination pack output (`pack_summary.csv`, `pack_gate.md`), the pack gate summarizes pass or fail per cell (method, scale, injection). Under `summary/` expect SOTA leaderboards (`sota_leaderboard.md` / `.csv` and `sota_leaderboard_full.md` / `.csv`) and `method_class_comparison.md` / `.csv` (including `blocks_mean`, `attack_success_rate_mean`). See [How to handle security gate failures](howto_security_gate_failures.md) and [Hospital lab key metrics](../benchmarks/hospital_lab_metrics.md).
+- **Reason codes.** Blocked or held actions carry reason codes (for example `RBAC_ACTION_DENY`, `SIG_MISSING`) in results and logs, showing why the engine rejected or held an action.
 
 ## See also
 

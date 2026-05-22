@@ -4,7 +4,7 @@ Repository layout, lab profile, observability, testing strategy, and documentati
 
 | Document | Description |
 |----------|-------------|
-| [Glossary](glossary.md) | Definitions of terms (e.g. official baselines vs coordination method, RBAC, SOTA) to avoid ambiguity. |
+| [Glossary](glossary.md) | Definitions of terms (for example official baselines versus coordination method, RBAC, SOTA) to avoid ambiguity. |
 | [Use cases and impact](use_cases_and_impact.md) | Use cases and impact. |
 | [LabTrust Portal context](../labtrust-portal-context.md) | Portal integration and live data connection. |
 | [Repository structure](repository_structure.md) | Canonical layout and where to put outputs. |
@@ -21,4 +21,5 @@ Repository layout, lab profile, observability, testing strategy, and documentati
 | [Observability](observability.md) | Observability and logging. |
 | [Online mode](online_mode.md) | Online mode and server. |
 | [Testing strategy](testing_strategy.md) | Fuzz and metamorphic testing. |
+| [Benchmark results pipeline](../benchmark_results_pipeline.md) | From coordination sweeps to presentation bundles. |
 | [Presentation and demo guide](../presentation_labtrust_gym.md) | Presentation deck, demo plan, speaker notes. |

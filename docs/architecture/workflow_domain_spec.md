@@ -1,10 +1,10 @@
 # Workflow / domain spec
 
-This document describes the **workflow or domain spec** (v0.1): an abstract schema for resources, locations, constraints, and allowed actions that are independent of a specific sector. The first concrete instance is a **pathology lab**—specifically a **blood sciences** lane (hospital lab in the broad sense). Future domains (e.g. warehouse, factory) can be added by providing a spec and an adapter that maps the spec to the engine (or a thin variant of the engine). See [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab).
+This document describes the **workflow or domain spec** (v0.1), an abstract schema for resources, locations, constraints, and allowed actions that are independent of a specific sector. The first concrete instance is a **pathology lab**—specifically a **blood sciences** lane (hospital lab in the broad sense). Future domains (e.g. warehouse, factory) can be added by providing a spec and an adapter that maps the spec to the engine (or a thin variant of the engine). See [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab).
 
 ## Schema
 
-The schema is defined in `policy/schemas/workflow_spec.v0.1.schema.json`. A workflow spec has:
+The schema is defined in `policy/schemas/workflow_spec.v0.1.schema.json`. A workflow spec includes the following elements.
 
 - **workflow_id**: Unique identifier (e.g. `hospital_lab`, `warehouse_pick`).
 - **version**: Spec version (e.g. `0.1`).
@@ -46,11 +46,11 @@ The **lab adapter** (see below) maps these to the existing engine action set and
 
 The codebase provides a **domain adapter** registry in `src/labtrust_gym/domain/`: a factory (given a workflow spec and config) returns a `LabTrustEnvAdapter` that the golden runner and benchmark runner use. The interface is in `src/labtrust_gym/domain/adapter.py` (`DomainAdapterFactory` protocol); the blood sciences (pathology lab) implementation is in `src/labtrust_gym/domain/lab_adapter.py` and registered under `hospital_lab` in `src/labtrust_gym/domain/registry.py`. Forkers can call `register_domain(domain_id, factory)` to add a new domain; `get_domain_adapter_factory(domain_id)` resolves the factory.
 
-A **domain adapter** (the factory’s return value) implements the runner’s `LabTrustEnvAdapter` interface so that:
+A **domain adapter** (the factory’s return value) implements the runner’s `LabTrustEnvAdapter` interface.
 
-1. **Reset**: Initialize state for a new episode (from the workflow spec and scale/config).
-2. **Step**: Accept an event and return the next state, emits, violations, and hashchain in the runner output contract shape.
-3. **Query**: Return current state or metrics for the runner (e.g. for scenario assertions).
+1. **Reset** initializes state for a new episode from the workflow spec and scale or config.
+2. **Step** accepts an event and returns the next state, emits, violations, and hashchain in the runner output contract shape.
+3. **Query** returns current state or metrics for the runner (for example for scenario assertions).
 
 The `hospital_lab` (blood sciences) factory returns `CoreEnv()`, which already implements `LabTrustEnvAdapter`. A forker adding a new domain (e.g. warehouse) would:
 
@@ -62,8 +62,8 @@ The `hospital_lab` (blood sciences) factory returns `CoreEnv()`, which already i
 
 Forkers can add a new domain without forking the core engine by:
 
-1. **Registry**: Register `domain_id -> factory` via `register_domain(domain_id, factory)` in `src/labtrust_gym/domain/registry.py`. The runner selects the adapter by `domain_id` (e.g. from CLI `--domain hospital_lab` or from policy) using `get_domain_adapter_factory(domain_id)`.
-2. **Policy layout**: Place domain-specific policy under `policy/domains/<domain_id>/` (e.g. emits, reason codes, catalogue, zone layout). The loader resolves base policy plus optional `policy/domains/<domain_id>/` when that domain is active. A shared abstract vocabulary (e.g. common reason codes) can live in base policy; domain-specific extensions in `policy/domains/<domain_id>/`.
+1. **Registry.** Register `domain_id -> factory` via `register_domain(domain_id, factory)` in `src/labtrust_gym/domain/registry.py`. The runner selects the adapter by `domain_id` (for example from CLI `--domain hospital_lab` or from policy) using `get_domain_adapter_factory(domain_id)`.
+2. **Policy layout.** Place domain-specific policy under `policy/domains/<domain_id>/` (for example emits, reason codes, catalogue, zone layout). The loader resolves base policy plus optional `policy/domains/<domain_id>/` when that domain is active. A shared abstract vocabulary (for example common reason codes) can live in base policy, with domain-specific extensions under `policy/domains/<domain_id>/`.
 
 When `domain_id` is set, the runner and `validate-policy` use `load_policy_for_domain(root, domain_id, partner_id)` so that policy is merged from base policy plus `policy/domains/<domain_id>/`. Without a domain_id, the lab uses the existing `policy/` layout only.
 

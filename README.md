@@ -15,7 +15,9 @@
 
 **Install:** `pip install labtrust-gym[env,plots]` then `labtrust --version` and `labtrust quick-eval`.
 
-> **Research and simulation only** — This project is for research, benchmarks, and regression testing. It is not production medical or laboratory software. See [SECURITY.md](SECURITY.md) for scope and reporting issues.
+**Documentation** — The published site at [https://fraware.github.io/LabTrust-Gym/](https://fraware.github.io/LabTrust-Gym/) covers getting started, benchmarks, coordination, PCS, and operations.
+
+> **Research and simulation only** — This project targets research, benchmarks, and regression testing inside a simulated hospital lab environment. It excludes production medical or laboratory software. See [SECURITY.md](SECURITY.md) for scope and reporting issues.
 
 ## What is LabTrust-Gym?
 
@@ -29,14 +31,14 @@
 
 **Principles**
 
-- **Golden scenarios drive development** — Correctness is defined as passing the golden suite; the suite is the specification for regression. It does not cover all failure modes; gaps imply gaps in assured behavior.
+- **Golden scenarios drive development** — Correctness is defined as passing the golden suite, which acts as the specification for regression. The suite covers the scenarios encoded in policy; uncovered failure modes remain outside assured behavior until added to golden policy.
 - **Policy is data** — Invariants, tokens, reason codes, catalogue, zones live in versioned files under `policy/`.
-- **No silent failure** — Missing hooks or invalid data fail loudly with reason codes.
+- **Explicit failures** — Missing hooks or invalid data raise reason codes instead of continuing silently.
 - **Evidence over claims** — Security and safety are evidenced by the attack suite, coordination security pack, and risk register; required_bench cells must be covered or explicitly waived.
 
-System and threat model: [Systems and threat model](docs/architecture/systems_and_threat_model.md).
+The system and threat model are described in [Systems and threat model](docs/architecture/systems_and_threat_model.md).
 
-> **Limitation** — Passing all sim tests and gates does **not** imply production safety. Production adds distribution shift, real adversaries, key/ops failures, and environment drift. Use sim for development and regression; production assurance is the integrator's responsibility.
+> **Limitation** — Passing every simulation test and gate demonstrates behavior inside the benchmark harness. Production deployments still require the integrator to account for distribution shift, live adversaries, key and operations failures, and environment drift. Use the simulation for development and regression; production assurance remains the integrator's responsibility.
 
 ---
 
@@ -235,7 +237,7 @@ Put CLI outputs in `labtrust_runs/` or `--out`. Exit codes, minimal smoke args, 
 | **tests/** | Pytest: golden suite, policy, benchmarks, coordination, risk_injections, studies, export, online, CLI smoke (`test_cli_smoke_matrix.py`). |
 | **benchmarks/** | Baseline registry, official baselines (v0.1, v0.2). |
 | **examples/** | Example agents (external_agent_demo, scripted_ops_agent, llm_agent_mock_demo, etc.). |
-| **docs/** | MkDocs: architecture, benchmarks, coordination, contracts, getting started, security, LLM, MARL. [Forker guide](docs/getting-started/forkers.md). **docs/assets/** — repo logo (`Logo.png`). |
+| **docs/** | Published site: [fraware.github.io/LabTrust-Gym](https://fraware.github.io/LabTrust-Gym/). Source under `docs/` (MkDocs): architecture, benchmarks, coordination, PCS, contracts, security, agents. [Forker guide](docs/getting-started/forkers.md). **docs/assets/** — repo logo (`Logo.png`). |
 | **scripts/** | **run_hospital_lab_full_pipeline.py** (orchestrator; `--include-coordination-pack`, `--providers`), **check_llm_backends_live.py**, quickstart, run_required_bench_matrix, extract_paper_claims_snapshot, build_release_fixture, build_viewer_data_from_release, run_external_reviewer_checks. |
 | **tests/fixtures/ui_fixtures/** | Minimal results, episode log, evidence bundle for offline UI. |
 

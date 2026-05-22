@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-High-level visual overview of the main pipeline and of the blood sciences lab (pathology lab) topology we model. Terminology: [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab). Diagrams are in Mermaid; they render on GitHub and in MkDocs when using a Mermaid plugin (e.g. `mkdocs-mermaid2-plugin`). Otherwise copy the code into [Mermaid Live](https://mermaid.live) to view.
+High-level visual overview of the main pipeline and of the blood sciences lab (pathology lab) topology we model. See [Glossary – Lab terminology](../reference/glossary.md#lab-terminology-hospital-lab-pathology-lab-blood-sciences-lab) for terminology. Diagrams are in Mermaid and render on GitHub and in MkDocs when using a Mermaid plugin (for example `mkdocs-mermaid2-plugin`); otherwise copy the code into [Mermaid Live](https://mermaid.live) to view.
 
 ---
 

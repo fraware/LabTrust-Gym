@@ -4,7 +4,7 @@ This document defines the benchmark protocol for LLM-based coordination methods 
 
 ## Coordination methods are LLM-based
 
-In this repo, **coordination methods** are defined as **LLM-based**: they are ways for LLM agents to work together. The goal of having multiple coordination methods is to **compare LLM-based coordination strategies on the same baseline** (same tasks, scales, injections). Methods with `llm_based: true` in `policy/coordination/coordination_methods.v0.1.yaml` (or `coordination_class: llm`) are the coordination methods used for comparison. Kernel and deterministic algorithms (e.g. `kernel_whca`, `market_auction`) have `llm_based: false`; they exist as baseline components or as building blocks inside LLM methods (e.g. the kernel inside `llm_repair_over_kernel_whca`), but they are not coordination methods for comparison. The default pipeline without coordination is the deterministic (scripted) pipeline. Use `--methods-from full_llm` when running the coordination security pack to run only LLM-based coordination methods.
+In this repo, **coordination methods** are **LLM-based** ways for agents to work together. Multiple methods exist so you can **compare LLM coordination strategies on the same baseline** (same tasks, scales, injections). Methods with `llm_based: true` in `policy/coordination/coordination_methods.v0.1.yaml` (or `coordination_class: llm`) belong in that comparison set. Kernel and deterministic algorithms (e.g. `kernel_whca`, `market_auction`) have `llm_based: false`; they serve as baseline components or building blocks inside LLM methods (e.g. the kernel inside `llm_repair_over_kernel_whca`) and sit outside the LLM coordination comparison set. The default pipeline without coordination is the deterministic (scripted) pipeline. Use `--methods-from full_llm` when running the coordination security pack to limit the run to LLM-based coordination methods.
 
 ## Pipeline modes
 
@@ -15,7 +15,7 @@ In this repo, **coordination methods** are defined as **LLM-based**: they are wa
 | **llm_live** | Allows network-backed LLM backends (e.g. openai_live). Requires explicit `--allow-network` or `LABTRUST_ALLOW_NETWORK=1`. | Allowed when opted in | Live API (opt-in only) |
 
 - **Default**: All commands (`run-benchmark`, `run-coordination-study`, `package-release`) default to **deterministic**. No OpenAI or other external API is called unless the user explicitly passes `--llm-backend openai_live` (and, for openai_live, `OPENAI_API_KEY` must be set or the run fails with reason code `OPENAI_API_KEY_MISSING`).
-- **Gating**: In `llm_live`, `check_network_allowed()` is invoked before any live API call; if network is not allowed, a `RuntimeError` is raised with a clear message.
+- **Gating.** In `llm_live`, `check_network_allowed()` runs before any live API call; when network is disallowed, a `RuntimeError` is raised with a clear message.
 - **Reproducibility**: With `--llm-backend deterministic`, same `seed_base` and same coordination policy fingerprint yield identical `summary_coord.csv` and cell results. Deterministic tests remain offline.
 - **llm_offline fault model**: In `llm_offline` mode, an optional deterministic fault model can wrap the repair backend to inject simulated failures (invalid_output, empty_output, high_latency, inconsistent_plan); fallback is NOOP with recorded reason codes. See [Live LLM – llm_offline fault model](../agents/llm_live.md#llm_offline-fault-model).
 
@@ -111,9 +111,9 @@ For any run that uses an LLM backend in coordination (llm_* methods), the follow
 
 **Where stored**: (1) results.json optional metadata block (`metadata.prompt_template_id`, `metadata.prompt_sha256`, `metadata.allowed_actions_payload_sha256`, `metadata.coordination_policy_fingerprint`); (2) EvidenceBundle manifest when export-receipts is run from a directory that contains results.json (and optionally `prompt_fingerprint_inputs.v0.1.json`). The manifest schema allows additional optional fields; existing fields are unchanged.
 
-**Canonical rendering**: Prompt hashing uses deterministic, bounded slices: sort keys, stable JSON formatting, no timestamps, caps on list lengths and string sizes so the digest does not depend on unbounded policy or state.
+**Canonical rendering.** Prompt hashing uses deterministic, bounded slices with sorted keys, stable JSON formatting, no timestamps, and caps on list lengths and string sizes so the digest stays stable for bounded policy and state inputs.
 
-**Verify-bundle**: When `prompt_sha256` is present in the manifest, verify-bundle requires `prompt_fingerprint_inputs.v0.1.json` in the bundle. It recomputes the hash from the stored inputs (frozen template + rendered policy payload) and reports a mismatch if it does not equal the manifest value. This ensures the recorded prompt hash matches the deterministic rendering of the same inputs.
+**Verify-bundle.** When `prompt_sha256` is present in the manifest, verify-bundle requires `prompt_fingerprint_inputs.v0.1.json` in the bundle. It recomputes the hash from the stored inputs (frozen template + rendered policy payload) and reports a mismatch when the value differs from the manifest. The recorded prompt hash must match the deterministic rendering of the same inputs.
 
 ## External reviewer workflow (offline)
 

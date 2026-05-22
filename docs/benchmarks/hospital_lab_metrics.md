@@ -45,7 +45,7 @@ This document lists the metrics that matter most for hospital lab (blood science
 ### Method-class comparison
 
 - **Paths**: `summary/method_class_comparison.md`, `summary/method_class_comparison.csv`.
-- **Purpose**: Aggregate by coordination class (e.g. kernel_schedulers, centralized, ripple, auctions, llm) instead of by method_id.
+- **Purpose.** Aggregate by coordination class (e.g. kernel_schedulers, centralized, ripple, auctions, llm) at the class level, with method_id as the finer grain inside each class.
 - **Columns**: method_class, throughput_mean, violations_mean, blocks_mean, resilience_score_mean, attack_success_rate_mean, stealth_success_rate_mean, n_cells. Aligned with the main SOTA table so safety and security metrics (blocks, attack_success_rate) are available at class level.
 
 ### Lab report
@@ -71,7 +71,7 @@ For **throughput** as the main signal (e.g. comparing methods on specimen comple
 
 ### Why was perf.throughput 0 in my run?
 
-If **perf.throughput** is 0 for every cell in the coordination pack, the run was likely produced **before** the queue-preload fix: device queues were not pre-populated in scaled initial state, so the allocator saw no work and no RELEASE_RESULT events were emitted. The fix (initial_queue_entries in scaled state + core_env processing at reset, and the runner using that scaled state for the first episode) is in place; **you must re-run the coordination pack** (or full official pack with `--include-coordination-pack`) to get non-zero throughput. Re-running only `summarize-coordination` on old pack output will not change throughput values; it only re-aggregates existing cell results.
+If **perf.throughput** is 0 for every cell in the coordination pack, the run was likely produced **before** the queue-preload fix, when scaled initial state omitted pre-populated device queues and the allocator saw no work. The fix (initial_queue_entries in scaled state + core_env processing at reset, and the runner using that scaled state for the first episode) is in place; **re-run the coordination pack** (or full official pack with `--include-coordination-pack`) to get non-zero throughput. `summarize-coordination` on old pack output only re-aggregates existing cell results and leaves throughput unchanged.
 
 ## See also
 

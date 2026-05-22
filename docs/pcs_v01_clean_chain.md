@@ -14,7 +14,7 @@ PCS v0.1 is **release-ready** when this chain succeeds from a clean LabTrust-Gym
 
 ## One-command chain
 
-From **LabTrust-Gym repo root**:
+Run the following from the **LabTrust-Gym repository root**.
 
 ```bash
 export PCS_DETERMINISTIC=1
@@ -26,7 +26,7 @@ $env:PCS_DETERMINISTIC = "1"
 & examples/pcs_qc_release/scripts/run_pcs_v01_clean_chain.ps1
 ```
 
-LabTrust-only (no CertifyEdge/PF/SM):
+For a LabTrust-only segment without CertifyEdge, Provability Fabric, or Scientific Memory, add `--labtrust-only`.
 
 ```bash
 bash examples/pcs_qc_release/scripts/run_pcs_v01_clean_chain.sh --labtrust-only
@@ -34,7 +34,7 @@ bash examples/pcs_qc_release/scripts/run_pcs_v01_clean_chain.sh --labtrust-only
 
 ## Manual chain (canonical commands)
 
-Artifacts are written to the **repo root** by default (`PCS_CHAIN_WORK=.`) .
+Artifacts are written to the **repository root** by default (`PCS_CHAIN_WORK=.`).
 
 ### LabTrust-Gym
 
@@ -93,7 +93,7 @@ just pcs-import-bundle ../LabTrust-Gym/signed_science_claim_bundle.json
 just pcs-render-claim claim-pcs-qc-release-v0.1
 ```
 
-Scientific Memory `just` recipes take **positional** arguments (`bundle`, `claim_id`), not `BUNDLE=` / `CLAIM_ID=` make-style variables.
+Scientific Memory `just` recipes take **positional** arguments (`bundle`, `claim_id`) instead of `BUNDLE=` or `CLAIM_ID=` make-style variables.
 
 ## Post-chain validation
 
@@ -117,4 +117,4 @@ python examples/pcs_qc_release/scripts/verify_pcs_v01_chain.py --work . --stage 
 | `CLAIM_ID` | `claim-pcs-qc-release-v0.1` |
 | `PCS_COPY_TO_RELEASE` | `0` (set `1` to copy outputs into `examples/pcs_qc_release/release/`) |
 
-See also [examples/pcs_qc_release/RUNBOOK.md](../examples/pcs_qc_release/RUNBOOK.md).
+See also the [PCS operator runbook](examples/pcs_qc_release-operator.md).

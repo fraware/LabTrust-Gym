@@ -39,7 +39,7 @@ What this does:
 - With `--auto-canonical-config`, writes `.llm_config/prime.json` using the
   first available requested model.
 
-If preflight reports missing models, do not start SWE-bench with those IDs.
+If preflight reports missing models, exclude those IDs from the SWE-bench run.
 
 ## 2) OpenHands benchmarks setup
 

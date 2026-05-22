@@ -2,7 +2,7 @@
 
 This runbook uses a **Linux VM on Compute Engine** so long `run_all_methods_prime_live_full.py` jobs keep running when your laptop is off. LabTrust Gym needs **Python 3.11+**. **Ubuntu 24.04** ships Python 3.12; **Debian 12 (bookworm)** ships Python 3.11 and works as-is.
 
-**Billing:** GCP is not indefinitely free. New accounts often get **$300 trial credit**; after that you pay for vCPU, RAM, disk, and egress. Stop or delete the VM when idle to avoid charges.
+**Billing.** GCP charges after trial credit expires. New accounts often get **$300 trial credit**; after that you pay for vCPU, RAM, disk, and egress. Stop or delete the VM when idle to avoid charges.
 
 ## 1. One-time: gcloud and project
 
@@ -176,7 +176,7 @@ If you already have a VM (e.g. Debian 12 bookworm, `e2-medium`, 10 GB disk):
    gcloud compute ssh labtrustgym --zone=us-central1-c
    ```
 
-4. **Install** uses the same `apt` / `venv` / `pip install -e ".[dev,env,plots,llm_prime_intellect]"` steps as above; on Debian use `apt-get` instead of `apt` if you prefer.
+4. **Install** uses the same `apt` / `venv` / `pip install -e ".[dev,env,plots,llm_prime_intellect]"` steps as above; on Debian, `apt-get` works the same way when you prefer that command.
 
 5. **GCS uploads:** If the instance service account only has `devstorage.read_only`, `gsutil rsync` to your bucket may fail with permission errors. Either grant the VM’s default compute SA **Storage Object Admin** on the target bucket, or recreate the VM with `--scopes=https://www.googleapis.com/auth/cloud-platform` (broader; use least privilege in production).
 

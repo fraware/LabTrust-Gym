@@ -1,12 +1,12 @@
 # Proof-Carrying Science (PCS)
 
-LabTrust-Gym ships a **reference workflow** for [Proof-Carrying Science](https://github.com/SentinelOps-CI/pcs-core): a simulated hospital lab QC-release path that produces versioned JSON artifacts, validates them with [pcs-core](https://github.com/SentinelOps-CI/pcs-core), and optionally runs the full trust loop with CertifyEdge, Provability Fabric, and Scientific Memory.
+LabTrust-Gym ships a **reference workflow** for [Proof-Carrying Science](https://github.com/SentinelOps-CI/pcs-core). The workflow simulates a hospital lab QC-release path, produces versioned JSON artifacts, validates them with [pcs-core](https://github.com/SentinelOps-CI/pcs-core), and can run the full trust loop with CertifyEdge, Provability Fabric, and Scientific Memory when those tools are installed.
 
-This is a **research simulation**, not a clinical system.
+The PCS demonstration is a **research simulation** for laboratory automation benchmarks and carries no clinical deployment claims.
 
 ## Quick start
 
-1. Install an isolated environment (recommended):
+1. Install an isolated environment (recommended).
 
    ```powershell
    .\scripts\setup_pcs_dev.ps1
@@ -18,7 +18,7 @@ This is a **research simulation**, not a clinical system.
    source .venv-pcs/bin/activate
    ```
 
-2. Run the demo and export artifacts:
+2. Run the demo and export artifacts.
 
    ```bash
    labtrust run-demo qc-release
@@ -27,20 +27,21 @@ This is a **research simulation**, not a clinical system.
    labtrust export-pcs --run runs/qc-release --out science_claim_bundle.pending.json
    ```
 
-3. Run in-repo checks:
+3. Run in-repo checks.
 
    ```bash
    pytest tests/pcs -q
    bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh
    ```
 
-Hands-on layout and scripts: [examples/pcs_qc_release/README.md](../../examples/pcs_qc_release/README.md).
+Hands-on layout is documented in the [PCS quickstart](../examples/pcs_qc_release-quickstart.md) and in the [repository example tree](https://github.com/fraware/LabTrust-Gym/tree/main/examples/pcs_qc_release).
 
 ## Documentation map
 
 | Topic | Document |
 |-------|----------|
-| End-to-end operator steps | [examples/pcs_qc_release/RUNBOOK.md](../../examples/pcs_qc_release/RUNBOOK.md) |
+| Quickstart | [examples/pcs_qc_release-quickstart.md](../examples/pcs_qc_release-quickstart.md) |
+| End-to-end operator steps | [examples/pcs_qc_release-operator.md](../examples/pcs_qc_release-operator.md) |
 | Cross-repo release gate | [pcs_v01_clean_chain.md](../pcs_v01_clean_chain.md) |
 | Export commands | [pcs_export.md](../pcs_export.md) |
 | Trace and reason codes | [pcs_trace_model.md](../pcs_trace_model.md) |
@@ -51,11 +52,11 @@ Hands-on layout and scripts: [examples/pcs_qc_release/README.md](../../examples/
 | Benchmark taxonomy | [benchmark-profile.md](benchmark-profile.md) |
 | Scope and non-goals | [pcs_limitations.md](../pcs_limitations.md) |
 | CLI reference | [contracts/cli_contract.md](../contracts/cli_contract.md) |
-| Workflow starter template | [templates/pcs_workflow_template/](../../templates/pcs_workflow_template/) |
+| Workflow starter template | [templates/pcs_workflow_template](https://github.com/fraware/LabTrust-Gym/tree/main/templates/pcs_workflow_template) |
 
 ## Release checklist
 
-Before tagging a PCS release, confirm all of the following pass from a clean checkout:
+Before tagging a PCS release, confirm that every step below passes from a clean checkout.
 
 | Step | Command |
 |------|---------|
@@ -77,14 +78,14 @@ Set `PCS_DETERMINISTIC=1` for fixture-stable exports in CI and golden regenerati
 | `tests/pcs/` | Unit and integration tests |
 | `tests/fixtures/pcs_bench_reproducibility/` | Offline pcs-bench ingest producer tree |
 
-## Two fixture trees (do not mix them)
+## Two fixture trees (keep separate)
 
 | Directory | Use |
 |-----------|-----|
 | `examples/pcs_qc_release/expected/` | LabTrust-local deterministic goldens for unit tests (may include a mock certificate) |
 | `examples/pcs_qc_release/release/` | Cross-repo release evidence; must match pcs-core `examples/labtrust-release/` |
 
-Regenerate release evidence atomically (`run_pcs_v01_clean_chain.sh` with `PCS_COPY_TO_RELEASE=1`) or sync from pcs-core (includes LabTrust protocol enrichment):
+Regenerate release evidence atomically with `run_pcs_v01_clean_chain.sh` and `PCS_COPY_TO_RELEASE=1`, or sync from pcs-core after LabTrust protocol enrichment.
 
 ```bash
 python scripts/apply_pcs_core_labtrust_schema_profiles.py --pcs-core ../pcs-core
@@ -104,7 +105,7 @@ python -m labtrust_gym.pcs.sync_pcs_core_rc --verify-only --pcs-core ../pcs-core
 
 ## Canonical workflow id
 
-All PCS exports use:
+All PCS exports use the following workflow identifier.
 
 ```text
 workflow_id = hospital_lab.qc_release

@@ -36,7 +36,7 @@ This document describes the multi-agent MARL design in LabTrust-Gym: shared PPO 
 3. If custom CTDE: implement a training loop that (a) collects transitions with current env and agent_id in obs, (b) computes value from centralized state (e.g. concat of all obs), (c) updates policy with PPO-style loss using that value; save policy and train_config in the same shape as current PPO so `MarlPPOCoordination` and PPOAgent can load it.
 4. Document in [MARL baselines](marl_baselines.md) the new option and any extra dependencies.
 
-**Current status:** CTDE entry point and train_config shape are implemented; policy is trained with standard PPO. Full central critic training is future work. MAPPO (external) is not implemented.
+**Current status.** CTDE entry point and train_config shape are implemented; policy is trained with standard PPO. Full central critic training is future work. External MAPPO remains out of scope for now.
 
 ## Train multiple agents (implemented)
 

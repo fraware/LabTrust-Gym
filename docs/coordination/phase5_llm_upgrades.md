@@ -1,4 +1,4 @@
-# Phase 5: LLM Method Upgrades (Definition of Done)
+# LLM method upgrades (definition of done)
 
 Per-method upgrade requirements from the SOTA coordination plan. Each method must pass the conformance suite and meet the following before being marked state-of-the-art.
 
@@ -39,7 +39,7 @@ The sections below remain the **definition of done** for marking each method sta
 
 - Summary + hash commitments to raw fields; validate by recomputing hashes from raw obs.
 - Reject mismatch; reject overlong.
-- Tests: Poisoned summary cannot change counts undetected; overlong -> reject + fallback.
+- Tests: Poisoned summary with mismatched counts is rejected; overlong summaries trigger reject and fallback.
 
 ## 5.5 llm_repair_over_kernel_whca
 

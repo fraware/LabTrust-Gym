@@ -26,8 +26,8 @@ Audit table for each coordination method with `coordination_class: llm`: runner 
 - **llm_hierarchical_allocator**: Accepts `allocator_backend` (same interface as proposal). Live path present.
 - **llm_auction_bidder**: Accepts `bid_backend` (OpenAIBidBackend, OllamaBidBackend). Live path present.
 - **llm_gossip_summarizer**: No backend parameter; uses deterministic `_build_local_summary`. To support live: add optional `summary_backend` (e.g. get_summary(agent_id, obs, zone_ids, device_ids, t) -> payload dict) and wire in runner.
-- **llm_local_decider_signed_bus**: Accepts `proposal_backend` with `propose_action(local_view, allowed_actions, agent_id, step) -> dict`. Registry defaults to DeterministicLocalProposalBackend; runner does not pass live backend. Live path: build backend implementing that interface and pass via make_coordination_method params.
-- **llm_repair_over_kernel_whca**: Accepts `repair_backend` with `generate(messages) -> str`. Registry defaults to DeterministicRepairBackend; runner does not pass live backend. Live path: build OpenAILiveBackend or equivalent and pass as repair_backend in params.
+- **llm_local_decider_signed_bus**: Accepts `proposal_backend` with `propose_action(local_view, allowed_actions, agent_id, step) -> dict`. Registry defaults to DeterministicLocalProposalBackend; the runner leaves live wiring to integrators. Live path: build a backend implementing that interface and pass it via `make_coordination_method` params.
+- **llm_repair_over_kernel_whca**: Accepts `repair_backend` with `generate(messages) -> str`. Registry defaults to DeterministicRepairBackend; the runner leaves live wiring to integrators. Live path: build OpenAILiveBackend or equivalent and pass as `repair_backend` in params.
 - **llm_detector_throttle_advisor**: Built with `wrap_with_detector_advisor(inner, detector_backend)`. Registry accepts `detector_backend` from params; defaults to DeterministicDetectorBackend. Live path: runner passes LiveDetectorBackend(OpenAILiveBackend/OllamaLiveBackend/AnthropicLiveBackend) when llm_backend is openai_live, ollama_live, or anthropic_live.
 
 ## Multi-backend configuration (per-role backends)
@@ -36,15 +36,15 @@ When a run uses coordination methods that invoke multiple LLM roles (e.g. planne
 
 **Schema:**
 
-- **llm_backend** (existing): Default backend for all roles when per-role is not set. Values: `openai_live`, `ollama_live`, `anthropic_live`, `openai_responses`, `deterministic`, etc.
+- **llm_backend** (existing): Default backend for all roles when no per-role override is set. Values: `openai_live`, `ollama_live`, `anthropic_live`, `openai_responses`, `deterministic`, etc.
 - **llm_model** (existing): Default model id (e.g. `gpt-4o-mini`) when using a live backend; overrides env such as `LABTRUST_OPENAI_MODEL`.
-- **Per-role backend overrides** (optional): If set, the runner uses this backend for that role instead of `llm_backend`. If unset or `"inherit"`, the role uses `llm_backend`.
+- **Per-role backend overrides** (optional): When set, the runner uses this backend for that role in place of `llm_backend`. When unset or `"inherit"`, the role uses `llm_backend`.
   - `coord_planner_backend`: Backend for proposal/allocator (llm_central_planner, llm_hierarchical_allocator).
   - `coord_bidder_backend`: Backend for bid (llm_auction_bidder).
   - `coord_repair_backend`: Backend for repair (llm_repair_over_kernel_whca).
   - `coord_detector_backend`: Backend for detector (llm_detector_throttle_advisor).
   Values: same as `llm_backend` (e.g. `openai_live`, `anthropic_live`, `ollama_live`) or `"inherit"`.
-- **Per-role model overrides** (optional): If set, the runner uses this model for that role instead of `llm_model`.
+- **Per-role model overrides** (optional): When set, the runner uses this model for that role in place of `llm_model`.
   - `coord_planner_model`, `coord_bidder_model`, `coord_repair_model`, `coord_detector_model`.
   Values: model id string or `"inherit"`.
 

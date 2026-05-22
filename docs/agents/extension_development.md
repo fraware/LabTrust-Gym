@@ -4,7 +4,7 @@ This guide describes how to extend LabTrust-Gym with your own domains, coordinat
 
 ## Integration pattern (Option B)
 
-Installing `labtrust-gym` and shipping your own pip package (using `register_*` or entry_points, `--profile`, and `extension_packages`) is the **integration pattern** for using the stack as a platform rather than a fixed app. One minimal worked example—e.g. a package that adds a single task or coordination method—demonstrates that the stack is reusable.
+Installing `labtrust-gym` and shipping your own pip package (using `register_*` or entry_points, `--profile`, and `extension_packages`) is the **integration pattern** for using the stack as an extensible platform. One minimal worked example, such as a package that adds a single task or coordination method, demonstrates that the stack is reusable.
 
 **Minimal worked example (in-doc):** Create a package that declares one task or one coordination method via entry_point. In `pyproject.toml`:
 
@@ -19,7 +19,7 @@ my_custom_task = "mylab.tasks:MyBenchmarkTask"
 labtrust --profile my_lab run-benchmark --task my_custom_task --episodes 2 --out out.json
 ```
 
-The CLI loads your plugin and your task (or coordination method) is available. This pattern shows the stack is used as a platform, not only as a fixed application.
+The CLI loads your plugin and your task (or coordination method) is available. This pattern treats the stack as an extensible platform beyond the fixed in-repo application.
 
 ## Plugin in 5 minutes
 
@@ -32,7 +32,7 @@ labtrust --profile example run-benchmark --task example_task --episodes 1
 
 The profile `example` is defined in `policy/lab_profiles/example.v0.1.yaml` and lists `extension_packages: ["example-plugin"]`. Copy `examples/extension_example/` to start your own plugin; the only supported contract for new tasks is `BenchmarkTask` and for coordination methods is `CoordinationMethod` (see Contracts below). The extension example is installed and run in CI to verify the plugin mechanism on every commit; see [CI](../operations/ci.md).
 
-A second minimal example, **`examples/coord_method_example/`**, registers one coordination method (`example_noop_coord`) via the `labtrust_gym.coordination_methods` entry point. It does not add a new task; use an existing task (e.g. `coord_scale`) with `--coord-method example_noop_coord`:
+A second minimal example, **`examples/coord_method_example/`**, registers one coordination method (`example_noop_coord`) via the `labtrust_gym.coordination_methods` entry point. Pair it with an existing task (e.g. `coord_scale`) via `--coord-method example_noop_coord`:
 
 ```bash
 pip install -e examples/coord_method_example

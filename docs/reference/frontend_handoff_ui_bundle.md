@@ -26,7 +26,7 @@ labtrust ui-export --run <run_dir> --out ui_bundle.zip
 | `reason_codes.json` | JSON | Reason code registry; optional for coordination. |
 | `coordination/<path>` | Mixed | All coordination artifacts. Paths match `index.coordination_artifacts[].path` prefixed by `coordination/`. |
 
-**Rule:** Resolve any coordination artifact as: **zip entry = `coordination/` + `index.coordination_artifacts[i].path`**.
+Resolve any coordination artifact at zip entry `coordination/` plus `index.coordination_artifacts[i].path`.
 
 ---
 
