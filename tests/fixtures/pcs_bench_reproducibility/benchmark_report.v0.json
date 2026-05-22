@@ -21,8 +21,8 @@
       "metric_id": "release_reproducibility_score",
       "numerator": 1.0,
       "schema_version": "v0",
-      "signature_or_digest": "sha256:c78e1d0c115d8d898367cbbbb4b1c082de3ec081a833a17207cbd99be511323e",
-      "source_commit": "122ebfa2d7799a27c77dc2a6d52d451e17caa9d4",
+      "signature_or_digest": "sha256:0c1bc8571faba65a70465b051bfc4e92e764c3595804b93ed46cf2ef5560e22b",
+      "source_commit": "c4cb85030bfbe2b4e6027962bd9ad08f92c0488f",
       "source_repo": "https://github.com/fraware/LabTrust-Gym"
     }
   },
@@ -30,11 +30,18 @@
   "metric_summaries": [
     {
       "applicability": "measured",
-      "denominator": 1,
-      "name": "release_reproducibility_score",
-      "numerator": 1,
+      "denominator": 1.0,
+      "details": {
+        "coverage_id": "labtrust-release-reproducibility-v0"
+      },
+      "metric_id": "release_reproducibility_score",
+      "numerator": 1.0,
       "reason": "coverage from 'labtrust-release-reproducibility-v0'",
-      "score": 1.0
+      "schema_version": "v0",
+      "score": 1.0,
+      "signature_or_digest": "sha256:66fd56b0e17bf1932bdaa360f3d5d32fcefefcd6fca91d5128387ba2b7e141ce",
+      "source_commit": "c4cb85030bfbe2b4e6027962bd9ad08f92c0488f",
+      "source_repo": "https://github.com/fraware/LabTrust-Gym"
     }
   ],
   "metrics": [
@@ -51,8 +58,8 @@
     }
   ],
   "schema_version": "v0",
-  "signature_or_digest": "sha256:a68d7077953d3f77be7ba656fd6c9966ca2ee5ecf0ac5aff1f57db19fcf8b61f",
-  "source_commit": "122ebfa2d7799a27c77dc2a6d52d451e17caa9d4",
+  "signature_or_digest": "sha256:40587d5eed0dd053f55d3804d240e9bac632454e2ef0b9cfc6462748a68e37ac",
+  "source_commit": "c4cb85030bfbe2b4e6027962bd9ad08f92c0488f",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "summary": {
     "certificate_completeness_score": 1.0,

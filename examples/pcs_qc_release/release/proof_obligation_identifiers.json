@@ -1,17 +1,17 @@
 {
-  "certificate_id": "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee",
+  "certificate_id": "cert-trace-a1b8ff9d-7d5f-489c-98b1-a3a630cb87d7",
   "certificate_trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
-  "certified_bundle_hash": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652",
+  "certified_bundle_hash": "sha256:b8af33a7b24abf12fd938a59af6be91ac5e761365d8ecf3639fd0f196969de36",
   "claim_id": "claim-pcs-qc-release-v0.1",
   "property_id": "hospital_lab.qc_release",
   "runtime_receipt_id": "receipt-qc-release",
-  "signed_bundle_hash": "sha256:150b923c4ec5ad4b4e3f42f7e18a9e157c9309a862dc27a31654fd2d7da0f97c",
+  "signed_bundle_hash": "sha256:308ef2f751e2fb3159c4b88cc294bed2e94944e97e268268c7c46a7f489019f6",
   "source_commits": {
-    "certificate_source_commit": "48db0a02bd8dbc0bbd81412d5782b3d7281fa1c9",
-    "certifyedge_commit": "48db0a02bd8dbc0bbd81412d5782b3d7281fa1c9",
-    "labtrust_gym_commit": "186c65b252bfaade6ee321b0a74c15980852cdd2",
-    "pcs_core_commit": "874d884ef0de77e1f9335a9622d07fb6f3471089",
-    "runtime_receipt_source_commit": "186c65b252bfaade6ee321b0a74c15980852cdd2"
+    "certificate_source_commit": "635fca3771ad54fe3f8b49d1bb77ee35d0680ddc",
+    "certifyedge_commit": "635fca3771ad54fe3f8b49d1bb77ee35d0680ddc",
+    "labtrust_gym_commit": "17ed831acfd775889ab497d11004cceb083a9c2d",
+    "pcs_core_commit": "17e414501b3e1c58e8fbde1fe89a828440a945d9",
+    "runtime_receipt_source_commit": "17ed831acfd775889ab497d11004cceb083a9c2d"
   },
   "trace_hash": "sha256:c3e8a3dc4ad86d533de1dfa4ae7fe2a338c2cff3c945404c96a75216524d58cd",
   "verified_input_bundle_hash": "sha256:bb740698a01c4e918ca0f346e5bfaed83e6665da8df84e931c0d50e03ce82ffe",

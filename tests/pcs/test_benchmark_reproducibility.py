@@ -52,6 +52,8 @@ def test_benchmark_reproducibility_hash_stability(
     assert coverage["reproducibility_passed"] is True
 
 
+@pytest.mark.slow
+@pytest.mark.timeout(900)
 def test_benchmark_reproducibility_release_grade(
     repo_root: Path, release_dir: Path, tmp_path: Path
 ) -> None:

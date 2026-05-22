@@ -10,21 +10,20 @@ on:
       - "policy/schemas/pcs/**"
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
+      - "docs/pcs/**"
       - "docs/pcs*.md"
-      - "docs/pcs-bench-producer-contract.md"
       - "scripts/sync_pcs_bench_labtrust_suite.py"
       - "scripts/publish_pcs_bench_fixtures.py"
       - "tests/fixtures/pcs_bench_reproducibility/**"
       - "examples/pcs_qc_release/scripts/ci_validate_pcs_producer_contract.py"
-      - "docs/pcs-workflow-implementation-guide.md"
-      - "docs/pcs-reference-implementation.md"
+      - "policy/schemas/pcs/WorkflowProfile.v0.schema.json"
+      - "policy/schemas/pcs/WorkflowProfile.formalization.extension.schema.json"
+      - "scripts/apply_pcs_core_labtrust_schema_profiles.py"
       - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
       - "policy/schemas/pcs/FailureCaseManifest.v0.schema.json"
       - "policy/schemas/pcs/BenchmarkCase.v0.schema.json"
       - "policy/schemas/pcs/BenchmarkArtifactRef.v0.schema.json"
       - "policy/schemas/pcs/ReproducibilityBenchmarkManifest.v0.schema.json"
-      - "docs/labtrust-benchmark-profile.md"
-      - "docs/reference-workflow-template.md"
       - "schemas_or_docs/**"
       - "templates/pcs_workflow_template/**"
       - "Makefile"
@@ -41,21 +40,20 @@ on:
       - "policy/schemas/pcs/**"
       - "examples/pcs_qc_release/**"
       - "tests/pcs/**"
+      - "docs/pcs/**"
       - "docs/pcs*.md"
-      - "docs/pcs-bench-producer-contract.md"
       - "scripts/sync_pcs_bench_labtrust_suite.py"
       - "scripts/publish_pcs_bench_fixtures.py"
       - "tests/fixtures/pcs_bench_reproducibility/**"
       - "examples/pcs_qc_release/scripts/ci_validate_pcs_producer_contract.py"
-      - "docs/pcs-workflow-implementation-guide.md"
-      - "docs/pcs-reference-implementation.md"
+      - "policy/schemas/pcs/WorkflowProfile.v0.schema.json"
+      - "policy/schemas/pcs/WorkflowProfile.formalization.extension.schema.json"
+      - "scripts/apply_pcs_core_labtrust_schema_profiles.py"
       - "policy/schemas/pcs/RegenerationReport.v0.schema.json"
       - "policy/schemas/pcs/FailureCaseManifest.v0.schema.json"
       - "policy/schemas/pcs/BenchmarkCase.v0.schema.json"
       - "policy/schemas/pcs/BenchmarkArtifactRef.v0.schema.json"
       - "policy/schemas/pcs/ReproducibilityBenchmarkManifest.v0.schema.json"
-      - "docs/labtrust-benchmark-profile.md"
-      - "docs/reference-workflow-template.md"
       - "schemas_or_docs/**"
       - "templates/pcs_workflow_template/**"
       - "Makefile"
@@ -80,10 +78,8 @@ jobs:
         with:
           repository: SentinelOps-CI/pcs-bench
           path: pcs-bench
-      - name: Apply LabTrust RuntimeReceipt profile to pcs-core schemas
-        run: |
-          cp policy/schemas/pcs/runtime_receipt.v0.schema.json \
-            pcs-core/schemas/RuntimeReceipt.v0.schema.json
+      - name: Apply LabTrust pcs-core schema profiles
+        run: python scripts/apply_pcs_core_labtrust_schema_profiles.py --pcs-core pcs-core
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

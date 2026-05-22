@@ -15,7 +15,7 @@ from labtrust_gym.pcs.release_handoff import (
     assert_pf_handoff_matches_release_manifest,
     assert_pf_handoff_trace_hash_matches_runtime_receipt,
 )
-from labtrust_gym.pcs.release_run import file_content_digest
+from labtrust_gym.pcs.release_run import RELEASE_FIXTURE_MANIFEST_NAME, file_content_digest
 from labtrust_gym.pcs.schema_version import (
     CANONICAL_BUNDLE_ARRAY_KEYS,
     LEGACY_PF_BUNDLE_TOP_LEVEL_KEYS,
@@ -23,6 +23,7 @@ from labtrust_gym.pcs.schema_version import (
 )
 from labtrust_gym.pcs.sync_pcs_core_rc import (
     HANDOFF_ARTIFACTS,
+    RC_PROVENANCE_PIN_KEYS,
     assert_release_not_using_deterministic_cert_digest,
     assert_release_not_using_local_dev,
     assert_release_not_using_mock_certificate,
@@ -47,6 +48,18 @@ def _load(root: Path, name: str) -> dict:
     return json.loads((root / name).read_text(encoding="utf-8"))
 
 
+def _canonical_provenance_pins(canonical: Path) -> dict[str, str]:
+    """Provenance pins: prefer RELEASE_FIXTURE_MANIFEST when manifest.json lags fixture."""
+    identity = extract_rc_chain_identity(canonical)
+    fixture_path = canonical / RELEASE_FIXTURE_MANIFEST_NAME
+    if fixture_path.is_file():
+        fixture = _load(canonical, RELEASE_FIXTURE_MANIFEST_NAME)
+        for key in RC_PROVENANCE_PIN_KEYS:
+            if fixture.get(key):
+                identity[key] = fixture[key]
+    return identity
+
+
 def test_release_manifest_matches_pcs_core_rc(release_dir: Path, pcs_core_canonical: Path) -> None:
     try:
         compare_release_to_pcs_core_rc(release_dir, pcs_core_canonical)
@@ -56,7 +69,7 @@ def test_release_manifest_matches_pcs_core_rc(release_dir: Path, pcs_core_canoni
             pytest.skip(f"pcs-core canonical RC out of sync: {exc}")
         raise
     manifest = _load(release_dir, MANIFEST_NAME)
-    canonical = extract_rc_chain_identity(pcs_core_canonical)
+    canonical = _canonical_provenance_pins(pcs_core_canonical)
     assert manifest["pcs_core_commit"] == canonical["pcs_core_commit"]
     assert manifest["certificate_id"] == canonical["certificate_id"]
     assert manifest["trace_hash"] == canonical["trace_hash"]
@@ -97,10 +110,10 @@ def test_release_fixtures_reject_drift_from_pcs_core(
 ) -> None:
     drift = tmp_path / "release_drift"
     shutil.copytree(release_dir, drift)
-    manifest_path = drift / MANIFEST_NAME
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest["pcs_core_commit"] = "0" * 40
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    trace_path = drift / "trace.json"
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    trace["trace_hash"] = "sha256:" + "f" * 64
+    trace_path.write_text(json.dumps(trace, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="mismatch"):
         compare_release_to_pcs_core_rc(drift, pcs_core_canonical)
@@ -132,12 +145,24 @@ def test_sync_from_pcs_core_rc_is_idempotent(
     """Two syncs from the same canonical tree produce identical handoff artifact bytes."""
     work = tmp_path / "lt_work"
     release_rel = Path("examples/pcs_qc_release/release")
-    (work / release_rel).parent.mkdir(parents=True, exist_ok=True)
-    (work / release_rel).mkdir()
     for name in ("src", "policy"):
         src = repo_root / name
         if src.is_dir():
             shutil.copytree(src, work / name)
+    pcs_example = repo_root / "examples" / "pcs_qc_release"
+    dest_example = work / "examples" / "pcs_qc_release"
+    if dest_example.exists():
+        shutil.rmtree(dest_example)
+    if pcs_example.is_dir():
+        shutil.copytree(pcs_example, dest_example)
+    else:
+        dest_example.mkdir(parents=True)
+        profile_src = repo_root / "examples" / "pcs_qc_release" / "workflow_profile.v0.json"
+        if profile_src.is_file():
+            (dest_example / "workflow_profile.v0.json").write_text(
+                profile_src.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+    (work / release_rel).mkdir(parents=True, exist_ok=True)
 
     try:
         first = sync_release_from_pcs_core_rc(labtrust_root=work, canonical=pcs_core_canonical)

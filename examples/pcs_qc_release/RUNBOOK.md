@@ -35,14 +35,14 @@ LabTrust-only segment (CI / no sibling repos):
 bash examples/pcs_qc_release/scripts/run_pcs_v01_clean_chain.sh --labtrust-only
 ```
 
-## 4. Release candidate mode (pcs-v0.1.0-rc1)
+## 4. Release evidence vs local goldens
 
-PCS v0.1 release evidence is **not** the same as LabTrust-local CI goldens.
+Cross-repo release evidence is **not** the same as LabTrust-local CI goldens.
 
 | Directory | Role |
 |-----------|------|
 | `examples/pcs_qc_release/expected/` | **LabTrust-local** deterministic fixtures for unit tests and `ci_validate_pcs_exports.py`. May use `trace_certificate.mock.v0.json` and frozen `source_commit` values. |
-| `examples/pcs_qc_release/release/` | **Canonical RC mirror** of [pcs-core](https://github.com/SentinelOps-CI/pcs-core) `examples/labtrust-release/`. This is the only tree valid as cross-repo release evidence for the trust loop. |
+| `examples/pcs_qc_release/release/` | **Canonical release mirror** of [pcs-core](https://github.com/SentinelOps-CI/pcs-core) `examples/labtrust-release/`. This is the only tree valid as cross-repo release evidence for the trust loop. |
 
 **Rules**
 
@@ -361,9 +361,9 @@ labtrust check-status-policy \
 ```
 
 **WorkflowProfile.v0** (protocol driver): `examples/pcs_qc_release/workflow_profile.v0.json`  
-Implementation guide (second workflow): `docs/pcs-workflow-implementation-guide.md`  
-Starter template: `templates/pcs_workflow_template/`  
-PCS chain notes: `docs/reference-workflow-template.md`
+Documentation hub: [docs/pcs/index.md](../../docs/pcs/index.md)  
+Extending workflows: [docs/pcs/extending-workflows.md](../../docs/pcs/extending-workflows.md)  
+Starter template: `templates/pcs_workflow_template/`
 
 After editing the profile body, refresh its digest:
 

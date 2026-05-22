@@ -5,7 +5,7 @@ LabTrust-Gym validates exported PCS artifacts with **pcs-core** (`RuntimeReceipt
 ## Authoritative validation
 
 - Install [pcs-core](https://github.com/SentinelOps-CI/pcs-core) and run `pcs validate <artifact.json>` or `labtrust validate-pcs --artifact <path>`.
-- CI (`.github/workflows/pcs.yml`) patches `runtime_receipt.v0.schema.json` into the pcs-core checkout to apply the LabTrust **RuntimeReceipt profile** (`run_outcome`, `final_reason_code`, `released`, `local_dev`).
+- CI and local PCS gates run `scripts/apply_pcs_core_labtrust_schema_profiles.py` to patch pcs-core with the LabTrust **RuntimeReceipt profile** and **WorkflowProfile formalization** extension.
 
 ## LabTrust-specific artifacts
 

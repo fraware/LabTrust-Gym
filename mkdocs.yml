@@ -113,12 +113,16 @@ nav:
     - Method and pack matrix: risk-and-security/method_and_pack_matrix.md
     - Partner calibration: risk-and-security/partner_calibration.md
   - Proof-Carrying Science (PCS):
-    - pcs_v01_clean_chain.md
-    - pcs_export.md
-    - pcs_qc_release_demo.md
-    - pcs_trace_model.md
-    - pcs_handoff.md
-    - pcs_limitations.md
+    - Overview: pcs/index.md
+    - Release gate: pcs_v01_clean_chain.md
+    - Export commands: pcs_export.md
+    - Trace model: pcs_trace_model.md
+    - Handoff bundle: pcs_handoff.md
+    - Extending workflows: pcs/extending-workflows.md
+    - Benchmark producer: pcs/benchmark-producer.md
+    - Producer contract: pcs/producer-contract.md
+    - Benchmark profile: pcs/benchmark-profile.md
+    - Limitations: pcs_limitations.md
   - Export:
     - export/index.md
     - FHIR R4 export: export/fhir_export.md

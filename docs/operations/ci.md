@@ -20,7 +20,7 @@ CI runs on every push/PR to `main` and keeps the default pipeline **fast**. All 
 | **docs**        | Build MkDocs site and deploy to GitHub Pages (site + viewer + viewer-data/latest) | `pip install -e ".[docs]"`, `mkdocs build --strict`, `build_viewer_data_from_release.sh`, copy viewer/ and viewer-data/ into site/, upload Pages artifact |
 | **wheel-smoke** | Build wheel, install in venv, **audit-selfcheck** (doctor), validate-policy, quick-eval | `.github/workflows/wheel-smoke.yml`; fails if audit-selfcheck exits non-zero (missing env deps caught early) |
 | **paper-claims-regression** | Paper snapshot regression (schedule / workflow_dispatch only) | `LABTRUST_PAPER_SMOKE=1 pytest tests/test_paper_claims_regression.py -v`; compares built paper artifact to committed snapshot at tests/fixtures/paper_claims_snapshot/v0.1; timeout 15 min |
-| **pcs** (path-filtered) | PCS QC-release: pytest + deterministic export + pcs-core validate + golden snapshots | `.github/workflows/pcs.yml`; local: `bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh` or `run_pcs_ci_local.ps1` (requires `scripts/setup_pcs_dev` and sibling `pcs-core`) |
+| **pcs** (path-filtered) | PCS QC-release: full benchmark, ingest, producer contract, release protocol, and failure gallery gates | `.github/workflows/pcs.yml`; local: `bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh` or `run_pcs_ci_local.ps1` (requires `scripts/setup_pcs_dev` and sibling `pcs-core`) |
 
 The **test** job runs on a **matrix** of **ubuntu-latest** and **windows-latest** with Python 3.11 and 3.12 so regressions on either OS or version are caught. After installing `.[dev,env]`, it also installs the extension example (`examples/extension_example`) and runs `labtrust --profile example run-benchmark --task example_task --episodes 1` to verify the plugin mechanism on every commit. The default **test** job excludes slow tests via `-m "not slow"` so CI stays fast. Long-running tests (e.g. package_release, full golden suite, benchmark multi_site_stat/insider_key_misuse, determinism-report) are marked with `@pytest.mark.slow` and run in the **golden** job or on demand. pytest-timeout is configured in `pyproject.toml` (default 120s per test); see `addopts` and `markers` in pyproject.toml. The **golden suite** runs in a separate **golden** job on every push/PR and must stay green. It validates scenario correctness against the engine contract. Slow tests (golden, package-release, heavy CLI) are excluded from the default **test** job via `-m "not slow"` so CI stays bounded.
 
@@ -63,13 +63,17 @@ Or run the script directly: `bash scripts/run_verification_battery.sh` (from rep
 
 ### PCS QC-release (path-filtered workflow)
 
-Workflow **pcs** runs when PCS-related paths change. It checks out [pcs-core](https://github.com/SentinelOps-CI/pcs-core), applies LabTrust’s `RuntimeReceipt.v0` schema profile, then:
+Workflow **pcs** runs when PCS-related paths change. It checks out [pcs-core](https://github.com/SentinelOps-CI/pcs-core) and [pcs-bench](https://github.com/SentinelOps-CI/pcs-bench), applies LabTrust’s `RuntimeReceipt.v0` schema profile, then runs tests, export validation, benchmark generation, reproducibility ingest, producer contract checks, release protocol verification, failure gallery, and smoke scenarios.
 
-1. `pytest tests/pcs -q`
-2. `python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py` (deterministic export, `pcs validate`, committed `examples/pcs_qc_release/expected/` goldens)
-3. `labtrust_only_smoke.sh` and invalid-scenario receipt checks
+Setup: `scripts/setup_pcs_dev.ps1` (isolated `.venv-pcs`). Full local parity:
 
-Setup: `scripts/setup_pcs_dev.ps1` (isolated `.venv-pcs`). Full local parity: `examples/pcs_qc_release/scripts/run_pcs_ci_local.ps1`. See [pcs_export.md](../pcs_export.md) and [examples/pcs_qc_release/RUNBOOK.md](../../examples/pcs_qc_release/RUNBOOK.md).
+```bash
+bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh
+```
+
+Offline producer fixtures: `make pcs-verify` (requires sibling `pcs-core`).
+
+See [pcs/index.md](../pcs/index.md), [pcs_export.md](../pcs_export.md), and [examples/pcs_qc_release/RUNBOOK.md](../../examples/pcs_qc_release/RUNBOOK.md).
 
 ## Coverage report and ratchet
 

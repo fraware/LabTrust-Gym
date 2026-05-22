@@ -63,7 +63,7 @@
     "bundle_id": "scb-pcs-qc-release-v0.1",
     "certificates": [
       {
-        "certificate_id": "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee",
+        "certificate_id": "cert-trace-a1b8ff9d-7d5f-489c-98b1-a3a630cb87d7",
         "checker": "CertifyEdge",
         "checker_version": "0.1.0",
         "counterexample_ref": null,
@@ -85,7 +85,7 @@
       "artifact_type": "ClaimArtifact.v0",
       "assumption_set_ref": "as-pcs-qc-release-v0.1",
       "certificate_refs": [
-        "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee"
+        "cert-trace-a1b8ff9d-7d5f-489c-98b1-a3a630cb87d7"
       ],
       "claim_kind": "protocol_safety_claim",
       "claim_text": "A sample may be released only after accession, QC completion, analysis, authorization by a release-capable actor, and satisfaction of the required temporal protocol constraints.",

@@ -1,11 +1,10 @@
-# PCS benchmark producer (LabTrust-Gym)
+# PCS benchmark producer
 
 LabTrust is the reference producer for the hospital lab QC release PCS benchmark. All
 machine-readable outputs align with pcs-core v0 schemas and normalize into
 `PcsBenchIngest.v0` for pcs-bench.
 
-See [pcs-bench-producer-contract.md](pcs-bench-producer-contract.md) for the full
-producer contract, release-grade gates, artifact ref roles, and pcs-bench gate paths.
+See [producer-contract.md](producer-contract.md) for release-grade gates, artifact ref roles, and pcs-bench validation paths.
 
 ## Producer surfaces
 
@@ -38,13 +37,13 @@ python examples/pcs_qc_release/scripts/generate_pcs_bench_suite.py \
   --validate-pcs-core-output ../pcs-core
 ```
 
-## Reproducibility ingest (pcs-bench runs)
+## Reproducibility ingest
 
 ```bash
 make pcs-bench-producer
-# Windows: .\scripts\pcs_bench_producer.ps1
-# Cross-platform: python scripts/pcs_bench_producer.py
 ```
+
+Windows: `.\scripts\pcs_bench_producer.ps1`
 
 Equivalent manual flow:
 
@@ -64,30 +63,13 @@ pcs-bench validate-ingest \
   --pcs-core ../pcs-core
 ```
 
-Release-grade mode (`evidence_grade: release` on `benchmark_manifest.v0.json`) requires
-`full_regeneration`, certifyedge success rate 1.0, and per-run pcs-core / release-protocol /
-status-policy validation. `workflow_id` is always canonical (`hospital_lab.qc_release`), even
-when `--workflow` uses a short alias such as `qc-release`.
-
-```bash
-python examples/pcs_qc_release/scripts/publish_reproducibility_ingest.py \
-  --out benchmark_runs/labtrust_reproducibility \
-  --pcs-core ../pcs-core
-```
-
-`pcs_bench_ingest.v0.json` embeds pcs-core `BenchmarkRun.v0` (one per iteration) and
-`CoverageReport.v0` (`release_reproducibility_score`), with pcs-core-compatible
-`artifact_refs` (one ref per embedded object under `artifact_refs/`). LabTrust-extended
-refs (aggregate run, report, manifest, hash stability, regeneration reports) are in
-`benchmark_artifact_refs.labtrust.v0.json`. Companion files:
-
-- `benchmark_run.v0.json` — LabTrust aggregate multi-run summary
-- `benchmark_report.v0.json` — pcs-core suite report with `metric_summaries`
-- `benchmark_manifest.v0.json` — reproducibility producer manifest
+Release-grade mode requires `full_regeneration`, CertifyEdge success rate 1.0, and per-run
+release-protocol, status-policy, and pcs-core validation. `workflow_id` is always
+`hospital_lab.qc_release`.
 
 ## Validation layers
 
-1. LabTrust vendored schemas under `policy/schemas/pcs/`
+1. LabTrust schemas under `policy/schemas/pcs/`
 2. pcs-core cross-schema validation when `--validate-pcs-core-output` is set
 3. CI scripts under `examples/pcs_qc_release/scripts/ci_validate_*`
 
@@ -96,7 +78,7 @@ refs (aggregate run, report, manifest, hash stability, regeneration reports) are
 | Path | Purpose |
 |------|---------|
 | `examples/pcs_qc_release/benchmark_packet/` | Two-case smoke packet |
-| `tests/fixtures/pcs_bench_ingest/labtrust/pcs_bench_ingest.v0.json` | Offline pcs-bench producer gate (regenerate: `python scripts/generate_pcs_bench_ingest_fixture.py`) |
-| `examples/pcs_qc_release/benchmark_ingest/golden/` | Optional committed ingest golden (regenerate via `materialize_benchmark_ingest_golden.py`) |
+| `tests/fixtures/pcs_bench_reproducibility/` | Offline producer tree (`make pcs-fixtures`) |
+| `examples/pcs_qc_release/benchmark_ingest/golden/` | Optional ingest golden |
 
-See also [labtrust-benchmark-profile.md](labtrust-benchmark-profile.md).
+See [benchmark-profile.md](benchmark-profile.md) for taxonomy and metrics.
