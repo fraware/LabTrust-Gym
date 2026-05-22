@@ -2,23 +2,23 @@
   "artifacts": {
     "handoff_to_certifyedge.json": {
       "artifact_type": "HandoffManifest.v0",
-      "sha256": "sha256:e9a2abc5bfa576dcf07546ca6c5f8ddbc43436258254cab2f12760834384fd32"
+      "sha256": "sha256:67faa4cc7816b2b498e0f13d36fc0bbb3be2f1f1d1b64f1958088f6f37a99583"
     },
     "handoff_to_pf.json": {
       "artifact_type": "HandoffManifest.v0",
-      "sha256": "sha256:aa06d86faf4acd7f4cc700a92e5176a776a691dfd3904f7283dfcbe8176be37a"
+      "sha256": "sha256:18fe8aa42f4a02729e09fbbf9b760d2d664516ee12d3bf065e5233c6ec981bc6"
     },
     "runtime_receipt.json": {
       "artifact_type": "RuntimeReceipt.v0",
-      "sha256": "sha256:5cfe4827ee37376cf67d7d1c8837c20b189c591412277e0486e75e5aae22130c"
+      "sha256": "sha256:3ad5c55458a79ef502508f86cd215c746d42b4f0cc5c9aa4feeba9c03b4e1d60"
     },
     "science_claim_bundle.certified.json": {
       "artifact_type": "ScienceClaimBundle.v0",
-      "sha256": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652"
+      "sha256": "sha256:b8af33a7b24abf12fd938a59af6be91ac5e761365d8ecf3639fd0f196969de36"
     },
     "science_claim_bundle.pending.json": {
       "artifact_type": "ScienceClaimBundle.v0",
-      "sha256": "sha256:a76b8a8ee649417709a2161d712daa2000dee3c4cc46818db8d5a7ebcbf495d9"
+      "sha256": "sha256:f71e6d92c910f6db94661c712e06cf04c946bf560ede48346dd15e88cc54c6c8"
     },
     "trace.json": {
       "artifact_type": "LabTrust.Trace.v0",
@@ -27,7 +27,7 @@
   },
   "component": "LabTrust-Gym",
   "schema_version": "v0",
-  "signature_or_digest": "sha256:8ad3fa66ad3ecacbe91ef38c447e85c63ba892eff7d632e780399ff5aa3a6315",
-  "source_commit": "186c65b252bfaade6ee321b0a74c15980852cdd2",
+  "signature_or_digest": "sha256:d772389e265d2f27548fe1eb44c4407a77d88576bc94c215457c29950b8c5720",
+  "source_commit": "17ed831acfd775889ab497d11004cceb083a9c2d",
   "source_repo": "https://github.com/fraware/LabTrust-Gym"
 }

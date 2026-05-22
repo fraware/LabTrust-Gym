@@ -20,8 +20,8 @@
       "exit_code": 0
     }
   ],
-  "completed_at": "2026-05-16T12:00:00.204000Z",
-  "duration_ms": 204,
+  "completed_at": "2026-05-16T12:00:00.291000Z",
+  "duration_ms": 291,
   "observed_failure_code": null,
   "observed_repair_hint": null,
   "observed_responsible_component": null,
@@ -29,7 +29,7 @@
   "release_chain_status": "valid",
   "run_id": "labtrust-repro-hash_stability-run-0",
   "schema_version": "v0",
-  "signature_or_digest": "sha256:e46be2f2818bf232fa985f28c2c11959555d78445d8cf7d8d56c17322d71a999",
+  "signature_or_digest": "sha256:aa20cbfc0a137183ed7d7eb6d71cd8560247c046ad6bc2d781603d129225f3e3",
   "source_commit": "0000000000000000000000000000000000000001",
   "source_repo": "https://github.com/fraware/LabTrust-Gym",
   "started_at": "2026-05-16T12:00:00Z",

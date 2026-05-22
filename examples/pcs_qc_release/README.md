@@ -46,7 +46,7 @@ labtrust validate-pcs --run runs/qc-release
 labtrust export-pcs-handoff --out handoff/
 ```
 
-Trace/event model: [docs/pcs_trace_model.md](../../docs/pcs_trace_model.md).
+PCS documentation: [docs/pcs/index.md](../../docs/pcs/index.md). Trace model: [docs/pcs_trace_model.md](../../docs/pcs_trace_model.md).
 
 Regenerate golden snapshots (uses `PCS_DETERMINISTIC=1`; no git HEAD required):
 

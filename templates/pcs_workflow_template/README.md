@@ -20,5 +20,5 @@ tests/test_workflow_skeleton.py
 5. Run `labtrust regenerate-release-protocol --out examples/<your_workflow>/release`.
 6. Confirm `regeneration_report.json` status is `passed`.
 
-See `docs/pcs-workflow-implementation-guide.md` for the five-layer PCS model and LabTrust QC
-reference paths.
+See [docs/pcs/extending-workflows.md](../../docs/pcs/extending-workflows.md) for the trust-loop
+model and QC-release reference paths.

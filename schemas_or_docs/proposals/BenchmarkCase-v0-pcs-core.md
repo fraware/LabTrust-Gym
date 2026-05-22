@@ -16,7 +16,7 @@ workflow suite without per-repo adapters.
 - Generator: `labtrust generate-benchmark-cases`
 - Verifier: `labtrust verify-benchmark-cases`
 - Suite: `examples/pcs_qc_release/benchmark/`
-- Profile: [docs/labtrust-benchmark-profile.md](../../docs/labtrust-benchmark-profile.md)
+- Profile: [docs/pcs/benchmark-profile.md](../../docs/pcs/benchmark-profile.md)
 
 ## pcs-bench loader contract (`pcs_bench` block)
 

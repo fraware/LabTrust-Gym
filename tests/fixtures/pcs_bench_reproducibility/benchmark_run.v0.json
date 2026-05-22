@@ -6,9 +6,9 @@
     "certificate_id_stable": true,
     "command_deterministic": true,
     "duration_ms": {
-      "max": 204,
-      "mean": 204.0,
-      "min": 204
+      "max": 291,
+      "mean": 291.0,
+      "min": 291
     },
     "release_validation_stable": true
   },
@@ -17,20 +17,20 @@
   "per_run": [
     {
       "artifact_hashes": {
-        "handoff_to_certifyedge.json": "sha256:e9a2abc5bfa576dcf07546ca6c5f8ddbc43436258254cab2f12760834384fd32",
-        "handoff_to_pf.json": "sha256:aa06d86faf4acd7f4cc700a92e5176a776a691dfd3904f7283dfcbe8176be37a",
-        "labtrust_release_fragment.json": "sha256:1ccf6b49eeb3a075e9bd3aeed0d220b4765af8b9f65721afc56ec15fd563b11d",
-        "manifest.json": "sha256:3149d4139f2901693759b809a1f59e804158e3aea1d2c992dcfde4a1d724b0f3",
-        "regeneration_report.json": "sha256:1309dbc9b57bc56c4c02a5506d8fe59f32184ad189dd4ee219ad887206f032d5",
-        "runtime_receipt.json": "sha256:5cfe4827ee37376cf67d7d1c8837c20b189c591412277e0486e75e5aae22130c",
-        "science_claim_bundle.certified.json": "sha256:aa859b7a367421b0848ee34d276ec22ccf044eeb0fc30c8c143c8bf705ea6652",
-        "science_claim_bundle.pending.json": "sha256:a76b8a8ee649417709a2161d712daa2000dee3c4cc46818db8d5a7ebcbf495d9",
+        "handoff_to_certifyedge.json": "sha256:67faa4cc7816b2b498e0f13d36fc0bbb3be2f1f1d1b64f1958088f6f37a99583",
+        "handoff_to_pf.json": "sha256:18fe8aa42f4a02729e09fbbf9b760d2d664516ee12d3bf065e5233c6ec981bc6",
+        "labtrust_release_fragment.json": "sha256:8deb338bcbf223b873840af3a68f36f826951e94e0bc504466c2d6b6a64cdd92",
+        "manifest.json": "sha256:77f1c9e798c2fe02cd80e88f57e5dbefae12126d48497c345ffeebb427ce9c7c",
+        "regeneration_report.json": "sha256:0f7aae2ec318569d83072e43fffd0b95aade89673f00082ad454c632191de7bf",
+        "runtime_receipt.json": "sha256:3ad5c55458a79ef502508f86cd215c746d42b4f0cc5c9aa4feeba9c03b4e1d60",
+        "science_claim_bundle.certified.json": "sha256:b8af33a7b24abf12fd938a59af6be91ac5e761365d8ecf3639fd0f196969de36",
+        "science_claim_bundle.pending.json": "sha256:f71e6d92c910f6db94661c712e06cf04c946bf560ede48346dd15e88cc54c6c8",
         "trace.json": "sha256:f99eb0a90cd2b9819816a25ec4e938663d26ae8d40868cd8188665e940f7ad5c",
-        "trace_certificate.json": "sha256:0e22ccc1f40fd3298ccace1e5870b9a27f1f73be69d2697afd003d2b00e1ddeb",
+        "trace_certificate.json": "sha256:3a9facf4f66ebeb0ac286865d3c801fc976128ba0e28d5b863c95549622f539c",
         "workflow_profile.v0.json": "sha256:fec41435daba6ecdf9299aa6b491a9311c637bcb7f8e0fb442fdbf9a8ac11ade"
       },
-      "certificate_id": "cert-trace-a8e5fc69-f6ac-4463-8c13-39f0ab1515ee",
-      "duration_ms": 204,
+      "certificate_id": "cert-trace-a1b8ff9d-7d5f-489c-98b1-a3a630cb87d7",
+      "duration_ms": 291,
       "release_validation_checks": [
         "workflow_profile_schema",
         "workflow_profile_handoff_sequence",
@@ -88,6 +88,6 @@
   "runs": 1,
   "schema_version": "v0",
   "seed": 42,
-  "signature_or_digest": "sha256:d8392bab97d9cf7f2d4681d073eaccd16fb03eb170be04dd436947888aa25ff7",
+  "signature_or_digest": "sha256:644c95f5e3efe2a6da52502a529de8be3ed70e73a3dd68efa3c73572e0caa169",
   "workflow_id": "hospital_lab.qc_release"
 }

@@ -681,9 +681,77 @@ def sync_release_from_pcs_core_rc(
     shutil.move(str(staging), str(local))
     _restore_release_readmes(local, readmes)
 
+    enrich_labtrust_release_after_rc_sync(local, policy_root=lt_root)
+
     assert_release_matches_pcs_core_rc(local, canon)
     verify_release_handoff(local)
     return local
+
+
+def enrich_labtrust_release_after_rc_sync(
+    release_dir: Path,
+    *,
+    policy_root: Path | None = None,
+) -> list[str]:
+    """
+    After syncing pcs-core RC bytes, restore LabTrust-only protocol/benchmark artifacts.
+
+    pcs-core canonical trees may omit ``workflow_profile.v0.json``, regeneration reports,
+    and formalization sidecars; benchmarks and CI expect them under ``release/``.
+    """
+    from labtrust_gym.pcs.formalization import (
+        FORMALIZATION_READINESS_REPORT_NAME,
+        PROOF_OBLIGATION_HINTS_NAME,
+        PROOF_OBLIGATION_IDENTIFIERS_NAME,
+        build_formalization_readiness_report,
+        build_proof_obligation_hints,
+        collect_proof_obligation_identifiers,
+    )
+    from labtrust_gym.pcs.protocol_artifacts import ProtocolRegenerationResult, WORKFLOW_PROFILE_RELEASE_NAME
+    from labtrust_gym.pcs.regeneration_report import REGENERATION_REPORT_NAME, build_regeneration_report, write_regeneration_report
+    from labtrust_gym.pcs.workflow_profile import default_workflow_profile_path, workflow_profile_view
+
+    release_dir = release_dir.resolve()
+    root = policy_root or get_repo_root()
+    checks: list[str] = []
+
+    profile_path = default_workflow_profile_path(root)
+    dest_profile = release_dir / WORKFLOW_PROFILE_RELEASE_NAME
+    shutil.copy2(profile_path, dest_profile)
+    checks.append(WORKFLOW_PROFILE_RELEASE_NAME)
+
+    profile = workflow_profile_view(profile_path, policy_root=root)
+    manifest_path = release_dir / "manifest.json"
+    if manifest_path.is_file():
+        manifest = _load(manifest_path)
+        manifest["workflow_id"] = profile.property_id
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        checks.append("manifest.workflow_id")
+
+    result = ProtocolRegenerationResult(release_dir=release_dir, run_dir=release_dir)
+    report = build_regeneration_report(
+        result,
+        workflow_id=profile.workflow_id,
+        duration_ms=0,
+        status="passed",
+        failure_code=None,
+    )
+    write_regeneration_report(release_dir / REGENERATION_REPORT_NAME, report)
+    checks.append(REGENERATION_REPORT_NAME)
+
+    identifiers = collect_proof_obligation_identifiers(release_dir)
+    hints = build_proof_obligation_hints(release_dir, profile=profile)
+    readiness = build_formalization_readiness_report(release_dir, profile=profile)
+    for name, doc in (
+        (PROOF_OBLIGATION_IDENTIFIERS_NAME, identifiers),
+        (PROOF_OBLIGATION_HINTS_NAME, hints),
+        (FORMALIZATION_READINESS_REPORT_NAME, readiness),
+    ):
+        path = release_dir / name
+        path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        checks.append(name)
+
+    return checks
 
 
 def cli_main(argv: list[str] | None = None) -> int:

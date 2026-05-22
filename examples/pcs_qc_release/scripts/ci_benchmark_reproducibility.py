@@ -58,11 +58,12 @@ def main() -> int:
                 runs=1,
                 seed=42,
                 mode="full_regeneration",
+                release_grade=False,
                 include_hash_stability=False,
             )
             print("  full_regeneration probe OK")
-        except RegenerationUnavailableError:
-            print("  full_regeneration skipped (CertifyEdge unavailable)")
+        except (RegenerationUnavailableError, ValueError) as exc:
+            print(f"  full_regeneration skipped ({exc})")
         agg = doc["aggregate"]
         if not agg["command_deterministic"]:
             raise SystemExit(

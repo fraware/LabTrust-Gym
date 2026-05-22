@@ -13,7 +13,7 @@ LabTrust-Gym exports Proof-Carrying Science (PCS) artifacts for the QC-release d
 | `labtrust attach-certificate --bundle ... --certificate ... --out ...` | Certified bundle |
 | `labtrust validate-pcs --run <dir>` | Validate trace + pcs-core artifacts in a run |
 | `labtrust validate-pcs --artifact <file.json>` | Validate a single PCS JSON file |
-| `labtrust export-pcs-handoff --out handoff/` | CertifyEdge + PF handoff bundle |
+| `labtrust export-pcs-handoff --out handoff/` | CertifyEdge + Provability Fabric handoff bundle |
 
 Exports validate against pcs-core by default; pass `--no-validate` only for debugging.
 
@@ -50,12 +50,16 @@ Golden traces for CertifyEdge: `examples/pcs_qc_release/expected/valid_trace.jso
 
 ## CI validation
 
-GitHub Actions (`.github/workflows/pcs.yml`) runs:
+GitHub Actions (`.github/workflows/pcs.yml`) runs the full PCS gate: tests, export validation,
+benchmark cases, reproducibility ingest, producer contract, release protocol, and failure gallery.
 
-1. `pytest tests/pcs`
-2. `python examples/pcs_qc_release/scripts/ci_validate_pcs_exports.py` — deterministic export, `pcs validate`, and committed golden checks via `labtrust_gym.pcs.ci_pipeline`
+Local parity:
 
-The same pipeline is importable in tests (`tests/pcs/test_ci_pipeline.py`).
+```bash
+bash examples/pcs_qc_release/scripts/run_pcs_ci_local.sh
+```
+
+See [pcs/index.md](pcs/index.md) for the documentation map and release checklist.
 
 ## Hashing
 
