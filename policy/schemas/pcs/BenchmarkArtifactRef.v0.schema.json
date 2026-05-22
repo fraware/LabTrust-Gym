@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcs.sentinelops.ci/schemas/BenchmarkArtifactRef.v0.schema.json",
+  "title": "BenchmarkArtifactRef.v0",
+  "description": "LabTrust-extended artifact refs (superset of pcs-core for reproducibility sidecars).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "path",
+    "sha256",
+    "role",
+    "source_repo",
+    "source_commit",
+    "signature_or_digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "v0" },
+    "artifact_type": {
+      "type": "string",
+      "enum": [
+        "BenchmarkCase.v0",
+        "BenchmarkRun.v0",
+        "BenchmarkReport.v0",
+        "CoverageReport.v0",
+        "ReproducibilityBenchmarkManifest.v0",
+        "HashStabilityReport.v0",
+        "RegenerationReport.v0",
+        "FailureLocalizationResult.v0",
+        "ExplainQualityReport.v0",
+        "ProfileCoverageReport.v0",
+        "MetricSummary.v0"
+      ]
+    },
+    "path": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "role": {
+      "type": "string",
+      "enum": [
+        "producer_export",
+        "ingest_bundle",
+        "primary",
+        "native_report",
+        "reproducibility_evidence",
+        "regeneration_report"
+      ]
+    },
+    "source_repo": { "type": "string", "format": "uri" },
+    "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "signature_or_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

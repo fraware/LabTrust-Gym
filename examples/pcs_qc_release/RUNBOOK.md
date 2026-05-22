@@ -331,6 +331,10 @@ python examples/pcs_qc_release/scripts/ci_validate_benchmark_registry_expected.p
 # Minimal two-case packet for pcs-bench smoke (no full gallery):
 python examples/pcs_qc_release/scripts/generate_benchmark_packet.py
 
+# Release-grade producer + pcs-bench ingest validation (from repo root):
+make pcs-bench-producer
+
+# Or manual equivalent:
 labtrust benchmark-reproducibility \
   --workflow hospital_lab.qc_release \
   --pcs-core ../pcs-core \
@@ -339,7 +343,11 @@ labtrust benchmark-reproducibility \
   --mode full_regeneration \
   --out benchmark_runs/labtrust_reproducibility \
   --seed 42 \
-  --validate-pcs-core-output ../pcs-core
+  --validate-pcs-core-output ../pcs-core \
+  --release-grade
+
+# Offline ingest fixture gate (no certifyedge):
+python examples/pcs_qc_release/scripts/ci_validate_pcs_bench_ingest_fixture.py
 
 # Publish ingest for pcs-bench (sibling repo):
 python examples/pcs_qc_release/scripts/publish_reproducibility_ingest.py \

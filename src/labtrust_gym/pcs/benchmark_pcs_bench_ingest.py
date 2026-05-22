@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -14,11 +15,27 @@ from labtrust_gym.pcs.benchmark_pcs_bench import PCS_BENCH_SUITE_ID
 from labtrust_gym.pcs.hash import pcs_digest
 
 PCS_BENCH_INGEST_NAME = "pcs_bench_ingest.v0.json"
+LABTRUST_EXTENDED_ARTIFACT_REFS_NAME = "benchmark_artifact_refs.labtrust.v0.json"
 PRODUCER_ID = "labtrust-gym"
 REPRODUCIBILITY_SUITE_ID = "labtrust-qc-reproducibility-v0"
 REPRODUCIBILITY_TASK_ID = "labtrust-qc-release-reproducibility-v0"
 REPRODUCIBILITY_CASE_ID = "labtrust-valid-release-v0"
+EVIDENCE_GRADE_RELEASE = "release"
+EVIDENCE_GRADE_DEVELOPER = "developer"
 _REPRO_BASE_TIME = datetime(2026, 5, 16, 12, 0, 0, tzinfo=UTC)
+
+_PCS_CORE_ARTIFACT_REF_TYPES = frozenset(
+    {
+        "BenchmarkCase.v0",
+        "BenchmarkRun.v0",
+        "CoverageReport.v0",
+        "FailureLocalizationResult.v0",
+        "ExplainQualityReport.v0",
+        "ProfileCoverageReport.v0",
+        "MetricSummary.v0",
+    }
+)
+_PCS_CORE_ARTIFACT_REF_ROLES = frozenset({"producer_export", "ingest_bundle", "primary"})
 
 
 def build_release_reproducibility_coverage_report(
@@ -77,6 +94,214 @@ def build_benchmark_artifact_ref(
     unsigned = {k: v for k, v in doc.items() if k != "signature_or_digest"}
     doc["signature_or_digest"] = pcs_digest(unsigned)
     return doc
+
+
+def is_pcs_core_compatible_artifact_ref(ref: dict[str, Any]) -> bool:
+    """True when ``ref`` validates under pcs-core ``BenchmarkArtifactRef.v0`` enums."""
+    return (
+        ref.get("artifact_type") in _PCS_CORE_ARTIFACT_REF_TYPES
+        and ref.get("role") in _PCS_CORE_ARTIFACT_REF_ROLES
+    )
+
+
+def _load_json_artifact(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def build_pcs_core_reproducibility_artifact_refs(
+    *,
+    out_dir: Path,
+    pcs_runs: list[dict[str, Any]],
+    pcs_coverage: dict[str, Any],
+    source_repo: str,
+    source_commit: str,
+    write_sidecars: bool = True,
+) -> list[dict[str, Any]]:
+    """
+    pcs-core / pcs-bench compatible ``artifact_refs`` for embedded ingest objects.
+
+    Writes one sidecar JSON per embedded ``BenchmarkRun.v0`` and ``CoverageReport.v0``
+    under ``artifact_refs/`` so ``pcs-bench validate-ingest`` can match digests and paths.
+    """
+    out_dir = out_dir.resolve()
+    refs: list[dict[str, Any]] = []
+    runs_root = out_dir / "artifact_refs" / "benchmark_runs"
+    cov_root = out_dir / "artifact_refs" / "coverage_reports"
+    if write_sidecars:
+        runs_root.mkdir(parents=True, exist_ok=True)
+        cov_root.mkdir(parents=True, exist_ok=True)
+
+    for run in pcs_runs:
+        run_id = str(run["run_id"])
+        rel = f"artifact_refs/benchmark_runs/{run_id}.v0.json"
+        if write_sidecars:
+            path = runs_root / f"{run_id}.v0.json"
+            path.write_text(json.dumps(run, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        refs.append(
+            build_benchmark_artifact_ref(
+                artifact_type="BenchmarkRun.v0",
+                path=rel,
+                embedded=run,
+                source_repo=source_repo,
+                source_commit=source_commit,
+                role="producer_export",
+            )
+        )
+
+    coverage_id = str(pcs_coverage.get("coverage_id", "coverage"))
+    cov_rel = f"artifact_refs/coverage_reports/{coverage_id}.v0.json"
+    if write_sidecars:
+        cov_path = cov_root / f"{coverage_id}.v0.json"
+        cov_path.write_text(
+            json.dumps(pcs_coverage, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    refs.append(
+        build_benchmark_artifact_ref(
+            artifact_type="CoverageReport.v0",
+            path=cov_rel,
+            embedded=pcs_coverage,
+            source_repo=source_repo,
+            source_commit=source_commit,
+            role="producer_export",
+        )
+    )
+    return refs
+
+
+def build_reproducibility_sidecar_artifact_refs(
+    *,
+    out_dir: Path,
+    run_doc: dict[str, Any],
+    pcs_coverage: dict[str, Any],
+    benchmark_report: dict[str, Any],
+    benchmark_manifest: dict[str, Any],
+    source_repo: str,
+    source_commit: str,
+    benchmark_run_name: str = "benchmark_run.v0.json",
+    coverage_report_name: str = "coverage_report.v0.json",
+    benchmark_report_name: str = "benchmark_report.v0.json",
+    benchmark_manifest_name: str = "benchmark_manifest.v0.json",
+    hash_stability_report_name: str = "hash_stability_report.v0.json",
+    regeneration_reports_dir: str = "regeneration_reports",
+) -> list[dict[str, Any]]:
+    """BenchmarkArtifactRef.v0 entries for all reproducibility sidecar artifacts."""
+    out_dir = out_dir.resolve()
+    refs: list[dict[str, Any]] = [
+        build_benchmark_artifact_ref(
+            artifact_type="BenchmarkRun.v0",
+            path=benchmark_run_name,
+            embedded=run_doc,
+            source_repo=source_repo,
+            source_commit=source_commit,
+            role="reproducibility_evidence",
+        ),
+        build_benchmark_artifact_ref(
+            artifact_type="CoverageReport.v0",
+            path=coverage_report_name,
+            embedded=pcs_coverage,
+            source_repo=source_repo,
+            source_commit=source_commit,
+            role="producer_export",
+        ),
+        build_benchmark_artifact_ref(
+            artifact_type="BenchmarkReport.v0",
+            path=benchmark_report_name,
+            embedded=benchmark_report,
+            source_repo=source_repo,
+            source_commit=source_commit,
+            role="native_report",
+        ),
+        build_benchmark_artifact_ref(
+            artifact_type="ReproducibilityBenchmarkManifest.v0",
+            path=benchmark_manifest_name,
+            embedded=benchmark_manifest,
+            source_repo=source_repo,
+            source_commit=source_commit,
+            role="producer_export",
+        ),
+    ]
+    hash_path = out_dir / hash_stability_report_name
+    if hash_path.is_file():
+        hash_doc = _load_json_artifact(hash_path)
+        refs.append(
+            build_benchmark_artifact_ref(
+                artifact_type="HashStabilityReport.v0",
+                path=hash_stability_report_name,
+                embedded=hash_doc,
+                source_repo=source_repo,
+                source_commit=source_commit,
+                role="reproducibility_evidence",
+            )
+        )
+    regen_dir = out_dir / regeneration_reports_dir
+    if regen_dir.is_dir():
+        for report_path in sorted(regen_dir.glob("run_*_regeneration_report.json")):
+            rel = f"{regeneration_reports_dir}/{report_path.name}".replace("\\", "/")
+            regen_doc = _load_json_artifact(report_path)
+            refs.append(
+                build_benchmark_artifact_ref(
+                    artifact_type="RegenerationReport.v0",
+                    path=rel,
+                    embedded=regen_doc,
+                    source_repo=source_repo,
+                    source_commit=source_commit,
+                    role="regeneration_report",
+                )
+            )
+    return refs
+
+
+def release_grade_flags(
+    *,
+    mode: str,
+    per_run: list[dict[str, Any]],
+    aggregate: dict[str, Any],
+    pcs_core_configured: bool,
+) -> tuple[bool, bool]:
+    """Return ``(certifyedge_live, pcs_core_validation)`` for manifest emission."""
+    certifyedge_live = mode == "full_regeneration"
+    certifyedge_ok = float(aggregate.get("certifyedge_success_rate", 0.0)) >= 1.0
+    pcs_ok = all(r.get("pcs_core_validation_passed") for r in per_run) if per_run else False
+    return certifyedge_live and certifyedge_ok, pcs_core_configured and pcs_ok
+
+
+def enforce_release_grade_gate(
+    *,
+    mode: str,
+    per_run: list[dict[str, Any]],
+    aggregate: dict[str, Any],
+    evidence_grade: str = EVIDENCE_GRADE_RELEASE,
+) -> None:
+    """Fail when release-grade semantics are not met."""
+    if evidence_grade != EVIDENCE_GRADE_RELEASE:
+        return
+    if mode != "full_regeneration":
+        raise ValueError("release-grade benchmark requires mode full_regeneration")
+    if float(aggregate.get("certifyedge_success_rate", 0.0)) < 1.0:
+        raise ValueError(
+            "release-grade benchmark requires certifyedge_call_success rate 1.0, "
+            f"got {aggregate.get('certifyedge_success_rate')}"
+        )
+    for run in per_run:
+        if not run.get("release_protocol_validation_passed"):
+            detail = run.get("release_protocol_validation_error") or (
+                run.get("release_protocol_validation_checks") or "no checks"
+            )
+            raise ValueError(
+                f"release-grade failed: run {run.get('run_index')} "
+                f"release_protocol_validation_passed=false ({detail})"
+            )
+        if not run.get("status_policy_validation_passed"):
+            raise ValueError(
+                f"release-grade failed: run {run.get('run_index')} "
+                "status_policy_validation_passed=false"
+            )
+        if not run.get("pcs_core_validation_passed"):
+            raise ValueError(
+                f"release-grade failed: run {run.get('run_index')} "
+                "pcs_core_validation_passed=false (pcs-core schema validation)"
+            )
 
 
 def _certificate_status_for_run(run: dict[str, Any]) -> str:
@@ -197,6 +422,9 @@ def build_reproducibility_benchmark_manifest(
     policy_root: Path,
     pcs_bench_ingest_path: str = PCS_BENCH_INGEST_NAME,
     suite_id: str = REPRODUCIBILITY_SUITE_ID,
+    evidence_grade: str = EVIDENCE_GRADE_RELEASE,
+    certifyedge_live: bool = False,
+    pcs_core_validation: bool = False,
 ) -> dict[str, Any]:
     """Release-grade manifest for a reproducibility benchmark output directory."""
     source_repo, source_commit = _benchmark_provenance(policy_root)
@@ -208,6 +436,9 @@ def build_reproducibility_benchmark_manifest(
         "mode": mode,
         "runs": runs,
         "pcs_bench_ingest": pcs_bench_ingest_path.replace("\\", "/"),
+        "evidence_grade": evidence_grade,
+        "certifyedge_live": certifyedge_live,
+        "pcs_core_validation": pcs_core_validation,
         "source_repo": source_repo,
         "source_commit": source_commit,
     }

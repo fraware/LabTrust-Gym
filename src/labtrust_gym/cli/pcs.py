@@ -381,6 +381,7 @@ def _run_benchmark_reproducibility(args: argparse.Namespace) -> int:
             seed=args.seed,
             mode=args.mode,
             validate_pcs_core_output=validate_root,
+            release_grade=getattr(args, "release_grade", None),
         )
     except (ValueError, FileNotFoundError, NotImplementedError) as e:
         get_console().error(str(e))
@@ -944,6 +945,12 @@ def register_pcs_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
         default=None,
         metavar="PCS_CORE_ROOT",
         help="Validate benchmark outputs against pcs-core schemas (BenchmarkRun, CoverageReport, PcsBenchIngest)",
+    )
+    p_repro.add_argument(
+        "--release-grade",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enforce release-grade gates (default: on for full_regeneration)",
     )
     p_repro.add_argument("--json", action="store_true", help="Print benchmark_run.v0.json to stdout")
     p_repro.set_defaults(func=_run_benchmark_reproducibility)

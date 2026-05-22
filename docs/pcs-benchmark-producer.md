@@ -38,6 +38,14 @@ python examples/pcs_qc_release/scripts/generate_pcs_bench_suite.py \
 ## Reproducibility ingest (pcs-bench runs)
 
 ```bash
+make pcs-bench-producer
+# Windows: .\scripts\pcs_bench_producer.ps1
+# Cross-platform: python scripts/pcs_bench_producer.py
+```
+
+Equivalent manual flow:
+
+```bash
 labtrust benchmark-reproducibility \
   --workflow hospital_lab.qc_release \
   --mode full_regeneration \
@@ -45,15 +53,30 @@ labtrust benchmark-reproducibility \
   --certifyedge-bin certifyedge \
   --runs 5 \
   --out benchmark_runs/labtrust_reproducibility \
-  --validate-pcs-core-output ../pcs-core
+  --validate-pcs-core-output ../pcs-core \
+  --release-grade
 
+pcs-bench validate-ingest \
+  --input benchmark_runs/labtrust_reproducibility/pcs_bench_ingest.v0.json \
+  --pcs-core ../pcs-core
+```
+
+Release-grade mode (`evidence_grade: release` on `benchmark_manifest.v0.json`) requires
+`full_regeneration`, certifyedge success rate 1.0, and per-run pcs-core / release-protocol /
+status-policy validation. `workflow_id` is always canonical (`hospital_lab.qc_release`), even
+when `--workflow` uses a short alias such as `qc-release`.
+
+```bash
 python examples/pcs_qc_release/scripts/publish_reproducibility_ingest.py \
   --out benchmark_runs/labtrust_reproducibility \
   --pcs-core ../pcs-core
 ```
 
 `pcs_bench_ingest.v0.json` embeds pcs-core `BenchmarkRun.v0` (one per iteration) and
-`CoverageReport.v0` (`release_reproducibility_score`). Companion files:
+`CoverageReport.v0` (`release_reproducibility_score`), with pcs-core-compatible
+`artifact_refs` (one ref per embedded object under `artifact_refs/`). LabTrust-extended
+refs (aggregate run, report, manifest, hash stability, regeneration reports) are in
+`benchmark_artifact_refs.labtrust.v0.json`. Companion files:
 
 - `benchmark_run.v0.json` — LabTrust aggregate multi-run summary
 - `benchmark_report.v0.json` — pcs-core suite report with `metric_summaries`
@@ -70,6 +93,7 @@ python examples/pcs_qc_release/scripts/publish_reproducibility_ingest.py \
 | Path | Purpose |
 |------|---------|
 | `examples/pcs_qc_release/benchmark_packet/` | Two-case smoke packet |
+| `tests/fixtures/pcs_bench_ingest/labtrust/pcs_bench_ingest.v0.json` | Offline pcs-bench producer gate (regenerate: `python scripts/generate_pcs_bench_ingest_fixture.py`) |
 | `examples/pcs_qc_release/benchmark_ingest/golden/` | Optional committed ingest golden (regenerate via `materialize_benchmark_ingest_golden.py`) |
 
 See also [labtrust-benchmark-profile.md](labtrust-benchmark-profile.md).

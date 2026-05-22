@@ -13,9 +13,23 @@ from labtrust_gym.pcs.hash import pcs_digest
 DEFAULT_WORKFLOW_PROFILE_REL = Path("examples/pcs_qc_release/workflow_profile.v0.json")
 
 # LabTrust handoff property_id is not a WorkflowProfile.v0 field; bind by profile workflow_id.
+CANONICAL_QC_RELEASE_WORKFLOW_ID = "hospital_lab.qc_release"
+
 PROPERTY_ID_BY_PROFILE_WORKFLOW_ID: dict[str, str] = {
-    "labtrust.qc_release_v0.1": "hospital_lab.qc_release",
+    "labtrust.qc_release_v0.1": CANONICAL_QC_RELEASE_WORKFLOW_ID,
 }
+
+
+def canonical_workflow_property_id(workflow_key: str, *, profile: WorkflowProfileView | None = None) -> str:
+    """
+    Map CLI ``workflow_key`` (property id, profile id, or alias) to ``hospital_lab.qc_release``.
+    """
+    from labtrust_gym.pcs.workflows.registry import resolve_workflow_id
+
+    resolve_workflow_id(workflow_key)
+    if profile is not None and profile.property_id:
+        return profile.property_id
+    return CANONICAL_QC_RELEASE_WORKFLOW_ID
 
 HANDOFF_KIND_RUNTIME_TO_CERTIFICATE = "runtime_to_certificate"
 HANDOFF_KIND_BUNDLE_TO_VERIFIER = "bundle_to_verifier"
