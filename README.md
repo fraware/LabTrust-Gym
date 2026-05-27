@@ -1,10 +1,17 @@
-<p align="center">
-  <img src="docs/assets/Logo.png" alt="LabTrust-Gym logo" width="250" height=250"/>
-</p>
-
 <div align="center">
 
-# LabTrust-Gym
+<pre>
+##############################################################################################
+#                                                                                            #
+#               _          _     _____               _      ____                             #
+#              | |    __ _| |__ |_   _| __ _   _ ___| |_   / ___|_   _ _ __ ___              #
+#              | |   / _` | '_ \  | || '__| | | / __| __| | |  _| | | | '_ ` _ \             #
+#              | |__| (_| | |_) | | || |  | |_| \__ \ |_  | |_| | |_| | | | | | |            #
+#              |_____\__,_|_.__/  |_||_|   \__,_|___/\__|  \____|\__, |_| |_| |_|            #
+#                                                    |___/                                   #
+#                                                                                            #
+##############################################################################################
+</pre>
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
