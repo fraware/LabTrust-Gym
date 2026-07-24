@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.verifier_assurance.EnvironmentProfile.v1",
+  "title": "EnvironmentProfile v1",
+  "description": "Immutable LabTrust-Gym verifier-assurance environment profile. Simulation/research only; not clinical validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "profile_id",
+    "environment_family",
+    "environment_version",
+    "policy_digests",
+    "domain_overlay",
+    "initial_state_generator",
+    "rng_clock_model",
+    "observation_schema_version",
+    "action_schema_version",
+    "actor_roles",
+    "verifier_profiles",
+    "snapshot_format",
+    "known_fidelity_limits",
+    "supported_task_families",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_id": { "const": "EnvironmentProfile.v1" },
+    "profile_id": { "type": "string", "minLength": 1 },
+    "environment_family": { "type": "string", "minLength": 1 },
+    "environment_version": { "type": "string", "minLength": 1 },
+    "policy_digests": {
+      "type": "object",
+      "required": ["policy_fingerprint"],
+      "additionalProperties": false,
+      "properties": {
+        "policy_fingerprint": { "type": "string", "minLength": 16 },
+        "calibration_fingerprint": { "type": ["string", "null"] },
+        "pcs_identity_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "domain_overlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["partner_id", "overlay_id"],
+      "properties": {
+        "partner_id": { "type": ["string", "null"] },
+        "overlay_id": { "type": "string" }
+      }
+    },
+    "initial_state_generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator_id", "generator_version"],
+      "properties": {
+        "generator_id": { "type": "string" },
+        "generator_version": { "type": "string" },
+        "params": { "type": "object" }
+      }
+    },
+    "rng_clock_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rng_backend", "clock_mode"],
+      "properties": {
+        "rng_backend": { "type": "string" },
+        "clock_mode": { "enum": ["explicit", "simulated"] },
+        "default_seed": { "type": ["integer", "null"] }
+      }
+    },
+    "observation_schema_version": { "type": "string" },
+    "action_schema_version": { "type": "string" },
+    "actor_roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "verifier_profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["verifier_id", "role", "profile_digest"],
+        "properties": {
+          "verifier_id": { "type": "string" },
+          "role": { "enum": ["public", "hidden"] },
+          "profile_digest": { "type": "string", "minLength": 16 },
+          "visible_state_paths": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "snapshot_format": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format_id", "version"],
+      "properties": {
+        "format_id": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "known_fidelity_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "supported_task_families": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "claim_boundary": {
+      "type": "string",
+      "const": "simulation_research_only_no_clinical_validation"
+    },
+    "profile_digest": {
+      "type": "string",
+      "description": "Optional precomputed digest; loaders recompute and bind."
+    }
+  }
+}
