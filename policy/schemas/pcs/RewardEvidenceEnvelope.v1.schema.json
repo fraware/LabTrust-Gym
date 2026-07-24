@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pcs.RewardEvidenceEnvelope.v1",
+  "title": "PCS RewardEvidenceEnvelope v1",
+  "description": "Portable reward evidence for verifier-assurance campaigns. Simulation/research only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_kind",
+    "version",
+    "envelope_id",
+    "run_id",
+    "step",
+    "agent_id",
+    "composition_policy_id",
+    "composition_policy_digest",
+    "components",
+    "scalar_reward",
+    "claim_boundary"
+  ],
+  "properties": {
+    "artifact_kind": { "const": "RewardEvidenceEnvelope" },
+    "version": { "const": "1" },
+    "envelope_id": { "type": "string" },
+    "run_id": { "type": "string" },
+    "step": { "type": "integer", "minimum": 0 },
+    "agent_id": { "type": "string" },
+    "composition_policy_id": { "type": "string" },
+    "composition_policy_digest": { "type": "string" },
+    "components": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "scalar_reward": { "type": "number" },
+    "public_verifier_id": { "type": ["string", "null"] },
+    "public_decision": { "type": ["string", "null"] },
+    "claim_boundary": {
+      "const": "simulation_research_only_no_clinical_validation"
+    },
+    "signature_or_digest": { "type": "string" }
+  }
+}

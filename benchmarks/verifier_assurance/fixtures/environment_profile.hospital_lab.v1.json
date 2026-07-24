@@ -1,0 +1,77 @@
+{
+  "action_schema_version": "labtrust.action_contract.v0.2",
+  "actor_roles": [
+    "ACCESSIONER",
+    "TECH",
+    "SUPERVISOR",
+    "COURIER",
+    "SYSTEM"
+  ],
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "domain_overlay": {
+    "overlay_id": "default",
+    "partner_id": null
+  },
+  "environment_family": "hospital_lab",
+  "environment_version": "0.2.0",
+  "initial_state_generator": {
+    "generator_id": "labtrust.benchmarks.tasks",
+    "generator_version": "0.2.0",
+    "params": {}
+  },
+  "known_fidelity_limits": [
+    "Blood-sciences lane simulation only; not a full LIS or middleware replica.",
+    "Device failure and transport models are stylized and deterministic under seed.",
+    "Partner overlays use approved aggregates only; no raw clinical records.",
+    "Does not model patient outcomes or clinical decision validity.",
+    "Causal attribution graphs are experimental research models, not legal findings."
+  ],
+  "observation_schema_version": "labtrust.obs.v0.2",
+  "policy_digests": {
+    "calibration_fingerprint": null,
+    "pcs_identity_refs": [
+      "claim-pcs-qc-release-v0.1",
+      "labtrust-pcs-qc-release-v0.1"
+    ],
+    "policy_fingerprint": "ad0bb93e29f8e47dd9df0c9c9b166c904b4b7145f64685a93544ce138c941604"
+  },
+  "profile_digest": "4b8c2f0cd8cdf50b29bbfc75de3732e8da93e0b7060321e150ac6125ed8b0e0a",
+  "profile_id": "envprof-hospital-lab-v1",
+  "rng_clock_model": {
+    "clock_mode": "simulated",
+    "default_seed": 0,
+    "rng_backend": "labtrust_gym.engine.rng.RNG"
+  },
+  "schema_id": "EnvironmentProfile.v1",
+  "snapshot_format": {
+    "format_id": "CanonicalSnapshot",
+    "version": "1"
+  },
+  "supported_task_families": [
+    "qc_release",
+    "throughput",
+    "security_attack",
+    "verifier_assurance"
+  ],
+  "verifier_profiles": [
+    {
+      "profile_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "role": "public",
+      "verifier_id": "V_public.hospital_lab.v1",
+      "visible_state_paths": [
+        "specimens.status",
+        "qc.device_qc_state",
+        "tokens.state",
+        "audit.head_hash"
+      ]
+    },
+    {
+      "profile_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "role": "hidden",
+      "verifier_id": "V_hidden.hospital_lab.v1",
+      "visible_state_paths": [
+        "*"
+      ]
+    }
+  ]
+}

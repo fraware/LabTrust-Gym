@@ -1,0 +1,40 @@
+{
+  "artifact_kind": "VAReleaseManifest",
+  "campaign_id": "labtrust-va-release-v1",
+  "checksums": {
+    "adjudications_or_commitments/commit_0000.json": "0edc06118cd8cd89808585ab06cf8998a0be7886470493d92757972f7c20f4a9",
+    "adjudications_or_commitments/commit_0001.json": "2fe940a044f9aa34d59a323ad0d7907f50af160286baf9738435819ba771fc38",
+    "adjudications_or_commitments/commit_0002.json": "2c138394d3f37011595c0b0063e06a2293b670076a462dc51dd87c1298ef06e5",
+    "adjudications_or_commitments/commit_0003.json": "014caf635101cf0cd3cd09247034b1829be2de3e3e6b6156c448f2297e3c2b2a",
+    "adjudications_or_commitments/commit_0004.json": "9e1468b6d2006750414f5fa311fc8b8a1ded4bc91fbb2cb5b95ba12e5d924d99",
+    "adjudications_or_commitments/commit_0005.json": "ec2c0766359074a31a81569db5bc0842f65979ae95bb0f7a06a915a695b7e521",
+    "adjudications_or_commitments/commit_0006.json": "b5e0c1be73a4a135f1db95fc357b03e3e53d6bebbbf5aa4b50b0cd81911ffbd1",
+    "adjudications_or_commitments/commit_0007.json": "de3b42905aadfc42b6b889dbbda4685745de2d52dfdbff7ec87eb9689e8b6287",
+    "assurance_report.pcs.json": "8d7f2026b6decb980538e0c3fe860ad09c46ca58375ff590b86bb60762f39814",
+    "campaign_manifest.pcs.json": "d48bccb1f5067783bc2c5bae29149524583123fe816330233478af4af2c1a43c",
+    "counterfactual_branches/branch_0000.json": "28f32577f7f554bb13b4e2388110a13019564bdee46b077fa830346a0d101eae",
+    "environment_profile.json": "328e309d573412d0abcf350d2aeb0b8ca9b12128e83a228be47620233c738673",
+    "exploit_manifests/exploit_0000.json": "29858d15bd65deca1bfd58d8b46c8935c521c64cac2ecd17b4cf921532375f85",
+    "exploit_manifests/exploit_0001.json": "32fcab78d840a0e3bb13fd977bbe7b3d51f80c87e15e73d83d537ece41da9ee6",
+    "exploit_manifests/exploit_0002.json": "4640fd9ce161b5d7320e6fdad31116d20ac993e23afe1a137f703cadbbb6611f",
+    "exploit_manifests/exploit_0003.json": "f4eddf4fe9065b6b28b9892b49b1e5ec48eb3a2b3ce22c332d1b006661b6fde2",
+    "exploit_manifests/exploit_0004.json": "3ca10f8be12f9ab86fd406f3e62436d02b3f689b2d693e8de6201a5768340c4a",
+    "exploit_manifests/exploit_0005.json": "33ad124066389d8a5071df84e1a9b68895aa06651c24d7a04e6e545210f5aba1",
+    "exploit_manifests/exploit_0006.json": "39b0da677188bf9e2f32e515720786540e4b13cad1f40eb38921f832a7a5e8f4",
+    "exploit_manifests/exploit_0007.json": "0c8ec8f934584a2457f19b475df0e6f4e73302fdd950f49a03ee2e6d8a4e1b93",
+    "reward_evidence/ree_0000.json": "d9d7d8070dba5a47d94926af4bc9e56dbaadba2c667c862f87bab37b1f7376fb",
+    "reward_evidence/ree_0001.json": "de3e1ae9d6ab31502365a4a0d6aecf5b28e68274640964b20a584722b815c9f8",
+    "reward_evidence/ree_0002.json": "42a898275105a1cc77b31e0d4b652e45183750ddb0d0747be7db61c31e7545bd",
+    "snapshots/snap_0000.json": "0d2b9cab7a3b9c9e6c8d0feedfe98cd86f4d74d0668f47fc104de848adc9cd53",
+    "trajectories/traj_0000.json": "2b02b9eae68784c1e1c3f0938555fd6ec2e41010d3edf23d5cfcdb4c7d7e3486",
+    "verifier_profiles/V_hidden.hospital_lab.v1.json": "425bb1043a72b56c2c6a8530243ea31debf1c70498229e0bff0ddb6f3197ec0b",
+    "verifier_profiles/V_public.hospital_lab.v1.json": "1db53505fe6ffb7e4db1163c0deda8eab3b3f843ac0e2005a7eda531ddc11b0d",
+    "verifier_results/vres_0000.json": "3b31024cb668ff2feb47aec37ee969fda2a8d113f83b1eed8b80880ae7f392e9"
+  },
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "reconstruction": {
+    "command": "python -m labtrust_gym.verifier_assurance.campaign.reconstruct --pack <dir>",
+    "notes": "Clean-checkout reconstruction validates checksums and required tree."
+  },
+  "version": "1"
+}

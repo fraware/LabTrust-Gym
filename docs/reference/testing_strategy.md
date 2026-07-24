@@ -128,6 +128,7 @@ Run with: `pytest tests/test_security_property_fuzz.py -v` (or `-m security` to 
 - **Smoke:** The default test job runs `pytest -q`, which includes `tests/test_metamorphic_properties.py`. A dedicated step runs `pytest tests/test_metamorphic_properties.py -q` so metamorphic properties are explicitly part of smoke.
 - **Policy:** `labtrust validate-policy` runs in a separate job; the fuzzer and metamorphic tests assume policy and tool schemas are valid when used with a repo policy root.
 - **Fuzz failures:** The directory `runs/fuzz_failures/` is created on demand when the fuzz harness writes a reproducer. It is not required to exist in the repo; add `runs/fuzz_failures/.gitkeep` if you want the directory under version control.
+- **Verifier assurance:** `pytest -q tests/verifier_assurance` covers LT-VA dual oracle, sealed IPC, offline PPO, studies, and release-pack reconstruction. See [Verifier Assurance](../verifier_assurance/README.md).
 
 ## Summary
 
@@ -136,3 +137,4 @@ Run with: `pytest tests/test_security_property_fuzz.py -v` (or `-m security` to 
 | Fuzz harness     | Find contract violations, non-determinism    | Yes (seed)    | Optional  |
 | Metamorphic tests| Prove relations across input transformations| Yes (seed)    | Smoke     |
 | Reproducers      | Minimal YAML in `runs/fuzz_failures/`       | N/A           | On failure|
+| Verifier assurance | Dual-oracle / campaign / training regression | Yes (seed) | Focused suite |
