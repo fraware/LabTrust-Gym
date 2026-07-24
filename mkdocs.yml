@@ -130,6 +130,15 @@ nav:
     - Producer contract: pcs/producer-contract.md
     - Benchmark profile: pcs/benchmark-profile.md
     - Limitations: pcs_limitations.md
+  - Verifier Assurance (LT-VA):
+    - Overview: verifier_assurance/README.md
+    - Architecture: verifier_assurance/architecture.md
+    - Baseline freeze: verifier_assurance/baseline_freeze.md
+    - Experiment preregistration: verifier_assurance/experiment_preregistration.md
+    - Non-claims: verifier_assurance/non_claims.md
+    - ADR-VA-001 Dual oracle: adr/ADR-VA-001-dual-oracle-architecture.md
+    - ADR-VA-002 Claim boundaries: adr/ADR-VA-002-claim-boundaries.md
+    - ADR-VA-003 Grant semantics: adr/ADR-VA-003-grant-semantics.md
   - Export:
     - export/index.md
     - FHIR R4 export: export/fhir_export.md

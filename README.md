@@ -59,6 +59,7 @@ The system and threat model are described in [Systems and threat model](docs/arc
 | Use as a library without forking | [Extension development](docs/agents/extension_development.md) + `--profile` + `extension_packages` in a lab profile |
 | Run the full security suite | `labtrust run-security-suite`; needs `.[env]`; use `--skip-system-level` when env is not installed |
 | Run the PCS QC-release demo (proof-carrying science) | [PCS docs](docs/pcs/index.md) and [examples/pcs_qc_release](examples/pcs_qc_release/README.md) — `scripts/setup_pcs_dev.ps1`, then `labtrust run-demo qc-release` |
+| Explore verifier assurance (LT-VA) | [Verifier Assurance](docs/verifier_assurance/README.md) — dual oracle, offline PPO, sealed IPC; `pytest -q tests/verifier_assurance` |
 
 Stable surface for extensions: [Public API](docs/reference/public_api.md).
 
@@ -223,6 +224,12 @@ Put CLI outputs in `labtrust_runs/` or `--out`. Exit codes, minimal smoke args, 
 | **run-study** | Study from spec (`--spec`, `--out`). |
 | **make-plots** | Figures and data tables from study run. |
 
+### Verifier assurance (module CLI)
+
+| Command | Description |
+|---------|-------------|
+| `python -m labtrust_gym.verifier_assurance.campaign.reconstruct --pack <dir>` | Validate checksums and required tree for a VA campaign pack. [Verifier Assurance](docs/verifier_assurance/README.md). |
+
 ### Release and reproducibility
 
 | Command | Description |
@@ -240,11 +247,11 @@ Put CLI outputs in `labtrust_runs/` or `--out`. Exit codes, minimal smoke args, 
 | Path | Description |
 |------|-------------|
 | **policy/** | YAML/JSON: schemas, emits, invariants, tokens, reason_codes, zones, catalogue, coordination, golden, official, llm, partners, **risks** (risk_registry, waivers, required_bench_plan.v0.1). `labtrust validate-policy`. |
-| **src/labtrust_gym/** | Package: config, engine/, envs/, baselines/, benchmarks/, policy/, security/, studies/, export/, online/, runner/, cli/. |
-| **tests/** | Pytest: golden suite, policy, benchmarks, coordination, risk_injections, studies, export, online, CLI smoke (`test_cli_smoke_matrix.py`). |
-| **benchmarks/** | Baseline registry, official baselines (v0.1, v0.2). |
+| **src/labtrust_gym/** | Package: config, engine/, envs/, baselines/, benchmarks/, policy/, security/, studies/, export/, online/, runner/, cli/, **verifier_assurance/** (LT-VA). |
+| **tests/** | Pytest: golden suite, policy, benchmarks, coordination, risk_injections, studies, export, online, CLI smoke (`test_cli_smoke_matrix.py`), **verifier_assurance/**. |
+| **benchmarks/** | Baseline registry, official baselines (v0.1, v0.2), **verifier_assurance/** frozen VA release packs. |
 | **examples/** | Example agents (external_agent_demo, scripted_ops_agent, llm_agent_mock_demo, etc.). |
-| **docs/** | Published site: [fraware.github.io/LabTrust-Gym](https://fraware.github.io/LabTrust-Gym/). Source under `docs/` (MkDocs): architecture, benchmarks, coordination, PCS, contracts, security, agents. [Forker guide](docs/getting-started/forkers.md). **docs/assets/** — repo logo (`Logo.png`). |
+| **docs/** | Published site: [fraware.github.io/LabTrust-Gym](https://fraware.github.io/LabTrust-Gym/). Source under `docs/` (MkDocs): architecture, benchmarks, coordination, PCS, **verifier_assurance**, contracts, security, agents. [Forker guide](docs/getting-started/forkers.md). **docs/assets/** — repo logo (`Logo.png`). |
 | **scripts/** | **run_hospital_lab_full_pipeline.py** (orchestrator; `--include-coordination-pack`, `--providers`), **check_llm_backends_live.py**, quickstart, run_required_bench_matrix, extract_paper_claims_snapshot, build_release_fixture, build_viewer_data_from_release, run_external_reviewer_checks. |
 | **tests/fixtures/ui_fixtures/** | Minimal results, episode log, evidence bundle for offline UI. |
 
