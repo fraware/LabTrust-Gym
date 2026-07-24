@@ -2240,15 +2240,35 @@ class CoreEnv(LabTrustEnvAdapter):
         Return minimal serializable state for step checkpoint (now_ts, rng_state).
         Full store serialization is not implemented; resume from step uses this for
         clock and RNG so replay is deterministic when combined with episode reset.
+
+        For verifier-assurance full immutable snapshots use snapshot()/restore().
         """
-        out: dict[str, Any] = {"now_ts": self._now_ts}
+        out: dict[str, Any] = {"now_ts": self._now_ts, "checkpoint_version": "legacy_minimal"}
         if self._rng is not None:
             out["rng_state"] = list(self._rng.get_state())
         return out
 
     def set_state(self, state: dict[str, Any]) -> None:
-        """Restore minimal state from get_state()."""
+        """Restore minimal state from get_state() (legacy checkpoint path)."""
+        version = state.get("checkpoint_version", "legacy_minimal")
+        if version not in ("legacy_minimal", None):
+            # Unknown checkpoint versions fail closed rather than partial restore.
+            raise ValueError(f"unsupported checkpoint_version: {version}")
         if "now_ts" in state:
             self._now_ts = int(state["now_ts"])
+            if self._clock is not None:
+                self._clock.set(int(state["now_ts"]))
         if self._rng is not None and "rng_state" in state:
             self._rng.set_state(tuple(state["rng_state"]))
+
+    def snapshot(self) -> Any:
+        """Capture a CanonicalSnapshot of all CoreEnv stores (LT-VA-04)."""
+        from labtrust_gym.verifier_assurance.snapshot.canonical import capture_core_env
+
+        return capture_core_env(self)
+
+    def restore(self, snapshot: Any) -> None:
+        """Restore CoreEnv from a CanonicalSnapshot (LT-VA-04)."""
+        from labtrust_gym.verifier_assurance.snapshot.canonical import restore_core_env
+
+        restore_core_env(self, snapshot)

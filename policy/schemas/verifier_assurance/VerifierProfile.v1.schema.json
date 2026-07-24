@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.verifier_assurance.VerifierProfile.v1",
+  "title": "VerifierProfile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "verifier_id",
+    "role",
+    "composition",
+    "visible_state_paths",
+    "checks",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_id": { "const": "VerifierProfile.v1" },
+    "verifier_id": { "type": "string", "minLength": 1 },
+    "role": { "enum": ["public", "hidden"] },
+    "composition": {
+      "enum": ["terminal_only", "process_aware", "authority_aware", "heterogeneous"]
+    },
+    "visible_state_paths": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "kind"],
+        "properties": {
+          "check_id": { "type": "string" },
+          "kind": {
+            "enum": [
+              "terminal_state",
+              "process",
+              "authority",
+              "side_effect",
+              "audit_integrity",
+              "qc",
+              "critical"
+            ]
+          },
+          "required": { "type": "boolean" },
+          "weight": { "type": "number" }
+        }
+      }
+    },
+    "abstention_threshold": { "type": ["number", "null"] },
+    "claim_boundary": {
+      "const": "simulation_research_only_no_clinical_validation"
+    },
+    "profile_digest": { "type": "string" }
+  }
+}

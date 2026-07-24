@@ -130,15 +130,30 @@ docs/presentation_labtrust_gym.md
 # Audit self-check output (labtrust audit-selfcheck; do not push)
 audit_self_check/
 
-# Local reproducibility scratch (not committed)
+# Local reproducibility / VA scratch (not committed)
+# Prefer labtrust_runs/ or --out; never commit _tmp_* experiment dumps.
+_tmp_*/
 _tmp_repro/
 _tmp_repro2/
 _tmp_repro_*/
 _tmp_suite_test/
+_tmp_suite_contract_test/
+_tmp_ingest_refs_test/
+tmp_pcs_run/
+/tmp_pcs_run/
+risk_register_out/
+/risk_register_out/
+det_*/
+/det_*/
 benchmark_runs/
 !tests/fixtures/pcs_bench_reproducibility/artifact_refs/benchmark_runs/
 !tests/fixtures/pcs_bench_reproducibility/artifact_refs/benchmark_runs/**
 reports/
+
+# Local verifier-assurance campaign scratch
+/va_runs/
+/va_scratch/
+**/.va_scratch/
 
 # OS
 .DS_Store

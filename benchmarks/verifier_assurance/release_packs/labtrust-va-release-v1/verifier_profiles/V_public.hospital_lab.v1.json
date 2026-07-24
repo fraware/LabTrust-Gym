@@ -1,0 +1,21 @@
+{
+  "abstention_threshold": null,
+  "checks": [
+    {
+      "check_id": "terminal_release",
+      "kind": "terminal_state",
+      "required": true,
+      "weight": 1.0
+    }
+  ],
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "composition": "terminal_only",
+  "role": "public",
+  "schema_id": "VerifierProfile.v1",
+  "verifier_id": "V_public.hospital_lab.v1",
+  "visible_state_paths": [
+    "qc.results",
+    "result_released",
+    "specimens"
+  ]
+}

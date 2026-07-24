@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.verifier_assurance.RewardCompositionPolicy.v1",
+  "title": "RewardCompositionPolicy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "policy_id",
+    "components",
+    "weights",
+    "legacy_compat",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_id": { "const": "RewardCompositionPolicy.v1" },
+    "policy_id": { "type": "string" },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "operational_success",
+          "qc_compliance",
+          "process_compliance",
+          "authorization_compliance",
+          "audit_integrity",
+          "critical_result_handling",
+          "resource_cost",
+          "delay_cost",
+          "side_effect_penalty",
+          "safety_violation_penalty"
+        ]
+      }
+    },
+    "weights": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "legacy_compat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "preserve_benchmark_numeric_behavior"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "preserve_benchmark_numeric_behavior": { "type": "boolean" },
+        "legacy_keys": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "schedule_reward",
+              "throughput_reward",
+              "violation_penalty",
+              "blocked_penalty"
+            ]
+          }
+        }
+      }
+    },
+    "emit_component_breakdown_in_info": { "type": "boolean" },
+    "emit_step_evidence": { "type": "boolean" },
+    "claim_boundary": {
+      "const": "simulation_research_only_no_clinical_validation"
+    },
+    "policy_digest": { "type": "string" }
+  }
+}

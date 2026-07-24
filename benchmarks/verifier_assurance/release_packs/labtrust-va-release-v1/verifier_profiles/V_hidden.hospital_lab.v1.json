@@ -1,0 +1,49 @@
+{
+  "abstention_threshold": null,
+  "checks": [
+    {
+      "check_id": "terminal_release",
+      "kind": "terminal_state",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "process",
+      "kind": "process",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "authority",
+      "kind": "authority",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "qc",
+      "kind": "qc",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "audit",
+      "kind": "audit_integrity",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "critical",
+      "kind": "critical",
+      "required": true,
+      "weight": 1.0
+    }
+  ],
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "composition": "heterogeneous",
+  "role": "hidden",
+  "schema_id": "VerifierProfile.v1",
+  "verifier_id": "V_hidden.hospital_lab.v1",
+  "visible_state_paths": [
+    "*"
+  ]
+}

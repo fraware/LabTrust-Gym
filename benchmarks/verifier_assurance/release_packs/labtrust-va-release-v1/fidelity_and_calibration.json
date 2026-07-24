@@ -1,0 +1,68 @@
+{
+  "calibration_report": {
+    "claim_boundary": "simulation_research_only_no_clinical_validation",
+    "deltas": {
+      "arrival_max_s": {
+        "aggregate": 120.0,
+        "delta": -120.0,
+        "simulated": 0.0
+      },
+      "arrival_mean_s": {
+        "aggregate": 50.0,
+        "delta": 0.0,
+        "simulated": 50.0
+      },
+      "arrival_scale_s": {
+        "aggregate": 25.0,
+        "delta": -25.0,
+        "simulated": 0.0
+      },
+      "n_specimens_max": {
+        "aggregate": 6.0,
+        "delta": -6.0,
+        "simulated": 0.0
+      },
+      "n_specimens_min": {
+        "aggregate": 2.0,
+        "delta": -2.0,
+        "simulated": 0.0
+      },
+      "stat_rate": {
+        "aggregate": 0.12,
+        "delta": 0.0,
+        "simulated": 0.12
+      }
+    },
+    "note": "Approved de-identified aggregates only; no raw partner records.",
+    "schema_id": "AggregateCalibrationComparison.v1"
+  },
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "environment_profile_id": "envprof-hospital-lab-v1",
+  "known_fidelity_limits": [
+    "Blood-sciences lane simulation only; not a full LIS or middleware replica.",
+    "Device failure and transport models are stylized and deterministic under seed.",
+    "Partner overlays use approved aggregates only; no raw clinical records.",
+    "Does not model patient outcomes or clinical decision validity.",
+    "Causal attribution graphs are experimental research models, not legal findings."
+  ],
+  "studies": {
+    "VA-10": {
+      "recovered_count": 8
+    },
+    "VA-11": {
+      "families": 10
+    },
+    "VA-12": {
+      "cases": 6
+    },
+    "VA-13": {
+      "fresh_policy_attacked_repaired": true,
+      "frozen_checkpoint_ids": [
+        "ckpt-773ff4cb354b2d5e41b317fd",
+        "ckpt-a5cd6ead4a78da3ede73348a"
+      ],
+      "policy_trained_against_v_public": true,
+      "training_backend": "numpy_ppo"
+    }
+  }
+}
