@@ -28,6 +28,7 @@ from labtrust_gym.security.adversarial_detection import (
     detect_adversarial,
     load_adversarial_detection_policy,
 )
+from labtrust_gym.verifier_assurance.reward.composition import RewardComposer
 
 # Optional: PettingZoo and Gymnasium (install with pip install -e ".[env]")
 try:
@@ -115,6 +116,8 @@ class LabTrustParallelEnv(_ParallelEnvBase):  # type: ignore[misc]
         self._num_insiders = max(0, num_insiders)
         self._dt_s = max(1, dt_s)
         self._reward_config = reward_config or {}
+        # VA-03: composition wrapper preserves legacy numeric behavior by default.
+        self._reward_composer = RewardComposer()
         self._policy_dir = Path(policy_dir) if policy_dir else Path("policy")
         self._repo_root: Path | None = None
         if self._policy_dir.is_dir():
@@ -703,20 +706,14 @@ class LabTrustParallelEnv(_ParallelEnvBase):  # type: ignore[misc]
             if event.get("action_type") == "QUEUE_RUN" and result.get("status") == "ACCEPTED":
                 accepted_schedule_agent = agent
 
-        if self._reward_config.get("schedule_reward") and accepted_schedule_agent:
-            r = float(self._reward_config.get("schedule_reward", 0.0))
-            rewards[accepted_schedule_agent] = rewards.get(accepted_schedule_agent, 0.0) + r
-        if self._reward_config.get("throughput_reward") and result_released:
-            for a in self.agents:
-                rewards[a] = float(self._reward_config.get("throughput_reward", 1.0))
-        if self._reward_config.get("violation_penalty"):
-            p = float(self._reward_config["violation_penalty"])
-            for a in self.agents:
-                rewards[a] -= p * violation_count
-        if self._reward_config.get("blocked_penalty"):
-            p = float(self._reward_config["blocked_penalty"])
-            for a in self.agents:
-                rewards[a] -= p * blocked_count
+        rewards, reward_breakdown = self._reward_composer.step_rewards(
+            list(self.agents),
+            self._reward_config,
+            accepted_schedule_agent=accepted_schedule_agent,
+            result_released=result_released,
+            violation_count=violation_count,
+            blocked_count=blocked_count,
+        )
 
         observations = self._collect_observations()
         self._last_observations = dict(observations)
@@ -732,6 +729,9 @@ class LabTrustParallelEnv(_ParallelEnvBase):  # type: ignore[misc]
             }
             for a in self.agents
         }
+        if reward_breakdown is not None:
+            for a in self.agents:
+                infos[a]["reward_components"] = dict(reward_breakdown.get(a) or {})
         return observations, rewards, terminations, truncations, infos
 
     def observation_space(self, agent: str) -> Any:
