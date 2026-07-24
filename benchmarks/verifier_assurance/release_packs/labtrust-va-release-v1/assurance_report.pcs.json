@@ -1,0 +1,11 @@
+{
+  "artifact_kind": "VerifierAssuranceReport",
+  "branch_count": 1,
+  "campaign_id": "labtrust-va-release-v1",
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "exploit_count": 8,
+  "non_claim": "Simulation/research only; no production clinical assurance.",
+  "status": "complete",
+  "trajectory_count": 1,
+  "version": "1"
+}
