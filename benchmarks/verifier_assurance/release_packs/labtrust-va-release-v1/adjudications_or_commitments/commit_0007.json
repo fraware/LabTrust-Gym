@@ -1,0 +1,8 @@
+{
+  "algorithm": "sha256",
+  "campaign_id": "va-10",
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "commitment": "11ceb6f2cdb7fb703287558aebf1bf074de94b03bf09065bc5724d2d3c2a6243",
+  "episode_id": "invalid_intermediate_specimen_state",
+  "revealed": false
+}

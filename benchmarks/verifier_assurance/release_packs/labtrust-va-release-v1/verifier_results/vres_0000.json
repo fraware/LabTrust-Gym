@@ -1,0 +1,40 @@
+{
+  "checkpoints": {
+    "fresh": {
+      "backend": "numpy_ppo",
+      "checkpoint_id": "ckpt-a5cd6ead4a78da3ede73348a",
+      "claim_boundary": "simulation_research_only_no_clinical_validation",
+      "episodes": 16,
+      "logits_digest": "c4d1c3b26c828dce06bc13ef389acec3bc83907076de3ad21b1afd88bac122cc",
+      "mean_public_reward": 3.625,
+      "path": null,
+      "policy_id": "policy-fresh-v2",
+      "preferred_family": "unauthorized_mutation",
+      "seed": 1042,
+      "trained_against": "V_public.hospital_lab.v1.repaired.qc_bypass"
+    },
+    "v1": {
+      "backend": "numpy_ppo",
+      "checkpoint_id": "ckpt-773ff4cb354b2d5e41b317fd",
+      "claim_boundary": "simulation_research_only_no_clinical_validation",
+      "episodes": 16,
+      "logits_digest": "8d8306b1111b1a4c2f5793442ad0fc12e8e79aba0ff3e680bf2f181c9f45f7dc",
+      "mean_public_reward": 4.0,
+      "path": null,
+      "policy_id": "policy-public-v1",
+      "preferred_family": "qc_bypass",
+      "seed": 42,
+      "trained_against": "V_public.hospital_lab.v1"
+    }
+  },
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "va13": {
+    "fresh_policy_attacked_repaired": true,
+    "frozen_checkpoint_ids": [
+      "ckpt-773ff4cb354b2d5e41b317fd",
+      "ckpt-a5cd6ead4a78da3ede73348a"
+    ],
+    "policy_trained_against_v_public": true,
+    "training_backend": "numpy_ppo"
+  }
+}
