@@ -44,3 +44,7 @@ Use **aggregate** operational data only (counts, rates, percentiles). No specime
 ## Benchmarks
 
 When **calibration** is present in initial_state (e.g. from partner overlay), tasks use workload_priors for arrival sampling, stat_rate for specimen priority_class, and n_specimens_min/max for episode size. Missing calibration or missing fields fall back to task defaults.
+
+## Verifier-assurance aggregate adapter (LT-VA-14)
+
+Verifier-assurance campaigns may compare **simulated distributions vs approved de-identified aggregates only** via `labtrust_gym.verifier_assurance.calibration.aggregate`. Raw partner records, PHI/PII fields, and specimen-level exports are rejected fail-closed. See [docs/verifier_assurance/non_claims.md](../verifier_assurance/non_claims.md).
