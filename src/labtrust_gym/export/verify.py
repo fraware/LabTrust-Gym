@@ -214,6 +214,76 @@ def _check_coordination_audit_digest(
     return errors
 
 
+def _check_reconstruction_digests(
+    bundle_dir: Path,
+    manifest: dict[str, Any],
+) -> list[str]:
+    """
+    When reconstruction (or top-level mirrors) carries episode_log_digest / evidence_digest /
+    policy_digest, recompute from episode_log_subset and assert match (LTG-PR6 / PR2 digests).
+    Absent reconstruction is allowed for legacy fixtures.
+    """
+    errors: list[str] = []
+    recon = manifest.get("reconstruction")
+    if not isinstance(recon, dict):
+        recon = {}
+    expected_ep = recon.get("episode_log_digest") or manifest.get("episode_log_digest")
+    expected_ev = recon.get("evidence_digest")
+    expected_policy = recon.get("policy_digest") or manifest.get("policy_digest")
+    if not expected_ep and not expected_ev and not expected_policy:
+        return errors
+
+    log_path = bundle_dir / "episode_log_subset.jsonl"
+    if not log_path.exists():
+        errors.append("reconstruction digests present but episode_log_subset.jsonl missing")
+        return errors
+    try:
+        from labtrust_gym.orchestrator.replay import (
+            canonical_episode_log_digest,
+            evidence_digest,
+        )
+
+        entries = load_episode_log(log_path)
+        if expected_ep:
+            actual_ep = canonical_episode_log_digest(entries)
+            if actual_ep != expected_ep:
+                errors.append(
+                    f"reconstruction.episode_log_digest mismatch: "
+                    f"manifest={str(expected_ep)[:16]}..., computed={actual_ep[:16]}..."
+                )
+        if expected_ev:
+            actual_ev = evidence_digest(entries)
+            if actual_ev != expected_ev:
+                errors.append(
+                    f"reconstruction.evidence_digest mismatch: "
+                    f"manifest={str(expected_ev)[:16]}..., computed={actual_ev[:16]}..."
+                )
+        if expected_policy:
+            fp = manifest.get("policy_fingerprint")
+            if fp and expected_policy != fp:
+                errors.append(
+                    f"reconstruction.policy_digest does not match policy_fingerprint "
+                    f"({str(expected_policy)[:16]}... vs {str(fp)[:16]}...)"
+                )
+        env_declared = recon.get("environment_digest") or manifest.get("environment_digest")
+        if env_declared and expected_policy is not None:
+            from labtrust_gym.export.reconstruction import compute_environment_digest
+
+            actual_env = compute_environment_digest(
+                policy_digest=expected_policy or manifest.get("policy_fingerprint"),
+                tool_registry_fingerprint=manifest.get("tool_registry_fingerprint"),
+                rbac_policy_fingerprint=manifest.get("rbac_policy_fingerprint"),
+            )
+            if actual_env != env_declared:
+                errors.append(
+                    f"reconstruction.environment_digest mismatch: "
+                    f"manifest={str(env_declared)[:16]}..., computed={actual_env[:16]}..."
+                )
+    except Exception as e:
+        errors.append(f"reconstruction digest check failed: {e}")
+    return errors
+
+
 def _violations_from_log_entry(entry: dict[str, Any]) -> list[dict[str, Any]]:
     """Normalize violations from a log entry for comparison."""
     out = []
@@ -643,6 +713,7 @@ def verify_bundle(
     errors.extend(_check_fhir_if_present(bundle_dir))
     errors.extend(_check_hashchain_proof(bundle_dir))
     errors.extend(_check_coordination_audit_digest(bundle_dir, manifest))
+    errors.extend(_check_reconstruction_digests(bundle_dir, manifest))
     errors.extend(_check_invariant_trace(bundle_dir))
     errors.extend(_check_policy_manifest_and_root_hash(bundle_dir, manifest, policy_root))
     errors.extend(_check_tool_registry_fingerprint(manifest, policy_root))
@@ -690,24 +761,78 @@ def build_release_manifest(
     """
     Build RELEASE_MANIFEST.v0.1.json in release_dir with hashes of key artifacts.
     Includes: MANIFEST.v0.1.json, each receipts/*/EvidenceBundle.v0.1 (manifest.json hash),
-    RISK_REGISTER_BUNDLE.v0.1.json if present. Call after package-release and optionally
-    export-risk-register (into release_dir) to produce a single verifiable release artifact.
+    RISK_REGISTER_BUNDLE.v0.1.json if present. Also embeds aggregated reconstruction
+    provenance (policy/environment digests, agent/seed/scenario, episode-log digests,
+    risk-register refs, verification command links, missing-evidence declarations).
+    Call after package-release and optionally export-risk-register (into release_dir)
+    to produce a single verifiable release artifact.
     """
     release_dir = Path(release_dir)
     artifacts: list[dict[str, Any]] = []
     manifest_path = release_dir / "MANIFEST.v0.1.json"
     if manifest_path.exists():
         artifacts.append({"path": "MANIFEST.v0.1.json", "sha256": _sha256_file(manifest_path)})
+    bundle_reconstructions: list[dict[str, Any]] = []
+    verify_report_refs: list[str] = []
     for bundle_path in discover_evidence_bundles(release_dir):
         rel = bundle_path.relative_to(release_dir)
         manifest_json = bundle_path / "manifest.json"
         if manifest_json.exists():
             path_str = (rel / "manifest.json").as_posix()
             artifacts.append({"path": path_str, "sha256": _sha256_file(manifest_json)})
+            try:
+                bundle_manifest = _load_json_file(manifest_json)
+                recon = bundle_manifest.get("reconstruction")
+                if isinstance(recon, dict):
+                    bundle_reconstructions.append(recon)
+            except Exception:
+                pass
+        report = bundle_path.parent / "verify_report.txt"
+        if report.is_file():
+            verify_report_refs.append((rel.parent / "verify_report.txt").as_posix())
     risk_bundle_path = release_dir / RISK_REGISTER_BUNDLE_FILENAME
+    missing_evidence: list[dict[str, Any]] = []
     if risk_bundle_path.exists():
         artifacts.append({"path": RISK_REGISTER_BUNDLE_FILENAME, "sha256": _sha256_file(risk_bundle_path)})
-    out = {"version": "0.1", "artifacts": artifacts}
+        try:
+            from labtrust_gym.export.reconstruction import missing_evidence_from_risk_register
+
+            risk_data = _load_json_file(risk_bundle_path)
+            missing_evidence = missing_evidence_from_risk_register(risk_data)
+        except Exception:
+            missing_evidence = []
+
+    pack_reconstruction: dict[str, Any] | None = None
+    pack_manifest_path = release_dir / "pack_manifest.json"
+    if pack_manifest_path.is_file():
+        try:
+            pack_data = _load_json_file(pack_manifest_path)
+            pr = pack_data.get("reconstruction")
+            if isinstance(pr, dict):
+                pack_reconstruction = pr
+            artifacts.append({"path": "pack_manifest.json", "sha256": _sha256_file(pack_manifest_path)})
+        except Exception:
+            pass
+
+    from labtrust_gym.export.reconstruction import aggregate_release_reconstruction
+
+    reconstruction = aggregate_release_reconstruction(
+        bundle_reconstructions=bundle_reconstructions,
+        risk_register_path=RISK_REGISTER_BUNDLE_FILENAME if risk_bundle_path.exists() else None,
+        missing_evidence=missing_evidence,
+        verify_report_refs=verify_report_refs,
+        pack_reconstruction=pack_reconstruction,
+    )
+    out = {"version": "0.1", "artifacts": artifacts, "reconstruction": reconstruction}
+    # Validate against schema when available (best-effort; do not fail build)
+    if policy_root is not None:
+        schema_path = Path(policy_root) / "policy" / "schemas" / "release_manifest.v0.1.schema.json"
+        if schema_path.exists():
+            try:
+                schema = load_json(schema_path)
+                validate_against_schema(out, schema, schema_path)
+            except Exception:
+                pass
     out_path = release_dir / RELEASE_MANIFEST_FILENAME
     out_path.write_text(json.dumps(out, indent=2, sort_keys=True), encoding="utf-8")
     return out_path

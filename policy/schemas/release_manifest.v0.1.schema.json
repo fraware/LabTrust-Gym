@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.release_manifest.v0.1",
+  "title": "LabTrust Release Manifest v0.1",
+  "description": "RELEASE_MANIFEST.v0.1.json: artifact hashes plus optional reconstruction provenance for independent verify.",
+  "type": "object",
+  "required": ["version", "artifacts"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string", "const": "0.1" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string" }
+        }
+      }
+    },
+    "reconstruction": {
+      "type": ["object", "null"],
+      "description": "Aggregated PCS reconstruction fields across evidence bundles and risk register",
+      "additionalProperties": true,
+      "properties": {
+        "policy_digest": { "type": ["string", "null"] },
+        "policy_digests": { "type": "array", "items": { "type": "string" } },
+        "environment_digest": { "type": ["string", "null"] },
+        "environment_digests": { "type": "array", "items": { "type": "string" } },
+        "agent_identity": { "type": ["string", "null"] },
+        "agent_identities": { "type": "array", "items": { "type": "string" } },
+        "seed": { "type": ["integer", "null"] },
+        "seeds": { "type": "array", "items": { "type": "integer" } },
+        "scenario_ids": { "type": "array", "items": { "type": "string" } },
+        "episode_log_digests": { "type": "array", "items": { "type": "string" } },
+        "evidence_digests": { "type": "array", "items": { "type": "string" } },
+        "risk_register_refs": { "type": "array", "items": { "type": "string" } },
+        "verification_results": { "type": ["object", "null"], "additionalProperties": true },
+        "missing_evidence": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  }
+}

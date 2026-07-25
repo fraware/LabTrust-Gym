@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.pack_manifest.v0.1",
+  "title": "LabTrust Official Pack Manifest v0.1",
+  "description": "pack_manifest.json written by run-official-pack, including reconstruction provenance.",
+  "type": "object",
+  "required": ["version", "seed_base", "tasks"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "pack_policy": { "type": "string" },
+    "seed_base": { "type": "integer" },
+    "timestamp": { "type": "string" },
+    "git_sha": { "type": ["string", "null"] },
+    "smoke": { "type": "boolean" },
+    "pipeline_mode": { "type": "string" },
+    "allow_network": { "type": "boolean" },
+    "tasks": { "type": "array", "items": { "type": "string" } },
+    "baselines": { "type": "object", "additionalProperties": true },
+    "scale_configs": { "type": "array", "items": { "type": "string" } },
+    "coordination_methods": { "type": "array", "items": { "type": "string" } },
+    "required_reports": { "type": "array", "items": { "type": "string" } },
+    "results_semantics": { "type": "string" },
+    "reconstruction": {
+      "type": ["object", "null"],
+      "description": "PCS reconstruction provenance for the official pack",
+      "additionalProperties": true,
+      "properties": {
+        "policy_digest": { "type": ["string", "null"] },
+        "environment_digest": { "type": ["string", "null"] },
+        "agent_identity": { "type": ["string", "null"] },
+        "agent_identities": { "type": "array", "items": { "type": "string" } },
+        "seed": { "type": ["integer", "null"] },
+        "scenario_ids": { "type": "array", "items": { "type": "string" } },
+        "episode_log_digests": { "type": "array", "items": { "type": "string" } },
+        "evidence_digests": { "type": "array", "items": { "type": "string" } },
+        "risk_register_refs": { "type": "array", "items": { "type": "string" } },
+        "verification_results": { "type": ["object", "null"], "additionalProperties": true },
+        "missing_evidence": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  }
+}
