@@ -1,0 +1,64 @@
+{
+  "schema_id": "LabTrustBenchmarkReleaseCandidate.v1",
+  "release_id": "labtrust-benchmark-v0.2-candidate",
+  "title": "LabTrust-Gym benchmark release candidate v0.2",
+  "status": "engineering_benchmark_candidate",
+  "package_version": "0.2.0",
+  "scientifically_reviewed": false,
+  "scientifically_reviewed_claim_allowed": false,
+  "claim_posture": "engineering_benchmark_only",
+  "non_claims_ref": "docs/benchmarks/non_claims_freeze.md",
+  "runbook_ref": "docs/benchmarks/release_runbook.md",
+  "credibility_ref": "docs/benchmarks/scientific_credibility.md",
+  "created_for": "LTG-PR9",
+  "description": "Inspectable packaging identity for the scientific-credibility program closure. Ships as an engineering / research benchmark. Independent domain reviews remain UNSIGNED; do not claim scientifically reviewed.",
+  "pins": {
+    "external_integrations": "benchmarks/external_integrations/pinned_release.v1.json",
+    "official_baselines": {
+      "path": "benchmarks/baselines_official/v0.2",
+      "baseline_version": "v0.2",
+      "git_sha_prefix": "d8a110a1dd9f",
+      "policy_fingerprint": "ad0bb93e29f8e47dd9df0c9c9b166c904b4b7145f64685a93544ce138c941604",
+      "seed": 123,
+      "episodes": 3
+    },
+    "va_release_pack": {
+      "path": "benchmarks/verifier_assurance/release_packs/labtrust-va-release-v1",
+      "campaign_id": "labtrust-va-release-v1"
+    },
+    "holdout_partition": "benchmarks/verifier_assurance/fixtures/holdout_partition.hospital_lab.v1.json",
+    "independent_review_registry": "benchmarks/reviews/review_registry.v1.json"
+  },
+  "evidence_paths": {
+    "hazard_coverage_matrix": "policy/coverage/hazard_coverage_matrix.v0.1.yaml",
+    "golden_scenarios": "policy/golden/golden_scenarios.v0.1.yaml",
+    "security_attack_suite": "policy/golden/security_attack_suite.v0.1.yaml",
+    "official_pack_policy": "policy/official/benchmark_pack.v0.2.yaml"
+  },
+  "known_gaps": [
+    {
+      "id": "catalog_drift",
+      "severity": "hazard_coverage",
+      "summary": "catalog_drift remains uncovered in the hazard matrix (no dedicated GS-* / SEC-* case).",
+      "ref": "policy/coverage/hazard_coverage_matrix.v0.1.yaml"
+    },
+    {
+      "id": "unsigned_independent_reviews",
+      "severity": "independent_review",
+      "summary": "All three domain-review slots are UNSIGNED; scientifically_reviewed_claim_allowed is false.",
+      "ref": "benchmarks/reviews/review_registry.v1.json"
+    },
+    {
+      "id": "golden_reviewer_pending",
+      "severity": "golden_governance",
+      "summary": "Golden scenarios keep governance.reviewer pending-domain-review; do not mass-approve.",
+      "ref": "docs/benchmarks/golden_suite_governance.md"
+    }
+  ],
+  "dod_smoke": {
+    "default": "pytest -q tests/test_ltg_benchmark_release_dod.py",
+    "script": "python scripts/run_ltg_release_dod_smoke.py",
+    "full_human_path": "docs/benchmarks/release_runbook.md"
+  },
+  "notes": "Refresh digests when regenerating official baselines or rotating the external-integrations pin. Keep scientifically_reviewed false until signed approvals land under docs/reviews/signed_approval_gate.md."
+}

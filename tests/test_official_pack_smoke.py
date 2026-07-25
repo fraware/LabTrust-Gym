@@ -78,6 +78,12 @@ def test_official_pack_smoke_required_folders() -> None:
             manifest = __import__("json").loads((out / "pack_manifest.json").read_text(encoding="utf-8"))
             assert manifest.get("version") == "0.1"
             assert "tasks" in manifest
+            assert "reconstruction" in manifest
+            recon = manifest["reconstruction"]
+            assert recon.get("seed") == 100
+            assert recon.get("environment_digest")
+            assert isinstance(recon.get("scenario_ids"), list)
+            assert recon.get("verification_results", {}).get("status") == "offline_verifiable"
             assert "seed_base" in manifest
             assert manifest.get("pipeline_mode") == "deterministic"
     finally:
