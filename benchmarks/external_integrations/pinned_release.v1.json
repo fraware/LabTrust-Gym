@@ -1,0 +1,34 @@
+{
+  "schema_id": "ExternalIntegrationPin.v1",
+  "pin_id": "labtrust-external-integrations-v1",
+  "description": "Pinned public release for LTG-PR7 external agent and adapter release-tests. Integrations bind to the frozen official baselines pack (task/seed/policy) and the committed VA release pack for verifier-optimization smoke.",
+  "no_live_llm": true,
+  "baselines_pack": {
+    "path": "benchmarks/baselines_official/v0.2",
+    "baseline_version": "v0.2",
+    "git_sha_prefix": "d8a110a1dd9f",
+    "policy_fingerprint": "ad0bb93e29f8e47dd9df0c9c9b166c904b4b7145f64685a93544ce138c941604",
+    "seed": 123,
+    "episodes": 3,
+    "timing": "explicit",
+    "task": "throughput_sla",
+    "agent_baseline_id": "scripted_ops_v1",
+    "results_file": "results/throughput_sla_scripted_ops.json",
+    "metadata_file": "metadata.json",
+    "regenerate": "labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force"
+  },
+  "va_release_pack": {
+    "path": "benchmarks/verifier_assurance/release_packs/labtrust-va-release-v1",
+    "campaign_id": "labtrust-va-release-v1",
+    "workflow": "VA-13 offline PPO vs V_public (numpy_ppo)"
+  },
+  "smoke": {
+    "episodes": 1,
+    "env_max_steps": 8,
+    "marl_timesteps": 64,
+    "marl_eval_episodes": 1,
+    "va13_episodes": 4,
+    "va13_horizon": 2,
+    "va13_seed": 7
+  }
+}
