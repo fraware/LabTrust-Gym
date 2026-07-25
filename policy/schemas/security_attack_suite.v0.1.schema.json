@@ -2,12 +2,100 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "labtrust.security_attack_suite.v0.1",
   "title": "Security attack suite v0.1",
-  "description": "Schema for policy/golden/security_attack_suite.v0.1.yaml. Entry types: scenario_ref, test_ref, llm_attacker, or coord_pack_ref (exactly one per attack).",
+  "description": "Schema for policy/golden/security_attack_suite.v0.1.yaml. Entry types: scenario_ref, test_ref, llm_attacker, or coord_pack_ref (exactly one per attack). Each attack must carry a full evidence_contract after evidence_contract_ref / suite defaults are resolved (see labtrust_gym.policy.attack_evidence).",
   "type": "object",
   "required": ["version", "controls", "attacks"],
   "additionalProperties": true,
+  "$defs": {
+    "EvidenceContractBudget": {
+      "type": "object",
+      "required": ["mode", "requires_live_llm"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "offline_fixed",
+            "offline_test",
+            "offline_coord_pack",
+            "live_llm_opt_in"
+          ]
+        },
+        "max_rounds": { "type": "integer", "minimum": 1 },
+        "requires_live_llm": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "EvidenceContract": {
+      "type": "object",
+      "required": [
+        "threat_model",
+        "attacker_capability",
+        "success_condition",
+        "budget",
+        "baseline",
+        "optimized_attack",
+        "expected_detection_point",
+        "residual_risk",
+        "reproducible_fixture"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "threat_model": { "type": "string", "minLength": 1 },
+        "attacker_capability": { "type": "string", "minLength": 1 },
+        "success_condition": { "type": "string", "minLength": 1 },
+        "budget": { "$ref": "#/$defs/EvidenceContractBudget" },
+        "baseline": { "type": "string", "minLength": 1 },
+        "optimized_attack": { "type": "string", "minLength": 1 },
+        "expected_detection_point": { "type": "string", "minLength": 1 },
+        "residual_risk": { "type": "string", "minLength": 1 },
+        "reproducible_fixture": { "type": "string", "minLength": 1 }
+      }
+    },
+    "EvidenceContractPartial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "threat_model": { "type": "string", "minLength": 1 },
+        "attacker_capability": { "type": "string", "minLength": 1 },
+        "success_condition": { "type": "string", "minLength": 1 },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "offline_fixed",
+                "offline_test",
+                "offline_coord_pack",
+                "live_llm_opt_in"
+              ]
+            },
+            "max_rounds": { "type": "integer", "minimum": 1 },
+            "requires_live_llm": { "type": "boolean" },
+            "notes": { "type": "string" }
+          }
+        },
+        "baseline": { "type": "string", "minLength": 1 },
+        "optimized_attack": { "type": "string", "minLength": 1 },
+        "expected_detection_point": { "type": "string", "minLength": 1 },
+        "residual_risk": { "type": "string", "minLength": 1 },
+        "reproducible_fixture": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
   "properties": {
     "version": { "type": "string" },
+    "evidence_contract_defaults": {
+      "$ref": "#/$defs/EvidenceContractPartial",
+      "description": "Optional partial defaults merged under every attack evidence_contract."
+    },
+    "evidence_contract_templates": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/EvidenceContractPartial" },
+      "description": "Named partial evidence contracts referenced via attack.evidence_contract_ref."
+    },
     "controls": {
       "type": "array",
       "minItems": 0,
@@ -26,7 +114,7 @@
       "type": "array",
       "minItems": 0,
       "items": {
-        "$comment": "Exactly one of scenario_ref, test_ref, llm_attacker, or coord_pack_ref per attack.",
+        "$comment": "Exactly one of scenario_ref, test_ref, llm_attacker, or coord_pack_ref. evidence_contract required after resolution.",
         "type": "object",
         "additionalProperties": true,
         "properties": {
@@ -46,6 +134,8 @@
           },
           "attacker_prompt_template_id": { "type": "string" },
           "llm_attacker_rounds": { "type": "integer" },
+          "evidence_contract_ref": { "type": "string" },
+          "evidence_contract": { "$ref": "#/$defs/EvidenceContract" },
           "coord_pack_ref": {
             "type": "object",
             "additionalProperties": true,
@@ -60,7 +150,7 @@
         },
         "oneOf": [
           {
-            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "scenario_ref"],
+            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "scenario_ref", "evidence_contract"],
             "not": {
               "anyOf": [
                 { "required": ["test_ref"] },
@@ -70,7 +160,7 @@
             }
           },
           {
-            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "test_ref"],
+            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "test_ref", "evidence_contract"],
             "not": {
               "anyOf": [
                 { "required": ["scenario_ref"] },
@@ -80,7 +170,7 @@
             }
           },
           {
-            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "llm_attacker"],
+            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "llm_attacker", "evidence_contract"],
             "properties": { "llm_attacker": { "const": true } },
             "not": {
               "anyOf": [
@@ -91,7 +181,7 @@
             }
           },
           {
-            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "coord_pack_ref"],
+            "required": ["attack_id", "risk_id", "control_id", "title", "expected_outcome", "coord_pack_ref", "evidence_contract"],
             "not": {
               "anyOf": [
                 { "required": ["scenario_ref"] },
