@@ -86,18 +86,25 @@ Per-agent observation is a **dict of numpy arrays** (no raw secrets). All agents
 
 Zones and devices use fixed lists aligned with the engine’s default layout (`DEFAULT_ZONE_IDS`, `DEFAULT_DEVICE_IDS` in `pz_parallel.py`).
 
-## Action interface (MVP)
+## Action interface
 
-- **Space:** `Discrete(NUM_ACTION_TYPES)` per agent (e.g. 3: NOOP, TICK, QUEUE_RUN).
-- **Semantics:** Each action is a discrete index. The wrapper maps it to an engine event (action_type, args, token_refs, reason_code) via `_action_to_event`. Extended actions (e.g. device_id, work_id) can be passed later via a structured action space or `infos` without changing the engine.
+- **Space:** `Discrete(NUM_ACTION_TYPES)` per agent with `NUM_ACTION_TYPES = 6` (indices **0..5**).
+- **Semantics:** Each action is a discrete index. The wrapper maps it to an engine event (action_type, args, token_refs, reason_code) via `_action_to_event`. Extended args (e.g. device_id, work_id, to_zone) can be passed via `action_infos` without changing the engine.
 
-Current mapping:
+Current mapping (see `envs/action_contract.py`):
 
-- `0` (NOOP): engine event `action_type="NOOP"`, empty args.
-- `1` (TICK): engine event `action_type="TICK"` (door timers, zone breach).
-- `2`: `QUEUE_RUN` with a default device and default work_id (for testing).
+| Index | Constant | Engine `action_type` |
+|------:|----------|----------------------|
+| `0` | `ACTION_NOOP` | `NOOP` |
+| `1` | `ACTION_TICK` | `TICK` |
+| `2` | `ACTION_QUEUE_RUN` | `QUEUE_RUN` |
+| `3` | `ACTION_MOVE` | `MOVE` |
+| `4` | `ACTION_OPEN_DOOR` | `OPEN_DOOR` |
+| `5` | `ACTION_START_RUN` | `START_RUN` |
 
-Actions are deterministic given the same action indices.
+Actions are deterministic given the same action indices (and optional `action_infos`).
+
+**Observation note:** The declared Dict RL space covers the compact numeric fields listed above. The Parallel env may also attach LLM/context keys (`zone_id`, `work_list`, `role_id`, …) on the same observation dict. PettingZoo `api_test` requires `observation_space.contains(obs)`; official AEC conformance tests therefore project observations onto declared space keys (see `envs/api_conformance.py`). `parallel_api_test` runs on the raw Parallel env. For MARL, prefer `FlattenObsWrapper` / `LabTrustGymnasiumWrapper`.
 
 ## Translation layer (agent action → engine event)
 
@@ -164,12 +171,14 @@ State for the summary comes from the same observation cache used by `step()` and
 
 - **Smoke:** `tests/test_pz_parallel_smoke.py` — instantiate, `reset(seed=123)`, 50 steps with alternating NOOP/TICK, no crash.
 - **Determinism:** Same seed + same actions (NOOP/TICK) → identical trajectory (obs hash, rewards, terminations).
-- **Spaces:** Observation and action spaces defined for all agents; sample observation lies in `observation_space`, sample action in `action_space`.
+- **Spaces:** Observation and action spaces defined for all agents; projected observation (Dict space keys) lies in `observation_space`; actions are Discrete **0..5**.
+- **Official API:** `tests/test_pz_api_conformance.py` — PettingZoo `parallel_api_test` on `LabTrustParallelEnv`, `api_test` on AEC+`FlattenObsWrapper` (Box), Dict.contains via space projection, lifecycle/seeding/parallel–AEC equivalence.
+- **Gymnasium:** `tests/test_gymnasium_check_env.py` — `gymnasium.utils.env_checker.check_env` on `LabTrustGymnasiumWrapper`.
 
 Run with:
 
 ```bash
-pytest tests/test_pz_parallel_smoke.py -v
+pytest tests/test_pz_parallel_smoke.py tests/test_pz_aec_smoke.py tests/test_pz_api_conformance.py tests/test_gymnasium_check_env.py -v
 ```
 
 Requires `.[env]`. The golden suite remains unchanged and still passes with `LABTRUST_RUN_GOLDEN=1`.

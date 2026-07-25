@@ -1,8 +1,24 @@
 # Determinism contract (deterministic pipeline)
 
-This document defines the deterministic pipeline guarantee, its scope, and the limits that apply to baseline regression, reproducibility, and CI behavior.
+This document defines the deterministic pipeline guarantee, its scope, and the limits that apply to baseline regression, reproducibility, CI behavior, and trajectory replay.
 
 **Summary.** Determinism holds when the task, seed, policy, **Python version**, and **platform** match. Different Python or OS builds can change RNG or float behavior, so treat hashes and float metrics as comparable only within the same environment. For reproducible baselines, use the same Python version and OS as CI (or as stated in this contract). With the same Python version and platform, runs should yield identical results; library versions, environment variables, and load can still affect output in edge cases. Report any non-determinism you see under the same version and platform.
+
+## Match mode (CI default: exact)
+
+**CI and official baselines use exact match.** Comparable fields and digests must be byte-identical / value-identical:
+
+| Artifact | Exact-match rule |
+|----------|------------------|
+| Episode log (JSONL) | SHA-256 of file bytes identical |
+| Results JSON (deterministic pipeline) | Canonical JSON bytes identical (`sort_keys=True`, compact separators) |
+| v0.2 metrics | Integer and struct fields identical (throughput counts, steps, holds, tokens, blocked_by_reason_code, violations_by_invariant_id) |
+| Trajectory replay | Per-step status, `blocked_reason_code`, emits, violations, hashchain head identical; `canonical_episode_log_digest` and `evidence_digest` identical |
+| Receipts / evidence | Receipts payload digest identical when exportable from the same log |
+
+**No float epsilon in CI.** Do not introduce bounded float tolerances into default regression or `replay-trajectory` / `determinism-report` gates. If a metric is float-valued and cross-platform sensitive, either (a) keep it out of the exact-match set (as baseline regression already does for some floats), or (b) require same platform+Python for hash comparisons.
+
+**Optional research tolerances (non-CI).** Exploratory notebooks may compare floats with a documented absolute/relative epsilon (for example `1e-9` relative for reward sums). Any such tolerance must be named, scoped outside official packs, and must not weaken the exact-match default.
 
 ## Guarantee
 
@@ -22,13 +38,14 @@ the following hold:
 2. **Results JSON**: The results file is written in **canonical form** (sort_keys=True, compact separators). The file content is byte-identical; its SHA-256 is reproducible.
 3. **v0.2 metrics**: The normalized v0.2 representation (task, seeds, agent_baseline_id, episodes with seed + metrics) is identical. The baseline regression guard compares exact integer/struct metrics (throughput, steps, holds_count, tokens_minted, tokens_consumed, blocked_by_reason_code, violations_by_invariant_id).
 4. **Receipts bundle**: When export_receipts is run on the same episode log, the manifest (and bundle root hash) is identical. When the run used LLM coordination and the episode log contains LLM_COORD_AUDIT_DIGEST (or proposal_hash / shield_outcome_hash entries), the manifest may include **coordination_audit_digest_sha256**; verify-bundle checks it when present. Deterministic runs yield identical digest hashes.
+5. **Trajectory replay**: Re-executing the same seed/task or the same recorded Parallel action sequence yields an episode log whose comparable fields and digests match the reference under exact-match (`labtrust replay-trajectory`).
 
 **Same inputs yield the same outputs.** The pipeline uses no global RNG; all randomness comes from the per-episode seed (base_seed + episode index). Task initial state and engine each use a dedicated RNG seeded with that episode seed.
 
 ## Out of scope / known variation (no guarantee)
 
 - **Cross-version.** Different Python versions (e.g. 3.11 vs 3.13) may use different RNG or float behavior. Compare baselines on the same Python version; hashes and float metrics can differ across versions.
-- **Cross-platform.** Different OS builds (e.g. win32 vs linux) can differ in floating-point or dict iteration in edge cases. Baseline regression compares only integer and struct metrics to limit float and platform sensitivity.
+- **Cross-platform.** Different OS builds (e.g. win32 vs linux) can differ in floating-point or dict iteration in edge cases. Baseline regression compares only integer and struct metrics to limit float and platform sensitivity. File and episode-log SHA-256 must not be compared across platforms unless both sides report matching `python_version` and `platform` in the determinism report.
 - **Python patch versions / OS variants.** Different patch versions of the same Python major.minor or different OS variants can introduce variation. Document and match version plus platform when you need comparable hashes.
 - **Third-party libraries.** Libraries used by the env or runner may behave differently across versions or environments; treat library drift as a possible source of variation.
 - **LLM and network.** The deterministic pipeline runs offline with scripted or deterministic LLM backends only. Live-LLM runs set `non_deterministic` to true; episode logs and results files are readable but not byte-reproducible across runs.
@@ -38,10 +55,12 @@ the following hold:
 - **RNG**: Simulation uses `labtrust_gym.engine.rng.RNG`, which wraps `random.Random(seed)`. Task `get_initial_state(seed)` uses `random.Random(seed)` per call. No module-level or global RNG is used in the deterministic path.
 - **Canonical write**: When `non_deterministic` is false, the runner writes results with `canonical_json(results)` (see `util.json_utils.canonical_json`) so the file is stable across runs. When non_deterministic is true, results are written with indent=2 for readability.
 - **Determinism report**: `labtrust determinism-report` runs the benchmark twice in separate temp dirs with identical args and asserts episode log SHA-256, results canonical SHA-256, v0.2 metrics canonical, and (when available) receipts bundle root hash are identical. It writes `determinism_report.json` and `determinism_report.md`; the markdown has an executive summary at the top (Result: PASSED/FAILED, one-line interpretation, and key deltas on failure). The report includes python_version and platform so that reproducibility is auditable.
+- **Trajectory replay**: `labtrust replay-trajectory` re-executes a recorded run (`--recorded-run`), a Parallel action sequence (`--actions`), or compares two logs (`--episode-log` + `--compare-log`). Comparison uses `orchestrator.replay.compare_episode_logs` (status, reason codes, emits, hashchain, canonical episode log digest, evidence/receipt digests). Default match mode is **exact** (`match_mode: "exact"` in `replay_summary.json`).
 
 ## Commands
 
 - **Prove determinism**: `labtrust determinism-report --task throughput_sla --episodes 3 --seed 42 --out ./det_report`
+- **Replay trajectory** (exact match): `labtrust replay-trajectory --actions actions.json --out ./replay_out` or `labtrust replay-trajectory --episode-log a.jsonl --compare-log b.jsonl --out ./replay_out`
 - **Baseline regression** (exact metrics vs committed v0.2): `LABTRUST_CHECK_BASELINES=1 pytest tests/test_official_baselines_regression.py -v`
 - **Regenerate baselines** (after intentional changes): `labtrust generate-official-baselines --out benchmarks/baselines_official/v0.2/ --episodes 3 --seed 123 --force`
 
