@@ -109,6 +109,25 @@ def export_campaign_pack(
     _dump_list("adjudications_or_commitments", commitments, "commit")
     _dump_list("exploit_manifests", exploit_manifests, "exploit")
     _dump_list("counterfactual_branches", counterfactual_branches, "branch")
+    if mutations:
+        _dump_list("mutation_profiles", mutations, "mut")
+
+    # Schema-validate reward evidence envelopes when present
+    from labtrust_gym.errors import PolicyLoadError
+    from labtrust_gym.policy.loader import load_json, validate_against_schema
+
+    envelope_schema = (
+        Path(__file__).resolve().parents[4]
+        / "policy"
+        / "schemas"
+        / "pcs"
+        / "RewardEvidenceEnvelope.v1.schema.json"
+    )
+    for ree in reward_evidence:
+        try:
+            validate_against_schema(dict(ree), load_json(envelope_schema), path=envelope_schema)
+        except PolicyLoadError as exc:
+            raise CampaignExportError(f"reward evidence schema invalid: {exc}") from exc
 
     assurance = {
         "artifact_kind": "VerifierAssuranceReport",
@@ -178,6 +197,23 @@ def validate_campaign_pack(pack_dir: Path | str, *, allow_revealed: bool = False
             {k: v for k, v in doc.items() if k != "adjudication" or allow_revealed},
             path=str(path),
         )
+    # Validate reward evidence schemas on reconstruct
+    from labtrust_gym.errors import PolicyLoadError
+    from labtrust_gym.policy.loader import load_json, validate_against_schema
+
+    envelope_schema = (
+        Path(__file__).resolve().parents[4]
+        / "policy"
+        / "schemas"
+        / "pcs"
+        / "RewardEvidenceEnvelope.v1.schema.json"
+    )
+    for path in (pack / "reward_evidence").glob("*.json"):
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            validate_against_schema(doc, load_json(envelope_schema), path=envelope_schema)
+        except PolicyLoadError as exc:
+            raise CampaignExportError(f"reward evidence schema invalid: {path.name}: {exc}") from exc
     return {"valid": True, "campaign_id": release.get("campaign_id"), "claim_boundary": CLAIM_BOUNDARY}
 
 
