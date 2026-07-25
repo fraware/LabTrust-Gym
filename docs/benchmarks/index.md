@@ -10,6 +10,12 @@ Tasks, benchmark cards, official pack, studies, and reproduction.
 | [Benchmark card](benchmark_card.md) | Scope, tasks, baselines. |
 | [Coordination benchmark card](../coordination/coordination_benchmark_card.md) | Coord scale/risk (Task G/H). |
 | [Evaluation checklist](evaluation_checklist.md) | Baseline status, when to regenerate, full command sequence. |
+| [Scientific credibility](scientific_credibility.md) | Program overview, non-goals, DoD checklist, LTG-PR1..PR9 map. |
+| [Release runbook (LTG-PR9)](release_runbook.md) | Cut / verify engineering benchmark candidate; claim posture. |
+| [Non-claims freeze (LTG-PR9)](non_claims_freeze.md) | Authoritative limitation block for release notes. |
+| [External integrations](../agents/external_integrations.md) | LTG-PR7 pinned-release adapter gate (scripted / Gym / PZ / external / MARL / VA-13). |
+| [Independent review (LTG-PR8)](../reviews/README.md) | Domain-review charter, protocol, unsigned slots, PR9 claim gate (not clinical validation). |
+| [Golden suite governance](golden_suite_governance.md) | Per-scenario metadata, coverage gate, how to add scenarios, gap policy. |
 | [Scale and operational limits](scale_operational_limits.md) | Scale configs and limits. |
 | [Throughput comparison](throughput_comparison.md) | Throughput-focused comparison (throughput_sla, scripted baseline). |
 | [Prime Intellect Inference](prime_intellect_inference.md) | Env vars, CLI smoke, top-6 sweep, cross-provider. |
