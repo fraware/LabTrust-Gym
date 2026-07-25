@@ -117,7 +117,20 @@ class LabTrustParallelEnv(_ParallelEnvBase):  # type: ignore[misc]
         self._dt_s = max(1, dt_s)
         self._reward_config = reward_config or {}
         # VA-03: composition wrapper preserves legacy numeric behavior by default.
-        self._reward_composer = RewardComposer()
+        # Opt-in: reward_config["emit_component_breakdown_in_info"]=True or nested composition_policy.
+        from labtrust_gym.verifier_assurance.reward.composition import legacy_compat_policy
+
+        composition_policy = None
+        nested = self._reward_config.get("composition_policy")
+        if isinstance(nested, dict):
+            composition_policy = nested
+        else:
+            composition_policy = legacy_compat_policy()
+            if self._reward_config.get("emit_component_breakdown_in_info"):
+                composition_policy = dict(composition_policy)
+                composition_policy.pop("policy_digest", None)
+                composition_policy["emit_component_breakdown_in_info"] = True
+        self._reward_composer = RewardComposer(composition_policy)
         self._policy_dir = Path(policy_dir) if policy_dir else Path("policy")
         self._repo_root: Path | None = None
         if self._policy_dir.is_dir():
