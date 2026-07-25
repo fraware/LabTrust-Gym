@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.independent_review_report.v1",
+  "title": "Independent review report v1",
+  "description": "Signed or unsigned domain-review report for LTG-PR8 / LTG-09. Unsigned slots must keep approval.status=unsigned and approval.signed=false. Approved reports must not claim clinical validation.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "role_id",
+    "role_title",
+    "scope",
+    "findings_summary",
+    "limitations_acknowledged",
+    "approval",
+    "charter_ref",
+    "protocol_ref",
+    "non_claims_refs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "report_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable report identity (e.g. review.laboratory_workflow_expert.v1)."
+    },
+    "role_id": {
+      "type": "string",
+      "enum": [
+        "laboratory_workflow_expert",
+        "safety_or_quality_specialist",
+        "multi_agent_benchmark_reviewer"
+      ]
+    },
+    "role_title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "scenario_plausibility",
+        "hazard_coverage",
+        "non_claims_language"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "scenario_plausibility": {
+          "type": "string",
+          "enum": ["not_reviewed", "reviewed_ok", "reviewed_with_issues", "blocked"]
+        },
+        "hazard_coverage": {
+          "type": "string",
+          "enum": ["not_reviewed", "reviewed_ok", "reviewed_with_issues", "blocked"]
+        },
+        "non_claims_language": {
+          "type": "string",
+          "enum": ["not_reviewed", "reviewed_ok", "reviewed_with_issues", "blocked"]
+        }
+      }
+    },
+    "findings_summary": {
+      "type": "string",
+      "description": "Free-text findings. Empty string allowed only while unsigned."
+    },
+    "limitations_acknowledged": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Must include that review does not clinically validate the simulator."
+    },
+    "checklist_completed": {
+      "type": "boolean",
+      "description": "True only when protocol checklist was completed for an approved report."
+    },
+    "artifacts_reviewed": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Repo-relative paths reviewed (golden suite, hazard matrix, attack suite, non-claims docs)."
+    },
+    "approval": {
+      "type": "object",
+      "required": [
+        "status",
+        "signed",
+        "reviewer_name",
+        "reviewer_affiliation",
+        "reviewed_at",
+        "signature_ref",
+        "attestation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["unsigned", "approved", "rejected", "abstained"],
+          "description": "unsigned = reserved slot with no approval; approved requires signed=true and identity fields."
+        },
+        "signed": {
+          "type": "boolean",
+          "description": "Must be false for unsigned slots. Must be true for approved reports."
+        },
+        "reviewer_name": {
+          "type": "string",
+          "description": "Empty while unsigned; required non-empty when approved."
+        },
+        "reviewer_affiliation": {
+          "type": "string",
+          "description": "Empty while unsigned; required non-empty when approved."
+        },
+        "reviewed_at": {
+          "type": ["string", "null"],
+          "description": "ISO-8601 date or null while unsigned."
+        },
+        "signature_ref": {
+          "type": ["string", "null"],
+          "description": "Path or URI to signature evidence; null while unsigned. Never invent a signature."
+        },
+        "attestation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable attestation. Unsigned slots must state that no approval has been given."
+        },
+        "conflicts_of_interest_disclosed": {
+          "type": "boolean",
+          "description": "Required true on approved reports per charter."
+        }
+      }
+    },
+    "charter_ref": {
+      "type": "string",
+      "const": "docs/reviews/charter.md"
+    },
+    "protocol_ref": {
+      "type": "string",
+      "const": "docs/reviews/protocol_and_checklist.md"
+    },
+    "non_claims_refs": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

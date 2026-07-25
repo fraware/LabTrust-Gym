@@ -1,0 +1,24 @@
+{
+  "schema_version": "1",
+  "registry_id": "labtrust.independent_review.v1",
+  "program": "scientific_credibility",
+  "gates_release_pr": "LTG-PR9",
+  "scientifically_reviewed_claim_allowed": false,
+  "required_roles": [
+    {
+      "role_id": "laboratory_workflow_expert",
+      "report_path": "benchmarks/reviews/slots/laboratory_workflow_expert.UNSIGNED.json"
+    },
+    {
+      "role_id": "safety_or_quality_specialist",
+      "report_path": "benchmarks/reviews/slots/safety_or_quality_specialist.UNSIGNED.json"
+    },
+    {
+      "role_id": "multi_agent_benchmark_reviewer",
+      "report_path": "benchmarks/reviews/slots/multi_agent_benchmark_reviewer.UNSIGNED.json"
+    }
+  ],
+  "notes": "All three role slots are UNSIGNED. No independent review has been completed. Do not describe this repository or any release as scientifically reviewed until signed reports replace these slots and scientifically_reviewed_claim_allowed is set true under docs/reviews/signed_approval_gate.md. Independent review does not clinically validate LabTrust-Gym.",
+  "charter_ref": "docs/reviews/charter.md",
+  "gate_doc_ref": "docs/reviews/signed_approval_gate.md"
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": "1",
+  "report_id": "review.laboratory_workflow_expert.v1",
+  "role_id": "laboratory_workflow_expert",
+  "role_title": "Laboratory workflow expert",
+  "scope": {
+    "scenario_plausibility": "not_reviewed",
+    "hazard_coverage": "not_reviewed",
+    "non_claims_language": "not_reviewed"
+  },
+  "findings_summary": "",
+  "limitations_acknowledged": [
+    "This review slot is UNSIGNED. No approval has been given.",
+    "Independent review of scenario framing does not convert LabTrust-Gym into a clinically validated laboratory system.",
+    "Passing golden scenarios demonstrates in-engine regression only, not real-world clinical safety or regulatory fitness."
+  ],
+  "checklist_completed": false,
+  "artifacts_reviewed": [],
+  "approval": {
+    "status": "unsigned",
+    "signed": false,
+    "reviewer_name": "",
+    "reviewer_affiliation": "",
+    "reviewed_at": null,
+    "signature_ref": null,
+    "attestation": "UNSIGNED — reserved slot for a future laboratory workflow expert review. No signature exists. Do not treat this file as an approval.",
+    "conflicts_of_interest_disclosed": false
+  },
+  "charter_ref": "docs/reviews/charter.md",
+  "protocol_ref": "docs/reviews/protocol_and_checklist.md",
+  "non_claims_refs": [
+    "docs/verifier_assurance/non_claims.md",
+    "docs/benchmarks/scientific_credibility.md",
+    "docs/benchmarks/golden_suite_governance.md",
+    "docs/risk-and-security/security_attack_suite.md"
+  ]
+}

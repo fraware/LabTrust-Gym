@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.independent_review_registry.v1",
+  "title": "Independent review registry v1",
+  "description": "Registry of required independent-review roles and report paths for LTG-PR8. scientifically_reviewed_claim_allowed may be true only when all required roles have approved, signed reports (enforced by validate_independent_review_gate).",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "registry_id",
+    "program",
+    "gates_release_pr",
+    "scientifically_reviewed_claim_allowed",
+    "required_roles",
+    "notes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "registry_id": {
+      "type": "string",
+      "const": "labtrust.independent_review.v1"
+    },
+    "program": {
+      "type": "string",
+      "const": "scientific_credibility"
+    },
+    "gates_release_pr": {
+      "type": "string",
+      "const": "LTG-PR9",
+      "description": "Benchmark release PR that may consume approvals only when claim_allowed is true."
+    },
+    "scientifically_reviewed_claim_allowed": {
+      "type": "boolean",
+      "description": "Fail-closed flag. Must remain false until all required roles are approved and signed. Never set true to invent completion."
+    },
+    "required_roles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["role_id", "report_path"],
+        "additionalProperties": false,
+        "properties": {
+          "role_id": {
+            "type": "string",
+            "enum": [
+              "laboratory_workflow_expert",
+              "safety_or_quality_specialist",
+              "multi_agent_benchmark_reviewer"
+            ]
+          },
+          "report_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repo-relative path to the current report JSON for this role."
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "minLength": 1
+    },
+    "charter_ref": {
+      "type": "string",
+      "const": "docs/reviews/charter.md"
+    },
+    "gate_doc_ref": {
+      "type": "string",
+      "const": "docs/reviews/signed_approval_gate.md"
+    }
+  }
+}
