@@ -153,10 +153,28 @@ def apply_mutation_to_state(
         elif kind == "set_abstention_threshold":
             out.setdefault("verifier", {})["abstention_threshold"] = float(op["value"])
         elif kind == "apply_risk_injector":
-            # Record intent only; actual injector application happens in campaign runners.
+            injection_id = str(op["injection_id"])
+            # Bind to real security injector registry (digest-bearing VA mutation).
+            try:
+                from labtrust_gym.security.risk_injections import make_injector
+            except ImportError as exc:
+                raise MutationError("risk injector module unavailable") from exc
+            try:
+                injector = make_injector(injection_id)
+            except Exception as exc:  # noqa: BLE001 — fail closed on unknown ids
+                raise MutationError(f"unsupported risk injector: {injection_id}") from exc
             out.setdefault("mutations_applied", []).append(
                 {
-                    "injection_id": op["injection_id"],
+                    "injection_id": injection_id,
+                    "injector_class": type(injector).__name__,
+                    "mutation_digest": validated["mutation_digest"],
+                    "applied": True,
+                }
+            )
+            # Stylized state effect for offline campaigns (injector mutates obs/actions at runtime).
+            out.setdefault("security", {}).setdefault("injections", []).append(
+                {
+                    "injection_id": injection_id,
                     "mutation_digest": validated["mutation_digest"],
                 }
             )
