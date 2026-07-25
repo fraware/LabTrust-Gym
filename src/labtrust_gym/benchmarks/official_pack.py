@@ -9,6 +9,7 @@ metadata. Results follow the v0.2 schema. Used by package-release and the CLI.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -470,6 +471,64 @@ def run_official_pack(
     except Exception as e:
         logger.debug("Git rev-parse failed for pack manifest: %s", e)
 
+    # Prefer pack policy fingerprint when available for reconstruction binding
+    policy_digest: str | None = None
+    try:
+        from labtrust_gym.export.reconstruction import build_pack_reconstruction
+
+        tool_fp: str | None = None
+        rbac_fp: str | None = None
+        try:
+            from labtrust_gym.auth.authorize import rbac_policy_fingerprint
+            from labtrust_gym.engine.rbac import load_rbac_policy
+            from labtrust_gym.tools.registry import load_tool_registry, tool_registry_fingerprint
+
+            registry = load_tool_registry(repo_root)
+            if registry:
+                tool_fp = tool_registry_fingerprint(registry)
+            rbac_path = policy_path(repo_root, "rbac", "rbac_policy.v0.1.yaml")
+            if rbac_path.exists():
+                rbac_policy = load_rbac_policy(rbac_path)
+                if rbac_policy and rbac_policy.get("roles"):
+                    rbac_fp = rbac_policy_fingerprint(rbac_policy)
+        except Exception:
+            pass
+        pack_yaml = (
+            repo_root / pack_policy_path if not Path(pack_policy_path).is_absolute() else Path(pack_policy_path)
+        )
+        if pack_yaml.is_file():
+            policy_digest = hashlib.sha256(pack_yaml.read_bytes()).hexdigest()
+        reconstruction = build_pack_reconstruction(
+            seed_base=seed_base,
+            tasks=list(tasks),
+            baselines=task_to_baseline,
+            policy_digest=policy_digest,
+            tool_registry_fingerprint=tool_fp,
+            rbac_policy_fingerprint=rbac_fp,
+            risk_register_refs=["RISK_REGISTER_BUNDLE.v0.1.json"]
+            if (out_dir / "RISK_REGISTER_BUNDLE.v0.1.json").exists()
+            else [],
+        )
+    except Exception as e:
+        logger.debug("Pack reconstruction block failed: %s", e)
+        reconstruction = {
+            "policy_digest": policy_digest,
+            "environment_digest": None,
+            "agent_identity": None,
+            "agent_identities": list({str(v) for v in (task_to_baseline or {}).values() if v}),
+            "seed": seed_base,
+            "scenario_ids": list(tasks),
+            "episode_log_digests": [],
+            "evidence_digests": [],
+            "risk_register_refs": [],
+            "verification_results": {
+                "status": "offline_verifiable",
+                "commands": ["labtrust verify-release --release-dir <dir>"],
+                "report_refs": [],
+            },
+            "missing_evidence": [],
+        }
+
     manifest = {
         "version": pack_version,
         "pack_policy": pack_policy_path,
@@ -485,6 +544,7 @@ def run_official_pack(
         "coordination_methods": pack.get("coordination_methods") or [],
         "required_reports": required_reports,
         "results_semantics": "v0.2",
+        "reconstruction": reconstruction,
     }
     (out_dir / "pack_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
 
