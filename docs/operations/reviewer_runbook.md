@@ -56,3 +56,23 @@ See [Risk register](../risk-and-security/risk_register.md) for bundle structure 
 - [Risk register contract](../contracts/risk_register_contract.v0.1.md) — Schema and formal contract.
 - [How to handle security gate failures](howto_security_gate_failures.md) — Interpreting security and coordination gate failures.
 - [CI](ci.md) — Risk-register-gate and risk-coverage-every-pr jobs.
+
+## Independent domain review (LTG-PR8)
+
+This runbook covers **technical** risk-register and security-gate checks for auditors.
+It is **not** the domain-review process for scenario plausibility, hazard coverage, or
+non-claims language.
+
+For independent domain review materials (charter, invitation, protocol, unsigned
+approval slots, and the fail-closed gate that LTG-PR9 uses before any
+“scientifically reviewed” claim):
+
+- [Independent review index](../reviews/README.md)
+- [Reviewer charter](../reviews/charter.md)
+- [Protocol and checklist](../reviews/protocol_and_checklist.md)
+- [Signed approval gate](../reviews/signed_approval_gate.md)
+- Artifact slots: [`benchmarks/reviews/`](../../benchmarks/reviews/README.md)
+
+**Status:** all three role slots are UNSIGNED. Passing the commands above does not
+approve golden scenarios or clinically validate LabTrust-Gym. Golden scenarios keep
+`governance.reviewer: pending-domain-review` until signed reports exist.
