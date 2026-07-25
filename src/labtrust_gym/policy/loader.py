@@ -190,6 +190,7 @@ POLICY_FILE_SCHEMA_MAP: dict[str, str] = {
     "scripted_ops_policy.v0.1.yaml": "scripted_ops_policy.v0.1.schema.json",
     "scripted_runner_policy.v0.1.yaml": "scripted_runner_policy.v0.1.schema.json",
     "repair_policy.v0.1.yaml": "repair_policy.v0.1.schema.json",
+    "hazard_coverage_matrix.v0.1.yaml": "hazard_coverage_matrix.v0.1.schema.json",
 }
 
 

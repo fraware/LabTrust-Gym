@@ -1,0 +1,177 @@
+# Hazard coverage matrix v0.1 — LTG-PR1 inventory + LTG-PR3 scenario links.
+# Maps coverage classes to existing GS-* golden scenarios and SEC-* attacks.
+# Uncovered / partial hazards carry an explicit gap string.
+# Validated by labtrust validate-policy against hazard_coverage_matrix.v0.1.schema.json.
+# Golden scenarios claiming a coverage_class must appear in that class's golden_scenario_ids.
+
+hazard_coverage_matrix:
+  matrix_id: "labtrust.hazard_coverage.v0.1"
+  version: "0.1"
+  description: >
+    Inspectable hazard inventory for scientific credibility (LTG-03).
+    Per-scenario governance metadata lives on each golden scenario (LTG-PR3);
+    this matrix is the class-level map and coverage gate source of truth.
+  coverage_enum:
+    - covered
+    - partially_covered
+    - uncovered
+    - not_applicable
+
+  hazards:
+    - hazard_class: specimen_identity
+      coverage: covered
+      golden_scenario_ids:
+        - GS-004
+        - GS-005
+        - GS-003
+      security_attack_ids:
+        - SEC-PI-001
+        - SEC-PI-002
+        - SEC-DATA-PROV-002
+      gap: null
+      notes: "ID mismatch and integrity rejects; PI suite stresses specimen-note identity/instruction confusion."
+
+    - hazard_class: chain_of_custody
+      coverage: covered
+      golden_scenario_ids:
+        - GS-TRANSPORT-001
+        - GS-COC-003
+      security_attack_ids: []
+      gap: null
+      notes: "Transport CoC sign + broken CoC blocked reason TRANSPORT_CHAIN_OF_CUSTODY_BROKEN."
+
+    - hazard_class: quality_control_release
+      coverage: covered
+      golden_scenario_ids:
+        - GS-001
+        - GS-002
+        - GS-014
+        - GS-015
+        - GS-EXPORT-001
+      security_attack_ids: []
+      gap: null
+      notes: >
+        QC fail cascade and drift override token path; GS-002 is STAT queue ordering
+        (workflow completeness, not a clinical claim); GS-EXPORT-001 is post-run
+        receipts/verify/FHIR evidence path for release artifacts.
+
+    - hazard_class: critical_result_escalation
+      coverage: covered
+      golden_scenario_ids:
+        - GS-016
+        - GS-017
+        - GS-018
+        - GS-CRIT-023
+        - GS-CRIT-024
+        - GS-CRIT-025
+      security_attack_ids: []
+      gap: null
+      notes: "Notify/ack/escalate ladder and downtime oral path."
+
+    - hazard_class: stability_windows
+      coverage: covered
+      golden_scenario_ids:
+        - GS-006
+        - GS-007
+      security_attack_ids: []
+      gap: null
+      notes: "TIME_EXPIRED and TEMP_OUT_OF_BAND with dual-approval override."
+
+    - hazard_class: role_authorization
+      coverage: covered
+      golden_scenario_ids:
+        - GS-RBAC-028
+        - GS-RBAC-029
+        - GS-SIG-026
+        - GS-SIG-027
+      security_attack_ids:
+        - SEC-PI-004
+        - SEC-COORD-001
+      gap: null
+      notes: "RBAC deny and strict signatures; PI RBAC bypass attempts."
+
+    - hazard_class: zone_access
+      coverage: covered
+      golden_scenario_ids:
+        - GS-008
+        - GS-009
+        - GS-019
+        - GS-020
+      security_attack_ids:
+        - SEC-PI-003
+      gap: null
+      notes: "Restricted door, door-open-too-long, colocation, illegal move."
+
+    - hazard_class: token_validity
+      coverage: covered
+      golden_scenario_ids:
+        - GS-010
+        - GS-011
+        - GS-012
+        - GS-013
+        - GS-006
+        - GS-015
+      security_attack_ids: []
+      gap: null
+      notes: "Dual approval, expiry, replay, revoke. GS-006/GS-015 also primary under other classes."
+
+    - hazard_class: catalog_drift
+      coverage: uncovered
+      golden_scenario_ids: []
+      security_attack_ids: []
+      gap: >
+        No GS-* or SEC-* case dedicated to catalogue/reagent/panel drift between
+        policy versions mid-episode. Unit catalogue/stability tests exist but are
+        not hazard-mapped golden or attack-suite evidence. Keep as explicit gap;
+        do not invent a clinical catalogue-drift scenario without accurate fixtures.
+      notes: "Explicit gap for LTG-03 completeness."
+
+    - hazard_class: multi_site_handoff
+      coverage: covered
+      golden_scenario_ids:
+        - GS-TRANSPORT-001
+        - GS-TRANSPORT-002
+        - GS-COC-003
+      security_attack_ids: []
+      gap: null
+      notes: "Dispatch/tick/receive and temp excursion."
+
+    - hazard_class: adversarial_coordination
+      coverage: partially_covered
+      golden_scenario_ids: []
+      security_attack_ids:
+        - SEC-COORD-001
+        - SEC-COORD-RT-001
+        - SEC-COORD-RT-002
+        - SEC-COORD-MATRIX-001
+        - SEC-COORD-PACK-MULTI-AGENTIC
+        - SEC-MEM-001
+        - SEC-DETECTOR-001
+      gap: >
+        Strong SEC-* coverage for coord signatures, collusion/bid spoof, matrix
+        gate, and memory poison; no single GS-* golden that encodes multi-agent
+        adversarial coordination as a CoreEnv script. Benchmark tasks
+        (adversarial_disruption) exist outside this matrix's GS column.
+      notes: "Partial until a GS-* or governed scenario lists the hazard explicitly."
+
+    - hazard_class: insider_misuse
+      coverage: partially_covered
+      golden_scenario_ids:
+        - GS-SHIFT-CHANGE-001
+        - GS-SHIFT-CHANGE-002
+        - GS-RBAC-028
+        - GS-RBAC-029
+        - GS-SIG-026
+        - GS-SIG-027
+        - GS-021
+        - GS-022
+      security_attack_ids:
+        - SEC-TOOL-003
+        - SEC-TOOL-UNVERIFIED-001
+        - SEC-TOOL-MISUSE-001
+      gap: >
+        Shift-change, RBAC/signature, and audit-discipline goldens (missing reason
+        code, hash-chain forensic freeze) cover privilege and integrity denial.
+        Full insider_key_misuse benchmark phases (forged sig, revoked key, token
+        misuse) remain task-level, not yet mirrored as dedicated GS-* rows.
+      notes: "Partial: goldens + tools attacks; task suite fills remaining phases."
