@@ -33,6 +33,12 @@ from labtrust_gym.policy.risks import (
     get_risk,
     load_risk_registry,
 )
+from labtrust_gym.policy.golden_governance import validate_golden_hazard_coverage_gate
+from labtrust_gym.policy.independent_review import (
+    assert_scientifically_reviewed_claim_allowed,
+    scientifically_reviewed_claim_allowed,
+    validate_independent_review_gate,
+)
 from labtrust_gym.policy.validate import (
     validate_emits_vocab,
     validate_golden_scenarios,
@@ -49,6 +55,10 @@ __all__ = [
     "validate_against_schema",
     "validate_emits_vocab",
     "validate_golden_scenarios",
+    "validate_golden_hazard_coverage_gate",
+    "validate_independent_review_gate",
+    "scientifically_reviewed_claim_allowed",
+    "assert_scientifically_reviewed_claim_allowed",
     "validate_policy",
     "validate_runner_output_contract_schema",
     "load_emits_vocab",
