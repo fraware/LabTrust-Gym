@@ -40,6 +40,78 @@
         "algorithm": { "type": "string" },
         "value": { "type": "string" }
       }
+    },
+    "reconstruction": {
+      "type": ["object", "null"],
+      "description": "PCS release reconstruction provenance (LTG-PR6): digests and identity for independent offline verify.",
+      "additionalProperties": true,
+      "properties": {
+        "policy_digest": {
+          "type": ["string", "null"],
+          "description": "Policy digest (typically equals policy_fingerprint on this manifest)"
+        },
+        "environment_digest": {
+          "type": ["string", "null"],
+          "description": "SHA-256 binding environment family/version, obs/action schemas, and policy fingerprints"
+        },
+        "agent_identity": {
+          "type": ["string", "null"],
+          "description": "Agent baseline or plugin identity (e.g. agent_baseline_id)"
+        },
+        "seed": {
+          "type": ["integer", "null"],
+          "description": "Primary episode or base seed for reconstruction"
+        },
+        "scenario_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Task / golden scenario IDs covered by this bundle"
+        },
+        "episode_log_digest": {
+          "type": ["string", "null"],
+          "description": "canonical_episode_log_digest from orchestrator.replay (exact-match contract)"
+        },
+        "evidence_digest": {
+          "type": ["string", "null"],
+          "description": "Deterministic evidence/receipts digest from orchestrator.replay"
+        },
+        "risk_register_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Relative paths or IDs linking to risk register evidence"
+        },
+        "verification_results": {
+          "type": ["object", "null"],
+          "description": "Links/commands for offline verification (not a post-hoc stamp that mutates hashes)",
+          "additionalProperties": true
+        },
+        "missing_evidence": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true },
+          "description": "Explicit missing-evidence declarations (often empty on a single bundle)"
+        }
+      }
+    },
+    "policy_digest": {
+      "type": ["string", "null"],
+      "description": "Alias of policy_fingerprint for reconstruction field checklist; prefer reconstruction.policy_digest"
+    },
+    "environment_digest": {
+      "type": ["string", "null"],
+      "description": "Top-level mirror of reconstruction.environment_digest for pack scanners"
+    },
+    "agent_identity": {
+      "type": ["string", "null"]
+    },
+    "seed": {
+      "type": ["integer", "null"]
+    },
+    "scenario_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "episode_log_digest": {
+      "type": ["string", "null"]
     }
   }
 }
