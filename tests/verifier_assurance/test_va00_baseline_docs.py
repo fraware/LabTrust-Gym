@@ -27,7 +27,17 @@ def test_preregistration_before_results() -> None:
     text = path.read_text(encoding="utf-8")
     assert "before results exist" in text.lower()
     assert "VA-10" in text and "VA-13" in text
+    assert "VA-15" in text
     assert "≥3" in text or ">=3" in text
+    assert "holdout" in text.lower()
+
+
+def test_holdouts_doc_exists() -> None:
+    path = REPO / "docs" / "verifier_assurance" / "holdouts.md"
+    text = path.read_text(encoding="utf-8")
+    assert "HoldoutPartitionManifest" in text
+    assert "train" in text.lower() and "eval" in text.lower()
+    assert "clinical" in text.lower()
 
 
 def test_threat_model_extension() -> None:

@@ -12,9 +12,11 @@ It does **not**:
 - Claim that offline PPO / SB3 training against `V_public` transfers to production verifiers
 - Claim PF-Core / OVK acceptance when the checker is unavailable (`indeterminate` only; local fake is for offline CI completeness, not external assurance)
 - Claim that passing VA tests equals deployment readiness under distribution shift or live adversaries
+- Claim that sealed train/eval holdouts (VA-15) prevent all forms of benchmark leakage outside this repository’s pack discipline, or that holdout recovery equals real-world safety
+- Claim that sparse-reward, delayed-safety, proxy-metric, selective-omission, or cross-seed transfer studies certify clinical or production systems
 
 ## Fidelity limits (currency)
 
-See EnvironmentProfile `known_fidelity_limits` and release pack fidelity metadata when present. Dual-oracle process boundaries, sealed IPC, and leakage tests reduce — but do not eliminate — the risk of optimization-induced verifier failure in deployment. Threat-model currency: [docs/architecture/threat_model.md](../architecture/threat_model.md) verifier-assurance extension.
+See EnvironmentProfile `known_fidelity_limits` and release pack fidelity metadata when present. Dual-oracle process boundaries, sealed IPC, partition holdouts, and leakage tests reduce — but do not eliminate — the risk of optimization-induced verifier failure in deployment. Threat-model currency: [docs/architecture/threat_model.md](../architecture/threat_model.md) verifier-assurance extension.
 
-Fail-closed rule: unknown schemas, missing artifacts, unavailable checkers, or leakage suspicion yield error or `indeterminate` — never acceptance presented as assurance.
+Fail-closed rule: unknown schemas, missing artifacts, unavailable checkers, holdout leakage suspicion, or dual-oracle leakage suspicion yield error or `indeterminate` — never acceptance presented as assurance.

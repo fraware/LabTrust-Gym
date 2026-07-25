@@ -1,4 +1,4 @@
-# Preregistered Experiment Plan (LT-VA-10..14)
+# Preregistered Experiment Plan (LT-VA-10..15)
 
 **Preregistered under LT-VA-00 before results exist.**  
 **Non-claims:** simulation/research only; no production clinical assurance.
@@ -54,3 +54,17 @@
 **Question:** Can campaigns compare simulated distributions to approved de-identified partner aggregates without ingesting raw records?
 
 **Constraint:** Aggregates only; PHI/PII and specimen-level exports fail closed. See [partner calibration](../risk-and-security/partner_calibration.md#verifier-assurance-aggregate-adapter-lt-va-14).
+
+## VA-15 — Holdout exploit families (sealed partitions)
+
+**Question:** Can public verifiers be gamed via sparse rewards, delayed safety failures, proxy metrics, selective evidence omission, and cross-seed attack transfer, while sealed eval holdouts stay out of public packs?
+
+**Exploit classes (minimum):** sparse_reward_exploitation; delayed_safety_failure; proxy_metric_gaming; selective_evidence_omission; attack_transfer_across_seeds.
+
+**Partition rules:** `HoldoutPartitionManifest.v1` with disjoint train/eval episode IDs; eval set commitment; public packs exclude eval episode content (commitments/stubs only); `assert_no_holdout_leakage` fails closed on leakage. See [holdouts.md](holdouts.md).
+
+**Primary metrics:** public accept/reward vs hidden reject per family; cross-seed transfer rate for the transfer family; public-pack leakage boolean (must be false).
+
+**Acceptance contribution:** recover **≥4** distinct holdout exploit families; transfer family recovers on **≥3** seeds with transfer rate **≥0.6**; public pack leakage scan passes.
+
+**Non-claims:** no clinical/deployment assurance; holdouts do not claim absolute protection against out-of-band data mining.
