@@ -95,3 +95,63 @@ def test_capture_helper_matches_env_api() -> None:
     a = capture_core_env(env)
     b = env.snapshot()
     assert a.canonical_digest() == b.canonical_digest()
+
+
+def test_snapshot_covers_auth_zone_and_device_stores() -> None:
+    env = _reset_env()
+    env._device_zone["D_TEST"] = "Z_TEST"
+    env._transport_fault_injection = {"delay_s": 5}
+    env._key_registry = {"key_a": {"revoked": False}}
+    env._strict_signatures = True
+    env._token_registry = {"token_types": {"DUAL_APPROVAL": {"min_approvals": 2}}}
+    env._rbac_policy = {"agents": {"SYSTEM": {"role": "SYSTEM"}}}
+    env._capability_policy = {"profiles": {}}
+    if env._device_store is not None and env._device_store._devices:
+        did = next(iter(env._device_store._devices))
+        rec = env._device_store._devices[did]
+        from labtrust_gym.engine.devices import ActiveRun
+
+        rec.active_run = ActiveRun(
+            run_id="run-snap",
+            work_id="w1",
+            specimen_ids=["S1"],
+            start_ts_s=1,
+            end_ts_s=10,
+            panel_id=None,
+        )
+    known = list(env._device_zone.keys()) or list((env._queues._known_device_ids or {}).keys())
+    if known:
+        env._queues.enqueue(
+            device_id=known[0],
+            work_id="w-snap",
+            priority_class="ROUTINE",
+            enqueued_ts_s=1,
+            requested_by_agent="SYSTEM",
+        )
+    snap = env.snapshot()
+    payload = snap.payload
+    for key in (
+        "device_zone",
+        "transport_fault_injection",
+        "key_registry",
+        "strict_signatures",
+        "token_registry",
+        "rbac_policy",
+        "capability_policy",
+        "queues",
+        "devices",
+        "tokens",
+        "critical",
+        "transport",
+        "zones",
+        "reagent_stock",
+        "enforcement_violation_counts",
+    ):
+        assert key in payload
+    env2 = _reset_env(seed=1)
+    env2.restore(snap)
+    assert env2._device_zone.get("D_TEST") == "Z_TEST"
+    assert env2._transport_fault_injection == {"delay_s": 5}
+    assert env2._strict_signatures is True
+    assert env2._key_registry["key_a"]["revoked"] is False
+    assert env2.snapshot().canonical_digest() == snap.canonical_digest()
