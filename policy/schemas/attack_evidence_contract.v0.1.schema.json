@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labtrust.attack_evidence_contract.v0.1",
+  "title": "Attack evidence contract v0.1",
+  "description": "Per-attack scientific evidence contract for the security attack suite (LTG-06 / LTG-PR5). Required on every attack after template/default resolution.",
+  "type": "object",
+  "required": [
+    "threat_model",
+    "attacker_capability",
+    "success_condition",
+    "budget",
+    "baseline",
+    "optimized_attack",
+    "expected_detection_point",
+    "residual_risk",
+    "reproducible_fixture"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "threat_model": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Threat-model reference and/or short statement (e.g. docs path + boundary)."
+    },
+    "attacker_capability": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the adversary can observe, inject, or control in this attack."
+    },
+    "success_condition": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Observable condition under which the attack is considered successful (control failed)."
+    },
+    "budget": {
+      "type": "object",
+      "required": ["mode", "requires_live_llm"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "offline_fixed",
+            "offline_test",
+            "offline_coord_pack",
+            "live_llm_opt_in"
+          ],
+          "description": "Execution budget class. live_llm_opt_in must not appear on smoke/CI-default attacks."
+        },
+        "max_rounds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum attacker rounds or fixture applications."
+        },
+        "requires_live_llm": {
+          "type": "boolean",
+          "description": "If true, attack needs a live proprietary/network LLM; must be false for smoke/CI default."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Human-readable budget notes (timeouts, payload caps, pack matrix size)."
+        }
+      }
+    },
+    "baseline": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Naive or fixed baseline attack used for comparison / default CI."
+    },
+    "optimized_attack": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stronger or optimized variant (or statement that baseline is the fixed golden fixture)."
+    },
+    "expected_detection_point": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Where the control is expected to block or detect (layer, reason code family, gate)."
+    },
+    "residual_risk": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Risk remaining after the control holds for this fixture (simulation limits, uncovered variants)."
+    },
+    "reproducible_fixture": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path and id of the deterministic fixture (scenario, test, pack preset, or prompt template)."
+    }
+  }
+}
