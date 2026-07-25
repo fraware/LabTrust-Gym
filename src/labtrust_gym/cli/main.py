@@ -1472,6 +1472,57 @@ def main() -> int:
         help="Risk injection id for coord_risk (e.g. none).",
     )
     p_determinism.set_defaults(func=_run_determinism_report)
+    p_replay_traj = sub.add_parser(
+        "replay-trajectory",
+        help=(
+            "Re-execute a recorded action sequence or episode log and diff state transitions, "
+            "reason codes, canonical episode log, and evidence digest (exact-match). "
+            "Writes replay_summary.json."
+        ),
+    )
+    p_replay_traj.add_argument(
+        "--out",
+        required=True,
+        help="Output directory for replay_summary.json and replay episode log",
+    )
+    p_replay_traj.add_argument(
+        "--recorded-run",
+        default=None,
+        help="Recorded run directory with episode_log.jsonl (or episode_0.jsonl) and results.json; re-runs one episode and compares",
+    )
+    p_replay_traj.add_argument(
+        "--episode-log",
+        default=None,
+        help="Reference episode log JSONL (with --compare-log, or as reference for --actions)",
+    )
+    p_replay_traj.add_argument(
+        "--compare-log",
+        default=None,
+        help="Second episode log JSONL to compare against --episode-log (no re-execution)",
+    )
+    p_replay_traj.add_argument(
+        "--actions",
+        default=None,
+        help="Action sequence JSON (seed, steps: [{agent: action_index}, ...]); re-executed on LabTrustParallelEnv",
+    )
+    p_replay_traj.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Override seed for --actions replay (default: seed from actions JSON)",
+    )
+    p_replay_traj.add_argument(
+        "--num-runners",
+        type=int,
+        default=None,
+        help="Override num_runners for --actions replay",
+    )
+    p_replay_traj.add_argument(
+        "--repo-root",
+        default=None,
+        help="Policy/repo root for --recorded-run re-execution (default: get_repo_root())",
+    )
+    p_replay_traj.set_defaults(func=_run_replay_trajectory)
     p_quick_eval = sub.add_parser(
         "quick-eval",
         help="Run 1 episode each of throughput_sla, adversarial_disruption, multi_site_stat with scripted baselines; write markdown summary and logs under ./labtrust_runs/",
@@ -3578,6 +3629,73 @@ def _run_determinism_report(args: argparse.Namespace) -> int:
         return 0
     for e in report.get("errors", []):
         get_console().error(str(e))
+    return 1
+
+
+def _run_replay_trajectory(args: argparse.Namespace) -> int:
+    """Re-execute recorded actions/episode and write replay_summary.json; exit 1 if diverged/failed."""
+    get_console().info("Running replay-trajectory.")
+    from labtrust_gym.orchestrator.replay import run_trajectory_replay
+
+    root = get_repo_root()
+    if getattr(args, "repo_root", None):
+        root = Path(args.repo_root).resolve()
+    out_dir = Path(args.out)
+    if not out_dir.is_absolute():
+        out_dir = root / out_dir
+
+    recorded = getattr(args, "recorded_run", None)
+    episode_log = getattr(args, "episode_log", None)
+    compare_log = getattr(args, "compare_log", None)
+    actions = getattr(args, "actions", None)
+
+    modes = sum(
+        [
+            recorded is not None,
+            actions is not None,
+            episode_log is not None and compare_log is not None,
+        ]
+    )
+    if modes != 1 and not (actions is not None and episode_log is not None and compare_log is None):
+        if modes == 0:
+            get_console().error(
+                "Provide --recorded-run, or --actions, or both --episode-log and --compare-log."
+            )
+            return 1
+        if recorded and (actions or compare_log):
+            get_console().error("Use only one primary mode: --recorded-run, --actions, or log compare.")
+            return 1
+
+    try:
+        result = run_trajectory_replay(
+            out_dir=out_dir,
+            policy_root=root,
+            recorded_run_dir=Path(recorded) if recorded else None,
+            episode_log_path=Path(episode_log) if episode_log else None,
+            compare_log_path=Path(compare_log) if compare_log else None,
+            actions_path=Path(actions) if actions else None,
+            seed=getattr(args, "seed", None),
+            num_runners=getattr(args, "num_runners", None),
+        )
+    except ValueError as exc:
+        get_console().error(str(exc))
+        return 1
+    except Exception as exc:
+        get_console().error(f"replay-trajectory failed: {exc}")
+        return 1
+
+    summary_path = Path(result["summary_path"])
+    get_console().write_plain(f"Wrote {summary_path}")
+    status = result.get("status", "failed")
+    if status == "ok":
+        get_console().write_plain("Trajectory replay PASSED (exact match).")
+        get_console().write_plain(f"Next: inspect {summary_path} or run labtrust determinism-report.")
+        return 0
+    get_console().error(
+        f"Trajectory replay {status}: first_divergence_step={result.get('first_divergence_step')}"
+    )
+    for d in (result.get("diff_summary") or [])[:10]:
+        get_console().error(str(d))
     return 1
 
 
