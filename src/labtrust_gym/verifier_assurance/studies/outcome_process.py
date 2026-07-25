@@ -152,11 +152,20 @@ def run_outcome_process_study(
         raise RuntimeError(
             f"VA-10 acceptance failed: recovered {len(recovered)} exploit families, need >= 3"
         )
+    terminal_rows = [r for r in rows if r["composition"] == "terminal_only"]
+    false_accepts = sum(
+        1 for r in terminal_rows if r["public_accepted"] and r["hidden_accepted"] is False
+    )
     return {
         "study_id": "VA-10",
         "recovered_exploit_families": recovered,
         "recovered_count": len(recovered),
         "rows": rows,
+        "metrics": {
+            "v_public_false_accept_count": false_accepts,
+            "v_public_false_accept_rate": false_accepts / max(1, len(terminal_rows)),
+            "compositions_compared": list(compositions),
+        },
         "claim_boundary": CLAIM_BOUNDARY,
         "preregistered": True,
     }
