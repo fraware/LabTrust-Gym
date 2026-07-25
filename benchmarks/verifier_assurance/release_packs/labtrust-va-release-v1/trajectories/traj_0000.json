@@ -1,4 +1,14 @@
 {
+  "metrics": {
+    "compositions_compared": [
+      "terminal_only",
+      "process_aware",
+      "authority_aware",
+      "heterogeneous"
+    ],
+    "v_public_false_accept_count": 8,
+    "v_public_false_accept_rate": 1.0
+  },
   "rows": [
     {
       "composition": "terminal_only",

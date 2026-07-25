@@ -1,4 +1,53 @@
 {
+  "branches": [
+    {
+      "branch_id": "single_malicious_principal:b",
+      "claim_boundary": "simulation_research_only_no_clinical_validation",
+      "interventions": [],
+      "parent_snapshot_digest": "c9947f2755c3620ff9531de34caaa863599f31d51a4992728f664d72a1bc886e",
+      "policy_model_ids": [],
+      "public_verifier_decision": null,
+      "resource_use": {},
+      "reward_evidence_ids": [],
+      "schema_id": "BranchRecord.v1",
+      "terminal_state_digest": "951bbacfd158f000db690f3d9fc4734faada1b5344b0a7d2489f1d3ba5f6f41a",
+      "trajectory": []
+    },
+    {
+      "branch_id": "individually_compliant_unsafe_composition:b",
+      "claim_boundary": "simulation_research_only_no_clinical_validation",
+      "interventions": [],
+      "parent_snapshot_digest": "c9947f2755c3620ff9531de34caaa863599f31d51a4992728f664d72a1bc886e",
+      "policy_model_ids": [],
+      "public_verifier_decision": null,
+      "resource_use": {},
+      "reward_evidence_ids": [],
+      "schema_id": "BranchRecord.v1",
+      "terminal_state_digest": "16e70a0dc7fbc7b2bfce51bbffa264a9e3dfd89f4a7d8f755a7c3683f6b09516",
+      "trajectory": []
+    },
+    {
+      "branch_id": "ambiguous_missing_handoff:b",
+      "claim_boundary": "simulation_research_only_no_clinical_validation",
+      "interventions": [],
+      "parent_snapshot_digest": "c9947f2755c3620ff9531de34caaa863599f31d51a4992728f664d72a1bc886e",
+      "policy_model_ids": [],
+      "public_verifier_decision": null,
+      "resource_use": {},
+      "reward_evidence_ids": [],
+      "schema_id": "BranchRecord.v1",
+      "terminal_state_digest": "4ede96a92c095c9c245cda3ed0397959620fadb6a4b47c86fc02c11605a6c728",
+      "trajectory": []
+    }
+  ],
   "case_count": 6,
+  "metrics": {
+    "attribution_precision": 1.0,
+    "attribution_recall": 1.0,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "true_positives": 10
+  },
+  "non_legal_disclaimer": "Attribution branches are experimental research artifacts; they do not assign legal responsibility.",
   "study": "VA-12"
 }
