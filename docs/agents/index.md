@@ -11,6 +11,7 @@ LLM and MARL baselines, PettingZoo API, and extension development.
 | [Live LLM benchmark mode](llm_live.md) | Live LLM pipeline and healthcheck. |
 | [MARL baselines](marl_baselines.md) | PPO training and eval. |
 | [MARL multi-agent design](marl_multi_agent_design.md) | Multi-agent design. |
+| [External integrations](external_integrations.md) | LTG-PR7 pinned-release gate for scripted / Gymnasium / PettingZoo / external / MARL / VA-13. |
 
 ## API and extension
 
