@@ -33,7 +33,9 @@ REQUIRED_KEYS = (
     "known_device_ids",
     "devices",
     "device_total_busy_s",
+    "device_zone",
     "transport",
+    "transport_fault_injection",
     "zones",
     "enforcement_violation_counts",
     "reagent_stock",
@@ -41,6 +43,11 @@ REQUIRED_KEYS = (
     "episode_agent_override_count",
     "policy_fingerprint",
     "partner_id",
+    "token_registry",
+    "key_registry",
+    "strict_signatures",
+    "rbac_policy",
+    "capability_policy",
     "rng_state",
     "claim_boundary",
 )
@@ -181,10 +188,14 @@ def capture_core_env(env: Any) -> CanonicalSnapshot:
         ),
         "devices": devices_payload,
         "device_total_busy_s": device_busy,
+        "device_zone": copy.deepcopy(getattr(env, "_device_zone", {}) or {}),
         "transport": {
             "consignments": copy.deepcopy(transport._consignments),
             "next_consignment_id": int(transport._next_consignment_id),
         },
+        "transport_fault_injection": copy.deepcopy(
+            getattr(env, "_transport_fault_injection", {}) or {}
+        ),
         "zones": {
             "agent_positions": copy.deepcopy(zones._agent_positions),
             "door_open_since": copy.deepcopy(zones._door_open_since),
@@ -196,6 +207,11 @@ def capture_core_env(env: Any) -> CanonicalSnapshot:
         "episode_agent_override_count": copy.deepcopy(env._episode_agent_override_count),
         "policy_fingerprint": env._policy_fingerprint,
         "partner_id": env._partner_id,
+        "token_registry": copy.deepcopy(getattr(env, "_token_registry", {}) or {}),
+        "key_registry": copy.deepcopy(getattr(env, "_key_registry", {}) or {}),
+        "strict_signatures": bool(getattr(env, "_strict_signatures", False)),
+        "rbac_policy": copy.deepcopy(getattr(env, "_rbac_policy", {}) or {}),
+        "capability_policy": copy.deepcopy(getattr(env, "_capability_policy", {}) or {}),
         "rng_state": rng_state,
         "claim_boundary": CLAIM_BOUNDARY,
     }
@@ -302,6 +318,14 @@ def restore_core_env(env: Any, snapshot: CanonicalSnapshot | dict[str, Any]) -> 
         env._device_store._total_busy_s = {
             k: int(v) for k, v in (payload.get("device_total_busy_s") or {}).items()
         }
+
+    env._device_zone = copy.deepcopy(payload.get("device_zone") or {})
+    env._transport_fault_injection = copy.deepcopy(payload.get("transport_fault_injection") or {})
+    env._token_registry = copy.deepcopy(payload.get("token_registry") or {})
+    env._key_registry = copy.deepcopy(payload.get("key_registry") or {})
+    env._strict_signatures = bool(payload.get("strict_signatures", False))
+    env._rbac_policy = copy.deepcopy(payload.get("rbac_policy") or {})
+    env._capability_policy = copy.deepcopy(payload.get("capability_policy") or {})
 
     transport = env._transport
     transport._consignments = copy.deepcopy(payload["transport"]["consignments"])
