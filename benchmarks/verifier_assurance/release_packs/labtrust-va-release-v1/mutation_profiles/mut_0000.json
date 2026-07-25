@@ -1,0 +1,18 @@
+{
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "dimension": "qc_drift",
+  "expected_effect": "hidden reject on qc_bypass",
+  "mutation_digest": "3706368ce3fcb72f5d86fd776e40dec905db5f1882bbfc06cad879f0e48131b0",
+  "mutation_id": "mut-va-qc-drift",
+  "operations": [
+    {
+      "device_id": "D1",
+      "op": "qc_drift"
+    }
+  ],
+  "production_prohibition": true,
+  "rationale": "Induce QC fail for bypass study",
+  "schema_id": "MutationProfile.v1",
+  "source_profile_id": "envprof-hospital-lab-v1",
+  "target": "env"
+}

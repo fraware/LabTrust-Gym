@@ -57,7 +57,7 @@ def test_production_prohibition_enforcement() -> None:
             release_export=True,
         )
     mapped = map_risk_injector_to_mutation(
-        "spoof_agent",
+        "INJ-ID-SPOOF-001",
         source_profile_id="envprof-hospital-lab-v1",
         rationale="map injector",
         expected_effect="spoof blocked",
@@ -65,3 +65,25 @@ def test_production_prohibition_enforcement() -> None:
     assert mapped["production_prohibition"] is True
     assert "mutation_digest" in mapped
     assert bad["mutation_digest"]
+
+
+def test_apply_risk_injector_binds_registry() -> None:
+    mapped = map_risk_injector_to_mutation(
+        "INJ-ID-SPOOF-001",
+        source_profile_id="envprof-hospital-lab-v1",
+        rationale="map injector",
+        expected_effect="spoof blocked",
+    )
+    out = apply_mutation_to_state({}, mapped)
+    assert out["mutations_applied"][0]["applied"] is True
+    assert out["mutations_applied"][0]["injection_id"] == "INJ-ID-SPOOF-001"
+    with pytest.raises(MutationError, match="unsupported risk injector"):
+        apply_mutation_to_state(
+            {},
+            map_risk_injector_to_mutation(
+                "not_a_real_injector_xyz",
+                source_profile_id="envprof-hospital-lab-v1",
+                rationale="bad",
+                expected_effect="fail",
+            ),
+        )
