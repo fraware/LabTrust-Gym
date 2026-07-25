@@ -37,6 +37,7 @@ nav:
     - Workflow and domain spec: architecture/workflow_domain_spec.md
     - Design choices: architecture/design_choices.md
     - Hospital lab workflow: architecture/hospital_lab_workflow.md
+    - Canonical CoreEnv state machine: architecture/canonical_state_machine.md
     - Simulation and LLM agentic: architecture/simulation_llm_agentic.md
     - System overview: architecture/system_overview.md
     - Design artifacts: architecture/design/README.md
@@ -75,6 +76,15 @@ nav:
     - Hospital lab metrics: benchmarks/hospital_lab_metrics.md
     - Throughput comparison: benchmarks/throughput_comparison.md
     - Determinism contract: benchmarks/determinism_contract.md
+    - Scientific credibility: benchmarks/scientific_credibility.md
+    - Release runbook (LTG-PR9): benchmarks/release_runbook.md
+    - Non-claims freeze (LTG-PR9): benchmarks/non_claims_freeze.md
+    - Golden suite governance: benchmarks/golden_suite_governance.md
+    - Independent review (LTG-PR8): reviews/README.md
+    - Reviewer charter: reviews/charter.md
+    - Review invitation template: reviews/invitation_template.md
+    - Review protocol and checklist: reviews/protocol_and_checklist.md
+    - Signed approval gate: reviews/signed_approval_gate.md
     - Studies and plots: benchmarks/studies.md
     - Scale and operational limits: benchmarks/scale_operational_limits.md
     - Uncertainty quantification: benchmarks/uncertainty_quantification.md
@@ -150,6 +160,7 @@ nav:
     - MARL multi-agent design: agents/marl_multi_agent_design.md
     - PettingZoo API: agents/pettingzoo_api.md
     - Scripted baselines: agents/scripted_baselines.md
+    - External integrations: agents/external_integrations.md
     - Extension development: agents/extension_development.md
   - Operations:
     - operations/index.md
@@ -163,6 +174,7 @@ nav:
     - Operators summary: operations/operators_summary.md
     - Production runbook: operations/production_runbook.md
     - Reviewer runbook: operations/reviewer_runbook.md
+    - Independent review (LTG-PR8): reviews/README.md
   - Reference:
     - reference/index.md
     - Glossary: reference/glossary.md
