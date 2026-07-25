@@ -138,6 +138,7 @@ if _ParallelEnv is not None and gymnasium is not None and spaces is not None:
             self._env = env
             self._n_d = n_d
             self._n_status = n_status
+            self.metadata = dict(getattr(env, "metadata", None) or {"name": "labtrust_flatten_obs_v0"})
             self._box = spaces.Box(
                 low=-np.inf,
                 high=np.inf,
@@ -273,6 +274,9 @@ if gymnasium is not None and spaces is not None:
             seed: int | None = None,
             options: dict[str, Any] | None = None,
         ) -> tuple[Any, dict[str, Any]]:
+            # Gymnasium check_env requires Env.reset to call super().reset(seed=...)
+            # so self.np_random / _np_random is initialized when a seed is passed.
+            super().reset(seed=seed)
             self._step_count = 0
             self._agent_obs_histories.clear()
             if seed is not None:
