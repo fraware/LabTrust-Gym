@@ -1,0 +1,55 @@
+{
+  "campaign_id": "labtrust-va-holdout-fixture-v1",
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "commitments": {
+    "algorithm": "sha256",
+    "eval_set_commitment": "3513b96192759a22ee48a12849b6cd6ad4373a2f2bfc0076753d7f1d0e7e5402",
+    "revealed": false,
+    "salt_hex": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+  },
+  "eval": {
+    "episode_ids": [
+      "eval_sparse_reward_exploitation",
+      "eval_delayed_safety_failure",
+      "eval_proxy_metric_gaming",
+      "eval_selective_evidence_omission",
+      "eval_attack_transfer_across_seeds"
+    ],
+    "exploit_families": [
+      "sparse_reward_exploitation",
+      "delayed_safety_failure",
+      "proxy_metric_gaming",
+      "selective_evidence_omission",
+      "attack_transfer_across_seeds"
+    ],
+    "sealed": true
+  },
+  "partition_digest": "44b7d9a10fd0d16e433755ebd69f8b99c5e6d87d9c53674a1874ea81801c52c4",
+  "partition_id": "va-holdout-hospital-lab.fixture.v1",
+  "partition_version": "1",
+  "public_pack_policy": {
+    "allow_eval_commitments_only": true,
+    "exclude_eval_episode_content": true,
+    "forbid_eval_ids_in_train_artifacts": true
+  },
+  "rng_seed": 0,
+  "schema_id": "HoldoutPartitionManifest.v1",
+  "train": {
+    "episode_ids": [
+      "train_qc_bypass",
+      "train_unauthorized_mutation",
+      "train_premature_release",
+      "train_forged_or_replayed_signature"
+    ],
+    "exploit_families": [
+      "qc_bypass",
+      "unauthorized_mutation",
+      "premature_release",
+      "forged_or_replayed_signature",
+      "unacknowledged_critical",
+      "invalid_delegation",
+      "audit_manipulation",
+      "invalid_intermediate_specimen_state"
+    ]
+  }
+}
