@@ -121,6 +121,110 @@ def test_load_attack_suite() -> None:
         )
 
 
+def test_every_attack_has_resolved_evidence_contract() -> None:
+    """LTG-PR5: every attack has a full evidence_contract after template/default resolution."""
+    from labtrust_gym.policy.attack_evidence import EVIDENCE_CONTRACT_KEYS
+
+    root = _repo_root()
+    suite = load_attack_suite(root)
+    attacks = suite.get("attacks") or []
+    assert len(attacks) >= 1
+    for a in attacks:
+        contract = a.get("evidence_contract")
+        assert isinstance(contract, dict), f"{a.get('attack_id')}: missing evidence_contract"
+        for key in EVIDENCE_CONTRACT_KEYS:
+            assert contract.get(key) not in (None, ""), f"{a.get('attack_id')}: missing {key}"
+        budget = contract["budget"]
+        assert isinstance(budget, dict)
+        assert "mode" in budget and "requires_live_llm" in budget
+        if a.get("smoke"):
+            assert budget.get("requires_live_llm") is False, (
+                f"{a.get('attack_id')}: smoke attacks must be offline (requires_live_llm=false)"
+            )
+            assert a.get("llm_attacker") is not True
+        if a.get("llm_attacker"):
+            assert budget.get("requires_live_llm") is True
+            assert a.get("smoke") is not True
+
+
+def test_evidence_contract_schema_rejects_missing_fields() -> None:
+    """Schema validation fails when a required evidence_contract field is missing after resolution."""
+    from labtrust_gym.policy.attack_evidence import (
+        resolve_suite_evidence_contracts,
+        validate_resolved_evidence_contracts,
+    )
+    from labtrust_gym.policy.loader import PolicyLoadError, load_json, validate_against_schema
+    from labtrust_gym.policy.validate import validate_policy_file_against_schema
+
+    root = _repo_root()
+    suite = {
+        "version": "0.1",
+        "controls": [
+            {
+                "control_id": "CTRL-LLM-SHIELD",
+                "name": "LLM shield",
+                "description": "test",
+            }
+        ],
+        "attacks": [
+            {
+                "attack_id": "SEC-MISSING-CONTRACT",
+                "risk_id": "R-CAP-001",
+                "control_id": "CTRL-LLM-SHIELD",
+                "title": "Missing evidence contract fields",
+                "scenario_ref": "PI-SPECIMEN-001",
+                "expected_outcome": "blocked",
+                "smoke": True,
+                # Intentionally incomplete: no evidence_contract / ref
+            }
+        ],
+    }
+    resolved = resolve_suite_evidence_contracts(suite)
+    structural = validate_resolved_evidence_contracts(resolved, path_label="bad_suite")
+    assert structural, "expected structural errors for missing evidence_contract fields"
+    schema = load_json(root / "policy" / "schemas" / "security_attack_suite.v0.1.schema.json")
+    with pytest.raises(PolicyLoadError):
+        validate_against_schema(resolved, schema, root / "bad_suite.yaml")
+
+    errs = validate_policy_file_against_schema(
+        root,
+        "policy/golden/security_attack_suite.v0.1.yaml",
+        "security_attack_suite.v0.1.schema.json",
+    )
+    assert errs == [], errs
+
+
+def test_evidence_contract_schema_rejects_partial_overlay_without_template() -> None:
+    """Partial evidence_contract without template/defaults fails required-field checks."""
+    from labtrust_gym.policy.attack_evidence import (
+        resolve_suite_evidence_contracts,
+        validate_resolved_evidence_contracts,
+    )
+
+    suite = {
+        "version": "0.1",
+        "controls": [],
+        "attacks": [
+            {
+                "attack_id": "SEC-PARTIAL",
+                "risk_id": "R-CAP-001",
+                "control_id": "CTRL-LLM-SHIELD",
+                "title": "Partial only",
+                "scenario_ref": "PI-SPECIMEN-001",
+                "expected_outcome": "blocked",
+                "smoke": True,
+                "evidence_contract": {
+                    "reproducible_fixture": "policy/golden/prompt_injection_scenarios.v0.1.yaml#PI-SPECIMEN-001",
+                },
+            }
+        ],
+    }
+    resolved = resolve_suite_evidence_contracts(suite)
+    errs = validate_resolved_evidence_contracts(resolved)
+    assert any("missing required field" in e for e in errs)
+    assert any("threat_model" in e for e in errs)
+
+
 def test_detector_attack_sec_detector_001_in_suite() -> None:
     """SEC-DETECTOR-001 exists in suite with test_ref and control_id CTRL-DETECTOR-ADVISOR."""
     root = _repo_root()

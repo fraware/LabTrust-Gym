@@ -86,20 +86,36 @@ def load_attack_suite(
     partner_id: str | None = None,
     suite_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Load security_attack_suite. When suite_path is set, load from it; else when partner_id try partners/<id>/golden/, else policy/golden/."""
+    """Load security_attack_suite. When suite_path is set, load from it; else when partner_id try partners/<id>/golden/, else policy/golden/.
+
+    Resolves evidence_contract_ref / suite defaults into a full evidence_contract per attack
+    (LTG-PR5). Incomplete contracts are left as-is so custom test harness suites still load.
+    """
+    from labtrust_gym.policy.attack_evidence import resolve_suite_evidence_contracts
+
+    raw: dict[str, Any] = {}
     if suite_path is not None and suite_path.exists():
         data = load_yaml(suite_path)
-        return data if isinstance(data, dict) else {}
-    if partner_id:
+        raw = data if isinstance(data, dict) else {}
+    elif partner_id:
         overlay_path = policy_path(policy_root, "partners", partner_id, "golden", "security_attack_suite.v0.1.yaml")
         if overlay_path.exists():
             data = load_yaml(overlay_path)
-            return data if isinstance(data, dict) else {}
-    path = policy_path(policy_root, "golden", "security_attack_suite.v0.1.yaml")
-    if not path.exists():
+            raw = data if isinstance(data, dict) else {}
+        else:
+            path = policy_path(policy_root, "golden", "security_attack_suite.v0.1.yaml")
+            if path.exists():
+                data = load_yaml(path)
+                raw = data if isinstance(data, dict) else {}
+    else:
+        path = policy_path(policy_root, "golden", "security_attack_suite.v0.1.yaml")
+        if not path.exists():
+            return {}
+        data = load_yaml(path)
+        raw = data if isinstance(data, dict) else {}
+    if not raw:
         return {}
-    data = load_yaml(path)
-    return data if isinstance(data, dict) else {}
+    return resolve_suite_evidence_contracts(raw)
 
 
 def _check_suite_environment() -> tuple[bool, list[str]]:
