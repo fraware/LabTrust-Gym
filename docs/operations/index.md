@@ -17,7 +17,8 @@ CI, release, runbook, and how-to guides.
 | Document | Description |
 |----------|-------------|
 | [Operator's summary](operators_summary.md) | One page on what the simulation proves, scope limits, and a minimal production checklist (links to threat model and policy pack). |
-| [Reviewer runbook](reviewer_runbook.md) | One command sequence, expected artifacts (including coordination SOTA leaderboards and graphs in UI bundle), and how to interpret risk register and security gate for auditors and reviewers. |
+| [Reviewer runbook](reviewer_runbook.md) | One command sequence, expected artifacts (including coordination SOTA leaderboards and graphs in UI bundle), and how to interpret risk register and security gate for auditors and reviewers. Links LTG-PR8 independent domain-review materials (distinct from risk-register smoke). |
+| [Independent review (LTG-PR8)](../reviews/README.md) | Charter, invitation, protocol, unsigned approval slots, signed-approval gate for LTG-PR9. |
 | [Production runbook](production_runbook.md) | Config, key management, monitoring, rollback, and threat model scope for production deployment. |
 
 ## How-to guides
