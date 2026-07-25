@@ -686,6 +686,12 @@ def write_evidence_bundle(
     get_private_key: Callable[[str], bytes | None] | None = None,
     sign_key_id: str | None = None,
     key_registry: dict[str, Any] | None = None,
+    agent_identity: str | None = None,
+    seed: int | None = None,
+    scenario_ids: list[str] | None = None,
+    risk_register_refs: list[str] | None = None,
+    missing_evidence: list[dict[str, Any]] | None = None,
+    verification_results: dict[str, Any] | None = None,
 ) -> Path:
     """
     Write EvidenceBundle.v0.1/ under out_dir.
@@ -695,6 +701,8 @@ def write_evidence_bundle(
     on manifest and each receipt.
     Optional coordination prompt fingerprinting: when prompt_sha256 etc. are set, adds them to manifest;
     when prompt_fingerprint_inputs is set, writes prompt_fingerprint_inputs.v0.1.json for verify-bundle.
+    Always writes reconstruction provenance (policy/environment digests, agent/seed/scenario,
+    episode-log and evidence digests) for independent PCS release reconstruction (LTG-PR6).
     Returns path to bundle directory.
     """
     bundle_dir = out_dir / EVIDENCE_BUNDLE_DIR
@@ -819,6 +827,34 @@ def write_evidence_bundle(
         manifest["coordination_audit_digest_sha256"] = coordination_audit_digest_sha256
     manifest["signature"] = None
 
+    from labtrust_gym.export.reconstruction import build_reconstruction_block
+
+    reconstruction = build_reconstruction_block(
+        entries=entries,
+        policy_digest=effective_policy_fp or None,
+        agent_identity=agent_identity,
+        seed=seed,
+        scenario_ids=scenario_ids,
+        risk_register_refs=risk_register_refs,
+        verification_results=verification_results
+        or {
+            "status": "offline_verifiable",
+            "commands": ["labtrust verify-bundle --bundle <EvidenceBundle.v0.1>"],
+            "report_refs": [],
+        },
+        missing_evidence=missing_evidence,
+        tool_registry_fingerprint=tool_registry_fingerprint,
+        rbac_policy_fingerprint=rbac_policy_fingerprint,
+    )
+    manifest["reconstruction"] = reconstruction
+    # Top-level mirrors for pack scanners / field checklist
+    manifest["policy_digest"] = reconstruction.get("policy_digest")
+    manifest["environment_digest"] = reconstruction.get("environment_digest")
+    manifest["agent_identity"] = reconstruction.get("agent_identity")
+    manifest["seed"] = reconstruction.get("seed")
+    manifest["scenario_ids"] = list(reconstruction.get("scenario_ids") or [])
+    manifest["episode_log_digest"] = reconstruction.get("episode_log_digest")
+
     for rel in sorted(written_files):
         full = bundle_dir / rel
         if full.exists():
@@ -941,10 +977,13 @@ def export_receipts(
 
     run_dir = run_path.parent if run_path.is_file() else Path(run_path)
     coord_meta: dict[str, Any] = {}
+    results_data: dict[str, Any] = {}
     results_path = run_dir / "results.json"
     if results_path.is_file():
         try:
-            results_data = json.loads(results_path.read_text(encoding="utf-8"))
+            loaded = json.loads(results_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                results_data = loaded
             meta = results_data.get("metadata") or {}
             for key in (
                 "prompt_template_id",
@@ -964,6 +1003,23 @@ def export_receipts(
         except Exception:
             pass
 
+    from labtrust_gym.export.reconstruction import extract_run_provenance
+
+    provenance = extract_run_provenance(results_data)
+    # Prefer first log entry fields when results.json is absent
+    if entries and provenance.get("agent_identity") is None:
+        first = entries[0]
+        if first.get("agent_baseline_id") is not None:
+            provenance["agent_identity"] = str(first["agent_baseline_id"])
+        elif first.get("agent_id") is not None:
+            provenance["agent_identity"] = str(first["agent_id"])
+    if entries and provenance.get("seed") is None and entries[0].get("seed") is not None:
+        provenance["seed"] = int(entries[0]["seed"])
+    if entries and not provenance.get("scenario_ids"):
+        sid = entries[0].get("scenario_id") or entries[0].get("task")
+        if sid is not None:
+            provenance["scenario_ids"] = [str(sid)]
+
     return write_evidence_bundle(
         out_dir,
         receipts,
@@ -979,4 +1035,7 @@ def export_receipts(
         coordination_policy_fingerprint=coord_meta.get("coordination_policy_fingerprint") or coord_fp,
         memory_policy_fingerprint=mem_fp,
         prompt_fingerprint_inputs=prompt_inputs,
+        agent_identity=provenance.get("agent_identity"),
+        seed=provenance.get("seed"),
+        scenario_ids=provenance.get("scenario_ids") or [],
     )
