@@ -9,6 +9,7 @@ System design, threat model, and workflow specification for LabTrust-Gym.
 | [System overview](system_overview.md) | How the pieces fit together, including layering, env construction, per-step flow, golden vs benchmark runner, and CLI to components. |
 | [Architecture](architecture.md) | High-level architecture and components. |
 | [Hospital lab workflow (blood sciences)](hospital_lab_workflow.md) | High-level and detailed workflow views; deterministic vs LLM live pipeline. |
+| [Canonical CoreEnv state machine](canonical_state_machine.md) | State owners, actions, pre/postconditions, invariants, BLOCKED contract (LTG-PR1). |
 | [Systems and threat model](systems_and_threat_model.md) | System summary, threat model, applicability to other labs. |
 | [Threat model](threat_model.md) | Detailed threat model (includes LT-VA verifier-assurance extension). |
 | [Verifier Assurance (LT-VA)](../verifier_assurance/README.md) | Dual oracle, offline PPO, sealed IPC, campaign reconstruction; [architecture notes](../verifier_assurance/architecture.md). |
