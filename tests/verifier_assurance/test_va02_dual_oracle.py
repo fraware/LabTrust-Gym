@@ -62,6 +62,14 @@ def test_hidden_attribute_api_denial() -> None:
         _ = boundary.v_hidden  # type: ignore[attr-defined]
     with pytest.raises(OracleBoundaryError):
         _ = boundary.hidden_label  # type: ignore[attr-defined]
+    with pytest.raises(OracleBoundaryError):
+        _ = boundary._hidden  # type: ignore[attr-defined]
+    with pytest.raises(OracleBoundaryError):
+        _ = boundary._sealed_hidden_oracle  # type: ignore[attr-defined]
+    # Public seal path still works without exposing the hidden oracle handle.
+    commit = boundary.seal_episode(_released_state(process={"invalid_process": True}), "ep-deny")
+    assert "commitment" in commit
+    assert "adjudication" not in commit
 
 
 def test_observation_log_leakage_scan() -> None:
