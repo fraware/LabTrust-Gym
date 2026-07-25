@@ -31,6 +31,7 @@ See `policy/coordination/coordination_security_pack_gate.v0.1.yaml` and [simulat
 ## Overview
 
 - **Attack suite**: `policy/golden/security_attack_suite.v0.1.yaml` defines controls (e.g. CTRL-LLM-SHIELD, CTRL-TOOL-SANDBOX, CTRL-COORD-IDENTITY, CTRL-MEMORY, CTRL-DETECTOR-ADVISOR) and attacks with `risk_id`, `control_id`, and one of: `scenario_ref` (prompt-injection), `test_ref` (pytest), `llm_attacker: true`, or **`coord_pack_ref`** (system-level coordination-under-attack). Each attack has `expected_outcome` (blocked/detected) and `smoke` (CI flag).
+- **Evidence contract (LTG-PR5 / LTG-06):** Every attack must carry a full **evidence_contract** after resolution. Suite-level `evidence_contract_defaults` and named `evidence_contract_templates` are merged with each attack’s `evidence_contract_ref` and optional `evidence_contract` overlay (`defaults → template → overlay`). Required fields: `threat_model`, `attacker_capability`, `success_condition`, `budget`, `baseline`, `optimized_attack`, `expected_detection_point`, `residual_risk`, `reproducible_fixture`. Schema: `policy/schemas/attack_evidence_contract.v0.1.schema.json` (also inlined under `$defs` in `security_attack_suite.v0.1.schema.json`). `labtrust validate-policy` resolves refs then validates; smoke attacks must keep `budget.requires_live_llm: false` (no live proprietary model in default CI).
 - **test_ref allowlist**: Only `test_ref` values listed in `policy/golden/security_suite_test_ref_allowlist.v0.1.yaml` may be executed (pytest subprocess). This prevents arbitrary code execution via a malicious or partner-overlay suite. **Adding a new test_ref** requires adding an entry to that allowlist.
 - **security_suite_path restriction**: When a lab profile or the runner is given a custom `security_suite_path`, it must resolve to a path **under the repository (policy) root**. Absolute paths outside the repo are rejected and the default suite is used. This prevents pointing the suite at arbitrary files elsewhere on the filesystem.
 - **Locked allowed_actions**: For prompt-injection and LLM-attacker attacks, the runner resolves `allowed_actions_for_assert` from `policy/golden/prompt_injection_assertion_policy.v0.1.yaml` (by scenario_id or attack_id). A scenario or suite file cannot relax assertions; the locked policy takes precedence.
@@ -258,6 +259,7 @@ You can also run the pack standalone: `labtrust run-coordination-security-pack -
 
 ## Tests and acceptance
 
+- **Evidence contracts (LTG-PR5)**: Every attack resolves to a full evidence_contract; missing fields fail `labtrust validate-policy` / schema checks (`tests/test_attack_evidence_contract.py`, `tests/test_security_attack_suite.py`). Smoke attacks must not require live LLM.
 - **Determinism**: Running the suite twice with the same seed yields identical pass/fail and result count (`tests/test_security_attack_suite.py`).
 - **Output contract**: `run_suite_and_emit` produces `SECURITY/attack_results.json` with version, results, and summary (`tests/test_security_attack_suite.py`).
 - **Coverage and deps**: Coverage build and written files are deterministic; deps_inventory fingerprint is stable for same policy (`tests/test_securitization.py`).
@@ -266,6 +268,8 @@ You can also run the pack standalone: `labtrust run-coordination-security-pack -
 ## Known gaps / Limitations of the suite
 
 The suite does not cover all attack variants; new scenarios may be added as threats evolve. Required_bench evidence is a necessary condition for coverage, not sufficient; effectiveness of controls depends on injection design, success criteria, and threat model. See [Risk register](risk_register.md) for evidence semantics.
+
+**Evidence contracts:** Every suite attack now declares a resolved evidence contract (threat model, budget, baseline vs optimized, detection point, residual risk, fixture). Contract text is simulation-scoped; it does not claim production or clinical assurance. Live `llm_attacker` entries remain opt-in and are excluded from smoke/CI.
 
 ## Future work
 
