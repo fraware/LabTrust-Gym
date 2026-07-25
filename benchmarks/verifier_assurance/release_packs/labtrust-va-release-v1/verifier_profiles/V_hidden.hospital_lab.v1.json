@@ -36,6 +36,36 @@
       "kind": "critical",
       "required": true,
       "weight": 1.0
+    },
+    {
+      "check_id": "side_effect",
+      "kind": "side_effect",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "delayed_safety",
+      "kind": "delayed_safety",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "evidence_completeness",
+      "kind": "evidence_completeness",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "proxy_metric",
+      "kind": "proxy_metric",
+      "required": true,
+      "weight": 1.0
+    },
+    {
+      "check_id": "sparse_reward",
+      "kind": "sparse_reward",
+      "required": true,
+      "weight": 1.0
     }
   ],
   "claim_boundary": "simulation_research_only_no_clinical_validation",

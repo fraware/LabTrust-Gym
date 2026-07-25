@@ -1,3 +1,1570 @@
 {
-  "note": "see study runners for live snapshots"
+  "aliquot_to_specimen": {},
+  "audit": {
+    "event_hashes": [],
+    "fault_injection": {},
+    "head_hash": "",
+    "last_event_hash": "",
+    "length": 0
+  },
+  "capability_policy": {
+    "override_action_types": [
+      "RELEASE_RESULT_OVERRIDE",
+      "START_RUN_OVERRIDE"
+    ],
+    "profiles": {
+      "ROLE_ANALYTICS": {
+        "allowed_tooling": {
+          "llm": true,
+          "signing_proxy": true
+        },
+        "high_risk_actions": [
+          "RELEASE_RESULT_OVERRIDE",
+          "START_RUN_OVERRIDE"
+        ],
+        "max_action_rate": 500,
+        "max_override_tokens": 10
+      },
+      "ROLE_CLINICAL_SCIENTIST": {
+        "allowed_tooling": {
+          "llm": false,
+          "signing_proxy": true
+        },
+        "high_risk_actions": [
+          "RELEASE_RESULT_OVERRIDE"
+        ],
+        "max_action_rate": 100,
+        "max_override_tokens": 15
+      },
+      "ROLE_RECEPTION": {
+        "allowed_tooling": {
+          "llm": true,
+          "signing_proxy": false
+        },
+        "high_risk_actions": [],
+        "max_action_rate": 300,
+        "max_override_tokens": 0
+      },
+      "ROLE_RUNNER": {
+        "allowed_tooling": {
+          "llm": false,
+          "signing_proxy": false
+        },
+        "high_risk_actions": [],
+        "max_action_rate": 400,
+        "max_override_tokens": 0
+      },
+      "ROLE_SUPERVISOR": {
+        "allowed_tooling": {
+          "llm": false,
+          "signing_proxy": true
+        },
+        "high_risk_actions": [
+          "RELEASE_RESULT_OVERRIDE"
+        ],
+        "max_action_rate": 200,
+        "max_override_tokens": 20
+      }
+    },
+    "version": "0.1"
+  },
+  "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "critical": {
+    "attempts": {},
+    "comm_records": {},
+    "notification_mode_required": {},
+    "result_criticality": {}
+  },
+  "device_total_busy_s": {},
+  "device_zone": {
+    "DEV_ALIQUOTER_01": "Z_ALIQUOT_LABEL",
+    "DEV_CENTRIFUGE_BANK_01": "Z_CENTRIFUGE_BAY",
+    "DEV_CHEM_A_01": "Z_ANALYZER_HALL_A",
+    "DEV_CHEM_B_01": "Z_ANALYZER_HALL_B",
+    "DEV_COAG_01": "Z_ANALYZER_HALL_B",
+    "DEV_HAEM_01": "Z_ANALYZER_HALL_A"
+  },
+  "devices": {
+    "DEV_ALIQUOTER_01": {
+      "active_run": null,
+      "device_id": "DEV_ALIQUOTER_01",
+      "device_type": "ALIQUOTER",
+      "state": "IDLE",
+      "type_config": {
+        "capacity": 1,
+        "constraints": {
+          "outputs": [
+            "aliquot.state := 'labeled'",
+            "specimen.state := 'aliquoted'"
+          ],
+          "required_preconditions": [
+            "specimen.state == 'post_centrifuge'"
+          ]
+        },
+        "kind": "SINGLE_SERVER",
+        "service_time_model": {
+          "per_aliquot_s": {
+            "dist": "deterministic",
+            "value": 2
+          },
+          "per_tube_overhead_s": {
+            "dist": "deterministic",
+            "value": 3
+          }
+        },
+        "throughput": {
+          "samples_per_min": 8.33,
+          "tubes_per_hour": 500
+        },
+        "timing_model": {
+          "per_aliquot_s": {
+            "dist": "deterministic",
+            "value": 2
+          },
+          "per_tube_overhead_s": {
+            "dist": "deterministic",
+            "value": 3
+          }
+        }
+      },
+      "zone_id": "aliquot_label_station"
+    },
+    "DEV_CENTRIFUGE_BANK_01": {
+      "active_run": null,
+      "device_id": "DEV_CENTRIFUGE_BANK_01",
+      "device_type": "CENTRIFUGE_BANK",
+      "state": "IDLE",
+      "type_config": {
+        "batch_model": {
+          "batch_capacity": 60,
+          "fill_policy": "WAIT_UP_TO_TMAX_OR_FULL",
+          "max_batch_size": 60,
+          "min_batch_size": 1,
+          "tmax_wait_s": 120
+        },
+        "capacity": 60,
+        "constraints": {
+          "outputs": [
+            "specimen.state := 'post_centrifuge'"
+          ],
+          "required_preconditions": [
+            "specimen.state in ['in_preanalytics','queued_for_preanalytics']"
+          ]
+        },
+        "failure_model": {
+          "enabled": true,
+          "fault_rate_per_hour": 0.0005,
+          "mttr_s": {
+            "dist": "lognormal",
+            "mu": 6.5,
+            "sigma": 0.4
+          }
+        },
+        "kind": "BATCH_SERVER",
+        "service_time_model": {
+          "setup_s": {
+            "dist": "deterministic",
+            "value": 60
+          },
+          "spin_time_s": {
+            "dist": "deterministic",
+            "value": 600
+          },
+          "teardown_s": {
+            "dist": "deterministic",
+            "value": 60
+          }
+        },
+        "timing_model": {
+          "run_s": {
+            "dist": "deterministic",
+            "value": 600
+          },
+          "setup_s": {
+            "dist": "deterministic",
+            "value": 60
+          },
+          "teardown_s": {
+            "dist": "deterministic",
+            "value": 60
+          }
+        }
+      },
+      "zone_id": "centrifuge_bay"
+    },
+    "DEV_CHEM_A_01": {
+      "active_run": null,
+      "device_id": "DEV_CHEM_A_01",
+      "device_type": "CHEM_ANALYZER",
+      "state": "IDLE",
+      "type_config": {
+        "capacity": {
+          "tests_per_hour": 2000
+        },
+        "kind": "WORKLOAD_LIMITED_SERVER",
+        "outputs": [
+          "run.qc_outcome in ['pass','fail']",
+          "results.generated := true"
+        ],
+        "qc_model": {
+          "drift_model": {
+            "detection": "next_qc_event",
+            "enabled": true,
+            "hazard_per_test": 1e-06
+          },
+          "enabled": true,
+          "outcomes": {
+            "fail_probability": 0.008,
+            "pass_probability": 0.992
+          },
+          "qc_interval_runs": 50,
+          "qc_levels": 2,
+          "schedule": {
+            "interval_s": 28800,
+            "kind": "INTERVAL_OR_WORKLOAD",
+            "max_patient_tests": 5000
+          },
+          "westgard_ruleset": "MULTIRULE_DEFAULT"
+        },
+        "service_time_model": {
+          "per_panel_s": {
+            "BIOCHEM_PANEL_CORE": {
+              "dist": "deterministic",
+              "value": 30
+            }
+          },
+          "per_sample_load_s": {
+            "dist": "deterministic",
+            "value": 2
+          },
+          "per_test_s": {
+            "dist": "deterministic",
+            "value": 1.8
+          },
+          "rack_setup_s": {
+            "dist": "deterministic",
+            "value": 30
+          }
+        },
+        "timing_model": {
+          "per_sample_load_s": {
+            "dist": "deterministic",
+            "value": 2
+          },
+          "per_test_s": {
+            "dist": "deterministic",
+            "value": 1.8
+          },
+          "rack_setup_s": {
+            "dist": "deterministic",
+            "value": 30
+          }
+        },
+        "workload_unit": "chemistry.test_equivalents"
+      },
+      "zone_id": "analyzer_hall_A"
+    },
+    "DEV_CHEM_B_01": {
+      "active_run": null,
+      "device_id": "DEV_CHEM_B_01",
+      "device_type": "CHEM_ANALYZER",
+      "state": "IDLE",
+      "type_config": {
+        "capacity": {
+          "tests_per_hour": 2000
+        },
+        "kind": "WORKLOAD_LIMITED_SERVER",
+        "outputs": [
+          "run.qc_outcome in ['pass','fail']",
+          "results.generated := true"
+        ],
+        "qc_model": {
+          "drift_model": {
+            "detection": "next_qc_event",
+            "enabled": true,
+            "hazard_per_test": 1e-06
+          },
+          "enabled": true,
+          "outcomes": {
+            "fail_probability": 0.008,
+            "pass_probability": 0.992
+          },
+          "qc_interval_runs": 50,
+          "qc_levels": 2,
+          "schedule": {
+            "interval_s": 28800,
+            "kind": "INTERVAL_OR_WORKLOAD",
+            "max_patient_tests": 5000
+          },
+          "westgard_ruleset": "MULTIRULE_DEFAULT"
+        },
+        "service_time_model": {
+          "per_panel_s": {
+            "BIOCHEM_PANEL_CORE": {
+              "dist": "deterministic",
+              "value": 30
+            }
+          },
+          "per_sample_load_s": {
+            "dist": "deterministic",
+            "value": 2
+          },
+          "per_test_s": {
+            "dist": "deterministic",
+            "value": 1.8
+          },
+          "rack_setup_s": {
+            "dist": "deterministic",
+            "value": 30
+          }
+        },
+        "timing_model": {
+          "per_sample_load_s": {
+            "dist": "deterministic",
+            "value": 2
+          },
+          "per_test_s": {
+            "dist": "deterministic",
+            "value": 1.8
+          },
+          "rack_setup_s": {
+            "dist": "deterministic",
+            "value": 30
+          }
+        },
+        "workload_unit": "chemistry.test_equivalents"
+      },
+      "zone_id": "analyzer_hall_B"
+    },
+    "DEV_COAG_01": {
+      "active_run": null,
+      "device_id": "DEV_COAG_01",
+      "device_type": "COAG_ANALYZER",
+      "state": "IDLE",
+      "type_config": {
+        "capacity": {
+          "panel_capacities_tests_per_hour": {
+            "PT_APTT": 400,
+            "PT_APTT_FBG_AT_DD": 270,
+            "PT_ONLY": 400
+          }
+        },
+        "kind": "WORKLOAD_LIMITED_SERVER",
+        "qc_model": {
+          "enabled": true,
+          "outcomes": {
+            "fail_probability": 0.01,
+            "pass_probability": 0.99
+          },
+          "qc_interval_runs": 40,
+          "qc_levels": 2,
+          "schedule": {
+            "interval_s": 28800,
+            "kind": "INTERVAL_OR_WORKLOAD",
+            "max_patient_tests": 3000
+          }
+        },
+        "service_time_model": {
+          "per_panel_s": {
+            "COAG_PANEL_CORE": {
+              "dist": "deterministic",
+              "value": 45
+            }
+          },
+          "per_sample_load_s": {
+            "dist": "deterministic",
+            "value": 2
+          },
+          "rack_setup_s": {
+            "dist": "deterministic",
+            "value": 30
+          }
+        },
+        "timing_model": {
+          "per_sample_load_s": {
+            "dist": "deterministic",
+            "value": 2
+          },
+          "per_test_s_dynamic": {
+            "PT_APTT": 9.0,
+            "PT_APTT_FBG_AT_DD": 13.33,
+            "PT_ONLY": 9.0
+          },
+          "rack_setup_s": {
+            "dist": "deterministic",
+            "value": 30
+          }
+        },
+        "workload_unit": "coag.test_equivalents"
+      },
+      "zone_id": "analyzer_hall_B"
+    },
+    "DEV_HAEM_01": {
+      "active_run": null,
+      "device_id": "DEV_HAEM_01",
+      "device_type": "HAEM_ANALYZER",
+      "state": "IDLE",
+      "type_config": {
+        "capacity": {
+          "samples_per_hour": 100
+        },
+        "kind": "PER_SAMPLE_SERVER",
+        "outputs": [
+          "results.generated := true"
+        ],
+        "qc_model": {
+          "enabled": true,
+          "outcomes": {
+            "fail_probability": 0.005,
+            "pass_probability": 0.995
+          },
+          "qc_levels": 2,
+          "schedule": {
+            "interval_s": 86400,
+            "kind": "INTERVAL"
+          }
+        },
+        "timing_model": {
+          "per_sample_s": {
+            "dist": "deterministic",
+            "value": 36
+          }
+        },
+        "workload_unit": "haem.sample_equivalents"
+      },
+      "zone_id": "analyzer_hall_A"
+    }
+  },
+  "enforcement_violation_counts": [],
+  "episode_agent_action_count": {},
+  "episode_agent_override_count": {},
+  "format_id": "CanonicalSnapshot",
+  "key_registry": {
+    "keys": [
+      {
+        "agent_id": "SYSTEM",
+        "key_id": "ed25519:key_system_control",
+        "not_after_ts_s": null,
+        "not_before_ts_s": null,
+        "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=",
+        "role_id": "R_SYSTEM_CONTROL",
+        "rotation_of_key_id": null,
+        "status": "ACTIVE"
+      },
+      {
+        "agent_id": "A_RECEPTION",
+        "key_id": "ed25519:key_reception",
+        "not_after_ts_s": null,
+        "not_before_ts_s": null,
+        "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=",
+        "role_id": "ROLE_RECEPTION",
+        "rotation_of_key_id": null,
+        "status": "ACTIVE"
+      },
+      {
+        "agent_id": "A_RUNNER",
+        "key_id": "ed25519:key_runner",
+        "not_after_ts_s": null,
+        "not_before_ts_s": null,
+        "public_key": "PUAXw+hDiVqStwrHdBt+vJyYLM8uxJaMyNVdEq9GYMw=",
+        "role_id": "ROLE_RUNNER",
+        "rotation_of_key_id": null,
+        "status": "ACTIVE"
+      },
+      {
+        "agent_id": "A_ANALYTICS",
+        "key_id": "ed25519:key_analytics",
+        "not_after_ts_s": null,
+        "not_before_ts_s": null,
+        "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=",
+        "role_id": "ROLE_ANALYTICS",
+        "rotation_of_key_id": null,
+        "status": "ACTIVE"
+      },
+      {
+        "agent_id": "A_RECEPTION",
+        "key_id": "ed25519:key_reception_analytics",
+        "not_after_ts_s": null,
+        "not_before_ts_s": null,
+        "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=",
+        "role_id": "ROLE_ANALYTICS",
+        "rotation_of_key_id": null,
+        "status": "ACTIVE"
+      },
+      {
+        "agent_id": "A_ANALYTICS",
+        "key_id": "ed25519:key_analytics_reception",
+        "not_after_ts_s": null,
+        "not_before_ts_s": null,
+        "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=",
+        "role_id": "ROLE_RECEPTION",
+        "rotation_of_key_id": null,
+        "status": "ACTIVE"
+      },
+      {
+        "agent_id": "A_INSIDER_0",
+        "key_id": "ed25519:key_revoked",
+        "not_after_ts_s": null,
+        "not_before_ts_s": null,
+        "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiNa8CGmj3B1Eao=",
+        "role_id": "ROLE_INSIDER",
+        "rotation_of_key_id": null,
+        "status": "REVOKED"
+      }
+    ],
+    "version": "0.1"
+  },
+  "known_device_ids": [
+    "DEV_ALIQUOTER_01",
+    "DEV_CENTRIFUGE_BANK_01",
+    "DEV_CHEM_A_01",
+    "DEV_CHEM_B_01",
+    "DEV_COAG_01",
+    "DEV_HAEM_01"
+  ],
+  "now_ts": 0,
+  "partner_id": null,
+  "policy_fingerprint": null,
+  "qc": {
+    "device_qc_state": {},
+    "results": {},
+    "run_device": {}
+  },
+  "queues": {},
+  "rbac_policy": {
+    "action_constraints": {},
+    "agents": {
+      "A_ANALYTICS": "ROLE_ANALYTICS",
+      "A_CLINSCI": "ROLE_CLINICAL_SCIENTIST",
+      "A_INSIDER_0": "ROLE_RUNNER",
+      "A_OPS_0": "ROLE_ANALYTICS",
+      "A_PREAN": "ROLE_PREANALYTICS",
+      "A_QC": "ROLE_QC",
+      "A_RECEPTION": "ROLE_RECEPTION",
+      "A_RUNNER": "ROLE_RUNNER",
+      "A_SECURITY": "ROLE_SECURITY_OFFICER",
+      "A_SUPERVISOR": "ROLE_SUPERVISOR",
+      "SYSTEM": "R_SYSTEM_CONTROL"
+    },
+    "roles": {
+      "ROLE_ANALYTICS": {
+        "allowed_actions": [
+          "NOOP",
+          "TICK",
+          "MOVE",
+          "QUEUE_RUN",
+          "START_RUN",
+          "START_RUN_OVERRIDE",
+          "END_RUN",
+          "QC_EVENT",
+          "GENERATE_RESULT",
+          "RELEASE_RESULT",
+          "HOLD_RESULT",
+          "RERUN_REQUEST",
+          "RELEASE_RESULT_OVERRIDE",
+          "DISPATCH_TRANSPORT",
+          "TRANSPORT_TICK",
+          "RECEIVE_TRANSPORT",
+          "CHAIN_OF_CUSTODY_SIGN"
+        ],
+        "allowed_tool_ids": [
+          "read_lims_v1",
+          "write_lims_v1",
+          "query_queue_v1"
+        ]
+      },
+      "ROLE_CLINICAL_SCIENTIST": {
+        "allowed_actions": [
+          "NOOP",
+          "TICK",
+          "MOVE",
+          "MINT_TOKEN",
+          "RELEASE_RESULT",
+          "RELEASE_RESULT_OVERRIDE"
+        ]
+      },
+      "ROLE_PREANALYTICS": {
+        "allowed_actions": [
+          "NOOP",
+          "TICK",
+          "MOVE",
+          "CENTRIFUGE_START",
+          "CENTRIFUGE_END",
+          "ALIQUOT_CREATE"
+        ]
+      },
+      "ROLE_QC": {
+        "allowed_actions": [
+          "NOOP",
+          "TICK",
+          "MOVE",
+          "QC_EVENT"
+        ]
+      },
+      "ROLE_RECEPTION": {
+        "allowed_actions": [
+          "NOOP",
+          "TICK",
+          "MOVE",
+          "CREATE_ACCESSION",
+          "CHECK_ACCEPTANCE_RULES",
+          "ACCEPT_SPECIMEN",
+          "HOLD_SPECIMEN",
+          "REJECT_SPECIMEN"
+        ]
+      },
+      "ROLE_RUNNER": {
+        "allowed_actions": [
+          "NOOP",
+          "TICK",
+          "MOVE",
+          "OPEN_DOOR",
+          "CENTRIFUGE_START",
+          "CENTRIFUGE_END",
+          "ALIQUOT_CREATE",
+          "DISPATCH_TRANSPORT",
+          "TRANSPORT_TICK",
+          "RECEIVE_TRANSPORT",
+          "CHAIN_OF_CUSTODY_SIGN"
+        ]
+      },
+      "ROLE_SECURITY_OFFICER": {
+        "allowed_actions": [
+          "NOOP",
+          "TICK",
+          "MOVE",
+          "OPEN_DOOR",
+          "MINT_TOKEN",
+          "REVOKE_TOKEN"
+        ]
+      },
+      "ROLE_SUPERVISOR": {
+        "allowed_actions": [
+          "NOOP",
+          "TICK",
+          "MOVE",
+          "OPEN_DOOR",
+          "MINT_TOKEN",
+          "REVOKE_TOKEN",
+          "NOTIFY_CRITICAL_RESULT",
+          "ACK_CRITICAL_RESULT",
+          "ESCALATE_CRITICAL_RESULT",
+          "RELEASE_RESULT",
+          "RELEASE_RESULT_OVERRIDE"
+        ]
+      },
+      "R_SYSTEM_CONTROL": {
+        "allowed_actions": [
+          "UPDATE_ROSTER",
+          "INJECT_SPECIMEN"
+        ]
+      }
+    },
+    "version": "0.1"
+  },
+  "reagent_stock": {
+    "R_CHEM_CORE": 1000.0,
+    "R_COAG_CORE": 400.0,
+    "R_HAEM_CORE": 500.0
+  },
+  "rng_state": [
+    3,
+    [
+      2147483648,
+      2767943014,
+      922140013,
+      3463971094,
+      4098340527,
+      3406861627,
+      489888312,
+      349008788,
+      3122805748,
+      2497696792,
+      1634759466,
+      2399922869,
+      1025059173,
+      2968848540,
+      378715165,
+      2595155750,
+      1746574313,
+      2139210444,
+      566198650,
+      763242951,
+      75444230,
+      1619202271,
+      3244856406,
+      1934885171,
+      2838665917,
+      4283575183,
+      763219520,
+      389102267,
+      3890182547,
+      1791697250,
+      3187023793,
+      286445896,
+      2968169952,
+      20860081,
+      1736694377,
+      4235896862,
+      1154601966,
+      1251204076,
+      1506960311,
+      3075454438,
+      3418706150,
+      3032620245,
+      1813013136,
+      21498788,
+      1231086362,
+      2534826236,
+      2355094975,
+      3681830244,
+      2326857821,
+      3580410233,
+      2400808906,
+      3928703288,
+      873604699,
+      2829109546,
+      2588103482,
+      4229836844,
+      3776747474,
+      3624225216,
+      2564689,
+      1235931127,
+      152331864,
+      1014965983,
+      3590466892,
+      3941155280,
+      4179760212,
+      229989427,
+      2655408633,
+      4086595420,
+      3449907992,
+      1952394372,
+      93330431,
+      3587913501,
+      1352958171,
+      1586553475,
+      927733130,
+      3090198373,
+      2954837364,
+      3519900994,
+      3062375442,
+      1780897843,
+      4190000358,
+      3845379565,
+      3241247722,
+      521957884,
+      81630219,
+      1949321722,
+      3040196326,
+      1647849360,
+      4276476295,
+      1139063398,
+      1261406677,
+      4071067635,
+      4177260148,
+      1927517593,
+      3053685678,
+      2654507906,
+      1778638756,
+      918456067,
+      4006804234,
+      1349100977,
+      485644480,
+      551292380,
+      1281439791,
+      3776066199,
+      997223355,
+      4025995226,
+      1470278514,
+      2682230143,
+      749088153,
+      3290882006,
+      3712843994,
+      1875812607,
+      3201131017,
+      281328531,
+      260240867,
+      2561367516,
+      2164722711,
+      3526984704,
+      3344170868,
+      1739770652,
+      3340770071,
+      2120514783,
+      797813893,
+      2840818830,
+      3399451624,
+      504982422,
+      354680994,
+      1785698407,
+      3170929872,
+      3165275819,
+      3743911078,
+      1850088051,
+      1432157504,
+      2336168655,
+      2630835239,
+      4090084631,
+      3538150428,
+      817742467,
+      2178593195,
+      2857491233,
+      572286673,
+      4125003576,
+      1550836643,
+      3164446670,
+      4269686741,
+      631896358,
+      266169710,
+      3970601510,
+      3095714028,
+      1036712933,
+      3280017244,
+      3559845256,
+      2580264265,
+      2544806214,
+      3453830443,
+      3765465221,
+      1961997028,
+      2879867857,
+      4263909239,
+      1638085967,
+      656324853,
+      4194106187,
+      3897429059,
+      3417621877,
+      3888751496,
+      1050393591,
+      195653804,
+      1696926973,
+      823084282,
+      3174878464,
+      3799362324,
+      3403444119,
+      3763582283,
+      1034626205,
+      357019778,
+      996625547,
+      357162531,
+      3253434733,
+      1364264723,
+      1213248717,
+      4110465858,
+      3444134083,
+      2804764139,
+      259954311,
+      3793096122,
+      2274240475,
+      2153646098,
+      1215822598,
+      222059886,
+      700779510,
+      2693911781,
+      2177763239,
+      1186572235,
+      3888200054,
+      4035620891,
+      2185244511,
+      1815595663,
+      1812720863,
+      1197004846,
+      659861532,
+      2461441981,
+      459455343,
+      4150243401,
+      1192755754,
+      2259330083,
+      2234587479,
+      3406024712,
+      1453217242,
+      2539339188,
+      2039788401,
+      3712668255,
+      479701442,
+      111833809,
+      1829591489,
+      392015607,
+      2558128215,
+      655273830,
+      2219222559,
+      3007891600,
+      1129186022,
+      666109284,
+      3328942591,
+      2632639536,
+      385249122,
+      546528478,
+      3440975784,
+      1952724424,
+      3158321531,
+      3529420729,
+      4160829841,
+      2679181885,
+      4196585636,
+      1066103663,
+      2019333566,
+      3215941702,
+      2124578355,
+      434982527,
+      2943083839,
+      1970014693,
+      2145149724,
+      1908858130,
+      4133230144,
+      3592274761,
+      65480785,
+      2110641924,
+      1865243471,
+      766749267,
+      898334346,
+      6326817,
+      2890673960,
+      4000774360,
+      3817499406,
+      2493879407,
+      1494478953,
+      3271316219,
+      3373339292,
+      204697654,
+      2486949130,
+      3128328330,
+      2101352398,
+      608698289,
+      146742629,
+      2657293532,
+      2199264630,
+      2320531838,
+      1875159639,
+      1813199462,
+      1197918926,
+      3406691437,
+      2025639183,
+      1882786406,
+      3498937938,
+      3011509625,
+      3415511975,
+      2044438138,
+      3909083283,
+      713540817,
+      1513996004,
+      3442416033,
+      2566826591,
+      1392297824,
+      2692059781,
+      3988673932,
+      1309069757,
+      3073154505,
+      1104690396,
+      470754835,
+      1439842234,
+      3367675775,
+      3131006754,
+      37293848,
+      3877560458,
+      3226790026,
+      2577299660,
+      2909301524,
+      480615548,
+      3301843806,
+      1652180106,
+      891032087,
+      3052838033,
+      2911375860,
+      3795603309,
+      3089644705,
+      1017081376,
+      2248621821,
+      1918865593,
+      3489364487,
+      3738061389,
+      3565042673,
+      4005062187,
+      3962533326,
+      3983345865,
+      1825659694,
+      3565545518,
+      3964918068,
+      2400463256,
+      2695479852,
+      3107248984,
+      3634000445,
+      3733849839,
+      3109952668,
+      2497639636,
+      3622852898,
+      3699445107,
+      3091510026,
+      319970559,
+      3697019920,
+      2338274274,
+      2222170311,
+      3446244557,
+      176789557,
+      2674371104,
+      3734039988,
+      3496745679,
+      3650356516,
+      2836379932,
+      2407015372,
+      2145310075,
+      4178573516,
+      480628839,
+      184864874,
+      3993648571,
+      2657521028,
+      14806999,
+      805063708,
+      107919024,
+      2560283113,
+      1519675743,
+      2714057143,
+      1148211109,
+      409923215,
+      4258755990,
+      146457306,
+      2682145370,
+      3978806560,
+      4161826362,
+      3011848597,
+      3143043546,
+      1884408438,
+      4063886132,
+      1188203820,
+      3314485937,
+      361607597,
+      1034722511,
+      2450892054,
+      3018080730,
+      3676050530,
+      933723857,
+      3276903711,
+      3990167832,
+      3024257867,
+      2387377826,
+      1512925751,
+      796184393,
+      1921621028,
+      2371921098,
+      2181297797,
+      2063449179,
+      3857360132,
+      840507745,
+      2512228830,
+      4085728819,
+      1685574321,
+      1273879373,
+      300092914,
+      162369984,
+      3338380187,
+      1728057640,
+      4006011820,
+      139243610,
+      4241246946,
+      83682982,
+      3421537432,
+      1818740139,
+      3102196137,
+      3722301986,
+      2288790109,
+      1619118644,
+      1892172445,
+      1424801934,
+      2533728482,
+      2010423645,
+      609677669,
+      3247955778,
+      1505015596,
+      2977051058,
+      623294961,
+      1520410747,
+      2376794259,
+      240233103,
+      2253673979,
+      680245577,
+      1503812594,
+      2992133963,
+      2982471436,
+      738716472,
+      602735237,
+      209827640,
+      285412553,
+      3635497840,
+      966887445,
+      3581672620,
+      1238169706,
+      3018133683,
+      1222691528,
+      422669865,
+      2150233348,
+      2639078667,
+      1721219723,
+      2395657401,
+      3741789365,
+      109198757,
+      2103365186,
+      1143854451,
+      3135020454,
+      1761423258,
+      3782519172,
+      4106987363,
+      6353507,
+      1728479086,
+      1850164262,
+      1936899009,
+      2035367927,
+      4101106803,
+      1531435639,
+      1364945266,
+      3713119770,
+      3039170980,
+      2424124965,
+      2507654042,
+      1584617302,
+      1625178445,
+      4021135554,
+      896008286,
+      842790627,
+      3505654366,
+      1560990189,
+      4197016343,
+      1296891371,
+      1564355308,
+      4026908548,
+      3048284719,
+      3340513823,
+      2123819030,
+      3672077470,
+      4001147671,
+      3683832854,
+      2360821549,
+      3917081364,
+      2971346735,
+      1720402344,
+      3768449655,
+      537169391,
+      1766071534,
+      4050504904,
+      3562070289,
+      3780778447,
+      2701486186,
+      2044129711,
+      3536965386,
+      3745055041,
+      1180350613,
+      2179493595,
+      3921402180,
+      877659113,
+      3105715691,
+      2663314134,
+      3407222822,
+      1322130755,
+      1973858145,
+      1504229717,
+      1527628398,
+      1157742566,
+      1227913556,
+      820498908,
+      3036990088,
+      4074389827,
+      2115819863,
+      43733357,
+      4174802780,
+      1933499253,
+      46635716,
+      3460403279,
+      2133532711,
+      2413060642,
+      2396869644,
+      4068932408,
+      2882688291,
+      2781918125,
+      3498515643,
+      2948174901,
+      3473006039,
+      2997702287,
+      484184816,
+      485296385,
+      1912636150,
+      4013519578,
+      569820991,
+      654032764,
+      2539506825,
+      2423124696,
+      104547906,
+      4178439299,
+      2391844898,
+      4095950638,
+      3986967261,
+      2875098939,
+      3581233011,
+      901576573,
+      365258831,
+      3130659244,
+      1658483649,
+      3861607594,
+      3831863853,
+      2314127208,
+      714479955,
+      2954469828,
+      3405968815,
+      3900466738,
+      2587379472,
+      563320678,
+      2479245393,
+      1598696446,
+      492634972,
+      2001037364,
+      2340441796,
+      1007019146,
+      1609109755,
+      1278146830,
+      3579280959,
+      4268665351,
+      1233946572,
+      519400868,
+      1932852551,
+      3804175678,
+      4081328159,
+      2269721151,
+      845423376,
+      153302395,
+      2583564185,
+      3797196187,
+      3576529193,
+      1367240559,
+      197115844,
+      677743726,
+      2935644942,
+      127052667,
+      601140789,
+      936794940,
+      909666798,
+      479336182,
+      2586534738,
+      277105137,
+      1251434857,
+      1854036663,
+      3799606193,
+      2505551699,
+      857716500,
+      2885058620,
+      3520731675,
+      1864789530,
+      2627369757,
+      963731159,
+      538530417,
+      3856392065,
+      638083486,
+      2495078101,
+      1901723257,
+      3578225909,
+      3728480885,
+      4204394534,
+      1628817752,
+      3779822492,
+      1240219177,
+      2374252852,
+      3179234802,
+      576876531,
+      829703425,
+      330976880,
+      104563587,
+      2022994347,
+      3319679472,
+      3051416363,
+      1318618089,
+      3989660714,
+      1309999704,
+      3567717864,
+      435424336,
+      398477995,
+      2518718155,
+      1224262965,
+      2679862553,
+      1848996240,
+      1537092039,
+      1266650965,
+      3764255906,
+      524483763,
+      4051063063,
+      2283954304,
+      688930683,
+      3582848254,
+      3954745485,
+      3612905857,
+      93257968,
+      624
+    ],
+    null
+  ],
+  "schema_id": "CanonicalSnapshot.v1",
+  "snapshot_digest": "c9947f2755c3620ff9531de34caaa863599f31d51a4992728f664d72a1bc886e",
+  "specimen_last_id_match": {},
+  "specimens": {
+    "S1": {
+      "arrival_ts_s": 600,
+      "collection_ts_s": 0,
+      "container_type": "SERUM_SST",
+      "fill_ratio_ok": null,
+      "hazard_flag": false,
+      "integrity_flags": {
+        "clot": false,
+        "hemolysis": false,
+        "insufficient_volume": false,
+        "label_issue": false,
+        "leak": false
+      },
+      "last_reason_code": null,
+      "panel_id": "BIOCHEM_PANEL_CORE",
+      "patient_identifiers_hash": "pid:hash:001",
+      "separated_ts_s": null,
+      "specimen_id": "S1",
+      "specimen_type": "SERUM",
+      "status": "arrived_at_reception",
+      "temp_band": "AMBIENT_20_25"
+    }
+  },
+  "strict_signatures": false,
+  "system_state": {
+    "downtime_active": false,
+    "last_reason_code_system": null,
+    "log_frozen": false
+  },
+  "timing_mode": "simulated",
+  "token_registry": {
+    "approval_schema": {
+      "fields": [
+        "approver_agent_id",
+        "approver_role",
+        "approver_key_id",
+        "approved_at_ts",
+        "approval_rationale_hash",
+        "signature"
+      ]
+    },
+    "crypto": {
+      "canonicalization": "JCS",
+      "hash_alg": "sha256",
+      "signature_alg": "ed25519"
+    },
+    "lifecycle": {
+      "consume_semantics": "SINGLE_USE",
+      "states": [
+        "MINTED",
+        "ACTIVE",
+        "CONSUMED",
+        "EXPIRED",
+        "REVOKED"
+      ]
+    },
+    "required_fields": [
+      "token_id",
+      "token_type",
+      "issued_at_ts",
+      "expires_at_ts",
+      "subject_type",
+      "subject_id",
+      "scope",
+      "reason_code",
+      "approvals",
+      "nonce",
+      "signature_bundle"
+    ],
+    "revocation": {
+      "event_type": "REVOKE_TOKEN",
+      "method": "CRL_APPEND_ONLY",
+      "required_fields": [
+        "token_id",
+        "revoked_at_ts",
+        "revoked_by_agent_id",
+        "reason_code"
+      ]
+    },
+    "signature_bundle_schema": {
+      "fields": [
+        "payload_hash",
+        "signatures[]",
+        "issuer_key_id"
+      ]
+    },
+    "token_types": {
+      "OVERRIDE_RISK_ACCEPTANCE": {
+        "approvals_required": 2,
+        "approver_roles": [
+          "ROLE_SUPERVISOR",
+          "ROLE_CLINICAL_SCIENTIST"
+        ],
+        "purpose": "Allow borderline pre-analytic acceptance or stability/cold-chain exceptions with explicit risk acceptance.",
+        "reason_code_required": true,
+        "requires_structured_risk_record": true,
+        "revocable": true,
+        "scope": {
+          "allowed_actions": [
+            "OVERRIDE_ACCEPTANCE",
+            "START_RUN_OVERRIDE",
+            "RELEASE_RESULT_OVERRIDE"
+          ],
+          "allowed_reason_codes": [
+            "TIME_EXPIRED",
+            "TIME_NO_SEPARATION_WITHIN_WINDOW",
+            "TEMP_OUT_OF_BAND",
+            "INT_INSUFFICIENT_VOLUME",
+            "INT_HEMOLYSED",
+            "CNT_WRONG_CONTAINER",
+            "REQ_MISSING_OR_INCOMPATIBLE"
+          ]
+        },
+        "separation_of_duties": {
+          "distinct_agent_ids": true,
+          "distinct_signing_keys": true
+        },
+        "subject_type": [
+          "specimen",
+          "result"
+        ],
+        "ttl_s": 3600
+      },
+      "TOKEN_EMERGENCY_ACCESS": {
+        "approvals_required": 2,
+        "approver_roles": [
+          "ROLE_SUPERVISOR",
+          "ROLE_SECURITY_OFFICER"
+        ],
+        "purpose": "Emergency bypass of RBAC for life-threatening workflow continuity (rare, auditable, timeboxed).",
+        "reason_code_required": true,
+        "requires_posthoc_review": true,
+        "revocable": true,
+        "scope": {
+          "allowed_actions": [
+            "MOVE",
+            "OPEN_DOOR",
+            "DEVICE_ACTION"
+          ],
+          "denylist_reason_codes": [
+            "ID_MISMATCH",
+            "ID_UNATTRIBUTABLE",
+            "QC_FAIL_ACTIVE",
+            "AUDIT_CHAIN_BROKEN"
+          ]
+        },
+        "separation_of_duties": {
+          "distinct_agent_ids": true,
+          "distinct_signing_keys": true
+        },
+        "subject_type": [
+          "agent",
+          "zone",
+          "device"
+        ],
+        "ttl_s": 900
+      },
+      "TOKEN_MAINTENANCE_MODE": {
+        "approvals_required": 1,
+        "approver_roles": [
+          "ROLE_ENGINEERING",
+          "ROLE_SUPERVISOR"
+        ],
+        "purpose": "Permit maintenance actions (e.g., door open longer, device quarantining) with explicit labeling.",
+        "reason_code_required": true,
+        "revocable": true,
+        "scope": {
+          "allowed_actions": [
+            "OPEN_DOOR_EXTENDED",
+            "DEVICE_MAINTENANCE",
+            "DEVICE_RESET"
+          ]
+        },
+        "subject_type": [
+          "door",
+          "device",
+          "zone"
+        ],
+        "ttl_s": 1800
+      },
+      "TOKEN_QC_DRIFT_OVERRIDE": {
+        "approvals_required": 1,
+        "approver_roles": [
+          "ROLE_QC"
+        ],
+        "constraints": {
+          "deny_if_qc_fail_active": true,
+          "requires_disclaimer_flag": true
+        },
+        "purpose": "Allow controlled release under QC drift suspicion (NOT QC fail) with enhanced audit + disclaimers.",
+        "reason_code_required": true,
+        "revocable": true,
+        "scope": {
+          "allowed_actions": [
+            "RELEASE_RESULT_OVERRIDE"
+          ],
+          "allowed_reason_codes": [
+            "QC_DRIFT_SUSPECTED"
+          ]
+        },
+        "subject_type": [
+          "result",
+          "run"
+        ],
+        "ttl_s": 1800
+      },
+      "TOKEN_RESTRICTED_ENTRY": {
+        "approvals_required": 1,
+        "approver_roles": [
+          "ROLE_SUPERVISOR"
+        ],
+        "non_delegable": true,
+        "purpose": "Enter restricted zone / open restricted airlock.",
+        "reason_code_required": true,
+        "reason_codes_allowed": [
+          "RBAC_RESTRICTED_ENTRY_DENY",
+          "SYS_DOWNTIME_ACTIVE"
+        ],
+        "revocable": true,
+        "scope": {
+          "allowed_actions": [
+            "OPEN_DOOR",
+            "MOVE"
+          ],
+          "allowed_doors": [
+            "D_RESTRICTED_AIRLOCK"
+          ],
+          "allowed_zones": [
+            "Z_RESTRICTED_BIOHAZARD"
+          ]
+        },
+        "subject_type": [
+          "agent"
+        ],
+        "ttl_s": 900
+      }
+    },
+    "version": "0.1"
+  },
+  "tokens": [],
+  "tokens_next_id": 0,
+  "transport": {
+    "consignments": {},
+    "next_consignment_id": 0
+  },
+  "transport_fault_injection": {},
+  "version": "1",
+  "zones": {
+    "agent_positions": {
+      "A_ANALYTICS": "Z_ANALYZER_HALL_A",
+      "A_CLINSCI": "Z_QC_SUPERVISOR",
+      "A_PREAN": "Z_PREANALYTICS",
+      "A_QC": "Z_QC_SUPERVISOR",
+      "A_RECEPTION": "Z_SRA_RECEPTION",
+      "A_RUNNER": "Z_SORTING_LANES",
+      "A_SECURITY": "Z_QC_SUPERVISOR",
+      "A_SUPERVISOR": "Z_QC_SUPERVISOR"
+    },
+    "door_open_since": {
+      "D_MAIN_INNER": null,
+      "D_RESTRICTED_AIRLOCK": null,
+      "D_WASTE": null
+    },
+    "zone_frozen": {}
+  }
 }

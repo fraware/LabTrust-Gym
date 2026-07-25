@@ -2,7 +2,7 @@
   "algorithm": "sha256",
   "campaign_id": "va-10",
   "claim_boundary": "simulation_research_only_no_clinical_validation",
-  "commitment": "d956d66c38ffef33ed38f6fad20c64f8375bddea3e89f0f60ed38c9ea3b6ad02",
+  "commitment": "aac5348460c39e18ccee28fa07ea691d9f8e4ba86bacef260bcf8b00ca39ccab",
   "episode_id": "premature_release",
   "revealed": false
 }

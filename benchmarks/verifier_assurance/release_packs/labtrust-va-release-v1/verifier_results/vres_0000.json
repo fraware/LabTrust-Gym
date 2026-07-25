@@ -28,6 +28,18 @@
     }
   },
   "claim_boundary": "simulation_research_only_no_clinical_validation",
+  "va11_metrics": {
+    "families": 10,
+    "public_false_accept_count": 10,
+    "public_false_accept_rate": 1.0
+  },
+  "va12_metrics": {
+    "attribution_precision": 1.0,
+    "attribution_recall": 1.0,
+    "false_negatives": 0,
+    "false_positives": 0,
+    "true_positives": 10
+  },
   "va13": {
     "fresh_policy_attacked_repaired": true,
     "frozen_checkpoint_ids": [
