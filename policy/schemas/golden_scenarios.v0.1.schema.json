@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "labtrust.golden_scenarios.v0.1",
   "title": "Golden scenarios structure v0.1",
-  "description": "Schema for policy/golden/golden_scenarios.v0.1.yaml (structure only).",
+  "description": "Schema for policy/golden/golden_scenarios.v0.1.yaml including LTG-PR3 governance metadata.",
   "type": "object",
   "required": ["golden_suite"],
   "additionalProperties": true,
@@ -17,16 +17,103 @@
         "depends_on": { "type": "array", "items": { "type": "string" } },
         "runner_contract": { "type": "object" },
         "fixtures": { "type": "object" },
+        "governance": {
+          "type": "object",
+          "description": "Suite-level governance pointers (LTG-PR3).",
+          "additionalProperties": true,
+          "properties": {
+            "matrix_ref": { "type": "string", "minLength": 1 },
+            "policy_version": { "type": "string", "minLength": 1 },
+            "change_control_doc": { "type": "string", "minLength": 1 }
+          }
+        },
         "scenarios": {
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["scenario_id", "initial_state", "script"],
+            "required": [
+              "scenario_id",
+              "initial_state",
+              "script",
+              "governance"
+            ],
             "additionalProperties": true,
             "properties": {
-              "scenario_id": { "type": "string" },
+              "scenario_id": { "type": "string", "minLength": 1 },
               "title": { "type": "string" },
+              "governance": {
+                "type": "object",
+                "description": "Per-scenario governance metadata (LTG-PR3). scenario_id and initial_state live on the scenario root; action_sequence must match script action_type order.",
+                "required": [
+                  "hazard",
+                  "policy_version",
+                  "action_sequence",
+                  "expected_reason_codes",
+                  "expected_terminal_state",
+                  "required_evidence",
+                  "coverage_class",
+                  "reviewer"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "hazard": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Short hazard framing for this scenario (not a clinical claim)."
+                  },
+                  "policy_version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Golden suite / policy pack version this scenario is pinned to."
+                  },
+                  "action_sequence": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "type": "string", "minLength": 1 },
+                    "description": "Ordered action_type list; must equal script[*].action_type."
+                  },
+                  "expected_reason_codes": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1 },
+                    "description": "Reason codes this scenario asserts (blocked_reason_code and/or last_reason_code). Empty when none."
+                  },
+                  "expected_terminal_state": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Inspectable terminal outcome summary after the script."
+                  },
+                  "required_evidence": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "type": "string", "minLength": 1 },
+                    "description": "Evidence artifacts or assertions required to accept this scenario as coverage."
+                  },
+                  "coverage_class": {
+                    "type": "string",
+                    "enum": [
+                      "specimen_identity",
+                      "chain_of_custody",
+                      "quality_control_release",
+                      "critical_result_escalation",
+                      "stability_windows",
+                      "role_authorization",
+                      "zone_access",
+                      "token_validity",
+                      "catalog_drift",
+                      "multi_site_handoff",
+                      "adversarial_coordination",
+                      "insider_misuse"
+                    ],
+                    "description": "Primary hazard coverage class; must appear in hazard_coverage_matrix for this scenario_id."
+                  },
+                  "reviewer": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Domain reviewer identity after a signed independent-review report, or pending-domain-review until then (see docs/reviews/charter.md). Do not invent approvals."
+                  }
+                }
+              },
               "post_run_hooks": {
                 "type": "array",
                 "description": "Optional hooks run after script (before post_run): EXPORT_RECEIPTS, VERIFY_BUNDLE, EXPORT_FHIR. Deterministic for fixed seed; use stable temp paths.",
@@ -61,6 +148,7 @@
               },
               "script": {
                 "type": "array",
+                "minItems": 1,
                 "items": {
                   "type": "object",
                   "required": ["event_id", "t_s", "agent_id", "action_type", "args", "reason_code", "token_refs"],

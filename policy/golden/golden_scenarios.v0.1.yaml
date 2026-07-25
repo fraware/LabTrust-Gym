@@ -1,5 +1,9 @@
 golden_suite:
   version: "0.1"
+  governance:
+    matrix_ref: "policy/coverage/hazard_coverage_matrix.v0.1.yaml"
+    policy_version: "0.1"
+    change_control_doc: "docs/benchmarks/golden_suite_governance.md"
   deterministic:
     rng_seed: 12345
     time:
@@ -146,6 +150,29 @@ golden_suite:
 
     - scenario_id: "GS-001"
       title: "Happy path: routine BIOCHEM_PANEL_CORE end-to-end, QC pass, release"
+      governance:
+        hazard: "QC-pass release path for routine biochem panel (happy path completeness)."
+        policy_version: "0.1"
+        action_sequence:
+          - "CREATE_ACCESSION"
+          - "CHECK_ACCEPTANCE_RULES"
+          - "ACCEPT_SPECIMEN"
+          - "MOVE"
+          - "CENTRIFUGE_START"
+          - "CENTRIFUGE_END"
+          - "ALIQUOT_CREATE"
+          - "QUEUE_RUN"
+          - "START_RUN"
+          - "QC_EVENT"
+          - "GENERATE_RESULT"
+          - "RELEASE_RESULT"
+        expected_reason_codes: []
+        expected_terminal_state: "Result RES1 released after QC pass on DEV_CHEM_A_01."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect RELEASE_RESULT status ACCEPTED"
+        coverage_class: quality_control_release
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         agents:
@@ -180,6 +207,23 @@ golden_suite:
 
     - scenario_id: "GS-002"
       title: "STAT insertion: STAT specimen jumps queue (non-preemptive), completion order proves priority"
+      governance:
+        hazard: "STAT priority queue insertion vs routine (workflow ordering; not a clinical claim)."
+        policy_version: "0.1"
+        action_sequence:
+          - "CREATE_ACCESSION"
+          - "ACCEPT_SPECIMEN"
+          - "CREATE_ACCESSION"
+          - "ACCEPT_SPECIMEN"
+          - "QUEUE_RUN"
+          - "QUEUE_RUN"
+        expected_reason_codes: []
+        expected_terminal_state: "Device queue head is STAT specimen S2."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect state_assertions queue_head == 'S2'"
+        coverage_class: quality_control_release
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens:
@@ -198,6 +242,20 @@ golden_suite:
 
     - scenario_id: "GS-003"
       title: "Coagulation citrate underfill is hard-stop (non-overridable)"
+      governance:
+        hazard: "Coagulation citrate underfill hard-stop (non-overridable hold)."
+        policy_version: "0.1"
+        action_sequence:
+          - "CHECK_ACCEPTANCE_RULES"
+          - "ACCEPT_SPECIMEN"
+        expected_reason_codes:
+          - "CNT_CITRATE_FILL_INVALID"
+        expected_terminal_state: "Specimen S2 held with CNT_CITRATE_FILL_INVALID."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect HOLD_SPECIMEN and INV-COAG-FILL-001:VIOLATION"
+        coverage_class: specimen_identity
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens:
@@ -221,6 +279,20 @@ golden_suite:
 
     - scenario_id: "GS-004"
       title: "Identity mismatch is non-overridable hard-stop"
+      governance:
+        hazard: "Patient identity mismatch hard-stop at acceptance."
+        policy_version: "0.1"
+        action_sequence:
+          - "CHECK_ACCEPTANCE_RULES"
+          - "ACCEPT_SPECIMEN"
+        expected_reason_codes:
+          - "ID_MISMATCH"
+        expected_terminal_state: "Specimen S1 rejected with ID_MISMATCH."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect REJECT_SPECIMEN and last_reason_code ID_MISMATCH"
+        coverage_class: specimen_identity
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens:
@@ -232,6 +304,19 @@ golden_suite:
 
     - scenario_id: "GS-005"
       title: "Leaking specimen is non-overridable reject + biohazard protocol"
+      governance:
+        hazard: "Leaking specimen non-overridable reject with biohazard flag."
+        policy_version: "0.1"
+        action_sequence:
+          - "ACCEPT_SPECIMEN"
+        expected_reason_codes:
+          - "INT_LEAKING"
+        expected_terminal_state: "Specimen S3 rejected with INT_LEAKING."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect REJECT_SPECIMEN and last_reason_code INT_LEAKING"
+        coverage_class: specimen_identity
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens:
@@ -254,6 +339,22 @@ golden_suite:
 
     - scenario_id: "GS-006"
       title: "Stability expired BIOCHEM requires OVERRIDE_RISK_ACCEPTANCE dual approval"
+      governance:
+        hazard: "Stability window expiry blocks START_RUN without dual-approval override token."
+        policy_version: "0.1"
+        action_sequence:
+          - "START_RUN"
+          - "MINT_TOKEN"
+          - "MINT_TOKEN"
+          - "START_RUN_OVERRIDE"
+        expected_reason_codes:
+          - "TIME_EXPIRED"
+        expected_terminal_state: "START_RUN_OVERRIDE accepted after dual-approval OVERRIDE_RISK_ACCEPTANCE token consumed."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code TIME_EXPIRED then override ACCEPTED"
+        coverage_class: stability_windows
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens:
@@ -280,6 +381,19 @@ golden_suite:
 
     - scenario_id: "GS-007"
       title: "Temp out-of-band requires OVERRIDE_RISK_ACCEPTANCE; without token blocked"
+      governance:
+        hazard: "Temperature out-of-band exposure blocks START_RUN without override."
+        policy_version: "0.1"
+        action_sequence:
+          - "START_RUN"
+        expected_reason_codes:
+          - "TEMP_OUT_OF_BAND"
+        expected_terminal_state: "START_RUN blocked with TEMP_OUT_OF_BAND."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code TEMP_OUT_OF_BAND"
+        coverage_class: stability_windows
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         agents:
@@ -306,6 +420,19 @@ golden_suite:
 
     - scenario_id: "GS-008"
       title: "Restricted airlock cannot open without TOKEN_RESTRICTED_ENTRY"
+      governance:
+        hazard: "Restricted zone entry denied without TOKEN_RESTRICTED_ENTRY."
+        policy_version: "0.1"
+        action_sequence:
+          - "OPEN_DOOR"
+        expected_reason_codes:
+          - "RBAC_RESTRICTED_ENTRY_DENY"
+        expected_terminal_state: "OPEN_DOOR blocked with RBAC_RESTRICTED_ENTRY_DENY."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code RBAC_RESTRICTED_ENTRY_DENY"
+        coverage_class: zone_access
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -315,6 +442,20 @@ golden_suite:
 
     - scenario_id: "GS-009"
       title: "Restricted door open too long triggers alarm + zone kill-switch"
+      governance:
+        hazard: "Restricted door held open beyond policy window triggers alarm and zone freeze."
+        policy_version: "0.1"
+        action_sequence:
+          - "OPEN_DOOR"
+          - "TICK"
+          - "TICK"
+        expected_reason_codes: []
+        expected_terminal_state: "Zone Z_RESTRICTED_BIOHAZARD frozen after INV-ZONE-005 violation."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect ALARM and KILL_SWITCH_ZONE emits"
+        coverage_class: zone_access
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -336,6 +477,18 @@ golden_suite:
 
     - scenario_id: "GS-010"
       title: "OVERRIDE_RISK_ACCEPTANCE cannot be minted with same approver twice (separation of duties)"
+      governance:
+        hazard: "Dual-approval separation of duties: same approver twice cannot mint override token."
+        policy_version: "0.1"
+        action_sequence:
+          - "MINT_TOKEN"
+        expected_reason_codes: []
+        expected_terminal_state: "MINT_TOKEN blocked (INV-TOK-001 violation)."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect status BLOCKED with INV-TOK-001:VIOLATION"
+        coverage_class: token_validity
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -345,6 +498,18 @@ golden_suite:
 
     - scenario_id: "GS-011"
       title: "Expired token cannot be used"
+      governance:
+        hazard: "Expired token cannot authorize restricted entry."
+        policy_version: "0.1"
+        action_sequence:
+          - "OPEN_DOOR"
+        expected_reason_codes: []
+        expected_terminal_state: "OPEN_DOOR blocked due to expired token (INV-TOK-002)."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect status BLOCKED with INV-TOK-002:VIOLATION"
+        coverage_class: token_validity
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -362,6 +527,19 @@ golden_suite:
 
     - scenario_id: "GS-012"
       title: "Token replay protection: consumed token cannot be reused"
+      governance:
+        hazard: "Consumed (replayed) token cannot be reused."
+        policy_version: "0.1"
+        action_sequence:
+          - "OPEN_DOOR"
+          - "OPEN_DOOR"
+        expected_reason_codes: []
+        expected_terminal_state: "Second OPEN_DOOR blocked after token consumption (INV-TOK-002)."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect first ACCEPTED with token_consumed then second BLOCKED"
+        coverage_class: token_validity
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -381,6 +559,19 @@ golden_suite:
 
     - scenario_id: "GS-013"
       title: "Revoked token cannot be used"
+      governance:
+        hazard: "Revoked token cannot be used."
+        policy_version: "0.1"
+        action_sequence:
+          - "REVOKE_TOKEN"
+          - "OPEN_DOOR"
+        expected_reason_codes: []
+        expected_terminal_state: "OPEN_DOOR blocked after REVOKE_TOKEN (INV-TOK-006)."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect REVOKE_TOKEN ACCEPTED then OPEN_DOOR BLOCKED"
+        coverage_class: token_validity
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -400,6 +591,25 @@ golden_suite:
 
     - scenario_id: "GS-014"
       title: "QC fail cascade blocks release (non-overridable) until rerun clears"
+      governance:
+        hazard: "QC fail cascade blocks release until rerun clears device QC state."
+        policy_version: "0.1"
+        action_sequence:
+          - "START_RUN"
+          - "QC_EVENT"
+          - "GENERATE_RESULT"
+          - "RELEASE_RESULT"
+          - "RERUN_REQUEST"
+          - "QC_EVENT"
+          - "RELEASE_RESULT"
+        expected_reason_codes:
+          - "QC_FAIL_ACTIVE"
+        expected_terminal_state: "RELEASE_RESULT accepted only after QC fail cleared via RERUN_REQUEST."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code QC_FAIL_ACTIVE then later RELEASE ACCEPTED"
+        coverage_class: quality_control_release
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -421,6 +631,20 @@ golden_suite:
 
     - scenario_id: "GS-015"
       title: "QC drift suspected: release requires TOKEN_QC_DRIFT_OVERRIDE, not allowed under QC fail"
+      governance:
+        hazard: "QC drift suspected: release requires TOKEN_QC_DRIFT_OVERRIDE."
+        policy_version: "0.1"
+        action_sequence:
+          - "GENERATE_RESULT"
+          - "RELEASE_RESULT_OVERRIDE"
+        expected_reason_codes:
+          - "QC_DRIFT_SUSPECTED"
+        expected_terminal_state: "RELEASE_RESULT_OVERRIDE accepted with QC_DRIFT_DISCLAIMER_REQUIRED flag."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect token_consumed T_QC_DRIFT and disclaimer flag assertion"
+        coverage_class: quality_control_release
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -440,6 +664,23 @@ golden_suite:
 
     - scenario_id: "GS-016"
       title: "Critical CRIT_A: release blocked until NOTIFY + ACK recorded"
+      governance:
+        hazard: "Critical CRIT_A release blocked until notify and ack recorded."
+        policy_version: "0.1"
+        action_sequence:
+          - "GENERATE_RESULT"
+          - "RELEASE_RESULT"
+          - "NOTIFY_CRITICAL_RESULT"
+          - "ACK_CRITICAL_RESULT"
+          - "RELEASE_RESULT"
+        expected_reason_codes:
+          - "CRIT_NO_ACK"
+        expected_terminal_state: "RELEASE_RESULT accepted after NOTIFY and ACK for RES_CRITK."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code CRIT_NO_ACK then release ACCEPTED"
+        coverage_class: critical_result_escalation
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -457,6 +698,19 @@ golden_suite:
 
     - scenario_id: "GS-017"
       title: "Critical comm without read-back triggers audit violation (but ACK exists)"
+      governance:
+        hazard: "Critical communication without read-back records audit violation."
+        policy_version: "0.1"
+        action_sequence:
+          - "NOTIFY_CRITICAL_RESULT"
+          - "ACK_CRITICAL_RESULT"
+        expected_reason_codes: []
+        expected_terminal_state: "ACK accepted with INV-CRIT-004:VIOLATION and comm record present."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect INV-CRIT-004:VIOLATION and comm_record_exists assertion"
+        coverage_class: critical_result_escalation
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -467,6 +721,18 @@ golden_suite:
 
     - scenario_id: "GS-018"
       title: "Downtime forces oral notification path for critical result"
+      governance:
+        hazard: "Downtime forces oral (phone/bleep) critical notification path."
+        policy_version: "0.1"
+        action_sequence:
+          - "GENERATE_RESULT"
+        expected_reason_codes: []
+        expected_terminal_state: "GENERATE_RESULT requires phone_or_bleep notification mode for RES_DT."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect notification_mode_required phone_or_bleep"
+        coverage_class: critical_result_escalation
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: true }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -477,6 +743,19 @@ golden_suite:
 
     - scenario_id: "GS-019"
       title: "Device action blocked if agent not co-located in device zone"
+      governance:
+        hazard: "Device action blocked when agent is not co-located in device zone."
+        policy_version: "0.1"
+        action_sequence:
+          - "START_RUN"
+        expected_reason_codes:
+          - "RC_DEVICE_NOT_COLOCATED"
+        expected_terminal_state: "START_RUN blocked with RC_DEVICE_NOT_COLOCATED."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code RC_DEVICE_NOT_COLOCATED"
+        coverage_class: zone_access
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -486,6 +765,18 @@ golden_suite:
 
     - scenario_id: "GS-020"
       title: "Illegal move not on graph is blocked"
+      governance:
+        hazard: "Illegal zone graph move is blocked."
+        policy_version: "0.1"
+        action_sequence:
+          - "MOVE"
+        expected_reason_codes: []
+        expected_terminal_state: "MOVE blocked with INV-ZONE-001 and INV-ZONE-004 violations."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect status BLOCKED with zone graph violations"
+        coverage_class: zone_access
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -495,6 +786,19 @@ golden_suite:
 
     - scenario_id: "GS-021"
       title: "Audit: HOLD_SPECIMEN without reason_code is blocked"
+      governance:
+        hazard: "HOLD_SPECIMEN without reason_code is blocked (audit discipline)."
+        policy_version: "0.1"
+        action_sequence:
+          - "HOLD_SPECIMEN"
+        expected_reason_codes:
+          - "AUDIT_MISSING_REASON_CODE"
+        expected_terminal_state: "HOLD_SPECIMEN blocked with AUDIT_MISSING_REASON_CODE."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code AUDIT_MISSING_REASON_CODE"
+        coverage_class: insider_misuse
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -504,6 +808,21 @@ golden_suite:
 
     - scenario_id: "GS-022"
       title: "Audit: hash chain broken triggers forensic freeze (no further actions permitted)"
+      governance:
+        hazard: "Broken audit hash chain triggers forensic freeze and blocks further actions."
+        policy_version: "0.1"
+        action_sequence:
+          - "CREATE_ACCESSION"
+          - "ACCEPT_SPECIMEN"
+          - "MOVE"
+        expected_reason_codes:
+          - "AUDIT_CHAIN_BROKEN"
+        expected_terminal_state: "System log frozen; subsequent MOVE blocked with AUDIT_CHAIN_BROKEN."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect FORENSIC_FREEZE_LOG and blocked_reason_code AUDIT_CHAIN_BROKEN"
+        coverage_class: insider_misuse
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -519,6 +838,21 @@ golden_suite:
 
     - scenario_id: "GS-CRIT-023"
       title: "Critical v0.2: ACK missing required fields (attempt_id) => ACK rejected"
+      governance:
+        hazard: "Critical ACK missing required fields is rejected."
+        policy_version: "0.1"
+        action_sequence:
+          - "GENERATE_RESULT"
+          - "NOTIFY_CRITICAL_RESULT"
+          - "ACK_CRITICAL_RESULT"
+        expected_reason_codes:
+          - "CRIT_ACK_MISSING_FIELDS"
+        expected_terminal_state: "ACK_CRITICAL_RESULT blocked with CRIT_ACK_MISSING_FIELDS."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code CRIT_ACK_MISSING_FIELDS"
+        coverage_class: critical_result_escalation
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -530,6 +864,21 @@ golden_suite:
 
     - scenario_id: "GS-CRIT-024"
       title: "Critical v0.2: ESCALATE out of tier order => blocked"
+      governance:
+        hazard: "Critical escalation out of tier order is blocked."
+        policy_version: "0.1"
+        action_sequence:
+          - "GENERATE_RESULT"
+          - "NOTIFY_CRITICAL_RESULT"
+          - "ESCALATE_CRITICAL_RESULT"
+        expected_reason_codes:
+          - "CRIT_ESCALATION_OUT_OF_ORDER"
+        expected_terminal_state: "ESCALATE_CRITICAL_RESULT blocked with CRIT_ESCALATION_OUT_OF_ORDER."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code CRIT_ESCALATION_OUT_OF_ORDER"
+        coverage_class: critical_result_escalation
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -541,6 +890,23 @@ golden_suite:
 
     - scenario_id: "GS-CRIT-025"
       title: "Critical v0.2: timeout triggers escalation path; release allowed only after compliant ack"
+      governance:
+        hazard: "Critical ack timeout escalation path then release after ack."
+        policy_version: "0.1"
+        action_sequence:
+          - "GENERATE_RESULT"
+          - "NOTIFY_CRITICAL_RESULT"
+          - "ESCALATE_CRITICAL_RESULT"
+          - "ACK_CRITICAL_RESULT"
+          - "RELEASE_RESULT"
+        expected_reason_codes:
+          - "CRIT_ACK_TIMEOUT"
+        expected_terminal_state: "RELEASE_RESULT accepted after escalate-on-timeout and ACK."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect ESCALATE then ACK then RELEASE ACCEPTED"
+        coverage_class: critical_result_escalation
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: [ { template_ref: "S_BIOCHEM_OK" } ]
@@ -554,6 +920,19 @@ golden_suite:
 
     - scenario_id: "GS-SIG-026"
       title: "Signed actions: mutating action without signature => BLOCKED SIG_MISSING (strict mode)"
+      governance:
+        hazard: "Mutating action without required signature is blocked."
+        policy_version: "0.1"
+        action_sequence:
+          - "MOVE"
+        expected_reason_codes:
+          - "SIG_MISSING"
+        expected_terminal_state: "MOVE blocked with SIG_MISSING."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code SIG_MISSING"
+        coverage_class: role_authorization
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -564,6 +943,19 @@ golden_suite:
 
     - scenario_id: "GS-SIG-027"
       title: "Signed actions: invalid signature => BLOCKED SIG_INVALID (strict mode)"
+      governance:
+        hazard: "Invalid signature on mutating action is blocked (strict mode)."
+        policy_version: "0.1"
+        action_sequence:
+          - "MOVE"
+        expected_reason_codes:
+          - "SIG_INVALID"
+        expected_terminal_state: "MOVE blocked with SIG_INVALID."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code SIG_INVALID"
+        coverage_class: role_authorization
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -575,6 +967,19 @@ golden_suite:
 
     - scenario_id: "GS-RBAC-028"
       title: "RBAC: unauthorized RELEASE_RESULT blocked (reception role cannot release)"
+      governance:
+        hazard: "Unauthorized RELEASE_RESULT by reception role is denied."
+        policy_version: "0.1"
+        action_sequence:
+          - "RELEASE_RESULT"
+        expected_reason_codes:
+          - "RBAC_ACTION_DENY"
+        expected_terminal_state: "RELEASE_RESULT blocked with RBAC_ACTION_DENY."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code RBAC_ACTION_DENY"
+        coverage_class: role_authorization
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -584,6 +989,19 @@ golden_suite:
 
     - scenario_id: "GS-RBAC-029"
       title: "RBAC: unauthorized RELEASE_RESULT_OVERRIDE blocked even with token (token cannot bypass RBAC)"
+      governance:
+        hazard: "Unauthorized RELEASE_RESULT_OVERRIDE denied even when a token is present."
+        policy_version: "0.1"
+        action_sequence:
+          - "RELEASE_RESULT_OVERRIDE"
+        expected_reason_codes:
+          - "RBAC_ACTION_DENY"
+        expected_terminal_state: "RELEASE_RESULT_OVERRIDE blocked with RBAC_ACTION_DENY."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code RBAC_ACTION_DENY"
+        coverage_class: role_authorization
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -593,6 +1011,21 @@ golden_suite:
 
     - scenario_id: "GS-TRANSPORT-001"
       title: "Transport: dispatch -> tick -> receive with chain-of-custody; no violations, receipt-worthy emits"
+      governance:
+        hazard: "Inter-site transport with chain-of-custody sign succeeds without violations."
+        policy_version: "0.1"
+        action_sequence:
+          - "DISPATCH_TRANSPORT"
+          - "TRANSPORT_TICK"
+          - "CHAIN_OF_CUSTODY_SIGN"
+          - "RECEIVE_TRANSPORT"
+        expected_reason_codes: []
+        expected_terminal_state: "RECEIVE_TRANSPORT accepted after dispatch, tick, and CoC sign."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect DISPATCH/TICK/COC_SIGN/RECEIVE all ACCEPTED"
+        coverage_class: chain_of_custody
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -605,6 +1038,21 @@ golden_suite:
 
     - scenario_id: "GS-TRANSPORT-002"
       title: "Temp excursion triggers BLOCKED with TRANSPORT_TEMP_EXCURSION and violation INV-TRANSPORT-001"
+      governance:
+        hazard: "Transport temperature excursion blocks receive."
+        policy_version: "0.1"
+        action_sequence:
+          - "DISPATCH_TRANSPORT"
+          - "TRANSPORT_TICK"
+          - "RECEIVE_TRANSPORT"
+        expected_reason_codes:
+          - "TRANSPORT_TEMP_EXCURSION"
+        expected_terminal_state: "RECEIVE_TRANSPORT blocked with TRANSPORT_TEMP_EXCURSION."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code TRANSPORT_TEMP_EXCURSION"
+        coverage_class: multi_site_handoff
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -618,6 +1066,19 @@ golden_suite:
 
     - scenario_id: "GS-COC-003"
       title: "Missing/invalid chain-of-custody triggers TRANSPORT_CHAIN_OF_CUSTODY_BROKEN and INV-COC-001 violation"
+      governance:
+        hazard: "Missing or invalid chain-of-custody blocks transport receive."
+        policy_version: "0.1"
+        action_sequence:
+          - "RECEIVE_TRANSPORT"
+        expected_reason_codes:
+          - "TRANSPORT_CHAIN_OF_CUSTODY_BROKEN"
+        expected_terminal_state: "RECEIVE_TRANSPORT blocked with TRANSPORT_CHAIN_OF_CUSTODY_BROKEN."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_code TRANSPORT_CHAIN_OF_CUSTODY_BROKEN"
+        coverage_class: chain_of_custody
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens: []
@@ -627,6 +1088,32 @@ golden_suite:
 
     - scenario_id: "GS-SHIFT-CHANGE-001"
       title: "Mid-episode shift change: update roster without policy on disk; RBAC reflects new mapping; STAT inject; no RELEASE_RESULT from reception; strict mode (all mutating actions signed)"
+      governance:
+        hazard: "Mid-episode roster shift: new role still cannot release without authorization."
+        policy_version: "0.1"
+        action_sequence:
+          - "CREATE_ACCESSION"
+          - "ACCEPT_SPECIMEN"
+          - "UPDATE_ROSTER"
+          - "INJECT_SPECIMEN"
+          - "CREATE_ACCESSION"
+          - "ACCEPT_SPECIMEN"
+          - "MOVE"
+          - "MOVE"
+          - "MOVE"
+          - "MOVE"
+          - "MOVE"
+          - "MOVE"
+          - "QUEUE_RUN"
+          - "RELEASE_RESULT"
+        expected_reason_codes:
+          - "RBAC_ACTION_DENY"
+        expected_terminal_state: "RELEASE_RESULT blocked with RBAC_ACTION_DENY after UPDATE_ROSTER."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect UPDATE_ROSTER ACCEPTED and later RELEASE blocked RBAC_ACTION_DENY"
+        coverage_class: insider_misuse
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens:
@@ -662,6 +1149,21 @@ golden_suite:
 
     - scenario_id: "GS-SHIFT-CHANGE-002"
       title: "Runtime control: wrong key on UPDATE_ROSTER -> BLOCKED (SIG_ROLE_MISMATCH); downstream action still blocked (no privilege escalation)"
+      governance:
+        hazard: "UPDATE_ROSTER with wrong signing key is blocked; subsequent accession denied."
+        policy_version: "0.1"
+        action_sequence:
+          - "UPDATE_ROSTER"
+          - "CREATE_ACCESSION"
+        expected_reason_codes:
+          - "SIG_ROLE_MISMATCH"
+          - "RBAC_ACTION_DENY"
+        expected_terminal_state: "UPDATE_ROSTER blocked SIG_ROLE_MISMATCH; CREATE_ACCESSION blocked RBAC_ACTION_DENY."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "script.expect blocked_reason_codes SIG_ROLE_MISMATCH then RBAC_ACTION_DENY"
+        coverage_class: insider_misuse
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens:
@@ -680,6 +1182,19 @@ golden_suite:
 
     - scenario_id: "GS-EXPORT-001"
       title: "After normal episode, export-receipts + verify-bundle + export-fhir; assert output files exist and validate"
+      governance:
+        hazard: "Post-episode evidence export and verify-bundle path (artifact integrity, not clinical)."
+        policy_version: "0.1"
+        action_sequence:
+          - "CREATE_ACCESSION"
+          - "ACCEPT_SPECIMEN"
+        expected_reason_codes: []
+        expected_terminal_state: "Accession/accept complete; post_run receipts verify and FHIR export succeed."
+        required_evidence:
+          - "golden_suite scenario_report passed"
+          - "post_run EXPORT_RECEIPTS VERIFY_BUNDLE EXPORT_FHIR artifacts"
+        coverage_class: quality_control_release
+        reviewer: "pending-domain-review"
       initial_state:
         system: { now_s: 0, downtime_active: false }
         specimens:
