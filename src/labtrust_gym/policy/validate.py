@@ -160,6 +160,10 @@ POLICY_FILES_WITH_SCHEMAS: list[tuple[str, str]] = [
         "policy/state_tool_capability_map.v0.1.yaml",
         "state_tool_capability_map.v0.1.schema.json",
     ),
+    (
+        "policy/coverage/hazard_coverage_matrix.v0.1.yaml",
+        "hazard_coverage_matrix.v0.1.schema.json",
+    ),
 ]
 
 
@@ -192,6 +196,17 @@ def validate_policy_file_against_schema(
     except PolicyLoadError as e:
         errors.append(str(e))
         return errors
+    # Security attack suite: resolve evidence_contract_ref / defaults before schema check.
+    if schema_name == "security_attack_suite.v0.1.schema.json" and isinstance(data, dict):
+        from labtrust_gym.policy.attack_evidence import (
+            resolve_suite_evidence_contracts,
+            validate_resolved_evidence_contracts,
+        )
+
+        data = resolve_suite_evidence_contracts(data)
+        errors.extend(validate_resolved_evidence_contracts(data, path_label=str(policy_path)))
+        if errors:
+            return errors
     try:
         validate_against_schema(data, schema, policy_path)
     except PolicyLoadError as e:
@@ -209,12 +224,18 @@ def validate_emits_vocab(root: Path) -> list[str]:
 
 
 def validate_golden_scenarios(root: Path) -> list[str]:
-    """Validate golden_scenarios.v0.1.yaml against its JSON schema."""
-    return validate_policy_file_against_schema(
+    """Validate golden_scenarios.v0.1.yaml against its JSON schema and coverage gate."""
+    errors = validate_policy_file_against_schema(
         root,
         "policy/golden/golden_scenarios.v0.1.yaml",
         "golden_scenarios.v0.1.schema.json",
     )
+    if errors:
+        return errors
+    from labtrust_gym.policy.golden_governance import validate_golden_hazard_coverage_gate
+
+    errors.extend(validate_golden_hazard_coverage_gate(root))
+    return errors
 
 
 def validate_all_policy_schemas(root: Path) -> list[str]:
@@ -222,6 +243,14 @@ def validate_all_policy_schemas(root: Path) -> list[str]:
     errors: list[str] = []
     for policy_rel_path, schema_name in POLICY_FILES_WITH_SCHEMAS:
         errors.extend(validate_policy_file_against_schema(root, policy_rel_path, schema_name))
+    # Golden hazard coverage gate (LTG-PR3): schema pass is not sufficient alone.
+    from labtrust_gym.policy.golden_governance import validate_golden_hazard_coverage_gate
+
+    errors.extend(validate_golden_hazard_coverage_gate(root))
+    # Independent review materials + fail-closed claim flag (LTG-PR8).
+    from labtrust_gym.policy.independent_review import validate_independent_review_gate
+
+    errors.extend(validate_independent_review_gate(root))
     return errors
 
 
