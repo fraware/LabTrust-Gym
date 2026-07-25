@@ -29,15 +29,15 @@ Commands that write result artifacts print the output directory, key generated p
 | run-summary | `--run <dir>` [--format json] | 0 | stdout (text or JSON): one-line stats (episodes, steps, violations, throughput) for the run dir. | metrics_contract |
 | eval-agent | `--task throughput_sla --episodes 1 --agent examples.external_agent_demo:SafeNoOpAgent --out <path> --seed 42` | 0 | `<path>` (results.json) | results.v0.2 |
 | bench-smoke | `--seed 42` | 0 | (writes under CWD or labtrust_runs; results JSON per task) | results.v0.2 |
-| export-receipts | `--run <log.jsonl> --out <dir>` | 0 | `<dir>/EvidenceBundle.v0.1/manifest.json`, receipt_*.v0.1.json | EvidenceBundle.v0.1 |
+| export-receipts | `--run <log.jsonl> --out <dir>` | 0 | `<dir>/EvidenceBundle.v0.1/manifest.json` (includes `reconstruction` provenance), receipt_*.v0.1.json | EvidenceBundle.v0.1, trust_verification.md |
 | export-fhir | `--receipts <dir> --out <dir>` | 0 | `<out>/fhir_bundle.json` (default filename) | fhir_export.md |
 | validate-fhir | `--bundle <path> --terminology <path>` [--strict] | 0 or 1 | (none; violations on stderr; exit 1 with --strict if any code outside value set) | Optional FHIR terminology check; see fhir_export.md. |
-| verify-bundle | `--bundle <EvidenceBundle.v0.1 dir>` or `--strict-fingerprints` | 0 | (none; PASS on stderr) | frozen_contracts.md, trust_verification.md |
-| verify-release | `--release-dir <dir>` optional `--strict-fingerprints` | 0 | (none; summary on stderr; validates EvidenceBundles, risk register, RELEASE_MANIFEST hashes) | frozen_contracts.md, trust_verification.md |
-| build-release-manifest | `--release-dir <dir>` | 0 | `<release-dir>/RELEASE_MANIFEST.v0.1.json` | trust_verification.md |
+| verify-bundle | `--bundle <EvidenceBundle.v0.1 dir>` or `--strict-fingerprints` | 0 | (none; PASS on stderr; recomputes reconstruction digests when present) | frozen_contracts.md, trust_verification.md |
+| verify-release | `--release-dir <dir>` optional `--strict-fingerprints` | 0 | (none; summary on stderr; validates EvidenceBundles, risk register, RELEASE_MANIFEST hashes + reconstruction) | frozen_contracts.md, trust_verification.md |
+| build-release-manifest | `--release-dir <dir>` | 0 | `<release-dir>/RELEASE_MANIFEST.v0.1.json` (artifacts + `reconstruction`) | trust_verification.md |
 | run-security-suite | `--out <dir> --smoke` | 0 | `<dir>/SECURITY/attack_results.json` | security_attack_suite.md |
 | safety-case | `--out <dir>` | 0 | `<dir>/SAFETY_CASE/safety_case.json`, `safety_case.md` | risk_register.md, trust_verification.md |
-| run-official-pack | `--out <dir> --smoke` | 0 | `<dir>/pack_manifest.json`, `baselines/`, `baselines/results/`, `SECURITY/`, `SAFETY_CASE/` | official_benchmark_pack.md |
+| run-official-pack | `--out <dir> --smoke` | 0 | `<dir>/pack_manifest.json` (includes `reconstruction`), `baselines/`, `baselines/results/`, `SECURITY/`, `SAFETY_CASE/` | official_benchmark_pack.md, trust_verification.md |
 | ui-export | `--run <dir> --out <zip>` | 0 | `<out>` (zip: index.json, events.json, receipts_index.json, reason_codes.json) | ui_data_contract.md |
 | export-risk-register | `--out <dir>` or `--out <dir> --runs tests/fixtures/ui_fixtures` | 0 | `<out>/RISK_REGISTER_BUNDLE.v0.1.json` | risk_register_contract.v0.1.md |
 | build-risk-register-bundle | `--out <path>` | 0 | `<path>` (risk_register_bundle.v0.1.json) | risk_register_contract.v0.1.md |
@@ -57,7 +57,8 @@ Commands that write result artifacts print the output directory, key generated p
 | package-release | `--profile minimal --out <dir>` | 0 | `<dir>/MANIFEST.v0.1.json`, `_repr/`, `receipts/`, `FIGURES/` (paper_v0.1) | paper_ready.md, trust_verification.md |
 | generate-official-baselines | `--out <dir> --episodes 2 --seed 42 --force` | 0 | `<dir>/results/` (throughput_sla through insider_key_misuse plus coord_scale, coord_risk JSON), `summary.csv`, `summary.md`, `summary_v0.2.csv`, `summary_v0.3.csv`, `metadata.json` | baseline_registry.v0.1.yaml, metrics_contract |
 | summarize-results | `--in <dir_or_file> --out <dir> --basename summary` | 0 | `<out>/summary.csv`, `summary.md`, `summary_v0.2.csv`, `summary_v0.3.csv` (and optionally run_info.csv, llm_economics.csv). CLI prints the written paths. | metrics_contract.md |
-| determinism-report | `--task throughput_sla --episodes 2 --seed 42 --out <dir>` | 0 | `<dir>/determinism_report.json`, `determinism_report.md` (executive summary Result: PASSED/FAILED at top; run config, hash comparison) | reproducible_builds.md, benchmarks.md |
+| determinism-report | `--task throughput_sla --episodes 2 --seed 42 --out <dir>` | 0 | `<dir>/determinism_report.json`, `determinism_report.md` (executive summary Result: PASSED/FAILED at top; run config, hash comparison) | reproducible_builds.md, benchmarks.md, determinism_contract.md |
+| replay-trajectory | `--out <dir> --actions <actions.json>` or `--episode-log <a.jsonl> --compare-log <b.jsonl>` or `--recorded-run <dir>` | 0 or 1 | `<dir>/replay_summary.json` (status ok\|diverged\|failed; exact-match digests); optional `episode_log_replay.jsonl` | determinism_contract.md, orchestrator/replay.py |
 | train-ppo | `--task throughput_sla --timesteps 100 --seed 42 --out <dir>` | 0 | `<dir>/model.zip` (or run dir with model) | marl_baselines.md |
 | eval-ppo | `--model <model.zip> --task throughput_sla --episodes 2 --seed 42 --out <path>` | 0 | `<path>` (metrics JSON) or stderr | marl_baselines.md |
 | serve | `--host 127.0.0.1 --port <port>` | 0 | (server runs; GET /v0/summary returns 200) | security_online.md, output_controls.md |
