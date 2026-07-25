@@ -8,7 +8,7 @@ Scripted baseline behaviour (ScriptedOpsAgent, ScriptedRunnerAgent, ScriptedQcAg
 
 ## Golden suite coverage / known gaps
 
-The golden suite is updated over time. New scenarios are added from incidents, red-team findings, or new threats. Maintain a "Known gaps" list as new attack variants or failure modes are identified. See [Security attack suite](../risk-and-security/security_attack_suite.md) for suite scope and limits.
+The golden suite is updated over time. New scenarios are added from incidents, red-team findings, or new threats. Every scenario carries **governance metadata** (hazard, coverage class, expected reason codes, terminal state, evidence, reviewer). Uncovered hazards remain **explicit gaps** in [`policy/coverage/hazard_coverage_matrix.v0.1.yaml`](../../policy/coverage/hazard_coverage_matrix.v0.1.yaml); `labtrust validate-policy` fails closed if a scenario claims a coverage class without a matching matrix listing. Change control: [Golden suite governance](../benchmarks/golden_suite_governance.md). Domain `reviewer` values stay `pending-domain-review` until signed independent reviews exist ([charter](../reviews/charter.md)); process materials do not clinically validate the suite. See [Security attack suite](../risk-and-security/security_attack_suite.md) for suite scope and limits. Schema/governance tests (`tests/test_golden_governance.py`) and the independent-review gate (`tests/test_independent_review_gate.py`) run in default CI; the full env golden suite remains gated by `LABTRUST_RUN_GOLDEN=1`.
 
 ## Fuzz harness
 
