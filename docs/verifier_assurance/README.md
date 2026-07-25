@@ -2,7 +2,7 @@
 
 LabTrust-Gym Verifier Assurance turns the blood-sciences simulation into a **stateful, optimization-aware verifier-assurance testbed**.
 
-**Scope of this repository:** local interfaces, offline deterministic campaigns, PCS export/reconstruction, dual-oracle isolation, and preregistered studies VA-10..14. Large multi-host campaign orchestration belongs in `verifier-assurance-lab`.
+**Scope of this repository:** local interfaces, offline deterministic campaigns, PCS export/reconstruction, dual-oracle isolation, sealed train/eval holdouts, and preregistered studies VA-10..15. Large multi-host campaign orchestration belongs in `verifier-assurance-lab`.
 
 **Claim boundary:** simulation and research only. See [non_claims.md](non_claims.md).
 
@@ -12,7 +12,8 @@ LabTrust-Gym Verifier Assurance turns the blood-sciences simulation into a **sta
 |----------|---------|
 | [Architecture](architecture.md) | Package map, dual oracle, offline PPO, sealed IPC, reconstruction CLI |
 | [Baseline freeze (LT-VA-00)](baseline_freeze.md) | Frozen base commit, toolchain, pre-VA snapshot, post-hardening status |
-| [Experiment preregistration](experiment_preregistration.md) | VA-10..13 primary metrics and acceptance contributions |
+| [Experiment preregistration](experiment_preregistration.md) | VA-10..13 / VA-15 primary metrics and acceptance contributions |
+| [Holdouts (VA-15)](holdouts.md) | Sealed train/eval partitions; holdout exploit families |
 | [Non-claims](non_claims.md) | Explicit what LT-VA does **not** claim |
 | [ADR-VA-001](../adr/ADR-VA-001-dual-oracle-architecture.md) | `V_public` / `V_hidden` boundary modes |
 | [ADR-VA-002](../adr/ADR-VA-002-claim-boundaries.md) | Non-clinical claim boundaries |
@@ -31,7 +32,8 @@ LabTrust-Gym Verifier Assurance turns the blood-sciences simulation into a **sta
 | Campaigns | PCS export + clean-checkout reconstruction |
 | Training (VA-13) | Offline-deterministic numpy clipped-PPO vs `V_public`; optional gated `sb3_ppo` |
 | Authorization (VA-11) | GrantRecord → token dual-approval; `LocalFakePFCoreChecker` / external PF-Core, fail-closed `indeterminate` |
-| Studies | Preregistered VA-10..13; aggregate calibration adapter VA-14 |
+| Studies | Preregistered VA-10..13; aggregate calibration adapter VA-14; holdout exploits VA-15 |
+| Holdouts | Sealed train/eval partitions (`HoldoutPartitionManifest.v1`); eval content excluded from public packs |
 
 ## How to run
 
@@ -59,7 +61,8 @@ Exit code `0` when checksums and required tree validate; JSON summary is printed
 | Offline PPO | `labtrust_gym.verifier_assurance.training.offline_ppo` |
 | Public verifier env | `labtrust_gym.verifier_assurance.training.public_verifier_env` |
 | Campaign export / reconstruct | `labtrust_gym.verifier_assurance.campaign.export` / `.reconstruct` |
-| Studies VA-10..13 | `labtrust_gym.verifier_assurance.studies.*` |
+| Studies VA-10..13 / VA-15 | `labtrust_gym.verifier_assurance.studies.*` |
+| Holdout partitions | `labtrust_gym.verifier_assurance.holdouts.partition` |
 | Aggregate calibration | `labtrust_gym.verifier_assurance.calibration.aggregate` |
 
 ## Frozen artifacts (keep)
@@ -81,4 +84,5 @@ Do not commit `_tmp_*` scratch dumps, local campaign outs, or private adjudicati
 | LT-VA-00 | Baseline freeze, ADRs, non-claims, threat-model extension, preregistration |
 | LT-VA-01..09 | Environment profile, dual oracle + sealed IPC, reward composition, snapshot/fork/mutations, causal graph, campaign PCS export, attack access classes |
 | LT-VA-10..14 | Outcome/process, authorization (+ PF-Core adapter), responsibility attribution, verifier co-evolution (offline PPO), aggregate calibration |
+| LT-VA-15 / LTG-PR4 | Sealed train/eval holdouts; sparse/delayed/proxy/selective-omission/seed-transfer exploit families |
 | Hardening | Durable sealed worker, leakage fail-closed, numpy PPO default for CI, `LocalFakePFCoreChecker` when PF-Core unavailable (`indeterminate`, never fabricated acceptance) |

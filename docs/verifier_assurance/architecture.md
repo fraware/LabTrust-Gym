@@ -1,6 +1,6 @@
 # Verifier Assurance Architecture Notes
 
-Implements LT-VA-00..14 inside LabTrust-Gym. Large multi-host orchestration remains out of scope (`verifier-assurance-lab`).
+Implements LT-VA-00..15 inside LabTrust-Gym. Large multi-host orchestration remains out of scope (`verifier-assurance-lab`).
 
 **Non-claims:** simulation/research only; no production clinical assurance. See [non_claims.md](non_claims.md) and EnvironmentProfile `known_fidelity_limits`.
 
@@ -21,7 +21,8 @@ Implements LT-VA-00..14 inside LabTrust-Gym. Large multi-host orchestration rema
 | Campaign export | `src/labtrust_gym/verifier_assurance/campaign/export.py` |
 | Reconstruction CLI | `src/labtrust_gym/verifier_assurance/campaign/reconstruct.py` |
 | Attack handles | `src/labtrust_gym/verifier_assurance/attacks/` |
-| Studies VA-10..13 | `src/labtrust_gym/verifier_assurance/studies/` |
+| Studies VA-10..13 / VA-15 | `src/labtrust_gym/verifier_assurance/studies/` |
+| Holdout partitions (VA-15) | `src/labtrust_gym/verifier_assurance/holdouts/` |
 | Calibration + release (VA-14) | `src/labtrust_gym/verifier_assurance/calibration/` |
 
 ## Dual oracle and process boundary
@@ -36,9 +37,13 @@ Per [ADR-VA-001](../adr/ADR-VA-001-dual-oracle-architecture.md):
 
 Public packs carry `commitment = H(hidden_adjudication || salt || campaign_id)` only. Active hidden labels must not appear in observations, logs, env vars, exception text, or public IPC frames before freeze.
 
+## Sealed train/eval holdouts (VA-15)
+
+Complementary to dual-oracle sealing: `HoldoutPartitionManifest.v1` commits to disjoint train vs eval episode sets and forbids eval episode content in public packs. See [holdouts.md](holdouts.md).
+
 ## Schemas
 
-- LabTrust-local: `policy/schemas/verifier_assurance/*.v1.schema.json`
+- LabTrust-local: `policy/schemas/verifier_assurance/*.v1.schema.json` (includes `HoldoutPartitionManifest.v1`)
 - PCS portable: `policy/schemas/pcs/RewardEvidenceEnvelope.v1.schema.json`
 
 ## Training fidelity (VA-13)
