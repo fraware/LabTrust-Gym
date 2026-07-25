@@ -50,13 +50,27 @@ def run_responsibility_campaign() -> dict[str, Any]:
     )
     parent = env.snapshot()
     case_reports = []
+    tp_sum = 0
+    fp_sum = 0
+    fn_sum = 0
     for case_id in RESPONSIBILITY_CASES:
         structure = _hidden_structure(case_id)
+        hidden_principals = set(structure["principals"])
         branch_a = fork_env(env, branch_id=f"{case_id}:a", snapshot=parent)
         branch_b = fork_env(env, branch_id=f"{case_id}:b", snapshot=parent)
         # Counterfactual: mutate attribution marker only on branch B
         branch_b.env._system_state["attribution_case"] = case_id
         branch_b.env._system_state["responsible_principals"] = list(structure["principals"])
+        # Attribution hypothesis from branch differential markers (research model only).
+        attributed = set(branch_b.env._system_state.get("responsible_principals") or [])
+        tp = len(hidden_principals & attributed)
+        fp = len(attributed - hidden_principals)
+        fn = len(hidden_principals - attributed)
+        tp_sum += tp
+        fp_sum += fp
+        fn_sum += fn
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
         branch_a.seal_terminal()
         branch_b.seal_terminal()
         diff = differential_report(branch_a, branch_b)
@@ -85,14 +99,28 @@ def run_responsibility_campaign() -> dict[str, Any]:
             {
                 "case_id": case_id,
                 "hidden_structure": structure,
+                "attributed_principals": sorted(attributed),
+                "attribution_precision": precision,
+                "attribution_recall": recall,
                 "differential": diff,
+                "branch_records": [branch_a.record.to_dict(), branch_b.record.to_dict()],
                 "causal_graph": graph,
                 "non_legal_disclaimer": NON_LEGAL,
             }
         )
+    precision_all = tp_sum / (tp_sum + fp_sum) if (tp_sum + fp_sum) else 0.0
+    recall_all = tp_sum / (tp_sum + fn_sum) if (tp_sum + fn_sum) else 0.0
     return {
         "study_id": "VA-12",
         "cases": case_reports,
+        "metrics": {
+            "attribution_precision": precision_all,
+            "attribution_recall": recall_all,
+            "true_positives": tp_sum,
+            "false_positives": fp_sum,
+            "false_negatives": fn_sum,
+        },
+        "parent_snapshot": parent.to_dict(),
         "claim_boundary": CLAIM_BOUNDARY,
         "non_legal_disclaimer": NON_LEGAL,
     }

@@ -338,11 +338,16 @@ def apply_control(state: dict[str, Any], control_id: str) -> dict[str, Any]:
 
 
 def run_authorization_campaign(*, allow_local_fake_pf: bool = True) -> dict[str, Any]:
+    from labtrust_gym.verifier_assurance.oracle.dual_oracle import PublicVerifier, default_public_profile
+
     hidden = HiddenOracle(default_hidden_profile())
+    public = PublicVerifier(default_public_profile())
     pf = PFCoreAdapter(allow_local_fake=allow_local_fake_pf)
     results = []
+    public_false_accepts = 0
     for family in AUTH_ATTACK_FAMILIES:
         attacked = apply_auth_attack(family)
+        pub = public.evaluate(attacked)
         adj = hidden.adjudicate(attacked)
         controlled = apply_control(attacked, "enforce_key_lifecycle")
         adj_ctrl = hidden.adjudicate(controlled)
@@ -352,13 +357,18 @@ def run_authorization_campaign(*, allow_local_fake_pf: bool = True) -> dict[str,
         # Never present indeterminate/unavailable as acceptance.
         if pf_result["status"] == "pass" and not pf.available:
             raise RuntimeError("fabricated PF-Core acceptance without checker")
+        if pub.accepted and adj["accepted"] is False:
+            public_false_accepts += 1
         results.append(
             {
                 "family": family,
+                "attack_public_accepted": pub.accepted,
                 "attack_hidden_accepted": adj["accepted"],
                 "control_hidden_accepted": adj_ctrl["accepted"],
+                "public_false_accept": bool(pub.accepted and adj["accepted"] is False),
                 "pf_core": pf_result,
                 "grant_mapping": "token_dual_approval" if family == "replayed_grant" else None,
+                "token_rbac_surface": True,
             }
         )
         if adj["accepted"] is True:
@@ -370,6 +380,11 @@ def run_authorization_campaign(*, allow_local_fake_pf: bool = True) -> dict[str,
     return {
         "study_id": "VA-11",
         "results": results,
+        "metrics": {
+            "public_false_accept_count": public_false_accepts,
+            "public_false_accept_rate": public_false_accepts / max(1, len(AUTH_ATTACK_FAMILIES)),
+            "families": len(AUTH_ATTACK_FAMILIES),
+        },
         "pf_core_checker": pf.checker_name,
         "claim_boundary": CLAIM_BOUNDARY,
         "grant_semantics_adr": "ADR-VA-003",

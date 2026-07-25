@@ -29,11 +29,15 @@ from labtrust_gym.verifier_assurance.training.offline_ppo import (
 )
 
 
-def test_va10_recovers_at_least_three_exploit_families() -> None:
-    result = run_outcome_process_study()
-    assert result["recovered_count"] >= 3
-    families = {e["family"] for e in result["recovered_exploit_families"]}
-    assert len(families) >= 3
+def test_va12_attribution_branches() -> None:
+    result = run_responsibility_campaign()
+    assert len(result["cases"]) == 6
+    assert "legal" in result["non_legal_disclaimer"].lower()
+    assert result["metrics"]["attribution_precision"] == 1.0
+    assert result["metrics"]["attribution_recall"] == 1.0
+    assert "parent_snapshot" in result
+    assert result["parent_snapshot"]["schema_id"] == "CanonicalSnapshot.v1"
+    assert result["cases"][0]["branch_records"]
 
 
 def test_va11_authorization_campaign() -> None:
@@ -41,9 +45,18 @@ def test_va11_authorization_campaign() -> None:
     assert result["study_id"] == "VA-11"
     assert len(result["results"]) >= 10
     assert all(r["attack_hidden_accepted"] is False for r in result["results"])
+    assert result["metrics"]["public_false_accept_count"] >= 1
     assert result["pf_core_checker"] == "local_fake_pf_core"
     assert all(r["pf_core"]["status"] == "fail" for r in result["results"])
     assert all(r["pf_core"]["checker"] == "local_fake_pf_core" for r in result["results"])
+
+
+def test_va10_recovers_at_least_three_exploit_families() -> None:
+    result = run_outcome_process_study()
+    assert result["recovered_count"] >= 3
+    families = {e["family"] for e in result["recovered_exploit_families"]}
+    assert len(families) >= 3
+    assert result["metrics"]["v_public_false_accept_rate"] > 0
 
 
 def test_va11_pf_core_unavailable_is_indeterminate_not_pass() -> None:
@@ -76,12 +89,6 @@ def test_va11_local_fake_pf_typed_contract() -> None:
         predicates=("not_a_real_predicate",),
     )
     assert checker.check(unknown).status == "indeterminate"
-
-
-def test_va12_attribution_branches() -> None:
-    result = run_responsibility_campaign()
-    assert len(result["cases"]) == 6
-    assert "legal" in result["non_legal_disclaimer"].lower()
 
 
 def test_va13_coevolution_fresh_attacker(tmp_path: Path) -> None:
