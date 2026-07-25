@@ -145,19 +145,43 @@ def build_va_release_pack(
         campaign_id="labtrust-va-release-v1",
         environment_profile=env_profile,
         verifier_profiles=[default_public_profile(), default_hidden_profile()],
-        trajectories=[{"study": "VA-10", "rows": va10["rows"][:5]}],
-        snapshots=[{"note": "see study runners for live snapshots"}],
+        trajectories=[
+            {
+                "study": "VA-10",
+                "rows": va10["rows"][:5],
+                "metrics": va10.get("metrics"),
+            }
+        ],
+        snapshots=[va12["parent_snapshot"]],
         reward_evidence=reward_evidence,
         verifier_results=[
             {
                 "va13": va13["acceptance"],
                 "checkpoints": va13.get("checkpoints"),
+                "va11_metrics": va11.get("metrics"),
+                "va12_metrics": va12.get("metrics"),
                 "claim_boundary": CLAIM_BOUNDARY,
             }
         ],
         commitments=[e["commitment"] for e in va10["recovered_exploit_families"]],
         exploit_manifests=exploits,
-        counterfactual_branches=[{"study": "VA-12", "case_count": len(va12["cases"])}],
+        counterfactual_branches=[
+            {
+                "study": "VA-12",
+                "case_count": len(va12["cases"]),
+                "metrics": va12.get("metrics"),
+                "branches": [
+                    {
+                        k: v
+                        for k, v in c["branch_records"][1].items()
+                        if k not in ("hidden_adjudication",)
+                    }
+                    for c in va12["cases"][:3]
+                    if c.get("branch_records")
+                ],
+                "non_legal_disclaimer": va12["non_legal_disclaimer"],
+            }
+        ],
         mutation_profiles=[
             {
                 "schema_id": "MutationProfile.v1",

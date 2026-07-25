@@ -97,3 +97,22 @@ def test_envelope_validation() -> None:
     bad.pop("policy_digest", None)
     with pytest.raises(RewardCompositionError):
         validate_composition_policy(bad)
+
+
+def test_emit_component_breakdown_when_enabled() -> None:
+    policy = legacy_compat_policy()
+    policy = dict(policy)
+    policy.pop("policy_digest", None)
+    policy["emit_component_breakdown_in_info"] = True
+    composer = RewardComposer(policy)
+    rewards, breakdown = composer.step_rewards(
+        ["ops_0"],
+        {"throughput_reward": 1.0},
+        accepted_schedule_agent=None,
+        result_released=True,
+        violation_count=0,
+        blocked_count=0,
+    )
+    assert rewards["ops_0"] == 1.0
+    assert breakdown is not None
+    assert breakdown["ops_0"]["operational_success"] == 1.0
