@@ -6,6 +6,8 @@ Golden suite: run scenarios against env adapter and validate runner output contr
 - Fails if any scenario failed.
 - Uses real adapter (PZParallelAdapter wrapping CoreEnv) in deterministic mode by default.
 - Optional longer or heavy scenarios can be gated by LABTRUST_RUN_GOLDEN=1.
+- Governance metadata / coverage gate (LTG-PR3) is tested in tests/test_golden_governance.py
+  (default CI; does not require LABTRUST_RUN_GOLDEN).
 """
 
 from __future__ import annotations
