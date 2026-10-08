@@ -91,6 +91,31 @@ class LadsAlignedPhMeter:
             - 0.001 * raw_mv / (0.01 * calibration_slope_pct) / thermal
         )
 
+    def systematic_bias_ph(
+        self,
+        true_ph: float,
+        *,
+        temperature_c: float = 25.0,
+        physical_offset_ph: float = 0.0,
+        physical_slope_pct: float = 100.0,
+        calibration_offset_ph: float = 0.0,
+        calibration_slope_pct: float = 100.0,
+    ) -> float:
+        """Expected reporting bias with raw measurement noise removed."""
+        noiseless_raw = self.raw_signal_mv(
+            true_ph,
+            temperature_c=temperature_c,
+            physical_offset_ph=physical_offset_ph,
+            physical_slope_pct=physical_slope_pct,
+        )
+        reported = self.reconstruct_ph(
+            noiseless_raw,
+            temperature_c=temperature_c,
+            calibration_offset_ph=calibration_offset_ph,
+            calibration_slope_pct=calibration_slope_pct,
+        )
+        return float(reported - true_ph)
+
     def measure(
         self,
         true_ph: float,
