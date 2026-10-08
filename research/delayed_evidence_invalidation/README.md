@@ -1,6 +1,6 @@
 # Delayed Evidence Invalidation Study
 
-**Status:** preregistration v0.1.3 effective / no primary results inspected  
+**Status:** preregistration v0.1.4 effective / no primary results inspected  
 **Branch:** `research/delayed-evidence-invalidation-v0`  
 **Base commit:** `7e361583fb3e8ca4f482b072f4ac190e30cc69a5`
 
@@ -23,10 +23,12 @@ The first benchmark uses delayed calibration-drift discovery in an OPC UA LADS-a
 - `AMENDMENT_0.1.1.md` — pre-outcome amendment separating physical drift onset from scientific invalidity onset.
 - `AMENDMENT_0.1.2.md` — pre-outcome amendment freezing indexing, event ordering, drift sign, and false-alarm handling.
 - `AMENDMENT_0.1.3.md` — pre-outcome amendment freezing the optimizer objective, GP-UCB profile, RCGP comparator, and non-stationarity controls.
+- `AMENDMENT_0.1.4.md` — pre-outcome amendment freezing influence-graph orientation and strengthening provenance/active-recovery baselines.
 - `study_contract.v0.1.yaml` — historical machine-readable v0.1 contract.
 - `study_contract.v0.1.1.yaml` — historical amended contract.
 - `study_contract.v0.1.2.yaml` — historical amended contract.
-- `study_contract.v0.1.3.yaml` — **effective** machine-readable contract for implementation and analysis.
+- `study_contract.v0.1.3.yaml` — historical amended contract.
+- `study_contract.v0.1.4.yaml` — **effective** machine-readable contract for implementation and analysis.
 - `REFERENCES.md` — literature and standards that define the prior-art boundary.
 
 ## Claim discipline
@@ -37,4 +39,4 @@ No implementation decision may silently weaken a frozen baseline, outcome defini
 
 ## Effective protocol
 
-Implementation and primary analysis must follow `study_contract.v0.1.3.yaml` together with amendments 0.1.1–0.1.3. Earlier versions remain immutable historical records.
+Implementation and primary analysis must follow `study_contract.v0.1.4.yaml` together with amendments 0.1.1–0.1.4. Earlier versions remain immutable historical records.
