@@ -81,3 +81,26 @@ The most defensible provisional distinction is scientific-semantic:
 - recovery should preserve these distinctions and be evaluated against strong rollback, retraining, robust-optimization, and blanket-remeasurement baselines.
 
 The July 2026 “influence echo” work in agent networks is the closest conceptual warning found so far. Any paper must cite and distinguish it explicitly.
+
+
+## Non-stationary and robust Bayesian optimization
+
+19. Bogunovic, I.; Scarlett, J.; Cevher, V. **Time-Varying Gaussian Process Bandit Optimization.** AISTATS 2016, PMLR 51:314–323.  
+    Relevance: establishes that classical GP-UCB can underperform when stale and fresh observations are treated equally; proposes resetting and smooth-forgetting GP-UCB variants.
+
+20. Deng, Y.; Zhou, X.; Kim, B.; Tewari, A.; Gupta, A.; Shroff, N. **Weighted Gaussian Process Bandits for Non-stationary Environments.** AISTATS 2022, PMLR 151:6909–6932.  
+    Relevance: develops weighted GP regression/UCB for drifting nonlinear reward functions and provides a stronger adjacent non-stationarity baseline family.
+
+21. Kim, G.; Sergi, F. **Validation of Dynamic Bayesian Optimization for a Non-Stationary Human-in-The-Loop Optimization Problem.** *IEEE Robotics and Automation Letters* 11(5):5733–5740 (2026). DOI: 10.1109/LRA.2026.3665072.  
+    Relevance: prospective physical-system validation under deliberately induced gradual non-stationarity; dynamic BO better tracked the changing input-output relationship than conventional BO.
+
+22. Ezzerg, A.; Bogunovic, I.; Knoblauch, J. **Robust Bayesian Optimisation with Unbounded Corruptions.** ICML 2026, PMLR 306:28528–28565.  
+    Relevance: RCGP-UCB is a strong robustness baseline for frequency-constrained unbounded corruptions. Its assumptions do not automatically cover persistent gradual calibration drift. Official software is linked from PMLR; the released repository commit frozen for this study is `68bd978dfe4de28aed02184efc64ea343cfa9afc`.
+
+### Comparator discipline
+
+The primary study now includes both:
+- a corruption-robust RCGP-based comparator; and
+- sliding-window GP-UCB controls for non-stationarity.
+
+Weighted/time-input dynamic BO methods remain important adjacent work. Their omission from the primary v0.1.3 benchmark is an implementation-scope decision, not evidence that they are weaker or irrelevant. Broad optimizer-independent claims require later sensitivity to additional non-stationarity methods.
