@@ -104,3 +104,15 @@ The primary study now includes both:
 - sliding-window GP-UCB controls for non-stationarity.
 
 Weighted/time-input dynamic BO methods remain important adjacent work. Their omission from the primary v0.1.3 benchmark is an implementation-scope decision, not evidence that they are weaker or irrelevant. Broad optimizer-independent claims require later sensitivity to additional non-stationarity methods.
+
+
+## Selective recomputation and provenance-based recovery
+
+23. Cała, J.; Missier, P. **Selective and Recurring Re-computation of Big Data Analytics Tasks: Insights from a Genomics Case Study.** *Big Data Research* 13:76–94 (2018). DOI: 10.1016/j.bdr.2018.06.001.  
+    Relevance: provenance/process-history metadata can identify affected outcomes and selectively recompute only impacted workflow fragments. This is a required strong baseline, not a novel contribution of the present study.
+
+24. Kepler scientific-workflow provenance / Smart Rerun work.  
+    Relevance: provenance caches and dependency analysis support efficient partial reruns by replaying unaffected intermediate products. Generic “dependency graph implies selective rerun” must not be claimed as new.
+
+25. Leo, S.; et al. **Recording provenance of workflow runs with RO-Crate.** *PLOS ONE* 19(9):e0309210 (2024).  
+    Relevance: interoperable workflow-run provenance and partial-rerun support; reinforces the distinction between generic computational lineage and the proposed physical/metrological/selection semantics.
