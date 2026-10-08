@@ -74,3 +74,13 @@ def test_surface_contract() -> None:
     assert benchmark_utility(0.25) <= 0.0
     with pytest.raises(ValueError):
         benchmark_ph_surface(-0.01)
+
+
+def test_systematic_bias_matches_stale_offset_error() -> None:
+    meter = LadsAlignedPhMeter()
+    bias = meter.systematic_bias_ph(
+        6.5,
+        physical_offset_ph=0.20,
+        calibration_offset_ph=0.0,
+    )
+    assert bias == pytest.approx(-0.20, abs=1e-12)
