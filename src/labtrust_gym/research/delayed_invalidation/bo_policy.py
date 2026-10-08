@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Sequence
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -40,7 +40,7 @@ class MissingResearchDependency(RuntimeError):
     """Raised when a research-only optimizer dependency is unavailable."""
 
 
-def _load_botorch() -> tuple[object, object, object, object]:
+def _load_botorch() -> tuple[Any, Any, Any, tuple[Any, Any]]:
     try:
         import torch
         from botorch.fit import fit_gpytorch_mll
