@@ -1,0 +1,8 @@
+# Frozen optimizer environment for delayed-evidence-invalidation v0.1.3.
+# These versions match the pinned EZZERG/RCGP uv.lock where applicable.
+# Research-only: do not add to LabTrust-Gym core dependencies.
+torch==2.8.0
+botorch==0.15.1
+gpytorch==1.14
+numpy==1.26.4
+scipy==1.12.0
