@@ -1,10 +1,10 @@
 """Delayed evidence invalidation study primitives.
 
 The effective study protocol is frozen under:
-research/delayed_evidence_invalidation/study_contract.v0.1.2.yaml
+research/delayed_evidence_invalidation/study_contract.v0.1.3.yaml
 """
 
-from .campaign import (
+from .bo_policy import (\n    GpUcbPolicy,\n    MissingResearchDependency,\n    full_history_gp_ucb,\n    observed_utility,\n    sliding_window_gp_ucb,\n    theory_guided_ucb_multiplier,\n)\nfrom .campaign import (
     CampaignConfig,
     CampaignRun,
     ExperimentPolicy,
@@ -27,15 +27,15 @@ __all__ = [
     "DriftKind",
     "DriftSchedule",
     "ExperimentPolicy",
-    "ExperimentRecord",
-    "LadsAlignedPhMeter",
+    "ExperimentRecord",\n    "GpUcbPolicy",
+    "LadsAlignedPhMeter",\n    "MissingResearchDependency",
     "PhMeasurement",
     "PolicyObservation",
     "SeedBundle",
     "SuspectInterval",
     "benchmark_ph_surface",
-    "benchmark_utility",
+    "benchmark_utility",\n    "full_history_gp_ucb",\n    "observed_utility",
     "derive_seed_bundle",
     "run_campaign",
-    "run_clean_counterfactual",
+    "run_clean_counterfactual",\n    "sliding_window_gp_ucb",\n    "theory_guided_ucb_multiplier",
 ]
