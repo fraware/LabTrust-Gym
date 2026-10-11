@@ -5,7 +5,7 @@ plausibility, hazard coverage, and non-claims language. Recruitment itself is
 out of band.
 
 **Current status:** all approval slots under
-[`benchmarks/reviews/`](../../benchmarks/reviews/README.md) are **UNSIGNED**.
+[`benchmarks/reviews/`](https://github.com/fraware/LabTrust-Gym/blob/main/benchmarks/reviews/README.md) are **UNSIGNED**.
 No review is claimed complete. Independent review does **not** convert
 LabTrust-Gym into a clinically validated or deployment-ready system.
 

@@ -4,7 +4,7 @@ Release-test gate for adapters that external researchers use against a **pinned 
 
 ## Pinned release
 
-Identity lives in [`benchmarks/external_integrations/pinned_release.v1.json`](../../benchmarks/external_integrations/pinned_release.v1.json).
+Identity lives in [`benchmarks/external_integrations/pinned_release.v1.json`](https://github.com/fraware/LabTrust-Gym/blob/main/benchmarks/external_integrations/pinned_release.v1.json).
 
 | Field | Binding |
 |-------|---------|
