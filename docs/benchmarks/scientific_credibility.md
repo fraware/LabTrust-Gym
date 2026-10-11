@@ -76,7 +76,7 @@ Checklist form:
 
 1. [Canonical CoreEnv state machine](../architecture/canonical_state_machine.md)
 2. Transition-level tests for every `_STEP_DISPATCH` / `_STEP_DISPATCH_LATE` action (`tests/test_core_env_transitions.py`)
-3. [`policy/coverage/hazard_coverage_matrix.v0.1.yaml`](../../policy/coverage/hazard_coverage_matrix.v0.1.yaml) (+ schema; wired into `validate-policy`)
+3. [`policy/coverage/hazard_coverage_matrix.v0.1.yaml`](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coverage/hazard_coverage_matrix.v0.1.yaml) (+ schema; wired into `validate-policy`)
 4. This overview document
 
 ### LTG-PR3 deliverables
@@ -88,7 +88,7 @@ Checklist form:
 
 ### LTG-PR7 deliverables
 
-1. Pinned public release: [`benchmarks/external_integrations/pinned_release.v1.json`](../../benchmarks/external_integrations/pinned_release.v1.json) (binds to official baselines v0.2 + VA release pack; `no_live_llm: true`)
+1. Pinned public release: [`benchmarks/external_integrations/pinned_release.v1.json`](https://github.com/fraware/LabTrust-Gym/blob/main/benchmarks/external_integrations/pinned_release.v1.json) (binds to official baselines v0.2 + VA release pack; `no_live_llm: true`)
 2. Gated offline suite: `tests/test_ltg_external_integrations.py` — scripted, Gymnasium, PettingZoo, external Python agent, MARL PPO smoke, VA-13 offline PPO
 3. Reconstructable evidence where applicable (`write_integration_evidence` → EvidenceBundle + `verify_bundle`)
 4. Operator docs: [External integrations](../agents/external_integrations.md)
@@ -101,7 +101,7 @@ Skips cleanly when `[env]` / `[marl]` extras are missing. Default path never cal
 2. [Invitation template](../reviews/invitation_template.md) — out-of-band recruitment text
 3. [Protocol and checklist](../reviews/protocol_and_checklist.md) — scenario framing, hazard coverage, non-claims
 4. [Signed approval gate](../reviews/signed_approval_gate.md) — how approvals gate LTG-PR9
-5. Unsigned report slots + registry: [`benchmarks/reviews/`](../../benchmarks/reviews/README.md) (`*.UNSIGNED.json`; `scientifically_reviewed_claim_allowed: false`)
+5. Unsigned report slots + registry: [`benchmarks/reviews/`](https://github.com/fraware/LabTrust-Gym/blob/main/benchmarks/reviews/README.md) (`*.UNSIGNED.json`; `scientifically_reviewed_claim_allowed: false`)
 6. Schemas + CI gate: `policy/schemas/independent_review_*.v1.schema.json`, `validate_independent_review_gate` (via `labtrust validate-policy`)
 
 **Status:** process materials landed; **no signed approvals exist**. Golden scenarios remain `reviewer: pending-domain-review`. Independent review does **not** clinically validate LabTrust-Gym.
