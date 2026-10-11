@@ -22,7 +22,7 @@
 
 **Install:** `pip install labtrust-gym[env,plots]` then `labtrust --version` and `labtrust quick-eval`.
 
-**Documentation** — The published site at [https://fraware.github.io/LabTrust-Gym/](https://fraware.github.io/LabTrust-Gym/) covers getting started, benchmarks, coordination, PCS, and operations.
+**Documentation** — Browse the [documentation index](docs/getting-started/index.md) and [`docs/`](docs/) for getting started, benchmarks, coordination, PCS, and operations. For a local documentation preview, install `.[docs]` and run `mkdocs serve`.
 
 > **Research and simulation only** — This project targets research, benchmarks, and regression testing inside a simulated hospital lab environment. It excludes production medical or laboratory software. See [SECURITY.md](SECURITY.md) for scope and reporting issues.
 
@@ -251,7 +251,7 @@ Put CLI outputs in `labtrust_runs/` or `--out`. Exit codes, minimal smoke args, 
 | **tests/** | Pytest: golden suite, policy, benchmarks, coordination, risk_injections, studies, export, online, CLI smoke (`test_cli_smoke_matrix.py`), **verifier_assurance/**. |
 | **benchmarks/** | Baseline registry, official baselines (v0.1, v0.2), **verifier_assurance/** frozen VA release packs. |
 | **examples/** | Example agents (external_agent_demo, scripted_ops_agent, llm_agent_mock_demo, etc.). |
-| **docs/** | Published site: [fraware.github.io/LabTrust-Gym](https://fraware.github.io/LabTrust-Gym/). Source under `docs/` (MkDocs): architecture, benchmarks, coordination, PCS, **verifier_assurance**, contracts, security, agents. [Forker guide](docs/getting-started/forkers.md). **docs/assets/** — repo logo (`Logo.png`). |
+| **docs/** | Repository-hosted MkDocs source: architecture, benchmarks, coordination, PCS, **verifier_assurance**, contracts, security, agents. [Forker guide](docs/getting-started/forkers.md). **docs/assets/** — repo logo (`Logo.png`). |
 | **scripts/** | **run_hospital_lab_full_pipeline.py** (orchestrator; `--include-coordination-pack`, `--providers`), **check_llm_backends_live.py**, quickstart, run_required_bench_matrix, extract_paper_claims_snapshot, build_release_fixture, build_viewer_data_from_release, run_external_reviewer_checks. |
 | **tests/fixtures/ui_fixtures/** | Minimal results, episode log, evidence bundle for offline UI. |
 

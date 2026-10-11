@@ -1,7 +1,6 @@
-# MkDocs config for LabTrust-Gym documentation site
+# MkDocs configuration for local documentation builds
 site_name: LabTrust-Gym
 site_description: Multi-agent environment for a self-driving hospital lab (PettingZoo/Gym style) with trust skeleton
-site_url: https://fraware.github.io/LabTrust-Gym/
 repo_url: https://github.com/fraware/LabTrust-Gym
 repo_name: fraware/LabTrust-Gym
 edit_uri: edit/main/docs/
