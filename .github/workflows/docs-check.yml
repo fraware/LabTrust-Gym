@@ -1,0 +1,26 @@
+name: Documentation strict check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - ".github/workflows/docs-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  mkdocs-strict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install documentation dependencies
+        run: python -m pip install -e '.[docs,env]'
+      - name: Verify documentation and internal links
+        run: mkdocs build --strict --site-dir /tmp/labtrust-mkdocs-ci
