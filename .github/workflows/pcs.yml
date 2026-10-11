@@ -73,16 +73,47 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: SentinelOps-CI/pcs-core
+          ref: 9c971f5f9da8a424924dd8f48d6a3b71a1009e1b
           path: pcs-core
       - uses: actions/checkout@v4
         with:
           repository: fraware/pcs-bench
+          ref: 6092cccefee7841dfde1393e6881d433838a2252
           path: pcs-bench
       - name: Apply LabTrust pcs-core schema profiles
         run: python scripts/apply_pcs_core_labtrust_schema_profiles.py --pcs-core pcs-core
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Prepare pinned pcs-core Python packaging metadata
+        run: |
+          python - <<'PY'
+          import shutil
+          import subprocess
+          from pathlib import Path
+
+          root = Path("pcs-core")
+          revision = subprocess.check_output(
+              ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
+          ).strip()
+          expected = "9c971f5f9da8a424924dd8f48d6a3b71a1009e1b"
+          if revision != expected:
+              raise RuntimeError(f"Unexpected pcs-core revision: {revision}")
+          metadata = root / "python" / "pyproject.toml"
+          original = metadata.read_text(encoding="utf-8")
+          previous = 'readme = "../README.md"'
+          if original.count(previous) != 1:
+              raise RuntimeError("Unknown upstream packaging metadata; review needed")
+          source_readme = root / "README.md"
+          destination = root / "python" / "README.md"
+          if not source_readme.is_file() or destination.exists():
+              raise RuntimeError("Unexpected upstream README layout")
+          metadata.write_text(
+              original.replace(previous, 'readme = "README.md"'), encoding="utf-8"
+          )
+          shutil.copyfile(source_readme, destination)
+          print(f"Applied README-only packaging repair to pinned pcs-core {revision}")
+          PY
       - name: Install pcs-core, pcs-bench, and LabTrust-Gym
         run: |
           pip install -e "pcs-core/python"
