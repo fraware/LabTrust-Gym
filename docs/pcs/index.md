@@ -98,7 +98,7 @@ python -m labtrust_gym.pcs.sync_pcs_core_rc --verify-only --pcs-core ../pcs-core
 | Repository | Role |
 |------------|------|
 | [pcs-core](https://github.com/SentinelOps-CI/pcs-core) | Schemas, canonical hashing, `pcs validate` |
-| [pcs-bench](https://github.com/SentinelOps-CI/pcs-bench) | Benchmark runner, `validate-ingest`, `validate-cases` |
+| [pcs-bench](https://github.com/fraware/pcs-bench) | Benchmark runner, `validate-ingest`, `validate-cases` |
 | [CertifyEdge](https://github.com/fraware/CertifyEdge) | Trace certificates |
 | [provability-fabric](https://github.com/SentinelOps-CI/provability-fabric) | Verify and sign science claim bundles |
 | [scientific-memory](https://github.com/fraware/scientific-memory) | Import and render signed claims |
