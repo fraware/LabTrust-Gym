@@ -162,3 +162,56 @@ def test_clean_tree_no_violations(tmp_path: Path) -> None:
     )
     violations = scan_root(tmp_path)
     assert not violations
+
+
+def test_exception_types_are_distinct_from_unimplemented_functions(tmp_path: Path) -> None:
+    """A handler and a custom exception class are legal; an unfinished function fails."""
+    _write_tree(
+        tmp_path,
+        {
+            "src/types.py": (
+                "class Unavailable(NotImplementedError):\\n    pass\\n"
+                "def handle():\\n"
+                "    try:\\n        return 1\\n"
+                "    except (ValueError, NotImplementedError):\\n        return 0\\n"
+            ),
+            "src/unimplemented.py": "def unfinished():\\n    raise NotImplementedError('TODO')\\n",
+        },
+    )
+    problems = [
+        _norm_path(p, tmp_path)
+        for p, _, token in scan_root(tmp_path)
+        if token == "NotImplementedError"
+    ]
+    assert problems == ["src/unimplemented.py"]
+
+
+def test_template_scaffold_is_excluded_without_excluding_production(tmp_path: Path) -> None:
+    _write_tree(
+        tmp_path,
+        {
+            "templates/pcs_workflow_template/workflow.py": "raise NotImplementedError('template')\\n",
+            "src/actual.py": "raise NotImplementedError('production')\\n",
+        },
+    )
+    problems = [_norm_path(p, tmp_path) for p, _, _ in scan_root(tmp_path)]
+    assert problems == ["src/actual.py"]
+
+
+def test_schema_fields_are_precisely_exempt_and_other_policy_markers_fail(
+    tmp_path: Path,
+) -> None:
+    _write_tree(
+        tmp_path,
+        {
+            "policy/schemas/pcs/LabtrustBenchmarkExtension.v0.schema.json": (
+                '"placeholder_fields": {\\n'
+                '"description": "Documents placeholder benchmark_case fields when pcs-core expects null on valid cases.",\\n'
+                '"description": "Unexpected placeholder claim.",\\n'
+            ),
+        },
+    )
+    failures = [
+        (line, token) for _, line, token in scan_root(tmp_path) if token == "placeholder"
+    ]
+    assert failures == [(3, "placeholder")]
