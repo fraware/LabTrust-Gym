@@ -2,7 +2,7 @@
 
 LabTrust-Gym is the reference workflow producer for the hospital lab QC release benchmark.
 It emits `pcs_bench_ingest.v0.json` aligned with [pcs-core](https://github.com/SentinelOps-CI/pcs-core)
-`PcsBenchIngest.v0` and consumable by [pcs-bench](https://github.com/SentinelOps-CI/pcs-bench).
+`PcsBenchIngest.v0` and consumable by [pcs-bench](https://github.com/fraware/pcs-bench).
 
 ## Canonical workflow identity
 
