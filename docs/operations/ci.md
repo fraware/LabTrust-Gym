@@ -63,7 +63,7 @@ Or run the script directly: `bash scripts/run_verification_battery.sh` (from rep
 
 ### PCS QC-release (path-filtered workflow)
 
-Workflow **pcs** runs when PCS-related paths change. It checks out [pcs-core](https://github.com/SentinelOps-CI/pcs-core) and [pcs-bench](https://github.com/SentinelOps-CI/pcs-bench), applies LabTrust’s `RuntimeReceipt.v0` schema profile, then runs tests, export validation, benchmark generation, reproducibility ingest, producer contract checks, release protocol verification, failure gallery, and smoke scenarios.
+Workflow **pcs** runs when PCS-related paths change. It checks out [pcs-core](https://github.com/SentinelOps-CI/pcs-core) and [pcs-bench](https://github.com/fraware/pcs-bench), applies LabTrust’s `RuntimeReceipt.v0` schema profile, then runs tests, export validation, benchmark generation, reproducibility ingest, producer contract checks, release protocol verification, failure gallery, and smoke scenarios.
 
 Run `scripts/setup_pcs_dev.ps1` for an isolated `.venv-pcs`. Full local parity follows this sequence.
 
