@@ -4,6 +4,16 @@ name: Docs
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/docs.yml"
+      - "docs/**"
+      - "mkdocs.yml"
+      - "scripts/build_viewer_data_from_release.sh"
+      - "src/labtrust_gym/pcs/**"
+      - "src/labtrust_gym/verifier_assurance/**"
+      - "pyproject.toml"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +34,42 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Checkout pinned PCS validator dependency
+        uses: actions/checkout@v4
+        with:
+          repository: SentinelOps-CI/pcs-core
+          ref: 9c971f5f9da8a424924dd8f48d6a3b71a1009e1b
+          path: pcs-core
+
+      - name: Verify and prepare pinned PCS Python metadata
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          import subprocess
+
+          root = Path("pcs-core")
+          actual = subprocess.check_output(
+              ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
+          ).strip()
+          expected = "9c971f5f9da8a424924dd8f48d6a3b71a1009e1b"
+          if actual != expected:
+              raise RuntimeError(f"Unexpected PCS revision: {actual}")
+          spec = root / "python" / "pyproject.toml"
+          original = spec.read_text(encoding="utf-8")
+          old = 'readme = "../README.md"'
+          if original.count(old) != 1:
+              raise RuntimeError("PCS packaging metadata changed; review required")
+          readme = root / "README.md"
+          if not readme.is_file():
+              raise RuntimeError("Expected pinned PCS README is missing")
+          shutil.copyfile(readme, root / "python" / "README.md")
+          spec.write_text(original.replace(old, 'readme = "README.md"'), encoding="utf-8")
+          PY
+
+      - name: Install pinned PCS validator
+        run: python -m pip install -e pcs-core/python
 
       - name: Install package (docs + env so mkdocstrings can import labtrust_gym)
         run: pip install -e '.[docs,env]'
@@ -48,6 +94,7 @@ jobs:
           path: ./site
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:
