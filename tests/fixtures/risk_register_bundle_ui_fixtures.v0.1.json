@@ -619,7 +619,7 @@
     "method_risk_matrix": "8a44089fce4ac7e95cdc1040987fc5bddfd7d4b4fc6348dbc7fc851a753fd195",
     "risk_registry": "74c6a81361dd50e0d291e8d21cdb21ce0d2996bbf5f56ae93501d8dc51280b45",
     "safety_case_claims": "8de856fa7fb6b2b3a1aed725971cb2fc9cfd20b2210dc9a1565e6445a998d749",
-    "security_attack_suite": "b994010c6d13810b66621a8c3169d13aed8cc144584af50ef66976d7bc18c1e0"
+    "security_attack_suite": "bada4e173a03dff42b598203cf09df2705699a16a7c81cd73b700726e5fdc829"
   },
   "reproduce": [
     {
