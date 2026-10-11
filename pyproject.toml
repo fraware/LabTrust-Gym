@@ -44,7 +44,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/fraware/LabTrust-Gym"
-Documentation = "https://fraware.github.io/LabTrust-Gym/"
+Documentation = "https://github.com/fraware/LabTrust-Gym/tree/main/docs"
 Repository = "https://github.com/fraware/LabTrust-Gym"
 "Bug Tracker" = "https://github.com/fraware/LabTrust-Gym/issues"
 
