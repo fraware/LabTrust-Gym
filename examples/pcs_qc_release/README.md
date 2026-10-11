@@ -46,7 +46,7 @@ labtrust validate-pcs --run runs/qc-release
 labtrust export-pcs-handoff --out handoff/
 ```
 
-**Documentation:** [Published PCS docs](https://fraware.github.io/LabTrust-Gym/pcs/) (quickstart, operator runbook, release gate). Source: [docs/pcs/index.md](../../docs/pcs/index.md), [docs/pcs_trace_model.md](../../docs/pcs_trace_model.md).
+**Documentation:** [PCS overview](../../docs/pcs/index.md), [operator runbook](../../docs/examples/pcs_qc_release-operator.md), [release gate](../../docs/pcs_v01_clean_chain.md), and [trace model](../../docs/pcs_trace_model.md).
 
 Regenerate golden snapshots (uses `PCS_DETERMINISTIC=1`; no git HEAD required):
 
