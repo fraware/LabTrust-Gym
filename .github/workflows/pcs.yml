@@ -76,7 +76,7 @@ jobs:
           path: pcs-core
       - uses: actions/checkout@v4
         with:
-          repository: SentinelOps-CI/pcs-bench
+          repository: fraware/pcs-bench
           path: pcs-bench
       - name: Apply LabTrust pcs-core schema profiles
         run: python scripts/apply_pcs_core_labtrust_schema_profiles.py --pcs-core pcs-core
