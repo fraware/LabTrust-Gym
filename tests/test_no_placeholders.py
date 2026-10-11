@@ -170,12 +170,12 @@ def test_exception_types_are_distinct_from_unimplemented_functions(tmp_path: Pat
         tmp_path,
         {
             "src/types.py": (
-                "class Unavailable(NotImplementedError):\\n    pass\\n"
-                "def handle():\\n"
-                "    try:\\n        return 1\\n"
-                "    except (ValueError, NotImplementedError):\\n        return 0\\n"
+                "class Unavailable(NotImplementedError):\n    pass\n"
+                "def handle():\n"
+                "    try:\n        return 1\n"
+                "    except (ValueError, NotImplementedError):\n        return 0\n"
             ),
-            "src/unimplemented.py": "def unfinished():\\n    raise NotImplementedError('TODO')\\n",
+            "src/unimplemented.py": "def unfinished():\n    raise NotImplementedError('TODO')\n",
         },
     )
     problems = [
@@ -190,8 +190,8 @@ def test_template_scaffold_is_excluded_without_excluding_production(tmp_path: Pa
     _write_tree(
         tmp_path,
         {
-            "templates/pcs_workflow_template/workflow.py": "raise NotImplementedError('template')\\n",
-            "src/actual.py": "raise NotImplementedError('production')\\n",
+            "templates/pcs_workflow_template/workflow.py": "raise NotImplementedError('template')\n",
+            "src/actual.py": "raise NotImplementedError('production')\n",
         },
     )
     problems = [_norm_path(p, tmp_path) for p, _, _ in scan_root(tmp_path)]
@@ -205,9 +205,9 @@ def test_schema_fields_are_precisely_exempt_and_other_policy_markers_fail(
         tmp_path,
         {
             "policy/schemas/pcs/LabtrustBenchmarkExtension.v0.schema.json": (
-                '"placeholder_fields": {\\n'
-                '"description": "Documents placeholder benchmark_case fields when pcs-core expects null on valid cases.",\\n'
-                '"description": "Unexpected placeholder claim.",\\n'
+                '"placeholder_fields": {\n'
+                '"description": "Documents placeholder benchmark_case fields when pcs-core expects null on valid cases.",\n'
+                '"description": "Unexpected placeholder claim.",\n'
             ),
         },
     )
