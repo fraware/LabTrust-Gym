@@ -60,7 +60,7 @@ provide an explicit signed report.
 
 Sincerely,
 [MAINTAINER_NAME]
-[AFFILIATION]
+\[AFFILIATION\]
 
 ---
 

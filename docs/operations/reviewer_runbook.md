@@ -71,7 +71,7 @@ approval slots, and the fail-closed gate that LTG-PR9 uses before any
 - [Reviewer charter](../reviews/charter.md)
 - [Protocol and checklist](../reviews/protocol_and_checklist.md)
 - [Signed approval gate](../reviews/signed_approval_gate.md)
-- Artifact slots: [`benchmarks/reviews/`](../../benchmarks/reviews/README.md)
+- Artifact slots: [`benchmarks/reviews/`](https://github.com/fraware/LabTrust-Gym/blob/main/benchmarks/reviews/README.md)
 
 **Status:** all three role slots are UNSIGNED. Passing the commands above does not
 approve golden scenarios or clinically validate LabTrust-Gym. Golden scenarios keep
