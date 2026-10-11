@@ -184,7 +184,7 @@ def _check_global_fails(path: Path, root: Path, lines: list[str]) -> list[tuple[
             if (
                 pat == "NotImplementedError"
                 and i in allowed_exception_lines
-                and not re.search(r"\\braise\\s+NotImplementedError\\b", line)
+                and not re.search(r"\braise\s+NotImplementedError\b", line)
             ):
                 continue
             violations.append((i, pat))
@@ -218,10 +218,15 @@ def _check_word_placeholder_stub(path: Path, root: Path, lines: list[str]) -> li
         if _is_secret_scrubber(rel_path) and "placeholder" in line.lower():
             continue
         if "placeholder" in line.lower() and not allow_placeholder:
-            # These two literal schema fields describe compatibility metadata,
-            # not an unfinished security policy or execution implementation.
+            # Exact schema declarations describe compatibility metadata;
+            # unrelated unfinished policy text still fails the scan.
             canonical_schema = "policy/schemas/pcs/LabtrustBenchmarkExtension.v0.schema.json"
-            schema_field = re.match(r'^\\s*"placeholder_fields":\\s*\\{\\s*
+            recognized_fields = {
+                '"placeholder_fields": {',
+                '"description": "Documents placeholder benchmark_case fields when pcs-core expects null on valid cases.",',
+            }
+            if rel_path != canonical_schema or line.strip() not in recognized_fields:
+                violations.append((i, "placeholder"))
         # In tests/, allow capital-S "Stub" (e.g. StubTask); fail only on lowercase "stub"
         if "stub" in line.lower() and not allow_stub:
             if rel_path.startswith("tests/") and re.search(r"\bstub\b", line):
