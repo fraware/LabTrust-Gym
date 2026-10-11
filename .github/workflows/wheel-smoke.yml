@@ -29,6 +29,19 @@ jobs:
           .venv-wheel/bin/pip install pytest  # audit-selfcheck doctor (extras_dev) and risk_register_contract_gate
       - name: Audit selfcheck (doctor)
         run: .venv-wheel/bin/labtrust audit-selfcheck --out ./audit_out
+      - name: Show audit diagnostics on failure
+        if: failure()
+        run: |
+          if test -f audit_out/AUDIT_SELF_CHECK.json; then
+            python -m json.tool audit_out/AUDIT_SELF_CHECK.json
+          fi
+      - name: Upload audit diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-audit-diagnostics
+          path: audit_out/AUDIT_SELF_CHECK.json
+          if-no-files-found: warn
       - name: Validate policy
         run: .venv-wheel/bin/labtrust validate-policy
       - name: Quick eval (smoke)
