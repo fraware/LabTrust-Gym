@@ -12,7 +12,7 @@ Obtain independent judgment that:
 1. Golden scenarios (GS-*) are **plausible as laboratory-workflow *simulations***
    for the stated hazard class (not that they mirror any named clinical site).
 2. Hazard coverage in
-   [`policy/coverage/hazard_coverage_matrix.v0.1.yaml`](../../policy/coverage/hazard_coverage_matrix.v0.1.yaml)
+   [`policy/coverage/hazard_coverage_matrix.v0.1.yaml`](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coverage/hazard_coverage_matrix.v0.1.yaml)
    and scenario `governance` metadata is **honest** (covered / partial / gap).
 3. Public docs keep **fail-closed non-claims** about clinical validation and
    deployment readiness.
