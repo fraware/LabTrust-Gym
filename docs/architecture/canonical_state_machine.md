@@ -233,4 +233,4 @@ Tests: `tests/test_core_env_transitions.py` (`test_blocked_hold_specimen_does_no
 
 ## Related coverage
 
-Hazard × scenario matrix: [`policy/coverage/hazard_coverage_matrix.v0.1.yaml`](../../policy/coverage/hazard_coverage_matrix.v0.1.yaml). Program overview: [Scientific credibility](../benchmarks/scientific_credibility.md).
+Hazard × scenario matrix: [`policy/coverage/hazard_coverage_matrix.v0.1.yaml`](https://github.com/fraware/LabTrust-Gym/blob/main/policy/coverage/hazard_coverage_matrix.v0.1.yaml). Program overview: [Scientific credibility](../benchmarks/scientific_credibility.md).
