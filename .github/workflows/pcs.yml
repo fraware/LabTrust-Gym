@@ -65,6 +65,8 @@ on:
 jobs:
   pcs:
     runs-on: ubuntu-latest
+    env:
+      PCS_CORE_PATH: ${{ github.workspace }}/pcs-core
     defaults:
       run:
         shell: bash
