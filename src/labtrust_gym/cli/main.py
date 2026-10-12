@@ -3081,6 +3081,8 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
 
     # 5. risk register contract gate (pytest)
     t0 = time.perf_counter()
+    contract_stdout = ""
+    contract_stderr = ""
     try:
         r = subprocess.run(
             [sys.executable, "-m", "pytest", "tests/test_risk_register_contract_gate.py", "-v", "--tb=short"],
@@ -3090,11 +3092,21 @@ def _run_audit_selfcheck(args: argparse.Namespace) -> int:
             timeout=120,
         )
         passed = r.returncode == 0
-    except Exception:
+        if not passed:
+            contract_stdout = r.stdout[-8000:]
+            contract_stderr = r.stderr[-4000:]
+    except Exception as exc:
         passed = False
-    steps.append(
-        {"name": "risk_register_contract_gate", "pass": passed, "duration_s": round(time.perf_counter() - t0, 3)}
-    )
+        contract_stderr = str(exc)
+    contract_step: dict[str, Any] = {
+        "name": "risk_register_contract_gate",
+        "pass": passed,
+        "duration_s": round(time.perf_counter() - t0, 3),
+    }
+    if not passed:
+        contract_step["output"] = contract_stdout
+        contract_step["error"] = contract_stderr
+    steps.append(contract_step)
     if not passed:
         all_pass = False
 
