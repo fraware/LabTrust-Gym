@@ -26,7 +26,10 @@ jobs:
       - name: Install documentation dependencies
         run: python -m pip install -e '.[docs,env]'
       - name: Verify documentation and internal links
-        run: mkdocs build --strict --site-dir /tmp/labtrust-mkdocs-ci
+        run: |
+          mkdocs build --strict --site-dir /tmp/labtrust-mkdocs-ci
+          test -s /tmp/labtrust-mkdocs-ci/index.html
+          test -s /tmp/labtrust-mkdocs-ci/getting-started/index.html
       - name: Checkout pinned PCS dependency for release viewer
         uses: actions/checkout@v4
         with:
