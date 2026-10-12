@@ -1,4 +1,4 @@
-# Build and deploy MkDocs site + risk register viewer + viewer-data/latest to GitHub Pages (only on main)
+# Build and deploy MkDocs documentation plus generated viewer-data/latest on main.
 name: Docs
 
 on:
@@ -50,10 +50,14 @@ jobs:
       - name: Build viewer-data from release
         run: bash scripts/build_viewer_data_from_release.sh
 
-      - name: Assemble site with viewer and viewer-data
+      - name: Stage generated release data in documentation site
         run: |
-          cp -r viewer site/viewer
-          cp -r viewer-data site/viewer-data
+          test -s viewer-data/latest/latest.json
+          test -s viewer-data/latest/RISK_REGISTER_BUNDLE.v0.1.json
+          mkdir -p site/viewer-data
+          cp -a viewer-data/latest site/viewer-data/
+          test -s site/viewer-data/latest/latest.json
+          test -s site/viewer-data/latest/RISK_REGISTER_BUNDLE.v0.1.json
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -70,5 +74,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        continue-on-error: true
-        # If deploy fails with 404, enable Pages: repo Settings -> Pages -> Source: GitHub Actions
+        # Deploy errors remain blocking. Configure Pages to use GitHub Actions in repository settings.
