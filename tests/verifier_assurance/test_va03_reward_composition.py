@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 
 import pytest
 
 from labtrust_gym.verifier_assurance.reward.composition import (
     COMPONENT_VOCAB,
+    _reward_schema_path,
     RewardComposer,
     RewardCompositionError,
     apply_legacy_rewards,
@@ -116,3 +118,17 @@ def test_emit_component_breakdown_when_enabled() -> None:
     assert rewards["ops_0"] == 1.0
     assert breakdown is not None
     assert breakdown["ops_0"]["operational_success"] == 1.0
+
+def test_reward_schema_paths_respect_explicit_policy_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An installed module must resolve schemas through its configured policy root."""
+    repo = Path(__file__).resolve().parents[2]
+    monkeypatch.setenv("LABTRUST_POLICY_DIR", str(repo / "policy"))
+    composition_schema = _reward_schema_path(
+        "verifier_assurance", "RewardCompositionPolicy.v1.schema.json"
+    )
+    envelope_schema = _reward_schema_path("pcs", "RewardEvidenceEnvelope.v1.schema.json")
+    assert composition_schema.is_file()
+    assert envelope_schema.is_file()
+    assert composition_schema.is_relative_to(repo / "policy")
+    assert envelope_schema.is_relative_to(repo / "policy")
+
