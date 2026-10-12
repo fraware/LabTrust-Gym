@@ -271,3 +271,26 @@ def test_coord_summary_includes_metrics(tmp_path: Path) -> None:
     assert len(rows) >= 1
     row = rows[0]
     assert "sec.attack_success_rate" in row or "robustness.resilience_score" in row
+
+def test_coord_risk_evidence_type_is_supported_without_accepting_unknown_types() -> None:
+    """Preserve the evidence type emitted by the strict coordination-risk producer."""
+    root = _repo_root()
+    bundle = build_risk_register_bundle(
+        root,
+        run_dirs=[],
+        include_generated_at=False,
+        include_git_hash=False,
+    )
+    entry = {
+        "evidence_id": "EVID-COORD-RISK-SYNTHETIC",
+        "type": "coord_risk_run",
+        "status": "present",
+        "path": "runs/coord_risk_fixture/coord_risk_results.json",
+        "risk_ids": ["R-SYS-001"],
+    }
+    bundle["evidence"].append(entry)
+    assert validate_bundle_against_schema(bundle, root) == []
+
+    entry["type"] = "unrecognized_evidence_class"
+    assert validate_bundle_against_schema(bundle, root)
+
