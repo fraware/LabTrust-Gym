@@ -8,6 +8,9 @@ on:
       - "mkdocs.yml"
       - "pyproject.toml"
       - ".github/workflows/docs-check.yml"
+      - ".github/workflows/docs.yml"
+      - "scripts/ci/prepare_pcs_core_python.py"
+      - "scripts/build_viewer_data_from_release.sh"
 
 permissions:
   contents: read
@@ -24,3 +27,20 @@ jobs:
         run: python -m pip install -e '.[docs,env]'
       - name: Verify documentation and internal links
         run: mkdocs build --strict --site-dir /tmp/labtrust-mkdocs-ci
+      - name: Checkout pinned PCS dependency for release viewer
+        uses: actions/checkout@v4
+        with:
+          repository: SentinelOps-CI/pcs-core
+          ref: 9c971f5f9da8a424924dd8f48d6a3b71a1009e1b
+          path: pcs-core
+      - name: Prepare pinned PCS Python package
+        run: python scripts/ci/prepare_pcs_core_python.py pcs-core
+      - name: Install PCS dependency and viewer packages
+        run: |
+          python -m pip install -e pcs-core/python
+          python -m pip install -e '.[dev,env,plots]'
+      - name: Verify viewer-data generation
+        run: |
+          bash scripts/build_viewer_data_from_release.sh
+          test -s viewer-data/latest/latest.json
+          test -s viewer-data/latest/RISK_REGISTER_BUNDLE.v0.1.json
