@@ -137,7 +137,7 @@
         "evidence_id": { "type": "string" },
         "type": {
           "type": "string",
-          "enum": ["security_suite", "coordination_study", "coordination_pack", "official_pack", "safety_case", "bundle_verification", "other"]
+          "enum": ["security_suite", "coordination_study", "coordination_pack", "coord_risk_run", "official_pack", "safety_case", "bundle_verification", "other"]
         },
         "path": { "type": "string", "description": "Repo-relative or run-relative path; empty or omitted for evidence gaps (status=missing)." },
         "label": { "type": "string" },
