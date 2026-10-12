@@ -6,6 +6,7 @@ import copy
 import hashlib
 from typing import Any, Mapping
 
+from labtrust_gym.config import get_repo_root
 from labtrust_gym.errors import PolicyLoadError
 from labtrust_gym.policy.loader import load_json, validate_against_schema
 from labtrust_gym.util.json_utils import canonical_json
@@ -26,20 +27,9 @@ COMPONENT_VOCAB = (
     "safety_violation_penalty",
 )
 
-_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[4]
-    / "policy"
-    / "schemas"
-    / "verifier_assurance"
-    / "RewardCompositionPolicy.v1.schema.json"
-)
-_ENVELOPE_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[4]
-    / "policy"
-    / "schemas"
-    / "pcs"
-    / "RewardEvidenceEnvelope.v1.schema.json"
-)
+def _reward_schema_path(*parts: str) -> Path:
+    """Resolve a policy schema using package, checkout, or explicit configuration."""
+    return get_repo_root() / "policy" / "schemas" / Path(*parts)
 
 
 class RewardCompositionError(ValueError):
@@ -52,8 +42,9 @@ def compute_policy_digest(policy: dict[str, Any]) -> str:
 
 
 def validate_composition_policy(policy: dict[str, Any]) -> dict[str, Any]:
+    schema_path = _reward_schema_path("verifier_assurance", "RewardCompositionPolicy.v1.schema.json")
     try:
-        validate_against_schema(policy, load_json(_SCHEMA_PATH), path=_SCHEMA_PATH)
+        validate_against_schema(policy, load_json(schema_path), path=schema_path)
     except PolicyLoadError as exc:
         raise RewardCompositionError(str(exc)) from exc
     weights = policy.get("weights") or {}
@@ -209,8 +200,9 @@ def build_reward_evidence_envelope(
         "public_decision": public_decision,
         "claim_boundary": CLAIM_BOUNDARY,
     }
+    schema_path = _reward_schema_path("pcs", "RewardEvidenceEnvelope.v1.schema.json")
     try:
-        validate_against_schema(envelope, load_json(_ENVELOPE_SCHEMA_PATH), path=_ENVELOPE_SCHEMA_PATH)
+        validate_against_schema(envelope, load_json(schema_path), path=schema_path)
     except PolicyLoadError as exc:
         raise RewardCompositionError(str(exc)) from exc
     return envelope
