@@ -1,0 +1,360 @@
+schema_version: delayed_evidence_invalidation.v0.1.3
+status: preregistered_amended
+frozen_date: "2026-10-08"
+repository:
+  name: fraware/LabTrust-Gym
+  base_commit: 7e361583fb3e8ca4f482b072f4ac190e30cc69a5
+  branch: research/delayed-evidence-invalidation-v0
+
+study:
+  id: dei_ph_drift_v0_1_3
+  title: Delayed Evidence Invalidation and Scientific-State Recovery
+  mode: simulation
+  primary_failure_family: metrological_delayed_invalidation
+  no_new_repository: true
+
+state_model:
+  components:
+    - physical_state
+    - metrological_state
+    - evidence_state
+    - scientific_model_state
+    - selection_policy_state
+  influence_edges:
+    - MEASURED_UNDER
+    - DERIVED_FROM
+    - UPDATES
+    - SELECTED_BY
+    - SUPPORTS
+    - EXECUTED_ON
+  validity_states:
+    - provisional
+    - admitted
+    - quarantined
+    - invalidated
+    - superseded
+  descendant_dispositions:
+    severity_order:
+      - INVALID
+      - RECOMPUTE
+      - SELECTION_TAINTED
+      - UNAFFECTED
+
+substrate:
+  instrument_semantics: opcua_lads_ph_meter_reference
+  reference_repository: opcua-lads/lads-server-collection
+  reference_component: servers/lads-ph-meter
+  required_features:
+    - nernst_signal_model
+    - temperature_compensation
+    - slope
+    - offset
+    - raw_signal
+    - calibration_values
+    - calibration_methods
+  note: >
+    Python reimplementation is permitted for deterministic offline campaigns only if
+    benchmark-level semantics are checked against the reference implementation.
+
+scientific_surface:
+  domain:
+    x_min: 0.0
+    x_max: 1.0
+  true_property:
+    expression: "7.0 + 1.20*sin(2*pi*x) + 0.35*cos(6*pi*x) + 0.25*x"
+    hidden_from_policy: true
+  target_ph: 7.40
+  utility:
+    expression: "-(true_ph - 7.40)^2"
+  realism_claim: false
+
+campaign:
+  experiment_indexing: one_based
+  scientific_experiments: 240
+  initial_design_points: 16
+  adaptive_experiments: 224
+  retained_sample_per_experiment: true
+  check_interval_experiments: 20
+  check_replicates: 5
+  check_reference_ph: 7.00
+  check_ordering: immediately_after_scientific_experiment
+  check_uses_same_current_metrological_state: true
+
+noise_calibration:
+  seed: 20261008
+  readings: 1000
+  reference_ph: 7.00
+  output: sigma0
+  excluded_from_primary_analysis: true
+
+failure:
+  type: gradual_offset_drift
+  onset:
+    distribution: discrete_uniform
+    min_experiment: 60
+    max_experiment: 120
+    hidden_from_methods: true
+  primary_direction: positive_physical_offset
+  primary_reported_bias_direction: negative
+  standardized_rates_per_experiment:
+    - 0.075
+    - 0.125
+    - 0.200
+  rate_units: sigma0
+  secondary_failure:
+    type: slope_drift
+    match_standardized_effect: true
+
+application_validity:
+  primary_tolerance_sigma0: 1.0
+  systematic_bias_definition: "E[reported_ph | true_ph, metrological_state] - true_ph"
+  scientific_invalidity_onset: "first t >= physical_drift_onset with abs(systematic_bias(t)) > tolerance"
+  physical_drift_alone_implies_invalidity: false
+  oracle_only: true
+  sensitivity_tolerance_sigma0:
+    - 0.5
+    - 1.0
+    - 2.0
+  production_metrology_claim: false
+
+qc:
+  rule: shewhart_mean_threshold
+  threshold_expression: "abs(mean_check - 7.00) > 3*sigma0/sqrt(5)"
+  suspect_interval: "(last_in_control_check, detection_check]"
+  true_physical_drift_onset_available_to_hidden_adjudicator_only: true
+  true_scientific_invalidity_onset_available_to_hidden_adjudicator_only: true
+  suspect_interval_semantics: operational_bracketing_not_true_onset
+  false_positive_alarm_definition: alarm_before_scientific_invalidity_onset
+  false_positive_runs_retained: true
+  primary_recovery_estimand_condition: scientific_invalidity_precedes_first_alarm
+  report_unconditional_alarm_rate: true
+  report_fraction_entering_primary_estimand: true
+
+adaptive_policy:
+  visible_target:
+    expression: "-(reported_ph - 7.40)^2"
+    latent_adjudication_target: "-(true_ph - 7.40)^2"
+    latent_target_hidden_from_policy: true
+  acquisition_grid:
+    points: 1001
+    domain: [0.0, 1.0]
+    includes_endpoints: true
+    tie_break: first_lowest_grid_index
+  ucb_schedule:
+    expression: "max(1.0, 1.7*sqrt(2*log(adaptive_iteration_zero_based + 2)))"
+    interpretation: literal_posterior_std_multiplier
+  primary:
+    name: gp_ucb_full_history
+    model: botorch_SingleTaskGP
+    standardize_outcomes: true
+    fit_hyperparameters_each_iteration: true
+    fit_objective: exact_marginal_likelihood
+    dtype: float64
+    reference_device: cpu
+  frozen_optimizer_environment:
+    python: "3.12"
+    torch: "2.8.0"
+    botorch: "0.15.1"
+    gpytorch: "1.14"
+    numpy: "1.26.4"
+    scipy: "1.12.0"
+  robust_comparator:
+    name: released_rcgp_surrogate_matched_ucb
+    reference: "Ezzerg, Bogunovic, Knoblauch, ICML 2026"
+    repository: EZZERG/RCGP
+    commit: 68bd978dfe4de28aed02184efc64ea343cfa9afc
+    source_redistribution: prohibited_without_license_review
+    standardize_outcomes: true
+    plateau_width: 1.96
+    plateau_shape_c: 1.0
+    plateau_center: zero
+    sigma: fit
+    mean: fit
+    fitting_objective: wloo-cv
+    optimizer: lbfgs_released_default
+    acquisition: matched_grid_ucb
+    theory_guarantees_assumed_for_persistent_drift: false
+  nonstationarity_comparators:
+    family: sliding_window_gp_ucb
+    windows: [20, 40, 80]
+    report_all_windows: true
+    model_and_acquisition_otherwise_match_primary: true
+  rng:
+    derive_from_campaign_seed_and_adaptive_iteration: true
+    failed_fit_reseed: false
+
+recovery_methods:
+  B0:
+    name: no_retroactive_recovery
+    retroactive_change: false
+  B1:
+    name: provenance_flagging
+    rebuild_model: false
+  B2:
+    name: qc_discard_retrain
+    discard_suspect_ph: true
+    remeasure_samples: false
+  B3:
+    name: qc_blanket_remeasure_retrain
+    exact_mode:
+      remeasure_fraction: 1.0
+    budgeted_selection: uniform_random
+  B4:
+    name: typed_dependency_aware_recovery
+    hidden_oracle_access: false
+    exact_mode:
+      max_remeasure_fraction: 1.0
+    budgeted_selection:
+      intended_rule: greedy_expected_model_discrepancy_reduction
+      freeze_before_primary_runs: true
+  B5:
+    name: rcgp_matched_ucb_plus_B2
+    acquisition_robustness: true
+    pre_alarm_trajectory_differs_from_primary: true
+    recovery_semantics: B2
+  B6:
+    name: sliding_window_gp_ucb_plus_B2
+    windows: [20, 40, 80]
+    pre_alarm_trajectory_differs_from_primary: true
+    recovery_semantics: B2
+
+recovery_comparison_design:
+  same_trace_methods: [B0, B1, B2, B3, B4]
+  acquisition_robustness_controls: [B5, B6]
+  paired_recovery_claims_may_use_acquisition_controls: false
+
+recovery_budgets:
+  fractions:
+    - 0.10
+    - 0.25
+    - 0.50
+  rounding: ceil
+
+primary_outcomes:
+  O1:
+    name: post_recovery_model_error
+    measure: normalized_integrated_squared_error
+    reference: latent_true_surface
+  O2:
+    name: retained_valid_work
+    measure: fraction_valid_physical_experiments_or_revalidated_measurements_retained
+  O3:
+    name: recovery_cost
+    measures:
+      - remeasurement_count
+      - normalized_compute_cost
+    interpretation_priority: remeasurement_count
+  O4:
+    name: validity_classification_accuracy
+    measure: macro_f1
+    classes:
+      - INVALID
+      - RECOMPUTE
+      - SELECTION_TAINTED
+      - UNAFFECTED
+
+secondary_outcomes:
+  - physical_drift_detection_latency
+  - scientific_invalidity_detection_latency
+  - cumulative_optimization_regret
+  - invalid_observations_admitted_from_scientific_invalidity_onset
+  - validity_closure_size
+  - selection_influence_closure_size
+  - policy_path_divergence
+  - claims_withdrawn_or_recomputed
+  - wall_clock_recovery_time
+  - remeasurement_efficiency
+  - false_invalidation_count
+
+hypotheses:
+  H1: delayed_invalidity_requires_retroactive_recovery
+  H2: dependency_semantics_preserve_valid_science
+  H3: robust_acquisition_does_not_replace_recovery
+  H4: selection_dependence_differs_from_validity_dependence
+
+statistics:
+  monte_carlo_unit: campaign_seed
+  target_seeds_per_drift_rate_per_method: 200
+  drift_rate_conditions: 3
+  initial_total_campaigns_per_method_before_budget_expansion: 600
+  calibration_seeds_per_condition: 20
+  calibration_seeds_excluded_from_primary: true
+  confidence_intervals:
+    method: bootstrap
+    level: 0.95
+  paired_bootstrap_when_valid: true
+  report_effect_sizes: true
+  significance_alone_sufficient: false
+  sample_size_change:
+    allowed_before_primary_outcome_inspection: true
+    requires_variance_or_runtime_justification: true
+
+required_ablations:
+  - slope_drift
+  - check_interval_10_20_40
+  - sample_expiry
+  - alternate_acquisition_policy
+  - alternate_latent_surface
+  - edge_type_removal
+  - incomplete_dependency_metadata
+  - false_positive_qc_alarm
+  - multiple_invalidation_events
+  - drift_sign_reversal
+  - all_seed_false_alarm_operational_cost
+  - acquisition_policy_sensitivity
+
+kill_criteria:
+  - "B2 matches B4 on model error, retained valid work, and recovery cost within practically negligible differences."
+  - "B3 dominates B4 across the recovery Pareto frontier."
+  - "Validity and selection closures collapse to the same set in realistic variants."
+  - "B4 advantage depends on hidden information unavailable to deployed systems."
+  - "Effect disappears under a second response surface or slope-drift family."
+  - "Effect depends on benchmark-specific identifiers or hand-coded injected-failure knowledge."
+  - "A simpler generic provenance traversal reproduces B4 with equivalent outputs and effort."
+  - "LADS-aligned semantics differ from the reference implementation in result-driving ways."
+  - "A preregistered sliding-window GP-UCB control plus B2 matches B4 on recovered scientific-state quality and retained valid work at lower total cost."
+
+claim_tiers:
+  S0: benchmark_semantics
+  S1: standards_aligned_simulation
+  S2: second_failure_family_or_substrate
+  S3: real_lab_shadow_evaluation
+  S4: prospective_bounded_pilot
+
+ownership:
+  LabTrust-Gym:
+    - campaign_simulator
+    - hidden_oracle
+    - failure_injection
+    - stored_samples
+    - benchmark_runner
+    - metrics
+  EnvAssure:
+    - metrological_validity_semantics
+    - environment_validity_transitions
+  Scientific-Memory:
+    - typed_influence_graph
+    - evidence_invalidation_records
+    - claim_model_dependencies
+  AKTA:
+    - consume_scientific_state_disposition_for_action_admissibility
+  VerifierLab:
+    - comparative_campaign_methodology
+    - repair_and_recovery_evaluation
+
+amendments:
+  effective:
+    - file: AMENDMENT_0.1.1.md
+      reason: distinguish physical drift onset from scientific invalidity onset
+      timing: before_campaign_implementation_and_before_primary_outcomes
+    - file: AMENDMENT_0.1.2.md
+      reason: freeze one-based indexing, check ordering, primary drift sign, and false-alarm handling
+      timing: before_campaign_implementation_and_before_primary_outcomes
+    - file: AMENDMENT_0.1.3.md
+      reason: freeze optimizer-visible objective, matched GP-UCB settings, RCGP comparator, and non-stationarity controls
+      timing: before_optimizer_implementation_and_before_primary_outcomes
+
+result_blinding:
+  implementation_before_primary_results: required
+  protocol_changes_after_primary_results:
+    permitted_only_as: post_registration_analysis
