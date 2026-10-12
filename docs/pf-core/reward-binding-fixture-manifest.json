@@ -1,0 +1,10 @@
+{
+  "schema_version": "labtrust.reward_binding_fixture.v0",
+  "description": "Local LabTrust-shaped reward-binding fixture pointer (vendored; no network).",
+  "trace_fixture": "../reward-binding/trace_valid.json",
+  "reward_evidence": "../reward-binding/reward_valid.json",
+  "artifact_root": "../reward-binding/artifacts",
+  "trust_registry": "../reward-binding/trusted_keys.json",
+  "expected_outcome": "safe",
+  "notes": "Companion LabTrust PR should accept this mapping without cloning siblings in pf-core-trusted."
+}
