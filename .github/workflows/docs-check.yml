@@ -44,3 +44,9 @@ jobs:
           bash scripts/build_viewer_data_from_release.sh
           test -s viewer-data/latest/latest.json
           test -s viewer-data/latest/RISK_REGISTER_BUNDLE.v0.1.json
+      - name: Verify staged Pages artifact structure
+        run: |
+          mkdir -p /tmp/labtrust-mkdocs-ci/viewer-data
+          cp -a viewer-data/latest /tmp/labtrust-mkdocs-ci/viewer-data/
+          test -s /tmp/labtrust-mkdocs-ci/viewer-data/latest/latest.json
+          test -s /tmp/labtrust-mkdocs-ci/viewer-data/latest/RISK_REGISTER_BUNDLE.v0.1.json
