@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from labtrust_gym.config import get_repo_root
-from labtrust_gym.pcs.workflows.qc_release import FAILURE_CASES, run_failure_demo
-from labtrust_gym.pcs.workflows.registry import get_workflow
 
 DEMO_SCENARIOS: dict[str, tuple[str, str]] = {
     "qc-release": ("valid_workflow.yaml", "runs/qc-release"),
@@ -33,6 +31,10 @@ def run_demo(
     policy_root: Path | None = None,
     deterministic: bool | None = None,
 ) -> Path:
+    # Import workflow engines only when a PCS demo is actually requested.
+    from labtrust_gym.pcs.workflows.qc_release import FAILURE_CASES, run_failure_demo
+    from labtrust_gym.pcs.workflows.registry import get_workflow
+
     if demo_name not in DEMO_SCENARIOS:
         raise ValueError(f"unknown demo {demo_name!r}; choose from {list(DEMO_SCENARIOS)}")
     root = policy_root or get_repo_root()
