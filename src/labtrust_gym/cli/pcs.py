@@ -10,25 +10,7 @@ from pathlib import Path
 
 from labtrust_gym.cli.console import get_console
 from labtrust_gym.config import get_repo_root
-from labtrust_gym.pcs.attach_certificate import attach_certificate_files
 from labtrust_gym.pcs.demo import DEMO_SCENARIOS
-from labtrust_gym.pcs.demo import run_demo as execute_pcs_demo
-from labtrust_gym.pcs.export import export_pcs_bundle, export_runtime_receipt, export_trace
-from labtrust_gym.pcs.handoff import export_handoff_bundle
-from labtrust_gym.pcs.handoff_manifest import (
-    emit_handoff_manifest,
-    emit_handoff_to_certifyedge,
-    emit_handoff_to_pf,
-)
-from labtrust_gym.pcs.benchmark_cases import generate_benchmark_cases, verify_benchmark_cases
-from labtrust_gym.pcs.benchmark_reproducibility import benchmark_reproducibility
-from labtrust_gym.pcs.failure_gallery import generate_failure_gallery
-from labtrust_gym.pcs.regenerate_release_chain import regenerate_release_chain
-from labtrust_gym.pcs.regenerate_release_protocol import regenerate_release_protocol
-from labtrust_gym.pcs.release_protocol_producer import LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS
-from labtrust_gym.pcs.release_fragment import emit_labtrust_release_fragment
-from labtrust_gym.pcs.status_policy import check_release_status_policy
-from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
 from labtrust_gym.pcs.validate import PcsValidationError, validate_artifact_file, validate_run_dir
 
 
@@ -46,6 +28,8 @@ def _print_validation_errors(errors: list[str]) -> None:
 
 
 def _run_demo(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.demo import run_demo as execute_pcs_demo
+
     name = args.demo
     out = _resolve_path(args.out) if args.out else None
     try:
@@ -73,6 +57,8 @@ def _run_demo(args: argparse.Namespace) -> int:
 
 
 def _run_export_trace(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.export import export_trace
+
     run_dir = _resolve_path(args.run)
     out = _resolve_path(args.out)
     if not run_dir.is_dir():
@@ -91,6 +77,8 @@ def _run_export_trace(args: argparse.Namespace) -> int:
 
 
 def _run_export_runtime_receipt(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.export import export_runtime_receipt
+
     run_dir = _resolve_path(args.run)
     out = _resolve_path(args.out)
     if not run_dir.is_dir():
@@ -109,6 +97,8 @@ def _run_export_runtime_receipt(args: argparse.Namespace) -> int:
 
 
 def _run_export_pcs(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.export import export_pcs_bundle
+
     run_dir = _resolve_path(args.run)
     out = _resolve_path(args.out)
     if not run_dir.is_dir():
@@ -127,6 +117,8 @@ def _run_export_pcs(args: argparse.Namespace) -> int:
 
 
 def _run_attach_certificate(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.attach_certificate import attach_certificate_files
+
     bundle_path = _resolve_path(args.bundle)
     cert_path = _resolve_path(args.certificate)
     out_path = _resolve_path(args.out)
@@ -167,6 +159,8 @@ def _run_validate_pcs(args: argparse.Namespace) -> int:
 
 
 def _run_emit_release_fragment(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.release_fragment import emit_labtrust_release_fragment
+
     release_dir = _resolve_path(args.release_dir)
     out = _resolve_path(args.out) if args.out else release_dir / "labtrust_release_fragment.json"
     try:
@@ -179,6 +173,8 @@ def _run_emit_release_fragment(args: argparse.Namespace) -> int:
 
 
 def _run_emit_handoff(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.handoff_manifest import emit_handoff_manifest
+
     out = _resolve_path(args.out)
     try:
         emit_handoff_manifest(
@@ -198,6 +194,8 @@ def _run_emit_handoff(args: argparse.Namespace) -> int:
 
 
 def _run_verify_release_protocol(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
+
     release_dir = _resolve_path(args.release_dir)
     pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
     try:
@@ -216,6 +214,8 @@ def _run_verify_release_fixtures(args: argparse.Namespace) -> int:
 
 
 def _run_emit_handoff_to_certifyedge(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.handoff_manifest import emit_handoff_to_certifyedge
+
     out = _resolve_path(args.out)
     try:
         emit_handoff_to_certifyedge(
@@ -233,6 +233,8 @@ def _run_emit_handoff_to_certifyedge(args: argparse.Namespace) -> int:
 
 
 def _run_emit_handoff_to_pf(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.handoff_manifest import emit_handoff_to_pf
+
     out = _resolve_path(args.out)
     try:
         emit_handoff_to_pf(
@@ -248,6 +250,10 @@ def _run_emit_handoff_to_pf(args: argparse.Namespace) -> int:
 
 
 def _run_regenerate_release_protocol(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.regenerate_release_protocol import regenerate_release_protocol
+    from labtrust_gym.pcs.verify_release_protocol import verify_release_protocol
+    from labtrust_gym.pcs.release_protocol_producer import LABTRUST_PROTOCOL_PACKAGE_ARTIFACTS
+
     out = _resolve_path(args.out)
     pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
     ce_spec = _resolve_path(args.certifyedge_spec) if args.certifyedge_spec else None
@@ -296,6 +302,8 @@ def _run_regenerate_release_protocol(args: argparse.Namespace) -> int:
 
 
 def _run_check_status_policy(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.status_policy import check_release_status_policy
+
     release_dir = _resolve_path(args.release_dir)
     try:
         profile_path = _resolve_path(args.workflow_profile) if getattr(args, "workflow_profile", None) else None
@@ -314,6 +322,8 @@ def _run_check_status_policy(args: argparse.Namespace) -> int:
 
 
 def _run_generate_benchmark_cases(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.benchmark_cases import generate_benchmark_cases
+
     out = _resolve_path(args.out)
     release_dir = _resolve_path(args.release_dir) if args.release_dir else None
     validate_root = (
@@ -361,6 +371,8 @@ def _run_generate_benchmark_cases(args: argparse.Namespace) -> int:
 
 
 def _run_benchmark_reproducibility(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.benchmark_reproducibility import benchmark_reproducibility
+
     out = _resolve_path(args.out)
     pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
     release_dir = _resolve_path(args.release_dir) if args.release_dir else None
@@ -442,6 +454,8 @@ def _resolve_pcs_core_root(explicit: Path | None) -> Path | None:
 
 
 def _run_verify_benchmark_cases(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.benchmark_cases import verify_benchmark_cases
+
     root = _resolve_path(args.benchmark_dir)
     pcs_core = _resolve_pcs_core_root(
         _resolve_path(args.pcs_core) if getattr(args, "pcs_core", None) else None
@@ -495,6 +509,8 @@ def _run_verify_benchmark_cases(args: argparse.Namespace) -> int:
 
 
 def _run_generate_failure_gallery(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.failure_gallery import generate_failure_gallery
+
     out = _resolve_path(args.out)
     release_dir = _resolve_path(args.release_dir) if args.release_dir else None
     try:
@@ -518,6 +534,8 @@ def _run_generate_failure_gallery(args: argparse.Namespace) -> int:
 
 
 def _run_regenerate_release_chain(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.regenerate_release_chain import regenerate_release_chain
+
     out = _resolve_path(args.out)
     pcs_core = _resolve_path(args.pcs_core) if args.pcs_core else None
     ce_spec = _resolve_path(args.certifyedge_spec) if args.certifyedge_spec else None
@@ -538,6 +556,8 @@ def _run_regenerate_release_chain(args: argparse.Namespace) -> int:
 
 
 def _run_export_handoff(args: argparse.Namespace) -> int:
+    from labtrust_gym.pcs.handoff import export_handoff_bundle
+
     out = _resolve_path(args.out)
     try:
         manifest = export_handoff_bundle(
